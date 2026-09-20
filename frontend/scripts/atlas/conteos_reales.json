@@ -1,0 +1,39 @@
+{
+ "region": {
+  "plasma": 107,
+  "hipocampo": 15,
+  "neocorteza": 6,
+  "lcr": 53,
+  "cerebro_sin_region": 23,
+  "corteza_entorrinal": 2,
+  "vascular_bhe": 8,
+  "corteza_temporal": 3,
+  "sustancia_blanca": 2,
+  "ganglios_basales_talamo": 2,
+  "cingulo_precuneo": 2,
+  "amigdala": 1
+ },
+ "etiquetas": {
+  "hipocampo": "hipocampo",
+  "corteza_entorrinal": "corteza entorrinal",
+  "corteza_prefrontal": "corteza frontal y prefrontal",
+  "corteza_temporal": "corteza temporal",
+  "corteza_parietal": "corteza parietal",
+  "cingulo_precuneo": "cíngulo y precúneo",
+  "corteza_occipital": "corteza occipital",
+  "amigdala": "amígdala",
+  "ganglios_basales_talamo": "ganglios basales y tálamo",
+  "tronco_locus_coeruleus": "tronco encefálico y locus coeruleus",
+  "cerebelo": "cerebelo",
+  "sustancia_blanca": "sustancia blanca",
+  "vascular_bhe": "vasculatura cerebral y barrera hematoencefálica",
+  "bulbo_olfatorio": "bulbo y vía olfatoria",
+  "retina": "retina",
+  "intestino_microbiota": "intestino y microbiota",
+  "plasma": "sangre, plasma y suero (compartimento periférico)",
+  "lcr": "líquido cefalorraquídeo (LCR)",
+  "neocorteza": "corteza cerebral (sin región concreta)",
+  "cerebro_sin_region": "cerebro (sin región concreta)"
+ },
+ "titulo": "Qué distingue a un biomarcador que predice beneficio clínico de uno que no"
+}

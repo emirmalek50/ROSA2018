@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Atlas de la evidencia (previa)</title>
+<style>
+  html, body { margin: 0; background: #0b0a14; }
+  body { display: flex; align-items: flex-start; justify-content: flex-start; padding: 40px 50px; }
+  svg { display: block; width: 1000px; height: 620px; font-family: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .etiqueta { font-size: 13px; font-weight: 500; fill: #f4efe4; paint-order: stroke; stroke: #0b0a14; stroke-width: 3.5px; stroke-linejoin: round; }
+  .etiqueta.hueco { fill: rgba(244, 239, 228, 0.66); }
+  .conteo { font-weight: 700; font-size: 13px; }
+  .guia { stroke: rgba(238, 233, 255, 0.34); stroke-width: 0.8; fill: none; }
+  .contorno { fill: none; stroke: rgba(238, 233, 255, 0.62); stroke-width: 1.2; }
+  .trazo { fill: none; stroke: rgba(238, 233, 255, 0.34); stroke-width: 1; }
+  .leyenda { font-size: 12.5px; fill: #b8b5ad; }
+  .nota { font-size: 12px; fill: #8c8a84; }
+</style>
+</head>
+<body>
+<svg id="atlas" viewBox="0 0 1000 620" xmlns="http://www.w3.org/2000/svg"></svg>
+<script>
+const DATOS = __DATOS__;
+const LIENZO = '#0b0a14';
+const FRIO = '#7964b5';
+const CALIDO = '#f9b654';
+const FONDO_NEUTRO = '#1a1727';
+const MAXIMO = Math.max(1, ...Object.values(DATOS.conteos));
+
+// ---- color: color-mix(in oklab, cálido p, frío) como en atlas.css ----
+function hexArgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v => v / 255); }
+function srgbALineal(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+function linealASrgb(c) { c = Math.min(1, Math.max(0, c)); return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; }
+function rgbAOklab([r, g, b]) {
+  r = srgbALineal(r); g = srgbALineal(g); b = srgbALineal(b);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s];
+}
+function oklabARgb([L, a, b]) {
+  const l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3);
+  const m = Math.pow(L - 0.1055613458 * a - 0.0638541728 * b, 3);
+  const s = Math.pow(L - 0.0894841775 * a - 1.2914855480 * b, 3);
+  return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s].map(linealASrgb);
+}
+function aHex([r, g, b]) { return '#' + [r, g, b].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join(''); }
+const FRIO_LAB = rgbAOklab(hexArgb(FRIO)), CALIDO_LAB = rgbAOklab(hexArgb(CALIDO));
+function rampa(t) { t = Math.min(1, Math.max(0, t)); return aHex(oklabARgb(CALIDO_LAB.map((c, i) => c * t + FRIO_LAB[i] * (1 - t)))); }
+function intensidad(n) { return n > 0 ? Math.log(1 + n) / Math.log(1 + MAXIMO) : 0; }
+
+// ---- finGuia, copiada de atlas_dibujo.ts ----
+function finGuia(r) {
+  const [cx, cy] = r.centro, [x, y] = r.etiqueta;
+  const medio = (DATOS.nombreCorto[r.clave] ?? r.clave).length * 3.4 + 4;
+  if (Math.abs(y - cy) < 12) return [x + (cx < x ? -medio : medio), y - 4];
+  return [x, y > cy ? y - 13 : y + 4];
+}
+
+// ---- construcción del SVG, en el mismo orden de capas que Atlas.tsx ----
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('atlas');
+function el(nombre, attrs, padre) { const e = document.createElementNS(NS, nombre); for (const k in attrs) if (attrs[k] !== undefined) e.setAttribute(k, attrs[k]); (padre || svg).appendChild(e); return e; }
+
+const defs = el('defs', {});
+const recorte = el('clipPath', { id: 'recorte' }, defs);
+el('path', { d: DATOS.contorno }, recorte);
+const patron = el('pattern', { id: 'rayas', patternUnits: 'userSpaceOnUse', width: 8, height: 8, patternTransform: 'rotate(45)' }, defs);
+el('line', { x1: 0, y1: 0, x2: 0, y2: 8, stroke: 'rgba(200, 190, 232, 0.42)', 'stroke-width': 1.2 }, patron);
+const grad = el('linearGradient', { id: 'rampa', x1: 0, x2: 1, y1: 0, y2: 0 }, defs);
+for (let i = 0; i <= 8; i++) el('stop', { offset: (i / 8), 'stop-color': rampa(i / 8) }, grad);
+const RESPLANDOR = [2.5, 5, 8, 12];
+RESPLANDOR.forEach((sd, i) => {
+  const f = el('filter', { id: 'resplandor-' + (i + 1), x: '-40%', y: '-40%', width: '180%', height: '180%' }, defs);
+  el('feGaussianBlur', { stdDeviation: sd, result: 'borroso' }, f);
+  const m = el('feMerge', {}, f);
+  el('feMergeNode', { in: 'borroso' }, m);
+  el('feMergeNode', { in: 'SourceGraphic' }, m);
+});
+function tramo(t) { return t <= 0 ? 0 : Math.min(4, Math.max(1, Math.ceil(t * 4))); }
+
+el('rect', { width: 1000, height: 620, fill: LIENZO });
+const gRegiones = el('g', { id: 'regiones' });
+for (const r of DATOS.regiones) {
+  const n = DATOS.conteos[r.clave] || 0, t = intensidad(n), color = rampa(t);
+  const capa = r.capa || 'region';
+  const clip = DATOS.recortadas.includes(r.clave) ? 'url(#recorte)' : undefined;
+  if (capa === 'fondo') {
+    // La silueta neutra: no se ilumina aunque tenga registros.
+    el('path', { d: r.d, fill: FONDO_NEUTRO, 'clip-path': clip, 'fill-rule': 'evenodd' }, gRegiones);
+    continue;
+  }
+  if (capa === 'vasos') {
+    el('path', { d: r.d, fill: 'none', stroke: n > 0 ? color : 'rgba(200, 190, 232, 0.42)', 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-opacity': n > 0 ? 0.5 + 0.5 * t : 0.8, 'stroke-dasharray': n > 0 ? undefined : '4 4', filter: n > 0 ? `url(#resplandor-${tramo(t)})` : undefined }, gRegiones);
+    continue;
+  }
+  if (n > 0) {
+    el('path', { d: r.d, fill: color, 'fill-opacity': 0.55 + 0.45 * t, stroke: 'rgba(238, 233, 255, 0.26)', 'stroke-width': 0.8, 'clip-path': clip, 'fill-rule': 'evenodd', filter: `url(#resplandor-${tramo(t)})` }, gRegiones);
+  } else {
+    el('path', { d: r.d, fill: 'url(#rayas)', 'fill-opacity': 0.6, stroke: 'rgba(238, 233, 255, 0.26)', 'stroke-width': 0.8, 'clip-path': clip, 'fill-rule': 'evenodd' }, gRegiones);
+  }
+}
+el('path', { d: DATOS.contorno, class: 'contorno' });
+const gTrazos = el('g', { id: 'trazos' });
+for (const d of DATOS.trazos) el('path', { d, class: 'trazo' }, gTrazos);
+
+// Etiquetas: texto en `etiqueta`, guía desde `centro`; el conteo real va detrás del nombre, con el mismo halo. Sin ceros.
+const gTexto = el('g', { id: 'texto' });
+for (const r of DATOS.regiones) {
+  const n = DATOS.conteos[r.clave] || 0;
+  const [x, y] = r.etiqueta;
+  if (r.guia) {
+    const fin = finGuia(r);
+    el('line', { x1: r.centro[0], y1: r.centro[1], x2: fin[0], y2: fin[1], class: 'guia' }, gTexto);
+  }
+  const texto = el('text', { x, y, 'text-anchor': 'middle', class: 'etiqueta' + (n ? '' : ' hueco'), transform: r.giro ? `rotate(${r.giro} ${x} ${y})` : undefined }, gTexto);
+  texto.textContent = DATOS.nombreCorto[r.clave];
+  if (n) {
+    const c = el('tspan', { class: 'conteo', dx: 5 }, texto);
+    c.textContent = String(n);
+  }
+}
+const nota = el('text', { x: 24, y: 22, class: 'nota' }, gTexto);
+nota.textContent = 'Corte sagital medial. La frente mira a la izquierda. Conteos reales (inv-mu2sz2ns-3).';
+el('rect', { x: 24, y: 596, width: 64, height: 11, rx: 2, fill: 'url(#rampa)' }, gTexto);
+const l1 = el('text', { x: 96, y: 606, class: 'leyenda' }, gTexto); l1.textContent = 'color: cuánta evidencia';
+el('rect', { x: 262, y: 596, width: 26, height: 11, rx: 2, fill: 'url(#rayas)', stroke: 'rgba(238, 233, 255, 0.35)', 'stroke-width': 0.8 }, gTexto);
+const l2 = el('text', { x: 296, y: 606, class: 'leyenda' }, gTexto); l2.textContent = 'rayas: sin evidencia todavía';
+</script>
+</body>
+</html>

@@ -21,6 +21,21 @@ import {
   IconUsers,
 } from './icons';
 
+/** Icono del atlas: un cerebro en corte sagital (visto de lado, partido por la
+ *  mitad), con la cisura y el tronco. Sigue las convenciones de icons.tsx
+ *  (trazo 1.75, currentColor, extremos redondeados); vive aquí porque es el
+ *  único sitio que lo usa. */
+function IconAtlas({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M9 4.5a4 4 0 0 0-5.5 3.7c-1 1.2-1 3.2.2 4.4-.5 1.6.3 3.3 2 3.9.6 1.6 2.4 2.3 3.9 1.5" />
+      <path d="M9.6 18c1.7 1 3.9.4 4.8-1.3 1.9-.1 3.3-1.6 3.3-3.4 1.5-.9 2-2.9 1-4.4.3-1.9-1-3.6-2.9-3.9C15 3.4 13 3 11.6 4.2" />
+      <path d="M11.5 4.5v13.4" />
+      <path d="M10.5 18v3M13 18v3" />
+    </svg>
+  );
+}
+
 const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number }) => JSX.Element }[] = [
   { clave: 'corrida', etiqueta: 'Corrida en vivo', icono: IconActivity },
   { clave: 'hipotesis', etiqueta: 'Cola de hipótesis', icono: IconFlask },
@@ -28,6 +43,7 @@ const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number
   { clave: 'panorama', etiqueta: 'Panorama', icono: IconGlobe },
   { clave: 'mundo', etiqueta: 'Modelo de mundo', icono: IconLayers },
   { clave: 'arbol', etiqueta: 'Árbol', icono: IconTree },
+  { clave: 'atlas', etiqueta: 'Atlas', icono: IconAtlas },
   { clave: 'artefactos', etiqueta: 'Artefactos', icono: IconDocument },
   { clave: 'calidad', etiqueta: 'Calidad', icono: IconGauge },
   { clave: 'investigacion', etiqueta: 'Objetivo y datos', icono: IconUsers },

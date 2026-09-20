@@ -10,9 +10,9 @@
 //   #/investigaciones/<id>/artefactos/<artefactoId>
 //   #/ajustes
 
-export type Pantalla = 'corrida' | 'hipotesis' | 'ranking' | 'panorama' | 'mundo' | 'arbol' | 'artefactos' | 'calidad' | 'investigacion';
+export type Pantalla = 'corrida' | 'hipotesis' | 'ranking' | 'panorama' | 'mundo' | 'arbol' | 'atlas' | 'artefactos' | 'calidad' | 'investigacion';
 
-export const PANTALLAS: Pantalla[] = ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'artefactos', 'calidad', 'investigacion'];
+export const PANTALLAS: Pantalla[] = ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'atlas', 'artefactos', 'calidad', 'investigacion'];
 
 export type Ruta =
   | { tipo: 'inicio' }

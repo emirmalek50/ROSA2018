@@ -1,0 +1,662 @@
+/* El atlas de la enfermedad (pantallas/Atlas.tsx): el corte sagital del
+   cerebro con la evidencia por región. El lienzo es oscuro también en tema
+   claro, como el del árbol: las regiones se encienden sobre él con UNA rampa
+   de color (violeta apagado con pocas cohortes, ámbar brillante con muchas) y
+   un resplandor que crece con la intensidad. Cada región recibe su porcentaje
+   de la rampa por la variable --atlas-p (0 % a 100 %) y su intensidad por
+   --atlas-t (0 a 1). La intensidad es el número de COHORTES distintas de la
+   región frente al máximo presente (lib/atlas.ts, intensidad); el número de
+   registros va como texto junto al nombre, no en el color.
+
+   Los dos extremos de la rampa están FIJADOS, igual que el lienzo, y no
+   cuelgan de los tokens del tema: --grafo-cluster-0 y --amber cambian con el
+   tema (en claro son colores para leer sobre blanco, #7c3aed y #d97706) y
+   sobre un lienzo que siempre es negro salían más apagados en tema claro que
+   en oscuro, por debajo del 3:1 que WCAG 1.4.11 pide a un objeto gráfico.
+   Cómo se derivaron (mezcla en oklab, una sola vez): el frío es el violeta de
+   las hipótesis en tema oscuro (#a78bfa) al 76 % con #1a1428; el cálido es el
+   ámbar de tema oscuro (#f59e0b) al 72 % con #fff1b8.
+
+   El suelo de opacidad es 0,8 porque la intensidad 0 con registros es un caso
+   REAL y frecuente: una región con hechos cuyas celdas no nombran ninguna
+   cohorte (el hipocampo de la investigación grande: 15 registros, 0 cohortes)
+   se pinta con t = 0. El contraste se mide sobre el píxel que compone el
+   navegador, que mezcla el relleno con el lienzo en sRGB (no en luz lineal:
+   medido en Chromium con un canvas, y la mezcla lineal salía medio punto más
+   optimista). Con t = 0 ese violeta contrasta 3,4:1 con el lienzo; con una
+   cohorte de 24, 4,0:1; el máximo, 11:1. Los tests de lib/atlas_dibujo.test.ts
+   y lib/atlas_dibujo_adversario.test.tsx recalculan el contraste con estos
+   valores tal como están escritos aquí: si se cambian, ellos lo dicen. */
+
+:root {
+  --atlas-lienzo: #0b0a14;
+  --atlas-lienzo-borde: rgba(255, 255, 255, 0.08);
+  --atlas-silueta: rgba(238, 233, 255, 0.045);
+  --atlas-trazo: rgba(238, 233, 255, 0.62);
+  --atlas-trazo-suave: rgba(238, 233, 255, 0.34);
+  --atlas-texto: #f4efe4;
+  --atlas-frio: #826cc2;
+  --atlas-calido: #f9b654;
+  /* Dos rayados: tenue para "no buscada", marcado para "buscada sin hallazgo". */
+  --atlas-rayas: rgba(200, 190, 232, 0.26);
+  --atlas-rayas-buscada: rgba(214, 206, 240, 0.62);
+  --atlas-rayas-contorno: rgba(238, 233, 255, 0.55);
+  /* La marca de discordia: rojo que se lee sobre el lienzo (5,2:1). */
+  --atlas-discordia: #ff7b72;
+  --atlas-flotante: #1b1730;
+}
+
+/* ---------------------------------------------------------------- marco */
+
+.atlas-marco {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 14px;
+  align-items: stretch;
+}
+@media (max-width: 900px) {
+  .atlas-marco {
+    /* minmax(0, 1fr) y no 1fr: con el mínimo automático, el ancho mínimo del
+       lienzo (700 px) se lo llevaba la columna entera y la PÁGINA se
+       desplazaba en horizontal; con 0 el que se desplaza es el lienzo. */
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.atlas-controles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 0 0 12px;
+}
+.atlas-grupo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.atlas-grupo-titulo {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  margin-right: 2px;
+}
+.atlas-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 2px 10px;
+  border-radius: 13px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.atlas-chip[aria-pressed='true'] {
+  background: var(--accent-soft-2);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 550;
+}
+.atlas-chip .atlas-cifra,
+.atlas-interruptor .atlas-cifra,
+.atlas-bandeja .atlas-cifra {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+.atlas-interruptor {
+  padding: 2px 8px 2px 6px;
+  border-radius: 13px;
+  border: 1px solid var(--border);
+}
+.atlas-interruptor:has(input:checked) {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+/* --------------------------------------------------------------- figura */
+
+.atlas-lienzo {
+  position: relative;
+  border-radius: var(--radio);
+  background: var(--atlas-lienzo);
+  border: 1px solid var(--atlas-lienzo-borde);
+  /* En pantallas estrechas el lienzo se desplaza en horizontal en vez de
+     encoger la figura: las etiquetas están en unidades del lienzo lógico
+     (13 de 1000) y a 400 px de ancho quedaban en 4,8 px, ilegibles. */
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.atlas-figura {
+  display: block;
+  width: 100%;
+  /* Ancho mínimo de 700 px: el cuerpo de las etiquetas no baja de 9 px. */
+  min-width: 700px;
+  height: auto;
+  max-height: min(66vh, 660px);
+  color-scheme: dark;
+}
+.atlas-fondo {
+  fill: var(--atlas-lienzo);
+}
+/* La silueta del cerebro, neutra y sin conteo: debajo de las regiones, para
+   que el hemisferio se lea entero aunque los anillos genéricos ya no se
+   pinten (cerebro y corteza "sin región" van a la bandeja). */
+.atlas-silueta {
+  fill: var(--atlas-silueta);
+  stroke: none;
+  pointer-events: none;
+}
+.atlas-contorno {
+  fill: none;
+  stroke: var(--atlas-trazo);
+  stroke-width: 1.2;
+  pointer-events: none;
+}
+.atlas-trazo {
+  fill: none;
+  stroke: var(--atlas-trazo-suave);
+  stroke-width: 1;
+  pointer-events: none;
+}
+/* Los grupos del SVG: las regiones (lo único que responde al ratón), los
+   trazos decorativos, las marcas (puntos y discordia) y las etiquetas (ni
+   unos ni otras tapan una región). */
+.atlas-regiones {
+  isolation: isolate;
+}
+.atlas-trazos,
+.atlas-marcas,
+.atlas-etiquetas {
+  pointer-events: none;
+}
+
+/* Las regiones: relleno por la rampa, opacidad y resplandor por la intensidad.
+   Las transiciones duran 300 ms: al mover el deslizador "Cómo creció" o al
+   cambiar un filtro se ve cómo se encienden y se apagan. */
+.atlas-region {
+  /* Primero un violeta plano: si el navegador no entiende color-mix, la
+     declaración siguiente se descarta y queda este (con la opacidad marcando
+     la intensidad, ver @supports abajo) en vez de un relleno negro invisible. */
+  fill: #6d5aa0;
+  fill: color-mix(in oklab, var(--atlas-calido) var(--atlas-p, 0%), var(--atlas-frio));
+  /* Suelo de 0,8: con menos, una región con registros y sin cohorte nombrada (t = 0) no llega al 3:1 sobre el lienzo. */
+  fill-opacity: calc(0.8 + 0.2 * var(--atlas-t, 0));
+  stroke: rgba(238, 233, 255, 0.26);
+  stroke-width: 0.8;
+  cursor: pointer;
+  outline: none;
+  transition:
+    fill-opacity 300ms ease,
+    filter 300ms ease,
+    stroke 300ms ease,
+    stroke-width 300ms ease,
+    stroke-opacity 300ms ease;
+}
+/* Hueco no buscado: rayas tenues, sin contorno propio. */
+.atlas-region.atlas-hueco {
+  fill: url(#atlas-rayas);
+  fill-opacity: 0.7;
+  stroke: rgba(238, 233, 255, 0.14);
+}
+/* Hueco buscado sin hallazgo: rayas más marcadas y contorno (el punto va aparte, en .atlas-punto-buscada). */
+.atlas-region.atlas-hueco.atlas-buscada {
+  fill: url(#atlas-rayas-buscada);
+  fill-opacity: 0.85;
+  stroke: var(--atlas-rayas-contorno);
+  stroke-width: 1.1;
+}
+.atlas-region.atlas-capa-vasos {
+  fill: none;
+  stroke: color-mix(in oklab, var(--atlas-calido) var(--atlas-p, 0%), var(--atlas-frio));
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-opacity: calc(0.8 + 0.2 * var(--atlas-t, 0));
+}
+.atlas-region.atlas-capa-vasos.atlas-hueco {
+  stroke: var(--atlas-rayas);
+  stroke-dasharray: 4 4;
+  stroke-opacity: 0.9;
+}
+.atlas-region.atlas-capa-vasos.atlas-hueco.atlas-buscada {
+  stroke: var(--atlas-rayas-buscada);
+  stroke-dasharray: 6 3;
+  stroke-opacity: 1;
+}
+/* La zona de pulsación invisible de los vasos, algo más ancha que el trazo (un
+   trazo de 3 unidades son 2,7 px en un lienzo de 900 px: difícil de acertar).
+   Va encima de las regiones del cerebro, así que cada unidad de más se la roba
+   al lóbulo o al núcleo que hay debajo: con 16 tapaba un 24 % del parietal;
+   con 7 (2 unidades de margen por lado) ninguna región pierde más del 10 %
+   de su superficie, y el test del adversario lo mide. */
+.atlas-vasos-area {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 7;
+  stroke-linecap: round;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.atlas-resplandor-1 { filter: url(#atlas-resplandor-1); }
+.atlas-resplandor-2 { filter: url(#atlas-resplandor-2); }
+.atlas-resplandor-3 { filter: url(#atlas-resplandor-3); }
+.atlas-resplandor-4 { filter: url(#atlas-resplandor-4); }
+
+/* Al pasar el ratón (o enfocar con el teclado) la región se enciende: sube un
+   30 % en la rampa, opacidad plena, contorno claro y resplandor ancho. */
+.atlas-region:hover,
+.atlas-region.atlas-foco,
+.atlas-region:focus-visible {
+  fill: color-mix(in oklab, var(--atlas-calido) calc(var(--atlas-p, 0%) + 30%), var(--atlas-frio));
+  fill-opacity: 1;
+  stroke: var(--atlas-texto);
+  stroke-width: 1.4;
+  filter: url(#atlas-resplandor-foco);
+}
+.atlas-region.atlas-capa-vasos:hover,
+.atlas-region.atlas-capa-vasos.atlas-foco,
+.atlas-region.atlas-capa-vasos:focus-visible {
+  stroke-width: 4;
+  stroke-opacity: 1;
+  stroke: var(--atlas-calido);
+}
+/* Un hueco también se ilumina al pasar el ratón o al enfocarlo: las rayas
+   suben de opacidad y el resplandor de foco se queda (antes se anulaba y el
+   único indicador de foco de teclado era un trazo de 1,25 px). */
+.atlas-region.atlas-hueco:hover,
+.atlas-region.atlas-hueco.atlas-foco,
+.atlas-region.atlas-hueco:focus-visible {
+  fill: url(#atlas-rayas-buscada);
+  fill-opacity: 1;
+}
+/* Foco de teclado: contorno de 2,5 unidades (más de 2 px en el lienzo real,
+   WCAG 2.4.13), en todas las regiones, rayadas o no. El outline a none va
+   AQUÍ, con la pseudoclase en el selector, y no solo en la regla base de la
+   región: styles.css trae una regla global de :focus-visible con un contorno
+   de 2 px del color de acento, con la misma especificidad que la regla base
+   y cargada DESPUÉS (main.tsx importa styles.css tras App), y sobre un path
+   el navegador pintaba ese contorno como un rectángulo sobre la caja
+   envolvente entera (el del frontal cruzaba la sustancia blanca, el tálamo y
+   el cíngulo). Con la pseudoclase gana por especificidad, no por orden, y el
+   indicador de foco es el trazo grueso más el resplandor. */
+.atlas-region:focus-visible {
+  stroke-width: 2.5;
+  outline: none;
+}
+/* El hueco «buscado sin hallazgo» tiene contorno propio con tres clases, que
+   pesaba más que la regla anterior y dejaba el trazo en 1,1 al enfocarlo. */
+.atlas-region.atlas-hueco.atlas-buscada:focus-visible {
+  stroke-width: 2.5;
+}
+/* La región seleccionada lleva un contorno claro, pintado encima de todo. */
+.atlas-seleccion {
+  fill: none;
+  stroke: var(--atlas-texto);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.atlas-seleccion.atlas-capa-vasos {
+  stroke-width: 5.5;
+  stroke-opacity: 0.55;
+  stroke-linecap: round;
+}
+
+/* Las marcas: el punto de "buscada sin hallazgo" y el borde punteado rojo
+   (con su punto) de la discordia. Ninguna responde al ratón. */
+.atlas-punto-buscada {
+  fill: var(--atlas-rayas-buscada);
+  stroke: var(--atlas-lienzo);
+  stroke-width: 1;
+}
+.atlas-discordia {
+  fill: none;
+  stroke: var(--atlas-discordia);
+  stroke-width: 1.8;
+  stroke-dasharray: 3 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.atlas-discordia.atlas-capa-vasos {
+  stroke-width: 4.5;
+  stroke-dasharray: 3 5;
+  stroke-opacity: 0.9;
+}
+.atlas-discordia-punto {
+  fill: var(--atlas-discordia);
+  stroke: var(--atlas-lienzo);
+  stroke-width: 1.2;
+}
+
+/* Etiquetas con halo del color del lienzo: legibles sobre cualquier relleno. */
+.atlas-etiqueta {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  fill: var(--atlas-texto);
+  paint-order: stroke;
+  stroke: var(--atlas-lienzo);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+  pointer-events: none;
+  user-select: none;
+}
+.atlas-etiqueta-hueco {
+  fill: rgba(244, 239, 228, 0.66);
+}
+/* El número de registros junto al nombre: más fino y con números tabulares. */
+.atlas-etiqueta-cifra {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  fill: rgba(244, 239, 228, 0.86);
+}
+.atlas-guia {
+  fill: none;
+  stroke: var(--atlas-trazo-suave);
+  stroke-width: 0.8;
+  pointer-events: none;
+}
+/* El rótulo que sigue al ratón o al foco: nombre y conteo. */
+.atlas-flotante {
+  pointer-events: none;
+}
+.atlas-flotante rect {
+  fill: var(--atlas-flotante);
+  stroke: rgba(238, 233, 255, 0.35);
+  stroke-width: 0.8;
+}
+.atlas-flotante text {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 550;
+  fill: var(--atlas-texto);
+}
+.atlas-flotante .atlas-flotante-cifra {
+  font-weight: 400;
+  fill: rgba(244, 239, 228, 0.8);
+}
+
+/* ------------------------------------------------- bandeja y línea honesta */
+
+/* La bandeja "No localizados", bajo la figura y fuera del contorno: lo que
+   cayó en cerebro o corteza "sin región" no es un lugar, es una localización
+   fallida. */
+.atlas-bandeja {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radio-s);
+  border: 1px dashed var(--border-strong);
+  background: var(--inset);
+}
+.atlas-bandeja h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.atlas-bandeja h4 .atlas-cifra {
+  font-size: 13px;
+  color: var(--text-2);
+}
+.atlas-bandeja p {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+}
+.atlas-bandeja ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.atlas-bandeja-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 2px 10px;
+  border-radius: 13px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.atlas-bandeja-item[aria-pressed='true'] {
+  background: var(--accent-soft-2);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 550;
+}
+/* "N registros en fluidos, M en tejido localizado, K sin localizar", calculado del estado. */
+.atlas-honesta {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.atlas-honesta strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* -------------------------------------------------------------- leyenda */
+
+.atlas-leyenda {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px 20px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.atlas-leyenda li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  line-height: 1.45;
+}
+.atlas-leyenda strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.atlas-muestra {
+  display: block;
+  width: 64px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 6px;
+  border: 1px solid var(--atlas-lienzo-borde);
+  background: var(--atlas-lienzo);
+}
+/* La barra de la rampa con los extremos que la fórmula usa de verdad: 0 cohortes y el máximo del mapa. */
+.atlas-rampa-extremos {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  width: 96px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+.atlas-rampa-extremos .atlas-muestra {
+  width: auto;
+  margin-top: 0;
+}
+.atlas-muestra-rampa {
+  background: linear-gradient(90deg, var(--atlas-frio), var(--atlas-calido));
+}
+.atlas-muestra-rayas-tenues {
+  background:
+    repeating-linear-gradient(45deg, rgba(200, 190, 232, 0.4) 0 1.5px, transparent 1.5px 6px),
+    var(--atlas-lienzo);
+}
+.atlas-muestra-rayas-buscada {
+  position: relative;
+  border-color: var(--atlas-rayas-contorno);
+  background:
+    repeating-linear-gradient(45deg, rgba(214, 206, 240, 0.85) 0 1.5px, transparent 1.5px 6px),
+    var(--atlas-lienzo);
+}
+.atlas-muestra-rayas-buscada::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--atlas-rayas-buscada);
+  border: 1px solid var(--atlas-lienzo);
+}
+.atlas-muestra-discordia {
+  border: 1.5px dashed var(--atlas-discordia);
+  background: color-mix(in oklab, var(--atlas-frio) 70%, var(--atlas-lienzo));
+}
+.atlas-muestra-vasos {
+  background:
+    linear-gradient(100deg, transparent 0 46%, var(--atlas-calido) 47% 53%, transparent 54%),
+    linear-gradient(25deg, transparent 0 46%, var(--atlas-calido) 47% 53%, transparent 54%),
+    var(--atlas-lienzo);
+}
+.atlas-muestra-fuera {
+  border-radius: 6px 6px 50% 50%;
+  background: var(--atlas-calido);
+}
+
+/* ---------------------------------------------------------------- panel */
+
+.atlas-panel h3 {
+  margin: 4px 0 0;
+}
+.atlas-panel .atlas-cifras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.atlas-barras {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.atlas-barras li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px 26px;
+  gap: 8px;
+  align-items: center;
+  font-size: 12.5px;
+}
+.atlas-barras li span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.atlas-barra {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--inset);
+  overflow: hidden;
+}
+.atlas-barra > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--atlas-frio), var(--atlas-calido));
+}
+.atlas-barras .atlas-cifra {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+.atlas-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.atlas-lista li {
+  line-height: 1.45;
+}
+.atlas-lista .meta {
+  display: block;
+}
+/* La nota de que los conteos guardados por el backend ya no cuadran con las celdas. */
+.atlas-desfase {
+  padding-left: 10px;
+  border-left: 2px dashed var(--border-strong);
+}
+.atlas-hueco-aviso {
+  padding: 8px 10px;
+  border-radius: var(--radio-s);
+  border: 1px dashed var(--border-strong);
+  color: var(--text-2);
+  font-size: 13px;
+}
+.atlas-discordia-aviso {
+  padding: 8px 10px;
+  border-radius: var(--radio-s);
+  border: 1.5px dashed var(--atlas-discordia);
+  color: var(--text);
+  font-size: 13px;
+}
+.atlas-discordia-aviso ul {
+  margin: 6px 0 0;
+  padding: 0 0 0 16px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.atlas-nuevas {
+  margin-top: 8px;
+}
+
+/* Sin color-mix (navegadores antiguos): el relleno se queda en el violeta
+   plano de .atlas-region y la intensidad va toda en la opacidad. */
+@supports not (color: color-mix(in oklab, red 50%, blue)) {
+  .atlas-region {
+    fill-opacity: calc(0.45 + 0.55 * var(--atlas-t, 0));
+  }
+  .atlas-region.atlas-capa-vasos {
+    stroke: var(--atlas-calido);
+  }
+  .atlas-region:hover,
+  .atlas-region.atlas-foco,
+  .atlas-region:focus-visible {
+    fill: var(--atlas-calido);
+  }
+  .atlas-muestra-discordia {
+    background: var(--atlas-frio);
+  }
+}
+
+/* ---------------------------------------------------------- movimiento */
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-region {
+    transition: none;
+  }
+}
+.atlas-sin-movimiento .atlas-region {
+  transition: none;
+}

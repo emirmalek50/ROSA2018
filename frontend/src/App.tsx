@@ -20,6 +20,7 @@ import { useRuta } from './lib/useRuta';
 import { Ajustes } from './pantallas/Ajustes';
 import { Arbol } from './pantallas/Arbol';
 import { Artefactos } from './pantallas/Artefactos';
+import { Atlas } from './pantallas/Atlas';
 import { Calidad } from './pantallas/Calidad';
 import { Corrida } from './pantallas/Corrida';
 import { Hipotesis } from './pantallas/Hipotesis';
@@ -37,6 +38,7 @@ const TITULO_PANTALLA = {
   panorama: 'Panorama',
   mundo: 'Modelo de mundo',
   arbol: 'Árbol de la investigación',
+  atlas: 'Atlas de la enfermedad',
   artefactos: 'Artefactos',
   calidad: 'Calidad',
   investigacion: 'Objetivo y datos',
@@ -145,6 +147,9 @@ export default function App() {
           break;
         case 'arbol':
           pantalla = <Arbol key={inv.id} inv={inv} estado={estado} />;
+          break;
+        case 'atlas':
+          pantalla = <Atlas key={inv.id} inv={inv} estado={estado} />;
           break;
         case 'artefactos':
           pantalla = <Artefactos inv={inv} estado={estado} ahora={ahora} detalleId={ruta.detalleId} />;
