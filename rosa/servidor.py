@@ -49,7 +49,7 @@ from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 from rosa import config
 from rosa.estado import plantilla as P
 from rosa.estado.almacen import ACCIONES, Almacen, EscritorObsoleto, componer_json_con_avisos
-from rosa.acceso import Acceso, COOKIE, DURACION
+from rosa.acceso import Acceso, COOKIE, DURACION, MENSAJE_PUERTA_CERRADA, MENSAJE_SIN_CONFIGURAR, diagnostico_credenciales
 from urllib.parse import urlsplit
 
 
@@ -60,7 +60,10 @@ MAX_CUERPO_ACCION = 1_000_000
 MAX_CUERPO_PEQUENO = 4096
 MAX_CUERPO_PREGUNTA = 16_384
 HOSTS_LOCALES = ("127.0.0.1", "localhost", "::1")
-RUTAS_PUBLICAS = ('/api/acceso/estado', '/api/acceso/entrar', '/api/acceso/salir', '/api/acceso/configuracion')
+# La puerta sin verificar sigue siendo pública aunque esté cerrada: así quien la
+# llame sin sesión (una interfaz antigua) recibe el 410 con la explicación y no
+# un 401 que le pida iniciar sesión sin decirle cómo.
+RUTAS_PUBLICAS = ('/api/acceso/estado', '/api/acceso/entrar', '/api/acceso/salir', '/api/acceso/configuracion', '/api/acceso/entrar_sin_verificar')
 
 
 async def leer_json_acotado(request: Request, maximo: int) -> Any:
@@ -162,8 +165,9 @@ def crear_app(almacen: Almacen) -> FastAPI:
                 and not app.state.acceso.db.execute('SELECT 1 FROM cuentas LIMIT 1').fetchone())
 
     def es_admin(email):
-        # Administrador explícito (ROSA_ADMIN en .env) o, si falta, la primera
-        # cuenta confirmada por enlace; nunca una creada sin verificar (S-21).
+        # Administrador explícito (ROSA_ADMIN en .env) o, si falta, la cuenta de
+        # ROSA_LOGIN_EMAIL, la única que puede entrar; nunca una creada sin
+        # verificar ni una confirmada por enlace antes del cambio (S-21).
         juez = getattr(getattr(app.state, 'acceso', None), 'es_admin', None)
         return bool(email and juez is not None and juez(email))
 
@@ -206,7 +210,7 @@ def crear_app(almacen: Almacen) -> FastAPI:
                 return JSONResponse({"detail": "Falta el token de acceso a ROSA2018"}, status_code=401)
         # 2. La sesión: quién es la persona.
         if path.startswith('/api/') and not publico and not usuario and not interno:
-            return JSONResponse({'detail': 'Inicia sesión con tu correo verificado'}, status_code=401)
+            return JSONResponse({'detail': 'Inicia sesión con tu correo corporativo y tu contraseña'}, status_code=401)
         # 3. Toda escritura desde el navegador lleva la cabecera X-Rosa: una página
         #    ajena no puede mandarla sin preflight, y sin CORS el preflight falla.
         if request.method == "POST" and request.url.path.startswith("/api/") and request.headers.get("x-rosa") != "1" and not request.headers.get("x-rosa-interno"):
@@ -223,8 +227,15 @@ def crear_app(almacen: Almacen) -> FastAPI:
         local = instalacion_local(request)
         ultimo = next((x for x in c['historial'] if x['tipo'] == 'acceso'), None) if local else None
         aviso = (ultimo['error'] or ('El proveedor aceptó el último correo de acceso. Comprueba el buzón y spam.' if ultimo['estado'] == 'aceptado' else 'El último correo de acceso está ' + ultimo['estado'])) if ultimo else None
+        # Sin credenciales válidas en .env nadie puede entrar: la pantalla lo dice
+        # antes de que alguien pruebe contraseñas. El detalle (qué variable falla)
+        # solo sale por el arranque, no por esta ruta pública.
+        acceso_configurado = not diagnostico_credenciales()
+        if not acceso_configurado:
+            aviso = MENSAJE_SIN_CONFIGURAR
         return {'correo': request.state.usuario, 'administrador': es_admin(request.state.usuario),
-                'correoConfigurado': c['configurado'], 'instalacionLocal': local, 'avisoInstalacion': aviso}
+                'correoConfigurado': c['configurado'], 'accesoConfigurado': acceso_configurado,
+                'instalacionLocal': local, 'avisoInstalacion': aviso}
 
     async def objeto_pequeno(request):
         obj = await leer_json_acotado(request, MAX_CUERPO_PEQUENO)
@@ -243,18 +254,11 @@ def crear_app(almacen: Almacen) -> FastAPI:
             raise HTTPException(400, str(ex)) from None
         return {'ok': True}
 
-    @app.post('/api/acceso/solicitar')
-    async def acceso_solicitar(request: Request):
-        obj = await objeto_pequeno(request)
-        email = obj.get('correo')
-        if not isinstance(email, str):
-            raise HTTPException(400, 'Falta el correo corporativo')
-        try:
-            app.state.acceso.solicitar(email, request.client.host if request.client else 'desconocida')
-        except ValueError as ex:
-            raise HTTPException(400, str(ex)) from None
-        return {'ok': True, 'mensaje': 'Revisa tu correo para confirmar el acceso. El enlace caduca en 15 minutos.'}
-
+    # Las rutas del enlace por correo (/api/acceso/solicitar y /confirmar) se
+    # retiraron el 19 de septiembre de 2026: desde el 18 la entrada es la
+    # contraseña, la interfaz no las llamaba y, detrás de sesión, permitían a una
+    # sesión heredada de la puerta antigua confirmarse un enlace a sí misma. La
+    # clase Acceso conserva `solicitar` y `confirmar` para el día que vuelva.
     @app.post('/api/acceso/entrar')
     async def acceso_entrar(request: Request):
         obj = await objeto_pequeno(request)
@@ -271,26 +275,12 @@ def crear_app(almacen: Almacen) -> FastAPI:
         respuesta.set_cookie(COOKIE, token, max_age=DURACION, httponly=True, secure=seguro, samesite='strict', path='/')
         return respuesta
 
-    @app.post('/api/acceso/confirmar')
-    async def acceso_confirmar(request: Request):
-        obj = await objeto_pequeno(request)
-        try:
-            token, email = app.state.acceso.confirmar(obj.get('enlace'))
-        except ValueError as ex:
-            raise HTTPException(400, str(ex)) from None
-        respuesta = JSONResponse({'ok': True, 'correo': email})
-        seguro = urlsplit(app.state.correo._config()['url']).scheme == 'https'
-        respuesta.set_cookie(COOKIE, token, max_age=DURACION, httponly=True, secure=seguro, samesite='strict', path='/')
-        return respuesta
-
     @app.post('/api/acceso/entrar_sin_verificar')
     async def acceso_sin_verificar(request: Request):
-        # Mientras no haya proveedor de correo, cualquier persona con una
-        # dirección del dominio entra escribiéndola. La puerta se cierra sola
-        # al configurar el correo (lo comprueba Acceso.entrar_sin_verificar).
-        # Es acceso abierto al dominio: solo se ofrece en el propio equipo
-        # (HOST local) o detrás de la llave de red ROSA_TOKEN (S-21).
-        raise HTTPException(410, 'La entrada sin verificación está desactivada')
+        # La puerta abierta al dominio (15 de septiembre de 2026, mientras no
+        # había correo) se cerró el 18 al llegar la contraseña. No lee el cuerpo
+        # ni toca la base: 410 Gone con la explicación de cómo entrar.
+        raise HTTPException(410, MENSAJE_PUERTA_CERRADA)
 
     @app.post('/api/acceso/salir')
     async def acceso_salir(request: Request):

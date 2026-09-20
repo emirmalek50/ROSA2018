@@ -1,24 +1,50 @@
 # Acceso y correo de ROSA2018
 
-ROSA2018 requiere una cuenta verificada de `@alzheimerproject.com`. Las opciones
-Iniciar sesión y Registrarse comparten un acceso sin contraseña: la cuenta
-solo se crea cuando se confirma el enlace enviado al buzón corporativo.
-La pantalla para introducir un código queda pendiente del diseño del usuario;
-por ahora se confirma con un enlace de un solo uso, válido durante 15 minutos.
+ROSA2018 se abre con una sola cuenta de `@alzheimerproject.com` y una
+contraseña, las dos fijadas en el `.env` del servidor (desde el 18 de
+septiembre de 2026). La pantalla de acceso tiene dos campos, correo y
+contraseña; no hay registro ni enlace por correo. El correo de esta sección
+sirve para los avisos de las corridas, no para entrar.
 
-## Entrada sin verificación mientras no hay correo
+## Entrada con correo y contraseña
 
-Pedida por Emir el 15 de septiembre de 2026 ("abre el login para que puedan
-entrar personas sin configurar el proveedor"). Mientras el correo de ROSA2018 no
-esté configurado, la puerta muestra «Entrar sin verificación»: quien escriba
-una dirección `@alzheimerproject.com` entra con una sesión normal de 12 horas
-(`POST /api/acceso/entrar_sin_verificar`, que exige la cabecera `X-ROSA2018` como
-toda escritura). No hay más comprobación de identidad que la dirección
-escrita: es acceso abierto al dominio, y así se le dice a quien entra. En
-cuanto se configura un proveedor (SMTP o Resend), esa puerta devuelve 403
-para todos y solo vale el enlace verificado; las sesiones ya abiertas duran
-hasta caducar. La primera cuenta creada, verificada o no, administra el
-correo.
+En `.env` del equipo que corre ROSA2018:
+
+```
+ROSA_LOGIN_EMAIL=persona@alzheimerproject.com
+ROSA_LOGIN_PASSWORD_HASH=<64 caracteres hexadecimales>
+ROSA_ADMIN=persona@alzheimerproject.com
+```
+
+- `ROSA_LOGIN_EMAIL` es la única cuenta que puede entrar. Tiene que ser una
+  dirección `@alzheimerproject.com` sin tildes, ñ ni espacios.
+- `ROSA_LOGIN_PASSWORD_HASH` es la huella scrypt de la contraseña; la
+  contraseña en claro no vive en ningún sitio. Se genera con
+  `uv run python -m rosa.acceso --huella`: pide la contraseña dos veces sin
+  mostrarla y escribe la línea para `.env`. `uv run python -m rosa.acceso
+  --comprobar` dice si lo que hay en `.env` sirve, sin imprimir valores.
+- `ROSA_ADMIN` (opcional) fija la cuenta administradora, la que puede conectar
+  el correo, cambiar políticas y ver GEPA. Sin `ROSA_ADMIN` administra la
+  cuenta de `ROSA_LOGIN_EMAIL`, la única que puede entrar; nunca una cuenta
+  heredada de la puerta antigua ni una que confirmó un enlace antes del cambio.
+- Al arrancar, ROSA2018 avisa por consola si falta o está mal alguna de las
+  dos credenciales (huella de 63 caracteres por un carácter perdido al pegar,
+  correo fuera del dominio). Mientras tanto la pantalla de acceso dice que el
+  acceso con contraseña no está configurado y ningún intento cuenta contra
+  el tope; nadie puede entrar hasta corregir `.env` y reiniciar.
+- Topes: tres contraseñas erróneas por correo en 15 minutos, 20 intentos por
+  IP y 100 en total por hora. Acertar borra los intentos de ese correo, así
+  que dos erratas y dos entradas seguidas no bloquean a nadie. Un correo o
+  una contraseña incorrectos reciben el mismo mensaje, para no revelar cuentas.
+- La sesión dura 12 horas en una cookie HttpOnly y se revoca al cerrar sesión.
+
+La puerta sin verificación del 15 de septiembre de 2026 (entrar con cualquier
+dirección del dominio mientras no había correo) está cerrada:
+`POST /api/acceso/entrar_sin_verificar` contesta 410 con la explicación de
+cómo entrar, con sesión y sin ella, y no toca la base. Las rutas del enlace
+por correo (`/api/acceso/solicitar` y `/api/acceso/confirmar`) se retiraron
+del servidor el 19 de septiembre; la clase `rosa/acceso.py` conserva
+`solicitar` y `confirmar` para el día que vuelva el enlace.
 
 ## Dos transportes: Google Workspace por SMTP o Resend
 
@@ -55,16 +81,17 @@ un servidor falso, sin red ni contraseñas reales.
    aplicación, servidor y puerto; con Resend: remitente y clave) y la URL de
    ROSA2018. La URL local solo funciona en ese equipo. Para otros equipos hace falta un despliegue
    HTTPS accesible, con los hosts admitidos configurados en el servidor.
-4. Solicitar el enlace usando la cuenta corporativa y confirmarlo. La primera
-   cuenta verificada administra la conexión de correo. Completar este paso
-   antes de publicar el servidor para el resto del equipo.
+4. Entrar con `ROSA_LOGIN_EMAIL` y la contraseña cuya huella está en `.env`
+   (ver «Entrada con correo y contraseña»). Esa cuenta, o la de `ROSA_ADMIN`
+   si se fijó, administra la conexión de correo. Completar este paso antes
+   de publicar el servidor para el resto del equipo.
 5. En Ajustes, revisar los avisos y usar «Enviar correo de prueba». La prueba
    se envía exclusivamente a la cuenta de la sesión.
 
 La configuración inicial se permite solo desde loopback, antes de crear una
-cuenta, sin cabeceras de proxy y con origen local. Después solo la primera
-cuenta verificada puede cambiar o desconectar el proveedor. No hay un acceso
-de demostración que permita saltarse la verificación si falta el proveedor.
+cuenta, sin cabeceras de proxy y con origen local. Después solo la cuenta
+administradora puede cambiar o desconectar el proveedor. No hay un acceso de
+demostración que permita saltarse la contraseña si falta el proveedor.
 El arranque en una dirección distinta de loopback conserva además los
 requisitos existentes de configuración del servidor.
 
@@ -102,9 +129,10 @@ de disco. Ni el API de configuración ni el estado compartido devuelven la clave
 
 Las sesiones duran 12 horas, se almacenan por hash, se revocan al salir y viajan
 en una cookie HttpOnly, SameSite=Strict y Secure cuando la URL configurada es
-HTTPS. Los enlaces se guardan por hash en autenticación; la cola necesita el
-enlace mientras espera el envío y elimina su cuerpo al concluir. Se limita la
-solicitud por dirección, IP y volumen total. Todas las rutas de investigación
+HTTPS. Los enlaces (cuando vuelvan) se guardan por hash; la cola necesita el
+enlace mientras espera el envío y elimina su cuerpo al concluir. Se limitan
+los intentos de contraseña por dirección, IP y volumen total, y acertar borra
+los de esa dirección. Todas las rutas de investigación
 requieren sesión; se conserva la credencial interna existente para procesos
 de confianza del servidor. El flujo SSE también comprueba la vigencia de sesión.
 
@@ -126,8 +154,12 @@ Los mensajes no llaman a modelos de IA; el proveedor puede cobrar por envío.
 - Frontend: `cd frontend && npm test -- --silent` y `npm run build`.
 - Transporte y autenticación se prueban con datos temporales y HTTP simulado,
   sin gastar tokens y sin enviar correos externos.
-- `scripts/probar_acceso_visual.py` comprueba escritorio, móvil, dominio,
-  configuración local y rechazo de un enlace inválido con una base temporal.
+- `scripts/probar_acceso_visual.py` describe todavía la pantalla antigua
+  (botones «Continuar con mi correo», «Registrarse» y el flujo `#acceso=`);
+  está pendiente de rehacerlo para la pantalla de contraseña.
+- Pruebas del acceso con contraseña: `rosa/tests/test_acceso_contrasena.py`,
+  `rosa/tests/test_acceso_sin_verificar.py`, `rosa/tests/test_acceso_correo.py`
+  y `rosa/tests/test_acceso_adversario_19sep.py`.
 
 Documentación utilizada: [envío de Resend](https://resend.com/docs/api-reference/emails/send-email),
 [idempotencia](https://resend.com/docs/dashboard/emails/idempotency-keys),

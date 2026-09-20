@@ -20,6 +20,7 @@ import dspy
 import uvicorn
 
 from rosa import config
+from rosa.acceso import diagnostico_credenciales
 from rosa.bucle.corrida import Supervisor
 from rosa.estado.almacen import Almacen, AlmacenOcupado
 from rosa.gateway import modelos as cargar_modelos
@@ -89,8 +90,11 @@ async def principal() -> None:
     except AlmacenOcupado as ex:
         print(f"ROSA2018 no arranca: {ex}", file=sys.stderr)
         raise SystemExit(3) from None
+    problema_acceso = diagnostico_credenciales()
+    if problema_acceso:
+        print(f"Aviso: el acceso con contraseña no está configurado y nadie podrá entrar en ROSA2018 hasta corregir .env: {problema_acceso}.", file=sys.stderr)
     if not (getattr(config, "ROSA_ADMIN", None) or os.environ.get("ROSA_ADMIN")):
-        print("Aviso: sin ROSA_ADMIN en .env, administra la primera cuenta confirmada por enlace de correo; las cuentas que entran sin verificar no administran.", file=sys.stderr)
+        print("Aviso: sin ROSA_ADMIN en .env administra la cuenta de ROSA_LOGIN_EMAIL, la única que puede entrar; las cuentas heredadas de la puerta antigua no administran.", file=sys.stderr)
     modelos = cargar_modelos()
     programas = Programas()
     cargados = programas.cargar_optimizados(config.RAIZ / "mlruns" / "optimizados")

@@ -387,7 +387,7 @@ def _estado_poblado(e):
 
 def test_mapa_completo(e):
     m = _estado_poblado(e)
-    assert set(m) == {"ejes", "celdas", "huecos", "sinEjes", "hipotesisSinEjes", "heredados", "mision", "resumen"}
+    assert set(m) == {"ejes", "celdas", "cohortesPorRegion", "huecos", "sinEjes", "hipotesisSinEjes", "heredados", "mision", "misionAprobada", "resumen"}
     # Ejes: cuentan hechos e hipótesis situados (no la pregunta, no lo descartado, no la otra investigación).
     assert m["ejes"]["estadio"] == {"prodromica_dcl": 4, "demencia_leve": 2}
     assert m["ejes"]["tipoCelular"]["astrocito"] == 4 and m["ejes"]["tipoCelular"]["microglia"] == 1 and m["ejes"]["tipoCelular"]["pericito"] == 1

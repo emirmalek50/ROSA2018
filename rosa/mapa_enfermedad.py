@@ -18,8 +18,50 @@ Conceptos, por su nombre:
 - Eje: una dimensión por la que se clasifica la evidencia. Hay cuatro:
   estadio, región, tipo celular y nivel.
 - Celda: una combinación concreta de estadio, región y tipo celular, con los
-  hechos y las hipótesis que caen en ella y la mayor certeza GRADE entre esas
-  hipótesis (la certeza la fija rosa/certeza.py; aquí solo se lee).
+  hechos y las hipótesis que caen en ella, la mayor certeza GRADE entre esas
+  hipótesis (la certeza la fija rosa/certeza.py; aquí solo se lee) y las
+  cohortes distintas que nombran sus hechos e hipótesis.
+- Cohorte de una celda: para cada hecho, el campo `cohorte` de las
+  afirmaciones que lo sostienen (`afirmacionIds`, buscadas en las claves
+  privadas `_afirmaciones` de las corridas) y, si ninguna lo trae, la cohorte
+  de las fuentes de su procedencia (`procedencia[].fuenteId` en `_fuentes`);
+  para cada hipótesis, el campo `cohorte` de su copia de afirmaciones y, si
+  ninguna lo trae, la lista canónica `cohortesDistintas` del ranking o la
+  cohorte de las fuentes de su procedencia. La cohorte de una fuente sigue
+  el orden de `metodos._nombre` (la regla del techo GRADE y del ranking): su
+  campo `cohorte`, su método canónico (`metodo.cohorte`, que el bucle escribe
+  al extraer) y su registro `nct`; una fuente anterior a que el bucle
+  guardara `metodo` (295 de las 440 de la base del 19 de septiembre de 2026)
+  se lee con la misma regla del catálogo (`metodos.metodo_de_fuente` sobre
+  título, fragmentos y afirmaciones) la primera vez que un hecho o una
+  hipótesis la pide, y el resultado se recuerda por proceso
+  (`_CohortesPorFuente`, `_cohorte_por_catalogo`); una fuente con `metodo` y
+  sin cohorte ya pasó por esa regla en el bucle y es "no pude comprobar". Los
+  nombres se agrupan con el catálogo de rosa/metodos.py (`agrupar_cohortes`:
+  "ADNI-3", "adni" y "Alzheimer's Disease Neuroimaging Initiative" son ADNI;
+  un NCT es su ensayo; dos nombres libres que comparten una palabra no
+  genérica son la misma), la misma regla que el techo GRADE y el ranking. La
+  etiqueta de un grupo del catálogo es la canónica y la de un grupo de
+  nombres libres es el menor de sus nombres sin distinguir mayúsculas, de
+  modo que la misma cohorte lleva el mismo nombre en todas las celdas (antes
+  era el primer nombre que llegaba a cada celda, y la interfaz contaba dos
+  veces "Cohorte sueca de ADAD" y "ADAD longitudinal cohort study"). Antes del
+  19 de septiembre de 2026 solo aportaban cohortes las hipótesis, y toda
+  celda sin hipótesis salía a 0 cohortes aunque tuviera decenas de hechos (66
+  de 66 en la investigación grande). `cohortesPorRegion` repite la cuenta por
+  región, deduplicada entre las celdas de la región (se agrupan los nombres,
+  no las etiquetas), para que la interfaz no la rehaga. Un hecho sin cohorte
+  identificada no aporta ninguna: es "no pude comprobar", nunca "sin cohorte".
+- Misión aprobada (`misionAprobada`): solo cuando `mision.aprobadaEn` no es
+  None, que es lo que escribe rosa/estado/acciones.py cuando la persona
+  aprueba la misión (sola o junto con el primer plan). Una misión que ROSA2018
+  propuso y nadie aprobó (`propuestaPorRosa` con `aprobadaEn` nulo) no cuenta
+  como aprobada: sus ejes y sus huecos se calculan igual (la interfaz los
+  enseña como propuesta y el bucle sigue abriendo cuestiones por hueco, como
+  hasta ahora), pero el resumen los llama orientativos y dice que solo
+  contarán cuando la persona la apruebe. Aprobar la misión es una decisión
+  humana (regla del 19 de septiembre de 2026; antes bastaba con que la misión
+  existiera).
 - Hueco: una combinación que la misión nombra y que ningún hecho ni hipótesis
   cubre por su propio contenido.
 
@@ -120,7 +162,12 @@ hecho heredado (id con "-inv-": se cuenta como los demás), un mapa guardado
 por una versión anterior de este módulo sin alguna clave (`texto_mapa` lo lee
 con valores por defecto). Nada de puntuaciones combinadas: la certeza de una
 celda es la mayor certeza GRADE de sus hipótesis, o None si ninguna tiene
-conclusión todavía.
+conclusión todavía. El `resumen` se calcula al final, de las celdas y los ejes
+ya construidos (`resumen_de`), nunca de recuentos anteriores: un mapa guardado
+cuyas celdas cambiaron después (rosa/hechos.py remapea los ids de las celdas
+al fundir hechos repetidos) se vuelve a resumir con `resumen_de(mapa)` y las
+cifras siguen a las celdas (el 19 de septiembre de 2026 el texto guardado
+decía 217 hechos con 211 en sus celdas).
 """
 
 from __future__ import annotations
@@ -132,6 +179,7 @@ from functools import lru_cache
 from itertools import product
 from typing import Any
 
+from rosa import metodos as METODOS
 from rosa.certeza import NIVELES as NIVELES_GRADE
 
 # ---------------------------------------------------------------------------
@@ -766,6 +814,302 @@ def ejes_de_hipotesis(h: Any, inv: Any = None) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Cohortes de una celda
+# ---------------------------------------------------------------------------
+
+
+def _nombres_cohorte(valor: Any) -> list[str]:
+    """El campo `cohorte` de una afirmación o de una fuente como nombres
+    limpios (espacios plegados). Una cadena es un nombre; un nodo del catálogo
+    ({"id", "etiqueta"}) da su etiqueta (o su id, nombre o texto si no la
+    tiene); una lista da todos sus nombres; None, números, booleanos u otros
+    objetos no son un nombre (cohorte no identificada)."""
+    if isinstance(valor, str):
+        n = " ".join(valor.split())
+        return [n] if n else []
+    if isinstance(valor, (bytes, bytearray)):
+        return _nombres_cohorte(valor.decode("utf-8", "ignore"))
+    if isinstance(valor, dict):
+        for clave in ("etiqueta", "nombre", "texto", "id"):
+            nombres = _nombres_cohorte(valor.get(clave))
+            if nombres:
+                return nombres
+        return []
+    if isinstance(valor, (list, tuple)):
+        salida: list[str] = []
+        for v in valor:
+            _unir_nombres(salida, _nombres_cohorte(v))
+        return salida
+    return []
+
+
+def _unir_nombres(destino: list[str], nuevos: list[str]) -> None:
+    """Añade a `destino` los nombres que no estaban, sin distinguir mayúsculas
+    ("ADNI" y "adni" son uno), conservando el orden y la primera grafía."""
+    vistos = {n.casefold() for n in destino}
+    for n in nuevos:
+        k = n.casefold()
+        if k not in vistos:
+            vistos.add(k)
+            destino.append(n)
+
+
+# Cohorte que el catálogo lee en una fuente anterior a `metodo`, por id de fuente
+# y huella de su contenido (`_huella_fuente`). Se calcula una vez por proceso:
+# leer el fragmento de una fuente cuesta decenas de milisegundos y las 295
+# fuentes antiguas de la base del 19 de septiembre de 2026 sumaban unos 10 s,
+# que no caben en los 300 ms de un `mapa()`. Si el contenido de la fuente
+# cambia (más fragmentos, otras afirmaciones) la huella cambia y se recalcula.
+_CACHE_CATALOGO: dict[tuple[Any, ...], list[str]] = {}
+_CACHE_CATALOGO_MAX = 8192
+
+
+def _vaciar_cache_catalogo() -> None:
+    """Olvida las cohortes leídas por el catálogo (para tests y diagnósticos)."""
+    _CACHE_CATALOGO.clear()
+
+
+def _huella_fuente(fid: str, f: dict[str, Any], afirmaciones: list[dict[str, Any]]) -> tuple[Any, ...]:
+    """Lo que identifica el contenido que `metodos.metodo_de_fuente` lee de una
+    fuente, sin copiar los textos: id, título, longitud del fragmento, longitud
+    de cada fragmento privado, campo `cohorte`, `nct` y los ids de sus
+    afirmaciones. Cambia si cambia cualquiera de ellos."""
+    fragmentos = tuple(len(_texto(_dic(fr).get("texto"))) for fr in _lista(f.get("fragmentos")))
+    ids_af = tuple(str(_dic(a).get("id") or "") for a in afirmaciones)
+    return (fid, _texto(f.get("titulo")), len(_texto(f.get("fragmento"))), fragmentos, _texto(f.get("cohorte")), _texto(f.get("nct")), ids_af)
+
+
+def _cohorte_por_catalogo(fid: str, f: dict[str, Any], afirmaciones: list[dict[str, Any]]) -> list[str]:
+    """La cohorte que el catálogo de rosa/metodos.py lee en una fuente que no
+    trae `metodo`, con la misma regla que el bucle aplica al extraer
+    (`metodos.metodo_de_fuente(fuente, afirmaciones)`: campo, NCT, título,
+    fragmentos y afirmaciones, en ese orden). Recordada por proceso en
+    `_CACHE_CATALOGO`. Si el catálogo falla, [] (no pude comprobar): el mapa
+    nunca se cae por una fuente rara. No muta la fuente."""
+    clave = _huella_fuente(fid, f, afirmaciones)
+    recordado = _CACHE_CATALOGO.get(clave)
+    if recordado is not None:
+        return list(recordado)
+    try:
+        nombres = _nombres_cohorte(_dic(METODOS.metodo_de_fuente(f, afirmaciones)).get("cohorte"))
+    except Exception:  # noqa: BLE001  el catálogo nunca tumba el mapa
+        nombres = []
+    if len(_CACHE_CATALOGO) >= _CACHE_CATALOGO_MAX:
+        _CACHE_CATALOGO.clear()
+    _CACHE_CATALOGO[clave] = list(nombres)
+    return list(nombres)
+
+
+class _CohortesPorFuente:
+    """Cohortes por id de fuente, con el orden de `metodos._nombre` (la regla
+    del techo GRADE y del ranking): el campo `cohorte`, el método canónico
+    `metodo.cohorte` y el registro `nct`. Una fuente sin ninguno de los tres y
+    sin `metodo` (anterior a que el bucle lo guardara) se resuelve la primera
+    vez que alguien la pide, con `_cohorte_por_catalogo`, y solo esa: las
+    fuentes que ningún hecho ni hipótesis cita no se leen. Una fuente con
+    `metodo` y sin cohorte ya pasó por esa regla en el bucle y queda como "no
+    pude comprobar". Se lee como un diccionario de solo lectura (`fid in
+    indice`, `indice[fid]`, `indice.get(fid)`): una fuente "está" si tiene
+    cohorte identificada. Nunca muta las fuentes del estado; devuelve copias."""
+
+    def __init__(self, afirmaciones_por_fuente: dict[str, list[dict[str, Any]]] | None = None) -> None:
+        self._directas: dict[str, list[str]] = {}
+        self._pendientes: dict[str, dict[str, Any]] = {}
+        self._resueltas: dict[str, list[str]] = {}
+        self._afirmaciones = afirmaciones_por_fuente if afirmaciones_por_fuente is not None else {}
+
+    def registrar(self, fid: str, f: dict[str, Any]) -> None:
+        """Anota una fuente; con dos del mismo id gana la primera."""
+        if fid in self._directas or fid in self._pendientes:
+            return
+        metodo = f.get("metodo")
+        nombres = _nombres_cohorte(f.get("cohorte")) or _nombres_cohorte(_dic(metodo).get("cohorte")) or _nombres_cohorte(f.get("nct"))
+        if nombres:
+            self._directas[fid] = nombres
+        elif f and not isinstance(metodo, dict):
+            self._pendientes[fid] = f
+
+    def get(self, fid: Any, por_defecto: Any = None) -> Any:
+        """Los nombres de cohorte de la fuente (copia), o `por_defecto` si no tiene ninguno identificado."""
+        if not isinstance(fid, str) or not fid:
+            return por_defecto
+        nombres = self._directas.get(fid)
+        if nombres is None:
+            nombres = self._resueltas.get(fid)
+        if nombres is None:
+            f = self._pendientes.get(fid)
+            if f is None:
+                return por_defecto
+            nombres = self._resueltas[fid] = _cohorte_por_catalogo(fid, f, self._afirmaciones.get(fid) or [])
+        return list(nombres) if nombres else por_defecto
+
+    def __contains__(self, fid: object) -> bool:
+        return self.get(fid) is not None
+
+    def __getitem__(self, fid: str) -> list[str]:
+        nombres = self.get(fid)
+        if nombres is None:
+            raise KeyError(fid)
+        return nombres
+
+    def __len__(self) -> int:
+        return len(self._directas) + len(self._pendientes)
+
+    def pendientes(self) -> int:
+        """Fuentes anteriores a `metodo` que todavía nadie ha pedido."""
+        return sum(1 for fid in self._pendientes if fid not in self._resueltas)
+
+
+def _indice_cohortes(e: dict[str, Any]) -> tuple[dict[str, list[str]], _CohortesPorFuente]:
+    """(cohortes por id de afirmación, cohortes por id de fuente), leídas de las
+    claves privadas de las corridas (`_afirmaciones`, `_fuentes`), que no viajan
+    al navegador. Se recorren todas las corridas del estado, no solo las de la
+    investigación: los ids de afirmación y de fuente son únicos en todo el
+    estado y así un hecho heredado de otra investigación encuentra la
+    afirmación de su corrida de origen (misma regla que rosa/hechos.py
+    `afirmaciones_por_fuente`). Las cohortes por fuente las da
+    `_CohortesPorFuente`, que se lee como un diccionario y resuelve al pedirla
+    la de una fuente anterior a `metodo` con el catálogo; para eso el índice
+    agrupa también las afirmaciones de cada fuente (`fuenteId`). Lo que no es
+    un diccionario, o no tiene id, se ignora; con dos registros del mismo id
+    gana el primero."""
+    por_afirmacion: dict[str, list[str]] = {}
+    afirmaciones_por_fuente: dict[str, list[dict[str, Any]]] = {}
+    por_fuente = _CohortesPorFuente(afirmaciones_por_fuente)
+    for c in _lista(e.get("corridas")):
+        c = _dic(c)
+        for a in _lista(c.get("_afirmaciones")):
+            a = _dic(a)
+            fid_a = a.get("fuenteId")
+            if isinstance(fid_a, str) and fid_a:
+                afirmaciones_por_fuente.setdefault(fid_a, []).append(a)
+            aid = a.get("id")
+            if not isinstance(aid, str) or not aid or aid in por_afirmacion:
+                continue
+            nombres = _nombres_cohorte(a.get("cohorte"))
+            if nombres:
+                por_afirmacion[aid] = nombres
+        fuentes = c.get("_fuentes")
+        if isinstance(fuentes, dict):
+            pares = [(str(k), _dic(v)) for k, v in fuentes.items()]
+        else:
+            pares = [(str(_dic(v).get("id") or ""), _dic(v)) for v in _lista(fuentes)]
+        for fid, f in pares:
+            if fid:
+                por_fuente.registrar(fid, f)
+    return por_afirmacion, por_fuente
+
+
+def _cohortes_de_fuentes(ids: list[Any], por_fuente: Any) -> list[str]:
+    """Los nombres de cohorte de esas fuentes, en orden y sin repetir.
+    `por_fuente` es el índice de `_indice_cohortes` o cualquier cosa con
+    `get` (un diccionario id -> nombres vale)."""
+    salida: list[str] = []
+    lector = getattr(por_fuente, "get", None)
+    if not callable(lector):
+        return salida
+    for fid in ids:
+        if not isinstance(fid, str) or not fid:
+            continue
+        nombres = lector(fid)
+        if nombres:
+            _unir_nombres(salida, [n for n in _lista(nombres) if isinstance(n, str) and n.strip()])
+    return salida
+
+
+def _cohortes_de_hecho(h: dict[str, Any], por_afirmacion: dict[str, list[str]], por_fuente: Any) -> list[str]:
+    """Los nombres de cohorte de un hecho, en orden y sin repetir: el campo
+    `cohorte` de las afirmaciones que lo sostienen (`afirmacionIds`) y, si
+    ninguna lo trae, la cohorte de las fuentes de su procedencia
+    (`procedencia[].fuenteId`). Sin ninguna de las dos, ninguna: el hecho no
+    dice de qué cohorte viene, y eso no es "sin cohorte"."""
+    nombres: list[str] = []
+    for aid in _lista(h.get("afirmacionIds")):
+        if isinstance(aid, str) and aid in por_afirmacion:
+            _unir_nombres(nombres, por_afirmacion[aid])
+    if nombres:
+        return nombres
+    procedencia = h.get("procedencia")
+    entradas = _lista(procedencia) if isinstance(procedencia, list) else _lista(_dic(procedencia).get("fuentes"))
+    return _cohortes_de_fuentes([_dic(p).get("fuenteId") or _dic(p).get("id") for p in entradas], por_fuente)
+
+
+def _cohortes_de_hipotesis(h: dict[str, Any], por_afirmacion: dict[str, list[str]], por_fuente: Any) -> list[str]:
+    """Los nombres de cohorte de una hipótesis: el campo `cohorte` de su copia
+    de afirmaciones (la regla de siempre) y, si ninguna lo trae, la lista
+    canónica `cohortesDistintas` que escribe rosa/priorizacion.py (la misma
+    cuenta que el techo GRADE) y, si tampoco, la cohorte de las fuentes de su
+    procedencia (`procedencia.fuentes[].cohorte`, o por su id en las corridas)."""
+    nombres: list[str] = []
+    for a in _lista(h.get("afirmaciones")):
+        a = _dic(a)
+        propios = _nombres_cohorte(a.get("cohorte"))
+        if not propios:
+            aid = a.get("id") or a.get("afirmacionId")
+            propios = list(por_afirmacion[aid]) if isinstance(aid, str) and aid in por_afirmacion else []
+        _unir_nombres(nombres, propios)
+    if nombres:
+        return nombres
+    _unir_nombres(nombres, _nombres_cohorte([x for x in _lista(h.get("cohortesDistintas")) if isinstance(x, str)]))
+    if nombres:
+        return nombres
+    fuentes = [_dic(f) for f in _lista(_dic(h.get("procedencia")).get("fuentes"))]
+    for f in fuentes:
+        _unir_nombres(nombres, _nombres_cohorte(f.get("cohorte")) or _cohortes_de_fuentes([f.get("id")], por_fuente))
+    return nombres
+
+
+def _etiqueta_de_grupo(g: Any) -> str:
+    """La etiqueta de un grupo de `metodos.agrupar_cohortes`: la canónica si
+    el grupo tiene identificador (cohorte del catálogo o registro de ensayo)
+    y, si es un grupo de nombres libres, el menor de sus nombres sin
+    distinguir mayúsculas, que no depende del orden en que llegaron."""
+    g = _dic(g)
+    etiqueta = g.get("etiqueta")
+    etiqueta = " ".join(etiqueta.split()) if isinstance(etiqueta, str) else ""
+    propios = [" ".join(n.split()) for n in _lista(g.get("nombres")) if isinstance(n, str) and n.strip()]
+    if g.get("id") and etiqueta:
+        return etiqueta
+    if propios:
+        return min(propios, key=lambda x: (x.casefold(), x))
+    return etiqueta
+
+
+def _cohortes_distintas(nombres: list[str]) -> list[str]:
+    """Una etiqueta por cohorte distinta, ordenadas. Los nombres se agrupan con
+    `metodos.agrupar_cohortes` (la regla del techo GRADE y del ranking): los
+    que resuelven al catálogo, por su identificador ("ADNI-3", "adni" y
+    "Alzheimer's Disease Neuroimaging Initiative" son ADNI; un NCT es su
+    ensayo); dos nombres libres que comparten una palabra no genérica son la
+    misma. La etiqueta de un grupo del catálogo es la canónica; la de un grupo
+    de nombres libres es el menor de sus nombres sin distinguir mayúsculas
+    (`_etiqueta_de_grupo`), no el primero que llegó a la celda: así la misma
+    cohorte lleva el mismo nombre en todas las celdas y la interfaz no la
+    cuenta dos veces. Si el catálogo falla con un nombre raro, se deduplica
+    por el nombre en minúsculas: el mapa nunca se queda sin cohortes por un
+    error del catálogo."""
+    # Entre dos grafías del mismo nombre ("Cohorte x rara" y "cohorte X rara")
+    # se queda la menor, no la primera que llegó: la etiqueta no depende del orden.
+    por_clave: dict[str, str] = {}
+    for n in nombres:
+        if isinstance(n, str) and n.strip():
+            n = " ".join(n.split())
+            k = n.casefold()
+            if k not in por_clave or n < por_clave[k]:
+                por_clave[k] = n
+    limpios = list(por_clave.values())
+    if not limpios:
+        return []
+    try:
+        etiquetas = [x for x in (_etiqueta_de_grupo(g) for g in _lista(METODOS.agrupar_cohortes([{"id": f"c{i}", "cohorte": n} for i, n in enumerate(limpios)]))) if x]
+    except Exception:  # noqa: BLE001  el catálogo nunca deja una celda sin cohortes
+        etiquetas = limpios
+    salida: list[str] = []
+    _unir_nombres(salida, etiquetas)
+    return sorted(salida, key=lambda x: (x.casefold(), x))
+
+
+# ---------------------------------------------------------------------------
 # El mapa
 # ---------------------------------------------------------------------------
 
@@ -830,24 +1174,36 @@ def mapa(e: Any, investigacion_id: str) -> dict[str, Any]:
     """El mapa del estado de la enfermedad de una investigación:
     {"ejes": {"estadio": {valor: n}, "region": {...}, "tipoCelular": {...}, "nivel": {...}},
      "celdas": [{"estadio", "region", "tipoCelular", "hechos": [ids], "hipotesis": [ids], "preguntas": [ids],
-                 "certezaMax": nivel GRADE o None, "certezaMotivo", "cohortes": [...], "porMision": n}],
+                 "certezaMax": nivel GRADE o None, "certezaMotivo", "cohortes": [etiquetas], "porMision": n}],
+     "cohortesPorRegion": {region: cohortes distintas entre las celdas de esa región},
      "huecos": [{"estadio", "region", "tipoCelular", "motivo", "heredanDeMision": n}],
      "sinEjes": n (hechos que no se pudieron situar), "hipotesisSinEjes": n, "heredados": n,
-     "mision": ejes de la misión, "resumen": str}.
+     "mision": ejes de la misión, "misionAprobada": bool, "resumen": str}.
     Cuentan los hechos no descartados (las preguntas abiertas van aparte) y las
     hipótesis no descartadas ni fusionadas. Un hecho heredado (id con "-inv-")
-    cuenta como los demás. Determinista: las celdas van ordenadas por número de
-    registros y después por sus claves."""
+    cuenta como los demás. Las cohortes de una celda son las de sus hechos
+    (afirmaciones enlazadas o fuente de la procedencia) y sus hipótesis,
+    agrupadas por el catálogo de rosa/metodos.py; las preguntas no aportan.
+    El resumen se calcula al final de las celdas y los ejes ya construidos
+    (`resumen_de`). Determinista: las celdas van ordenadas por número de
+    registros y después por sus claves; `cohortesPorRegion` por clave."""
     e = _dic(e)
     if not isinstance(investigacion_id, str) or not investigacion_id:
         # Sin investigación no hay mapa: con None, `None == None` juntaría los hechos sin investigacionId.
-        return {"ejes": {"estadio": {}, "region": {}, "tipoCelular": {}, "nivel": {}}, "celdas": [], "huecos": [], "sinEjes": 0, "hipotesisSinEjes": 0, "heredados": 0, "mision": ejes_de_mision(None), "resumen": "Sin investigación no hay mapa de la enfermedad que construir."}
+        return {"ejes": {"estadio": {}, "region": {}, "tipoCelular": {}, "nivel": {}}, "celdas": [], "cohortesPorRegion": {}, "huecos": [], "sinEjes": 0, "hipotesisSinEjes": 0, "heredados": 0, "mision": ejes_de_mision(None), "misionAprobada": False, "resumen": "Sin investigación no hay mapa de la enfermedad que construir."}
     inv = next((i for i in _lista(e.get("investigaciones")) if _dic(i).get("id") == investigacion_id), None)
+    # La misión solo cuenta como aprobada si la persona la aprobó (`aprobadaEn`,
+    # que escribe rosa/estado/acciones.py); una propuesta de ROSA2018 sin aprobar
+    # trae la clave a None. `is not None`, no la verdad del valor: aprobar en t=0 vale.
+    mision_inv = _dic(inv.get("mision")) if inv is not None else {}
     # Un hecho sustituido por otro más reciente (sustituidoPor) no cuenta aunque
     # un estado antiguo lo conserve como "sabido": contaría dos veces lo mismo.
     hechos = _sin_ids_repetidos([h for h in (_dic(x) for x in _lista(e.get("hechos"))) if h.get("investigacionId") == investigacion_id and h.get("estado") != "descartado" and not h.get("sustituidoPor")])
     hipotesis = _sin_ids_repetidos([h for h in (_dic(x) for x in _lista(e.get("hipotesis"))) if h.get("investigacionId") == investigacion_id and h.get("estado") != "descartada" and not h.get("fusionadaEn")])
     certeza_por_id = {str(h.get("id") or ""): _certeza_de(h) for h in hipotesis}
+    # Cohorte por id de afirmación y por id de fuente, de las claves privadas de
+    # las corridas: es lo que permite que un hecho aporte cohortes a su celda.
+    por_afirmacion, por_fuente = _indice_cohortes(e) if (hechos or hipotesis) else ({}, {})
 
     celdas: dict[tuple[str | None, str | None, str | None], dict[str, Any]] = {}
     conteo: dict[str, dict[str, int]] = {"estadio": {}, "region": {}, "tipoCelular": {}, "nivel": {}}
@@ -858,7 +1214,7 @@ def mapa(e: Any, investigacion_id: str) -> dict[str, Any]:
     heredados = 0
 
     def celda(clave: tuple[str | None, str | None, str | None]) -> dict[str, Any]:
-        return celdas.setdefault(clave, {"estadio": clave[0], "region": clave[1], "tipoCelular": clave[2], "hechos": [], "hipotesis": [], "preguntas": [], "_certezas": [], "_cohortes": set(), "porMision": 0})
+        return celdas.setdefault(clave, {"estadio": clave[0], "region": clave[1], "tipoCelular": clave[2], "hechos": [], "hipotesis": [], "preguntas": [], "_certezas": [], "_cohortes": [], "porMision": 0})
 
     def contar(ejes: dict[str, Any]) -> None:
         if ejes.get("estadio"):
@@ -889,11 +1245,15 @@ def mapa(e: Any, investigacion_id: str) -> dict[str, Any]:
             propios_situados.append(ejes["sinMision"])
             if any(v == "mision" for v in ejes["origen"].values()):
                 heredan_solo_mision.append(ejes)
+        # Una pregunta abierta no cuenta como cobertura, así que tampoco aporta cohortes.
+        cohortes_h = [] if es_pregunta else _cohortes_de_hecho(h, por_afirmacion, por_fuente)
         for clave in _celdas_de(ejes):
             c = celda(clave)
             c["preguntas" if es_pregunta else "hechos"].append(id_)
-            if not es_pregunta and "mision" in ejes["origen"].values():
-                c["porMision"] += 1
+            if not es_pregunta:
+                _unir_nombres(c["_cohortes"], cohortes_h)
+                if "mision" in ejes["origen"].values():
+                    c["porMision"] += 1
 
     for h in hipotesis:
         ejes = ejes_de_hipotesis(h, inv)
@@ -907,17 +1267,18 @@ def mapa(e: Any, investigacion_id: str) -> dict[str, Any]:
         if any(v == "mision" for v in ejes["origen"].values()):
             heredan_solo_mision.append(ejes)
         certeza = _certeza_de(h)
-        cohortes = {str(_dic(a).get("cohorte") or "").strip() for a in _lista(h.get("afirmaciones"))} - {""}
+        cohortes_h = _cohortes_de_hipotesis(h, por_afirmacion, por_fuente)
         for clave in _celdas_de(ejes):
             c = celda(clave)
             c["hipotesis"].append(str(h.get("id") or ""))
             if certeza:
                 c["_certezas"].append(certeza)
-            c["_cohortes"].update(cohortes)
+            _unir_nombres(c["_cohortes"], cohortes_h)
             if "mision" in ejes["origen"].values():
                 c["porMision"] += 1
 
     lista_celdas = []
+    nombres_por_region: dict[str, list[str]] = {}
     for clave in sorted(celdas, key=lambda k: (-(len(celdas[k]["hechos"]) + len(celdas[k]["hipotesis"])), str(k[0]), str(k[1]), str(k[2]))):
         c = celdas[clave]
         if not c["hechos"] and not c["hipotesis"] and not c["preguntas"]:
@@ -933,7 +1294,13 @@ def mapa(e: Any, investigacion_id: str) -> dict[str, Any]:
             motivo = "sin hipótesis en la celda: la certeza GRADE se calcula por hipótesis"
         c["certezaMax"] = certeza_max
         c["certezaMotivo"] = motivo
-        c["cohortes"] = sorted(c.pop("_cohortes"))
+        nombres = c.pop("_cohortes")
+        c["cohortes"] = _cohortes_distintas(nombres)
+        if isinstance(c["region"], str):
+            # Por región se agrupan los NOMBRES de todas sus celdas, no las
+            # etiquetas ya agrupadas: dos nombres libres de celdas distintas
+            # que son la misma cohorte cuentan una vez también aquí.
+            _unir_nombres(nombres_por_region.setdefault(c["region"], []), nombres)
         lista_celdas.append(c)
 
     mision = ejes_de_mision(inv)
@@ -950,20 +1317,59 @@ def mapa(e: Any, investigacion_id: str) -> dict[str, Any]:
             motivo += f" ({_n(heredan, 'registro lo hereda', 'registros lo heredan')} solo de la misión)." if heredan else "."
             huecos.append({"estadio": combo[0], "region": combo[1], "tipoCelular": combo[2], "motivo": motivo, "heredanDeMision": heredan})
 
-    ids_hechos = {hid for c in lista_celdas for hid in c["hechos"]}
-    ids_hip = {hid for c in lista_celdas for hid in c["hipotesis"]}
     salida = {
         "ejes": conteo,
         "celdas": lista_celdas,
+        "cohortesPorRegion": {r: len(_cohortes_distintas(ns)) for r, ns in sorted(nombres_por_region.items())},
         "huecos": huecos,
         "sinEjes": sin_ejes_hechos,
         "hipotesisSinEjes": sin_ejes_hip,
         "heredados": heredados,
         "mision": mision,
+        "misionAprobada": bool(mision_inv) and mision_inv.get("aprobadaEn") is not None,
         "resumen": "",
     }
-    salida["resumen"] = _resumen(salida, len(ids_hechos), len(ids_hip), inv is not None and bool(_dic(inv.get("mision"))))
+    # El resumen se escribe el último y sale de las celdas y los ejes ya
+    # construidos, nunca de recuentos hechos por el camino.
+    salida["resumen"] = resumen_de(salida)
     return salida
+
+
+def resumen_de(m: Any) -> str:
+    """El resumen en llano de un mapa, calculado de sus propias celdas y ejes:
+    hechos e hipótesis distintos que aparecen en alguna celda, número de
+    celdas, ejes, lo no situado, los heredados y los huecos. Vale para el mapa
+    recién construido y para uno guardado cuyas celdas cambiaron después (al
+    fundir hechos repetidos, rosa/hechos.py remapea los ids de las celdas y
+    el texto guardado se quedaba con la cifra vieja: "217 hechos" con 211 en
+    las celdas). Un mapa guardado por una versión anterior sin alguna clave se
+    lee con valores por defecto; sin `misionAprobada` (mapas guardados antes del
+    19 de septiembre de 2026) se toma por aprobada si sus ejes de misión fijan
+    algo, así que un mapa guardado con una misión solo propuesta seguirá
+    diciendo aprobada hasta el siguiente cierre de iteración, que ya escribe la
+    clave; con la clave presente manda la clave. Nunca rompe: algo que no es un
+    mapa da el texto de "sin nada que situar"."""
+    m = _dic(m)
+    celdas = [c for c in _lista(m.get("celdas")) if isinstance(c, dict)]
+    ids_hechos = {str(x) for c in celdas for x in _lista(c.get("hechos"))}
+    ids_hip = {str(x) for c in celdas for x in _lista(c.get("hipotesis"))}
+    ejes_m = _dic(m.get("ejes"))
+    ejes = {eje: {str(k): _entero(v) for k, v in _dic(ejes_m.get(eje)).items() if _entero(v) > 0} for eje in ("estadio", "region", "tipoCelular", "nivel")}
+    mision_m = _dic(m.get("mision"))
+    mision = {eje: [x for x in _lista(mision_m.get(eje)) if isinstance(x, str)] for eje in ("estadios", "region", "tipoCelular")}
+    vista = {
+        "celdas": celdas,
+        "ejes": ejes,
+        "huecos": [h for h in _lista(m.get("huecos")) if isinstance(h, dict)],
+        "sinEjes": _entero(m.get("sinEjes")),
+        "hipotesisSinEjes": _entero(m.get("hipotesisSinEjes")),
+        "heredados": _entero(m.get("heredados")),
+        "mision": mision,
+    }
+    aprobada = m.get("misionAprobada")
+    if not isinstance(aprobada, bool):
+        aprobada = bool(mision["estadios"] or mision["region"] or mision["tipoCelular"])
+    return _resumen(vista, len(ids_hechos), len(ids_hip), aprobada)
 
 
 def _n(n: int, singular: str, plural: str) -> str:
@@ -992,12 +1398,19 @@ def _resumen(m: dict[str, Any], n_hechos: int, n_hip: int, hay_mision: bool) -> 
             base += f" Sin situar: {_n(m['sinEjes'], 'hecho', 'hechos')} y {_n(m['hipotesisSinEjes'], 'hipótesis', 'hipótesis')}."
         if m["heredados"]:
             base += f" {_n(m['heredados'], 'de los hechos situados es heredado', 'de los hechos situados son heredados')} de otra investigación."
+    fija_algo = bool(m["mision"]["estadios"] or m["mision"]["region"] or m["mision"]["tipoCelular"])
     if not hay_mision:
-        base += " La investigación no tiene misión aprobada, así que no hay huecos que comprobar."
-    elif not (m["mision"]["estadios"] or m["mision"]["region"] or m["mision"]["tipoCelular"]):
+        if m["huecos"] and fija_algo:
+            # Hay una misión (propuesta por ROSA2018, o guardada sin aprobar) con ejes: sus
+            # huecos se calculan igual, pero son orientativos hasta que la persona la apruebe.
+            n_h = len(m["huecos"])
+            base += f" La investigación no tiene misión aprobada: hay una misión propuesta y sin aprobar, y frente a ella {'queda' if n_h == 1 else 'quedan'} {_n(n_h, 'hueco orientativo', 'huecos orientativos')} que solo {'contará' if n_h == 1 else 'contarán'} cuando la persona la apruebe."
+        else:
+            base += " La investigación no tiene misión aprobada, así que no hay huecos que comprobar."
+    elif not fija_algo:
         base += " La misión no fija estadio, región ni tipo celular, así que no hay huecos que comprobar."
     elif m["huecos"]:
-        base += f" Huecos de la misión sin cubrir: {len(m['huecos'])} ({'; '.join(_describir_combo((h['estadio'], h['region'], h['tipoCelular'])) for h in m['huecos'][:4])}{'...' if len(m['huecos']) > 4 else ''})."
+        base += f" Huecos de la misión sin cubrir: {len(m['huecos'])} ({'; '.join(_describir_combo((h.get('estadio'), h.get('region'), h.get('tipoCelular'))) for h in m['huecos'][:4])}{'...' if len(m['huecos']) > 4 else ''})."
     else:
         base += " Todas las combinaciones que nombra la misión tienen al menos un hecho o una hipótesis."
     return base
@@ -1022,7 +1435,7 @@ def texto_mapa(e: Any, investigacion_id: str, maximo: int = 12, precalculado: di
     sin_ejes = _entero(m.get("sinEjes"))
     hip_sin_ejes = _entero(m.get("hipotesisSinEjes"))
     lineas = [
-        "Mapa del estado de la enfermedad (dónde está la evidencia reunida por estadio, la fase clínica del Alzheimer; región cerebral o compartimento; tipo celular; y nivel: molecular, celular, tisular o clínico). Se construye por regla a partir de la misión, la tarjeta de cada hipótesis, las entidades canónicas y el texto; la certeza es la mayor certeza GRADE de las hipótesis de cada celda.",
+        "Mapa del estado de la enfermedad (dónde está la evidencia reunida por estadio, la fase clínica del Alzheimer; región cerebral o compartimento; tipo celular; y nivel: molecular, celular, tisular o clínico). Se construye por regla a partir de la misión, la tarjeta de cada hipótesis, las entidades canónicas y el texto; la certeza es la mayor certeza GRADE de las hipótesis de cada celda; las cohortes de una celda son las que nombran las afirmaciones de sus hechos e hipótesis (o la fuente de su procedencia: su campo cohorte, su método canónico, su registro NCT o lo que el catálogo lee en su título y su texto), agrupadas por el catálogo de cohortes.",
         str(m.get("resumen") or "Sin resumen guardado."),
     ]
     if celdas:
@@ -1039,6 +1452,10 @@ def texto_mapa(e: Any, investigacion_id: str, maximo: int = 12, precalculado: di
             por_mision = _entero(c.get("porMision"))
             mision = f"; {_n(por_mision, 'situado', 'situados')} en algún eje solo por la misión" if por_mision else ""
             lineas.append(f"- {etiqueta('estadio', c.get('estadio'))} · {etiqueta('region', c.get('region'))} · {etiqueta('tipoCelular', c.get('tipoCelular'))}: {', '.join(partes)} ({certeza}{extra}{mision}).")
+    por_region = {str(k): _entero(v) for k, v in _dic(m.get("cohortesPorRegion")).items() if _entero(v) > 0}
+    if por_region:
+        pares = sorted(por_region.items(), key=lambda kv: (-kv[1], kv[0]))[:maximo]
+        lineas.append("Cohortes distintas por región (una cohorte nombrada por varios registros cuenta una vez): " + ", ".join(f"{etiqueta('region', k)} {v}" for k, v in pares) + ".")
     if huecos:
         lineas.append("Huecos (combinaciones que la misión nombra y ningún hecho ni hipótesis cubre por su propio contenido):")
         for h in huecos[:maximo]:

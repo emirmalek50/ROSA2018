@@ -2063,6 +2063,19 @@ class Supervisor:
         # Lo ya calculado en un cierre anterior que se cortó por presupuesto (S-14):
         # el resumen, la meta-revisión y el resumen en llano no se pagan dos veces.
         parcial = dict(it.get("_cierre") or {}) if isinstance(it.get("_cierre"), dict) else {}
+        # Certeza y dirección de cada hipótesis ANTES de rehacer las conclusiones
+        # (rosa/bucle/cierre_texto.py): el resumen y el llano se escriben antes de
+        # reconcluir y ese orden se conserva; al final del cierre se comparan con
+        # las de después y, si alguna cambió, el texto lo dice por regla. La
+        # instantánea va al cierre parcial (junto con el resumen, para que un
+        # resumen que no llega deje `_cierre` vacío como espera el vigilante) y así
+        # un cierre retomado compara contra lo de antes del primer intento, no
+        # contra lo ya rehecho.
+        from rosa.bucle import cierre_texto as CIERRE  # local: el módulo es solo del cierre
+
+        certezas_antes = parcial.get("certezasAntes")
+        if not isinstance(certezas_antes, dict):
+            certezas_antes = CIERRE.instantanea_certezas(e, inv["id"])
         hechos_nuevos = [h for h in e["hechos"] if h["investigacionId"] == inv["id"] and h["actualizadoEn"] >= it["empezadaEn"] and h["historial"] and h["historial"][0]["quien"] == config.QUIEN_ROSA]
         # "Nuevas" son las nacidas en la ventana de esta iteración (rosa/progreso.py),
         # no las que comparten número de iteración con ella (S-16).
@@ -2072,6 +2085,9 @@ class Supervisor:
         sin_comprobar = [a for a in afs if a["veredicto"] == "sin_verificar"] + [p for p in it["plan"] if p["estado"] == "fallido"]
         if parcial.get("resumen"):
             resumen = parcial["resumen"]
+            if not isinstance(parcial.get("certezasAntes"), dict):
+                # Cierre retomado de un intento que no guardó la instantánea: queda ahora.
+                self.almacen.mutar(lambda e2: _guardar_cierre_parcial(e2, it["id"], certezasAntes=certezas_antes), "cierre_parcial")
         else:
             try:
                 pred = await ctx.llamar("cerebro", self.programas.resumir, plan_ejecutado=T.plan_ejecutado(it), cambios_modelo_de_mundo="\n".join(f"- {h['enunciado']}" for h in hechos_nuevos) or "Ninguno", hipotesis_nuevas="\n".join(f"- {h['titulo']}" for h in hip_nuevas) or "Ninguna", cola=cola, sin_comprobar="\n".join(f"- {x.get('texto') or x.get('titulo')}" for x in sin_comprobar) or "Nada")
@@ -2081,7 +2097,7 @@ class Supervisor:
             except Exception:  # noqa: BLE001
                 hechas = sum(1 for p in it["pistas"] if p["estado"] == "hecha")
                 resumen = f"{len(it['plan'])} pasos, {hechas} pistas completadas, {len(hechos_nuevos)} hechos y {len(hip_nuevas)} hipótesis nuevas"
-            self.almacen.mutar(lambda e2: _guardar_cierre_parcial(e2, it["id"], resumen=resumen), "cierre_parcial")
+            self.almacen.mutar(lambda e2: _guardar_cierre_parcial(e2, it["id"], resumen=resumen, certezasAntes=certezas_antes), "cierre_parcial")
         # El panorama y las debilidades se sintetizan al cerrar cada iteración
         # con dos o más hipótesis, aunque el plan no trajera un paso de meta.
         propias = [h for h in e["hipotesis"] if h["investigacionId"] == inv["id"]]
@@ -2170,6 +2186,26 @@ class Supervisor:
             # del recálculo por regla, para que sea la última línea del registro de la
             # iteración: dice que el juez no cobró, no que nada se moviera por regla.
             _anotar_conservadas(e2, conservadas)
+            # Cambios de certeza y dirección de este cierre, por regla y sin pagar al
+            # modelo (rosa/bucle/cierre_texto.py): si una hipótesis que ya tenía
+            # conclusión subió, bajó o cambió de dirección, el resumen, el llano y el
+            # informe lo dicen al final, y el llano avisa donde afirmaba lo que ya no
+            # es: por hipótesis, así que recibe la instantánea de después con todas
+            # las de la investigación para reconocer de cuál habla cada frase. Una
+            # primera conclusión no cuenta (sin nivel anterior no hay cambio).
+            # Ningún evento nuevo: la bajada por regla ya dejó el suyo. Un fallo aquí
+            # deja el texto como estaba y no rompe el cierre.
+            informe_final = informe
+            try:
+                cambios_cierre, parrafo_cierre = CIERRE.texto_del_cierre(certezas_antes, e2, inv["id"])
+                if parrafo_cierre:
+                    it2["resumen"] = CIERRE.resumen_con_cambios(it2.get("resumen"), parrafo_cierre)
+                    llano_final = CIERRE.llano_con_cambios(it2.get("resumenLlano"), parrafo_cierre, cambios_cierre, hipotesis=CIERRE.instantanea_certezas(e2, inv["id"]))
+                    if llano_final is not None:
+                        it2["resumenLlano"] = llano_final
+                    informe_final = CIERRE.informe_con_cambios(informe, parrafo_cierre)
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
             # Instantánea de progreso: certeza de cada hipótesis, peldaños subidos o
             # bajados, hechos nuevos y fallidos de la iteración (rosa/progreso.py). Las
             # hipótesis nuevas se cuentan aquí, sobre e2, para que las nacidas del
@@ -2218,7 +2254,7 @@ class Supervisor:
                 inv2["_conflictosEmitidos"] = conflicto_txt or ""
             runs_it = [r for r in e2.get("ejecuciones", []) if r.get("investigacionId") == inv["id"] and r.get("inicio", 0) >= it["empezadaEn"]]
             A.guardar_artefacto(
-                e2, inv["id"], f"Informe de la iteración {it['numero']}", "informe", informe, resumen[:140], it["numero"], ahora,
+                e2, inv["id"], f"Informe de la iteración {it['numero']}", "informe", informe_final, resumen[:140], it["numero"], ahora,
                 procedencia={
                     "mensajes": {"plan": [{"titulo": p["titulo"], "estado": p["estado"]} for p in it2["plan"]], "pistas": [{"id": p["id"], "titulo": p["titulo"], "estado": p["estado"]} for p in it2.get("pistas", [])[:40]], "decisiones": [d["id"] for d in e2.get("decisiones", []) if d.get("investigacionId") == inv["id"] and d.get("fecha", 0) >= it["empezadaEn"]][:40]},
                     "codigo": None,

@@ -3,8 +3,8 @@
 Regresiones de S-01 (cerrojo de instancia, escritura condicional por versión,
 cadena con bifurcaciones y reanclaje, apagado con tope), S-17 primer corte
 (instantánea cacheada por versión, SSE sin versiones repetidas, GZip), S-21
-(token antes que sesión, puerta sin verificar con topes, administrador
-explícito), S-22 (actor desde la sesión), B-16 (partes tras un reducer que
+(token antes que sesión, puerta sin verificar cerrada, contraseña con topes,
+administrador explícito), S-22 (actor desde la sesión), B-16 (partes tras un reducer que
 lanza), M-29 (cuerpos acotados antes de leer) y las migraciones de novedad y
 de progreso. Cada test falla sin su arreglo.
 """
@@ -528,51 +528,100 @@ def test_el_token_de_red_va_antes_que_la_sesion_y_sin_excepciones(cliente, monke
     assert r.status_code == 200
 
 
-def test_la_puerta_sin_verificar_tiene_topes_purga_y_no_administra(tmp_path, monkeypatch):
-    from rosa.acceso import Acceso
+def test_la_puerta_sin_verificar_esta_cerrada_y_administra_rosa_admin_no_la_primera_cuenta(tmp_path, monkeypatch):
+    """Desde el 18 de septiembre de 2026 la entrada es correo y contraseña
+    (ROSA_LOGIN_EMAIL y ROSA_LOGIN_PASSWORD_HASH): hereda los topes y la purga
+    de la puerta antigua, y esta ya no crea nada. Administra ROSA_ADMIN; sin
+    ella, la cuenta configurada (la única que puede entrar), nunca una que
+    entró sin verificar ni una que confirmó un enlace antes o después."""
+    import re
+
+    from rosa.acceso import Acceso, _huella_contrasena
     from rosa.correo import Correo
 
     monkeypatch.delenv("ROSA_ADMIN", raising=False)
     monkeypatch.delattr(config, "ROSA_ADMIN", raising=False)
+    email = "persona@alzheimerproject.com"
+    clave = "contraseña de prueba"
+    monkeypatch.setattr(config, "ROSA_LOGIN_EMAIL", email)
+    monkeypatch.setattr(config, "ROSA_LOGIN_PASSWORD_HASH", _huella_contrasena(clave))
     al = Almacen(tmp_path / "rosa.db")
     correo = Correo(al)
     a = Acceso(correo)
-    email = "persona@alzheimerproject.com"
-    for _ in range(3):
-        token, _ = a.entrar_sin_verificar(email, "10.0.0.7")
-    with pytest.raises(ValueError, match="Demasiados"):
+    # Una cuenta que entró por la puerta antigua antes del cambio sigue en la base
+    # (verificada NULL): es la más vieja y aun así nunca administra.
+    antigua = "antigua@alzheimerproject.com"
+    with a.db:
+        a.db.execute("INSERT INTO cuentas(correo, creada) VALUES (?, 1)", (antigua,))
+    # La puerta está cerrada: no crea cuenta ni sesión ni consume intentos.
+    with pytest.raises(ValueError, match="ya no existe"):
         a.entrar_sin_verificar(email, "10.0.0.7")
+    assert a.db.execute("SELECT COUNT(*) FROM sesiones").fetchone()[0] == 0
+    assert a.db.execute("SELECT COUNT(*) FROM limites_acceso").fetchone()[0] == 0
+    # La contraseña tiene los mismos topes que el enlace: tres fallos por correo en
+    # 15 minutos (un rollback los borraba) y el cuarto no entra ni con la buena.
+    # Acertar no gasta intentos: los borra, para que dos erratas y dos entradas
+    # en un cuarto de hora no bloqueen a la persona legítima.
+    for _ in range(3):
+        with pytest.raises(ValueError, match="Correo o contraseña incorrectos"):
+            a.entrar_con_contrasena(email, "mala", "10.0.0.7")
+    with pytest.raises(ValueError, match="Demasiados"):
+        a.entrar_con_contrasena(email, clave, "10.0.0.8")
+    assert a.db.execute("SELECT COUNT(*) FROM limites_acceso").fetchone()[0] == 3
+    with a.db:
+        a.db.execute("DELETE FROM limites_acceso WHERE t<?", (time.time() + 1,))
+    for _ in range(2):
+        with pytest.raises(ValueError, match="Correo o contraseña incorrectos"):
+            a.entrar_con_contrasena(email, "mala", "10.0.0.7")
+    token, _ = a.entrar_con_contrasena(email, clave, "10.0.0.7")
+    assert a.db.execute("SELECT COUNT(*) FROM limites_acceso").fetchone()[0] == 0
     assert a.usuario(token) == email
-    assert a.es_admin(email) is False  # entró sin verificar: nunca administra
-    assert a.db.execute("SELECT verificada FROM cuentas WHERE correo=?", (email,)).fetchone()[0] is None
+    assert a.db.execute("SELECT verificada FROM cuentas WHERE correo=?", (email,)).fetchone()[0] is not None
     # Las sesiones caducadas se purgan también por esta puerta.
     with a.db:
         a.db.execute("UPDATE sesiones SET vence=1")
-    a.entrar_sin_verificar("otra@alzheimerproject.com", "10.0.0.8")
+        a.db.execute("DELETE FROM limites_acceso")
+    a.entrar_con_contrasena(email, clave, "10.0.0.8")
     assert a.db.execute("SELECT COUNT(*) FROM sesiones").fetchone()[0] == 1
-    # ROSA_ADMIN manda cuando está.
+    # ROSA_ADMIN manda cuando está: la cuenta configurada no administra aunque sea la primera verificada.
     monkeypatch.setenv("ROSA_ADMIN", "Jefa@AlzheimerProject.com")
-    assert a.es_admin("jefa@alzheimerproject.com") and not a.es_admin(email)
+    assert a.es_admin("jefa@alzheimerproject.com") and not a.es_admin(email) and not a.es_admin(antigua)
     monkeypatch.delenv("ROSA_ADMIN")
-    # Sin ROSA_ADMIN: la primera confirmada por enlace, aunque otra entrara antes sin verificar.
+    # Sin ROSA_ADMIN: la cuenta configurada; nunca la antigua sin verificar aunque
+    # sea más vieja, ni quien confirmó un enlace antes del cambio (verificada más
+    # antigua y ya sin forma de entrar), ni quien confirme uno después.
+    with a.db:
+        a.db.execute("INSERT INTO cuentas(correo, creada, verificada) VALUES (?, 2, 2)", ("colega@alzheimerproject.com",))
+    assert a.es_admin(email) and not a.es_admin(antigua) and not a.es_admin("colega@alzheimerproject.com")
     correo.configurar({"remitente": "rosa@alzheimerproject.com", "clave": "clave-de-prueba", "url": "http://localhost:5174"})
     a.solicitar("jefa@alzheimerproject.com", "local")
-    import re
-
     carga = json.loads(correo.db.execute("SELECT carga FROM cola WHERE tipo='acceso' ORDER BY rowid DESC LIMIT 1").fetchone()[0])
     enlace = re.search(r"#acceso=([^\s]+)", carga["text"]).group(1)
     a.confirmar(enlace)
-    assert a.es_admin("jefa@alzheimerproject.com") and not a.es_admin(email)
+    assert a.es_admin(email) and not a.es_admin("jefa@alzheimerproject.com")
     correo.cerrar()
     al.cerrar()
 
 
-def test_la_puerta_sin_verificar_solo_en_local_o_con_token(cliente, monkeypatch):
+def test_la_puerta_sin_verificar_contesta_410_con_la_explicacion_con_sesion_y_sin_ella(cliente, monkeypatch):
+    from rosa.acceso import MENSAJE_PUERTA_CERRADA
+
     c, al, app = cliente
-    monkeypatch.setattr(config, "HOST", "0.0.0.0")
-    monkeypatch.setattr(config, "ROSA_TOKEN", "")
-    r = c.post("/api/acceso/entrar_sin_verificar", json={"correo": "x@alzheimerproject.com"}, headers={"X-Rosa": "1"})
-    assert r.status_code == 403 and "propio equipo" in r.json()["detail"]
+    sin_sesion = TestClient(app, base_url="http://127.0.0.1:8765")
+    # Ni en local ni en la red, ni con sesión ni sin ella: ya no hay puerta, y el
+    # mensaje dice que no existe y cómo entrar. Nunca deja cookie.
+    for host in ("127.0.0.1", "0.0.0.0"):
+        monkeypatch.setattr(config, "HOST", host)
+        for quien in (c, sin_sesion):
+            r = quien.post("/api/acceso/entrar_sin_verificar", json={"correo": "x@alzheimerproject.com"}, headers={"X-Rosa": "1"})
+            assert r.status_code == 410 and r.json()["detail"] == MENSAJE_PUERTA_CERRADA and "set-cookie" not in r.headers
+    assert "ya no existe" in MENSAJE_PUERTA_CERRADA and "contraseña" in MENSAJE_PUERTA_CERRADA
+    # Un cuerpo roto recibe la misma respuesta: la puerta no lee nada.
+    r = sin_sesion.post("/api/acceso/entrar_sin_verificar", content=b"{", headers={"X-Rosa": "1", "Content-Type": "application/json"})
+    assert r.status_code == 410
+    # Sin sesión, el resto de la API pide iniciar sesión con la contraseña, no con un "correo verificado".
+    r = sin_sesion.get("/api/estado")
+    assert r.status_code == 401 and "contraseña" in r.json()["detail"]
 
 
 # ---------------------------------------------------------------------------

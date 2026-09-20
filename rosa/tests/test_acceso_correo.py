@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from rosa import config
-from rosa.acceso import Acceso, huella
+from rosa.acceso import Acceso, _huella_contrasena, huella
 from rosa.correo import Correo
 from rosa.estado.almacen import Almacen
 from rosa.servidor import crear_app
@@ -19,6 +19,7 @@ from rosa.servidor import crear_app
 EMAIL = 'persona@alzheimerproject.com'
 OTRO = 'equipo@alzheimerproject.com'
 CONFIG = {'remitente': 'rosa@alzheimerproject.com', 'clave': 'clave-de-prueba', 'url': 'http://localhost:5174'}
+CLAVE = 'contraseña de prueba de ROSA2018'
 
 
 @pytest.fixture
@@ -227,6 +228,12 @@ async def test_no_reintenta_fuera_de_ventana_y_no_expone_errores(servicio):
 def web(tmp_path, monkeypatch):
     monkeypatch.setattr(config, 'RAIZ', tmp_path)
     monkeypatch.setattr(config, 'HOST', '127.0.0.1')
+    monkeypatch.setattr(config, 'ROSA_TOKEN', '')
+    # La cuenta y la huella que el servidor leería de .env, con la misma función scrypt que usa al comparar.
+    monkeypatch.setattr(config, 'ROSA_LOGIN_EMAIL', EMAIL)
+    monkeypatch.setattr(config, 'ROSA_LOGIN_PASSWORD_HASH', _huella_contrasena(CLAVE))
+    monkeypatch.delenv('ROSA_ADMIN', raising=False)
+    monkeypatch.delattr(config, 'ROSA_ADMIN', raising=False)
     async def sin_red(self):
         # Las pruebas de transporte usan MockTransport por separado.
         import asyncio
@@ -239,37 +246,54 @@ def web(tmp_path, monkeypatch):
     al.cerrar()
 
 
-def entrar(cliente, app, email):
-    assert cliente.post('/api/acceso/solicitar', json={'correo': email}, headers={'X-Rosa': '1'}).status_code == 200
-    token = cliente.portal.call(lambda: extraer_enlace(app.state.correo))
-    return cliente.post('/api/acceso/confirmar', json={'enlace': token}, headers={'X-Rosa': '1'})
+def entrar(cliente, email, contrasena=CLAVE):
+    """Entra por la única puerta interactiva: correo corporativo y contraseña."""
+    return cliente.post('/api/acceso/entrar', json={'correo': email, 'contrasena': contrasena}, headers={'X-Rosa': '1'})
 
 
-def test_web_de_punta_a_punta_sin_proveedor_real(web):
+def test_web_de_punta_a_punta_sin_proveedor_real(web, monkeypatch):
     cliente, app, al = web
     assert cliente.get('/api/estado').status_code == 401
     assert cliente.get('/api/correo').status_code == 401
-    assert cliente.post('/api/acceso/solicitar', json={'correo': EMAIL}).status_code == 403
-    assert cliente.post('/api/acceso/solicitar', json={'correo': EMAIL}, headers={'X-Rosa': '1'}).status_code == 400
+    # El enlace por correo ya no es una vía de entrada desde la web (18 de septiembre de 2026)
+    # y el servidor retiró sus rutas el 19: sin sesión 401 como toda la API, con sesión no hay
+    # ruta (404, o 405 si la interfaz compilada montada en la raíz contesta al POST).
+    # La puerta es /api/acceso/entrar; la clase Acceso conserva solicitar y confirmar.
+    assert cliente.post('/api/acceso/solicitar', json={'correo': EMAIL}, headers={'X-Rosa': '1'}).status_code == 401
+    assert cliente.post('/api/acceso/confirmar', json={'enlace': 'x' * 40}, headers={'X-Rosa': '1'}).status_code == 401
+    assert cliente.post('/api/acceso/entrar', json={'correo': EMAIL, 'contrasena': CLAVE}).status_code == 403  # sin X-Rosa
     assert cliente.get('/api/acceso/estado').json()['instalacionLocal']
     r = cliente.post('/api/acceso/configuracion', json=CONFIG, headers={'X-Rosa': '1'})
     assert r.status_code == 200
-    r = entrar(cliente, app, EMAIL)
-    assert r.status_code == 200
+    r = entrar(cliente, EMAIL, 'otra contraseña')
+    assert r.status_code == 401 and r.json()['detail'] == 'Correo o contraseña incorrectos' and 'set-cookie' not in r.headers
+    assert cliente.get('/api/estado').status_code == 401
+    r = entrar(cliente, EMAIL)
+    assert r.status_code == 200 and r.json()['correo'] == EMAIL
     assert 'HttpOnly' in r.headers['set-cookie'] and 'SameSite=strict' in r.headers['set-cookie']
     assert cliente.get('/api/estado').status_code == 200
+    assert cliente.post('/api/acceso/solicitar', json={'correo': EMAIL}, headers={'X-Rosa': '1'}).status_code in (404, 405)
+    assert cliente.post('/api/acceso/confirmar', json={'enlace': 'x' * 40}, headers={'X-Rosa': '1'}).status_code in (404, 405)
     assert not cliente.get('/api/acceso/estado').json()['instalacionLocal']
+    assert cliente.get('/api/acceso/estado').json()['accesoConfigurado']
     assert cliente.post('/api/acceso/configuracion', json=CONFIG, headers={'X-Rosa': '1'}).status_code == 403
     r = cliente.post('/api/acciones/crearInvestigacion', json={'datos': {'titulo': 'T', 'objetivo': 'O', 'condicionParada': '1 iteración', '_correoResponsable': OTRO}}, headers={'X-Rosa': '1'})
     assert r.status_code == 200
     assert al.estado['investigaciones'][0]['_correoResponsable'] == EMAIL
     assert cliente.post('/api/correo/prueba', json={}, headers={'X-Rosa': '1'}).status_code == 200
-    assert cliente.post('/api/acceso/salir', json={}, headers={'X-Rosa': '1'}).status_code == 200
-    assert cliente.get('/api/estado').status_code == 401
-    entrar(cliente, app, OTRO)
+    # Sin ROSA_ADMIN administra la única cuenta verificada, la configurada; con ROSA_ADMIN
+    # apuntando a otra deja de administrar aunque sea la primera.
+    assert cliente.get('/api/acceso/estado').json()['administrador']
+    assert cliente.post('/api/correo/configuracion', json=CONFIG, headers={'X-Rosa': '1'}).status_code == 200
+    monkeypatch.setenv('ROSA_ADMIN', OTRO)
     assert not cliente.get('/api/acceso/estado').json()['administrador']
     assert cliente.post('/api/correo/configuracion', json=CONFIG, headers={'X-Rosa': '1'}).status_code == 403
-    assert all(x['destinatario'] == OTRO for x in cliente.get('/api/correo').json()['historial'])
+    assert all(x['destinatario'] == EMAIL for x in cliente.get('/api/correo').json()['historial'])
+    assert cliente.post('/api/acceso/salir', json={}, headers={'X-Rosa': '1'}).status_code == 200
+    assert cliente.get('/api/estado').status_code == 401
+    # Otra cuenta del dominio no entra con la misma contraseña: solo la configurada.
+    assert entrar(cliente, OTRO).status_code == 401
+    assert cliente.get('/api/estado').status_code == 401
 
 
 def test_instalacion_no_acepta_proxy_ni_origen_ajeno(web):

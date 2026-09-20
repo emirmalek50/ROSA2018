@@ -56,7 +56,13 @@ Reglas de reconocimiento, todas deterministas y con motivo:
   buscar muestras y plataformas se saltan los tramos que ocupa un nombre de
   cohorte ("Neuroimaging Initiative" no es imagen).
 - Una fuente sin cohorte identificada es "no pude comprobar", nunca "misma"
-  ni "distinta": `misma_cohorte` devuelve None y los grupos la ignoran.
+  ni "distinta": `misma_cohorte` devuelve None y los grupos la ignoran. Un
+  nombre que solo dice "varias" tampoco identifica ninguna: "multiple
+  population-based cohorts" o "múltiples ensayos de terapias dirigidas al
+  amiloide" son el extractor diciendo que hubo varias (`_nombre_identificado`,
+  19 de septiembre de 2026; antes contaban como una cohorte más en el techo
+  GRADE y en el atlas). Un nombre libre cuyas palabras son todas genéricas
+  ("The study") sigue contando como suyo: test_certeza_adversarial lo exige.
 - Cuando un nombre resuelve al catálogo y el otro no, son la misma cohorte si
   el nombre libre contiene, palabra a palabra y sin contar genéricos, uno de
   los nombres de esa entrada: "Rotterdam" (lo que escribía el killer antiguo)
@@ -350,7 +356,28 @@ _NCT_CONOCIDOS: dict[str, dict[str, Any]] = {n: e for e in COHORTES for n in e.g
 # "ensayo" y "trial" entraron el 17 de septiembre de 2026 (M-03): "Ensayo Omega" y
 # "Ensayo Omega 2" compartían la palabra "ensayo" y se fundían aunque difieren en el
 # sufijo numérico; la palabra que distingue es el nombre del ensayo, no "ensayo".
-_GENERICOS_COHORTE = {"cohorte", "cohort", "study", "estudio", "longitudinal", "portadores", "familias", "alzheimer", "disease", "enfermedad", "mutaciones", "carriers", "participantes", "pacientes", "et", "al", "the", "of", "de", "del", "la", "los", "las", "con", "and", "familial", "autosomal", "dominant", "autosómico", "dominante", "ensayo", "ensayos", "trial", "trials"}
+# "cohorts", "cohortes", "population-based" y los cuantificadores ("multiple",
+# "several", "varios") entraron el 19 de septiembre de 2026: "multiple
+# population-based cohorts" no nombra ninguna cohorte.
+_GENERICOS_COHORTE = {"cohorte", "cohortes", "cohort", "cohorts", "study", "estudio", "longitudinal", "portadores", "familias", "alzheimer", "disease", "enfermedad", "mutaciones", "carriers", "participantes", "pacientes", "et", "al", "the", "of", "de", "del", "la", "los", "las", "con", "and", "familial", "autosomal", "dominant", "autosómico", "dominante", "ensayo", "ensayos", "trial", "trials", "population-based", "population", "based", "multiple", "múltiples", "multiples", "varios", "varias", "several", "various"}
+
+# Un nombre que empieza por uno de estos solo dice "varias": no identifica cohorte.
+_CUANTIFICADORES_VARIAS = {"multiple", "múltiples", "multiples", "varios", "varias", "several", "various", "numerous", "diversos", "diversas", "distintos", "distintas", "many", "muchos", "muchas", "other", "otros", "otras"}
+
+
+def _nombre_identificado(nombre: str) -> str:
+    """El nombre tal cual si identifica una cohorte, o "" si solo dice
+    "varias": empieza por un cuantificador plural ("multiple population-based
+    cohorts", "múltiples ensayos de terapias dirigidas al amiloide") y no
+    resuelve al catálogo ni a un NCT. "Multiple sclerosis" es una enfermedad,
+    no "varias", y no se descarta."""
+    t = (nombre or "").strip()
+    if not t or canonizar_cohorte(t):
+        return t
+    primera = re.split(r"[\s,;:(]+", t.lower(), 1)[0]
+    if primera in _CUANTIFICADORES_VARIAS and not re.match(r"(?i)(?:multiple|múltiple)\s+(?:sclerosis|esclerosis)", t):
+        return ""
+    return t
 
 
 def por_id(id_: str) -> dict[str, Any] | None:
@@ -640,11 +667,11 @@ def _nombre(x: Any) -> str:
     registros antiguos sin las claves: devuelve ""."""
     if isinstance(x, dict):
         if "cohorte" in x or "nct" in x:
-            return _nombre_de(x.get("cohorte")) or _nombre_de(x.get("nct"))
+            return _nombre_identificado(_nombre_de(x.get("cohorte"))) or _nombre_de(x.get("nct"))
         if x.get("etiqueta") and isinstance(x.get("id"), str) and ":" in x["id"]:
             return _nombre_de(x)
         return ""
-    return _nombre_de(x)
+    return _nombre_identificado(_nombre_de(x))
 
 
 def misma_cohorte_motivo(a: Any, b: Any) -> tuple[bool | None, str]:
@@ -892,7 +919,7 @@ def _texto_afirmaciones(afirmaciones: Any) -> tuple[list[str], str]:
     for a in _lista(afirmaciones):
         if not isinstance(a, dict):
             continue
-        nombre = _nombre_de(a.get("cohorte"))
+        nombre = _nombre_identificado(_nombre_de(a.get("cohorte")))
         if nombre:
             campos.append(nombre)
         trozos.extend(_texto(a.get(k)) for k in ("texto", "fragmento"))
@@ -908,7 +935,7 @@ def metodo_de_fuente(fuente: dict[str, Any] | None, afirmaciones: list[dict[str,
     textos; `plataforma` es la primera y `plataformas` todas (los estudios
     cabeza a cabeza usan varias). Registros antiguos sin claves: todo None."""
     f = fuente if isinstance(fuente, dict) else {}
-    campo = _nombre_de(f.get("cohorte"))
+    campo = _nombre_identificado(_nombre_de(f.get("cohorte")))
     nct = _nombre_de(f.get("nct"))
     titulo = _texto(f.get("titulo"))
     fragmento = " ".join(x for x in (_texto(f.get("fragmento")), *(_texto(fr.get("texto")) for fr in _lista(f.get("fragmentos")) if isinstance(fr, dict))) if x)

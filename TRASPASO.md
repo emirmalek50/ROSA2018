@@ -633,6 +633,10 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   (rosa.db.lock con el PID) y escrituras condicionadas por versión
   (rosa/estado/almacen.py). Poner `ROSA_ADMIN=<correo>` en `.env`: con la regla
   nueva la primera cuenta creada ya no es administradora por orden de llegada.
+  Regla del 19 de septiembre (rosa/acceso.py, rosa/servidor.py): sin `ROSA_ADMIN`
+  administra la cuenta de `ROSA_LOGIN_EMAIL`, la única que puede entrar; las
+  cuentas heredadas de la puerta antigua (confirmadas por enlace antes del 18)
+  no administran, y `rosa.main` lo avisa por consola al arrancar.
 - **Evento "hecho nuevo" duplicado: no era doble emisión**, eran hechos
   duplicados por paráfrasis (M-08 de la revisión): pendiente, tanda 2.
 - **Temas focales con 0 leídos: causa distinta a la anotada.** No es el reparto
@@ -757,7 +761,18 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   suite pasando y el escaneo de secretos limpio.
 
 - **El resumen en llano de la iteración se escribe antes de reconcluir (18 sep,
-  visto por Emir en la corrida 13):** en `_cerrar_iteracion` el orden es resumen,
+  visto por Emir en la corrida 13): resuelto el 19 de septiembre.** El módulo
+  nuevo rosa/bucle/cierre_texto.py compara la certeza y la dirección de cada
+  hipótesis viva antes y después del cierre y, si algo cambió, redacta por
+  regla un párrafo ("Subió: X, de muy baja a baja") que pega al resumen, al
+  llano (lista `cambios`) y al informe, y antepone `AVISO_DESFASE` cuando el
+  llano afirma un nivel que ya no es el de la hipótesis que nombra (aviso por
+  hipótesis, no por nivel global). Lo llama `_cerrar_iteracion`
+  (rosa/bucle/corrida.py, `CIERRE.texto_del_cierre`, ~2200) sin pagar otra
+  llamada al modelo. Tests: test_cierre_llano_reconclusion.py,
+  test_cierre_llano_reconclusion_por_hipotesis.py y
+  test_llano_adversario_19sep.py. El diagnóstico original era: en
+  `_cerrar_iteracion` el orden es resumen,
   meta-revisión, `_explicar_en_llano`, acumular evidencia y después reconcluir
   (rosa/bucle/corrida.py, ~2099 frente a ~2125). Si una hipótesis sube de nivel
   en ese cierre, el texto dice "todas mantienen una certeza muy baja" mientras
@@ -788,3 +803,62 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   y nada de lo pagado se pierde (afirmaciones bloqueadas reverificadas,
   novedades de la vigilancia entrando al bucle). Los pendientes se marcan contra
   esa lista. Ver INVESTIGACION-FEATURES-2026-09-18.md.
+- **Errores cerrados el 19 de septiembre (prueba de punta a punta de los
+  bloques del mapa, del cierre en llano y del acceso):**
+  - Aplicado el parche del fallo 5 a rosa/metodos.py: `_nombre_identificado`
+    descarta un nombre de cohorte que solo dice "varias" ("multiple
+    population-based cohorts", "múltiples ensayos de terapias dirigidas al
+    amiloide") si no resuelve al catálogo ni a un NCT; "Multiple sclerosis" se
+    conserva y "The study" sigue contando (lo exige
+    test_certeza_adversarial.py). Entran en `_GENERICOS_COHORTE` "cohorts",
+    "cohortes", "population-based" y los cuantificadores. El techo GRADE, el
+    ranking, el Killer y el atlas vuelven a contar con la misma regla;
+    rosa/tests/test_mapa_adversario_19sep.py queda en verde.
+  - Los tres fallos de test_cierre_llano_reconclusion_por_hipotesis.py y el
+    error de importación de test_llano_adversario_19sep.py que anotaron los
+    otros bloques ya estaban cerrados por el constructor del llano al correr
+    esta prueba; test_acceso_adversario_19sep.py también pasa.
+  - Suite completa de Python sin deseleccionar nada: `1645 passed, 3 skipped`
+    en 34,78 s, código de salida 0 (registro en el scratchpad de la sesión,
+    suite_completa_19sep.log). Los tres saltados, con su motivo literal:
+    test_datasets_programa.py:437 "anndata no está instalado en este
+    entorno", test_rosa2018.py:210 "hay un runtime de contenedores: esta
+    prueba cubre el aislamiento blando" y test_tanda1_corrida.py:701 "sin
+    copia del estado real"; ninguno es un fallo.
+  - Guiones largos (U+2014): ninguno en los ficheros tocados; las tres
+    aserciones de ausencia de los tests del mapa pasaron a `"\u2014"` para que
+    el fichero tampoco lleve el carácter.
+  - Escaneo de secretos limpio: los prefijos solo aparecen en la documentación
+    que describe el propio escaneo (CLAUDE.md, AGENTS.md, TRASPASO.md, memoria/).
+  - `python3 scripts/acentuar_py.py --seco`: 18 ficheros cambiarían, casi todo
+    falsos positivos (identificadores dentro de cadenas de código, `reintento`
+    sustantivo en los tests del vigilante, palabras ya acentuadas). Un acierto
+    real fuera de estos bloques: rosa/causal.py dice "planteo" por "planteó".
+    No se corrió sin `--seco`.
+  - Queda para quien integra: reiniciar el servidor (pid 11370, corre HEAD desde
+    hace más de un día; hasta entonces no están vivos el parche de métodos, el
+    cierre en llano, el 410 de la puerta sin verificar, el tope de intentos ni
+    la regla del administrador); commit y push del bloque, añadiendo los
+    ficheros sin seguimiento (rosa/bucle/cierre_texto.py,
+    rosa/tests/test_cierre_llano_reconclusion.py,
+    test_cierre_llano_reconclusion_por_hipotesis.py,
+    test_llano_adversario_19sep.py, test_mapa_adversario_19sep.py,
+    test_mapa_enfermedad_cohortes.py, test_mapa_enfermedad_cohortes_reparacion.py
+    y test_acceso_adversario_19sep.py) junto a los modificados, rosa/metodos.py
+    incluido.
+  - Queda para el bloque del frontend (ficheros ajenos): `misionAprobada?:
+    boolean` en frontend/src/datos/tipos.ts y su uso en Atlas.tsx para enseñar
+    la misión como propuesta; usar `cohortesPorRegion` del backend en
+    frontend/src/lib/atlas.ts; borrar el componente Instalacion de Acceso.tsx
+    y, si se quiere, leer `accesoConfigurado` de /api/acceso/estado para
+    deshabilitar el botón de entrar.
+  - Decisiones abiertas que no toma esta fase: la regla "todos los tokens
+    genéricos no identifican cohorte" (rompe
+    test_certeza_adversarial.py::test_cohortes_en_ingles_y_en_castellano_son_la_misma);
+    rellenar `fuente['metodo']` una sola vez en las 295 fuentes antiguas al
+    cargar el estado (rosa/estado/almacen.py); que `metodos._nombre` lea
+    también `metodo.cohorte` para que el techo y el atlas cuenten igual; si
+    `_cuestiones_por_hueco` (rosa/bucle/corrida.py) debe abrir cuestiones solo
+    con la misión aprobada; subir `MAX_MOTIVO` a 220 en cierre_texto.py (obliga
+    a cambiar el aserto del adversario). scripts/probar_acceso_visual.py sigue
+    describiendo la pantalla antigua (Playwright no está en .venv).
