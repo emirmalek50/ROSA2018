@@ -47,6 +47,7 @@
 // etiquetas sigan siendo legibles.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Atlas3D } from '../componentes/Atlas3D';
 import type { CertezaEvidencia, EstadoRosa, HechoMundo, Investigacion } from '../datos/tipos';
 import { AvisoMuestra, Chip, Vacio } from '../componentes/piezas';
 import { construirAtlas, ETIQUETAS_MAPA, hechosDe, hipotesisDe, intensidad, NO_LOCALIZADAS, type Atlas as DatosAtlas, type RegionAtlas } from '../lib/atlas';
@@ -220,6 +221,7 @@ function Leyenda({ atlas, conFiltros }: { atlas: DatosAtlas; conFiltros: boolean
 }
 
 export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
+  const [vista3d, setVista3d] = useState(false);
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [foco, setFoco] = useState<string | null>(null);
   const [estadio, setEstadio] = useState<string | null>(null);
@@ -357,6 +359,10 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
       </div>
 
       <div className="atlas-controles">
+        <div className="atlas-grupo" role="group" aria-label="Vista del atlas">
+          <button type="button" className="atlas-chip" aria-pressed={!vista3d} onClick={() => setVista3d(false)}>Vista 2D</button>
+          <button type="button" className="atlas-chip" aria-pressed={vista3d} onClick={() => setVista3d(true)}>Vista 3D</button>
+        </div>
         <div className="atlas-grupo" role="group" aria-label="Fase de la enfermedad">
           <span className="atlas-grupo-titulo">Fase</span>
           <button type="button" className="atlas-chip" aria-pressed={estadio === null} onClick={() => setEstadio(null)} title="Toda la evidencia, en cualquier fase de la enfermedad">
@@ -385,7 +391,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
 
       <div className="atlas-marco">
         <div>
-          <div className={`atlas-lienzo${reducido ? ' atlas-sin-movimiento' : ''}`}>
+          {vista3d ? <Atlas3D key={inv.id} atlas={atlas} seleccion={seleccion} seleccionar={seleccionar} /> : <div className={`atlas-lienzo${reducido ? ' atlas-sin-movimiento' : ''}`}>
             <svg className="atlas-figura" viewBox={`0 0 ${VISTA.ancho} ${VISTA.alto}`} role="group" aria-label={`Atlas de ${inv.titulo}: corte sagital del cerebro con ${plural(conEvidencia, 'región', 'regiones')} con evidencia de ${DIBUJADAS.length}`}>
               <defs>
                 <clipPath id="atlas-recorte">
@@ -518,7 +524,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
               </g>
               {flotante}
             </svg>
-          </div>
+          </div>}
           <p className="atlas-honesta">
             <strong>{fraseHonesta(atlas)}</strong>
             {conFiltros ? ' (con los filtros puestos).' : '.'}
