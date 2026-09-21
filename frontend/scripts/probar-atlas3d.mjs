@@ -48,6 +48,11 @@ try {
   await page.getByRole('button', { name: 'Restablecer vista' }).click();
   await page.waitForTimeout(80);
   assert.equal(await imagen(), inicial, 'Restablecer debe recuperar exactamente la cámara');
+  await canvas.screenshot({ path: '/tmp/atlas-cerebro-completo.png' });
+  await page.getByRole('button', { name: 'Corte y evidencia', exact: true }).click();
+  await page.waitForTimeout(150);
+  assert.notEqual(await imagen(), inicial, 'El corte debe mostrar una representación distinta');
+  await page.getByRole('button', { name: 'Cerebro completo', exact: true }).click();
   const selector = page.getByLabel('Seleccionar región del atlas 3D');
   await selector.selectOption('hipocampo');
   await page.locator('.atlas-panel h3').filter({ hasText: 'hipocampo' }).waitFor();
@@ -92,6 +97,9 @@ try {
     assert.ok(await canvas.evaluate((c) => c.getBoundingClientRect().right <= innerWidth + 1), 'El 3D no debe desbordar el móvil');
   }
   await page.screenshot({ path: '/tmp/atlas3d-movil.png', fullPage: true });
+  await page.getByRole('button', { name: 'Cerebro completo', exact: true }).click();
+  await page.waitForTimeout(150);
+  await canvas.screenshot({ path: '/tmp/atlas-cerebro-movil.png' });
   await page.evaluate(() => window.cambiarInvestigacion());
   await page.waitForTimeout(200);
   assert.equal(await selector.inputValue(), '');

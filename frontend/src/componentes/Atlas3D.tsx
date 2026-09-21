@@ -1,10 +1,11 @@
-// Relieve del corte sagital existente, no una reconstrucción anatómica.
+// Superficie cerebral ilustrativa y relieve del corte sagital existente.
 // Comparte la cámara orbital del árbol. La evidencia conserva sus claves y
 // conteos; la profundidad es exclusivamente ilustrativa.
 import { useEffect, useRef, useState } from 'react';
 import { acotarCamara, proyectar, SENSIBILIDAD_GIRO, type Camara } from '../lib/arbol3d';
 import { CONTORNO_CEREBRO, NOMBRE_CORTO, RECORTADAS, REGIONES_DIBUJO, TRAZOS_FINOS, VISTA } from '../lib/atlas_dibujo';
 import { intensidad, NO_LOCALIZADAS, type Atlas, type RegionAtlas } from '../lib/atlas';
+import { pintarSuperficie, superficieCerebral } from '../lib/atlas_superficie';
 
 type Punto = { x: number; y: number };
 type Trazo = { puntos: Punto[]; cerrado: boolean };
@@ -53,6 +54,9 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
   const [foco, setFoco] = useState<string | null>(null);
   const focoRef = useRef<string | null>(null);
   const [fallo, setFallo] = useState(false);
+  const [completo, setCompleto] = useState(!seleccion);
+  const completoRef = useRef(completo);
+  completoRef.current = completo;
 
   useEffect(() => {
     const lienzo = canvas.current;
@@ -64,6 +68,7 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
       return;
     }
     const contexto = ctx;
+    const superficie = superficieCerebral();
     const contorno = muestrear(CONTORNO_CEREBRO);
     const formas = regiones.map((r) => ({ ...r, trazos: muestrear(r.d) }));
     const finos = TRAZOS_FINOS.map((r) => ({ ...r, trazos: muestrear(r.d) }));
@@ -92,6 +97,11 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
       oy = (rect.height - VISTA.alto * escala) / 2;
       contexto.translate(ox, oy); contexto.scale(escala, escala);
       const c = camara.current;
+      if (completoRef.current) {
+        zonas = [];
+        pintarSuperficie(contexto, superficie, { ...c, guinada: c.guinada - 0.35, cabeceo: c.cabeceo + 0.22 });
+        return;
+      }
       const z = Math.cos(c.guinada) * Math.cos(c.cabeceo) >= 0 ? -GROSOR : GROSOR;
       // Paredes del relieve: profundidad fija, independiente de la evidencia.
       const paredes = contorno.flatMap((t) => t.puntos.slice(1).map((b, i) => {
@@ -197,7 +207,7 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
     };
   }, []);
 
-  useEffect(() => { redibujar.current(); }, [atlas, seleccion]);
+  useEffect(() => { redibujar.current(); }, [atlas, seleccion, completo]);
   const cambiarFoco = (clave: string | null) => {
     if (focoRef.current !== clave) { focoRef.current = clave; setFoco(clave); redibujar.current(); }
   };
@@ -207,19 +217,23 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
   const apuntada: RegionAtlas | undefined = atlas.regiones.find((r) => r.clave === (foco ?? seleccion));
   return (
     <section className="atlas-3d" aria-label="Atlas en tres dimensiones">
+      <div className="atlas-3d-herramientas" role="group" aria-label="Representación del cerebro">
+        <button type="button" className="btn btn-s" aria-pressed={completo} onClick={() => { setCompleto(true); cambiarFoco(null); }}>Cerebro completo</button>
+        <button type="button" className="btn btn-s" aria-pressed={!completo} onClick={() => setCompleto(false)}>Corte y evidencia</button>
+      </div>
       <div className="atlas-3d-herramientas">
         <button type="button" className="btn btn-s" onClick={() => { camara.current = inicial(); redibujar.current(); }}>Restablecer vista</button>
         <button type="button" className="btn btn-s" aria-label="Acercar atlas" onClick={() => zoom(0.85)}>+</button>
         <button type="button" className="btn btn-s" aria-label="Alejar atlas" onClick={() => zoom(1.18)}>−</button>
-        <label>Región <select aria-label="Seleccionar región del atlas 3D" value={seleccion ?? ''} onChange={(e) => { if (e.target.value) seleccionar(e.target.value); }}>
+        <label>Región <select aria-label="Seleccionar región del atlas 3D" value={seleccion ?? ''} onChange={(e) => { if (e.target.value) { setCompleto(false); if (e.target.value !== seleccion) seleccionar(e.target.value); } }}>
           <option value="">Explorar regiones</option>
           {atlas.regiones.filter((r) => regiones.some((g) => g.clave === r.clave)).map((r) => <option key={r.clave} value={r.clave}>{r.etiqueta} · {r.conteo}</option>)}
         </select></label>
       </div>
-      <p className="meta">Relieve 3D esquemático del corte sagital, con grosor ilustrativo. No es una reconstrucción anatómica. Arrastra para girar, usa la rueda para acercar y pulsa una región para leer su evidencia.</p>
+      <p className="meta">{completo ? 'Dos hemisferios, cerebelo y tronco en una superficie ilustrativa. El rosa representa el tejido, no la certeza ni la cantidad de evidencia. Abre «Corte y evidencia» para explorar las regiones internas.' : 'Corte sagital esquemático. Los colores de evidencia conservan la leyenda del atlas. Pulsa una región para abrir su ficha.'} No es una reconstrucción anatómica de una resonancia. Arrastra para girar y usa la rueda para acercar.</p>
       {fallo ? <p role="status">Este navegador no permite dibujar el relieve. Puedes consultar toda la evidencia en «Vista 2D».</p> : <canvas
         ref={canvas} className="atlas-3d-canvas" tabIndex={0} role="img"
-        aria-label="Relieve del atlas: flechas para girar, + y - para acercar o alejar, Inicio para restablecer. Usa el selector Región para consultar evidencia con el teclado."
+        aria-label="Cerebro ilustrativo del atlas: flechas para girar, + y - para acercar o alejar, Inicio para restablecer. Usa el selector Región para consultar evidencia con el teclado."
         onKeyDown={(e) => {
           if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-', 'Home'].includes(e.key)) return;
           e.preventDefault();
