@@ -162,14 +162,25 @@ function corridaConExcluidos(inv: Investigacion, excluidos: { titulo: string; re
   };
 }
 
+/** Deja pasar el frame y el temporizador que vienen detrás: desde el 19 de
+ *  septiembre de 2026 el atlas se construye DESPUÉS del pintado
+ *  (lib/diferido.ts, useCalculoDiferido) y el primer render es su silueta
+ *  (EsqueletoAtlas), así que montar y pulsar un filtro esperan a ese frame. */
+async function esperarPintado(ms = 60) {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, ms));
+  });
+}
 const montar = async (estado: EstadoRosa, inv: Investigacion) => {
   await act(async () => root.render(<Atlas inv={inv} estado={estado} />));
+  await esperarPintado();
 };
 const region = (clave: string) => nodo.querySelector<SVGPathElement>(`[role="button"][data-clave="${clave}"]`)!;
 const pulsar = async (el: Element) => {
   await act(async () => {
     el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
+  await esperarPintado();
 };
 const panel = () => nodo.querySelector('.atlas-panel')!.textContent ?? '';
 const leyenda = () => nodo.querySelector('.atlas-leyenda')!.textContent ?? '';

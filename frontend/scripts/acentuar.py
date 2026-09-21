@@ -217,7 +217,7 @@ PALABRAS = {
     "marques": "marqués", "despues": "después", "entremes": "entremés", "reves": "revés", "ademas": "además",
     "vesícula": "vesícula", "invalido": "inválido", "invalida": "inválida", "invalidos": "inválidos", "invalidas": "inválidas",
 }
-AMBIGUAS_EXCLUIDAS = {"esta", "estas", "esto", "publica", "mientras", "memoria", "biomarcador", "cerebro", "cranial", "examen", "imagen", "volumen", "margen", "orden", "joven", "origen", "caracteres", "porcentaje", "molecular", "autopsia", "alergia", "sinergia", "estrategia", "construido", "incluido", "continuo", "prohibido", "intereses", "aleatorio", "amiloide", "cognitivo", "determinista", "estable", "propuso", "vesícula", "neuron"}
+AMBIGUAS_EXCLUIDAS = {"reintento", "esta", "estas", "esto", "publica", "mientras", "memoria", "biomarcador", "cerebro", "cranial", "examen", "imagen", "volumen", "margen", "orden", "joven", "origen", "caracteres", "porcentaje", "molecular", "autopsia", "alergia", "sinergia", "estrategia", "construido", "incluido", "continuo", "prohibido", "intereses", "aleatorio", "amiloide", "cognitivo", "determinista", "estable", "propuso", "vesícula", "neuron"}
 for k in AMBIGUAS_EXCLUIDAS:
     PALABRAS.pop(k, None)
 

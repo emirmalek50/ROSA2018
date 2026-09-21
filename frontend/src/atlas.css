@@ -63,6 +63,7 @@
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 14px;
   align-items: stretch;
+  transition: opacity 120ms ease;
 }
 @media (max-width: 900px) {
   .atlas-marco {
@@ -71,6 +72,15 @@
        desplazaba en horizontal; con 0 el que se desplaza es el lienzo. */
     grid-template-columns: minmax(0, 1fr);
   }
+}
+/* Mientras se recalcula el atlas con filtros nuevos (o con un estado nuevo
+   del canal en vivo) el mapa anterior sigue en pantalla, sin esqueleto en
+   cada clic de un chip, y el marco lleva aria-busy. Si el recálculo dura más
+   de un frame el marco se atenúa; el retardo de 250 ms hace que un recálculo
+   corto no cambie nada visible (la transición se cancela antes de empezar). */
+.atlas-marco[aria-busy='true'] {
+  opacity: 0.62;
+  transition: opacity 160ms ease 250ms;
 }
 
 .atlas-controles {
@@ -639,6 +649,142 @@
 }
 .atlas-nuevas {
   margin-top: 8px;
+}
+
+/* ------------------------------------------------------------ esqueleto */
+
+/* La silueta del atlas (EsqueletoAtlas en pantallas/Atlas.tsx): lo que se ve
+   mientras construirAtlas corre fuera del render (lib/diferido.ts,
+   useCalculoDiferido), al abrir la pantalla y al cambiar de investigación.
+   Reutiliza las clases de maqueta reales (pantalla-cabecera, atlas-controles,
+   atlas-marco, atlas-lienzo, atlas-bandeja, atlas-leyenda, grafo-panel,
+   grafo-tiempo) para que cada bloque mida lo mismo que lo que sustituye y el
+   contenido aparezca donde ya estaba su silueta, sin salto. Las medidas que
+   aquí se fijan copian las del contenido real de arriba (.atlas-figura,
+   .atlas-chip, .atlas-muestra) y Atlas.test.tsx las coteja con ellas.
+
+   La forma: .atlas-esqueleto es la caja .contenido (la de maqueta, sin
+   role); dentro van el aviso de datos de muestra y después la espera
+   (.atlas-esqueleto-espera, con role="status" y aria-busy), que es un bloque
+   sin relleno ni borde, así que las piezas caen exactamente donde las pone
+   el contenido y la región viva del aviso no queda dentro de la de la
+   espera. La cabecera pinta el texto real (es fijo) y su botón es un span
+   inerte con las clases del botón, atenuado como un botón deshabilitado.
+
+   Todos los selectores van precedidos de .atlas-esqueleto: styles.css se
+   carga DESPUÉS de esta hoja y su regla base .esqueleto (ancho 100 %, alto
+   14 px) ganaría por orden a cualquier clase suelta de la misma
+   especificidad; con dos clases gana esta hoja. */
+
+.atlas-esqueleto {
+  cursor: progress;
+}
+/* El botón "Abrir en el árbol" de la silueta: las mismas clases .btn.btn-s
+   que el enlace real (mide igual), inerte y con la opacidad de .btn:disabled. */
+.atlas-esqueleto .atlas-esqueleto-boton {
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
+}
+/* Los rótulos "Fase" y "Célula": 11,5 px en mayúsculas. */
+.atlas-esqueleto .atlas-esqueleto-rotulo {
+  height: 11px;
+  width: 44px;
+  margin-right: 2px;
+}
+/* Un chip de filtro o de la bandeja: el min-height y el radio de .atlas-chip. */
+.atlas-esqueleto .atlas-esqueleto-chip {
+  height: 26px;
+  border-radius: 13px;
+}
+/* La figura: la misma caja que el SVG (.atlas-figura): ancho completo, mínimo
+   de 700 px, la proporción 1000 × 620 del lienzo lógico (VISTA en
+   lib/atlas_dibujo.ts) y el mismo tope de alto. Dentro, el gris brilla con
+   tonos del lienzo oscuro, no con los del tema claro. */
+.atlas-esqueleto .atlas-esqueleto-figura {
+  position: relative;
+  width: 100%;
+  min-width: 700px;
+  aspect-ratio: 1000 / 620;
+  max-height: min(66vh, 660px);
+  --esqueleto-base: #1a1628;
+  --esqueleto-brillo: #292344;
+}
+/* El óvalo grande: el hemisferio, con la frente a la izquierda. */
+.atlas-esqueleto .atlas-esqueleto-cerebro {
+  position: absolute;
+  left: 20%;
+  top: 8%;
+  width: 60%;
+  height: 78%;
+  border-radius: 54% 46% 44% 56% / 60% 58% 42% 40%;
+}
+/* Los compartimentos de fuera, donde los pone el dibujo: la retina y la
+   sangre delante (a la izquierda), el intestino abajo a la derecha. */
+.atlas-esqueleto .atlas-esqueleto-fuera {
+  position: absolute;
+  width: 7%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+.atlas-esqueleto .atlas-esqueleto-retina {
+  left: 10%;
+  top: 50%;
+}
+.atlas-esqueleto .atlas-esqueleto-sangre {
+  left: 10%;
+  top: 74%;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+}
+.atlas-esqueleto .atlas-esqueleto-intestino {
+  left: 86%;
+  top: 74%;
+}
+/* La línea honesta: una línea de 13 px. */
+.atlas-esqueleto .atlas-esqueleto-linea {
+  height: 13px;
+  width: min(70%, 560px);
+}
+/* La bandeja: la misma caja que .atlas-bandeja, con el borde continuo y tenue
+   en vez del discontinuo (el discontinuo es contenido, no silueta). */
+.atlas-esqueleto .atlas-bandeja {
+  border-style: solid;
+  border-color: var(--border);
+}
+.atlas-esqueleto .atlas-esqueleto-h4 {
+  height: 13px;
+  width: 160px;
+}
+.atlas-esqueleto .atlas-esqueleto-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+/* La leyenda: cada entrada con su muestra (64 × 12, como .atlas-muestra) y tres líneas. */
+.atlas-esqueleto .atlas-esqueleto-muestra {
+  width: 64px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 6px;
+}
+/* El panel de la derecha: el título (15 px) y sus párrafos. */
+.atlas-esqueleto .atlas-esqueleto-h3 {
+  height: 15px;
+  width: 55%;
+  margin-top: 4px;
+}
+/* El deslizador "Cómo creció": la etiqueta, el rango y el pie. */
+.atlas-esqueleto .atlas-esqueleto-etiqueta {
+  height: 13px;
+  width: 220px;
+}
+.atlas-esqueleto .atlas-esqueleto-rango {
+  height: 16px;
+  width: auto;
+  flex: 1 1 200px;
+  border-radius: 8px;
 }
 
 /* Sin color-mix (navegadores antiguos): el relleno se queda en el violeta

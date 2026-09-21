@@ -1,16 +1,26 @@
-// El ranking: hipotesis ordenadas por Elo (torneo, como Co-Scientist), con
-// su historial en una grafica pequena, el numero de partidos (un Elo con
+// El ranking: hipótesis ordenadas por Elo (torneo, como Co-Scientist), con
+// su historial en una gráfica pequeña, el número de partidos (un Elo con
 // pocos partidos es poco fiable), sus rivales, el coste y el origen (humana o
 // de ROSA2018). Vista alternativa por cluster para ver diversidad: el mejor de
 // cada cluster, como hace el agente de proximidad de Co-Scientist.
+//
+// Esperas visibles (estándar de Emir, 19 de septiembre de 2026): todo lo
+// derivado (orden por Elo, calibración, clusters, candidatas y por qué las
+// demás no lo son, con los bloqueos de cada una) se calcula después de pintar
+// la silueta de la lista (EsqueletoPantalla "lista"). Con muchas hipótesis,
+// ese cálculo más el render de cada fila con su franja congelaba la pantalla
+// al cambiar de investigación; ahora el primer frame es la silueta y el
+// trabajo va detrás.
 
 import { useMemo, useState } from 'react';
 import { Contador, ElementoAnimado, ListaAnimada } from '../componentes/Animado';
 import type { EstadoRosa, Hipotesis, Investigacion } from '../datos/tipos';
 import { AvisoMuestra, Chip } from '../componentes/piezas';
 import { Candidatas } from '../componentes/Rosa2018';
+import { Esqueleto, EsqueletoPantalla, EsqueletoTarjeta, EsqueletoTarjetas } from '../componentes/Esqueleto';
 import { FranjaRanking } from '../componentes/FranjaRanking';
 import { calibracion } from '../lib/calidad';
+import { useCalculoDiferido } from '../lib/diferido';
 import { DECISION_KILLER, ESTADO_HIPOTESIS, killerPendienteDe } from '../lib/etiquetas';
 import { formatearPorcentaje } from '../lib/formato';
 import { ranking, variacionElo } from '../lib/hipotesis';
@@ -39,10 +49,10 @@ function GraficaElo({ puntos }: { puntos: Hipotesis['historialElo'] }) {
   );
 }
 
-function Fila({ h, i, inv, estado }: { h: Hipotesis; i: number; inv: Investigacion; estado: EstadoRosa }) {
+function Fila({ h, i, invId, estado }: { h: Hipotesis; i: number; invId: string; estado: EstadoRosa }) {
   const d = variacionElo(h);
   return (
-    <a className="ranking-fila" href={rutaDe(inv.id, 'hipotesis', h.id)}>
+    <a className="ranking-fila" href={rutaDe(invId, 'hipotesis', h.id)}>
       <span className="ranking-pos">{i + 1}</span>
       <div>
         <h3>{h.titulo}</h3>
@@ -83,30 +93,117 @@ function Fila({ h, i, inv, estado }: { h: Hipotesis; i: number; inv: Investigaci
   );
 }
 
-export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
-  const propias = useMemo(() => estado.hipotesis.filter((h) => h.investigacionId === inv.id), [estado.hipotesis, inv.id]);
+/** Lo que el ranking deriva del estado, calculado de una vez. Guarda con qué
+ *  investigación y con qué estado se calculó: las filas se pintan con esa
+ *  misma foto del estado (no con la que llegue un frame después), para que lo
+ *  que se ve sea coherente entre sí. */
+export type RankingCalculado = {
+  invId: string;
+  estado: EstadoRosa;
+  propias: Hipotesis[];
+  lista: Hipotesis[];
+  cal: ReturnType<typeof calibracion>;
+  clusters: [string, Hipotesis[]][];
+  cands: Hipotesis[];
+  noCands: Parameters<typeof Candidatas>[0]['noCandidatas'];
+};
+
+/** El cálculo del ranking, puro: se llama fuera del render, después de que
+ *  la silueta se haya pintado. `bloqueosDe` reindexa planes y ejecuciones
+ *  por hipótesis; con muchas filas es lo que más cuesta. */
+export function calcularRanking(estado: EstadoRosa, invId: string): RankingCalculado {
+  const propias = estado.hipotesis.filter((h) => h.investigacionId === invId);
   const lista = ranking(propias);
+  const cal = calibracion(propias);
+  const m = new Map<string, Hipotesis[]>();
+  for (const h of lista) m.set(h.cluster, [...(m.get(h.cluster) ?? []), h]);
+  const clusters = [...m.entries()].sort((a, b) => (b[1][0]?.elo ?? 0) - (a[1][0]?.elo ?? 0));
+  const cands = candidatos(estado, invId);
+  const noCands = propias
+    .filter((h) => h.estado !== 'descartada' && !cands.some((c) => c.id === h.id))
+    .map((h) => {
+      const b = bloqueosDe(estado, h);
+      const pendiente = killerPendienteDe(h);
+      const motivo = b.length > 0 ? '' : pendiente ? `${pendiente}: la decisión que consta no es un juicio nuevo` : h.decisionKiller !== 'avanzar' ? (h.decisionKiller ? `El Killer decidió: ${(DECISION_KILLER[h.decisionKiller]?.etiqueta ?? String(h.decisionKiller)).toLowerCase()}` : 'El Killer todavía no la juzgó') : 'Sin bloqueos, pero otras puntúan más o repiten su cluster';
+      return { h, bloqueos: b, motivo };
+    });
+  return { invId, estado, propias, lista, cal, clusters, cands, noCands };
+}
+
+/** Medido en Chromium a 1440 px (19 de septiembre de 2026): cada fila del
+ *  ranking mide entre 154 y 201 px (173 de media); antes de la cola van la
+ *  tarjeta de candidatas (149 a 181 px) y la fila del acuerdo (22 px). */
+const ALTO_FILA_RANKING = 168;
+const ALTO_CANDIDATAS = 150;
+const MAX_FILAS_SILUETA = 40;
+
+/** La silueta del ranking: la cabecera gris con su margen y sus cuatro
+ *  líneas (la real mide 118 px), la tarjeta de candidatas, la fila del
+ *  acuerdo y tantas tarjetas como hipótesis tiene la investigación, que el
+ *  estado ya sabe sin calcular nada. La cabecera va en gris y no con el
+ *  texto real porque App pinta la misma EsqueletoPantalla al cambiar de
+ *  pantalla y las dos deben tener la misma forma (App.esqueleto.test.tsx). */
+export function EsqueletoRanking({ filas }: { filas: number }) {
+  return (
+    <EsqueletoPantalla variante="lista" rotulo="el ranking" margenSuperior={16} lineasDescripcion={4}>
+      <EsqueletoTarjeta lineas={5} alto={ALTO_CANDIDATAS} />
+      <div className="acciones" style={{ marginBottom: 14, marginTop: 12 }} aria-hidden="true">
+        <Esqueleto className="esqueleto-chip" ancho={230} />
+        <Esqueleto alto={12} ancho="min(50%, 420px)" />
+      </div>
+      <EsqueletoTarjetas filas={Math.min(MAX_FILAS_SILUETA, Math.max(1, filas))} altoFila={ALTO_FILA_RANKING} />
+    </EsqueletoPantalla>
+  );
+}
+
+export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
   const [vista, setVista] = useState<'lista' | 'clusters'>('lista');
   const [soloMejor, setSoloMejor] = useState(false);
-  const cal = calibracion(propias);
-  const clusters = useMemo(() => {
-    const m = new Map<string, Hipotesis[]>();
-    for (const h of lista) m.set(h.cluster, [...(m.get(h.cluster) ?? []), h]);
-    return [...m.entries()].sort((a, b) => (b[1][0]?.elo ?? 0) - (a[1][0]?.elo ?? 0));
-  }, [lista]);
-  const cands = useMemo(() => candidatos(estado, inv.id), [estado, inv.id]);
-  const noCands = useMemo(
-    () =>
-      propias
-        .filter((h) => h.estado !== 'descartada' && !cands.some((c) => c.id === h.id))
-        .map((h) => {
-          const b = bloqueosDe(estado, h);
-          const pendiente = killerPendienteDe(h);
-          const motivo = b.length > 0 ? '' : pendiente ? `${pendiente}: la decisión que consta no es un juicio nuevo` : h.decisionKiller !== 'avanzar' ? (h.decisionKiller ? `El Killer decidió: ${(DECISION_KILLER[h.decisionKiller]?.etiqueta ?? String(h.decisionKiller)).toLowerCase()}` : 'El Killer todavía no la juzgó') : 'Sin bloqueos, pero otras puntúan más o repiten su cluster';
-          return { h, bloqueos: b, motivo };
-        }),
-    [propias, cands, estado],
-  );
+  // Calculado tras el pintado. Si la investigación ya no es la misma, lo que
+  // hay es de otra y se vuelve a la silueta; si solo cambió el estado (un
+  // empuje del canal en vivo), se sigue enseñando el ranking anterior hasta
+  // que llega el nuevo, sin parpadeo.
+  const { valor } = useCalculoDiferido(() => calcularRanking(estado, inv.id), [estado, inv.id]);
+  const r = valor !== null && valor.invId === inv.id ? valor : null;
+  // Las filas se memorizan sobre el cálculo: en el frame en que el estado ya
+  // cambió pero el cálculo nuevo aún no llegó, React recibe el mismo árbol y
+  // no vuelve a pintar cada fila con su franja.
+  const filas = useMemo(() => {
+    if (r === null) return null;
+    const { lista, clusters, estado: foto } = r;
+    if (vista === 'lista') {
+      return (
+        <ListaAnimada className="cola" como="div">
+          {lista.map((h, i) => (
+            <ElementoAnimado key={h.id}>
+              <Fila h={h} i={i} invId={r.invId} estado={foto} />
+            </ElementoAnimado>
+          ))}
+        </ListaAnimada>
+      );
+    }
+    return clusters.map(([nombre, hs]) => (
+      <div key={nombre} className="cluster">
+        <div className="acciones" style={{ justifyContent: 'space-between' }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600 }}>{nombre}</h3>
+          <span className="meta">
+            {hs.length} {hs.length === 1 ? 'hipótesis' : 'hipótesis'} · mejor Elo {hs[0]?.elo}
+          </span>
+        </div>
+        <div className="cola">
+          {(soloMejor ? hs.slice(0, 1) : hs).map((h) => (
+            <Fila key={h.id} h={h} i={lista.indexOf(h)} invId={r.invId} estado={foto} />
+          ))}
+        </div>
+      </div>
+    ));
+  }, [r, vista, soloMejor]);
+
+  // El estado global todavía no ha llegado, o el ranking de esta
+  // investigación aún no está calculado: la silueta de la lista, nunca una
+  // página vacía ni una congelación.
+  if (estado.conexion === 'conectando' || r === null) return <EsqueletoRanking filas={estado.hipotesis.filter((h) => h.investigacionId === inv.id).length} />;
+  const { cal, cands, noCands, estado: foto } = r;
 
   return (
     <div className="contenido">
@@ -130,7 +227,7 @@ export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRos
         </div>
       </div>
 
-      <Candidatas inv={inv} estado={estado} candidatas={cands} noCandidatas={noCands} />
+      <Candidatas inv={inv} estado={foto} candidatas={cands} noCandidatas={noCands} />
 
       <div className="acciones" style={{ marginBottom: 14 }}>
         <Chip tono={cal.acuerdo === null ? undefined : cal.acuerdo >= 0.7 ? 'ok' : 'aviso'} title="Cuántas veces la recomendación del revisor coincidió con lo que decidió una persona">
@@ -140,34 +237,14 @@ export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRos
       </div>
 
       {vista === 'lista' ? (
-        <ListaAnimada className="cola" como="div">
-          {lista.map((h, i) => (
-            <ElementoAnimado key={h.id}>
-              <Fila h={h} i={i} inv={inv} estado={estado} />
-            </ElementoAnimado>
-          ))}
-        </ListaAnimada>
+        filas
       ) : (
         <div className="seccion">
           <label className="interruptor">
             <input type="checkbox" checked={soloMejor} onChange={(e) => setSoloMejor(e.target.checked)} />
             Mostrar solo la mejor de cada cluster (para ver la diversidad, no la repetición)
           </label>
-          {clusters.map(([nombre, hs]) => (
-            <div key={nombre} className="cluster">
-              <div className="acciones" style={{ justifyContent: 'space-between' }}>
-                <h3 style={{ fontSize: 14, fontWeight: 600 }}>{nombre}</h3>
-                <span className="meta">
-                  {hs.length} {hs.length === 1 ? 'hipótesis' : 'hipótesis'} · mejor Elo {hs[0]?.elo}
-                </span>
-              </div>
-              <div className="cola">
-                {(soloMejor ? hs.slice(0, 1) : hs).map((h) => (
-                  <Fila key={h.id} h={h} i={lista.indexOf(h)} inv={inv} estado={estado} />
-                ))}
-              </div>
-            </div>
-          ))}
+          {filas}
         </div>
       )}
     </div>

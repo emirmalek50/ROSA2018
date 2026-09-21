@@ -45,14 +45,31 @@
 // movimiento reducido no hay transiciones. En pantallas estrechas el lienzo
 // no baja de 700 px y se desplaza en horizontal (atlas.css), para que las
 // etiquetas sigan siendo legibles.
+//
+// La espera (estándar de Emir, 19 de septiembre de 2026): construirAtlas
+// recorre todas las celdas del mapa y todas las consultas y fuentes de la
+// investigación (la cobertura: qué regiones nombran) y con una investigación
+// grande tarda lo bastante para congelar el clic en la barra lateral. Por eso
+// no se calcula en el render sino después del pintado (lib/diferido.ts,
+// useCalculoDiferido): el primer render de la pantalla, y el primero tras
+// cambiar de investigación, pinta EsqueletoAtlas, la silueta del atlas con
+// las mismas piezas y las mismas medidas que el contenido (cabecera, chips,
+// lienzo con el óvalo del hemisferio, línea honesta, bandeja, leyenda, panel
+// y deslizador), con aria-busy y un rótulo oculto. Al pulsar un chip o mover
+// el deslizador NO vuelve la silueta: el mapa anterior se queda en pantalla
+// con aria-busy en el marco hasta que llega el nuevo, un frame después, y
+// solo si tardara más se atenúa (atlas.css). El estado vacío (sin mapa) es
+// el mismo de siempre, pero también llega tras el pintado.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CertezaEvidencia, EstadoConexion, EstadoRosa, HechoMundo, Investigacion } from '../datos/tipos';
+import { Esqueleto, EsqueletoTexto } from '../componentes/Esqueleto';
 import { Atlas3D } from '../componentes/Atlas3D';
-import type { CertezaEvidencia, EstadoRosa, HechoMundo, Investigacion } from '../datos/tipos';
 import { AvisoMuestra, Chip, Vacio } from '../componentes/piezas';
 import { construirAtlas, ETIQUETAS_MAPA, hechosDe, hipotesisDe, intensidad, NO_LOCALIZADAS, type Atlas as DatosAtlas, type RegionAtlas } from '../lib/atlas';
 import { CONTORNO_CEREBRO, finGuia, NOMBRE_CORTO, puntoMarca, RECORTADAS, RECORTE_HEMISFERIO, REGIONES_DIBUJO, TRAZOS_FINOS, VISTA, type RegionDibujo } from '../lib/atlas_dibujo';
 import { recortar } from '../lib/arbol';
+import { useCalculoDiferido } from '../lib/diferido';
 import { CERTEZA_EVIDENCIA } from '../lib/etiquetas';
 import { plural } from '../lib/formato';
 import { useMovimientoReducido } from '../lib/movimiento';
@@ -68,6 +85,18 @@ const HECHOS_EN_PANEL = 8;
 const DIBUJADAS: RegionDibujo[] = REGIONES_DIBUJO.filter((r) => !NO_LOCALIZADAS.has(r.clave));
 /** Lo que se dice de la bandeja, palabra por palabra como se acordó. */
 const TEXTO_BANDEJA = 'ROSA2018 los leyó pero no supo situarlos; releerlos con el catálogo de regiones es trabajo pendiente.';
+/** Cuántas entradas tiene la leyenda real (Leyenda, abajo): la silueta pinta las mismas. */
+const ENTRADAS_LEYENDA = 6;
+/** El rótulo oculto de la silueta, el mismo desde App.tsx y desde aquí. */
+export const ROTULO_ATLAS = 'el atlas de la enfermedad';
+/** El texto FIJO de la cabecera (no depende del cálculo): el párrafo de ayuda
+ *  y la primera frase del `p.meta`. Lo pintan igual la silueta (EsqueletoAtlas)
+ *  y el contenido, así la cabecera mide lo mismo en el frame de la espera y en
+ *  el siguiente (unas 15 líneas a 68ch: con bloques grises la silueta medía
+ *  unos 200 px menos y todo lo de debajo bajaba de golpe al llegar el mapa).
+ *  Compartir la cadena evita que las dos copias diverjan. */
+const AYUDA_ATLAS = 'El cerebro visto de lado y partido por la mitad (un corte sagital), con la frente a la izquierda. Cada región lleva dos cifras: el color dice cuántas cohortes distintas nombran sus hipótesis (violeta apagado, pocas o ninguna; ámbar brillante, muchas) y el número junto al nombre, cuántos registros (hechos e hipótesis) ha situado ROSA2018 en ella. A rayas, las regiones que no tienen registros: tenues si nadie las buscó, con contorno y punto si alguna consulta o fuente las nombró sin hallazgo. Un borde punteado rojo marca discordia entre hechos. Fuera del cerebro están los sitios donde también se mide la enfermedad (la sangre, la retina y el intestino) y, bajo la figura, la bandeja de lo que ROSA2018 leyó y no supo situar. Pasa el ratón por una región para ver su nombre y sus conteos; púlsala para leer qué es y qué la sostiene. Los filtros de arriba recortan por fase de la enfermedad y por tipo de célula; el deslizador de abajo enseña cómo se fue llenando el mapa iteración a iteración.';
+const META_ATLAS = 'Se recalcula al cerrar cada iteración: el mapa es una instantánea, no el modelo de mundo en vivo.';
 
 /** Tramo de resplandor de una intensidad: 0 (sin resplandor) a 4. */
 function tramo(t: number): number {
@@ -220,39 +249,167 @@ function Leyenda({ atlas, conFiltros }: { atlas: DatosAtlas; conFiltros: boolean
   );
 }
 
+/** La silueta del atlas: lo que se pinta mientras construirAtlas corre fuera
+ *  del render. Tiene las mismas piezas que el contenido y en el mismo orden
+ *  (cabecera con su botón, los chips de fase y de célula, el marco con el
+ *  lienzo a la izquierda y el panel a la derecha, la línea honesta, la
+ *  bandeja, la leyenda y el deslizador), con las clases de maqueta reales
+ *  para medir lo mismo (las medidas fijas viven en atlas.css). App.tsx la
+ *  pinta también durante el primer frame tras el clic en la barra lateral,
+ *  para que la silueta no cambie entre ese frame y el primero de la pantalla.
+ *
+ *  Tres decisiones de forma, todas para que no salte ni suene dos veces:
+ *  - La caja de maqueta es la de fuera, `.contenido.contenido-ancho`, sin
+ *    role: dentro van, en este orden, el aviso de datos de muestra (si
+ *    `conexion` es de muestra, igual que en el contenido) y la ESPERA, un
+ *    `div` con role="status", aria-busy y el rótulo oculto "Cargando ...".
+ *    Así el aviso (que es su propia región viva, role="status") no queda
+ *    anidado dentro de la de la espera y un lector de pantalla no lo anuncia
+ *    como parte del "Cargando"; y como la espera es un bloque sin relleno ni
+ *    borde, las piezas quedan exactamente donde las pone el contenido.
+ *  - La cabecera lleva el texto REAL (el h2, el párrafo de ayuda y la frase
+ *    fija del meta, las constantes AYUDA_ATLAS y META_ATLAS que también pinta
+ *    el contenido) porque es fijo y no depende del cálculo: en gris medía
+ *    unos 200 px menos y el mapa entero bajaba al llegar. Va aria-hidden para
+ *    que al lector solo le llegue el rótulo. Lo único que cambia con el
+ *    cálculo (la frase de los hechos nuevos del meta) no está y, si aparece,
+ *    mueve una línea, no quince.
+ *  - El botón "Abrir en el árbol" es un `span` con las clases reales del
+ *    botón, inerte (atlas.css lo atenúa como a un botón deshabilitado): mide
+ *    igual que el enlace del contenido sin ser un enlace. */
+export function EsqueletoAtlas({ conexion, rotulo = ROTULO_ATLAS }: { conexion?: EstadoConexion; rotulo?: string } = {}): JSX.Element {
+  return (
+    <div className="contenido contenido-ancho atlas-esqueleto">
+      {conexion !== undefined && <AvisoMuestra conexion={conexion} />}
+      <div className="esqueleto-pantalla esqueleto-pantalla-figura atlas-esqueleto-espera" role="status" aria-busy="true">
+        <span className="sr-only">Cargando {rotulo}</span>
+        <div className="pantalla-cabecera" style={{ marginTop: 16 }} aria-hidden="true">
+          <div>
+            <h2>Atlas de la enfermedad</h2>
+            <p>{AYUDA_ATLAS}</p>
+            <p className="meta">{META_ATLAS}</p>
+          </div>
+          <div className="acciones">
+            <span className="btn btn-s atlas-esqueleto-boton">Abrir en el árbol</span>
+          </div>
+        </div>
+        <div className="atlas-controles" aria-hidden="true">
+          <div className="atlas-grupo">
+            <Esqueleto className="atlas-esqueleto-rotulo" />
+            <Esqueleto className="atlas-esqueleto-chip" ancho={64} />
+            <Esqueleto className="atlas-esqueleto-chip" ancho={152} />
+            <Esqueleto className="atlas-esqueleto-chip" ancho={112} />
+            <Esqueleto className="atlas-esqueleto-chip" ancho={132} />
+          </div>
+          <div className="atlas-grupo">
+            <Esqueleto className="atlas-esqueleto-rotulo" />
+            <Esqueleto className="atlas-esqueleto-chip" ancho={104} />
+            <Esqueleto className="atlas-esqueleto-chip" ancho={96} />
+          </div>
+        </div>
+        <div className="atlas-marco" aria-hidden="true">
+          <div>
+            <div className="atlas-lienzo">
+              <div className="atlas-esqueleto-figura">
+                <Esqueleto className="atlas-esqueleto-cerebro" />
+                <Esqueleto className="atlas-esqueleto-fuera atlas-esqueleto-retina" />
+                <Esqueleto className="atlas-esqueleto-fuera atlas-esqueleto-sangre" />
+                <Esqueleto className="atlas-esqueleto-fuera atlas-esqueleto-intestino" />
+              </div>
+            </div>
+            <p className="atlas-honesta">
+              <Esqueleto className="atlas-esqueleto-linea" />
+            </p>
+            <section className="atlas-bandeja">
+              <Esqueleto className="atlas-esqueleto-h4" />
+              <EsqueletoTexto lineas={2} />
+              <div className="atlas-esqueleto-chips">
+                <Esqueleto className="atlas-esqueleto-chip" ancho={168} />
+                <Esqueleto className="atlas-esqueleto-chip" ancho={152} />
+              </div>
+            </section>
+            <ul className="atlas-leyenda">
+              {Array.from({ length: ENTRADAS_LEYENDA }, (_, i) => (
+                <li key={i}>
+                  <Esqueleto className="atlas-esqueleto-muestra" />
+                  <EsqueletoTexto lineas={3} />
+                </li>
+              ))}
+            </ul>
+          </div>
+          <aside className="grafo-panel atlas-panel">
+            <Esqueleto className="atlas-esqueleto-h3" />
+            <EsqueletoTexto lineas={4} />
+            <EsqueletoTexto lineas={6} />
+            <Esqueleto className="atlas-esqueleto-h4" />
+            <EsqueletoTexto lineas={3} />
+          </aside>
+        </div>
+        <div className="grafo-tiempo" aria-hidden="true">
+          <Esqueleto className="esqueleto-boton" />
+          <Esqueleto className="atlas-esqueleto-etiqueta" />
+          <Esqueleto className="atlas-esqueleto-rango" />
+          <Esqueleto className="atlas-esqueleto-etiqueta" ancho={200} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Lo que se calcula fuera del render: la base (solo con el filtro de tiempo,
+ *  para los chips y el máximo de iteraciones) y el atlas con todos los
+ *  filtros (lo que se pinta). `invId` dice de qué investigación es, para
+ *  volver a la silueta si la pantalla cambia de investigación sin desmontarse. */
+type DatosCalculados = { invId: string; base: DatosAtlas | null; atlas: DatosAtlas | null };
+
 export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
   const [vista3d, setVista3d] = useState(false);
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [foco, setFoco] = useState<string | null>(null);
   const [estadio, setEstadio] = useState<string | null>(null);
   const [celulas, setCelulas] = useState<string[]>([]);
+  // El deslizador "Cómo creció": null es el presente ("En vivo"). Antes
+  // guardaba el número de la última iteración, que se conocía en el primer
+  // render porque el atlas se construía en él; ahora se construye después del
+  // pintado y el presente tiene que poder decirse sin conocer ese número.
+  const [hasta, setHasta] = useState<number | null>(null);
   const reducido = useMovimientoReducido();
-  // Sin filtros: dice si hay atlas, cuántas iteraciones hay y sirve de base al deslizador.
-  const completo = useMemo(() => construirAtlas(estado, inv), [estado, inv]);
-  const iteracionMax = Math.max(1, completo?.iteracionMax ?? 1);
-  const [hasta, setHasta] = useState<number>(iteracionMax);
-  // Si llega una iteración nueva y el deslizador estaba en el presente, sigue en el presente.
-  const anteriorMax = useRef(iteracionMax);
-  useEffect(() => {
-    const previo = anteriorMax.current;
-    setHasta((h) => (h >= previo ? iteracionMax : Math.min(h, iteracionMax)));
-    anteriorMax.current = iteracionMax;
-  }, [iteracionMax]);
-  const hastaFiltro = hasta >= iteracionMax ? null : hasta;
-  // Con el tiempo pero sin fase ni célula: da los conteos de los chips y los interruptores.
-  const base = useMemo(() => construirAtlas(estado, inv, { hasta: hastaFiltro }), [estado, inv, hastaFiltro]);
-  // Con todos los filtros: lo que se pinta.
-  const atlas: DatosAtlas | null = useMemo(() => construirAtlas(estado, inv, { estadio, celulas, hasta: hastaFiltro }), [estado, inv, estadio, celulas, hastaFiltro]);
+  // La base se guarda por referencia: pulsar un chip de fase o de célula solo
+  // construye el atlas filtrado, no los dos (misma economía que tenían los
+  // useMemo, ahora fuera del render).
+  const memoBase = useRef<{ estado: EstadoRosa; inv: Investigacion; hasta: number | null; base: DatosAtlas | null } | null>(null);
+  const { valor: datos, calculando } = useCalculoDiferido<DatosCalculados>(() => {
+    const m = memoBase.current;
+    const base = m && m.estado === estado && m.inv === inv && m.hasta === hasta ? m.base : construirAtlas(estado, inv, { hasta });
+    memoBase.current = { estado, inv, hasta, base };
+    // Sin base (mapa ausente o sin celdas) tampoco hay atlas: construirAtlas devolvería null igual.
+    const atlas = base === null ? null : construirAtlas(estado, inv, { estadio, celulas, hasta });
+    return { invId: inv.id, base, atlas };
+  }, [estado, inv, estadio, celulas, hasta]);
+  // Silueta solo al abrir y al cambiar de investigación. Con un filtro nuevo o
+  // un empuje del canal en vivo `datos` es el cálculo anterior de la misma
+  // investigación y se conserva en pantalla hasta que llega el nuevo.
+  const vigente = datos !== null && datos.invId === inv.id ? datos : null;
+  const atlas: DatosAtlas | null = vigente?.atlas ?? null;
+  const base: DatosAtlas | null = vigente?.base ?? null;
   const porClave = useMemo(() => new Map((atlas?.regiones ?? []).map((r) => [r.clave, r] as const)), [atlas]);
-  // Otra investigación: se olvida la selección y los filtros.
+  // El máximo de iteraciones lo calcula construirAtlas ANTES de aplicar el
+  // filtro de tiempo, así que la base lo trae entero aunque el deslizador esté atrás.
+  const iteracionMax = Math.max(1, base?.iteracionMax ?? 1);
+  const hastaVisible = hasta !== null && hasta < iteracionMax ? hasta : iteracionMax;
+  const enVivo = hastaVisible >= iteracionMax;
+  // Otra investigación: se olvidan la selección y los filtros, el deslizador vuelve al presente.
   useEffect(() => {
     setSeleccion(null);
     setFoco(null);
     setEstadio(null);
-    setCelulas([]);
+    setCelulas((c) => (c.length === 0 ? c : []));
+    setHasta(null);
   }, [inv.id]);
 
-  if (!completo || !atlas || !base) {
+  if (vigente === null) return <EsqueletoAtlas conexion={estado.conexion} />;
+
+  if (!atlas || !base) {
     return (
       <div className="contenido">
         <AvisoMuestra conexion={estado.conexion} />
@@ -270,7 +427,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   const conEvidencia = enFigura.filter((r) => r.conteo > 0).length;
   const hechosSituados = new Set(enFigura.flatMap((r) => r.hechos)).size;
   const hipotesisSituadas = new Set(enFigura.flatMap((r) => r.hipotesis)).size;
-  const conFiltros = estadio !== null || celulas.length > 0 || hastaFiltro !== null;
+  const conFiltros = estadio !== null || celulas.length > 0 || !enVivo;
   const sel = seleccion ? porClave.get(seleccion) ?? null : null;
   const selDibujo = seleccion ? DIBUJADAS.find((r) => r.clave === seleccion) ?? null : null;
   const focoDibujo = foco ? DIBUJADAS.find((r) => r.clave === foco) ?? null : null;
@@ -289,6 +446,9 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
     }
   };
   const alternarCelula = (clave: string) => setCelulas((c) => (c.includes(clave) ? c.filter((x) => x !== clave) : [...c, clave]));
+  // El deslizador en su máximo es el presente: se guarda como null para que
+  // una iteración nueva no lo deje atrás y para no recalcular nada al soltarlo ahí.
+  const moverHasta = (valor: number) => setHasta(valor >= iteracionMax ? null : valor);
   const certezaSel = sel?.certezaMax && Object.hasOwn(CERTEZA_EVIDENCIA, sel.certezaMax) ? CERTEZA_EVIDENCIA[sel.certezaMax as CertezaEvidencia] : null;
   const hechosSel = sel ? hechosDe(estado, sel.hechos) : [];
   const hipotesisSel = sel ? hipotesisDe(estado, sel.hipotesis) : [];
@@ -343,11 +503,9 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
           <h2>Atlas de la enfermedad</h2>
-          <p>
-            El cerebro visto de lado y partido por la mitad (un corte sagital), con la frente a la izquierda. Cada región lleva dos cifras: el color dice cuántas cohortes distintas nombran sus hipótesis (violeta apagado, pocas o ninguna; ámbar brillante, muchas) y el número junto al nombre, cuántos registros (hechos e hipótesis) ha situado ROSA2018 en ella. A rayas, las regiones que no tienen registros: tenues si nadie las buscó, con contorno y punto si alguna consulta o fuente las nombró sin hallazgo. Un borde punteado rojo marca discordia entre hechos. Fuera del cerebro están los sitios donde también se mide la enfermedad (la sangre, la retina y el intestino) y, bajo la figura, la bandeja de lo que ROSA2018 leyó y no supo situar. Pasa el ratón por una región para ver su nombre y sus conteos; púlsala para leer qué es y qué la sostiene. Los filtros de arriba recortan por fase de la enfermedad y por tipo de célula; el deslizador de abajo enseña cómo se fue llenando el mapa iteración a iteración.
-          </p>
+          <p>{AYUDA_ATLAS}</p>
           <p className="meta">
-            Se recalcula al cerrar cada iteración: el mapa es una instantánea, no el modelo de mundo en vivo.
+            {META_ATLAS}
             {atlas.hechosNuevos > 0 ? ` ${plural(atlas.hechosNuevos, 'hecho nuevo espera', 'hechos nuevos esperan')} a la siguiente iteración para situarse.` : ''}
           </p>
         </div>
@@ -389,7 +547,8 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
         </div>
       </div>
 
-      <div className="atlas-marco">
+      {/* Mientras llega el atlas con filtros nuevos el marco lleva aria-busy y se queda el anterior (atlas.css lo atenúa solo si tarda). */}
+      <div className="atlas-marco" aria-busy={calculando ? true : undefined}>
         <div>
           {vista3d ? <Atlas3D key={inv.id} atlas={atlas} seleccion={seleccion} seleccionar={seleccionar} /> : <div className={`atlas-lienzo${reducido ? ' atlas-sin-movimiento' : ''}`}>
             <svg className="atlas-figura" viewBox={`0 0 ${VISTA.ancho} ${VISTA.alto}`} role="group" aria-label={`Atlas de ${inv.titulo}: corte sagital del cerebro con ${plural(conEvidencia, 'región', 'regiones')} con evidencia de ${DIBUJADAS.length}`}>
@@ -425,20 +584,20 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
               <path d={CONTORNO_CEREBRO} className="atlas-silueta" aria-hidden="true" />
               <g className="atlas-regiones">
                 {DIBUJADAS.map((r) => {
-                  const datos = porClave.get(r.clave);
-                  const conteo = datos?.conteo ?? 0;
-                  const cohortes = datos?.cohortes.length ?? 0;
+                  const datosRegion = porClave.get(r.clave);
+                  const conteo = datosRegion?.conteo ?? 0;
+                  const cohortes = datosRegion?.cohortes.length ?? 0;
                   const t = intensidad(cohortes, atlas.cohortesMax);
                   const nivel = tramo(t);
                   const capa = r.capa ?? 'region';
-                  const cobertura = datos?.cobertura ?? 'no_buscada';
+                  const cobertura = datosRegion?.cobertura ?? 'no_buscada';
                   const buscada = cobertura === 'buscada_sin_hallazgo';
-                  const discordia = datos?.discordia.length ?? 0;
+                  const discordia = datosRegion?.discordia.length ?? 0;
                   const clases = ['atlas-region', `atlas-capa-${capa}`, conteo === 0 ? `atlas-hueco ${buscada ? 'atlas-buscada' : 'atlas-no-buscada'}` : nivel > 0 ? `atlas-resplandor-${nivel}` : '', seleccion === r.clave ? 'atlas-seleccionada' : '', foco === r.clave ? 'atlas-foco' : '', discordia > 0 ? 'atlas-con-discordia' : ''].filter(Boolean).join(' ');
-                  const nombre = datos?.etiqueta ?? ETIQUETAS_MAPA.region[r.clave] ?? nombreCorto(r.clave, datos);
+                  const nombre = datosRegion?.etiqueta ?? ETIQUETAS_MAPA.region[r.clave] ?? nombreCorto(r.clave, datosRegion);
                   const hueco = conteo === 0 ? `; hueco: sin evidencia situada todavía (${buscada ? 'buscada sin hallazgo' : 'no buscada'})` : '';
                   const choque = discordia > 0 ? `; discordia: ${plural(discordia, 'hecho choca', 'hechos chocan')} con otro hecho` : '';
-                  const etiquetaAccesible = `${nombre}: ${fraseConteo(datos)}; ${plural(cohortes, 'cohorte distinta', 'cohortes distintas')}${hueco}${choque}`;
+                  const etiquetaAccesible = `${nombre}: ${fraseConteo(datosRegion)}; ${plural(cohortes, 'cohorte distinta', 'cohortes distintas')}${hueco}${choque}`;
                   const oyentes = {
                     onClick: () => seleccionar(r.clave),
                     onPointerEnter: () => setFoco(r.clave),
@@ -483,12 +642,12 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                   pinta de verdad si va escrita dentro, para que las letras no lo tapen. */}
               <g className="atlas-marcas" aria-hidden="true">
                 {DIBUJADAS.map((r) => {
-                  const datos = porClave.get(r.clave);
-                  if (!datos) return null;
-                  const buscada = datos.conteo === 0 && datos.cobertura === 'buscada_sin_hallazgo';
-                  const discordia = datos.discordia.length > 0;
+                  const datosRegion = porClave.get(r.clave);
+                  if (!datosRegion) return null;
+                  const buscada = datosRegion.conteo === 0 && datosRegion.cobertura === 'buscada_sin_hallazgo';
+                  const discordia = datosRegion.discordia.length > 0;
                   if (!buscada && !discordia) return null;
-                  const { nombre, cifra } = textoEtiqueta(r.clave, datos);
+                  const { nombre, cifra } = textoEtiqueta(r.clave, datosRegion);
                   const [mx, my] = puntoMarca(r, textoPintado(nombre, cifra));
                   return (
                     <g key={r.clave}>
@@ -502,9 +661,9 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
               {selDibujo && <path d={selDibujo.d} className={`atlas-seleccion atlas-capa-${selDibujo.capa ?? 'region'}`} clipPath={RECORTADAS.has(selDibujo.clave) ? 'url(#atlas-recorte)' : undefined} fillRule="evenodd" aria-hidden="true" />}
               <g className="atlas-etiquetas" aria-hidden="true">
                 {DIBUJADAS.map((r) => {
-                  const datos = porClave.get(r.clave);
-                  const conteo = datos?.conteo ?? 0;
-                  const { nombre, cifra } = textoEtiqueta(r.clave, datos);
+                  const datosRegion = porClave.get(r.clave);
+                  const conteo = datosRegion?.conteo ?? 0;
+                  const { nombre, cifra } = textoEtiqueta(r.clave, datosRegion);
                   const [x, y] = r.etiqueta;
                   const fin = r.guia ? finGuia(r, textoPintado(nombre, cifra)) : null;
                   return (
@@ -763,13 +922,13 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
       </div>
 
       <div className="grafo-tiempo">
-        <button type="button" className="btn btn-s" aria-pressed={hasta >= iteracionMax} onClick={() => setHasta(iteracionMax)}>
-          {hasta >= iteracionMax ? 'En vivo' : 'Volver al presente'}
+        <button type="button" className="btn btn-s" aria-pressed={enVivo} onClick={() => setHasta(null)}>
+          {enVivo ? 'En vivo' : 'Volver al presente'}
         </button>
         <label htmlFor="atlas-iteracion">
-          Cómo creció: hasta la iteración <strong>{Math.min(hasta, iteracionMax)}</strong> de {iteracionMax}
+          Cómo creció: hasta la iteración <strong>{hastaVisible}</strong> de {iteracionMax}
         </label>
-        <input id="atlas-iteracion" type="range" min={1} max={iteracionMax} value={Math.min(hasta, iteracionMax)} onChange={(e) => setHasta(Number(e.target.value))} />
+        <input id="atlas-iteracion" type="range" min={1} max={iteracionMax} value={hastaVisible} onChange={(e) => moverHasta(Number(e.target.value))} />
         {/* El espacio separa "de 14" de "1 región" para el lector de pantalla y el portapapeles; en el flex no se pinta. */}{' '}
         <span className="meta">
           {plural(conEvidencia, 'región', 'regiones')} con evidencia · {plural(hechosSituados, 'hecho')} en la figura

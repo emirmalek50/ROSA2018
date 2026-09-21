@@ -51,8 +51,12 @@ async function montar(hash: string): Promise<HTMLElement> {
   await act(async () => {
     root.render(<App />);
   });
+  // Las pantallas pintan primero su esqueleto y calculan lo pesado después del
+  // siguiente fotograma (lib/diferido.ts): el árbol, por ejemplo, monta el lienzo
+  // unos 20 ms después. Con 120 ms caben dos fotogramas de sobra aunque la suite
+  // corra con carga (el mismo margen que App.esqueleto.test.tsx).
   await act(async () => {
-    await new Promise((r) => setTimeout(r, 30));
+    await new Promise((r) => setTimeout(r, 120));
   });
   return raiz;
 }
@@ -127,7 +131,7 @@ describe('la aplicacion montada en el cliente', () => {
     expect(lab.querySelector('h2')?.textContent).toBe('Laboratorio');
     const hrefs = [...lab.querySelectorAll<HTMLAnchorElement>('.hilo-etapa')].map((a) => a.getAttribute('href'));
     expect(new Set(hrefs).size).toBe(hrefs.length - 2); // solo Plan, Literatura y Verificar comparten destino (la corrida)
-  });
+  }, 20_000); // monta todas las pantallas (atlas, esqueletos incluidos): bajo carga pasaba de los 5 s por defecto
 
   it('decidir sobre una hipotesis deja un aviso para deshacer, y deshacer la devuelve', async () => {
     localStorage.setItem('rosa.recorrido.v1', '1');

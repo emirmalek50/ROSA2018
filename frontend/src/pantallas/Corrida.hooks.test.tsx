@@ -38,6 +38,15 @@ beforeAll(() => {
   }
 });
 
+/** Deja pasar el frame y el temporizador que viene detrás: desde el 19 de
+ *  septiembre de 2026 la pantalla pinta primero su silueta (esqueleto) y el
+ *  contenido llega tras el siguiente pintado (lib/diferido.ts). */
+async function esperarPintado(ms = 60) {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, ms));
+  });
+}
+
 let root: Root;
 let nodo: HTMLDivElement;
 beforeEach(() => {
@@ -63,6 +72,7 @@ describe('la pantalla de la corrida', () => {
       await act(async () => root.render(<Corrida inv={inv} estado={sinCorridas} ahora={Date.now()} irA={() => undefined} />));
       expect(nodo.textContent).toContain('no tiene corridas');
       await act(async () => root.render(<Corrida inv={inv} estado={base} ahora={Date.now()} irA={() => undefined} />));
+      await esperarPintado();
       expect(nodo.textContent).not.toContain('no tiene corridas');
       expect(nodo.textContent).toContain('Corrida');
       await act(async () => root.render(<Corrida inv={inv} estado={sinCorridas} ahora={Date.now()} irA={() => undefined} />));
@@ -80,6 +90,7 @@ describe('la pantalla de la corrida', () => {
     const corrida = base.corridas.find((c) => c.investigacionId === inv.id)!;
     const esperando = { ...base, corridas: base.corridas.map((c) => (c.id === corrida.id ? { ...c, estado: 'esperando_plan' as const, empezadaEn: Date.now() - 3_600_000, gasto: { ...c.gasto, segundos: 90, usd: 26.79, usdReal: 12.71 } } : c)) };
     await act(async () => root.render(<Corrida inv={inv} estado={esperando} ahora={Date.now()} irA={() => undefined} />));
+    await esperarPintado();
     expect(nodo.textContent).toContain('en espera de una persona');
     expect(nodo.textContent).toContain('1 min 30 s de trabajo');
     expect(nodo.textContent).not.toContain('1 h de trabajo');

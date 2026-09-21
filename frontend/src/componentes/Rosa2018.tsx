@@ -36,6 +36,11 @@ import { EXPLICACION_BLOQUEO } from '../lib/priorizacion';
 import { cambiosPorVersion, etiquetaCampo, resumenDiff } from '../lib/registro';
 import { rutaDe } from '../lib/ruta';
 import { Chip, Confirmar, Momento, Seccion } from './piezas';
+import { Cargando, Esqueleto, EsqueletoTexto } from './Esqueleto';
+
+/** Lo que devuelve el almacén cuando el servidor está pero no contestó a tiempo (almacen.ts, SinRespuesta). */
+type SinRespuestaServidor = 'sin_respuesta';
+import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
 
 /* ---------------------------------------------------------------------
    Mision
@@ -1274,7 +1279,8 @@ export function SubirDataset({ inv }: { inv: Investigacion }) {
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [sintetico, setSintetico] = useState(false);
-  const [subiendo, setSubiendo] = useState(false);
+  // En vuelo mientras el servidor perfila el fichero: el botón lo enseña y no admite un segundo clic.
+  const [subiendo, envolverSubida] = useEnVuelo();
   const [error, setError] = useState<string | null>(null);
   const [abierto, setAbierto] = useState(false);
   if (!abierto) {
@@ -1319,18 +1325,17 @@ export function SubirDataset({ inv }: { inv: Investigacion }) {
           type="button"
           className="btn btn-primario"
           disabled={!fichero || subiendo}
-          onClick={async () => {
+          {...atributosEnVuelo(subiendo)}
+          onClick={envolverSubida(async () => {
             if (!fichero) return;
-            setSubiendo(true);
             const err = await acciones.subirDataset(inv.id, fichero, nombre || fichero.name, descripcion, sintetico);
-            setSubiendo(false);
             setError(err);
             if (!err) {
               setFichero(null);
               setNombre('');
               setDescripcion('');
             }
-          }}
+          })}
         >
           {subiendo ? 'Subiendo...' : 'Subir y perfilar'}
         </button>
@@ -1447,7 +1452,7 @@ export function Politicas({ politicas }: { politicas: EstadoRosa['politicas'] })
     { clave: 'eloK', etiqueta: 'Factor K del Elo', nota: 'Cuánto mueve un partido el Elo.' },
   ];
   return (
-    <Seccion detalle titulo="Políticas" nota="Los límites del sistema viven en el código del servidor (rosa/politicas.py), no en este estado: ningún agente puede editarlos y cada cambio es un commit que queda en la versión de ROSA2018 de cada corrida. Aquí solo se leen.">
+    <Seccion detalle titulo="Políticas" nota="Los límites del sistema viven en el código del servidor (rosa/políticas.py), no en este estado: ningún agente puede editarlos y cada cambio es un commit que queda en la versión de ROSA2018 de cada corrida. Aquí solo se leen.">
       {!politicas ? (
         <p className="meta">Sin servidor no hay políticas que leer.</p>
       ) : (
@@ -2131,7 +2136,8 @@ export function MemoriaDelProyecto({ inv }: { inv: Investigacion }) {
  *  responde en llano y deja cada consulta registrada. */
 export function PreguntarALasBases({ inv, ahora }: { inv: Investigacion; ahora: number }) {
   const [pregunta, setPregunta] = useState('');
-  const [enviando, setEnviando] = useState(false);
+  // En vuelo mientras el bucle de herramientas responde (puede tardar): el botón lo enseña y no admite un segundo clic.
+  const [enviando, envolverPregunta] = useEnVuelo();
   const [error, setError] = useState<string | null>(null);
   const preguntas = [...(inv.preguntasABases ?? [])].sort((a, b) => b.fecha - a.fecha);
   return (
@@ -2142,14 +2148,13 @@ export function PreguntarALasBases({ inv, ahora }: { inv: Investigacion; ahora: 
           type="button"
           className="btn btn-primario"
           disabled={pregunta.trim() === '' || enviando}
-          onClick={async () => {
-            setEnviando(true);
+          {...atributosEnVuelo(enviando)}
+          onClick={envolverPregunta(async () => {
             setError(null);
             const err = await acciones.preguntarALasBases(inv.id, pregunta);
-            setEnviando(false);
             setError(err);
             if (!err) setPregunta('');
-          }}
+          })}
         >
           {enviando ? 'Consultando bases...' : 'Preguntar con herramientas'}
         </button>
@@ -2707,11 +2712,102 @@ export function Skills({ skills }: { skills: SkillCatalogo[] | undefined }) {
 
 
 // ---------------------------------------------------------------------------
+// Esqueletos de las secciones que piden datos aparte al servidor (estándar de
+// Emir, 19 de septiembre de 2026): mientras llega la respuesta se pinta la
+// silueta del contenido con sus mismas clases y medidas, para que al llegar no
+// salte nada; el contenedor lleva aria-busy y un rótulo oculto para lectores de
+// pantalla. Los errores y el "sin servidor" siguen saliendo como antes.
+// ---------------------------------------------------------------------------
+
+/** La silueta de un veredicto en una fila de acciones (un chip y una frase de
+ *  `lineas` líneas): lo que pintan IntegridadRegistro y EspejoConvex cuando
+ *  responden. Medido: el espejo ocupa una línea (22 px); la integridad, con
+ *  el motivo de una cadena rota, hasta tres (65 px). */
+function EsqueletoVeredicto({ rotulo, lineas = 1 }: { rotulo: string; lineas?: number }) {
+  return (
+    <Cargando
+      activo
+      rotulo={rotulo}
+      esqueleto={
+        <div className="acciones">
+          <Esqueleto className="esqueleto-chip" ancho={128} />
+          {lineas <= 1 ? (
+            <Esqueleto alto={12} ancho="min(100%, 420px)" />
+          ) : (
+            <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+              <EsqueletoTexto lineas={lineas} />
+            </div>
+          )}
+        </div>
+      }
+    >
+      {null}
+    </Cargando>
+  );
+}
+
+/** Lo que una sección responde cuando el servidor está pero no contestó a
+ *  tiempo (o falló): "no pude comprobar", nunca "no hay", con el botón de
+ *  volver a intentarlo. */
+function SinRespuesta({ que, onReintentar }: { que: string; onReintentar: () => void }) {
+  return (
+    <div className="acciones">
+      <span className="meta">No pude comprobar {que}: el servidor no respondió a tiempo.</span>
+      <button type="button" className="btn btn-s" onClick={onReintentar}>
+        Volver a comprobar
+      </button>
+    </div>
+  );
+}
+
+/** Cuántas líneas ocupa el párrafo "Por iteración" del coste por decisión:
+ *  unos 16 caracteres por iteración sobre unos 150 por línea (13 px a 1064
+ *  px de ancho), tope de cuatro. */
+function lineasPorIteracion(iteraciones: number): number {
+  if (iteraciones <= 1) return 0;
+  return Math.min(4, Math.max(1, Math.ceil((40 + iteraciones * 16) / 150)));
+}
+
+/** La silueta de las cuatro cifras del coste por decisión (rejilla .metricas
+ *  con .gasto-item): la cifra grande y tres líneas de explicación, como las
+ *  reales (medido: 115 px cada una), y debajo el párrafo "Por iteración"
+ *  cuando la investigación tiene más de una. */
+function EsqueletoCostes({ iteraciones }: { iteraciones: number }) {
+  const lineas = lineasPorIteracion(iteraciones);
+  return (
+    <Cargando
+      activo
+      rotulo="el coste por decisión"
+      esqueleto={
+        <div>
+          <div className="metricas">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="gasto-item">
+                <Esqueleto alto={22} ancho={i === 0 ? '52%' : '44%'} />
+                <EsqueletoTexto lineas={3} />
+              </div>
+            ))}
+          </div>
+          {lineas > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <EsqueletoTexto lineas={lineas} />
+            </div>
+          )}
+        </div>
+      }
+    >
+      {null}
+    </Cargando>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Espejo del estado en Convex
 // ---------------------------------------------------------------------------
 
 export function EspejoConvex({ ahora }: { ahora: number }) {
-  const [esp, setEsp] = useState<EstadoEspejo | null | undefined>(undefined);
+  const [esp, setEsp] = useState<EstadoEspejo | null | SinRespuestaServidor | undefined>(undefined);
+  const [intento, setIntento] = useState(0);
   useEffect(() => {
     let vivo = true;
     const cargar = async () => {
@@ -2724,11 +2820,19 @@ export function EspejoConvex({ ahora }: { ahora: number }) {
       vivo = false;
       clearInterval(t);
     };
-  }, []);
+  }, [intento]);
   return (
     <Seccion detalle titulo="Espejo del estado en Convex" nota="Una copia en la nube de cada entidad pública del estado (hipótesis, hechos, iteraciones, artefactos, decisiones), actualizada pocos segundos después de cada cambio. SQLite en el servidor de ROSA2018 sigue siendo la fuente de verdad y el único que escribe; el espejo sirve para leer desde cualquier sitio y para que varias personas vean lo mismo. La clave vive solo en el .env del servidor.">
       {esp === undefined ? (
-        <p className="meta">Consultando el servidor...</p>
+        <EsqueletoVeredicto rotulo="el espejo de Convex" />
+      ) : esp === 'sin_respuesta' ? (
+        <SinRespuesta
+          que="el espejo de Convex"
+          onReintentar={() => {
+            setEsp(undefined);
+            setIntento((i) => i + 1);
+          }}
+        />
       ) : esp === null ? (
         <p className="meta">Sin servidor: el espejo solo existe con el servidor de ROSA2018 encendido.</p>
       ) : !esp.activo ? (
@@ -2758,20 +2862,24 @@ export function EspejoConvex({ ahora }: { ahora: number }) {
 // Integridad del registro: la cadena de hashes de las acciones
 
 export function IntegridadRegistro() {
-  const [estado, setEstado] = useState<{ ok: boolean; filas: number; encadenadas: number; sinHash: number; rotaEn: number | null; motivo?: string } | null | 'cargando'>('cargando');
+  const [estado, setEstado] = useState<{ ok: boolean; filas: number; encadenadas: number; sinHash: number; rotaEn: number | null; motivo?: string } | null | SinRespuestaServidor | 'cargando'>('cargando');
+  const [intento, setIntento] = useState(0);
   useEffect(() => {
     let vivo = true;
+    setEstado('cargando');
     void acciones.integridadRegistro().then((r) => {
       if (vivo) setEstado(r);
     });
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [intento]);
   return (
     <Seccion detalle titulo="Integridad del registro" nota="Cada acción que cambia el estado queda en un registro solo de añadir, y cada fila lleva el hash de la anterior (una cadena). Si alguien borra o altera una fila, la cadena se rompe desde ahí y aquí se ve. Es la parte de ALCOA+ (atribuible, contemporáneo, original, perdurable) que se puede dar sin firma electrónica; la firma por persona queda para un destino regulado.">
       {estado === 'cargando' ? (
-        <p className="meta">Comprobando la cadena...</p>
+        <EsqueletoVeredicto rotulo="la integridad del registro" lineas={2} />
+      ) : estado === 'sin_respuesta' ? (
+        <SinRespuesta que="la integridad del registro" onReintentar={() => setIntento((i) => i + 1)} />
       ) : estado === null ? (
         <p className="meta">Sin servidor no hay registro que comprobar.</p>
       ) : (
@@ -2912,9 +3020,13 @@ export function facturadoPorGateway(corridas: Pick<Corrida, 'investigacionId' | 
 }
 
 export function CostesPorDecision({ investigacionId }: { investigacionId: string }) {
-  const [c, setC] = useState<CostesInvestigacion | null | 'cargando'>('cargando');
+  const [c, setC] = useState<CostesInvestigacion | null | SinRespuestaServidor | 'cargando'>('cargando');
+  const [intento, setIntento] = useState(0);
   const estado = useRosa();
   const factura = facturadoPorGateway(estado.corridas, investigacionId);
+  // Cuántas iteraciones tiene la investigación lo sabe el estado: decide si
+  // la silueta lleva el párrafo "Por iteración".
+  const iteraciones = estado.corridas.filter((x) => x.investigacionId === investigacionId).reduce((suma, x) => suma + Math.max(0, x.iteracionActual), 0);
   useEffect(() => {
     let vivo = true;
     setC('cargando');
@@ -2924,7 +3036,7 @@ export function CostesPorDecision({ investigacionId }: { investigacionId: string
     return () => {
       vivo = false;
     };
-  }, [investigacionId]);
+  }, [investigacionId, intento]);
   const usd = (v: number | null | undefined) => (v === null || v === undefined ? 'n/a' : `${v.toFixed(2).replace('.', ',')} $`);
   return (
     <Seccion detalle titulo="Coste por decisión" nota="Lo que decide presupuestos no es el coste de una llamada sino cuánto cuesta una hipótesis que llega al dossier, una candidata al laboratorio o una decisión que tomó una persona. El tiempo de revisión humana entra en el coste a la tarifa declarada en políticas: sin eso la comparación con investigar sin ROSA2018 no es honesta. Las cifras de modelo son estimaciones por tokens; lo facturado por el gateway, cuando el servidor lo guardó, va al lado.">
@@ -2934,7 +3046,9 @@ export function CostesPorDecision({ investigacionId }: { investigacionId: string
         </p>
       )}
       {c === 'cargando' ? (
-        <p className="meta">Calculando...</p>
+        <EsqueletoCostes iteraciones={iteraciones} />
+      ) : c === 'sin_respuesta' ? (
+        <SinRespuesta que="el coste por decisión" onReintentar={() => setIntento((i) => i + 1)} />
       ) : c === null ? (
         <p className="meta">Sin servidor no hay costes que agregar.</p>
       ) : (

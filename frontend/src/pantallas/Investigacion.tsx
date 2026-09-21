@@ -1,17 +1,29 @@
-// Objetivo, limites, condicion de parada y revisores; la configuracion que
-// ROSA2018 lee (editable); los datos con su contrato (comprobacion previa,
-// diccionario, clasificacion de sensibilidad) y el catalogo de datos del
+// Objetivo, límites, condición de parada y revisores; la configuración que
+// ROSA2018 lee (editable); los datos con su contrato (comprobación previa,
+// diccionario, clasificación de sensibilidad) y el catálogo de datos del
 // Alzheimer; bifurcar; y las corridas.
+//
+// Espera visible (estándar de Emir, 19 de septiembre de 2026): lo que se
+// deriva del estado se calcula después de pintar la silueta de la ficha
+// (EsqueletoPantalla, variante "ficha"), así que abrir una investigación
+// nunca deja la pantalla vacía ni congelada. Las cuatro tarjetas del programa
+// (aprendizaje, ruta terapéutica, mapa de la enfermedad, datasets) las
+// escribe el servidor al cerrar cada iteración: mientras una corrida en
+// marcha no ha cerrado ninguna, salen como esqueleto con la forma de lo que
+// va a llegar; si ya cerró alguna y siguen sin datos, no hay nada que esperar
+// y cada tarjeta lo dice con sus palabras.
 
 import { useState } from 'react';
 import { acciones } from '../datos/almacen';
 import type { Amplitud, Cuestion, Dataset, EstadoRosa, Investigacion as Inv } from '../datos/tipos';
 import { CifrasAprendizaje } from '../componentes/CifrasAprendizaje';
 import { DatasetsPrograma } from '../componentes/DatasetsPrograma';
+import { Cargando, Esqueleto, EsqueletoFilas, EsqueletoPantalla, EsqueletoTarjeta, EsqueletoTexto } from '../componentes/Esqueleto';
 import { MapaEnfermedad } from '../componentes/MapaEnfermedad';
 import { MapaRuta } from '../componentes/MapaRuta';
 import { Chip, Confirmar, Momento, Seccion } from '../componentes/piezas';
 import { ConocimientoOperativoDelLaboratorio, FormularioMision, Jerarquia, LibroDeProcedencia, MemoriaDelProyecto, PuertaYReproducciones, SubirDataset } from '../componentes/Rosa2018';
+import { useCalculoDiferido } from '../lib/diferido';
 import { AMBITO_LECCION, AMPLITUD, CLASIFICACION_DATOS, ESTADO_CORRIDA, ESTADO_INVESTIGACION } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { partesAutomatizadas, textoAutomatizacion } from '../lib/parada';
@@ -133,14 +145,125 @@ function QueToca({ inv, corridas, irA }: { inv: Inv; corridas: EstadoRosa['corri
   );
 }
 
-export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: EstadoRosa; ahora: number; irA: (hash: string) => void }) {
+/** Las cuatro piezas del programa las escribe el servidor al cerrar cada
+ *  iteración (rosa/bucle/corrida.py, _vistas_de_programa_al_cerrar). Están en
+ *  espera de verdad mientras una corrida en marcha no ha cerrado todavía
+ *  ninguna (iteración actual 1 o menos); si ya cerró alguna y siguen sin
+ *  datos, no hay nada que esperar y cada tarjeta dice lo suyo. */
+function programaEnEspera(corridas: EstadoRosa['corridas']): boolean {
+  return corridas.some((c) => c.iteracionActual <= 1 && ESTADOS_QUE_TRABAJAN.has(c.estado));
+}
+
+/** Los estados en que el bucle está trabajando y por tanto la espera es de
+ *  verdad: en marcha, proponiendo el plan o sondeando a un modelo caído. Un
+ *  plan sin aprobar, una pausa, un presupuesto agotado o un permiso son
+ *  esperas humanas: nadie calcula nada hasta que la persona actúe, y un
+ *  esqueleto prometería un resultado que no va a llegar solo. */
+const ESTADOS_QUE_TRABAJAN = new Set<EstadoRosa['corridas'][number]['estado']>(['en_marcha', 'esperando_plan', 'esperando_modelo']);
+
+/** Por qué el programa no se calcula todavía cuando la corrida espera a una
+ *  persona antes de cerrar su primera iteración: la frase que acompaña a
+ *  las cuatro tarjetas en vez del brillo. Vacío si no es el caso. */
+export function motivoEsperaHumana(corridas: EstadoRosa['corridas']): string {
+  const corrida = corridas.find((c) => c.iteracionActual <= 1 && !ESTADOS_QUE_TRABAJAN.has(c.estado) && c.estado !== 'terminada' && c.estado !== 'detenida');
+  if (!corrida) return '';
+  const motivo =
+    corrida.estado === 'esperando_aprobacion'
+      ? 'la corrida espera tu aprobación del plan'
+      : corrida.estado === 'pausada_por_presupuesto'
+        ? 'la corrida se pausó por presupuesto y espera que lo amplíes'
+        : corrida.estado === 'pausada'
+          ? 'la corrida está pausada y espera que la reanudes'
+          : 'la corrida espera a una persona';
+  return `Las cuatro piezas se calculan al cerrar la primera iteración; ${motivo}.`;
+}
+
+/** Lo que la pantalla deriva del estado para una investigación: sus corridas
+ *  (la más reciente primero), la investigación de la que es rama, sus
+ *  lecciones ordenadas y si el programa está en espera. Se calcula después de
+ *  pintar la silueta (lib/diferido.ts, useCalculoDiferido). */
+function derivarInvestigacion(estado: EstadoRosa, inv: Inv) {
   const corridas = estado.corridas.filter((c) => c.investigacionId === inv.id).sort((a, b) => b.numero - a.numero);
-  const origen = inv.ramaDe ? estado.investigaciones.find((i) => i.id === inv.ramaDe) : null;
+  const origen = inv.ramaDe ? estado.investigaciones.find((i) => i.id === inv.ramaDe) ?? null : null;
+  const lecciones = (estado.lecciones ?? []).filter((l) => l.investigacionId === inv.id).sort((a, b) => (b.veces - a.veces) || (b.ultimaVez - a.ultimaVez));
+  return { invId: inv.id, corridas, origen, lecciones, programaEnEspera: programaEnEspera(corridas), motivoEsperaHumana: motivoEsperaHumana(corridas) };
+}
+
+/** La silueta de la ficha de la investigación: la cabecera con el título real
+ *  y el chip de estado en gris (la real mide 55 px), el botón de bifurcar, la
+ *  tarjeta de "qué toca" y las dos tarjetas de objetivo y relevancia. */
+export function EsqueletoInvestigacion({ inv }: { inv: Inv }) {
+  return (
+    <EsqueletoPantalla
+      variante="ficha"
+      rotulo="la investigación"
+      cabecera={{
+        titulo: inv.titulo,
+        descripcion: (
+          <p aria-hidden="true">
+            <Esqueleto className="esqueleto-chip" ancho={104} />
+          </p>
+        ),
+      }}
+      acciones={<Esqueleto className="esqueleto-boton" ancho={92} />}
+    >
+      <div className="tarjeta" style={{ marginBottom: 20, minHeight: 83 }} aria-hidden="true">
+        <EsqueletoTexto lineas={2} />
+      </div>
+      <div className="rejilla-2" aria-hidden="true">
+        <EsqueletoTarjeta lineas={12} alto={400} />
+        <EsqueletoTarjeta lineas={12} alto={400} />
+      </div>
+      <div className="esqueleto-datos">
+        <EsqueletoFilas filas={5} columnas={2} />
+      </div>
+    </EsqueletoPantalla>
+  );
+}
+
+/** La silueta de una tarjeta del programa mientras el servidor la calcula:
+ *  la clase real de la tarjeta (mide lo mismo), el título visible, una nota
+ *  de cuándo llega y bloques grises con la forma del contenido. El aria-busy y
+ *  el rótulo para el lector de pantalla los pone `Cargando`, que la envuelve. */
+function SiluetaPrograma({ clase, titulo, forma }: { clase: 'cifras-ap' | 'mapa-ruta' | 'mapa-enf' | 'dsp'; titulo: string; forma: 'texto' | 'tabla' | 'rejilla' }) {
+  const cabecera = clase === 'dsp' ? 'dsp-encabezado' : `${clase}-cabecera`;
+  return (
+    <article className={`tarjeta ${clase}`} data-esqueleto="programa" aria-label={titulo}>
+      <div className={cabecera}>
+        <h3>{titulo}</h3>
+        <span className="meta">ROSA2018 lo calcula al cerrar la iteración en curso.</span>
+      </div>
+      {forma === 'texto' && (
+        <>
+          <EsqueletoTexto lineas={3} />
+          <EsqueletoFilas filas={1} columnas={3} />
+        </>
+      )}
+      {forma === 'tabla' && <EsqueletoFilas filas={4} columnas={4} />}
+      {forma === 'rejilla' && (
+        <>
+          <EsqueletoTexto lineas={2} />
+          <EsqueletoFilas filas={3} columnas={3} />
+        </>
+      )}
+    </article>
+  );
+}
+
+export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: EstadoRosa; ahora: number; irA: (hash: string) => void }) {
+  const { valor: base } = useCalculoDiferido(() => derivarInvestigacion(estado, inv), [estado.corridas, estado.investigaciones, estado.lecciones, inv]);
   const [editando, setEditando] = useState(false);
   const [pref, setPref] = useState(inv.configuracion.preferencias);
   const [atr, setAtr] = useState(inv.configuracion.atributos.join('\n'));
   const [res, setRes] = useState(inv.configuracion.restricciones.join('\n'));
   const [verCatalogo, setVerCatalogo] = useState(false);
+  // Esqueleto al abrir la ficha (App la monta de nuevo por cada investigación);
+  // con una actualización del canal en vivo se conserva lo calculado hasta que
+  // llega lo nuevo, un fotograma después.
+  if (base === null || base.invId !== inv.id) return <EsqueletoInvestigacion inv={inv} />;
+  const { corridas, origen, lecciones } = base;
+  const esperaPrograma = base.programaEnEspera;
+  const esperaHumana = base.motivoEsperaHumana;
 
   return (
     <div className="contenido">
@@ -374,17 +497,25 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         titulo="Programa"
         nota="La vista de programa de ROSA2018: lo que la investigación aporta al conjunto, no a una hipótesis. Cuatro piezas, calculadas por regla al cerrar cada iteración. Aprendizaje: si las predicciones que ROSA2018 dejó escritas antes de mirar los datos (prerregistro) acertaron, cuánto tarda cada hipótesis en recibir una decisión y si se reutiliza lo heredado de otras investigaciones. Mapa de la ruta terapéutica: por cada diana, cuáles de los ocho pasos entre un mecanismo y un beneficio para una persona están cubiertos. Mapa de la enfermedad: dónde cae la evidencia por fase, región del cerebro y tipo de célula, y qué huecos nombra la misión. Datasets del programa: los conjuntos de datos públicos que ROSA2018 encontró, con su acceso. Los campos que aún no se han calculado lo dicen."
       >
+        {esperaHumana !== '' && <p className="meta esqueleto-nota">{esperaHumana}</p>}
         <div className="programa">
-          <CifrasAprendizaje cifras={inv.cifrasAprendizaje ?? null} />
-          <MapaRuta mapa={inv.mapaRuta ?? null} estado={estado} />
-          <MapaEnfermedad mapa={inv.mapaEnfermedad ?? null} />
-          <DatasetsPrograma key={inv.id} datasets={estado.datasetsPrograma ?? []} investigacionId={inv.id} />
+          <Cargando activo={esperaPrograma && !inv.cifrasAprendizaje} rotulo="las cifras de aprendizaje" esqueleto={<SiluetaPrograma clase="cifras-ap" titulo="Aprendizaje" forma="texto" />}>
+            <CifrasAprendizaje cifras={inv.cifrasAprendizaje ?? null} />
+          </Cargando>
+          <Cargando activo={esperaPrograma && !inv.mapaRuta} rotulo="el mapa de la ruta terapéutica" esqueleto={<SiluetaPrograma clase="mapa-ruta" titulo="Mapa de la ruta terapéutica" forma="tabla" />}>
+            <MapaRuta mapa={inv.mapaRuta ?? null} estado={estado} />
+          </Cargando>
+          <Cargando activo={esperaPrograma && !inv.mapaEnfermedad} rotulo="el mapa de la enfermedad" esqueleto={<SiluetaPrograma clase="mapa-enf" titulo="Mapa de la enfermedad" forma="rejilla" />}>
+            <MapaEnfermedad mapa={inv.mapaEnfermedad ?? null} />
+          </Cargando>
+          <Cargando activo={esperaPrograma && (estado.datasetsPrograma ?? []).length === 0} rotulo="los datasets del programa" esqueleto={<SiluetaPrograma clase="dsp" titulo="Datasets del programa" forma="tabla" />}>
+            <DatasetsPrograma key={inv.id} datasets={estado.datasetsPrograma ?? []} investigacionId={inv.id} />
+          </Cargando>
         </div>
       </Seccion>
 
       <Cuestiones inv={inv} estado={estado} />
       {(() => {
-        const lecciones = (estado.lecciones ?? []).filter((l) => l.investigacionId === inv.id).sort((a, b) => (b.veces - a.veces) || (b.ultimaVez - a.ultimaVez));
         return lecciones.length > 0 ? (
           <Seccion detalle titulo={`Lo que ROSA2018 aprendió a no repetir (${lecciones.length})`} nota="Lecciones generadas por regla al cerrar cada iteración: pasos que fallaron, consultas que no rindieron, bases que no respondieron, hipótesis cerradas por el Killer y por qué, ideas retiradas del vivero, análisis sin efecto. Cada paso las lee antes de actuar; una lección repetida pesa más.">
             <ul className="lista-limpia lecciones">

@@ -89,9 +89,18 @@ function conCorrida(estado: EstadoRosa, cambios: Partial<CorridaTipo>): EstadoRo
   return { ...estado, corridas: estado.corridas.map((c) => (c.id === id ? { ...c, ...cambios } : c)) };
 }
 
+/** Deja pasar el frame y el temporizador que viene detrás: desde el 19 de
+ *  septiembre de 2026 la pantalla pinta primero su silueta (esqueleto) y el
+ *  contenido llega tras el siguiente pintado (lib/diferido.ts). */
+async function esperarPintado(ms = 60) {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, ms));
+  });
+}
 async function pintar(estado: EstadoRosa) {
   const inv = estado.investigaciones[0]!;
   await act(async () => root.render(<Corrida inv={inv} estado={estado} ahora={AHORA} irA={() => undefined} />));
+  await esperarPintado();
 }
 
 const botones = () => [...nodo.querySelectorAll('button')].map((b) => b.textContent?.trim() ?? '');

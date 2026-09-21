@@ -49,9 +49,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
 import { AvisoMuestra, Chip, Vacio } from '../componentes/piezas';
+import { Cargando, Esqueleto, EsqueletoTexto } from '../componentes/Esqueleto';
 import { alternar, buscar, construirArbol, fraseProfundidad, incorporarNovedades, NOMBRE_ENLACE, NOMBRE_TIPO, paso, posicionInicial, SIN_DISTANCIA, visiblesIniciales, type Grafo, type NodoArbol, type Posicion, type TipoEnlace, type TipoNodo } from '../lib/arbol';
 import { acotarCamara, camaraInicial, distanciaEncuadre, ESPERA_GIRO_MS, paso3d, posicionInicial3d, SENSIBILIDAD_GIRO, VELOCIDAD_GIRO, type Camara, type Posicion3 } from '../lib/arbol3d';
 import { ajusteLienzo, construirEscena, dibujar, nodoBajoPuntero, Paleta, registrarEscena, RESPALDOS_PALETA, type Escena, type EstiloNodo, type Trazo } from '../lib/lienzo_arbol';
+import { useCalculoDiferido } from '../lib/diferido';
 import { useMovimientoReducido } from '../lib/movimiento';
 const COLOR: Record<TipoNodo, string> = {
   objetivo: 'var(--accent)',
@@ -208,9 +210,152 @@ interface Contexto {
 const ANCHO = 900;
 const ALTO = 560;
 
+/** La ayuda de la cabecera. Es una constante para que la silueta y la pantalla
+ *  real la pinten idéntica y la cabecera no cambie de alto al llegar el árbol. */
+const AYUDA = 'El objetivo es el tronco; las ramas, los clusters con varias hipótesis; las hojas, las hipótesis; alrededor, lo que las sostiene. Pasa el ratón por un nodo para ver sus conexiones; pulsa para desplegar lo que toca; dos veces para abrir su ficha; arrastra un nodo para moverlo (los demás lo siguen). Las etiquetas pequeñas aparecen al acercar con la rueda. Escribe una palabra o un identificador (GFAP, HGNC:4235) para iluminar todo lo que lo nombra. Por defecto el relleno de cada nodo dice qué es (las hipótesis, el color de su familia de mecanismo) y el anillo cuánto lo sostiene: verde si está a un paso de una medición propia de ROSA2018 (un análisis in silico validado, un resultado del laboratorio o una observación original), ámbar si solo hay literatura leída detrás, gris punteado si nada todavía. Con «Por distancia al dato» esa distancia pasa al relleno con una escala secuencial. Con «Vista 3D» el mismo árbol se despliega en tres dimensiones: arrastra el fondo para girarlo (en horizontal gira, en vertical se inclina), usa la rueda para acercar la cámara, y los nodos lejanos se ven más pequeños y tenues; si nadie lo toca durante unos segundos, gira solo. En 3D los nodos no se arrastran: el fondo gira el árbol.';
+
+/** Dónde van los nodos de la silueta (en tanto por ciento del lienzo) y su
+ *  diámetro en píxeles: el tronco en el centro, cinco ramas alrededor y hojas
+ *  más pequeñas hacia fuera. `de` es el nodo al que se une con una línea. */
+const SILUETA_NODOS: { x: number; y: number; d: number; de?: number }[] = [
+  { x: 50, y: 50, d: 0 }, // el tronco: el óvalo se pinta aparte
+  { x: 30, y: 30, d: 28, de: 0 },
+  { x: 70, y: 28, d: 28, de: 0 },
+  { x: 24, y: 70, d: 26, de: 0 },
+  { x: 74, y: 72, d: 26, de: 0 },
+  { x: 50, y: 20, d: 24, de: 0 },
+  { x: 16, y: 44, d: 18, de: 1 },
+  { x: 36, y: 14, d: 16, de: 1 },
+  { x: 62, y: 10, d: 16, de: 5 },
+  { x: 86, y: 40, d: 18, de: 2 },
+  { x: 88, y: 60, d: 16, de: 4 },
+  { x: 80, y: 88, d: 18, de: 4 },
+  { x: 58, y: 86, d: 16, de: 4 },
+  { x: 32, y: 88, d: 18, de: 3 },
+  { x: 12, y: 78, d: 16, de: 3 },
+  { x: 40, y: 62, d: 16, de: 0 },
+];
+
+/** La silueta de la pantalla del árbol mientras se construye el grafo
+ *  (estándar de Emir, 19 de septiembre de 2026): la cabecera real (texto
+ *  fijo) con los mandos en gris; el marco con un óvalo central, unos círculos
+ *  unidos por líneas y el panel derecho; y la barra de iteraciones. Reutiliza
+ *  `grafo-marco`, `grafo`, `grafo-panel` y `grafo-tiempo` para medir
+ *  exactamente lo que medirá el árbol, así no salta al llegar. */
+function SiluetaArbol({ conexion }: { conexion: EstadoRosa['conexion'] }) {
+  return (
+    <div className="contenido contenido-ancho">
+      <AvisoMuestra conexion={conexion} />
+      <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
+        <div>
+          <h2>Árbol de la investigación</h2>
+          <p>{AYUDA}</p>
+        </div>
+        {/* Los mandos reales, deshabilitados: son chrome fijo, no contenido que llega, y así la cabecera mide exactamente lo mismo que con el árbol. */}
+        <div className="acciones" aria-hidden="true">
+          <div className="segmentos" role="group" aria-label="Vista del árbol">
+            <button type="button" aria-pressed disabled>
+              Vista plana
+            </button>
+            <button type="button" disabled>
+              Vista 3D
+            </button>
+          </div>
+          <div className="segmentos" role="group" aria-label="Color de los nodos">
+            <button type="button" aria-pressed disabled>
+              Por tipo y mecanismo
+            </button>
+            <button type="button" disabled>
+              Por distancia al dato
+            </button>
+          </div>
+          <input className="entrada entrada-s" style={{ width: 220 }} placeholder="Buscar en el árbol" aria-label="Buscar en el árbol" disabled readOnly />
+          <button type="button" className="btn btn-s" disabled>
+            Plegar todo
+          </button>
+          <button type="button" className="btn btn-s" disabled>
+            Desplegar todo
+          </button>
+        </div>
+      </div>
+      <div className="grafo-marco" aria-hidden="true">
+        {/* La figura va en línea dentro de un div, como el <canvas> real: así deja bajo ella el mismo hueco de la línea base (6 px) y el marco mide igual. */}
+        <div>
+          <div className="grafo" data-esqueleto="arbol" style={{ display: 'inline-block', verticalAlign: 'baseline', position: 'relative', overflow: 'hidden', cursor: 'progress' }}>
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+            {SILUETA_NODOS.map((n, i) =>
+              n.de === undefined ? null : <line key={i} x1={SILUETA_NODOS[n.de]!.x} y1={SILUETA_NODOS[n.de]!.y} x2={n.x} y2={n.y} stroke="var(--esqueleto-base)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />,
+            )}
+          </svg>
+          <span data-esqueleto="tronco" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
+            <Esqueleto ancho={76} alto={54} radio={38} />
+          </span>
+          {SILUETA_NODOS.slice(1).map((n, i) => (
+            <span key={i} data-esqueleto="nodo" style={{ position: 'absolute', left: `${n.x}%`, top: `${n.y}%`, transform: 'translate(-50%, -50%)' }}>
+              <Esqueleto ancho={n.d} alto={n.d} radio={n.d / 2} />
+            </span>
+          ))}
+          </div>
+        </div>
+        <aside className="grafo-panel">
+          <Esqueleto ancho={72} alto={22} radio={11} />
+          <Esqueleto ancho="72%" alto={18} />
+          <EsqueletoTexto lineas={3} />
+          <Esqueleto ancho={140} alto={12} />
+          <EsqueletoTexto lineas={6} />
+        </aside>
+      </div>
+      <div className="grafo-tiempo" aria-hidden="true">
+        <Esqueleto ancho={72} alto={28} />
+        <Esqueleto ancho={260} alto={13} />
+        <Esqueleto ancho="30%" alto={6} radio={3} />
+        <Esqueleto ancho={120} alto={12} />
+      </div>
+    </div>
+  );
+}
+
+const ROTULO_ARBOL = 'el árbol de la investigación';
+
+/** La silueta del árbol con su aria-busy y su rótulo oculto, lista para que
+ *  App la pinte en el primer frame tras el clic (App.tsx, SILUETA_AL_CAMBIAR):
+ *  es la misma que el propio árbol pinta mientras construye el grafo, así entre
+ *  el frame de App y el primero de la pantalla no cambia nada en la maqueta.
+ *  Se exporta solo el componente (no el rótulo) para que Arbol.tsx conserve el
+ *  refresco en caliente de Vite. */
+export function EsqueletoArbol({ conexion }: { conexion: EstadoRosa['conexion'] }) {
+  return (
+    <Cargando activo rotulo={ROTULO_ARBOL} esqueleto={<SiluetaArbol conexion={conexion} />}>
+      {null}
+    </Cargando>
+  );
+}
+
+/** La pantalla del árbol. Construir el grafo (lib/arbol.ts, construirArbol) y
+ *  asentar la disposición inicial (240 pasos de fuerzas sin animación)
+ *  congelaban la pantalla al abrirla: ahora el grafo se construye DESPUÉS de
+ *  pintar la silueta (lib/diferido.ts, useCalculoDiferido) y el árbol se monta
+ *  con él ya hecho. Cada estado nuevo por SSE rehace el grafo un fotograma
+ *  después, sin esqueleto: se conserva el anterior mientras tanto. Un árbol
+ *  vacío no tiene nada que calcular y explica qué pasará sin esperar. */
 export function Arbol({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
+  const vacio = useMemo(() => !estado.hipotesis.some((h) => h.investigacionId === inv.id) && !estado.hechos.some((h) => h.investigacionId === inv.id), [estado.hipotesis, estado.hechos, inv.id]);
+  const { valor } = useCalculoDiferido(() => ({ invId: inv.id, grafo: construirArbol(estado, inv) }), [estado, inv]);
+  // Un árbol vacío solo tiene el tronco: se construye aquí mismo, sin esperar.
+  const grafoTrivial = useMemo(() => (vacio ? construirArbol(estado, inv) : null), [vacio, estado, inv]);
+  const listo = valor !== null && valor.invId === inv.id;
+  const grafo = listo ? valor.grafo : grafoTrivial;
+  return (
+    <Cargando activo={grafo === null} rotulo={ROTULO_ARBOL} esqueleto={<SiluetaArbol conexion={estado.conexion} />}>
+      {grafo !== null && <ArbolMontado inv={inv} estado={estado} grafo={grafo} />}
+    </Cargando>
+  );
+}
+
+/** El árbol con el grafo ya construido: el lienzo, el bucle de animación, el
+ *  panel y los mandos. Recibe el grafo hecho para no construirlo en el render. */
+function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: EstadoRosa; grafo: Grafo }) {
   const hip = useMemo(() => estado.hipotesis.filter((h) => h.investigacionId === inv.id), [estado.hipotesis, inv.id]);
-  const grafo = useMemo(() => construirArbol(estado, inv), [estado, inv]);
   // Sin hipótesis ni hechos no hay árbol que dibujar (se enseña qué pasará). Se
   // calcula aquí, antes de los efectos, porque el de la rueda tiene que volver a
   // engancharse cuando el SVG aparece por primera vez.
@@ -747,7 +892,7 @@ export function Arbol({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
           <h2>Árbol de la investigación</h2>
-          <p>El objetivo es el tronco; las ramas, los clusters con varias hipótesis; las hojas, las hipótesis; alrededor, lo que las sostiene. Pasa el ratón por un nodo para ver sus conexiones; pulsa para desplegar lo que toca; dos veces para abrir su ficha; arrastra un nodo para moverlo (los demás lo siguen). Las etiquetas pequeñas aparecen al acercar con la rueda. Escribe una palabra o un identificador (GFAP, HGNC:4235) para iluminar todo lo que lo nombra. Por defecto el relleno de cada nodo dice qué es (las hipótesis, el color de su familia de mecanismo) y el anillo cuánto lo sostiene: verde si está a un paso de una medición propia de ROSA2018 (un análisis in silico validado, un resultado del laboratorio o una observación original), ámbar si solo hay literatura leída detrás, gris punteado si nada todavía. Con «Por distancia al dato» esa distancia pasa al relleno con una escala secuencial. Con «Vista 3D» el mismo árbol se despliega en tres dimensiones: arrastra el fondo para girarlo (en horizontal gira, en vertical se inclina), usa la rueda para acercar la cámara, y los nodos lejanos se ven más pequeños y tenues; si nadie lo toca durante unos segundos, gira solo. En 3D los nodos no se arrastran: el fondo gira el árbol.</p>
+          <p>{AYUDA}</p>
         </div>
         <div className="acciones">
           <div className="segmentos" role="group" aria-label="Vista del árbol">

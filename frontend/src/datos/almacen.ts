@@ -19,6 +19,7 @@ import type { CostesInvestigacion } from '../componentes/Rosa2018';
 import { estadoDeMuestra } from './muestra';
 import { iniciarSimulacion } from './simulacion';
 import type { AlcancePermiso, Amplitud, AnclaComentario, Avisos, CampoEnmendable, CampoLecturaEnmendable, ClaseAccion, ClasificacionDatos, ConocimientoOperativo, Dataset, EstadoArea, EstadoEspejo, EstadoRosa, Investigacion, MetodoRegistrado, NivelAutonomia, NivelPermisoConector, ParadaCorrida, PasoPlan, PoliticaEsperas, PreguntaCampana, ProcedenciaDataset, RevisionHumana, TipoArtefacto } from './tipos';
+import { senalDeTope } from '../lib/diferido';
 
 const CLAVE_VISITA = 'rosa-ultima-visita';
 const API = '/api';
@@ -418,11 +419,15 @@ function abrirEventos(): void {
   };
 }
 
-/** Envia una accion al servidor. El estado local ya se aplico de forma
- *  optimista; el servidor manda el suyo por SSE en cuanto la procesa. */
-function enviar(nombre: string, args: Record<string, unknown>): void {
-  if (modo !== 'servidor') return;
-  void fetch(`${API}/acciones/${nombre}`, { method: 'POST', headers: cabeceras(), body: JSON.stringify(args) })
+/** Envía una acción al servidor. El estado local ya se aplicó de forma
+ *  optimista; el servidor manda el suyo por SSE en cuanto la procesa.
+ *  Devuelve la promesa del envío (que nunca rechaza: los fallos se convierten
+ *  en estado de conexión o en aviso) para que un botón pueda quedarse "en
+ *  vuelo" hasta que el servidor responda (lib/diferido.ts, useEnVuelo). En
+ *  modo muestra resuelve en el acto. */
+function enviar(nombre: string, args: Record<string, unknown>): Promise<void> {
+  if (modo !== 'servidor') return Promise.resolve();
+  return fetch(`${API}/acciones/${nombre}`, { method: 'POST', headers: cabeceras(), body: JSON.stringify(args) })
     .then(async (r) => {
       if (r.status >= 500) {
         if (vivo.estado.conexion !== 'sin_conexion') aplicar((e) => ({ ...e, conexion: 'sin_conexion' }));
@@ -446,6 +451,11 @@ function enviar(nombre: string, args: Record<string, unknown>): void {
     });
 }
 
+/** Lo que devuelven las lecturas aparte cuando el servidor está pero no
+ *  contestó a tiempo, falló o rechazó: "no pude comprobar", que nunca es
+ *  "no hay". `null` queda para el modo muestra (sin servidor). */
+export type SinRespuesta = 'sin_respuesta';
+
 /** Como `enviar`, pero devuelve si el servidor aplicó la acción (ok), la
  *  rechazó (false) o no se pudo saber (null). `keepalive` deja que el
  *  navegador complete el POST aunque la página se esté cerrando. */
@@ -464,6 +474,12 @@ async function enviarYComprobar(nombre: string, args: Record<string, unknown>, k
 
 /** Intenta el servidor; si no esta, arranca la muestra. Idempotente. */
 export async function conectar(permitirMuestra = true): Promise<'muestra' | 'servidor'> {
+  // Mientras se pide el primer estado, la conexión está "conectando": lo que
+  // se pinte con el almacén en ese hueco enseña su esqueleto, no los datos de
+  // muestra como si fueran reales. Solo la primera vez (versión -1): una
+  // reconexión conserva el contenido y avisa con la franja.
+  const primeraVez = vivo.version === -1 && vivo.estado.conexion === 'muestra';
+  if (primeraVez) aplicar((e) => ({ ...e, conexion: 'conectando' }));
   try {
     const r = await fetch(conToken(`${API}/estado`), { cache: 'no-store', headers: cabeceras(false) });
     if (!r.ok) throw new Error(String(r.status));
@@ -478,6 +494,8 @@ export async function conectar(permitirMuestra = true): Promise<'muestra' | 'ser
     abrirEventos();
     vigilarFlujo();
   } catch {
+    // Sin servidor la conexión vuelve a "muestra": el esqueleto no se queda para siempre.
+    if (vivo.estado.conexion === 'conectando') aplicar((e) => ({ ...e, conexion: 'muestra' }));
     if (!permitirMuestra) throw new Error('No se pudo cargar el estado de ROSA2018');
     modo = 'muestra';
     arrancarMuestra();
@@ -502,15 +520,15 @@ export const acciones = {
   },
   pausarCorrida: (id: string) => {
     aplicar((e) => A.pausarCorrida(e, id));
-    enviar('pausarCorrida', { corrida_id: id });
+    return enviar('pausarCorrida', { corrida_id: id });
   },
   reanudarCorrida: (id: string) => {
     aplicar((e) => A.reanudarCorrida(e, id));
-    enviar('reanudarCorrida', { corrida_id: id });
+    return enviar('reanudarCorrida', { corrida_id: id });
   },
   detenerCorrida: (id: string, motivo: string, vigilarDias: number | null) => {
     aplicar((e) => A.detenerCorrida(e, id, motivo, Date.now(), vigilarDias));
-    enviar('detenerCorrida', { corrida_id: id, motivo, vigilar_literatura_dias: vigilarDias });
+    return enviar('detenerCorrida', { corrida_id: id, motivo, vigilar_literatura_dias: vigilarDias });
   },
   /** Arranca una corrida nueva (solo con servidor: el bucle propone el plan).
    *  `parada`: horas, iteraciones, llamadas o texto que la detienen, lo que
@@ -537,7 +555,7 @@ export const acciones = {
   },
   aprobarPlan: (iteracionId: string) => {
     aplicar((e) => A.aprobarPlan(e, iteracionId, Date.now()));
-    enviar('aprobarPlan', { iteracion_id: iteracionId });
+    return enviar('aprobarPlan', { iteracion_id: iteracionId });
   },
   editarInvestigacion: (investigacionId: string, cambios: { titulo?: string; objetivo?: string }) => {
     aplicar((e) => A.editarInvestigacion(e, investigacionId, cambios));
@@ -553,7 +571,7 @@ export const acciones = {
   },
   detenerProceso: (corridaId: string, procesoId: string, indicacion: string) => {
     aplicar((e) => A.detenerProceso(e, corridaId, procesoId, indicacion));
-    enviar('detenerProceso', { corrida_id: corridaId, proceso_id: procesoId, indicacion });
+    return enviar('detenerProceso', { corrida_id: corridaId, proceso_id: procesoId, indicacion });
   },
   volverAIteracion: (iteracionId: string, que: 'plan' | 'mundo' | 'ambos') => {
     aplicar((e) => A.volverAIteracion(e, iteracionId, que, Date.now()));
@@ -561,11 +579,11 @@ export const acciones = {
   },
   resolverSolicitud: (id: string, decision: 'conceder' | 'denegar', alcance: AlcancePermiso | null, argumentos?: Record<string, string>) => {
     aplicar((e) => A.resolverSolicitud(e, id, decision, alcance, Date.now(), argumentos));
-    enviar('resolverSolicitud', { solicitud_id: id, decision, alcance, argumentos: argumentos ?? null });
+    return enviar('resolverSolicitud', { solicitud_id: id, decision, alcance, argumentos: argumentos ?? null });
   },
   resolverSolicitudes: (ids: string[], decision: 'conceder' | 'denegar', alcance: AlcancePermiso | null) => {
     aplicar((e) => A.resolverSolicitudes(e, ids, decision, alcance, Date.now()));
-    enviar('resolverSolicitudes', { ids, decision, alcance });
+    return enviar('resolverSolicitudes', { ids, decision, alcance });
   },
   revocarPermiso: (id: string) => {
     aplicar((e) => A.revocarPermiso(e, id));
@@ -573,7 +591,7 @@ export const acciones = {
   },
   resolverIncidencia: (id: string, resolucion: string) => {
     aplicar((e) => A.resolverIncidencia(e, id, resolucion, Date.now()));
-    enviar('resolverIncidencia', { incidencia_id: id, resolucion });
+    return enviar('resolverIncidencia', { incidencia_id: id, resolucion });
   },
   fijarAutonomia: (clase: ClaseAccion, nivel: NivelAutonomia) => {
     aplicar((e) => A.fijarAutonomia(e, clase, nivel));
@@ -621,11 +639,11 @@ export const acciones = {
   },
   solicitarRevision: (id: string) => {
     aplicar((e) => A.solicitarRevision(e, id, Date.now()));
-    enviar('solicitarRevision', { hipotesis_id: id });
+    return enviar('solicitarRevision', { hipotesis_id: id });
   },
   replicarHipotesis: (id: string, total: number) => {
     aplicar((e) => A.replicarHipotesis(e, id, total, Date.now()));
-    enviar('replicarHipotesis', { hipotesis_id: id, total });
+    return enviar('replicarHipotesis', { hipotesis_id: id, total });
   },
   proponerHipotesis: (investigacionId: string, datos: A.DatosHipotesisHumana): string | null => {
     let id: string | null = null;
@@ -639,7 +657,7 @@ export const acciones = {
   },
   asignarExperimento: (id: string, laboratorio: string) => {
     aplicar((e) => A.asignarExperimento(e, id, laboratorio));
-    enviar('asignarExperimento', { hipotesis_id: id, laboratorio });
+    return enviar('asignarExperimento', { hipotesis_id: id, laboratorio });
   },
   registrarDatosExperimento: (id: string, fichero: string, analisis: string, sintetico = false) => {
     aplicar((e) => A.registrarDatosExperimento(e, id, fichero, analisis, sintetico));
@@ -902,13 +920,13 @@ export const acciones = {
     enviar('resolverHallazgoRegistro', { iteracion_id: iteracionId, hallazgo_id: hallazgoId, estado, respuesta, quien: QUIEN });
   },
   /** Estado del espejo del estado en Convex (solo lectura). */
-  estadoEspejo: async (): Promise<EstadoEspejo | null> => {
+  estadoEspejo: async (): Promise<EstadoEspejo | null | SinRespuesta> => {
     if (modo !== 'servidor') return null;
     try {
-      const r = await fetch(`${API}/espejo`, { cache: 'no-store', headers: cabeceras(false) });
-      return r.ok ? ((await r.json()) as EstadoEspejo) : null;
+      const r = await fetch(`${API}/espejo`, { cache: 'no-store', headers: cabeceras(false), ...senalDeTope() });
+      return r.ok ? ((await r.json()) as EstadoEspejo) : 'sin_respuesta';
     } catch {
-      return null;
+      return 'sin_respuesta';
     }
   },
   fijarPermisoConector: (nombre: string, nivel: NivelPermisoConector) => {
@@ -991,23 +1009,23 @@ export const acciones = {
     }
   },
   /** Coste por decision de una investigacion (modelo mas revision humana). */
-  costesDe: async (investigacionId: string): Promise<CostesInvestigacion | null> => {
+  costesDe: async (investigacionId: string): Promise<CostesInvestigacion | null | SinRespuesta> => {
     if (modo !== 'servidor') return null;
     try {
-      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/costes`, { cache: 'no-store', headers: cabeceras(false) });
-      return r.ok ? ((await r.json()) as CostesInvestigacion) : null;
+      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/costes`, { cache: 'no-store', headers: cabeceras(false), ...senalDeTope() });
+      return r.ok ? ((await r.json()) as CostesInvestigacion) : 'sin_respuesta';
     } catch {
-      return null;
+      return 'sin_respuesta';
     }
   },
   /** Integridad del registro de acciones (cadena de hashes). */
-  integridadRegistro: async (): Promise<{ ok: boolean; filas: number; encadenadas: number; sinHash: number; rotaEn: number | null; motivo?: string } | null> => {
+  integridadRegistro: async (): Promise<{ ok: boolean; filas: number; encadenadas: number; sinHash: number; rotaEn: number | null; motivo?: string } | null | SinRespuesta> => {
     if (modo !== 'servidor') return null;
     try {
-      const r = await fetch(`${API}/registro/integridad`, { cache: 'no-store', headers: cabeceras(false) });
-      return r.ok ? ((await r.json()) as { ok: boolean; filas: number; encadenadas: number; sinHash: number; rotaEn: number | null; motivo?: string }) : null;
+      const r = await fetch(`${API}/registro/integridad`, { cache: 'no-store', headers: cabeceras(false), ...senalDeTope() });
+      return r.ok ? ((await r.json()) as { ok: boolean; filas: number; encadenadas: number; sinHash: number; rotaEn: number | null; motivo?: string }) : 'sin_respuesta';
     } catch {
-      return null;
+      return 'sin_respuesta';
     }
   },
   registrarProtocoloReal: (hipotesisId: string, protocoloReal: { texto: string; desviaciones: string; identidadMuestras: string }) => {
@@ -1024,7 +1042,7 @@ export const acciones = {
   },
   /** El dossier se arma en el servidor con todo el estado; llega como artefacto por SSE. */
   generarDossier: (hipotesisId: string) => {
-    enviar('generarDossier', { hipotesis_id: hipotesisId, quien: QUIEN });
+    return enviar('generarDossier', { hipotesis_id: hipotesisId, quien: QUIEN });
   },
   /** Sube un dataset con su fichero. El servidor calcula el hash, perfila las
    *  columnas y lo deja pendiente hasta completar el libro de procedencia. */

@@ -89,6 +89,7 @@ export function textoReintento(intentos: unknown, proximo: unknown, ahora: numbe
   const n = typeof intentos === 'number' && Number.isFinite(intentos) ? Math.max(0, Math.floor(intentos)) : 0;
   const en = num(proximo) ? (proximo - ahora > 1000 ? ` en ${formatearDuracion(proximo - ahora)}` : ' ahora') : '';
   if (n >= MAX_INTENTOS) return `${n} intentos sin respuesta · próximo sondeo${en}`;
+  // "reintento" es sustantivo ("reintento 2 de 4"), no el pretérito "reintentó": el acentuador lo excluye a mano.
   return `reintento ${Math.min(n + 1, MAX_INTENTOS)} de ${MAX_INTENTOS}${en}`;
 }
 

@@ -1,14 +1,19 @@
-// La cola de revision de hipotesis y el detalle de una. Aceptar, descartar,
-// refinar, "no puedo juzgar", con la procedencia en un cajon lateral; los
-// hallazgos del revisor como tarjetas; comentarios anclados; la revision
+// La cola de revisión de hipótesis y el detalle de una. Aceptar, descartar,
+// refinar, "no puedo juzgar", con la procedencia en un cajón lateral; los
+// hallazgos del revisor como tarjetas; comentarios anclados; la revisión
 // escrita de la persona que entra al torneo; la relevancia votada aparte de
-// la significancia; los supuestos; los tipos de revision; los partidos del
-// torneo; replicar; el experimento propuesto; y la hipotesis humana.
-// Regla: una hipotesis no entra al modelo de mundo como aceptada sin pasar
-// por aqui, y no se puede aceptar con afirmaciones bloqueantes o hallazgos
+// la significancia; los supuestos; los tipos de revisión; los partidos del
+// torneo; replicar; el experimento propuesto; y la hipótesis humana.
+// Regla: una hipótesis no entra al modelo de mundo como aceptada sin pasar
+// por aquí, y no se puede aceptar con afirmaciones bloqueantes o hallazgos
 // abiertos (motivoNoAceptable).
+//
+// Esperas visibles (estándar de Emir, 19 de septiembre de 2026): la cola se
+// ordena y se pinta después de un frame de silueta (EsqueletoPantalla
+// "lista"), la ficha abre con un frame de silueta "ficha", y cada botón que
+// habla con el servidor lleva su marca de vuelo (useEnVuelo).
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Contador, ElementoAnimado, ListaAnimada } from '../componentes/Animado';
 import type { TargetAndTransition } from 'motion/react';
 import { salidaPorDecision } from '../lib/movimiento';
@@ -20,6 +25,7 @@ import { Revisor } from '../componentes/Revisor';
 import { Verificacion } from '../componentes/Verificacion';
 import { ConclusionDeRosa, HipotesisEnLlano } from '../componentes/EnLlano';
 import { AvisoMuestra, Chip, Confirmar, Momento, Seccion, Vacio, descargar } from '../componentes/piezas';
+import { Esqueleto, EsqueletoPantalla, EsqueletoTarjetas } from '../componentes/Esqueleto';
 import { Bloqueos, ConsultasABases, ContextoDeBases, ContratoDelExperimento, DecisionesKiller, Dimensiones, EjecucionesInSilico, FusionYConflictos, GrafoCausalDeHipotesis, PerfilDeLaDiana, ProtocoloYEnmiendas, TarjetaDeHipotesis } from '../componentes/Rosa2018';
 import { FranjaRanking } from '../componentes/FranjaRanking';
 import { Alternativas } from '../componentes/Alternativas';
@@ -30,6 +36,8 @@ import { formatearDuracion } from '../lib/formato';
 import { motivoNoAceptable, ordenarCola, resumirVerificacion, variacionElo } from '../lib/hipotesis';
 import { bloqueosDe } from '../lib/priorizacion';
 import { rutaDe } from '../lib/ruta';
+import { atributosEnVuelo, useCalculoDiferido, useEnVuelo, useEsperaSenal } from '../lib/diferido';
+import { ESPERA_DOSSIER_MS, huellaDossier } from './Artefactos';
 
 const TONO_ESTADO: Record<Hip['estado'], 'ok' | 'aviso' | 'mal' | 'acento' | undefined> = {
   propuesta: 'acento',
@@ -201,7 +209,7 @@ function FormularioHipotesis({ inv, onCerrar, irA }: { inv: Investigacion; onCer
         <h3 style={{ fontSize: 15, fontWeight: 600 }}>Proponer una hipótesis</h3>
         <p className="meta">Entra al torneo con el mismo Elo inicial que las de ROSA2018, marcada como tuya. En Co-Scientist la conjetura del experto acabó superando a las generadas.</p>
       </div>
-      {campo('titulo', 'Titulo', 1, 'La función renal sesga los umbrales de p-tau217 en cohortes latinoamericanas')}
+      {campo('titulo', 'Título', 1, 'La función renal sesga los umbrales de p-tau217 en cohortes latinoamericanas')}
       {campo('enunciado', 'Enunciado', 3)}
       {campo('mecanismo', 'Mecanismo propuesto', 2)}
       <div className="rejilla-3">
@@ -209,7 +217,7 @@ function FormularioHipotesis({ inv, onCerrar, irA }: { inv: Investigacion; onCer
         {campo('cohorte', 'Cohorte', 1)}
         {campo('diseno', 'Diseño', 1)}
       </div>
-      {campo('cluster', 'Cluster (tema)', 1, 'Biomarcadores sanguineos')}
+      {campo('cluster', 'Cluster (tema)', 1, 'Biomarcadores sanguíneos')}
       {error && (
         <p role="alert" style={{ color: 'var(--red)', fontSize: 13 }}>
           {error}
@@ -254,11 +262,39 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
   const revisionHumana = revisionAbierta && (rev.supuestosCuestionados || rev.literaturaQueFalta || rev.problemaExperimental) ? rev : null;
   const abiertoEn = useRef(Date.now());
   const segundosRevision = () => Math.round((Date.now() - abiertoEn.current) / 1000);
-  const decidir = (accion: 'aceptar' | 'refinar' | 'no_puedo_juzgar' | 'reabrir', n: string) => {
-    acciones.revisarHipotesis(h.id, accion, n, aCiegas, revisionHumana, h.version ?? 1, segundosRevision());
+  // Botones que hablan con el servidor, cada grupo con su marca de vuelo:
+  // mientras dura la petición el botón se atenúa con su spinner y no admite
+  // un segundo clic. Las decisiones (aceptar, refinar, descartar, no puedo
+  // juzgar, reabrir) comparten marca porque son excluyentes entre sí. Hoy
+  // revisarHipotesis aplica la decisión en local y la manda tras el margen
+  // de deshacer (almacen.ts, programar), así que su marca dura un instante;
+  // el resto de acciones aún no devuelven su promesa (enviar() es fuego y
+  // olvido) y en cuanto la devuelvan el botón esperará al servidor.
+  const [decisionEnVuelo, envolverDecision] = useEnVuelo();
+  const [revisionEnVuelo, envolverRevision] = useEnVuelo();
+  const [replicaEnVuelo, envolverReplica] = useEnVuelo();
+  const [selloEnVuelo, envolverSello] = useEnVuelo();
+  const [laboratorioEnVuelo, envolverLaboratorio] = useEnVuelo();
+  const [dossierEnVuelo, envolverDossier] = useEnVuelo();
+  // El dossier no llega en la respuesta del POST sino como artefacto por el
+  // canal en vivo: además de la promesa (el viaje al servidor), el botón
+  // espera a que cambie la huella del dossier de esta hipótesis (Artefactos.tsx,
+  // huellaDossier) o a que pase un minuto. Así un segundo clic mientras el
+  // servidor lo arma no genera un segundo dossier.
+  const esperaDossier = useEsperaSenal(huellaDossier(h, estado.artefactos), ESPERA_DOSSIER_MS);
+  const dossierOcupado = dossierEnVuelo || esperaDossier.esperando;
+  const pedirDossier = envolverDossier(() => {
+    esperaDossier.pedir();
+    return acciones.generarDossier(h.id);
+  });
+  const decidir = envolverDecision((accion: 'aceptar' | 'refinar' | 'no_puedo_juzgar' | 'reabrir' | 'descartar', n: string) => {
+    // Se devuelve lo que devuelva la acción: si algún día es una promesa, el
+    // botón queda en vuelo hasta que resuelva.
+    const resultado = acciones.revisarHipotesis(h.id, accion, n, aCiegas, revisionHumana, h.version ?? 1, segundosRevision());
     setNota('');
-    setRev({ supuestosCuestionados: '', literaturaQueFalta: '', problemaExperimental: '' });
-  };
+    if (accion !== 'descartar') setRev({ supuestosCuestionados: '', literaturaQueFalta: '', problemaExperimental: '' });
+    return resultado;
+  });
 
   return (
     <div className="detalle-hip" ref={contenedor}>
@@ -306,12 +342,12 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         <span className="meta">
           Última revisión automática: {h.ultimaRevisionAutomatica ? <Momento t={h.ultimaRevisionAutomatica} ahora={ahora} /> : 'nunca'}. El silencio del revisor no es aprobación.
         </span>
-        <button type="button" className="btn btn-s" onClick={() => acciones.solicitarRevision(h.id)}>
+        <button type="button" className="btn btn-s" disabled={revisionEnVuelo} {...atributosEnVuelo(revisionEnVuelo)} onClick={envolverRevision(() => acciones.solicitarRevision(h.id))}>
           Solicitar revisión ahora
         </button>
         <label className="interruptor" style={{ marginLeft: 'auto' }}>
           <input type="checkbox" checked={aCiegas} onChange={(e) => setACiegas(e.target.checked)} />
-          Revisar a ciegas (ocultar citas y codigo hasta decidir)
+          Revisar a ciegas (ocultar citas y código hasta decidir)
         </label>
       </div>
 
@@ -365,7 +401,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         </dl>
       </Seccion>
 
-      <Seccion titulo="Relevancia frente a significancia" nota="Kosmos confunde lo estadísticamente significativo con lo científicamente valioso. Aquí son dos escalas: ROSA2018 justifica la relevancia para el objetivo y tu la votas.">
+      <Seccion titulo="Relevancia frente a significancia" nota="Kosmos confunde lo estadísticamente significativo con lo científicamente valioso. Aquí son dos escalas: ROSA2018 justifica la relevancia para el objetivo y tú la votas.">
         <div className="rejilla-2">
           <div className="tarjeta">
             <p className="campo-etiqueta">Evidencia estadística</p>
@@ -606,7 +642,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                     <td className="num">{p.iteracion}</td>
                     <td>{rival ? <a className="enlace" href={rutaDe(h.investigacionId, 'hipotesis', rival.id)}>{rival.titulo.length > 50 ? `${rival.titulo.slice(0, 47)}...` : rival.titulo}</a> : p.rivalId}</td>
                     <td>
-                      <Chip tono={p.resultado === 'gano' ? 'ok' : p.resultado === 'tablas' ? 'borde' : 'mal'}>{p.resultado === 'gano' ? 'Gano' : p.resultado === 'tablas' ? 'Tablas' : 'Perdio'}</Chip>
+                      <Chip tono={p.resultado === 'gano' ? 'ok' : p.resultado === 'tablas' ? 'borde' : 'mal'}>{p.resultado === 'gano' ? 'Ganó' : p.resultado === 'tablas' ? 'Tablas' : 'Perdió'}</Chip>
                     </td>
                     <td>{p.ejeDecisivo}</td>
                     <td className="meta">{p.resumenDebate}</td>
@@ -622,7 +658,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         detalle titulo="Replicación independiente"
         nota="Kosmos confirmó sus hallazgos clave con cinco trayectorias independientes. Gasta presupuesto de la iteración."
         acciones={
-          <button type="button" className="btn btn-s" disabled={h.replicacion?.estado === 'en_curso' || !corrida || corrida.estado !== 'en_marcha'} onClick={() => acciones.replicarHipotesis(h.id, 5)}>
+          <button type="button" className="btn btn-s" disabled={replicaEnVuelo || h.replicacion?.estado === 'en_curso' || !corrida || corrida.estado !== 'en_marcha'} {...atributosEnVuelo(replicaEnVuelo)} onClick={envolverReplica(() => acciones.replicarHipotesis(h.id, 5))}>
             Replicar x5
           </button>
         }
@@ -780,7 +816,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                 </Chip>
               )}
               {h.experimento.prerregistradoEn && !h.experimento.selloExterno?.ok && (
-                <button type="button" className="btn btn-s" title={h.experimento.selloExterno?.error ? `Último intento: ${h.experimento.selloExterno.error}` : 'Pide a dos autoridades de sellado de tiempo (RFC 3161) que firmen la hora del prerregistro: un tercero atestigua que se congeló antes de los datos'} onClick={() => void acciones.sellarPrerregistro(h.id)}>
+                <button type="button" className="btn btn-s" title={h.experimento.selloExterno?.error ? `Último intento: ${h.experimento.selloExterno.error}` : 'Pide a dos autoridades de sellado de tiempo (RFC 3161) que firmen la hora del prerregistro: un tercero atestigua que se congeló antes de los datos'} disabled={selloEnVuelo} {...atributosEnVuelo(selloEnVuelo)} onClick={envolverSello(() => acciones.sellarPrerregistro(h.id))}>
                   {h.experimento.selloExterno ? 'Reintentar el sello externo' : 'Sellar con un tercero'}
                 </button>
               )}
@@ -788,7 +824,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             {h.experimento.estado === 'propuesto' && (
               <div className="dirigir">
                 <input className="entrada" value={lab} placeholder="Laboratorio (por ejemplo FLENI, Buenos Aires)" onChange={(e) => setLab(e.target.value)} aria-label="Laboratorio" />
-                <button type="button" className="btn" disabled={lab.trim() === ''} onClick={() => acciones.asignarExperimento(h.id, lab)}>
+                <button type="button" className="btn" disabled={lab.trim() === '' || laboratorioEnVuelo} {...atributosEnVuelo(laboratorioEnVuelo)} onClick={envolverLaboratorio(() => acciones.asignarExperimento(h.id, lab))}>
                   Asignar a laboratorio
                 </button>
               </div>
@@ -820,6 +856,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                     type="button"
                     className="btn btn-primario"
                     disabled={ficheroDatos === null || subiendo}
+                    {...atributosEnVuelo(subiendo)}
                     onClick={async () => {
                       if (!ficheroDatos) return;
                       setSubiendo(true);
@@ -906,14 +943,15 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         <div className="acciones">
           {!cerrada && !aclarando && (
             <>
-              <button type="button" className="btn btn-primario" disabled={motivo !== null} title={motivo ?? 'Aceptar y pasarla al modelo de mundo como hipótesis a perseguir'} onClick={() => decidir('aceptar', nota)}>
+              <button type="button" className="btn btn-primario" disabled={motivo !== null || decisionEnVuelo} {...atributosEnVuelo(decisionEnVuelo)} title={motivo ?? 'Aceptar y pasarla al modelo de mundo como hipótesis a perseguir'} onClick={() => decidir('aceptar', nota)}>
                 Aceptar
               </button>
-              <button type="button" className="btn" onClick={() => decidir('refinar', nota)}>
+              <button type="button" className="btn" disabled={decisionEnVuelo} {...atributosEnVuelo(decisionEnVuelo)} onClick={() => decidir('refinar', nota)}>
                 Pedir que la refine
               </button>
               <Confirmar
                 etiqueta="No puedo juzgar"
+                disabled={decisionEnVuelo}
                 pregunta="Di qué te impide juzgarla (ambigua, falta contexto, no reproducible). ROSA2018 la aclara y vuelve a la cola marcada como aclarada."
                 pedirTexto={{ etiqueta: 'Qué falta', marcador: 'No queda claro si habla de PSEN1 o de todo el Alzheimer familiar' }}
                 onConfirmar={(m) => decidir('no_puedo_juzgar', m)}
@@ -921,17 +959,15 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               <Confirmar
                 etiqueta="Descartar"
                 peligro
+                disabled={decisionEnVuelo}
                 pregunta="El motivo queda en el modelo de mundo para que ROSA2018 no vuelva a proponer lo mismo."
                 pedirTexto={{ etiqueta: 'Motivo', marcador: 'Se apoya en un artículo retractado' }}
-                onConfirmar={(m) => {
-                  acciones.revisarHipotesis(h.id, 'descartar', m, aCiegas, revisionHumana, h.version ?? 1, segundosRevision());
-                  setNota('');
-                }}
+                onConfirmar={(m) => decidir('descartar', m)}
               />
             </>
           )}
           {cerrada && (
-            <button type="button" className="btn" onClick={() => decidir('reabrir', nota)}>
+            <button type="button" className="btn" disabled={decisionEnVuelo} {...atributosEnVuelo(decisionEnVuelo)} onClick={() => decidir('reabrir', nota)}>
               Reabrir
             </button>
           )}
@@ -942,11 +978,17 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         titulo="Dossier para el laboratorio"
         nota="El expediente con el que la hipótesis sale al laboratorio, en siete partes: si va o no y por qué (bloqueos), la hipótesis completa con su versión, la evidencia con procedencia, los análisis con datos, las decisiones, el protocolo prerregistrado y qué se aprende con cada resultado. Se arma sin ningún modelo, con lo que hay en el estado."
         acciones={
-          <button type="button" className="btn btn-s" disabled={estado.conexion === 'muestra'} onClick={() => acciones.generarDossier(h.id)}>
+          <button type="button" className="btn btn-s" disabled={estado.conexion === 'muestra' || dossierOcupado} {...atributosEnVuelo(dossierOcupado)} onClick={() => void pedirDossier()}>
             {h.dossierArtefactoId ? 'Regenerar dossier' : 'Generar dossier'}
           </button>
         }
       >
+        {esperaDossier.esperando && <p className="meta">Esperando al servidor: el dossier aparecerá en Artefactos y aquí saldrá su enlace.</p>}
+        {esperaDossier.agotada && (
+          <p className="meta tono-aviso" role="status">
+            Sin respuesta del servidor en un minuto. Si el dossier no aparece en Artefactos, vuelve a pedirlo.
+          </p>
+        )}
         {h.dossierArtefactoId ? (
           <p className="meta">
             Último dossier:{' '}
@@ -984,6 +1026,46 @@ function sinComprobar(x: { estado: string; detalle: string }): boolean {
   return x.estado === 'no_comprobado' || x.detalle.startsWith('No comprobado');
 }
 
+/** Los textos de la cabecera de la cola por filtro, compartidos por la
+ *  pantalla y su silueta para que midan lo mismo. */
+const CABECERA_COLA = {
+  cola: {
+    titulo: 'Cola de hipótesis',
+    descripcion: 'Lo que ROSA2018 propone y espera tu lectura. Arriba lo pendiente, ordenado por Elo. Nada entra al modelo de mundo sin pasar por aquí.',
+  },
+  laboratorio: {
+    titulo: 'Laboratorio',
+    descripcion: 'El tramo final: hipótesis con experimento asignado (prerregistrado y sellado), en curso o con datos recibidos, y las candidatas que esperan un laboratorio. Cuando vuelven los datos, ROSA2018 los juzga contra el prerregistro.',
+  },
+};
+/** Medido en Chromium a 1440 px: cada fila de la cola mide 84 px (título de
+ *  una línea) o 109 (de dos). */
+const ALTO_FILA_COLA = 96;
+const MAX_FILAS_SILUETA = 40;
+
+/** La silueta de la cola: la cabecera con su texto real (la real mide 75 px
+ *  con su margen de 16), los segmentos y el botón en gris y tantas tarjetas
+ *  como hipótesis va a enseñar el filtro, que el estado ya sabe sin ordenar. */
+export function EsqueletoCola({ filtro, filas }: { filtro: 'pendientes' | 'todas' | 'laboratorio'; filas: number }) {
+  const cabecera = filtro === 'laboratorio' ? CABECERA_COLA.laboratorio : CABECERA_COLA.cola;
+  return (
+    <EsqueletoPantalla
+      variante="lista"
+      rotulo="la cola de hipótesis"
+      margenSuperior={16}
+      cabecera={cabecera}
+      acciones={
+        <div className="acciones esqueleto-acciones" aria-hidden="true">
+          <Esqueleto className="esqueleto-segmentos" ancho={236} />
+          <Esqueleto className="esqueleto-boton" ancho={150} />
+        </div>
+      }
+    >
+      <EsqueletoTarjetas filas={Math.min(MAX_FILAS_SILUETA, Math.max(1, filas))} altoFila={ALTO_FILA_COLA} />
+    </EsqueletoPantalla>
+  );
+}
+
 export function Hipotesis({
   inv,
   estado,
@@ -1001,7 +1083,17 @@ export function Hipotesis({
   setCajonAbierto: (v: boolean) => void;
   irA: (hash: string) => void;
 }) {
-  const propias = useMemo(() => ordenarCola(estado.hipotesis.filter((h) => h.investigacionId === inv.id)), [estado.hipotesis, inv.id]);
+  // La cola, calculada después de pintar la silueta. Ordenar y pintar cada
+  // fila con sus chips (bloqueos, verificación, hallazgos, Killer) congelaba
+  // la pantalla un instante al cambiar de investigación; ahora el primer
+  // frame es la silueta y el trabajo va detrás. Se guarda con qué
+  // investigación y con qué estado se calculó: si la investigación ya no es
+  // esa, lo que hay es de otra y se vuelve a la silueta; si solo cambió el
+  // estado (un empuje del canal en vivo), se sigue enseñando la cola
+  // anterior hasta que llega la nueva, sin parpadeo.
+  const { valor: colaCalculada } = useCalculoDiferido(() => ({ invId: inv.id, estado, propias: ordenarCola(estado.hipotesis.filter((h) => h.investigacionId === inv.id)) }), [estado, inv.id]);
+  const cola = colaCalculada !== null && colaCalculada.invId === inv.id ? colaCalculada : null;
+  const propias = cola?.propias ?? [];
   // "laboratorio" en el sitio del id es la vista del tramo final (la etapa
   // Laboratorio del hilo): lo asignado, en curso o con datos, y las candidatas
   // con experimento propuesto que esperan un laboratorio.
@@ -1014,11 +1106,26 @@ export function Hipotesis({
   const [proponiendo, setProponiendo] = useState(false);
   const [pestana, setPestana] = useState<PestanaProcedencia>('fuentes');
   const [celda, setCelda] = useState<number | null>(null);
-  const seleccionada = vistaLab ? null : propias.find((h) => h.id === detalleId) ?? null;
+  const seleccionada = vistaLab ? null : estado.hipotesis.find((h) => h.id === detalleId && h.investigacionId === inv.id) ?? null;
+  // La ficha también abre con un frame de silueta: pinta decenas de secciones
+  // y abrirla congelaba la cola un instante. Se guarda qué hipótesis se
+  // preparó para no enseñar la silueta al volver a la cola.
+  const { valor: ficha } = useCalculoDiferido(() => ({ id: seleccionada?.id ?? null }), [seleccionada?.id ?? null]);
+  const fichaLista = seleccionada !== null && ficha !== null && ficha.id === seleccionada.id;
   const enLaboratorio = (h: Hip) => Boolean(h.experimento && (h.experimento.estado !== 'propuesto' || h.candidata));
-  const visibles = filtro === 'todas' ? propias : filtro === 'laboratorio' ? propias.filter(enLaboratorio) : propias.filter((h) => h.estado === 'propuesta' || h.estado === 'en_revision' || h.estado === 'refinar' || h.estado === 'aclarando');
+  const pendiente = (h: Hip) => h.estado === 'propuesta' || h.estado === 'en_revision' || h.estado === 'refinar' || h.estado === 'aclarando';
+  const pasaFiltro = (h: Hip) => (filtro === 'todas' ? true : filtro === 'laboratorio' ? enLaboratorio(h) : pendiente(h));
+  const visibles = propias.filter(pasaFiltro);
+  // Cuántas filas va a tener la cola, sin ordenar nada: para que la silueta
+  // pinte las mismas y el contenido no salte al llegar.
+  const filasPrevistas = () => estado.hipotesis.filter((h) => h.investigacionId === inv.id && pasaFiltro(h)).length;
+
+  // El estado global todavía no ha llegado: la silueta de lo que se va a
+  // abrir, nunca una página vacía.
+  if (estado.conexion === 'conectando') return seleccionada ? <EsqueletoPantalla variante="ficha" rotulo="la hipótesis" /> : <EsqueletoCola filtro={filtro} filas={filasPrevistas()} />;
 
   if (seleccionada) {
+    if (!fichaLista) return <EsqueletoPantalla variante="ficha" rotulo="la hipótesis" />;
     return (
       <>
         <div className="contenido">
@@ -1044,13 +1151,16 @@ export function Hipotesis({
     );
   }
 
+  if (cola === null) return <EsqueletoCola filtro={filtro} filas={filasPrevistas()} />;
+  const cabecera = filtro === 'laboratorio' ? CABECERA_COLA.laboratorio : CABECERA_COLA.cola;
+
   return (
     <div className="contenido">
       <AvisoMuestra conexion={estado.conexion} />
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
-          <h2>{filtro === 'laboratorio' ? 'Laboratorio' : 'Cola de hipótesis'}</h2>
-          <p>{filtro === 'laboratorio' ? 'El tramo final: hipótesis con experimento asignado (prerregistrado y sellado), en curso o con datos recibidos, y las candidatas que esperan un laboratorio. Cuando vuelven los datos, ROSA2018 los juzga contra el prerregistro.' : 'Lo que ROSA2018 propone y espera tu lectura. Arriba lo pendiente, ordenado por Elo. Nada entra al modelo de mundo sin pasar por aquí.'}</p>
+          <h2>{cabecera.titulo}</h2>
+          <p>{cabecera.descripcion}</p>
         </div>
         <div className="acciones">
           <div className="segmentos" role="group" aria-label="Filtro">
@@ -1065,7 +1175,7 @@ export function Hipotesis({
             </button>
           </div>
           <button type="button" className="btn btn-primario" onClick={() => setProponiendo((v) => !v)}>
-            Proponer hipotesis
+            Proponer hipótesis
           </button>
         </div>
       </div>
@@ -1077,14 +1187,14 @@ export function Hipotesis({
           </Vacio>
         ) : (
         <Vacio titulo={filtro === 'pendientes' && propias.length > 0 ? 'Nada pendiente' : 'Todavía no hay hipótesis'} pasos={propias.length === 0 ? ['ROSA2018 busca literatura y verifica afirmaciones (etapas 2 y 3 del hilo).', 'Lo sostenido entra al modelo de mundo.', 'Con eso, ROSA2018 genera hipótesis y el Killer las juzga; las que quedan aparecen aquí, ordenadas por Elo.', 'Tú decides sobre cada una: aceptar, descartar o pedir que la refine.'] : undefined}>
-          {propias.length > 0 ? 'ROSA2018 no tiene hipótesis esperando tu revisión en esta investigación. Con "Todas" ves las ya decididas.' : 'También puedes proponer una tu con el botón de arriba: pasa por el mismo Killer.'}
+          {propias.length > 0 ? 'ROSA2018 no tiene hipótesis esperando tu revisión en esta investigación. Con "Todas" ves las ya decididas.' : 'También puedes proponer una tú con el botón de arriba: pasa por el mismo Killer.'}
         </Vacio>
         )
       ) : (
         <ListaAnimada className="cola" como="div">
           {visibles.map((h) => (
             <ElementoAnimado key={h.id} salida={salidaDe(estado.hipotesis.find((x) => x.id === h.id) ?? h)}>
-              <FilaCola h={h} ahora={ahora} href={rutaDe(inv.id, 'hipotesis', h.id)} horasEspera={estado.politicaEsperas.horas} estado={estado} />
+              <FilaCola h={h} ahora={ahora} href={rutaDe(inv.id, 'hipotesis', h.id)} horasEspera={estado.politicaEsperas.horas} estado={cola.estado} />
             </ElementoAnimado>
           ))}
         </ListaAnimada>

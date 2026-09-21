@@ -51,6 +51,17 @@ afterEach(async () => {
   // La vista elegida se recuerda en el navegador: se limpia para que un test no herede la de otro.
   localStorage.removeItem('rosa-arbol-vista');
 });
+/** Monta el árbol y espera al fotograma en que se construye el grafo: desde el
+ *  19 de septiembre de 2026 la pantalla pinta primero una silueta (esqueleto)
+ *  y construye el grafo después del pintado (lib/diferido.ts), así que el
+ *  lienzo llega un fotograma más tarde. Los tests con el arnés de animación no
+ *  la usan: allí requestAnimationFrame está interceptado y `fotogramas` lo vacía. */
+async function montar(elemento: JSX.Element) {
+  await act(async () => root.render(elemento));
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 60));
+  });
+}
 
 function ejecucionValida(id: string, hipotesisId: string, planId: string): Ejecucion {
   return { id, investigacionId: 'inv-1', hipotesisId, planId, tipo: 'hipotesis', codigo: '', entorno: { python: '3.12', paquetes: [] }, semilla: 1, hashDatos: '', hashPlan: '', inicio: 1, fin: 2, estado: 'completado', runtime: 'docker', red: 'deshabilitada', codigoSalida: 0, duracionS: 1, salida: '', error: '', resultados: {}, baseline: {}, controlNegativo: {}, repeticiones: [], interpretacion: null, plausibilidadVerificada: true, auditoria: { veredicto: 'valido', comprobaciones: [], motivo: '', quien: 'Killer II', fecha: 2 } };
@@ -94,7 +105,7 @@ describe('la pantalla del árbol', () => {
   it('cambia de color por tipo a color por distancia al dato, con la leyenda y el panel en castellano', async () => {
     const e = estadoConDato();
     const inv = e.investigaciones[0]!;
-    await act(async () => root.render(<Arbol inv={inv} estado={e} />));
+    await montar(<Arbol inv={inv} estado={e} />);
     // Por defecto, por tipo y mecanismo: el relleno de hip-1 es el de su familia y el anillo, la distancia al dato.
     expect(boton('Por tipo y mecanismo').getAttribute('aria-pressed')).toBe('true');
     expect(nodoEsc('hip-1').estilo.relleno).toMatch(/var\(--grafo-cluster-\d\)/);
@@ -140,7 +151,7 @@ describe('la pantalla del árbol', () => {
   it('pasa a la vista 3D y vuelve a la plana conservando colores, anillos, búsqueda, deslizador y plegado', async () => {
     const e = estadoConDato();
     const inv = e.investigaciones[0]!;
-    await act(async () => root.render(<Arbol inv={inv} estado={e} />));
+    await montar(<Arbol inv={inv} estado={e} />);
     // Por defecto, la vista plana: no se le cambia el árbol a quien ya lo conoce.
     expect(boton('Vista plana').getAttribute('aria-pressed')).toBe('true');
     expect(boton('Vista 3D').getAttribute('aria-pressed')).toBe('false');
@@ -207,7 +218,7 @@ describe('la pantalla del árbol', () => {
     for (const h of e2.hechos) h.investigacionId = 'inv-2';
     for (const c of e2.corridas) c.investigacionId = 'inv-2';
     for (const r of e2.ejecuciones ?? []) r.investigacionId = 'inv-2';
-    await act(async () => root.render(<Arbol inv={inv2} estado={e2} />));
+    await montar(<Arbol inv={inv2} estado={e2} />);
     expect(lienzo().getAttribute('aria-label')).toContain('Otra investigación distinta');
     expect(cuantos()).toBeGreaterThan(3);
     expect(finitos()).toBe(true);
@@ -227,7 +238,7 @@ describe('la pantalla del árbol', () => {
   it('recuerda la vista 3D elegida al volver a abrir el árbol', async () => {
     localStorage.setItem('rosa-arbol-vista', '3d');
     const e = estadoConDato();
-    await act(async () => root.render(<Arbol inv={e.investigaciones[0]!} estado={e} />));
+    await montar(<Arbol inv={e.investigaciones[0]!} estado={e} />);
     expect(boton('Vista 3D').getAttribute('aria-pressed')).toBe('true');
     expect(escena().modo).toBe('3d');
     expect(cuantos()).toBeGreaterThan(3);
@@ -256,7 +267,7 @@ describe('la pantalla del árbol', () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('almacenamiento no disponible'); });
     const e = estadoConDato();
     try {
-      await act(async () => root.render(<Arbol inv={e.investigaciones[0]!} estado={e} />));
+      await montar(<Arbol inv={e.investigaciones[0]!} estado={e} />);
       expect(boton('Vista plana').getAttribute('aria-pressed')).toBe('true');
       await pulsar(boton('Vista 3D'));
       expect(boton('Vista 3D').getAttribute('aria-pressed')).toBe('true');
@@ -340,7 +351,7 @@ describe('la pantalla del árbol', () => {
     expect(nodo.querySelector('canvas.grafo')).toBeNull();
     expect(nodo.textContent).toContain('El árbol todavía no tiene ramas');
     // Llegan las hipótesis por SSE: aparece el lienzo y la rueda tiene que estar enganchada.
-    await act(async () => root.render(<Arbol inv={inv} estado={e} />));
+    await montar(<Arbol inv={inv} estado={e} />);
     const svg = lienzo();
     const antes = rTronco();
     await rueda(svg, -100, 1);
@@ -422,9 +433,10 @@ describe('la pantalla del árbol', () => {
       localStorage.setItem('rosa-arbol-vista', '3d');
       const e = estadoConDato();
       await act(async () => root.render(<Arbol inv={e.investigaciones[0]!} estado={e} />));
-      expect(pendientes.size).toBe(1); // un solo bucle: física, encuadre, giro y pintado
+      expect(pendientes.size).toBe(1); // el fotograma tras el que se construye el grafo (lib/diferido.ts); el bucle se engancha al montar el árbol
       // La simulación se enfría en unos 140 fotogramas y el encuadre encaja detrás; a los 3 s empieza el giro.
       await fotogramas(200, 10);
+      expect(pendientes.size).toBe(1); // un solo bucle: física, encuadre, giro y pintado
       expect(dentroDelMarco()).toBe('todos dentro');
       const quieto = transformes();
       await fotogramas(3, 10);

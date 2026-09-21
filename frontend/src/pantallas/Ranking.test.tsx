@@ -8,6 +8,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { estadoDeMuestra } from '../datos/muestra';
+import type { EstadoRosa, Investigacion } from '../datos/tipos';
 import { Ranking } from './Ranking';
 
 vi.mock('../datos/almacen', () => ({ acciones: new Proxy({}, { get: () => () => undefined }), aplicar: () => undefined, cabeceras: () => ({}), modoActual: () => 'muestra', QUIEN: 'la persona responsable', avisar: () => undefined, conectar: async () => 'servidor' }));
@@ -40,13 +41,25 @@ afterEach(async () => {
 const franjas = () => [...nodo.querySelectorAll('.ranking-fila [role="group"][aria-label="Componentes del ranking, sin sumar"]')];
 const boton = (texto: string) => [...nodo.querySelectorAll('button')].find((b) => b.textContent?.trim() === texto)!;
 const pulsar = async (el: Element) => act(async () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+/** Deja pasar el frame y el temporizador que viene detrás: desde el 19 de
+ *  septiembre de 2026 la pantalla pinta primero su silueta (esqueleto) y el
+ *  contenido llega tras el siguiente pintado (lib/diferido.ts). */
+async function esperarPintado(ms = 60) {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, ms));
+  });
+}
+async function montar(inv: Investigacion, e: EstadoRosa) {
+  await act(async () => root.render(<Ranking inv={inv} estado={e} />));
+  await esperarPintado();
+}
 
 describe('la pantalla del ranking', () => {
   it('pinta la franja de componentes en cada fila, debajo del bloque de estado, en la lista y por cluster', async () => {
     const e = estadoDeMuestra();
     const inv = e.investigaciones[0]!;
     const propias = e.hipotesis.filter((h) => h.investigacionId === inv.id);
-    await act(async () => root.render(<Ranking inv={inv} estado={e} />));
+    await montar(inv, e);
     const filas = [...nodo.querySelectorAll('.ranking-fila')];
     expect(filas).toHaveLength(propias.length);
     expect(franjas()).toHaveLength(propias.length);
@@ -77,7 +90,7 @@ describe('la pantalla del ranking', () => {
     h.bloqueos = undefined;
     h.novedad = undefined as unknown as typeof h.novedad;
     h.bt = undefined;
-    await act(async () => root.render(<Ranking inv={inv} estado={e} />));
+    await montar(inv, e);
     const fila = [...nodo.querySelectorAll('.ranking-fila')].find((f) => f.getAttribute('href')?.endsWith(h.id))!;
     expect(fila).toBeDefined();
     const franja = fila.querySelector('[role="group"]')!;
@@ -96,7 +109,7 @@ describe('adversario: el ranking con registros corruptos y muchas filas', () => 
     h.perfilDiana = 'texto' as unknown as typeof h.perfilDiana;
     h.alternativas = 'texto' as unknown as typeof h.alternativas;
     h.experimento = 'texto' as unknown as typeof h.experimento;
-    await act(async () => root.render(<Ranking inv={inv} estado={e} />));
+    await montar(inv, e);
     const fila = [...nodo.querySelectorAll('.ranking-fila')].find((f) => f.getAttribute('href')?.endsWith(h.id))!;
     expect(fila).toBeDefined();
     expect(fila.querySelector('[role="group"]')).not.toBeNull();
@@ -110,7 +123,7 @@ describe('adversario: el ranking con registros corruptos y muchas filas', () => 
     const extra = Array.from({ length: 150 }, (_, i) => ({ ...structuredClone(base), id: `hip-masiva-${i}`, elo: 1000 + i }));
     e.hipotesis = [...e.hipotesis, ...extra];
     const t0 = performance.now();
-    await act(async () => root.render(<Ranking inv={inv} estado={e} />));
+    await montar(inv, e);
     const ms = performance.now() - t0;
     expect(franjas().length).toBeGreaterThanOrEqual(150);
     // Un render de 150 filas no puede tardar más de unos segundos: si lo hace, el coste por fila (bloqueosDe reindexa planes y ejecuciones) se ha disparado.

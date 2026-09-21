@@ -11,15 +11,24 @@
 // tildes y trae los extremos reales; no hay porcentajes de confianza ni
 // "tiempo real". Mismo patrón de montaje que Arbol.test.tsx (createRoot y
 // act), con movimiento reducido para que no haya transiciones.
+//
+// Desde el 19 de septiembre de 2026 el atlas se construye DESPUÉS del pintado
+// (lib/diferido.ts, useCalculoDiferido), no en el render: el primer render es
+// la silueta (EsqueletoAtlas) y los conteos llegan un frame después. Por eso
+// `montar`, `pulsar` y `tecla` esperan a ese frame antes de devolver: sin la
+// espera, un test leería el mapa anterior (o la silueta) justo después de
+// pulsar un chip. El bloque "la espera del atlas" prueba la silueta misma.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFINICIONES_MAPA, ETIQUETAS_MAPA } from '../componentes/MapaEnfermedad';
 import { estadoDeMuestra } from '../datos/muestra';
 import type { CeldaMapa, Corrida, EstadoRosa, HechoMundo, Hipotesis, Investigacion, MapaEnfermedad } from '../datos/tipos';
-import { NOMBRE_CORTO } from '../lib/atlas_dibujo';
+import { NOMBRE_CORTO, VISTA } from '../lib/atlas_dibujo';
 import { rutaDe } from '../lib/ruta';
-import { Atlas } from './Atlas';
+import { Atlas, EsqueletoAtlas, ROTULO_ATLAS } from './Atlas';
 
 vi.mock('motion/react', async (original) => ({ ...(await original<typeof import('motion/react')>()), useReducedMotion: () => true }));
 
@@ -119,20 +128,39 @@ function corridaCon(estado: EstadoRosa, inv: Investigacion, consultas: { consult
   };
 }
 
-const montar = async (estado: EstadoRosa, inv: Investigacion) => {
+/** Deja pasar el frame y el temporizador que vienen detrás (rAF en jsdom corre cada 16 ms). */
+async function esperarPintado(ms = 60) {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, ms));
+  });
+}
+/** Monta el atlas SIN esperar al pintado: lo que se ve en el primer render. */
+const montarSinEsperar = async (estado: EstadoRosa, inv: Investigacion) => {
   await act(async () => root.render(<Atlas inv={inv} estado={estado} />));
+};
+/** Monta el atlas y espera a que el cálculo diferido lo haya pintado. */
+const montar = async (estado: EstadoRosa, inv: Investigacion) => {
+  await montarSinEsperar(estado, inv);
+  await esperarPintado();
 };
 const region = (clave: string) => nodo.querySelector<SVGPathElement>(`[role="button"][data-clave="${clave}"]`)!;
 const regiones = () => [...nodo.querySelectorAll<SVGPathElement>('[role="button"][data-clave]')];
-const pulsar = async (el: Element) => {
+/** Pulsa sin esperar: lo que se ve en el render inmediato. */
+const pulsarSinEsperar = async (el: Element) => {
   await act(async () => {
     el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   });
+};
+/** Pulsa y espera al pintado (un chip o un interruptor recalculan el atlas). */
+const pulsar = async (el: Element) => {
+  await pulsarSinEsperar(el);
+  await esperarPintado();
 };
 const tecla = async (el: Element, key: string) => {
   await act(async () => {
     el.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
   });
+  await esperarPintado();
 };
 const boton = (texto: string) => [...nodo.querySelectorAll('button')].find((b) => b.textContent?.trim().startsWith(texto))!;
 const panel = () => nodo.querySelector('.atlas-panel')!.textContent ?? '';
@@ -140,6 +168,12 @@ const bandeja = () => nodo.querySelector('.atlas-bandeja')!;
 const honesta = () => nodo.querySelector('.atlas-honesta')?.textContent ?? '';
 const cabecera = () => nodo.querySelector('.pantalla-cabecera')?.textContent ?? '';
 const SIN_TILDE = /\b(hipotesis|investigacion|region|regiones sin|celula|iteracion|todavia|Todavia|liquido|cefalorraquideo|microglia|amigdala|cingulo|precuneo|talamo|hematoencefalica|autosomica|sintomas|fase de la enfermedad sin|Como creció|Cómo crecio|leyo|catalogo|localizacion|numero|cuantas|cuantos|busqueda|leida|leidas)\b/;
+/** El texto que un lector de pantalla encontraría: todo lo que no está aria-hidden. */
+function textoAccesible(raiz: Element): string {
+  const clon = raiz.cloneNode(true) as Element;
+  for (const oculto of clon.querySelectorAll('[aria-hidden="true"]')) oculto.remove();
+  return (clon.textContent ?? '').replace(/\s+/g, ' ').trim();
+}
 
 describe('la pantalla del atlas', () => {
   it('pinta las dieciocho regiones localizadas como botones accesibles; el color va por cohortes, el número por registros y las vacías van rayadas', async () => {
@@ -312,12 +346,17 @@ describe('la pantalla del atlas', () => {
     expect(boton('En vivo')).toBeTruthy();
     expect(boton('En vivo').getAttribute('aria-pressed')).toBe('true');
     const rango = nodo.querySelector<HTMLInputElement>('#atlas-iteracion')!;
-    expect(rango.max).toBe(String(estado.iteraciones.reduce((m, i) => Math.max(m, i.numero), 1)));
+    const maximo = estado.iteraciones.reduce((m, i) => Math.max(m, i.numero), 1);
+    expect(rango.max).toBe(String(maximo));
+    // El presente: el deslizador en el máximo y la etiqueta con ese número.
+    expect(rango.value).toBe(String(maximo));
+    expect(etiqueta.textContent).toContain(`hasta la iteración ${maximo} de ${maximo}`);
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
     await act(async () => {
       setter.call(rango, '1');
       rango.dispatchEvent(new Event('input', { bubbles: true }));
     });
+    await esperarPintado();
     expect(etiqueta.textContent).toContain('hasta la iteración 1 de');
     expect(boton('Volver al presente')).toBeTruthy();
     // En la iteración 1 los hechos (nacidos después) desaparecen; el máximo de color no se reescala.
@@ -325,6 +364,22 @@ describe('la pantalla del atlas', () => {
     await pulsar(boton('Volver al presente'));
     expect(boton('En vivo')).toBeTruthy();
     expect(region('plasma').getAttribute('data-conteo')).toBe('8');
+    // Arrastrar el deslizador hasta el máximo es el presente, no un filtro.
+    expect(maximo).toBeGreaterThan(1);
+    await act(async () => {
+      setter.call(rango, String(maximo - 1));
+      rango.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await esperarPintado();
+    expect(boton('Volver al presente')).toBeTruthy();
+    await act(async () => {
+      setter.call(rango, String(maximo));
+      rango.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await esperarPintado();
+    expect(boton('En vivo')).toBeTruthy();
+    expect(boton('En vivo').getAttribute('aria-pressed')).toBe('true');
+    expect(honesta()).not.toContain('con los filtros puestos');
   });
 
   it('sin mapa enseña el estado vacío en llano con el enlace al árbol', async () => {
@@ -653,5 +708,223 @@ describe('la pantalla del atlas', () => {
     expect(todo).not.toMatch(/\d\s?%/);
     expect(todo).not.toMatch(/confianza|puntuaci[oó]n/i);
     expect(todo).not.toMatch(/tiempo real/i);
+  });
+});
+
+describe('la espera del atlas', () => {
+  /** Las piezas de la maqueta, en el orden en que aparecen, tanto en la silueta como en el contenido. */
+  const PIEZAS = ['.pantalla-cabecera', '.atlas-controles', '.atlas-marco', '.atlas-lienzo', '.atlas-honesta', '.atlas-bandeja', '.atlas-leyenda', '.atlas-panel', '.grafo-tiempo'];
+  const orden = (raiz: Element) => PIEZAS.map((s) => raiz.querySelector(s)).map((el) => (el ? [...raiz.querySelectorAll('*')].indexOf(el) : -1));
+
+  it('el primer render es la silueta del atlas con aria-busy y el rótulo oculto, sin nada del mapa; el contenido llega tras el pintado', async () => {
+    const { estado, inv } = estadoConMapa();
+    estado.conexion = 'en_linea';
+    await montarSinEsperar(estado, inv);
+    const s = nodo.querySelector<HTMLElement>('.atlas-esqueleto')!;
+    expect(s).not.toBeNull();
+    // La caja de maqueta (.contenido, sin role) y, dentro, la espera (role="status", aria-busy y el rótulo).
+    expect(s.classList.contains('contenido')).toBe(true);
+    expect(s.classList.contains('contenido-ancho')).toBe(true);
+    expect(s.hasAttribute('role')).toBe(false);
+    const espera = s.querySelector<HTMLElement>('.atlas-esqueleto-espera')!;
+    expect(espera).not.toBeNull();
+    expect(espera.parentElement).toBe(s);
+    expect(espera.classList.contains('esqueleto-pantalla')).toBe(true);
+    expect(espera.classList.contains('esqueleto-pantalla-figura')).toBe(true);
+    expect(espera.getAttribute('role')).toBe('status');
+    expect(espera.getAttribute('aria-busy')).toBe('true');
+    expect(espera.querySelector('.sr-only')?.textContent).toBe(`Cargando ${ROTULO_ATLAS}`);
+    // Al lector de pantalla solo le llega el rótulo: los bloques grises y la cabecera (texto fijo, aria-hidden) están fuera del árbol accesible.
+    expect(textoAccesible(nodo)).toBe(`Cargando ${ROTULO_ATLAS}`);
+    expect(s.querySelector('.pantalla-cabecera')?.getAttribute('aria-hidden')).toBe('true');
+    expect(s.querySelector('.pantalla-cabecera h2')?.textContent).toBe('Atlas de la enfermedad');
+    expect(nodo.querySelectorAll('[aria-busy="true"]').length).toBe(1);
+    expect(nodo.querySelectorAll('.sr-only').length).toBe(1);
+    // La silueta: el óvalo del hemisferio y los compartimentos de fuera en el lienzo, los chips arriba,
+    // el panel a la derecha, la bandeja y la leyenda abajo, el deslizador al pie. Nada del mapa real.
+    expect(s.querySelector('.atlas-lienzo .atlas-esqueleto-cerebro')).not.toBeNull();
+    expect(s.querySelectorAll('.atlas-lienzo .atlas-esqueleto-fuera').length).toBe(3);
+    expect(s.querySelectorAll('.atlas-controles .atlas-esqueleto-chip').length).toBeGreaterThanOrEqual(5);
+    expect(s.querySelector('.atlas-marco > aside.grafo-panel.atlas-panel')).not.toBeNull();
+    expect(s.querySelectorAll('.atlas-leyenda li').length).toBe(6);
+    expect(s.querySelectorAll('.esqueleto').length).toBeGreaterThan(20);
+    expect(nodo.querySelector('svg.atlas-figura')).toBeNull();
+    expect(nodo.querySelector('[role="button"]')).toBeNull();
+    expect(nodo.querySelector('button')).toBeNull();
+    expect(nodo.querySelector('a')).toBeNull();
+    // Tras el pintado: el contenido en el sitio de la silueta, sin aria-busy en ninguna parte.
+    await esperarPintado();
+    expect(nodo.querySelector('.atlas-esqueleto')).toBeNull();
+    expect(nodo.querySelector('svg.atlas-figura')).not.toBeNull();
+    expect(nodo.querySelectorAll('[aria-busy]').length).toBe(0);
+    expect(nodo.querySelector('.sr-only')).toBeNull();
+    expect(regiones().length).toBe(18);
+  });
+
+  it('sin mapa, la silueta da paso al estado vacío, no a una pantalla en blanco', async () => {
+    const { estado, inv } = estadoConMapa();
+    inv.mapaEnfermedad = null;
+    await montarSinEsperar(estado, inv);
+    expect(nodo.querySelector('.atlas-esqueleto')).not.toBeNull();
+    expect(nodo.textContent).not.toContain('ROSA2018 dibuja el atlas');
+    await esperarPintado();
+    expect(nodo.querySelector('.atlas-esqueleto')).toBeNull();
+    expect(nodo.textContent).toContain('ROSA2018 dibuja el atlas al cerrar la primera iteración');
+  });
+
+  it('la silueta tiene las mismas piezas, en el mismo orden y con las mismas medidas fijadas en CSS que el contenido: no salta al llegar', async () => {
+    const { estado, inv } = estadoConMapa();
+    estado.conexion = 'en_linea';
+    await montarSinEsperar(estado, inv);
+    const silueta = nodo.querySelector<HTMLElement>('.atlas-esqueleto')!;
+    const ordenSilueta = orden(silueta);
+    expect(ordenSilueta.every((i) => i >= 0)).toBe(true);
+    expect(silueta.querySelector<HTMLElement>('.pantalla-cabecera')?.style.marginTop).toBe('16px');
+    expect(silueta.querySelectorAll('.atlas-marco > *').length).toBe(2);
+    await esperarPintado();
+    const contenido = nodo.querySelector<HTMLElement>('.contenido')!;
+    expect(contenido.classList.contains('atlas-esqueleto')).toBe(false);
+    expect(contenido.classList.contains('contenido-ancho')).toBe(true);
+    const ordenContenido = orden(contenido);
+    expect(ordenContenido.every((i) => i >= 0)).toBe(true);
+    // Mismo orden relativo de las piezas (las posiciones absolutas cambian porque el SVG tiene más nodos):
+    // a cada pieza, cuántas van antes que ella.
+    const relativo = (o: number[]) => o.map((v) => o.filter((w) => w < v).length);
+    expect(relativo(ordenSilueta)).toEqual(relativo(ordenContenido));
+    expect(contenido.querySelector<HTMLElement>('.pantalla-cabecera')?.style.marginTop).toBe('16px');
+    expect(contenido.querySelectorAll('.atlas-marco > *').length).toBe(2);
+    expect(contenido.querySelectorAll('.atlas-leyenda > li').length).toBe(silueta.querySelectorAll('.atlas-leyenda > li').length);
+    // Las medidas fijas: la caja del lienzo y los chips miden lo mismo en atlas.css (jsdom no maqueta,
+    // así que se cotejan las reglas escritas, que son las que el navegador aplica).
+    const css = readFileSync(join(__dirname, '..', 'atlas.css'), 'utf8');
+    const regla = (selector: string) => {
+      const inicio = css.indexOf(`\n${selector} {`);
+      expect(inicio, selector).toBeGreaterThan(-1);
+      return css.slice(inicio, css.indexOf('}', inicio));
+    };
+    const figura = regla('.atlas-figura');
+    const siluetaFigura = regla('.atlas-esqueleto .atlas-esqueleto-figura');
+    const valor = (bloque: string, propiedad: string) => bloque.match(new RegExp(`\\n\\s*${propiedad}:\\s*([^;]+);`))?.[1]?.trim();
+    expect(valor(siluetaFigura, 'min-width')).toBe(valor(figura, 'min-width'));
+    expect(valor(siluetaFigura, 'max-height')).toBe(valor(figura, 'max-height'));
+    expect(valor(siluetaFigura, 'width')).toBe(valor(figura, 'width'));
+    expect(valor(siluetaFigura, 'aspect-ratio')).toBe(`${VISTA.ancho} / ${VISTA.alto}`);
+    const chip = regla('.atlas-chip');
+    const siluetaChip = regla('.atlas-esqueleto .atlas-esqueleto-chip');
+    expect(valor(siluetaChip, 'height')).toBe(valor(chip, 'min-height'));
+    expect(valor(siluetaChip, 'border-radius')).toBe(valor(chip, 'border-radius'));
+    const muestra = regla('.atlas-muestra');
+    const siluetaMuestra = regla('.atlas-esqueleto .atlas-esqueleto-muestra');
+    for (const p of ['width', 'height', 'margin-top', 'border-radius']) expect(valor(siluetaMuestra, p), p).toBe(valor(muestra, p));
+    // El brillo se apaga con movimiento reducido: la regla vive en styles.css sobre .esqueleto (Esqueleto.test.tsx
+    // la comprueba), y todos los bloques de la silueta llevan esa clase, ninguno un gris propio. Quedan fuera los
+    // elementos con el prefijo que no son bloques grises: la caja de la figura, la de los chips, la espera
+    // (el div con role="status") y el botón inerte de la cabecera (texto con las clases del botón).
+    const NO_SON_BLOQUES = ['atlas-esqueleto-figura', 'atlas-esqueleto-chips', 'atlas-esqueleto-espera', 'atlas-esqueleto-boton'];
+    const bloques = [...silueta.querySelectorAll<HTMLElement>('[class*="atlas-esqueleto-"]')].filter((el) => !NO_SON_BLOQUES.some((c) => el.classList.contains(c)));
+    expect(bloques.length).toBeGreaterThan(10);
+    expect(bloques.every((el) => el.classList.contains('esqueleto'))).toBe(true);
+  });
+
+  it('la cabecera de la silueta lleva el texto real (h2, párrafo y meta) y un botón que mide como el enlace: no cambia de altura al llegar el mapa', async () => {
+    // La cabecera es texto FIJO que no depende del cálculo: unas 15 líneas a 68ch (el máximo de .pantalla-cabecera p
+    // en styles.css). En gris medía unos 200 px menos y chips, lienzo, panel y leyenda bajaban de golpe al llegar el mapa.
+    const { estado, inv } = estadoConMapa();
+    estado.conexion = 'en_linea';
+    await montarSinEsperar(estado, inv);
+    const silueta = nodo.querySelector<HTMLElement>('.atlas-esqueleto')!;
+    const textos = (raiz: Element) => ({
+      h2: raiz.querySelector('.pantalla-cabecera h2')?.textContent,
+      parrafos: [...raiz.querySelectorAll('.pantalla-cabecera p')].map((p) => (p.textContent ?? '').replace(/\s+/g, ' ').trim()),
+      boton: raiz.querySelector('.pantalla-cabecera .acciones .btn'),
+    });
+    const enSilueta = textos(silueta);
+    // Nada gris en la cabecera: es texto, no bloques.
+    expect(silueta.querySelectorAll('.pantalla-cabecera .esqueleto').length).toBe(0);
+    expect(enSilueta.h2).toBe('Atlas de la enfermedad');
+    expect(enSilueta.parrafos.length).toBe(2);
+    expect(enSilueta.parrafos[0]!.length).toBeGreaterThan(900);
+    expect(enSilueta.parrafos[0]).not.toMatch(SIN_TILDE);
+    // El botón: un span inerte con las clases del botón real, no un enlace ni un botón.
+    expect(enSilueta.boton?.tagName).toBe('SPAN');
+    expect(enSilueta.boton?.classList.contains('btn-s')).toBe(true);
+    expect(enSilueta.boton?.textContent).toBe('Abrir en el árbol');
+    await esperarPintado();
+    const contenido = nodo.querySelector<HTMLElement>('.contenido:not(.atlas-esqueleto)')!;
+    const enContenido = textos(contenido);
+    expect(enSilueta.h2).toBe(enContenido.h2);
+    expect(enSilueta.parrafos[0]).toBe(enContenido.parrafos[0]);
+    // El meta del contenido empieza por la frase fija; con este mapa no hay hechos nuevos y es exactamente ella.
+    expect(enContenido.parrafos[1]!.startsWith(enSilueta.parrafos[1]!)).toBe(true);
+    expect(enContenido.parrafos[1]).toBe(enSilueta.parrafos[1]);
+    expect(enContenido.boton?.tagName).toBe('A');
+    expect([...enContenido.boton!.classList].filter((c) => c.startsWith('btn'))).toEqual([...enSilueta.boton!.classList].filter((c) => c.startsWith('btn')));
+    expect(enContenido.boton?.textContent?.trim()).toBe(enSilueta.boton?.textContent);
+    // Y ocupan las mismas líneas a 68 caracteres: la cabecera mide lo mismo antes y después.
+    const lineas = (t: { parrafos: string[] }) => t.parrafos.reduce((n, p) => n + Math.ceil(p.length / 68), 0);
+    expect(lineas(enSilueta)).toBe(lineas(enContenido));
+    expect(lineas(enSilueta)).toBeGreaterThan(10);
+  });
+
+  it('en modo muestra el aviso de datos de muestra está en la silueta y en el contenido, en el mismo sitio, y fuera de la región viva de la espera', async () => {
+    const { estado, inv } = estadoConMapa();
+    estado.conexion = 'muestra';
+    await montarSinEsperar(estado, inv);
+    const silueta = nodo.querySelector<HTMLElement>('.atlas-esqueleto')!;
+    expect(silueta.firstElementChild?.classList.contains('aviso-muestra')).toBe(true);
+    // El aviso es su propia región viva (role="status") y va FUERA de la de la espera, como hermano anterior:
+    // dos role="status" seguidos, ninguno dentro del otro, y a la espera solo le pertenece su rótulo. Si estuviera
+    // dentro, un lector de pantalla anunciaría el aviso como parte del "Cargando" cada vez que la silueta aparece.
+    expect(nodo.querySelectorAll('[role="status"]').length).toBe(2);
+    expect(nodo.querySelectorAll('[role="status"] [role="status"]').length).toBe(0);
+    const espera = silueta.querySelector<HTMLElement>('[role="status"][aria-busy="true"]')!;
+    expect(espera.previousElementSibling?.classList.contains('aviso-muestra')).toBe(true);
+    expect(textoAccesible(espera)).toBe(`Cargando ${ROTULO_ATLAS}`);
+    await esperarPintado();
+    const contenido = nodo.querySelector<HTMLElement>('.contenido')!;
+    // En los dos, el aviso es el primer hijo de la caja .contenido: mismo sitio.
+    expect(contenido.firstElementChild?.classList.contains('aviso-muestra')).toBe(true);
+    expect(contenido.firstElementChild?.nextElementSibling?.classList.contains('pantalla-cabecera')).toBe(true);
+    expect(nodo.querySelectorAll('[role="status"] [role="status"]').length).toBe(0);
+    // Sin `conexion`, la silueta suelta (la que pinta App) no trae el aviso.
+    await act(async () => root.render(<EsqueletoAtlas />));
+    expect(nodo.querySelector('.aviso-muestra')).toBeNull();
+    expect(nodo.querySelector('.sr-only')?.textContent).toBe(`Cargando ${ROTULO_ATLAS}`);
+  });
+
+  it('al pulsar un chip no vuelve la silueta: el mapa anterior se queda con aria-busy en el marco y los conteos nuevos llegan tras el pintado', async () => {
+    const { estado, inv } = estadoConMapa();
+    await montar(estado, inv);
+    expect(nodo.querySelector('.atlas-marco')?.hasAttribute('aria-busy')).toBe(false);
+    await pulsarSinEsperar(boton('autosómica dominante'));
+    // Render inmediato: el chip ya está pulsado, el mapa es el de antes y el marco dice que está ocupado.
+    expect(boton('autosómica dominante').getAttribute('aria-pressed')).toBe('true');
+    expect(nodo.querySelector('.atlas-esqueleto')).toBeNull();
+    expect(nodo.querySelector('svg.atlas-figura')).not.toBeNull();
+    expect(nodo.querySelector('.atlas-marco')?.getAttribute('aria-busy')).toBe('true');
+    expect(region('plasma').getAttribute('data-conteo')).toBe('8');
+    await esperarPintado();
+    expect(nodo.querySelector('.atlas-marco')?.hasAttribute('aria-busy')).toBe(false);
+    expect(region('plasma').getAttribute('data-conteo')).toBe('4');
+    // Una actualización del estado (el canal en vivo) tampoco vuelve a la silueta.
+    await montarSinEsperar({ ...estado }, inv);
+    expect(nodo.querySelector('.atlas-esqueleto')).toBeNull();
+    expect(nodo.querySelector('.atlas-marco')?.getAttribute('aria-busy')).toBe('true');
+    await esperarPintado();
+    expect(nodo.querySelector('.atlas-marco')?.hasAttribute('aria-busy')).toBe(false);
+    expect(region('plasma').getAttribute('data-conteo')).toBe('4');
+  });
+
+  it('al cambiar de investigación sin desmontar vuelve la silueta hasta que llega el atlas nuevo', async () => {
+    const { estado, inv } = estadoConMapa();
+    await montar(estado, inv);
+    const otra: Investigacion = { ...structuredClone(inv), id: 'inv-2', titulo: 'Otra investigación' };
+    estado.investigaciones.push(otra);
+    await montarSinEsperar(estado, otra);
+    expect(nodo.querySelector('.atlas-esqueleto')).not.toBeNull();
+    expect(nodo.querySelector('svg.atlas-figura')).toBeNull();
+    await esperarPintado();
+    expect(nodo.querySelector('.atlas-esqueleto')).toBeNull();
+    expect(nodo.querySelector('svg.atlas-figura')?.getAttribute('aria-label')).toContain('Otra investigación');
   });
 });

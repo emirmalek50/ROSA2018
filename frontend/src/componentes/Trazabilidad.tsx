@@ -1,16 +1,28 @@
-// La cadena de evidencia de una corrida como arbol plegable: cada consulta,
+// La cadena de evidencia de una corrida como árbol plegable: cada consulta,
 // las fuentes que trajo, y las afirmaciones que salieron de cada fuente con
 // su veredicto. Es lo que un revisor pide para seguir una cifra hasta su
-// origen sin abrir una hipotesis. Lee GET /api/corridas/{id}/evidencia y se
-// refresca cuando la corrida cambia (el estado llega por SSE; aqui solo se
+// origen sin abrir una hipótesis. Lee GET /api/corridas/{id}/evidencia y se
+// refresca cuando la corrida cambia (el estado llega por SSE; aquí solo se
 // vuelve a pedir la evidencia, que pesa poco). En modo muestra no hay
-// servidor y la seccion no se pinta.
+// servidor y la sección no se pinta.
+//
+// Espera (estándar de Emir, 19 de septiembre de 2026): mientras llega la
+// primera respuesta de una corrida se enseña la silueta de la sección (el
+// embudo, los filtros y tres filas del árbol) con aria-busy, en vez de un
+// hueco que después salta. Las peticiones siguientes de la misma corrida
+// (cada vez que cambia el gasto) no vuelven al esqueleto: el contenido que
+// hay sigue siendo válido y se queda hasta que llega el nuevo. Si el
+// servidor falla, la sección no se pinta, como antes; si acepta la conexión
+// y no responde en 20 s, dice "no pude comprobar" con un botón para volver a
+// pedirla (una fuente que no responde nunca es "no hay").
 
 import { useEffect, useMemo, useState } from 'react';
 import type { Corrida, TipoAfirmacion } from '../datos/tipos';
+import { esTiempoAgotado, senalDeTope } from '../lib/diferido';
 import { RIESGO_SESGO, TIPO_AFIRMACION, tipoAfirmacion, TIPO_ESTUDIO, TIPO_FUENTE, VEREDICTO } from '../lib/etiquetas';
 import { construirArbol, enlaceDe, iteracionesDe, type Evidencia, type FiltroVeredicto, type NodoFuente } from '../lib/evidencia';
 import { formatearEntero } from '../lib/formato';
+import { Cargando, Esqueleto } from './Esqueleto';
 import { Chip, Seccion } from './piezas';
 
 const FILTROS: { clave: FiltroVeredicto; etiqueta: string }[] = [
@@ -20,37 +32,166 @@ const FILTROS: { clave: FiltroVeredicto; etiqueta: string }[] = [
   { clave: 'sin_verificar', etiqueta: 'Sin comprobar' },
 ];
 
+const TITULO = 'De la consulta a la afirmación';
+const NOTA = 'Cada consulta, las fuentes que trajo y las afirmaciones que salieron de cada fuente con su veredicto. Una afirmación nace sin comprobar y cambia de color cuando el juez dictamina.';
+
+/** Cuántas consultas pinta la silueta: las que la corrida ya tiene en el
+ *  estado (busqueda.consultas), al menos una y hasta doce. */
+export function consultasEnSilueta(corrida: Pick<Corrida, 'busqueda'>): number {
+  return Math.min(12, Math.max(1, corrida.busqueda.consultas.length));
+}
+
+/** Una fila del árbol en gris (flecha, dos líneas de texto y dos chips), con
+ *  las clases reales para medir lo mismo (79 a 98 px). */
+function FilaGris({ i }: { i: number }) {
+  return (
+    <div className="arbol-fila">
+      <Esqueleto alto={12} ancho={12} />
+      <div className="arbol-texto">
+        <Esqueleto alto={13} ancho={i % 3 === 1 ? '48%' : '36%'} />
+        <Esqueleto alto={12} ancho={i % 3 === 2 ? '58%' : '70%'} />
+      </div>
+      <div className="arbol-cuentas">
+        <Esqueleto className="esqueleto-chip" ancho={72} />
+        <Esqueleto className="esqueleto-chip" ancho={96} />
+      </div>
+    </div>
+  );
+}
+
+/** La silueta de la sección mientras responde el servidor: cinco pasos del
+ *  embudo, la fila de filtros y una consulta por cada una que la corrida ya
+ *  tiene en el estado, cada una abierta con dos fuentes debajo, como el
+ *  árbol real (medido: cada consulta abierta ocupa entre 150 y 560 px, unos
+ *  240 de media). Las mismas clases y medidas que el contenido real. */
+function EsqueletoTrazabilidad({ consultas }: { consultas: number }) {
+  return (
+    <Cargando
+      activo
+      rotulo="la cadena de evidencia"
+      esqueleto={
+        <div aria-hidden="true" style={{ pointerEvents: 'none' }}>
+          <div className="embudo embudo-compacto">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="embudo-paso">
+                <Esqueleto alto={22} ancho={i === 4 ? 96 : 48} />
+                <Esqueleto alto={12} ancho={i === 2 || i === 4 ? '85%' : '55%'} />
+              </div>
+            ))}
+          </div>
+          <div className="filtros-arbol">
+            {[72, 150, 88, 104].map((ancho, i) => (
+              <Esqueleto key={i} className="esqueleto-chip" ancho={ancho} />
+            ))}
+            <Esqueleto alto={28} ancho={120} radio={6} />
+          </div>
+          <ul className="arbol">
+            {Array.from({ length: consultas }, (_, i) => (
+              <li key={i} className="arbol-nodo">
+                <FilaGris i={i} />
+                <ul className="arbol-hijos">
+                  {[0, 1].map((j) => (
+                    <li key={j} className="arbol-nodo">
+                      <FilaGris i={i + j + 1} />
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
+      }
+    >
+      {null}
+    </Cargando>
+  );
+}
+
+/** Las pestañas de iteración en gris para la cabecera de la sección, cuando
+ *  la corrida ya va por más de una (la real pone una por iteración con
+ *  evidencia; el estado sabe la iteración actual). */
+function PestanasGrises({ iteraciones }: { iteraciones: number }) {
+  return (
+    <div className="pestanas pestanas-s" aria-hidden="true">
+      {Array.from({ length: Math.min(8, iteraciones) }, (_, i) => (
+        <Esqueleto key={i} alto={38} ancho={85} />
+      ))}
+    </div>
+  );
+}
+
 export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: boolean }) {
-  const [evidencia, setEvidencia] = useState<Evidencia | null>(null);
+  // La evidencia va etiquetada con la corrida que la pidió: al cambiar de
+  // corrida, la de la anterior no se enseña mientras llega la nueva.
+  const [evidencia, setEvidencia] = useState<{ corridaId: string; datos: Evidencia } | null>(null);
+  // La corrida cuya primera petición ya respondió (bien o mal). Mientras no
+  // sea la actual, se enseña el esqueleto.
+  const [respondida, setRespondida] = useState<string | null>(null);
+  // La corrida cuya petición venció el tope de tiempo sin respuesta: se
+  // enseña "no pude comprobar" con el botón de volver a pedir.
+  const [sinRespuesta, setSinRespuesta] = useState<string | null>(null);
+  const [intento, setIntento] = useState(0);
   const [iteracion, setIteracion] = useState<number | null>(null);
   const [filtro, setFiltro] = useState<FiltroVeredicto>('todas');
   const [tipo, setTipo] = useState<TipoAfirmacion | 'todos'>('todos');
   const [abiertas, setAbiertas] = useState<Set<string>>(new Set());
 
   // Se vuelve a pedir cuando cambia el gasto (cada llamada al modelo lo mueve)
-  // o el numero de consultas: es la senal barata de que hay evidencia nueva.
+  // o el número de consultas: es la señal barata de que hay evidencia nueva.
   const clave = `${corrida.id}:${corrida.gasto.llamadas}:${corrida.busqueda.consultas.length}:${corrida.estado}`;
   useEffect(() => {
     if (!activa) return;
     let vivo = true;
-    fetch(`/api/corridas/${encodeURIComponent(corrida.id)}/evidencia`, { cache: 'no-store' })
+    const corridaId = corrida.id;
+    setSinRespuesta(null);
+    // Al volver a pedir (o al cambiar de corrida) la respuesta anterior deja de
+    // valer: sin esto, tras "Volver a pedir" la sección se quedaba vacía hasta
+    // que el servidor contestaba, en vez de enseñar la silueta.
+    setRespondida(null);
+    fetch(`/api/corridas/${encodeURIComponent(corridaId)}/evidencia`, { cache: 'no-store', ...senalDeTope() })
       .then((r) => (r.ok ? (r.json() as Promise<Evidencia>) : null))
       .then((d) => {
-        if (vivo && d) setEvidencia(d);
+        if (vivo && d) setEvidencia({ corridaId, datos: d });
       })
-      .catch(() => {
-        // Sin servidor no hay evidencia que ensenar; la seccion queda vacia.
+      .catch((error: unknown) => {
+        // Sin servidor no hay evidencia que enseñar y la sección queda vacía;
+        // si el tope de tiempo venció, se dice.
+        if (vivo && esTiempoAgotado(error)) setSinRespuesta(corridaId);
+      })
+      .finally(() => {
+        if (vivo) setRespondida(corridaId);
       });
     return () => {
       vivo = false;
     };
-  }, [clave, activa, corrida.id]);
+  }, [clave, activa, corrida.id, intento]);
 
-  const iteraciones = useMemo(() => (evidencia ? iteracionesDe(evidencia) : []), [evidencia]);
+  const datos = evidencia !== null && evidencia.corridaId === corrida.id ? evidencia.datos : null;
+  const iteraciones = useMemo(() => (datos ? iteracionesDe(datos) : []), [datos]);
   const actual = iteracion ?? iteraciones[iteraciones.length - 1] ?? null;
-  const arbol = useMemo(() => (evidencia && actual !== null ? construirArbol(evidencia, actual, filtro, tipo) : null), [evidencia, actual, filtro, tipo]);
+  const arbol = useMemo(() => (datos && actual !== null ? construirArbol(datos, actual, filtro, tipo) : null), [datos, actual, filtro, tipo]);
 
-  if (!activa || !evidencia || arbol === null || actual === null) return null;
+  if (!activa) return null;
+  if (datos === null && respondida !== corrida.id) {
+    return (
+      <Seccion detalle titulo={TITULO} nota={NOTA} acciones={corrida.iteracionActual > 1 ? <PestanasGrises iteraciones={corrida.iteracionActual} /> : undefined}>
+        <EsqueletoTrazabilidad consultas={consultasEnSilueta(corrida)} />
+      </Seccion>
+    );
+  }
+  if (datos === null && sinRespuesta === corrida.id) {
+    return (
+      <Seccion detalle titulo={TITULO} nota={NOTA}>
+        <div className="acciones">
+          <span className="meta">No pude comprobar la cadena de evidencia: el servidor no respondió a tiempo.</span>
+          <button type="button" className="btn btn-s" onClick={() => setIntento((i) => i + 1)}>
+            Volver a pedir
+          </button>
+        </div>
+      </Seccion>
+    );
+  }
+  if (datos === null || arbol === null || actual === null) return null;
 
   const alternar = (id: string) => {
     setAbiertas((s) => {
@@ -64,8 +205,8 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
 
   return (
     <Seccion
-      detalle titulo="De la consulta a la afirmación"
-      nota="Cada consulta, las fuentes que trajo y las afirmaciones que salieron de cada fuente con su veredicto. Una afirmación nace sin comprobar y cambia de color cuando el juez dictamina."
+      detalle titulo={TITULO}
+      nota={NOTA}
       acciones={
         iteraciones.length > 1 ? (
           <div className="pestanas pestanas-s" role="tablist">
@@ -162,7 +303,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
               {abierta && n.consulta && <code className="arbol-consulta">{n.consulta.consulta}</code>}
               {abierta && (
                 <ul className="arbol-hijos" role="group">
-                  {n.fuentes.length === 0 && <li className="meta arbol-vacio">Ninguna fuente paso el cribado de relevancia.</li>}
+                  {n.fuentes.length === 0 && <li className="meta arbol-vacio">Ninguna fuente pasó el cribado de relevancia.</li>}
                   {n.fuentes.map((f) => (
                     <Fuente key={f.fuente.id} nodo={f} abierta={abiertas.has(`f-${f.fuente.id}`)} onAlternar={() => alternar(`f-${f.fuente.id}`)} />
                   ))}
@@ -195,7 +336,7 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
         </span>
         <span className="arbol-cuentas">
           {f.riesgoSesgo && f.riesgoSesgo.global !== 'no_aplica' && (
-            <Chip tono={RIESGO_SESGO[f.riesgoSesgo.global]?.tono ?? 'borde'} title={`${f.riesgoSesgo.instrumento}: ${f.riesgoSesgo.dominios.map((d) => `${d.id} ${d.nombre}: ${d.juicio.replace('_', ' ')}`).join('; ')}. Veredicto por regla desde las preguntas de senalizacion.`}>
+            <Chip tono={RIESGO_SESGO[f.riesgoSesgo.global]?.tono ?? 'borde'} title={`${f.riesgoSesgo.instrumento}: ${f.riesgoSesgo.dominios.map((d) => `${d.id} ${d.nombre}: ${d.juicio.replace('_', ' ')}`).join('; ')}. Veredicto por regla desde las preguntas de señalización.`}>
               {f.riesgoSesgo.instrumento} {RIESGO_SESGO[f.riesgoSesgo.global]?.etiqueta ?? f.riesgoSesgo.global}
             </Chip>
           )}

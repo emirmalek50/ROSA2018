@@ -15,6 +15,7 @@ import { acuerdoDe, acuerdoPorComprobacion } from '../lib/acuerdo';
 import { CATEGORIA_CASO, COMPROBACION_KILLER, ESTADO_CASO, TIPO_AFIRMACION } from '../lib/etiquetas';
 import { formatearPorcentaje } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
+import { atributosEnVuelo } from '../lib/diferido';
 
 function Caso({ c }: { c: CasoControl }) {
   const [respuesta, setRespuesta] = useState(c.respuestaEsperada);
@@ -69,10 +70,13 @@ function Caso({ c }: { c: CasoControl }) {
 }
 
 export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: EstadoRosa; ahora: number }) {
-  const [controlandoGepa, setControlandoGepa] = useState(false);
+  // Qué control de GEPA espera respuesta del servidor: ese botón se enseña en
+  // vuelo (spinner y aria-busy) y los tres quedan bloqueados hasta que responda.
+  const [accionGepa, setAccionGepa] = useState<'pausar' | 'reanudar' | 'restablecer' | null>(null);
+  const controlandoGepa = accionGepa !== null;
   const [avisoGepa, setAvisoGepa] = useState('');
   async function controlarGepa(accion: 'pausar' | 'reanudar' | 'restablecer') {
-    setControlandoGepa(true);
+    setAccionGepa(accion);
     try {
       const r = await fetch(`/api/gepa/${accion}`, { method: 'POST', headers: cabeceras() });
       if (!r.ok) throw new Error(r.status === 403 ? 'Solo administración puede cambiar la optimización global.' : 'No se pudo confirmar el cambio.');
@@ -80,7 +84,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
     } catch (error) {
       setAvisoGepa(error instanceof Error ? error.message : 'No se pudo confirmar el cambio.');
     } finally {
-      setControlandoGepa(false);
+      setAccionGepa(null);
     }
   }
   const [filtro, setFiltro] = useState<CasoControl['estado'] | 'todos'>('propuesto');
@@ -359,8 +363,8 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
           <p className="meta">Con datos de muestra no hay servicio que controlar.</p>
         ) : (
         <div className="acciones">
-          <button disabled={controlandoGepa} onClick={() => void controlarGepa('pausar')}>Pausar promociones</button>
-          <button disabled={controlandoGepa} onClick={() => void controlarGepa('reanudar')}>Reanudar</button>
+          <button type="button" className="btn" disabled={controlandoGepa} {...atributosEnVuelo(accionGepa === 'pausar')} onClick={() => void controlarGepa('pausar')}>Pausar promociones</button>
+          <button type="button" className="btn" disabled={controlandoGepa} {...atributosEnVuelo(accionGepa === 'reanudar')} onClick={() => void controlarGepa('reanudar')}>Reanudar</button>
           <Confirmar etiqueta="Volver a programas base" pregunta="Se pausará GEPA y las nuevas corridas usarán los programas base. No cambia las corridas existentes ni borra las versiones guardadas. ¿Continuar?" disabled={controlandoGepa} onConfirmar={() => void controlarGepa('restablecer')} />
         </div>
         )}

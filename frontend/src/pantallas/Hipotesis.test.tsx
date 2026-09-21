@@ -45,9 +45,18 @@ afterEach(async () => {
   nodo.remove();
 });
 
-function montar(e: EstadoRosa, id: string) {
+/** Deja pasar el frame y el temporizador que viene detrás: desde el 19 de
+ *  septiembre de 2026 la pantalla pinta primero su silueta (esqueleto) y el
+ *  contenido llega tras el siguiente pintado (lib/diferido.ts). */
+async function esperarPintado(ms = 60) {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, ms));
+  });
+}
+async function montar(e: EstadoRosa, id: string) {
   const inv = e.investigaciones[0]!;
-  return act(async () => root.render(<Hipotesis inv={inv} estado={e} ahora={Date.now()} detalleId={id} cajonAbierto={false} setCajonAbierto={() => undefined} irA={() => undefined} />));
+  await act(async () => root.render(<Hipotesis inv={inv} estado={e} ahora={Date.now()} detalleId={id} cajonAbierto={false} setCajonAbierto={() => undefined} irA={() => undefined} />));
+  await esperarPintado();
 }
 
 function conTodo(): { e: EstadoRosa; h: Hip } {

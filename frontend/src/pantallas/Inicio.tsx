@@ -1,26 +1,58 @@
-// Inicio: "ahora" en cada investigacion (que hace ROSA2018, que espera), y el
+// Inicio: "ahora" en cada investigación (qué hace ROSA2018, qué espera), y el
 // resumen "mientras no estabas" de la que tiene actividad. Es la pantalla
 // del que vuelve tras horas, como el dashboard con tarjetas "Now" de Claude
 // Science y el recap de la vista de agentes de Claude Code.
+//
+// Esperas visibles (estándar de Emir, 19 de septiembre de 2026): si el estado
+// global todavía no ha llegado se pinta la silueta de las tarjetas
+// (EsqueletoPantalla "panel"), nunca una página vacía. El resto se pinta en
+// el mismo render, sin diferir: aquí no hay cálculo pesado (un resumen por
+// investigación), no hay cambio de investigación que congele nada, y esta
+// pantalla también se renderiza en estático (renderToStaticMarkup en los
+// tests de punta a punta), donde un contenido diferido no llegaría nunca.
 
 import { acciones } from '../datos/almacen';
 import type { EstadoRosa } from '../datos/tipos';
 import { iteracionActualDe } from '../datos/acciones';
 import { Resumen } from '../componentes/Resumen';
 import { Aparece } from '../componentes/Animado';
+import { Esqueleto, EsqueletoPantalla, EsqueletoTarjeta } from '../componentes/Esqueleto';
 import { Chip, Momento, Vacio } from '../componentes/piezas';
 import { digest, loQueEspera } from '../lib/digest';
 import { ESTADO_CORRIDA, etiquetaCorrida, proponiendoPlan } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
 
+const CABECERA_INICIO = {
+  titulo: 'Investigaciones',
+  descripcion: 'Cada investigación tiene su objetivo, sus límites y su condición de parada. ROSA2018 corre dentro de ellos y tú revisas lo que propone.',
+};
+/** Medido en Chromium a 1440 px: cada tarjeta del inicio mide entre 191 y 215 px. */
+const ALTO_TARJETA_INICIO = 205;
+
+/** La silueta del inicio: la cabecera con su texto real (mide lo mismo que
+ *  la real), el botón de nueva investigación en gris y la rejilla de
+ *  tarjetas, tantas como investigaciones haya (y al menos tres). */
+export function EsqueletoInicio({ tarjetas }: { tarjetas: number }) {
+  return (
+    <EsqueletoPantalla variante="panel" rotulo="las investigaciones" cabecera={CABECERA_INICIO} acciones={<Esqueleto className="esqueleto-boton esqueleto-boton-ancho" />}>
+      <div className="inicio-rejilla" style={{ marginTop: 20 }} aria-hidden="true">
+        {Array.from({ length: Math.min(12, Math.max(3, tarjetas)) }, (_, i) => (
+          <EsqueletoTarjeta key={i} lineas={4} alto={ALTO_TARJETA_INICIO} />
+        ))}
+      </div>
+    </EsqueletoPantalla>
+  );
+}
+
 export function Inicio({ estado, ahora }: { estado: EstadoRosa; ahora: number }) {
+  if (estado.conexion === 'conectando') return <EsqueletoInicio tarjetas={estado.investigaciones.length} />;
   return (
     <div className="contenido">
       <div className="pantalla-cabecera">
         <div>
-          <h2>Investigaciones</h2>
-          <p>Cada investigación tiene su objetivo, sus límites y su condición de parada. ROSA2018 corre dentro de ellos y tú revisas lo que propone.</p>
+          <h2>{CABECERA_INICIO.titulo}</h2>
+          <p>{CABECERA_INICIO.descripcion}</p>
         </div>
         <a className="btn btn-primario" href="#/nueva">
           Nueva investigación
@@ -36,7 +68,7 @@ export function Inicio({ estado, ahora }: { estado: EstadoRosa; ahora: number })
       {estado.investigaciones.length === 0 ? (
         <Vacio
           titulo="Todavía no hay investigaciones"
-          pasos={['Escribes el objetivo, los límites y la condición de parada.', 'ROSA2018 propone la misión y el plan de la primera iteración; tú lo apruebas.', 'Busca literatura, verifica, actualiza el modelo de mundo y genera hipótesis.', 'Tu decides sobre las hipótesis; las candidatas van al laboratorio con prerregistro.']}
+          pasos={['Escribes el objetivo, los límites y la condición de parada.', 'ROSA2018 propone la misión y el plan de la primera iteración; tú lo apruebas.', 'Busca literatura, verifica, actualiza el modelo de mundo y genera hipótesis.', 'Tú decides sobre las hipótesis; las candidatas van al laboratorio con prerregistro.']}
           accion={
             <a className="btn btn-primario" href="#/nueva">
               Crear la primera investigación

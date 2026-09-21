@@ -1,18 +1,29 @@
-// El explorador del modelo de mundo: que se sabe (con procedencia hasta la
-// pagina y las citas que apoyan, mencionan o contrastan cada hecho), que esta
-// abierto y que se descarto (con su motivo). Con la cobertura de la busqueda
-// por tema, la vista "que cambio", preguntar al modelo de mundo (responde
+// El explorador del modelo de mundo: qué se sabe (con procedencia hasta la
+// página y las citas que apoyan, mencionan o contrastan cada hecho), qué está
+// abierto y qué se descartó (con su motivo). Con la cobertura de la búsqueda
+// por tema, la vista "qué cambió", preguntar al modelo de mundo (responde
 // solo con lo que hay dentro) y recomprobar retractaciones.
+//
+// Espera visible (estándar de Emir, 19 de septiembre de 2026): lo que se
+// deriva del estado (cientos de hechos: mapas por id, temas, fuentes con su
+// PMID, movimientos) se calcula DESPUÉS de pintar la silueta de la pantalla
+// (lib/diferido.ts, useCalculoDiferido). Así, al abrirla o al cambiar de
+// investigación se ve un esqueleto con la forma de la cabecera y de las tres
+// columnas, no una pantalla congelada o vacía. Una actualización del canal en
+// vivo no enseña esqueleto: se conserva lo calculado hasta que llega lo nuevo,
+// un fotograma después.
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { acciones } from '../datos/almacen';
 import { preguntarAlModeloDeMundo, type CitaComprobable } from '../datos/acciones';
-import type { EstadoRosa, Fuente, HechoMundo, Investigacion } from '../datos/tipos';
+import type { Corrida, EstadoRosa, Fuente, HechoMundo, Investigacion, MovimientoHecho } from '../datos/tipos';
 import { AvisoMuestra, Chip, Momento, Seccion } from '../componentes/piezas';
+import { Cargando, Esqueleto, EsqueletoTarjeta } from '../componentes/Esqueleto';
 import { IconChevronDown } from '../componentes/icons';
 import { Entidades, PreguntarALasBases, RelacionesCausales } from '../componentes/Rosa2018';
 import { ElementoAnimado, ListaAnimada } from '../componentes/Animado';
 import { COBERTURA_MINIMA, faltanParaCobertura } from '../lib/cobertura';
+import { useCalculoDiferido } from '../lib/diferido';
 import { CLASIFICACION_CITA, ESTADO_HECHO, TIPO_HECHO, nombreActor } from '../lib/etiquetas';
 import { formatearPorcentaje } from '../lib/formato';
 
@@ -63,7 +74,7 @@ function TarjetaHecho({ h, ahora, fuentes, porId }: { h: HechoMundo; ahora: numb
         <div className="hecho-procedencia">
           {h.procedencia.map((p, i) => {
             const f = fuentes?.get(p.fuenteId);
-            const texto = `[${p.referencia}${p.pagina !== null ? `, pag. ${p.pagina}` : ''}]`;
+            const texto = `[${p.referencia}${p.pagina !== null ? `, pág. ${p.pagina}` : ''}]`;
             const href = f?.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${f.pmid}/` : f?.doi ? `https://doi.org/${f.doi}` : null;
             return href ? (
               <a key={i} className="enlace" href={href} target="_blank" rel="noreferrer" title={`${f?.titulo ?? ''}${f?.pmid ? ` · PMID ${f.pmid}` : ''}${f?.doi ? ` · doi:${f.doi}` : ''}. Se abre en PubMed o en el DOI: comprobable fuera de ROSA2018.`}>
@@ -124,43 +135,140 @@ function EnlacesDelHecho({ h, porId }: { h: HechoMundo; porId?: Map<string, Hech
   );
 }
 
-export function ModeloDeMundo({ inv, estado, ahora }: { inv: Investigacion; estado: EstadoRosa; ahora: number }) {
-  const [busqueda, setBusqueda] = useState('');
-  const [tema, setTema] = useState<string>('todos');
-  const [vista, setVista] = useState<'columnas' | 'cambios'>('columnas');
-  const [pregunta, setPregunta] = useState('');
-  const [respuesta, setRespuesta] = useState<{ respuesta: string; nodos: HechoMundo[]; citas: CitaComprobable[] } | null>(null);
-  // Las fuentes con su PMID y DOI, por id, para que cada cita se pueda comprobar fuera de ROSA2018.
-  const fuentesPorId = useMemo(() => {
-    const m = new Map<string, Fuente>();
-    for (const h of estado.hipotesis) if (h.investigacionId === inv.id) for (const f of h.procedencia.fuentes) if (!m.has(f.id)) m.set(f.id, f);
-    return m;
-  }, [estado.hipotesis, inv.id]);
-  const propios = useMemo(() => estado.hechos.filter((h) => h.investigacionId === inv.id), [estado.hechos, inv.id]);
-  const porId = useMemo(() => new Map(propios.map((h) => [h.id, h])), [propios]);
-  const temas = useMemo(() => [...new Set(propios.map((h) => h.tema))].sort(), [propios]);
-  const q = busqueda.trim().toLowerCase();
-  // Se busca tambien por identificador canonico y por alias (GFAP, P14136, HGNC:4235
-  // encuentran el mismo hecho): el modelo de mundo como grafo consultable.
-  const filtrados = propios.filter((h) => (tema === 'todos' || h.tema === tema) && (q === '' || h.enunciado.toLowerCase().includes(q) || h.procedencia.some((p) => p.referencia.toLowerCase().includes(q)) || (h.entidades ?? []).some((x) => x.id.toLowerCase() === q || x.etiqueta.toLowerCase().includes(q) || x.alias.some((a) => a.toLowerCase() === q) || (x.uniprot ?? '').toLowerCase() === q)));
-  const columnas: HechoMundo['estado'][] = ['sabido', 'abierto', 'descartado'];
-  const orden = (a: HechoMundo, b: HechoMundo) => a.prioridad - b.prioridad || b.actualizadoEn - a.actualizadoEn;
-  const corrida = estado.corridas.filter((c) => c.investigacionId === inv.id).sort((a, b) => b.numero - a.numero)[0];
-  const coberturas = corrida?.coberturas ?? [];
+const TITULO = 'Modelo de mundo';
+const DESCRIPCION = 'La memoria estructurada de la investigación. Cada hecho lleva su procedencia hasta la página y las fuentes que lo apoyan o contradicen; cada descarte, su motivo.';
+const COLUMNAS: HechoMundo['estado'][] = ['sabido', 'abierto', 'descartado'];
+
+/** Lo que la pantalla deriva del estado para una investigación. Se calcula
+ *  fuera del render (useCalculoDiferido): con cientos de hechos cuesta lo
+ *  bastante como para congelar la pantalla si se hiciera antes de pintar. */
+type BaseMundo = {
+  invId: string;
+  /** Las fuentes con su PMID y DOI, por id, para que cada cita se pueda comprobar fuera de ROSA2018. */
+  fuentesPorId: Map<string, Fuente>;
+  /** Los hechos de esta investigación. */
+  propios: HechoMundo[];
+  porId: Map<string, HechoMundo>;
+  temas: string[];
+  /** La última corrida, de donde salen las coberturas por tema. */
+  corrida: Corrida | null;
+  /** Movimientos entre estados desde la última visita, del más reciente al más viejo. */
+  movimientos: { h: HechoMundo; m: MovimientoHecho }[];
+  /** Cuántos hechos tienen alguna cita que los contrasta. */
+  contrastados: number;
+};
+
+function derivar(estado: EstadoRosa, invId: string): BaseMundo {
+  const fuentesPorId = new Map<string, Fuente>();
+  for (const h of estado.hipotesis) if (h.investigacionId === invId) for (const f of h.procedencia.fuentes) if (!fuentesPorId.has(f.id)) fuentesPorId.set(f.id, f);
+  const propios = estado.hechos.filter((h) => h.investigacionId === invId);
+  const porId = new Map(propios.map((h) => [h.id, h]));
+  const temas = [...new Set(propios.map((h) => h.tema))].sort();
+  const corrida = estado.corridas.filter((c) => c.investigacionId === invId).sort((a, b) => b.numero - a.numero)[0] ?? null;
   const desde = estado.ultimaVisita;
   const movimientos = propios
     .flatMap((h) => h.historial.map((m) => ({ h, m })))
     .filter((x) => desde === null || x.m.fecha > desde)
     .sort((a, b) => b.m.fecha - a.m.fecha);
   const contrastados = propios.filter((h) => h.citas.some((c) => c.clasificacion === 'contrasta')).length;
+  return { invId, fuentesPorId, propios, porId, temas, corrida, movimientos, contrastados };
+}
 
+/** La silueta de la pantalla mientras se calcula. La cabecera y la fila de
+ *  acciones son las reales con los mandos deshabilitados (son chrome fijo, no
+ *  contenido que llega, y así miden exactamente lo mismo y nada salta al
+ *  llegar los hechos); debajo, tres secciones plegadas y las tres columnas con
+ *  tarjetas en gris, con las clases de la maqueta. */
+function SiluetaMundo() {
+  return (
+    <>
+      <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
+        <div>
+          <h2>{TITULO}</h2>
+          <p>{DESCRIPCION}</p>
+        </div>
+        <div className="filtros" aria-hidden="true">
+          <div className="segmentos" role="group" aria-label="Vista">
+            <button type="button" aria-pressed disabled>
+              Estado
+            </button>
+            <button type="button" disabled>
+              Qué cambió
+            </button>
+          </div>
+          <input className="entrada" placeholder="Buscar en el modelo de mundo" aria-label="Buscar" disabled readOnly />
+          <select className="entrada" aria-label="Tema" style={{ width: 'auto' }} disabled>
+            <option>Todos los temas</option>
+          </select>
+        </div>
+      </div>
+      <div className="acciones" style={{ marginBottom: 16 }} aria-hidden="true">
+        <button type="button" className="btn btn-s" disabled>
+          Recomprobar retractaciones ahora
+        </button>
+        <span className="meta">Contra Crossref y Retraction Watch. Se hace solo cada 24 h; esto lo adelanta.</span>
+      </div>
+      {['relaciones', 'bases', 'preguntar'].map((s) => (
+        <div key={s} className="tarjeta esqueleto-tarjeta" data-esqueleto="seccion" aria-hidden="true">
+          <Esqueleto className="esqueleto-titulo" />
+        </div>
+      ))}
+      <div className="mundo-columnas" style={{ marginTop: 28 }} aria-hidden="true">
+        {COLUMNAS.map((col) => (
+          <section key={col} className="mundo-columna">
+            <Esqueleto ancho={110} alto={16} />
+            <div className="mundo-tarjetas">
+              <EsqueletoTarjeta lineas={3} />
+              <EsqueletoTarjeta lineas={2} />
+              <EsqueletoTarjeta lineas={3} />
+              <EsqueletoTarjeta lineas={2} />
+            </div>
+          </section>
+        ))}
+      </div>
+    </>
+  );
+}
+
+export function ModeloDeMundo({ inv, estado, ahora }: { inv: Investigacion; estado: EstadoRosa; ahora: number }) {
+  const { valor: base } = useCalculoDiferido(() => derivar(estado, inv.id), [estado.hechos, estado.hipotesis, estado.corridas, estado.ultimaVisita, inv.id]);
+  // Esqueleto solo al abrir y al cambiar de investigación. Con una actualización
+  // del canal en vivo `base` es el cálculo anterior (misma investigación) y se
+  // conserva en pantalla hasta que el nuevo llega, un fotograma después.
+  const esperando = base === null || base.invId !== inv.id;
   return (
     <div className="contenido contenido-ancho">
       <AvisoMuestra conexion={estado.conexion} />
+      <Cargando activo={esperando} rotulo="el modelo de mundo" esqueleto={<SiluetaMundo />}>
+        {base !== null && <CuerpoMundo inv={inv} estado={estado} ahora={ahora} base={base} />}
+      </Cargando>
+    </div>
+  );
+}
+
+/** El contenido de la pantalla una vez calculada la base. Sus filtros y su
+ *  pregunta viven aquí: se desmonta al cambiar de investigación, así que
+ *  empiezan limpios en cada una. */
+function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado: EstadoRosa; ahora: number; base: BaseMundo }) {
+  const [busqueda, setBusqueda] = useState('');
+  const [tema, setTema] = useState<string>('todos');
+  const [vista, setVista] = useState<'columnas' | 'cambios'>('columnas');
+  const [pregunta, setPregunta] = useState('');
+  const [respuesta, setRespuesta] = useState<{ respuesta: string; nodos: HechoMundo[]; citas: CitaComprobable[] } | null>(null);
+  const { fuentesPorId, propios, porId, temas, corrida, movimientos, contrastados } = base;
+  const q = busqueda.trim().toLowerCase();
+  // Se busca también por identificador canónico y por alias (GFAP, P14136, HGNC:4235
+  // encuentran el mismo hecho): el modelo de mundo como grafo consultable.
+  const filtrados = propios.filter((h) => (tema === 'todos' || h.tema === tema) && (q === '' || h.enunciado.toLowerCase().includes(q) || h.procedencia.some((p) => p.referencia.toLowerCase().includes(q)) || (h.entidades ?? []).some((x) => x.id.toLowerCase() === q || x.etiqueta.toLowerCase().includes(q) || x.alias.some((a) => a.toLowerCase() === q) || (x.uniprot ?? '').toLowerCase() === q)));
+  const orden = (a: HechoMundo, b: HechoMundo) => a.prioridad - b.prioridad || b.actualizadoEn - a.actualizadoEn;
+  const coberturas = corrida?.coberturas ?? [];
+
+  return (
+    <>
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
-          <h2>Modelo de mundo</h2>
-          <p>La memoria estructurada de la investigación. Cada hecho lleva su procedencia hasta la página y las fuentes que lo apoyan o contradicen; cada descarte, su motivo.</p>
+          <h2>{TITULO}</h2>
+          <p>{DESCRIPCION}</p>
         </div>
         <div className="filtros">
           <div className="segmentos" role="group" aria-label="Vista">
@@ -168,7 +276,7 @@ export function ModeloDeMundo({ inv, estado, ahora }: { inv: Investigacion; esta
               Estado
             </button>
             <button type="button" aria-pressed={vista === 'cambios'} onClick={() => setVista('cambios')}>
-              Que cambio {movimientos.length > 0 && <span className="nav-cuenta">{movimientos.length}</span>}
+              Qué cambió {movimientos.length > 0 && <span className="nav-cuenta">{movimientos.length}</span>}
             </button>
           </div>
           <input className="entrada" value={busqueda} placeholder="Buscar en el modelo de mundo" onChange={(e) => setBusqueda(e.target.value)} aria-label="Buscar" />
@@ -196,7 +304,7 @@ export function ModeloDeMundo({ inv, estado, ahora }: { inv: Investigacion; esta
       </div>
 
       {coberturas.length > 0 && (
-        <Seccion detalle titulo="Cobertura de la búsqueda por tema" nota={`Cuanto de lo relevante se estima encontrado (curva de descubrimiento). Por debajo del ${Math.round(COBERTURA_MINIMA * 100)} % una "ausencia refutada" se degrada a "sin verificar".`}>
+        <Seccion detalle titulo="Cobertura de la búsqueda por tema" nota={`Cuánto de lo relevante se estima encontrado (curva de descubrimiento). Por debajo del ${Math.round(COBERTURA_MINIMA * 100)} % una "ausencia refutada" se degrada a "sin verificar".`}>
           <div className="coberturas">
             {coberturas.map((c) => {
               const faltan = faltanParaCobertura(c, 0.9);
@@ -281,7 +389,7 @@ export function ModeloDeMundo({ inv, estado, ahora }: { inv: Investigacion; esta
       </Seccion>
 
       {vista === 'cambios' ? (
-        <Seccion titulo="Qué cambió desde tu última visita" nota="Movimientos entre sabido, abierto y descartado, con quien los decidió y por que.">
+        <Seccion titulo="Qué cambió desde tu última visita" nota="Movimientos entre sabido, abierto y descartado, con quién los decidió y por qué.">
           {movimientos.length === 0 ? (
             <p className="meta">Nada se movió desde tu última visita.</p>
           ) : (
@@ -308,7 +416,7 @@ export function ModeloDeMundo({ inv, estado, ahora }: { inv: Investigacion; esta
         </Seccion>
       ) : (
         <div className="mundo-columnas" style={{ marginTop: 28 }}>
-          {columnas.map((col) => {
+          {COLUMNAS.map((col) => {
             const lista = filtrados.filter((h) => h.estado === col).sort(orden);
             return (
               <section key={col} className="mundo-columna" aria-label={ESTADO_HECHO[col]}>
@@ -321,7 +429,7 @@ export function ModeloDeMundo({ inv, estado, ahora }: { inv: Investigacion; esta
                   <ListaAnimada className="mundo-tarjetas" como="ul">
                     {lista.map((h) => (
                       <ElementoAnimado key={h.id} como="li">
-                        <TarjetaHecho h={h} ahora={ahora} fuentes={fuentesPorId}  porId={porId} />
+                        <TarjetaHecho h={h} ahora={ahora} fuentes={fuentesPorId} porId={porId} />
                       </ElementoAnimado>
                     ))}
                   </ListaAnimada>
@@ -331,6 +439,6 @@ export function ModeloDeMundo({ inv, estado, ahora }: { inv: Investigacion; esta
           })}
         </div>
       )}
-    </div>
+    </>
   );
 }

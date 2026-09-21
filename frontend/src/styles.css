@@ -5177,3 +5177,416 @@ details.versiones > :not(summary) {
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------- 15
+   Esqueletos de carga (componentes/Esqueleto.tsx y lib/diferido.ts).
+   Estándar del 19 de septiembre de 2026: toda espera visible se enseña con
+   bloques grises con la silueta del contenido que va a llegar, con un brillo
+   suave que se apaga con movimiento reducido. Reutilizan las clases de la
+   maqueta (contenido, pantalla-cabecera, tarjeta, barra, nav-inv) para
+   medir lo mismo que lo que sustituyen y no saltar al llegar el contenido.
+   ---------------------------------------------------------------------- */
+
+:root {
+  --esqueleto-base: #e8e6e2;
+  --esqueleto-brillo: #f5f3f0;
+}
+
+:root[data-theme='dark'] {
+  --esqueleto-base: #262625;
+  --esqueleto-brillo: #343433;
+}
+
+/* El bloque: gris del tema con una banda de brillo que lo recorre. */
+.esqueleto {
+  display: block;
+  width: 100%;
+  height: 14px;
+  border-radius: var(--radio-s);
+  background: linear-gradient(90deg, var(--esqueleto-base) 0%, var(--esqueleto-brillo) 50%, var(--esqueleto-base) 100%);
+  background-size: 200% 100%;
+  animation: esqueleto-brillo 1.5s ease-in-out infinite;
+  pointer-events: none;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+@keyframes esqueleto-brillo {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* Texto: cada línea mide lo que una línea de 14px con interlineado 1.55. */
+.esqueleto-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding-block: 5px;
+}
+
+.esqueleto-linea {
+  height: 12px;
+}
+
+.esqueleto-linea-corta {
+  width: 60%;
+}
+
+/* Filas: la altura de una fila de .tabla (8px de relleno arriba y abajo más
+   una línea de 13px) y su borde inferior. Las celdas alternan anchos para
+   que parezcan datos y no una rejilla. */
+.esqueleto-filas {
+  display: flex;
+  flex-direction: column;
+}
+
+.esqueleto-fila {
+  display: grid;
+  gap: 10px;
+  align-items: center;
+  min-height: 37px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.esqueleto-fila:last-child {
+  border-bottom: 0;
+}
+
+.esqueleto-celda {
+  height: 12px;
+  width: 80%;
+}
+
+.esqueleto-celda:nth-child(4n + 2) {
+  width: 55%;
+}
+
+.esqueleto-celda:nth-child(4n + 3) {
+  width: 65%;
+}
+
+.esqueleto-celda:nth-child(4n) {
+  width: 40%;
+}
+
+/* Tarjeta: la clase real .tarjeta pone fondo, borde y relleno. */
+.esqueleto-tarjeta .esqueleto-titulo {
+  height: 14px;
+  width: 45%;
+  margin: 3px 0 10px;
+}
+
+/* Lista de tarjetas (el ranking, la cola): cada fila es una tarjeta con
+   borde, 10 px entre ellas como en .cola, y el alto mínimo que la pantalla
+   sabe de sus filas reales. Conservan la clase esqueleto-fila. */
+.esqueleto-tarjetas {
+  gap: 10px;
+}
+
+.esqueleto-tarjetas .esqueleto-fila {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  background: var(--surface);
+}
+
+.esqueleto-tarjetas .esqueleto-fila:last-child {
+  border-bottom: 1px solid var(--border);
+}
+
+.esqueleto-fila-tarjeta .esqueleto-titulo {
+  height: 15px;
+  width: 48%;
+  margin: 3px 0 2px;
+}
+
+.esqueleto-fila-tarjeta .esqueleto-titulo-largo {
+  width: 72%;
+}
+
+.esqueleto-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.esqueleto-tarjeta-filas {
+  padding: 4px 8px;
+}
+
+/* Pantalla: la cabecera con las clases reales .pantalla-cabecera y .acciones.
+   Medidas de la cabecera real (Chromium, 1440 px): el h2 ocupa 27,5 px, la
+   descripción empieza 4 px más abajo y cada una de sus líneas mide 21,7 px.
+   El título gris mide 22 px con 3 px arriba y abajo (28); cada línea gris,
+   13 px con 4 px arriba y abajo (21). */
+.esqueleto-cabecera-textos {
+  flex: 1 1 320px;
+  min-width: 0;
+  max-width: 68ch;
+}
+
+.esqueleto-h2 {
+  height: 22px;
+  width: min(60%, 360px);
+  margin: 3px 0;
+  border-radius: var(--radio-s);
+}
+
+.esqueleto-descripcion {
+  margin-top: 4px;
+}
+
+.esqueleto-p {
+  height: 13px;
+  width: min(96%, 520px);
+  margin: 4px 0;
+}
+
+.esqueleto-p-corta {
+  width: min(62%, 340px);
+}
+
+.esqueleto-boton {
+  height: 34px;
+  width: 110px;
+}
+
+.esqueleto-datos {
+  margin-top: 14px;
+}
+
+.esqueleto-rejilla {
+  margin-top: 14px;
+}
+
+.esqueleto-figura {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 280px;
+  max-height: 60vh;
+  border-radius: var(--radio);
+}
+
+.esqueleto-leyenda {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.esqueleto-chip {
+  height: 22px;
+  width: 88px;
+  border-radius: 11px;
+}
+
+/* La maqueta entera, para la carga inicial: la barra lateral y la cabecera
+   reales, con sus medidas, y el contenido en gris. */
+.esqueleto-app {
+  cursor: progress;
+}
+
+.esqueleto-barra .esqueleto-buscar {
+  height: 36px;
+  border-radius: var(--radio-s);
+}
+
+.esqueleto-barra .esqueleto-rotulo {
+  height: 10px;
+  width: 96px;
+  margin: 3px 0;
+}
+
+.esqueleto-nav .esqueleto-nav-titulo {
+  height: 12px;
+  width: 78%;
+  margin: 3px 0;
+}
+
+.esqueleto-nav .esqueleto-nav-meta {
+  height: 9px;
+  width: 45%;
+  margin: 3px 0;
+}
+
+.esqueleto-nav:nth-child(3) .esqueleto-nav-titulo {
+  width: 62%;
+}
+
+.esqueleto-nav:nth-child(5) .esqueleto-nav-titulo {
+  width: 88%;
+}
+
+.esqueleto-pie {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.esqueleto-pie .esqueleto-linea {
+  height: 9px;
+}
+
+.esqueleto-cabecera-app .esqueleto-titulo-cabecera {
+  height: 15px;
+  width: min(40%, 260px);
+}
+
+.esqueleto-icono {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radio-s);
+}
+
+.esqueleto-segmentos {
+  width: 132px;
+  height: 30px;
+  border-radius: var(--radio-s);
+}
+
+/* El contenedor de Cargando cuando envuelve un esqueleto suelto. */
+.esqueleto-espera {
+  display: block;
+  min-width: 0;
+}
+
+/* Una nota que acompaña a un esqueleto o a una espera humana: el motivo por
+   el que todavía no hay nada que enseñar. */
+.esqueleto-nota {
+  margin: 0 0 10px;
+}
+
+/* La silueta de los botones de una fila de acciones (integridad, costes
+   sin respuesta): mismo alto que .btn-s. */
+.esqueleto-boton-s {
+  height: 28px;
+  width: 132px;
+}
+
+/* Un botón ancho ("Nueva investigación", "Exportar como Specific Aims") y la
+   caja de búsqueda de una cabecera (.entrada de 36 px). */
+.esqueleto-boton-ancho {
+  width: 220px;
+}
+
+.esqueleto-entrada {
+  height: 36px;
+  width: min(100%, 300px);
+  border-radius: var(--radio-s);
+}
+
+/* Botón en vuelo (lib/diferido.ts, useEnVuelo): atenuado, con un spinner
+   mínimo a la izquierda y sin recibir más clics hasta que responda. */
+.btn[data-en-vuelo='true'] {
+  position: relative;
+  padding-left: 20px;
+  opacity: 0.72;
+  cursor: progress;
+  pointer-events: none;
+}
+
+/* El spinner va en posición absoluta dentro del relleno izquierdo: el botón
+   solo crece 8 px al entrar en vuelo, no el ancho del spinner más su hueco. */
+.btn[data-en-vuelo='true']::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin-top: -5.5px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  animation: giro 0.8s linear infinite;
+}
+
+.btn-s[data-en-vuelo='true'] {
+  padding-left: 16px;
+}
+
+.btn-s[data-en-vuelo='true']::before {
+  left: 4px;
+}
+
+/* En un botón de solo icono no hay relleno donde poner el spinner: el icono
+   se atenúa y el spinner lo sustituye en el centro. */
+.btn-icono[data-en-vuelo='true'] {
+  padding-left: 0;
+}
+
+.btn-icono[data-en-vuelo='true'] > * {
+  visibility: hidden;
+}
+
+.btn-icono[data-en-vuelo='true']::before {
+  left: 50%;
+  margin-left: -6px;
+  width: 12px;
+  height: 12px;
+  margin-top: -7px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto {
+    animation: none;
+    background: var(--esqueleto-base);
+  }
+  .btn[data-en-vuelo='true']::before {
+    animation: none;
+    border-right-color: currentColor;
+    opacity: 0.45;
+  }
+}
+
+/* Ganchos de la silueta de pantalla: la cabecera y sus botones, el
+   contenedor y sus cuatro formas. Comparten medidas con .pagina (40vh). */
+.esqueleto-pantalla {
+  cursor: progress;
+}
+
+.esqueleto-pantalla-lista,
+.esqueleto-pantalla-ficha,
+.esqueleto-pantalla-figura,
+.esqueleto-pantalla-panel {
+  min-height: 40vh;
+}
+
+.esqueleto-cabecera {
+  row-gap: 12px;
+}
+
+.esqueleto-acciones {
+  flex-shrink: 0;
+}
+
+/* Sobre el gris de la barra lateral los bloques necesitan un punto más de
+   contraste que sobre el blanco del contenido. */
+.esqueleto-barra {
+  --esqueleto-base: #dfddd8;
+  --esqueleto-brillo: #edebe7;
+}
+
+:root[data-theme='dark'] .esqueleto-barra {
+  --esqueleto-base: #232322;
+  --esqueleto-brillo: #313130;
+}
+
+/* En pantallas estrechas la cabecera real se envuelve y sus segmentos
+   encogen; la silueta hace lo mismo. */
+@media (max-width: 680px) {
+  .esqueleto-segmentos {
+    width: 112px;
+    height: 26px;
+  }
+}

@@ -1,15 +1,22 @@
-// La corrida en vivo: lo que Claude Science no tiene. Iteracion actual con su
+// La corrida en vivo: lo que Claude Science no tiene. Iteración actual con su
 // plan (por aprobar o en marcha) y sus pistas; permisos pendientes con lotes;
-// incidencias (modelo que se nego, conector caducado); presupuesto global con
-// alarmas; gasto y ocupacion del contexto; procesos de computo; la busqueda
+// incidencias (modelo que se negó, conector caducado); presupuesto global con
+// alarmas; gasto y ocupación del contexto; procesos de cómputo; la búsqueda
 // (flujo PRISMA y consultas exactas); las iteraciones anteriores con
-// "volver aquí" y "bifurcar desde aqui"; y detener con vigilancia de
+// "volver aquí" y "bifurcar desde aquí"; y detener con vigilancia de
 // literatura.
+//
+// Esperas visibles (estándar de Emir, 19 de septiembre de 2026): mientras el
+// estado no ha llegado o la corrida acaba de montarse se pinta la silueta del
+// panel (EsqueletoPantalla), y cada botón que habla con el servidor lleva su
+// marca de vuelo (useEnVuelo): atenuado, con spinner y sin admitir un segundo
+// clic hasta que la petición vuelve.
 
 import { useEffect, useMemo, useState } from 'react';
 import { acciones } from '../datos/almacen';
 import { iteracionActualDe } from '../datos/acciones';
-import type { AlcancePermiso, Corrida as CorridaTipo, EstadoCorrida, EstadoRosa, Investigacion } from '../datos/tipos';
+import type { AlcancePermiso, Corrida as CorridaTipo, EstadoCorrida, EstadoRosa, Incidencia, Investigacion } from '../datos/tipos';
+import { Esqueleto, EsqueletoPantalla } from '../componentes/Esqueleto';
 import { PlanEnVivo } from '../componentes/PlanEnVivo';
 import { FormularioMision, PreguntaDeCampana, RevisionDeRegistro } from '../componentes/Rosa2018';
 import { Presupuesto } from '../componentes/Presupuesto';
@@ -23,6 +30,7 @@ import { IconPause, IconPlay } from '../componentes/icons';
 import { ALCANCE, MODO_BUSQUEDA, etiquetaCorrida, proponiendoPlan } from '../lib/etiquetas';
 import { formatearCompacto, formatearDuracion, formatearEntero, formatearPorcentaje } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
+import { atributosEnVuelo, useCalculoDiferido, useEnVuelo } from '../lib/diferido';
 import { BORRADOR_VACIO, NIVELES_OBJETIVO, borradorDe, normalizarParada, resumenParada, type ParadaBorrador } from '../lib/parada';
 import { GraficaProgreso } from '../componentes/GraficaProgreso';
 import { resumenMetrica } from '../lib/progreso';
@@ -34,8 +42,56 @@ type PropsCorrida = { inv: Investigacion; estado: EstadoRosa; ahora: number; irA
  *  investigación que pasa de "sin corridas" a "corrida 1" cambiaba el número
  *  de hooks del mismo componente, y React fallaba al arrancar la primera
  *  corrida: "Rendered more hooks than during the previous render"). */
+/** Ancho aproximado de un texto de 13 px en la fila de estado de la corrida
+ *  (6,5 px por carácter), acotado al ancho del contenido, para que los
+ *  bloques grises se envuelvan en las mismas filas que los textos reales. */
+function anchoDeTexto(texto: string): number {
+  return Math.min(1040, Math.max(48, Math.round(texto.length * 6.5)));
+}
+
+/** La silueta de la corrida: el título real ("Corrida N"), la fila de estado
+ *  con un bloque gris por cada chip o nota que la corrida real va a enseñar
+ *  (con el ancho de su texto, para que se envuelvan igual: medida real de
+ *  163 a 220 px de cabecera) y el botón de la derecha en gris; debajo, el
+ *  panel. Sin corrida, la silueta genérica del panel. */
+export function EsqueletoCorrida({ corrida }: { corrida: CorridaTipo | null }) {
+  if (!corrida) return <EsqueletoPantalla variante="panel" rotulo="la corrida" margenSuperior={16} />;
+  const notas: string[] = [`Iteración ${corrida.iteracionActual}`, 'Empezó hace 3 días', ...(corrida.terminadaEn !== null ? ['Terminó hace 2 días'] : []), '2 h 15 min de trabajo'];
+  if ((corrida.gasto.usdReal !== undefined && corrida.gasto.usdReal !== null) || (corrida.gasto.usd ?? 0) > 0) notas.push('12,40 $ facturados');
+  if (corrida.motivoCierre) notas.push(corrida.motivoCierre);
+  if (corrida.metrica && resumenMetrica(corrida.metrica)) notas.push(`Balance: ${resumenMetrica(corrida.metrica)}`);
+  if (corrida.parada && resumenParada(corrida.parada)) notas.push(`Se detiene con ${resumenParada(corrida.parada)}`);
+  if (corrida.arnes) notas.push(`ROSA2018 ${corrida.arnes.commit}`);
+  return (
+    <EsqueletoPantalla
+      variante="panel"
+      rotulo="la corrida"
+      margenSuperior={16}
+      cabecera={{
+        titulo: `Corrida ${corrida.numero}`,
+        descripcion: (
+          <div className="corrida-estado" aria-hidden="true">
+            <Esqueleto className="esqueleto-chip" ancho={anchoDeTexto(etiquetaCorrida(corrida, null)) + 16} />
+            {notas.map((texto, i) => (
+              <Esqueleto key={i} alto={13} ancho={anchoDeTexto(texto)} />
+            ))}
+          </div>
+        ),
+      }}
+      acciones={
+        <div className="acciones esqueleto-acciones" aria-hidden="true">
+          <Esqueleto className="esqueleto-boton" ancho={133} />
+        </div>
+      }
+    />
+  );
+}
+
 export function Corrida({ inv, estado, ahora, irA }: PropsCorrida) {
   const corrida = estado.corridas.filter((c) => c.investigacionId === inv.id).sort((a, b) => b.numero - a.numero)[0] ?? null;
+  // El estado global todavía no ha llegado: la silueta de la corrida en su
+  // sitio, nunca una página vacía ni un salto de maqueta cuando llegue.
+  if (estado.conexion === 'conectando') return <EsqueletoCorrida corrida={corrida} />;
   if (!corrida) {
     return (
       <div className="contenido">
@@ -51,7 +107,7 @@ export function Corrida({ inv, estado, ahora, irA }: PropsCorrida) {
             )
           }
         >
-          {estado.conexion === 'muestra' ? 'Cuando ROSA2018 este conectada, aquí se arranca la primera con el objetivo y los límites definidos.' : 'ROSA2018 arranca la corrida con el objetivo y los límites definidos, propone el plan de la primera iteración y espera tu aprobación.'}
+          {estado.conexion === 'muestra' ? 'Cuando ROSA2018 esté conectada, aquí se arranca la primera con el objetivo y los límites definidos.' : 'ROSA2018 arranca la corrida con el objetivo y los límites definidos, propone el plan de la primera iteración y espera tu aprobación.'}
         </Vacio>
       </div>
     );
@@ -179,11 +235,29 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
   }, [pendientes, seleccion]);
   const procesosVivos = corrida.procesos.filter((p) => p.estado === 'en_marcha');
   const contextoPct = corrida.contexto.tokensUsados / corrida.contexto.tokensLimite;
+  // Un frame de silueta antes del panel entero. Lo pesado aquí no es un
+  // cálculo sino el render (plan en vivo, gráfica, trazabilidad, permisos):
+  // diferirlo al frame siguiente deja que el esqueleto llegue a pintarse en
+  // vez de congelar la pantalla al cambiar de investigación o de corrida
+  // (App monta esta pantalla con key por investigación y CorridaViva lleva
+  // key por corrida, así que cada cambio es un montaje nuevo).
+  const { valor: pintada } = useCalculoDiferido(() => true, [corrida.id]);
+  // Botones que esperan respuesta del servidor: una marca por grupo, para
+  // que pausar, reanudar y detener no se pisen entre sí y el plan o los
+  // permisos no bloqueen a los demás. Las acciones de almacen.ts devuelven
+  // la promesa del envío (desde el 19 de septiembre de 2026), así que la
+  // marca dura hasta que el servidor responde.
+  const [corridaEnVuelo, envolverCorrida] = useEnVuelo();
+  const [planEnVuelo, envolverPlan] = useEnVuelo();
+  const [permisosEnVuelo, envolverPermisos] = useEnVuelo();
+  const [prismaEnVuelo, envolverPrisma] = useEnVuelo();
+
+  if (pintada === null) return <EsqueletoCorrida corrida={corrida} />;
 
   return (
     <div className="contenido">
       <AvisoMuestra conexion={estado.conexion} />
-      <VigilanteModelos salud={estado.saludModelos} incidencias={incidenciasAutomaticas} estadoCorrida={corrida.estado} espera={corrida.esperandoModelo ?? null} ahora={ahora} onReintentar={() => acciones.reanudarCorrida(corrida.id)} />
+      <VigilanteModelos salud={estado.saludModelos} incidencias={incidenciasAutomaticas} estadoCorrida={corrida.estado} espera={corrida.esperandoModelo ?? null} ahora={ahora} onReintentar={envolverCorrida(() => acciones.reanudarCorrida(corrida.id))} />
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
           <h2>Corrida {corrida.numero}</h2>
@@ -228,17 +302,18 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
         {viva && (
           <div className="acciones">
             {corrida.estado === 'en_marcha' ? (
-              <button type="button" className="btn" onClick={() => acciones.pausarCorrida(corrida.id)}>
+              <button type="button" className="btn" disabled={corridaEnVuelo} {...atributosEnVuelo(corridaEnVuelo)} onClick={envolverCorrida(() => acciones.pausarCorrida(corrida.id))}>
                 <IconPause size={13} /> Pausar
               </button>
             ) : corrida.estado === 'pausada' ? (
-              <button type="button" className="btn btn-primario" onClick={() => acciones.reanudarCorrida(corrida.id)}>
+              <button type="button" className="btn btn-primario" disabled={corridaEnVuelo} {...atributosEnVuelo(corridaEnVuelo)} onClick={envolverCorrida(() => acciones.reanudarCorrida(corrida.id))}>
                 <IconPlay size={13} /> Reanudar
               </button>
             ) : null}
             <Confirmar
               etiqueta="Detener"
               peligro
+              disabled={corridaEnVuelo}
               pregunta="La corrida se detiene y no se reanuda: lo que hay en el modelo de mundo y en la cola se conserva. Para seguir habría que arrancar una corrida nueva."
               pedirTexto={{ etiqueta: 'Por qué se detiene', marcador: 'Hay que revisar la cola antes de seguir gastando' }}
               extra={
@@ -247,7 +322,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                   Vigilar la literatura 30 días: ROSA2018 avisa de artículos nuevos que toquen una hipótesis aceptada
                 </label>
               }
-              onConfirmar={(motivo) => acciones.detenerCorrida(corrida.id, motivo, vigilar ? 30 : null)}
+              onConfirmar={envolverCorrida((motivo: string) => acciones.detenerCorrida(corrida.id, motivo, vigilar ? 30 : null))}
             />
           </div>
         )}
@@ -267,7 +342,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
       {incidenciasPendientes.length > 0 && (
         <Seccion titulo={incidenciasPendientes.length === 1 ? 'Algo impide seguir' : `${incidenciasPendientes.length} cosas impiden seguir`} nota="Un modelo que se negó o un conector caducado no matan la corrida en silencio: aparecen aquí con la alternativa que ROSA2018 propone.">
           {incidenciasPendientes.map((i) => (
-            <TarjetaIncidencia key={i.id} incidencia={i} ahora={ahora} onResolver={(r) => acciones.resolverIncidencia(i.id, r)} />
+            <IncidenciaPendiente key={i.id} incidencia={i} ahora={ahora} />
           ))}
         </Seccion>
       )}
@@ -285,10 +360,12 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                     key={a}
                     type="button"
                     className="btn btn-s"
-                    onClick={() => {
+                    disabled={permisosEnVuelo}
+                    {...atributosEnVuelo(permisosEnVuelo)}
+                    onClick={envolverPermisos(() => {
                       acciones.resolverSolicitudes([...seleccion], 'conceder', a);
                       setSeleccion(new Set());
-                    }}
+                    })}
                   >
                     Permitir {ALCANCE[a].toLowerCase()}
                   </button>
@@ -297,10 +374,12 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                 <button
                   type="button"
                   className="btn btn-s btn-peligro"
-                  onClick={() => {
+                  disabled={permisosEnVuelo}
+                  {...atributosEnVuelo(permisosEnVuelo)}
+                  onClick={envolverPermisos(() => {
                     acciones.resolverSolicitudes([...seleccion], 'denegar', null);
                     setSeleccion(new Set());
-                  }}
+                  })}
                 >
                   Denegar seleccionadas
                 </button>
@@ -309,7 +388,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
           }
         >
           {pendientes.map((s) => (
-            <TarjetaPermiso
+            <PermisoPendiente
               key={s.id}
               solicitud={s}
               ahora={ahora}
@@ -321,7 +400,6 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                 else n.delete(s.id);
                 setSeleccion(n);
               }}
-              onResolver={(d, a, args) => acciones.resolverSolicitud(s.id, d, a, args)}
             />
           ))}
         </Seccion>
@@ -428,13 +506,13 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
             </span>
           }
         >
-          <div className="tarjeta">
+          <div className="tarjeta" aria-busy={planEnVuelo || undefined}>
             <PlanEnVivo
               iteracion={iteracion}
               ahora={ahora}
               onDetenerPista={(id, ind) => acciones.detenerPista(id, ind)}
               onEditarPlan={viva ? (plan) => acciones.editarPlan(iteracion.id, plan) : undefined}
-              onAprobarPlan={viva ? () => acciones.aprobarPlan(iteracion.id) : undefined}
+              onAprobarPlan={viva ? envolverPlan(() => acciones.aprobarPlan(iteracion.id)) : undefined}
             />
           </div>
           {viva && (
@@ -499,9 +577,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                   <td>
                     <div className="dirigir">
                       <input className="entrada entrada-s" value={indicacionProceso[p.id] ?? ''} placeholder="Indicación (opcional)" onChange={(e) => setIndicacionProceso({ ...indicacionProceso, [p.id]: e.target.value })} aria-label={`Indicación al detener ${p.nombre}`} />
-                      <button type="button" className="btn btn-s btn-peligro" onClick={() => acciones.detenerProceso(corrida.id, p.id, indicacionProceso[p.id] ?? '')}>
-                        Detener
-                      </button>
+                      <BotonDetenerProceso onDetener={() => acciones.detenerProceso(corrida.id, p.id, indicacionProceso[p.id] ?? '')} />
                     </div>
                   </td>
                 </tr>
@@ -518,7 +594,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
         nota="El flujo de la búsqueda (identificados, cribados, leídos a texto completo, usados) y las consultas exactas con fecha: la estrategia reproducible que pide cualquier revisor."
         acciones={
           <div className="acciones">
-            <button type="button" className="btn btn-s" title="Descarga el flujo en PRISMA 2020 (variables oficiales del diagrama, ítems 6, 7, 8, 16a y 16b), la extensión para revisiones vivas y la declaración de la IA usada, en JSON y en Markdown. Sin ningún modelo: sale del registro." onClick={() => void acciones.exportarPrisma(corrida.id)}>
+            <button type="button" className="btn btn-s" disabled={prismaEnVuelo} {...atributosEnVuelo(prismaEnVuelo)} title="Descarga el flujo en PRISMA 2020 (variables oficiales del diagrama, ítems 6, 7, 8, 16a y 16b), la extensión para revisiones vivas y la declaración de la IA usada, en JSON y en Markdown. Sin ningún modelo: sale del registro." onClick={envolverPrisma(() => acciones.exportarPrisma(corrida.id))}>
               Exportar PRISMA 2020
             </button>
             <button type="button" className="btn btn-fantasma btn-s" onClick={() => setVerBusqueda((v) => !v)}>
@@ -601,7 +677,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                     <Confirmar
                       etiqueta="Volver aquí"
                       clase="btn-s"
-                      pregunta={`Se abre una iteración nueva con el plan de la ${it.numero} y se cierra la actual. Elige que restaurar.`}
+                      pregunta={`Se abre una iteración nueva con el plan de la ${it.numero} y se cierra la actual. Elige qué restaurar.`}
                       extra={<VolverOpciones onElegir={(que) => acciones.volverAIteracion(it.id, que)} />}
                       onConfirmar={() => acciones.volverAIteracion(it.id, 'plan')}
                     />
@@ -637,6 +713,43 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
         </Seccion>
       )}
     </div>
+  );
+}
+
+type PropsPermisoPendiente = Omit<Parameters<typeof TarjetaPermiso>[0], 'onResolver'>;
+
+/** Una solicitud pendiente con su propia marca de vuelo: un segundo clic en la
+ *  misma tarjeta mientras la petición no ha vuelto se ignora, y las tarjetas
+ *  no se bloquean entre sí. El botón vive en TarjetaPermiso, que todavía no
+ *  recibe la marca visual; la tarjeta entera lleva aria-busy mientras tanto. */
+function PermisoPendiente(props: PropsPermisoPendiente) {
+  const [enVuelo, envolver] = useEnVuelo();
+  const { solicitud } = props;
+  return (
+    <div data-en-vuelo={enVuelo ? 'true' : undefined} aria-busy={enVuelo || undefined}>
+      <TarjetaPermiso {...props} onResolver={envolver((d: 'conceder' | 'denegar', a: AlcancePermiso | null, args: Record<string, string>) => acciones.resolverSolicitud(solicitud.id, d, a, args))} />
+    </div>
+  );
+}
+
+/** Una incidencia pendiente con su marca de vuelo, por la misma razón. */
+function IncidenciaPendiente({ incidencia, ahora }: { incidencia: Incidencia; ahora: number }) {
+  const [enVuelo, envolver] = useEnVuelo();
+  return (
+    <div data-en-vuelo={enVuelo ? 'true' : undefined} aria-busy={enVuelo || undefined}>
+      <TarjetaIncidencia incidencia={incidencia} ahora={ahora} onResolver={envolver((r: string) => acciones.resolverIncidencia(incidencia.id, r))} />
+    </div>
+  );
+}
+
+/** El botón de detener un proceso de cómputo, con su marca de vuelo propia
+ *  (hay uno por fila y los hooks no pueden ir dentro del map). */
+function BotonDetenerProceso({ onDetener }: { onDetener: () => void }) {
+  const [enVuelo, envolver] = useEnVuelo();
+  return (
+    <button type="button" className="btn btn-s btn-peligro" disabled={enVuelo} {...atributosEnVuelo(enVuelo)} onClick={envolver(onDetener)}>
+      Detener
+    </button>
   );
 }
 

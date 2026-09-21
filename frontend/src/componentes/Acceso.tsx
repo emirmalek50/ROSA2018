@@ -10,6 +10,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { cabeceras, conectar } from '../datos/almacen';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { ArbolVivo } from './ArbolVivo';
+import { EsqueletoAplicacion } from './Esqueleto';
 import './acceso.css';
 
 type Sesion = {
@@ -142,12 +143,20 @@ export function Acceso({ children }: { children: ReactNode }) {
   if (sesion?.correo) return <Cuenta.Provider value={{ correo: sesion.correo, administrador: Boolean(sesion.administrador) }}>{children}</Cuenta.Provider>;
   // Una sesión todavía desconocida no equivale a haber cerrado sesión.
   // No montar el formulario ni datos privados mientras se valida el acceso.
-  if (!sesion) return (
-    <main className="contenido" aria-busy={!mensaje}>
-      <p role="status">{mensaje || 'Cargando ROSA2018…'}</p>
-      {mensaje && <button type="button" className="btn" onClick={() => window.location.reload()}>Reintentar</button>}
-    </main>
-  );
+  if (!sesion) {
+    if (mensaje) {
+      return (
+        <main className="contenido">
+          <p role="status">{mensaje}</p>
+          <button type="button" className="btn" onClick={() => window.location.reload()}>Reintentar</button>
+        </main>
+      );
+    }
+    // Mientras llega el estado se pinta la maqueta entera en gris (barra
+    // lateral, cabecera y contenido), no una página vacía con un texto. El
+    // rótulo "Cargando ROSA2018" sigue ahí, oculto, para los lectores de pantalla.
+    return <EsqueletoAplicacion rotulo="ROSA2018" />;
+  }
 
   const transicion = {
     duration: reducido ? 0.12 : 0.26,
