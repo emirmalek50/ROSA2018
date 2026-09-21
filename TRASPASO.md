@@ -862,3 +862,25 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
     con la misión aprobada; subir `MAX_MOTIVO` a 220 en cierre_texto.py (obliga
     a cambiar el aserto del adversario). scripts/probar_acceso_visual.py sigue
     describiendo la pantalla antigua (Playwright no está en .venv).
+
+- **Atlas 3D de Codex, revisado el 21 de septiembre:** compila, lint limpio, 102
+  tests del atlas en verde y su prueba de navegador (frontend/scripts/probar-atlas3d.mjs,
+  con Vite arrancado) pasa entera. Fallos reales anotados: etiquetas huérfanas al
+  girar (sin líneas guía), colores distintos del 2D (el lienzo ignora
+  `color-mix`, así que caía a una mezcla lineal: por eso el LCR salía beige; la
+  fórmula en código está ahora en frontend/src/lib/atlas_color.ts con test),
+  sin test en la suite (solo el guion de Playwright), y un riesgo sin
+  comprobar en Safari (`getTotalLength` sobre un `<path>` sin insertar en el
+  documento; no hay WebKit instalado). La "superficie cerebral rosada" del
+  segundo commit de Codex se retiró a petición de Emir (a192972).
+- **Cambio de rumbo del atlas (21 sep, decisión de Emir):** el dibujo
+  geométrico se sustituye por una ilustración anatómica real en colores
+  naturales: la lámina de Patrick J. Lynch y C. Carl Jaffe (Yale, 2006,
+  CC BY 2.5, https://commons.wikimedia.org/wiki/File:Brain_human_sagittal_section.svg),
+  copiada a frontend/src/datos/atlas/ con su licencia; las veinte regiones se
+  retrazan sobre esa anatomía; la evidencia pasa a ser un tinte cálido sobre el
+  tejido (sin violeta base); el 3D extruye la misma lámina, entra de frente
+  idéntico al 2D y gira suave; crédito visible en la pantalla. El generador
+  shapely de frontend/scripts/atlas/ queda obsoleto (se conserva por historia).
+  Alternativas descartadas: la lámina 720 de Gray (dominio público, pero grabado
+  en blanco y negro) y los esquemas coloreados de Commons (colores de escuela).
