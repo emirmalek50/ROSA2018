@@ -1,5 +1,22 @@
 # Generador del dibujo del atlas de la enfermedad
 
+**Desde el 21 de septiembre de 2026 el generador vigente es `lynch/`**: el atlas
+pinta debajo de las regiones la lámina anatómica de Patrick J. Lynch y C. Carl
+Jaffe (`src/datos/atlas/lynch_sagital.svg`, CC BY 2.5, ver `LICENCIA.md` allí)
+y las regiones se trazan encima, sobre esa anatomía. `lynch/lamina.py` lee y
+encaja la lámina, `lynch/regiones.py` traza las veinte regiones con shapely,
+`lynch/generar.py` escribe `src/lib/cerebro_base.ts` y `src/lib/atlas_dibujo.ts`
+(y una previa HTML si se le pasa una ruta), y `lynch/sondear.py` dice qué
+región contiene un punto. Uso, desde `frontend/`:
+
+```
+uv run --no-project --with shapely python scripts/atlas/lynch/generar.py [previa.html]
+```
+
+Lo que sigue describe el generador ANTERIOR (el dibujo geométrico del concurso
+del 18 de septiembre), que queda obsoleto y se conserva por si hay que volver a
+él; `geom.py` sigue en uso porque `lynch/` lo importa.
+
 El corte sagital de `frontend/src/lib/atlas_dibujo.ts` no se dibuja a mano
 directamente: se genera desde puntos de control con `shapely`, para que cada
 estructura comparta frontera con sus vecinas y entre regiones quede siempre un

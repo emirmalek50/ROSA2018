@@ -228,7 +228,7 @@ describe('la pantalla del atlas (adversario del cierre)', () => {
 
   it('los extremos de la leyenda son los de la rampa (0 cohortes en el frío, el máximo en el cálido), no el mínimo y el máximo presentes', async () => {
     // La rampa (lib/atlas.ts intensidad) pinta 0 cohortes en violeta y `cohortesMax` en ámbar, sin
-    // mirar el mínimo. La leyenda escribe «violeta apagado, {cohortesMin}; ámbar brillante,
+    // mirar el mínimo. La leyenda escribía «violeta apagado, {cohortesMin}; ámbar brillante, (hoy «ámbar tenue» y «ámbar pleno»)
     // {cohortesMax}». Si la única región con registros tiene 3 cohortes se pinta ámbar (t = 1) y la
     // leyenda dice «violeta apagado, 3; ámbar brillante, 3». Y con el filtro «preclínica» del
     // estado real (todas las regiones con registros tienen 0 cohortes) la leyenda dice «ámbar
@@ -236,13 +236,13 @@ describe('la pantalla del atlas (adversario del cierre)', () => {
     const tres = estadoConCeldas([celda({ region: 'plasma', hechos: ['he-a', 'he-b'], cohortes: ['ADNI', 'BioFINDER', 'A4'] })], '2 hechos situados.');
     await montar(tres.estado, tres.inv);
     expect(region('plasma').getAttribute('data-intensidad')).toBe('1.00');
-    expect(leyenda()).not.toMatch(/violeta apagado, 3\b/);
+    expect(leyenda()).not.toMatch(/ámbar tenue, 3\b/);
     await act(async () => root.unmount());
     root = createRoot(nodo);
     const cero = estadoConCeldas([celda({ region: 'plasma', hechos: ['he-a', 'he-b'] })], '2 hechos situados.');
     await montar(cero.estado, cero.inv);
     expect(region('plasma').getAttribute('data-intensidad')).toBe('0.00');
-    expect(leyenda()).not.toMatch(/ámbar brillante, 0\b/);
+    expect(leyenda()).not.toMatch(/ámbar pleno, 0\b/);
   });
 
   it('con una sola fuente el panel del hueco concuerda en número: «1 fuente leída... la nombra», no «la nombran»', async () => {

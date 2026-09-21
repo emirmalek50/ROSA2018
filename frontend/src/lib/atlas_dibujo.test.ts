@@ -4,11 +4,14 @@
 // dentro del lienzo, el centro de cada región cae dentro de su figura, las
 // guías no atraviesan otra estructura pequeña ni se cruzan entre sí, las
 // etiquetas no se pisan (26 px en vertical o 120 px en horizontal), las
-// exportaciones que usa la pantalla existen, la anatomía cumple las notas de
-// los jueces (huevo de 200 px, ventrículo de 16 px, coma del hipocampo tocando
-// la amígdala, cuarto ventrículo, cerebelo en su sitio, tronco que se
-// estrecha), la rampa de color de atlas.css contrasta al menos 3:1 desde el
-// primer registro, y todo el texto lleva tildes.
+// exportaciones que usa la pantalla existen, la anatomía sigue a la lámina de
+// Lynch y Jaffe sobre la que están trazadas las regiones (lib/cerebro_base.ts:
+// el calloso y el tálamo dentro de su campo de color, el cíngulo encima del
+// calloso, el cerebelo detrás del tronco con el cuarto ventrículo entre los
+// dos, el hipocampo como coma en la zona temporal con la amígdala delante y
+// la entorrinal debajo, la basilar por delante de la protuberancia), el tinte
+// de atlas.css se distingue de la lámina sin tintar desde el primer registro
+// y crece con las cohortes, y todo el texto lleva tildes.
 //
 // Cómo se mide la geometría: los trazados (M, L, C, A, Z) se aplanan a
 // polígonos (las Bézier y los arcos en 24 tramos) y se decide "dentro" con la
@@ -19,7 +22,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { intensidad, REGIONES_CLAVES } from './atlas';
-import { CLAVES_REGION_DIBUJO, CONTORNO_CEREBRO, finGuia, medioTexto, NOMBRE_CORTO, puntoMarca, RECORTADAS, RECORTE_HEMISFERIO, regionDibujo, REGIONES_DIBUJO, TRAZOS_FINOS, VISTA } from './atlas_dibujo';
+import { BASE_EXTERIOR, CLAVES_REGION_DIBUJO, CONTORNO_CEREBRO, CONTORNO_LAMINA, finGuia, GLOBO_OCULAR, medioTexto, NOMBRE_CORTO, puntoMarca, RECORTADAS, RECORTE_HEMISFERIO, regionDibujo, REGIONES_DIBUJO, TRAZOS_FINOS, VISTA } from './atlas_dibujo';
+import { CEREBRO_BASE } from './cerebro_base';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 const CSS_ATLAS = readFileSync(resolve(AQUI, '../atlas.css'), 'utf8');
@@ -283,8 +287,26 @@ function cajaEtiqueta(clave: string, etiqueta: [number, number], giro: number | 
  *  sale de una estructura enterrada en el temporal tiene que cruzarlo). */
 const PEQUENAS = new Set(['hipocampo', 'corteza_entorrinal', 'amigdala', 'cingulo_precuneo', 'ganglios_basales_talamo', 'lcr', 'sustancia_blanca', 'bulbo_olfatorio', 'retina', 'plasma', 'intestino_microbiota']);
 
-/** Regiones cuya etiqueta va escrita SOBRE su propia figura (sin guía). */
-const ETIQUETA_DENTRO = ['corteza_prefrontal', 'corteza_parietal', 'corteza_temporal', 'cerebelo', 'sustancia_blanca', 'cingulo_precuneo', 'ganglios_basales_talamo', 'lcr'];
+/** Regiones cuya etiqueta va escrita SOBRE su propia figura (sin guía). El LCR
+ *  ya no: los ventrículos de la lámina son trazos finos y la etiqueta sale
+ *  con guía desde el cuarto ventrículo. */
+const ETIQUETA_DENTRO = ['corteza_prefrontal', 'corteza_parietal', 'corteza_temporal', 'cerebelo', 'sustancia_blanca', 'cingulo_precuneo', 'ganglios_basales_talamo'];
+
+/** Los subtrazados de cada campo de color de la lámina, por color. */
+function campoLamina(fill: string): Punto[][] {
+  return CEREBRO_BASE.campos.filter((c) => c.fill === fill).flatMap((c) => aplanar(c.d).poligonos);
+}
+
+/** Qué regiones se ven bajando por la columna x entre dos alturas, por orden
+ *  de primera aparición; las capas de fondo (lo que asoma entre regiones) no cuentan. */
+function ordenEnColumna(x: number, desde: number, hasta: number): string[] {
+  const salida: string[] = [];
+  for (let y = desde; y <= hasta; y++) {
+    const quien = visibleEn([x, y]);
+    if (quien && regionDibujo(quien)?.capa !== 'fondo' && !salida.includes(quien)) salida.push(quien);
+  }
+  return salida;
+}
 
 // ---------------------------------------------------------------------------
 // Color: la rampa de atlas.css recalculada en oklab (la conversión del CSS Color 4)
@@ -322,16 +344,17 @@ function tokenAtlas(nombre: string): string {
 const aSrgb = (c: number): number => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
 const deSrgb = (c: number): number => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 
-/** El contraste con el lienzo de una región de intensidad t, con la fórmula de
- *  atlas.css, tal como lo compone el navegador: el color-mix va en oklab, pero
- *  la fill-opacity se compone sobre el lienzo en sRGB, NO en luz lineal
- *  (medido en Chromium con un canvas por el constructor de ajustes: a t = 0
- *  con el suelo 0,7 la mezcla lineal daba 3,12:1 y el píxel real 2,53:1). La
- *  luminancia para el contraste sí se calcula en lineal, como manda WCAG. */
-function contrasteRampa(t: number): number {
+/** El píxel que compone el navegador para una región de intensidad t sobre la
+ *  corteza de la lámina (--atlas-lamina), con la fórmula de atlas.css: el
+ *  color-mix va en oklab, pero la fill-opacity se compone sobre lo de debajo
+ *  en sRGB, NO en luz lineal (medido en Chromium con un canvas por el
+ *  constructor de ajustes del 18 de septiembre de 2026). Devuelve el píxel en
+ *  luz lineal y su distancia en oklab a la lámina sin tintar (la diferencia
+ *  perceptible: unos 0,02 es el umbral de lo que se nota). */
+function tinteSobreLamina(t: number): { pixel: RGB; diferencia: number; contraste: number } {
   const frio = linealAOklab(lineal(tokenAtlas('--atlas-frio')));
   const calido = linealAOklab(lineal(tokenAtlas('--atlas-calido')));
-  const fondo = lineal(tokenAtlas('--atlas-lienzo'));
+  const lamina = lineal(tokenAtlas('--atlas-lamina'));
   const opacidad = CSS_ATLAS.match(/fill-opacity:\s*calc\(([\d.]+) \+ ([\d.]+) \* var\(--atlas-t, 0\)\)/);
   if (!opacidad) throw new Error('la fórmula de la opacidad en atlas.css cambió: actualizar este test');
   // Atlas.tsx pasa --atlas-p como Math.round(t * 100) % y --atlas-t con tres decimales.
@@ -339,9 +362,11 @@ function contrasteRampa(t: number): number {
   const fill = oklabALineal(mezclar(calido, p, frio));
   const op = Number(opacidad[1]) + Number(opacidad[2]) * Number(t.toFixed(3));
   const fillS = fill.map(aSrgb) as RGB;
-  const fondoS = fondo.map(aSrgb) as RGB;
-  const efectivo = mezclar(fillS, op, fondoS).map(deSrgb) as RGB;
-  return contraste(efectivo, fondo);
+  const laminaS = lamina.map(aSrgb) as RGB;
+  const pixel = mezclar(fillS, op, laminaS).map(deSrgb) as RGB;
+  const a = linealAOklab(pixel);
+  const b = linealAOklab(lamina);
+  return { pixel, diferencia: Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]), contraste: contraste(pixel, lineal(tokenAtlas('--atlas-lienzo'))) };
 }
 
 // ---------------------------------------------------------------------------
@@ -411,8 +436,43 @@ describe('la geometría del atlas', () => {
     for (const clave of ['cerebelo', 'tronco_locus_coeruleus', 'corteza_prefrontal', 'corteza_occipital', 'hipocampo', 'bulbo_olfatorio']) {
       expect(dentroFigura(regionDibujo(clave)!.centro, contorno), `${clave} fuera del contorno`).toBe(true);
     }
-    // Trazos finos: el ojo (globo y cristalino) con su nervio y el brillo de la gota; ninguno recortado.
-    expect(TRAZOS_FINOS.length).toBeGreaterThanOrEqual(4);
+    // Y envuelve la silueta de la lámina sola (CONTORNO_LAMINA, sin el bulbo): ningún punto de esta queda fuera por más de 2,5 px.
+    for (const poligono of aplanar(CONTORNO_LAMINA).poligonos) for (const p of poligono) expect(dentroFigura(p, contorno) || distanciaPolilineas(p, contorno.map((q) => [...q, q[0]!])) <= 2.5, `la lámina asoma del contorno en ${p.map(Math.round).join(', ')}`).toBe(true);
+    // Los compartimentos exteriores tienen su base en color natural, con la misma figura que la región que va encima.
+    for (const clave of ['retina', 'plasma', 'intestino_microbiota']) {
+      expect(BASE_EXTERIOR[clave]?.length, clave).toBeGreaterThan(0);
+      for (const parte of BASE_EXTERIOR[clave]!) {
+        expect(parte.fill).toMatch(/^#[0-9a-f]{6}$/);
+        expect(() => ordenes(parte.d)).not.toThrow();
+      }
+    }
+    expect(BASE_EXTERIOR.plasma![0]!.d).toBe(regionDibujo('plasma')!.d);
+    // El ojo entero: nervio, globo, córnea, iris, pupila y cristalino, en ese orden de pintado. El globo es
+    // el círculo de GLOBO_OCULAR; la córnea y el iris miran a la izquierda (lejos del cerebro) y el nervio
+    // sale por detrás hacia el polo frontal (la lámina empieza en x 312).
+    const papeles = BASE_EXTERIOR.retina!.map((p) => p.papel);
+    expect(papeles).toEqual(['nervio', 'globo', 'cornea', 'iris', 'pupila', 'cristalino']);
+    const [ox, oy] = GLOBO_OCULAR.centro;
+    const globo = aplanar(BASE_EXTERIOR.retina!.find((p) => p.papel === 'globo')!.d).poligonos[0]!;
+    for (const [x, y] of globo) expect(Math.abs(Math.hypot(x - ox, y - oy) - GLOBO_OCULAR.radio)).toBeLessThan(1.5);
+    const iris = aplanar(BASE_EXTERIOR.retina!.find((p) => p.papel === 'iris')!.d).poligonos[0]!;
+    for (const [x] of iris) expect(x).toBeLessThan(ox - GLOBO_OCULAR.radio / 2);
+    const nervio = aplanar(BASE_EXTERIOR.retina!.find((p) => p.papel === 'nervio')!.d).poligonos[0]!;
+    expect(Math.max(...nervio.map((p) => p[0]))).toBeGreaterThan(290);
+    expect(Math.max(...nervio.map((p) => p[0]))).toBeLessThan(312);
+    // La retina es la capa que forra el fondo del globo: toda dentro de la esfera, pegada a la pared posterior
+    // (a menos de 4 px de ella) y solo en la mitad de atrás (la derecha).
+    for (const poligono of FIGURAS.get('retina')!) {
+      for (const [x, y] of poligono) {
+        expect(Math.hypot(x - ox, y - oy)).toBeLessThan(GLOBO_OCULAR.radio - 2);
+        expect(x).toBeGreaterThan(ox);
+      }
+    }
+    const [rx0, , rx1] = cajaFigura('retina');
+    expect(rx1).toBeGreaterThan(ox + GLOBO_OCULAR.radio - 5);
+    expect(rx1 - rx0).toBeLessThan(GLOBO_OCULAR.radio);
+    // Trazos finos: el brillo de la gota; ninguno recortado.
+    expect(TRAZOS_FINOS.length).toBeGreaterThanOrEqual(1);
     for (const t of TRAZOS_FINOS) {
       expect(typeof t.d).toBe('string');
       if (t.recortado !== undefined) expect(typeof t.recortado).toBe('boolean');
@@ -575,71 +635,139 @@ describe('la geometría del atlas', () => {
     }
   });
 
-  it('la anatomía sigue las notas de los jueces: huevo de 200 px, ventrículo de 16 px, coma del hipocampo, cuarto ventrículo, cerebelo y tronco', () => {
-    // Tálamo y ganglios: un huevo de unos 200 px de ancho con el centro retrasado hacia x 530.
+  it('la lámina de Lynch y Jaffe está encajada en el lienzo, con su crédito, y el cerebro ocupa el lienzo dejando sitio a la retina, la gota y el intestino', () => {
+    expect(CEREBRO_BASE.credito.autores).toBe('Patrick J. Lynch y C. Carl Jaffe');
+    expect(CEREBRO_BASE.credito.institucion).toBe('Yale University School of Medicine');
+    expect(CEREBRO_BASE.credito.licencia).toBe('CC BY 2.5');
+    expect(CEREBRO_BASE.credito.url).toMatch(/^https:\/\/commons\.wikimedia\.org\/wiki\/File:Brain_human_sagittal_section\.svg$/);
+    expect(CEREBRO_BASE.tinta).toBe('#532e1f');
+    expect(CEREBRO_BASE.campos.map((c) => c.fill)).toEqual(['#f0e1df', '#f0e1df', '#e0cbbd', '#f1eed4']);
+    expect(CEREBRO_BASE.trazos.length).toBe(146);
+    // Todos los trazados de la lámina son SVG válido y cerrado; la médula baja de y 620 y la pantalla la recorta en recorteY.
+    expect(CEREBRO_BASE.encaje.recorteY).toBeLessThanOrEqual(VISTA.alto);
+    for (const f of [...CEREBRO_BASE.campos, ...CEREBRO_BASE.trazos]) {
+      const { cerrados, coordenadas } = aplanar(f.d);
+      for (const c of cerrados) expect(c).toBe(true);
+      for (const [x, y] of coordenadas) {
+        expect(x).toBeGreaterThanOrEqual(0);
+        expect(x).toBeLessThanOrEqual(VISTA.ancho);
+        expect(y).toBeGreaterThanOrEqual(0);
+      }
+    }
+    // La silueta de la lámina: cerrada, grande y centrada (de x 300 a 920), sin pasar del recorte.
+    const lamina = aplanar(CONTORNO_LAMINA);
+    expect(lamina.poligonos.length).toBe(1);
+    expect(lamina.cerrados).toEqual([true]);
+    const xs = lamina.poligonos[0]!.map((p) => p[0]);
+    const ys = lamina.poligonos[0]!.map((p) => p[1]);
+    expect(Math.min(...xs)).toBeGreaterThan(300);
+    expect(Math.min(...xs)).toBeLessThan(330);
+    expect(Math.max(...xs)).toBeGreaterThan(890);
+    expect(Math.max(...xs)).toBeLessThan(920);
+    expect(Math.min(...ys)).toBeLessThan(40);
+    expect(Math.max(...ys)).toBeLessThanOrEqual(CEREBRO_BASE.encaje.recorteY + 0.5);
+  });
+
+  it('la anatomía sigue la lámina: el calloso y el tálamo en su campo, el cíngulo encima del calloso, los ventrículos finos, el cerebelo detrás del tronco, la coma del hipocampo en la zona temporal', () => {
+    const beige = campoLamina('#e0cbbd');
+    const cercaDe = (p: Punto, figura: Punto[][], margen: number) => dentroFigura(p, figura) || distanciaPolilineas(p, figura.map((q) => [...q, q[0]!])) <= margen;
+    // El cuerpo calloso y el tálamo están dentro del campo #e0cbbd de la lámina (el calloso, el tálamo y el mesencéfalo).
+    for (const clave of ['sustancia_blanca', 'ganglios_basales_talamo']) for (const poligono of FIGURAS.get(clave)!) for (const p of poligono) expect(cercaDe(p, beige, 2), `${clave} se sale del campo del calloso en ${p.map(Math.round).join(', ')}`).toBe(true);
+    // El calloso es un arco de unos 300 px que va de la rodilla (x 460) al esplenio (x 750); el tálamo, un óvalo de 120 a 170 px bajo él.
+    const [cx0, cy0, cx1, cy1] = cajaFigura('sustancia_blanca');
+    expect(cx0).toBeLessThan(470);
+    expect(cx1).toBeGreaterThan(740);
+    expect(cy0).toBeGreaterThan(135);
+    expect(cy0).toBeLessThan(155);
     const [tx0, ty0, tx1, ty1] = cajaFigura('ganglios_basales_talamo');
-    expect(tx1 - tx0).toBeGreaterThanOrEqual(185);
-    expect(tx1 - tx0).toBeLessThanOrEqual(215);
-    expect((tx0 + tx1) / 2).toBeGreaterThan(515);
-    expect((tx0 + tx1) / 2).toBeLessThan(545);
-    expect((ty0 + ty1) / 2).toBeGreaterThan(270);
-    expect((ty0 + ty1) / 2).toBeLessThan(315);
-    // Delante del huevo (bajo la rodilla del cuerpo calloso) y debajo queda el hipotálamo: silueta neutra, ninguna región.
-    expect(visibleEn([405, 300])).toBe('cerebro_sin_region');
-    expect(visibleEn([470, 345])).toBe('cerebro_sin_region');
-    // El ventrículo lateral es una banda de unos 16 px bajo el cuerpo calloso.
-    for (const x of [480, 530, 580]) {
-      const tramos = tramosVerticales('lcr', x, 150, 300);
+    expect(tx1 - tx0).toBeGreaterThan(120);
+    expect(tx1 - tx0).toBeLessThan(170);
+    expect(tx0).toBeGreaterThan(cx0);
+    expect(tx1).toBeLessThan(cx1);
+    expect(ty0).toBeGreaterThan(cy0 + 40);
+    expect(ty1).toBeLessThan(cy1 + 20);
+    // La adherencia intertalámica de la lámina (el círculo en 631, 251) cae dentro del tálamo.
+    expect(visibleEn([631, 251])).toBe('ganglios_basales_talamo');
+    // Bajando por x = 640: parietal, cíngulo, calloso, ventrículo lateral (LCR), tálamo y, debajo, el mesencéfalo del tronco.
+    expect(ordenEnColumna(640, 30, 320)).toEqual(['corteza_parietal', 'cingulo_precuneo', 'sustancia_blanca', 'lcr', 'ganglios_basales_talamo', 'tronco_locus_coeruleus']);
+    // El cíngulo sigue el arco del calloso por fuera: en x = 520, 600 y 700 está justo encima.
+    for (const x of [520, 600, 700]) {
+      const calloso = tramosVerticales('sustancia_blanca', x, 100, 320);
+      expect(calloso.length, `calloso en x = ${x}`).toBeGreaterThan(0);
+      expect(visibleEn([x, calloso[0]![0] - 8]), `encima del calloso en x = ${x}`).toBe('cingulo_precuneo');
+    }
+    // El ventrículo lateral es un trazo fino (5 a 11 px) justo bajo el calloso; el cuarto ventrículo queda entre la protuberancia y el cerebelo.
+    for (const x of [600, 640, 680]) {
+      const tramos = tramosVerticales('lcr', x, 150, 260);
       expect(tramos.length, `LCR en x = ${x}`).toBe(1);
       const grosor = tramos[0]![1] - tramos[0]![0] + 1;
-      expect(grosor, `grosor del ventrículo en x = ${x}`).toBeGreaterThanOrEqual(13);
-      expect(grosor, `grosor del ventrículo en x = ${x}`).toBeLessThanOrEqual(19);
-      // Justo encima va el cuerpo calloso; debajo, el huevo (que es un óvalo: hacia los extremos se separa unos píxeles).
-      expect(visibleEn([x, tramos[0]![0] - 6])).toBe('sustancia_blanca');
-      expect(visibleEn([x, tramos[0]![1] + 12])).toBe('ganglios_basales_talamo');
+      expect(grosor, `grosor del ventrículo en x = ${x}`).toBeGreaterThanOrEqual(5);
+      expect(grosor, `grosor del ventrículo en x = ${x}`).toBeLessThanOrEqual(11);
+      expect(visibleEn([x, tramos[0]![0] - 8]), `encima del ventrículo en x = ${x}`).toBe('sustancia_blanca');
     }
-    // El cuarto ventrículo: LCR entre la protuberancia y el cerebelo, y el acueducto que baja hasta él.
-    expect(visibleEn([658, 448])).toBe('lcr');
-    expect(visibleEn([651, 400])).toBe('lcr');
-    expect(visibleEn([640, 448])).toBe('tronco_locus_coeruleus');
-    expect(visibleEn([690, 448])).toBe('cerebelo');
-    // El hipocampo es una coma de unos 22 px que nace bajo la cola del tálamo (x 600) y toca la amígdala en x 450.
-    const [hx0, , hx1] = cajaFigura('hipocampo');
-    expect(hx0).toBeLessThan(455);
-    expect(hx1).toBeGreaterThan(590);
-    const cabeza = tramosVerticales('hipocampo', 470, 360, 440);
+    expect(visibleEn([640, 400])).toBe('tronco_locus_coeruleus');
+    expect(visibleEn([686, 400])).toBe('lcr');
+    expect(visibleEn([760, 400])).toBe('cerebelo');
+    // El cerebelo detrás del tronco, con su centro en torno a (760, 375); el tronco llega al corte de la médula y la protuberancia es más ancha que el bulbo.
+    const [kx0, ky0, kx1, ky1] = cajaFigura('cerebelo');
+    const [rx0, , , ry1] = cajaFigura('tronco_locus_coeruleus');
+    expect(kx0).toBeGreaterThan(rx0 + 60);
+    expect((kx0 + kx1) / 2).toBeGreaterThan(740);
+    expect((kx0 + kx1) / 2).toBeLessThan(780);
+    expect((ky0 + ky1) / 2).toBeGreaterThan(350);
+    expect((ky0 + ky1) / 2).toBeLessThan(400);
+    expect(ry1).toBeGreaterThanOrEqual(CEREBRO_BASE.encaje.recorteY - 3);
+    expect(anchuraEn('tronco_locus_coeruleus', 400)).toBeGreaterThan(anchuraEn('tronco_locus_coeruleus', 560) + 20);
+    // Los cuatro lóbulos: el frontal llega al polo (x < 330), el occipital al otro (x > 890), el parietal al vértice entre los dos.
+    const [fx0, , fx1] = cajaFigura('corteza_prefrontal');
+    const [px0, py0, px1] = cajaFigura('corteza_parietal');
+    const [, , ox1] = cajaFigura('corteza_occipital');
+    expect(fx0).toBeLessThan(330);
+    expect(fx1).toBeLessThan(px0 + 40);
+    expect(px1).toBeLessThan(ox1);
+    expect(ox1).toBeGreaterThan(890);
+    expect(py0).toBeLessThan(45);
+    // El hipocampo es una coma dentro de la zona temporal: cabeza gruesa delante, cola fina detrás y arriba, la amígdala pegada delante y la entorrinal debajo.
+    const [hx0, hy0, hx1, hy1] = cajaFigura('hipocampo');
+    const [mx0, my0, mx1, my1] = cajaFigura('corteza_temporal');
+    expect(hx0).toBeGreaterThan(mx0);
+    expect(hx1).toBeLessThan(mx1);
+    expect(hy0).toBeGreaterThan(my0);
+    expect(hy1).toBeLessThan(my1 + 1);
+    const cabeza = tramosVerticales('hipocampo', 492, 280, 360);
+    const cola = tramosVerticales('hipocampo', 545, 280, 360);
     expect(cabeza.length).toBe(1);
-    expect(cabeza[0]![1] - cabeza[0]![0] + 1).toBeGreaterThanOrEqual(17);
-    expect(cabeza[0]![1] - cabeza[0]![0] + 1).toBeLessThanOrEqual(24);
-    expect(distanciaFiguras(FIGURAS.get('hipocampo')!, FIGURAS.get('amigdala')!)).toBeLessThan(6);
-    // La corteza entorrinal es una banda bajo el hipocampo, en el borde inferior del temporal.
+    expect(cola.length).toBe(1);
+    expect(cabeza[0]![1] - cabeza[0]![0]).toBeGreaterThan(cola[0]![1] - cola[0]![0] + 4);
+    expect(cola[0]![0]).toBeLessThan(cabeza[0]![0]);
+    const [, , ax1] = cajaFigura('amigdala');
+    expect(ax1).toBeLessThan(hx0 + 8);
+    expect(distanciaFiguras(FIGURAS.get('hipocampo')!, FIGURAS.get('amigdala')!)).toBeLessThan(12);
     const [ex0, ey0, ex1, ey1] = cajaFigura('corteza_entorrinal');
-    const entorrinal = tramosVerticales('corteza_entorrinal', 470, 360, 460);
-    expect(entorrinal.length).toBe(1);
-    expect(entorrinal[0]![0]).toBeGreaterThan(cabeza[0]![1]);
-    expect(ex1 - ex0).toBeGreaterThan(ey1 - ey0);
-    expect(visibleEn([(ex0 + ex1) / 2, ey1 + 6])).toBeNull();
-    // El cerebelo: centro en torno a (735, 442), techo aplanado bajo el occipital.
-    const [cx0, cy0, cx1, cy1] = cajaFigura('cerebelo');
-    expect((cx0 + cx1) / 2).toBeGreaterThan(715);
-    expect((cx0 + cx1) / 2).toBeLessThan(755);
-    expect((cy0 + cy1) / 2).toBeGreaterThan(425);
-    expect((cy0 + cy1) / 2).toBeLessThan(460);
-    // El tronco: unos 80 px arriba (medido por debajo de la cola del hipocampo, que le muerde el frente) y unos 45 px al final del bulbo.
-    expect(anchuraEn('tronco_locus_coeruleus', 405)).toBeGreaterThanOrEqual(70);
-    expect(anchuraEn('tronco_locus_coeruleus', 405)).toBeLessThanOrEqual(95);
-    expect(anchuraEn('tronco_locus_coeruleus', 542)).toBeGreaterThanOrEqual(36);
-    expect(anchuraEn('tronco_locus_coeruleus', 542)).toBeLessThanOrEqual(55);
-    // Los vasos: cuatro polilíneas (pericallosa, callosomarginal, basilar y cerebral posterior), sin el lazo frontal ni la V parietal.
+    expect(ey0).toBeGreaterThan(hy1 - 4);
+    expect(ex1 - ex0).toBeGreaterThan((ey1 - ey0) * 5);
+    expect(ey1).toBeGreaterThan(my1 - 12);
+    // El bulbo olfatorio cuelga bajo el frontal, delante de la zona temporal.
+    const [bx0, by0, bx1] = cajaFigura('bulbo_olfatorio');
+    expect(bx1).toBeLessThan(mx0 + 10);
+    expect(by0).toBeGreaterThan(280);
+    expect(bx1 - bx0).toBeGreaterThan(30);
+    // Los vasos: cuatro polilíneas (pericallosa, callosomarginal, cerebral posterior y basilar), ninguna por el polo frontal.
     const vasos = FIGURAS.get('vascular_bhe')!;
     expect(vasos.length).toBe(4);
-    for (const linea of vasos) for (const [x] of linea) expect(x, 'un vaso llega al frontal').toBeGreaterThan(310);
-    // La basilar corre por delante de la protuberancia: en y = 460 pasa a menos de 8 px del borde anterior del tronco.
-    const borde = tramosVerticales('tronco_locus_coeruleus', 556, 400, 560);
-    expect(borde.length).toBeGreaterThan(0);
+    for (const linea of vasos) for (const [x] of linea) expect(x, 'un vaso llega al polo frontal').toBeGreaterThan(440);
+    // La basilar corre por delante de la protuberancia: en y = 380 pasa a menos de 12 px del borde anterior del tronco.
+    let frente: number | null = null;
+    for (let x = 500; x < 700 && frente === null; x++) if (enRegion('tronco_locus_coeruleus', [x, 380])) frente = x;
+    expect(frente).not.toBeNull();
     let basilar = Infinity;
-    for (const linea of vasos) for (const p of linea) if (Math.abs(p[1] - 460) < 3) basilar = Math.min(basilar, Math.abs(p[0] - 552));
-    expect(basilar).toBeLessThan(8);
+    for (const linea of vasos) for (const p of linea) if (Math.abs(p[1] - 380) < 3) basilar = Math.min(basilar, Math.abs(p[0] - frente!));
+    expect(basilar).toBeLessThan(12);
+    // La pericallosa corre sobre el calloso: en x = 600 pasa a menos de 12 px de su borde superior.
+    const techo = tramosVerticales('sustancia_blanca', 600, 100, 320)[0]![0];
+    let pericallosa = Infinity;
+    for (const linea of vasos) for (const p of linea) if (Math.abs(p[0] - 600) < 3) pericallosa = Math.min(pericallosa, Math.abs(p[1] - techo));
+    expect(pericallosa).toBeLessThan(12);
   });
 
   it('todo el texto visible lleva tildes y no hay guiones largos', () => {
@@ -657,27 +785,43 @@ describe('la geometría del atlas', () => {
 });
 
 describe('la rampa de color de atlas.css', () => {
-  it('sus dos extremos y el lienzo están fijados con un color propio, no colgados de los tokens del tema', () => {
-    // El lienzo es siempre oscuro; si la rampa siguiera a --grafo-cluster-0 y
-    // --amber, en tema claro (colores para leer sobre blanco) saldría más
-    // apagada que en tema oscuro sobre el mismo fondo negro.
-    for (const nombre of ['--atlas-frio', '--atlas-calido', '--atlas-lienzo']) {
+  it('sus dos extremos, el lienzo y la lámina están fijados con un color propio, no colgados de los tokens del tema', () => {
+    // La lámina y el lienzo son siempre los mismos; si la rampa siguiera a
+    // --grafo-cluster-0 y --amber, en tema claro (colores para leer sobre
+    // blanco) el mismo dato daría otro tinte que en tema oscuro.
+    for (const nombre of ['--atlas-frio', '--atlas-calido', '--atlas-lienzo', '--atlas-lamina', '--atlas-tinta']) {
       const valor = tokenAtlas(nombre);
       expect(valor, nombre).toMatch(/^#[0-9a-fA-F]{6}$/);
     }
+    // La lámina y la tinta son las de lib/cerebro_base.ts.
+    expect(tokenAtlas('--atlas-lamina')).toBe(CEREBRO_BASE.campos[0]!.fill);
+    expect(tokenAtlas('--atlas-tinta')).toBe(CEREBRO_BASE.tinta);
+    // Y los dos extremos son ámbares (más rojo que azul, y más verde que azul): nada violeta ni fosforescente.
+    for (const nombre of ['--atlas-frio', '--atlas-calido']) {
+      const [r, g, b] = hexARgb(tokenAtlas(nombre));
+      expect(r, nombre).toBeGreaterThan(b);
+      expect(g, nombre).toBeGreaterThan(b);
+      expect(r, nombre).toBeGreaterThanOrEqual(g);
+    }
   });
 
-  it('una región con un solo registro de 107 ya contrasta al menos 3:1 con el lienzo (WCAG 1.4.11), y la rampa crece con la evidencia', () => {
+  it('una región con un solo registro de 107 y ninguna cohorte ya se distingue de la lámina sin tintar, y el tinte crece con la evidencia hasta un ámbar pleno', () => {
     const maximo = 107; // los registros en sangre de la investigación grande del 18 de septiembre de 2026
-    expect(contrasteRampa(intensidad(1, maximo))).toBeGreaterThanOrEqual(3);
-    expect(contrasteRampa(intensidad(2, maximo))).toBeGreaterThanOrEqual(3);
+    // A t = 0 (registros sin cohorte: el caso más frecuente) el tinte se nota (distancia en oklab de al menos 0,035, casi el doble del umbral perceptible).
+    expect(tinteSobreLamina(0).diferencia).toBeGreaterThanOrEqual(0.035);
+    expect(tinteSobreLamina(intensidad(1, maximo)).diferencia).toBeGreaterThanOrEqual(0.035);
     let anterior = 0;
     for (const conteo of [1, 2, 3, 6, 15, 40, 107]) {
-      const c = contrasteRampa(intensidad(conteo, maximo));
-      expect(c, `${conteo} de ${maximo}`).toBeGreaterThan(anterior);
-      anterior = c;
+      const d = tinteSobreLamina(intensidad(conteo, maximo)).diferencia;
+      expect(d, `${conteo} de ${maximo}`).toBeGreaterThan(anterior);
+      anterior = d;
     }
-    expect(anterior).toBeGreaterThan(10);
+    expect(anterior).toBeGreaterThan(0.15);
+    // Y en el máximo el tinte sigue contrastando con el lienzo oscuro (WCAG 1.4.11, 3:1): no se oscurece.
+    expect(tinteSobreLamina(1).contraste).toBeGreaterThan(3);
+    // El rayado de los huecos va en la tinta de la lámina, no en el violeta de antes.
+    expect(tokenAtlas('--atlas-rayas')).toMatch(/^rgba\(83, 46, 31,/);
+    expect(tokenAtlas('--atlas-rayas-buscada')).toMatch(/^rgba\(83, 46, 31,/);
   });
 
   it('la zona de pulsación de los vasos no pasa de 7 unidades y el foco de teclado tiene al menos 2,5 de trazo', () => {

@@ -1,32 +1,34 @@
 /* El atlas de la enfermedad (pantallas/Atlas.tsx): el corte sagital del
-   cerebro con la evidencia por región. El lienzo es oscuro también en tema
-   claro, como el del árbol: las regiones se encienden sobre él con UNA rampa
-   de color (violeta apagado con pocas cohortes, ámbar brillante con muchas) y
-   un resplandor que crece con la intensidad. Cada región recibe su porcentaje
-   de la rampa por la variable --atlas-p (0 % a 100 %) y su intensidad por
-   --atlas-t (0 a 1). La intensidad es el número de COHORTES distintas de la
-   región frente al máximo presente (lib/atlas.ts, intensidad); el número de
+   cerebro con la evidencia por región. Desde el 21 de septiembre de 2026
+   debajo de las regiones se pinta una ilustración anatómica real en colores
+   naturales (la lámina de Lynch y Jaffe, lib/cerebro_base.ts: corteza rosada
+   #f0e1df, cuerpo calloso y tálamo #e0cbbd, tronco #f1eed4, tinta parda
+   #532e1f) sobre el lienzo oscuro de siempre, que se conserva también en tema
+   claro, como el del árbol. En reposo el cerebro se ve NATURAL; las regiones
+   son capas encima: con registros, un tinte cálido cuya intensidad sigue a
+   las cohortes, de un ámbar tenue (t = 0, opacidad 0,3) a un ámbar pleno
+   (t = 1, opacidad 0,9), con un borde fino claro; sin registros, el rayado
+   discreto de siempre, ahora en la tinta parda de la lámina para que se lea
+   sobre el rosa. Cada región recibe su porcentaje de la rampa por la
+   variable --atlas-p (0 % a 100 %) y su intensidad por --atlas-t (0 a 1). La
+   intensidad es el número de COHORTES distintas de la región frente al máximo
+   presente (lib/atlas.ts, intensidad, en escala logarítmica); el número de
    registros va como texto junto al nombre, no en el color.
 
-   Los dos extremos de la rampa están FIJADOS, igual que el lienzo, y no
-   cuelgan de los tokens del tema: --grafo-cluster-0 y --amber cambian con el
-   tema (en claro son colores para leer sobre blanco, #7c3aed y #d97706) y
-   sobre un lienzo que siempre es negro salían más apagados en tema claro que
-   en oscuro, por debajo del 3:1 que WCAG 1.4.11 pide a un objeto gráfico.
-   Cómo se derivaron (mezcla en oklab, una sola vez): el frío es el violeta de
-   las hipótesis en tema oscuro (#a78bfa) al 76 % con #1a1428; el cálido es el
-   ámbar de tema oscuro (#f59e0b) al 72 % con #fff1b8.
+   Los dos extremos de la rampa están FIJADOS, igual que el lienzo y la
+   lámina, y no cuelgan de los tokens del tema: sobre una lámina que siempre
+   tiene el mismo color, el mismo dato tiene que dar el mismo tinte en tema
+   claro y en tema oscuro. El frío ya no es un violeta: es un ámbar tenue
+   (#edc472), y el cálido un ámbar pleno (#f0a030); la mezcla va en oklab.
 
-   El suelo de opacidad es 0,8 porque la intensidad 0 con registros es un caso
-   REAL y frecuente: una región con hechos cuyas celdas no nombran ninguna
-   cohorte (el hipocampo de la investigación grande: 15 registros, 0 cohortes)
-   se pinta con t = 0. El contraste se mide sobre el píxel que compone el
-   navegador, que mezcla el relleno con el lienzo en sRGB (no en luz lineal:
-   medido en Chromium con un canvas, y la mezcla lineal salía medio punto más
-   optimista). Con t = 0 ese violeta contrasta 3,4:1 con el lienzo; con una
-   cohorte de 24, 4,0:1; el máximo, 11:1. Los tests de lib/atlas_dibujo.test.ts
-   y lib/atlas_dibujo_adversario.test.tsx recalculan el contraste con estos
-   valores tal como están escritos aquí: si se cambian, ellos lo dicen. */
+   El suelo de opacidad es 0,3 porque la intensidad 0 con registros es un caso
+   REAL y frecuente (el hipocampo de la investigación grande: 15 registros, 0
+   cohortes): con menos, el tinte no se distingue de la lámina sin tintar. Los
+   tests de lib/atlas_dibujo.test.ts y lib/atlas_dibujo_adversario.test.tsx
+   recalculan el color compuesto sobre la corteza de la lámina con estos
+   valores tal como están escritos aquí y exigen que se distinga a simple
+   vista desde t = 0 y que crezca con las cohortes; lib/atlas_color.ts es la
+   misma fórmula en código para el lienzo 3D. Si se cambian, ellos lo dicen. */
 
 :root {
   --atlas-lienzo: #0b0a14;
@@ -35,26 +37,69 @@
   --atlas-trazo: rgba(238, 233, 255, 0.62);
   --atlas-trazo-suave: rgba(238, 233, 255, 0.34);
   --atlas-texto: #f4efe4;
-  --atlas-frio: #826cc2;
-  --atlas-calido: #f9b654;
-  /* Dos rayados: tenue para "no buscada", marcado para "buscada sin hallazgo". */
-  --atlas-rayas: rgba(200, 190, 232, 0.26);
-  --atlas-rayas-buscada: rgba(214, 206, 240, 0.62);
-  --atlas-rayas-contorno: rgba(238, 233, 255, 0.55);
-  /* La marca de discordia: rojo que se lee sobre el lienzo (5,2:1). */
-  --atlas-discordia: #ff7b72;
+  --atlas-frio: #edc472;
+  --atlas-calido: #f0a030;
+  /* La lámina: el color de la corteza y el de la tinta (lib/cerebro_base.ts). */
+  --atlas-lamina: #f0e1df;
+  --atlas-tinta: #532e1f;
+  /* Dos rayados en la tinta de la lámina: tenue para "no buscada", marcado para "buscada sin hallazgo". */
+  --atlas-rayas: rgba(83, 46, 31, 0.17);
+  --atlas-rayas-buscada: rgba(83, 46, 31, 0.52);
+  --atlas-rayas-contorno: rgba(83, 46, 31, 0.72);
+  /* El borde fino claro de una región con registros y el contorno de la seleccionada. */
+  --atlas-borde-region: rgba(255, 255, 255, 0.78);
+  --atlas-seleccion: #2b1b10;
+  /* La marca de discordia: rojo que se lee sobre el rosa de la lámina y sobre el lienzo. */
+  --atlas-discordia: #d1352b;
   --atlas-flotante: #1b1730;
 }
 
-/* Cámara compartida con el árbol, relieve del atlas sin giro automático. */
+/* Cámara compartida con el árbol, relieve del atlas sin giro automático. El
+   lienzo del 3D va DENTRO de una caja .atlas-lienzo del mismo tamaño que el
+   SVG del 2D (mismo ancho mínimo, misma proporción y mismo tope de alto) y
+   las herramientas se superponen en su esquina, no en otra fila: al cambiar
+   de vista la maqueta no salta. */
 .atlas-3d { min-width: 0; }
-.atlas-3d-herramientas { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
-.atlas-3d-herramientas label { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; }
-.atlas-3d-herramientas select { min-width: 0; width: 100%; max-width: 360px; }
-.atlas-3d-canvas { display: block; width: 100%; height: auto; aspect-ratio: 1000 / 620; min-height: 280px; max-height: 620px; background: var(--atlas-lienzo); border: 1px solid var(--border); border-radius: var(--radio); touch-action: none; cursor: grab; }
+.atlas-3d-lienzo { position: relative; }
+.atlas-3d-herramientas {
+  /* Abajo a la izquierda: arriba tapaban el rótulo de los vasos, que va sobre el vértice del cerebro. */
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.atlas-3d-herramientas > * { pointer-events: auto; }
+.atlas-3d-herramientas label { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 300px; color: var(--atlas-texto); font-size: 12.5px; }
+.atlas-3d-herramientas select { min-width: 0; width: 100%; max-width: 300px; }
+.atlas-3d-canvas {
+  display: block;
+  width: 100%;
+  min-width: 700px;
+  height: auto;
+  aspect-ratio: 1000 / 620;
+  max-height: min(66vh, 660px);
+  background: var(--atlas-lienzo);
+  touch-action: none;
+  cursor: grab;
+}
+/* En pantallas estrechas el lienzo 3D encoge en vez de desplazarse: pinta
+   sus propios rótulos a escala (solo el de la región enfocada por debajo de
+   760 px) y no necesita los 700 px que el SVG del 2D reserva para los suyos. */
+@media (max-width: 900px) {
+  .atlas-3d-canvas {
+    min-width: 0;
+  }
+}
 .atlas-3d-canvas:active { cursor: grabbing; }
-.atlas-3d-canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.atlas-3d-canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
 .atlas-3d-lectura { min-height: 3em; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.atlas-3d-sin-lienzo { margin: 0; padding: 16px 16px 56px; min-height: 280px; color: var(--atlas-texto); }
 
 /* ---------------------------------------------------------------- marco */
 
@@ -165,18 +210,38 @@
 .atlas-fondo {
   fill: var(--atlas-lienzo);
 }
-/* La silueta del cerebro, neutra y sin conteo: debajo de las regiones, para
-   que el hemisferio se lea entero aunque los anillos genéricos ya no se
-   pinten (cerebro y corteza "sin región" van a la bandeja). */
+/* La lámina anatómica (lib/cerebro_base.ts) debajo de las regiones: los
+   campos de color con su relleno propio y los trazos de tinta, que son
+   formas cerradas y se RELLENAN con la tinta (no llevan trazo). El grupo
+   lleva la clase .atlas-silueta que la pantalla siempre tuvo: es la silueta
+   neutra y sin conteo sobre la que asientan las regiones. */
 .atlas-silueta {
-  fill: var(--atlas-silueta);
+  pointer-events: none;
+}
+.atlas-lamina-campo {
   stroke: none;
+}
+.atlas-lamina-tinta {
+  fill: var(--atlas-tinta);
+  stroke: none;
+}
+/* Los compartimentos de fuera en su color natural (gota roja, ojo con iris,
+   intestino rosado), debajo de su capa de evidencia. */
+.atlas-exterior-base {
+  stroke-width: 1;
+  pointer-events: none;
+}
+.atlas-exterior-cornea {
+  fill-opacity: 0.75;
+}
+.atlas-exterior-brillo {
+  fill: rgba(255, 255, 255, 0.6);
   pointer-events: none;
 }
 .atlas-contorno {
   fill: none;
-  stroke: var(--atlas-trazo);
-  stroke-width: 1.2;
+  stroke: var(--atlas-trazo-suave);
+  stroke-width: 0.8;
   pointer-events: none;
 }
 .atlas-trazo {
@@ -201,15 +266,15 @@
    Las transiciones duran 300 ms: al mover el deslizador "Cómo creció" o al
    cambiar un filtro se ve cómo se encienden y se apagan. */
 .atlas-region {
-  /* Primero un violeta plano: si el navegador no entiende color-mix, la
+  /* Primero un ámbar plano: si el navegador no entiende color-mix, la
      declaración siguiente se descarta y queda este (con la opacidad marcando
      la intensidad, ver @supports abajo) en vez de un relleno negro invisible. */
-  fill: #6d5aa0;
+  fill: #f0b455;
   fill: color-mix(in oklab, var(--atlas-calido) var(--atlas-p, 0%), var(--atlas-frio));
-  /* Suelo de 0,8: con menos, una región con registros y sin cohorte nombrada (t = 0) no llega al 3:1 sobre el lienzo. */
-  fill-opacity: calc(0.8 + 0.2 * var(--atlas-t, 0));
-  stroke: rgba(238, 233, 255, 0.26);
-  stroke-width: 0.8;
+  /* Suelo de 0,3: con menos, una región con registros y sin cohorte nombrada (t = 0) no se distingue de la lámina sin tintar. */
+  fill-opacity: calc(0.3 + 0.6 * var(--atlas-t, 0));
+  stroke: var(--atlas-borde-region);
+  stroke-width: 0.9;
   cursor: pointer;
   outline: none;
   transition:
@@ -219,11 +284,11 @@
     stroke-width 300ms ease,
     stroke-opacity 300ms ease;
 }
-/* Hueco no buscado: rayas tenues, sin contorno propio. */
+/* Hueco no buscado: rayas tenues sobre el color natural, sin contorno propio. */
 .atlas-region.atlas-hueco {
   fill: url(#atlas-rayas);
   fill-opacity: 0.7;
-  stroke: rgba(238, 233, 255, 0.14);
+  stroke: rgba(83, 46, 31, 0.16);
 }
 /* Hueco buscado sin hallazgo: rayas más marcadas y contorno (el punto va aparte, en .atlas-punto-buscada). */
 .atlas-region.atlas-hueco.atlas-buscada {
@@ -237,7 +302,7 @@
   stroke: color-mix(in oklab, var(--atlas-calido) var(--atlas-p, 0%), var(--atlas-frio));
   stroke-width: 3;
   stroke-linecap: round;
-  stroke-opacity: calc(0.8 + 0.2 * var(--atlas-t, 0));
+  stroke-opacity: calc(0.75 + 0.25 * var(--atlas-t, 0));
 }
 .atlas-region.atlas-capa-vasos.atlas-hueco {
   stroke: var(--atlas-rayas);
@@ -274,7 +339,8 @@
 .atlas-region.atlas-foco,
 .atlas-region:focus-visible {
   fill: color-mix(in oklab, var(--atlas-calido) calc(var(--atlas-p, 0%) + 30%), var(--atlas-frio));
-  fill-opacity: 1;
+  /* 0,92 y no 1: con opacidad plena la lámina desaparecía bajo la región al pasar el ratón. */
+  fill-opacity: 0.92;
   stroke: var(--atlas-texto);
   stroke-width: 1.4;
   filter: url(#atlas-resplandor-foco);
@@ -314,11 +380,21 @@
 .atlas-region.atlas-hueco.atlas-buscada:focus-visible {
   stroke-width: 2.5;
 }
-/* La región seleccionada lleva un contorno claro, pintado encima de todo. */
+/* La región seleccionada lleva un contorno oscuro (la tinta de la lámina),
+   pintado encima de todo: sobre el rosa de la lámina un contorno claro no se
+   veía. Debajo va un halo claro (.atlas-seleccion-halo) para que también se
+   lea sobre el lienzo oscuro, en los compartimentos de fuera. */
 .atlas-seleccion {
   fill: none;
-  stroke: var(--atlas-texto);
+  stroke: var(--atlas-seleccion);
   stroke-width: 2.2;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.atlas-seleccion-halo {
+  fill: none;
+  stroke: var(--atlas-borde-region);
+  stroke-width: 4.5;
   stroke-linejoin: round;
   pointer-events: none;
 }
@@ -331,8 +407,8 @@
 /* Las marcas: el punto de "buscada sin hallazgo" y el borde punteado rojo
    (con su punto) de la discordia. Ninguna responde al ratón. */
 .atlas-punto-buscada {
-  fill: var(--atlas-rayas-buscada);
-  stroke: var(--atlas-lienzo);
+  fill: var(--atlas-tinta);
+  stroke: #ffffff;
   stroke-width: 1;
 }
 .atlas-discordia {
@@ -350,7 +426,7 @@
 }
 .atlas-discordia-punto {
   fill: var(--atlas-discordia);
-  stroke: var(--atlas-lienzo);
+  stroke: #ffffff;
   stroke-width: 1.2;
 }
 
@@ -381,6 +457,14 @@
   stroke: var(--atlas-trazo-suave);
   stroke-width: 0.8;
   pointer-events: none;
+}
+/* El crédito de la ilustración base, dentro del lienzo, abajo a la izquierda. */
+.atlas-credito {
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  fill: rgba(244, 239, 228, 0.55);
+  pointer-events: none;
+  user-select: none;
 }
 /* El rótulo que sigue al ratón o al foco: nombre y conteo. */
 .atlas-flotante {
@@ -516,20 +600,27 @@
   width: auto;
   margin-top: 0;
 }
+/* La muestra de la lámina sin tintar: el rosa de la corteza con una línea de tinta. */
+.atlas-muestra-lamina {
+  background:
+    linear-gradient(100deg, transparent 0 58%, var(--atlas-tinta) 59% 62%, transparent 63%),
+    var(--atlas-lamina);
+}
+/* La rampa como se ve de verdad: el tinte con su opacidad sobre la lámina. */
 .atlas-muestra-rampa {
-  background: linear-gradient(90deg, var(--atlas-frio), var(--atlas-calido));
+  background: linear-gradient(90deg, color-mix(in oklab, var(--atlas-frio) 30%, var(--atlas-lamina)), color-mix(in oklab, var(--atlas-calido) 90%, var(--atlas-lamina)));
 }
 .atlas-muestra-rayas-tenues {
   background:
-    repeating-linear-gradient(45deg, rgba(200, 190, 232, 0.4) 0 1.5px, transparent 1.5px 6px),
-    var(--atlas-lienzo);
+    repeating-linear-gradient(45deg, var(--atlas-rayas) 0 1.5px, transparent 1.5px 6px),
+    var(--atlas-lamina);
 }
 .atlas-muestra-rayas-buscada {
   position: relative;
   border-color: var(--atlas-rayas-contorno);
   background:
-    repeating-linear-gradient(45deg, rgba(214, 206, 240, 0.85) 0 1.5px, transparent 1.5px 6px),
-    var(--atlas-lienzo);
+    repeating-linear-gradient(45deg, var(--atlas-rayas-buscada) 0 1.5px, transparent 1.5px 6px),
+    var(--atlas-lamina);
 }
 .atlas-muestra-rayas-buscada::after {
   content: '';
@@ -540,22 +631,22 @@
   height: 6px;
   margin: -3px 0 0 -3px;
   border-radius: 50%;
-  background: var(--atlas-rayas-buscada);
-  border: 1px solid var(--atlas-lienzo);
+  background: var(--atlas-tinta);
+  border: 1px solid #ffffff;
 }
 .atlas-muestra-discordia {
   border: 1.5px dashed var(--atlas-discordia);
-  background: color-mix(in oklab, var(--atlas-frio) 70%, var(--atlas-lienzo));
+  background: color-mix(in oklab, var(--atlas-frio) 30%, var(--atlas-lamina));
 }
 .atlas-muestra-vasos {
   background:
     linear-gradient(100deg, transparent 0 46%, var(--atlas-calido) 47% 53%, transparent 54%),
     linear-gradient(25deg, transparent 0 46%, var(--atlas-calido) 47% 53%, transparent 54%),
-    var(--atlas-lienzo);
+    var(--atlas-lamina);
 }
 .atlas-muestra-fuera {
   border-radius: 6px 6px 50% 50%;
-  background: var(--atlas-calido);
+  background: #b3282d;
 }
 
 /* ---------------------------------------------------------------- panel */
@@ -787,11 +878,11 @@
   border-radius: 8px;
 }
 
-/* Sin color-mix (navegadores antiguos): el relleno se queda en el violeta
+/* Sin color-mix (navegadores antiguos): el relleno se queda en el ámbar
    plano de .atlas-region y la intensidad va toda en la opacidad. */
 @supports not (color: color-mix(in oklab, red 50%, blue)) {
   .atlas-region {
-    fill-opacity: calc(0.45 + 0.55 * var(--atlas-t, 0));
+    fill-opacity: calc(0.35 + 0.55 * var(--atlas-t, 0));
   }
   .atlas-region.atlas-capa-vasos {
     stroke: var(--atlas-calido);
@@ -801,7 +892,8 @@
   .atlas-region:focus-visible {
     fill: var(--atlas-calido);
   }
-  .atlas-muestra-discordia {
+  .atlas-muestra-discordia,
+  .atlas-muestra-rampa {
     background: var(--atlas-frio);
   }
 }

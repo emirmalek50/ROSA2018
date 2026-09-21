@@ -221,8 +221,15 @@ describe('la pantalla del atlas', () => {
     expect(etiquetas).toContain(NOMBRE_CORTO.hipocampo);
     expect(etiquetas.join('\n')).not.toContain('cerebro (sin región)');
     expect(etiquetas.join('\n')).not.toContain('corteza (sin región)');
-    // La silueta neutra del cerebro está debajo de las regiones, sin conteo.
+    // La silueta neutra del cerebro está debajo de las regiones, sin conteo: la lámina anatómica
+    // (cuatro campos de color y 146 trazos de tinta) y los compartimentos de fuera en su color.
     expect(nodo.querySelector('.atlas-silueta')).not.toBeNull();
+    expect(nodo.querySelectorAll('.atlas-silueta .atlas-lamina-campo').length).toBe(4);
+    expect(nodo.querySelectorAll('.atlas-silueta .atlas-lamina-tinta').length).toBe(146);
+    expect(nodo.querySelectorAll('.atlas-silueta .atlas-exterior-base').length).toBeGreaterThanOrEqual(3);
+    // La lámina va ANTES que las regiones en el documento: las regiones se pintan encima.
+    const orden = [...nodo.querySelectorAll('svg.atlas-figura > *')].map((el) => el.getAttribute('class') ?? el.tagName);
+    expect(orden.indexOf('atlas-silueta')).toBeLessThan(orden.indexOf('atlas-regiones'));
     // Los vasos llevan además su zona de pulsación ancha.
     expect(nodo.querySelector('.atlas-vasos-area')).not.toBeNull();
   });
@@ -620,7 +627,11 @@ describe('la pantalla del atlas', () => {
     await montar(estado, inv);
     const leyenda = nodo.querySelector('.atlas-leyenda')!.textContent ?? '';
     expect(leyenda).toContain('Color: cuántas cohortes distintas nombran sus hipótesis; número: cuántos registros.');
-    expect(leyenda).toContain('violeta apagado, 0 cohortes; ámbar brillante, 3 cohortes');
+    expect(leyenda).toContain('ámbar tenue, 0 cohortes; ámbar pleno, 3 cohortes');
+    // El color base es la lámina anatómica, con su crédito visible en la leyenda y en el lienzo.
+    expect(leyenda).toContain('El color base es la lámina anatómica en tonos naturales; el tinte ámbar encima es la evidencia');
+    expect(leyenda).toContain('Ilustración base: Patrick J. Lynch y C. Carl Jaffe, Yale University School of Medicine, CC BY 2.5 (adaptada: escala, recorte y regiones superpuestas)');
+    expect(nodo.querySelector('svg.atlas-figura .atlas-credito')?.textContent).toContain('Patrick J. Lynch y C. Carl Jaffe');
     expect(leyenda).toContain('Rayas tenues: hueco no buscado.');
     expect(leyenda).toContain('Rayas con contorno y punto: buscada sin hallazgo.');
     expect(leyenda).toContain('Borde punteado rojo: discordia.');
@@ -638,12 +649,12 @@ describe('la pantalla del atlas', () => {
     expect(e2[0]).toBe('0');
     expect(e2[2]).toBe('3');
     expect(region('plasma').getAttribute('data-intensidad')).toBe('1.00');
-    expect(nodo.querySelector('.atlas-leyenda')!.textContent).toContain('violeta apagado, 0 cohortes; ámbar brillante, 3 cohortes');
+    expect(nodo.querySelector('.atlas-leyenda')!.textContent).toContain('ámbar tenue, 0 cohortes; ámbar pleno, 3 cohortes');
     // Sin fase identificada quedan la sangre (4 hechos sin cohorte) y el LCR: nada llega al ámbar y la leyenda lo dice en vez de escribir «ámbar brillante, 0».
     await pulsar(boton('sin fase identificada'));
     const leyendaSinFase = nodo.querySelector('.atlas-leyenda')!.textContent ?? '';
     expect(leyendaSinFase).toContain('con estos filtros ninguna región con registros tiene cohortes nombradas');
-    expect(leyendaSinFase).not.toMatch(/ámbar brillante, 0\b/);
+    expect(leyendaSinFase).not.toMatch(/ámbar pleno, 0\b/);
     expect([...nodo.querySelectorAll('.atlas-rampa-extremos > span')].map((s) => s.textContent)[2]).toBe('0');
     await pulsar(boton('Todas'));
     expect(nodo.querySelector('a[href="' + rutaDe(inv.id, 'arbol') + '"]')?.textContent).toContain('Abrir en el árbol');

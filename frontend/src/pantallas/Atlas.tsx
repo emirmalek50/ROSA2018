@@ -6,12 +6,16 @@
 // geometría de lib/atlas_dibujo.ts (una figura Bézier por cada región del
 // vocabulario de rosa/mapa_enfermedad.py).
 //
-// Cómo se lee (ajustes acordados con Emir el 18 de septiembre de 2026): cada
-// región lleva DOS cifras distintas. El COLOR es cuántas cohortes distintas
-// nombran sus HIPÓTESIS (el backend cuenta las cohortes de las afirmaciones de
-// las hipótesis de cada celda, no de los hechos: una región con hechos y sin
-// hipótesis es siempre fría, y el panel lo dice con esas palabras), en una
-// rampa de violeta apagado (0 cohortes) a ámbar brillante (el máximo del
+// Cómo se ve (encargo de Emir del 21 de septiembre de 2026): debajo de las
+// regiones va una ilustración anatómica real en colores naturales, la lámina
+// de Lynch y Jaffe (lib/cerebro_base.ts, CC BY 2.5, con su crédito visible en
+// el lienzo), y las regiones son capas semitransparentes encima. Cómo se lee
+// (ajustes acordados con Emir el 18 de septiembre de 2026): cada región lleva
+// DOS cifras distintas. El COLOR es cuántas cohortes distintas nombran sus
+// HIPÓTESIS (el backend cuenta las cohortes de las afirmaciones de las
+// hipótesis de cada celda, no de los hechos: una región con hechos y sin
+// hipótesis es siempre tenue, y el panel lo dice con esas palabras), como un
+// tinte ámbar sobre la lámina, de tenue (0 cohortes) a pleno (el máximo del
 // mapa) y en escala logarítmica (24 cohortes en la sangre, 0 en el
 // hipocampo); el NÚMERO junto al nombre es cuántos registros (hechos e
 // hipótesis) hay situados en ella. Las regiones sin registros van rayadas de
@@ -67,7 +71,8 @@ import { Esqueleto, EsqueletoTexto } from '../componentes/Esqueleto';
 import { Atlas3D } from '../componentes/Atlas3D';
 import { AvisoMuestra, Chip, Vacio } from '../componentes/piezas';
 import { construirAtlas, ETIQUETAS_MAPA, hechosDe, hipotesisDe, intensidad, NO_LOCALIZADAS, type Atlas as DatosAtlas, type RegionAtlas } from '../lib/atlas';
-import { CONTORNO_CEREBRO, finGuia, NOMBRE_CORTO, puntoMarca, RECORTADAS, RECORTE_HEMISFERIO, REGIONES_DIBUJO, TRAZOS_FINOS, VISTA, type RegionDibujo } from '../lib/atlas_dibujo';
+import { BASE_EXTERIOR, CONTORNO_CEREBRO, finGuia, GLOBO_OCULAR, NOMBRE_CORTO, puntoMarca, RECORTADAS, RECORTE_HEMISFERIO, REGIONES_DIBUJO, TRAZOS_FINOS, VISTA, type RegionDibujo } from '../lib/atlas_dibujo';
+import { CEREBRO_BASE } from '../lib/cerebro_base';
 import { recortar } from '../lib/arbol';
 import { useCalculoDiferido } from '../lib/diferido';
 import { CERTEZA_EVIDENCIA } from '../lib/etiquetas';
@@ -87,6 +92,27 @@ const DIBUJADAS: RegionDibujo[] = REGIONES_DIBUJO.filter((r) => !NO_LOCALIZADAS.
 const TEXTO_BANDEJA = 'ROSA2018 los leyó pero no supo situarlos; releerlos con el catálogo de regiones es trabajo pendiente.';
 /** Cuántas entradas tiene la leyenda real (Leyenda, abajo): la silueta pinta las mismas. */
 const ENTRADAS_LEYENDA = 6;
+/** El crédito de la ilustración base, tal como se ve en el lienzo y en la leyenda (src/datos/atlas/LICENCIA.md). */
+export const CREDITO_LAMINA = `Ilustración base: ${CEREBRO_BASE.credito.autores}, ${CEREBRO_BASE.credito.institucion}, ${CEREBRO_BASE.credito.licencia} (adaptada: escala, recorte y regiones superpuestas)`;
+/** La lámina anatómica y los compartimentos exteriores en su color natural:
+ *  un elemento creado UNA vez (150 trazados que no cambian) para que React no
+ *  los vuelva a reconciliar en cada pasada del ratón por una región. */
+const LAMINA = (
+  <g className="atlas-silueta" aria-hidden="true">
+    <g clipPath="url(#atlas-recorte-lamina)">
+      {CEREBRO_BASE.campos.map((c, i) => (
+        <path key={`c${i}`} d={c.d} fill={c.fill} className="atlas-lamina-campo" />
+      ))}
+      {CEREBRO_BASE.trazos.map((t, i) => (
+        <path key={`t${i}`} d={t.d} className="atlas-lamina-tinta" />
+      ))}
+    </g>
+    {/* El globo del ojo se rellena con el gradiente de esfera (defs de la figura); el resto, con su color plano. */}
+    {Object.entries(BASE_EXTERIOR).flatMap(([clave, partes]) => partes.map((p, i) => <path key={`${clave}${i}`} d={p.d} fill={p.papel === 'globo' ? 'url(#atlas-esclera)' : p.fill} stroke={p.stroke} className={`atlas-exterior-base${p.papel ? ` atlas-exterior-${p.papel}` : ''}`} />))}
+    {/* El brillo de la esfera, arriba a la izquierda. */}
+    <ellipse className="atlas-exterior-brillo" cx={GLOBO_OCULAR.centro[0] - GLOBO_OCULAR.radio * 0.38} cy={GLOBO_OCULAR.centro[1] - GLOBO_OCULAR.radio * 0.4} rx={GLOBO_OCULAR.radio * 0.2} ry={GLOBO_OCULAR.radio * 0.12} />
+  </g>
+);
 /** El rótulo oculto de la silueta, el mismo desde App.tsx y desde aquí. */
 export const ROTULO_ATLAS = 'el atlas de la enfermedad';
 /** El texto FIJO de la cabecera (no depende del cálculo): el párrafo de ayuda
@@ -95,7 +121,7 @@ export const ROTULO_ATLAS = 'el atlas de la enfermedad';
  *  el siguiente (unas 15 líneas a 68ch: con bloques grises la silueta medía
  *  unos 200 px menos y todo lo de debajo bajaba de golpe al llegar el mapa).
  *  Compartir la cadena evita que las dos copias diverjan. */
-const AYUDA_ATLAS = 'El cerebro visto de lado y partido por la mitad (un corte sagital), con la frente a la izquierda. Cada región lleva dos cifras: el color dice cuántas cohortes distintas nombran sus hipótesis (violeta apagado, pocas o ninguna; ámbar brillante, muchas) y el número junto al nombre, cuántos registros (hechos e hipótesis) ha situado ROSA2018 en ella. A rayas, las regiones que no tienen registros: tenues si nadie las buscó, con contorno y punto si alguna consulta o fuente las nombró sin hallazgo. Un borde punteado rojo marca discordia entre hechos. Fuera del cerebro están los sitios donde también se mide la enfermedad (la sangre, la retina y el intestino) y, bajo la figura, la bandeja de lo que ROSA2018 leyó y no supo situar. Pasa el ratón por una región para ver su nombre y sus conteos; púlsala para leer qué es y qué la sostiene. Los filtros de arriba recortan por fase de la enfermedad y por tipo de célula; el deslizador de abajo enseña cómo se fue llenando el mapa iteración a iteración.';
+const AYUDA_ATLAS = 'El cerebro visto de lado y partido por la mitad (un corte sagital), con la frente a la izquierda, sobre una ilustración anatómica en colores naturales. Cada región lleva dos cifras: el color dice cuántas cohortes distintas nombran sus hipótesis (un tinte ámbar tenue, pocas o ninguna; ámbar pleno, muchas) y el número junto al nombre, cuántos registros (hechos e hipótesis) ha situado ROSA2018 en ella. A rayas, las regiones que no tienen registros: tenues si nadie las buscó, con contorno y punto si alguna consulta o fuente las nombró sin hallazgo. Un borde punteado rojo marca discordia entre hechos. Fuera del cerebro están los sitios donde también se mide la enfermedad (la sangre, la retina y el intestino) y, bajo la figura, la bandeja de lo que ROSA2018 leyó y no supo situar. Pasa el ratón por una región para ver su nombre y sus conteos; púlsala para leer qué es y qué la sostiene. Los filtros de arriba recortan por fase de la enfermedad y por tipo de célula; el deslizador de abajo enseña cómo se fue llenando el mapa iteración a iteración.';
 const META_ATLAS = 'Se recalcula al cerrar cada iteración: el mapa es una instantánea, no el modelo de mundo en vivo.';
 
 /** Tramo de resplandor de una intensidad: 0 (sin resplandor) a 4. */
@@ -201,8 +227,8 @@ function Leyenda({ atlas, conFiltros }: { atlas: DatosAtlas; conFiltros: boolean
   // la rampa no mira). Con un máximo de 0 nada es ámbar y se dice.
   const extremos =
     atlas.cohortesMax > 0
-      ? `violeta apagado, 0 cohortes; ámbar brillante, ${plural(atlas.cohortesMax, 'cohorte')} (el máximo de este mapa, en escala logarítmica)`
-      : `${conFiltros ? 'con estos filtros ' : ''}ninguna región con registros tiene cohortes nombradas, así que todas van en violeta apagado y nada llega al ámbar`;
+      ? `ámbar tenue, 0 cohortes; ámbar pleno, ${plural(atlas.cohortesMax, 'cohorte')} (el máximo de este mapa, en escala logarítmica)`
+      : `${conFiltros ? 'con estos filtros ' : ''}ninguna región con registros tiene cohortes nombradas, así que todas van en ámbar tenue y nada llega al ámbar pleno`;
   return (
     <ul className="atlas-leyenda" aria-label="Cómo leer el atlas">
       <li>
@@ -212,7 +238,7 @@ function Leyenda({ atlas, conFiltros }: { atlas: DatosAtlas; conFiltros: boolean
           <span>{atlas.cohortesMax}</span>
         </span>
         <span>
-          <strong>Color: cuántas cohortes distintas nombran sus hipótesis; número: cuántos registros.</strong> El color de una región es cuántas cohortes distintas nombran las hipótesis situadas en ella (las cohortes se cuentan de las afirmaciones de las hipótesis, no de los hechos): {extremos}. El número junto al nombre es cuántos registros (hechos e hipótesis) hay situados en ella. Dos hechos de la misma cohorte no son dos evidencias independientes.
+          <strong>Color: cuántas cohortes distintas nombran sus hipótesis; número: cuántos registros.</strong> El color base es la lámina anatómica en tonos naturales; el tinte ámbar encima es la evidencia: cuántas cohortes distintas nombran las hipótesis situadas en la región (las cohortes se cuentan de las afirmaciones de las hipótesis, no de los hechos): {extremos}. El número junto al nombre es cuántos registros (hechos e hipótesis) hay situados en ella. Dos hechos de la misma cohorte no son dos evidencias independientes. {CREDITO_LAMINA}.
         </span>
       </li>
       <li>
@@ -556,6 +582,15 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 <clipPath id="atlas-recorte">
                   <path d={RECORTE_HEMISFERIO} />
                 </clipPath>
+                <clipPath id="atlas-recorte-lamina">
+                  <rect width={VISTA.ancho} height={CEREBRO_BASE.encaje.recorteY} />
+                </clipPath>
+                {/* La esclera como esfera: luz arriba a la izquierda, sombra hacia el borde. */}
+                <radialGradient id="atlas-esclera" cx="0.36" cy="0.34" r="0.72">
+                  <stop offset="0" stopColor="#fbf8f2" />
+                  <stop offset="0.62" stopColor="#efe7dc" />
+                  <stop offset="1" stopColor="#b8a897" />
+                </radialGradient>
                 <pattern id="atlas-rayas" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
                   <line x1="0" y1="0" x2="0" y2="8" stroke="var(--atlas-rayas)" strokeWidth="1.2" />
                 </pattern>
@@ -580,8 +615,8 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 </filter>
               </defs>
               <rect className="atlas-fondo" width={VISTA.ancho} height={VISTA.alto} />
-              {/* La silueta del cerebro: contorno neutro, sin conteo. Las localizaciones fallidas ya no se pintan como anillos. */}
-              <path d={CONTORNO_CEREBRO} className="atlas-silueta" aria-hidden="true" />
+              {/* La lámina anatómica en colores naturales y los compartimentos de fuera en el suyo: la silueta neutra, sin conteo. */}
+              {LAMINA}
               <g className="atlas-regiones">
                 {DIBUJADAS.map((r) => {
                   const datosRegion = porClave.get(r.clave);
@@ -658,6 +693,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                   );
                 })}
               </g>
+              {selDibujo && <path d={selDibujo.d} className={`atlas-seleccion-halo atlas-capa-${selDibujo.capa ?? 'region'}`} clipPath={RECORTADAS.has(selDibujo.clave) ? 'url(#atlas-recorte)' : undefined} fillRule="evenodd" aria-hidden="true" />}
               {selDibujo && <path d={selDibujo.d} className={`atlas-seleccion atlas-capa-${selDibujo.capa ?? 'region'}`} clipPath={RECORTADAS.has(selDibujo.clave) ? 'url(#atlas-recorte)' : undefined} fillRule="evenodd" aria-hidden="true" />}
               <g className="atlas-etiquetas" aria-hidden="true">
                 {DIBUJADAS.map((r) => {
@@ -682,6 +718,9 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 })}
               </g>
               {flotante}
+              <text className="atlas-credito" x={10} y={VISTA.alto - 7} aria-hidden="true">
+                {CREDITO_LAMINA}
+              </text>
             </svg>
           </div>}
           <p className="atlas-honesta">

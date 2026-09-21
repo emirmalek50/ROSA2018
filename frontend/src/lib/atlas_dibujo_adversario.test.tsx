@@ -16,10 +16,14 @@
 // --atlas-frio y --atlas-calido, dos colores FIJOS que no cuelgan del tema, con
 // la opacidad de `fill-opacity: calc(a + b * t)`) se recalcula aquí con la
 // conversión oklab del CSS Color 4, leyendo los valores tal como están
-// escritos en atlas.css. El relleno se compone sobre el lienzo en sRGB, que es
-// como lo hace el navegador con fill-opacity (medido en Chromium con un canvas:
-// la mezcla en luz lineal salía medio punto de contraste más optimista). El
-// resultado reproduce el píxel que Chromium pinta con un margen de 2 niveles.
+// escritos en atlas.css. Desde el 21 de septiembre de 2026 el relleno es un
+// tinte sobre la lámina anatómica (--atlas-lamina), no sobre el lienzo
+// oscuro, y se compone sobre ella en sRGB, que es como lo hace el navegador
+// con fill-opacity (medido en Chromium con un canvas el 18 de septiembre: la
+// mezcla en luz lineal salía medio punto más optimista). Lo que se exige es
+// que el tinte se distinga de la lámina sin tintar desde t = 0 y crezca con
+// las cohortes, y que la fórmula coincida con la de lib/atlas_color.ts, que
+// es la que usa el lienzo 3D.
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -32,6 +36,7 @@ import { estadoDeMuestra } from '../datos/muestra';
 import type { CeldaMapa, EstadoRosa, HechoMundo, Investigacion, MapaEnfermedad } from '../datos/tipos';
 import { Atlas } from '../pantallas/Atlas';
 import { intensidad } from './atlas';
+import { rellenoRegion } from './atlas_color';
 import { NOMBRE_CORTO, RECORTADAS, RECORTE_HEMISFERIO, REGIONES_DIBUJO, VISTA, type RegionDibujo } from './atlas_dibujo';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
@@ -224,8 +229,6 @@ function oklabALineal([L, a, b]: RGB): RGB {
 
 /** color-mix(in oklab, A p, B): interpolación lineal de las coordenadas oklab. */
 const mezclar = (a: RGB, p: number, b: RGB): RGB => [a[0] * p + b[0] * (1 - p), a[1] * p + b[1] * (1 - p), a[2] * p + b[2] * (1 - p)];
-const luminancia = ([r, g, b]: RGB): number => 0.2126 * r + 0.7152 * g + 0.0722 * b;
-const contraste = (a: RGB, b: RGB): number => (Math.max(luminancia(a), luminancia(b)) + 0.05) / (Math.min(luminancia(a), luminancia(b)) + 0.05);
 
 /** Un token de :root en atlas.css tal como está escrito. Los tres de la rampa
  *  (lienzo, frío y cálido) tienen que ser un hexadecimal FIJO: si alguno
@@ -240,20 +243,22 @@ function tokenAtlas(nombre: string): string {
 /** La fórmula de la rampa tal como está escrita en atlas.css; si cambia, el test lo dice. */
 function formulaRampa() {
   const lienzo = tokenAtlas('--atlas-lienzo');
+  const lamina = tokenAtlas('--atlas-lamina');
   const frio = tokenAtlas('--atlas-frio');
   const calido = tokenAtlas('--atlas-calido');
-  for (const [nombre, valor] of [['--atlas-lienzo', lienzo], ['--atlas-frio', frio], ['--atlas-calido', calido]] as const) {
+  for (const [nombre, valor] of [['--atlas-lienzo', lienzo], ['--atlas-lamina', lamina], ['--atlas-frio', frio], ['--atlas-calido', calido]] as const) {
     if (!/^#[0-9a-fA-F]{6}$/.test(valor)) throw new Error(`${nombre} en atlas.css ya no es un hexadecimal fijo (${valor}): la rampa volvería a depender del tema; actualizar el CSS o formulaRampa() en este test`);
   }
   const opacidad = CSS_ATLAS.match(/fill-opacity:\s*calc\(([\d.]+) \+ ([\d.]+) \* var\(--atlas-t, 0\)\)/);
   if (!opacidad) throw new Error('la fórmula de la opacidad en atlas.css cambió: actualizar formulaRampa() en este test');
-  return { lienzo, frio, calido, opacidad0: Number(opacidad[1]), opacidad1: Number(opacidad[2]) };
+  return { lienzo, lamina, frio, calido, opacidad0: Number(opacidad[1]), opacidad1: Number(opacidad[2]) };
 }
 
-/** El color efectivo de una región de intensidad t sobre el lienzo (el píxel
- *  que pinta el navegador: relleno en oklab, opacidad compuesta en sRGB) y su
- *  contraste con el lienzo. El tema no cambia nada: la rampa está fijada. */
-function relleno(t: number): { rgb: RGB; contraste: number } {
+/** El relleno de una región de intensidad t (color-mix en oklab, en sRGB 0..255,
+ *  antes de componerlo), su opacidad, el píxel efectivo sobre la lámina (la
+ *  opacidad se compone en sRGB) y la distancia en oklab de ese píxel a la
+ *  lámina sin tintar. El tema no cambia nada: la rampa está fijada. */
+function relleno(t: number): { fill: RGB; opacidad: number; rgb: RGB; diferencia: number } {
   const f = formulaRampa();
   const frio = linealAOklab(rgbALineal(hexARgb(f.frio)));
   const calido = linealAOklab(rgbALineal(hexARgb(f.calido)));
@@ -262,9 +267,11 @@ function relleno(t: number): { rgb: RGB; contraste: number } {
   const aSrgb = (v: number) => 255 * (v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055);
   const fill = oklabALineal(mezclar(calido, p, frio)).map(aSrgb) as RGB;
   const opacidad = f.opacidad0 + f.opacidad1 * Number(t.toFixed(3));
-  const fondo = hexARgb(f.lienzo);
+  const fondo = hexARgb(f.lamina);
   const rgb = [0, 1, 2].map((i) => Math.round(fill[i]! * opacidad + fondo[i]! * (1 - opacidad))) as RGB;
-  return { rgb, contraste: contraste(rgbALineal(rgb), rgbALineal(fondo)) };
+  const a = linealAOklab(rgbALineal(rgb));
+  const b = linealAOklab(rgbALineal(fondo));
+  return { fill: fill.map(Math.round) as RGB, opacidad, rgb, diferencia: Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) };
 }
 
 // ---------------------------------------------------------------------------
@@ -345,61 +352,53 @@ describe('la rampa de color del atlas (adversario)', () => {
   // investigación grande del 18 de septiembre de 2026: 24 en la sangre.
   const MAXIMO_COHORTES = 24;
 
-  it('la fórmula recalculada reproduce el píxel que Chromium pinta (control del método)', () => {
-    // Medido en Chromium (playwright, chromium_headless_shell) con atlas.css tal cual, componiendo el
-    // relleno calculado con su fill-opacity sobre el lienzo en un canvas: t = 0 (una región con
-    // registros y ninguna cohorte nombrada, como el hipocampo real) da fill oklab(0.589806 0.0522909
-    // -0.118285) con opacidad 0,8 y píxel rgb(106, 88, 159); 1 cohorte de 24 (t = 0,215), opacidad
-    // 0,843 y rgb(131, 108, 153); 2 de 24 (t = 0,341), rgb(146, 120, 148); el máximo, rgb(249, 182, 84).
-    // Si este test falla, la fórmula del test ya no es la de atlas.css y los dos siguientes no valen.
-    const casos: [number, RGB][] = [
-      [0, [106, 88, 159]],
-      [intensidad(1, MAXIMO_COHORTES), [131, 108, 153]],
-      [intensidad(2, MAXIMO_COHORTES), [146, 120, 148]],
-      [1, [249, 182, 84]],
-    ];
-    expect(intensidad(1, MAXIMO_COHORTES)).toBeCloseTo(0.215, 2);
-    for (const [t, esperado] of casos) {
-      const { rgb } = relleno(t);
-      for (let i = 0; i < 3; i++) expect(Math.abs(rgb[i]! - esperado[i]!), `t = ${t.toFixed(3)}: rgb(${rgb.join(', ')}) frente a Chromium rgb(${esperado.join(', ')})`).toBeLessThanOrEqual(2);
+  it('la fórmula recalculada es la misma que la de lib/atlas_color.ts, la que usa el lienzo 3D (control del método)', () => {
+    // El 2D pinta con atlas.css y el 3D con rellenoRegion(): si la hoja de estilos cambia sin tocar
+    // atlas_color.ts (o al revés), los dos lienzos dejan de dar el mismo píxel. Se comparan el color
+    // del relleno antes de componerlo (con margen de 1 nivel por el redondeo) y la opacidad.
+    for (const t of [0, intensidad(1, MAXIMO_COHORTES), intensidad(2, MAXIMO_COHORTES), 0.5, 1]) {
+      const css = relleno(t);
+      const codigo = rellenoRegion(t);
+      const rgb = codigo.color.match(/\d+/g)!.map(Number);
+      for (let i = 0; i < 3; i++) expect(Math.abs(css.fill[i]! - rgb[i]!), `t = ${t.toFixed(3)}: atlas.css rgb(${css.fill.join(', ')}) frente a atlas_color ${codigo.color}`).toBeLessThanOrEqual(1);
+      expect(codigo.opacidad).toBeCloseTo(css.opacidad, 6);
     }
+    expect(intensidad(1, MAXIMO_COHORTES)).toBeCloseTo(0.215, 2);
   });
 
-  it('una región con registros y pocas o ninguna cohorte contrasta al menos 3:1 con el lienzo (WCAG 1.4.11, objetos gráficos)', () => {
+  it('una región con registros y pocas o ninguna cohorte se distingue de la lámina sin tintar, y el tinte crece con las cohortes', () => {
     // Con el color por cohortes, t = 0 con registros es el caso MÁS frecuente (en la investigación
     // grande el hipocampo tiene 15 registros y 0 cohortes; la entorrinal, el cíngulo y la amígdala,
-    // igual). Con el suelo de opacidad anterior (0,55) ese violeta contrastaba 2,5:1 con el píxel
-    // real; con 0,7 y mezcla en sRGB, 2,53:1. La leyenda promete "pocas o ninguna", no "nada".
+    // igual). Sobre la lámina rosada un tinte de menos de 0,02 en oklab no se nota; se exige 0,035.
     const fallos: string[] = [];
     for (const [nombre, t] of [['0 cohortes', 0], ['1 de 24', intensidad(1, MAXIMO_COHORTES)], ['2 de 24', intensidad(2, MAXIMO_COHORTES)]] as const) {
-      const { rgb, contraste: c } = relleno(t);
-      if (c < 3) fallos.push(`${nombre}: rgb(${rgb.join(', ')}) contrasta ${c.toFixed(2)}:1`);
+      const { rgb, diferencia } = relleno(t);
+      if (diferencia < 0.035) fallos.push(`${nombre}: rgb(${rgb.join(', ')}) se aleja ${diferencia.toFixed(3)} de la lámina`);
     }
     expect(fallos).toEqual([]);
-    // Y la rampa crece con las cohortes hasta pasar de 10:1 en el máximo.
+    // Y el tinte crece con las cohortes hasta un ámbar pleno (más de 0,15 de la lámina).
     let anterior = 0;
     for (const n of [0, 1, 2, 4, 8, 16, 24]) {
-      const c = relleno(intensidad(n, MAXIMO_COHORTES)).contraste;
-      expect(c, `${n} de ${MAXIMO_COHORTES}`).toBeGreaterThan(anterior);
-      anterior = c;
+      const d = relleno(intensidad(n, MAXIMO_COHORTES)).diferencia;
+      expect(d, `${n} de ${MAXIMO_COHORTES}`).toBeGreaterThan(anterior);
+      anterior = d;
     }
-    expect(anterior).toBeGreaterThan(10);
+    expect(anterior).toBeGreaterThan(0.15);
   });
 
-  it('el lienzo es siempre oscuro, así que la rampa está fijada y no cuelga de los tokens del tema', () => {
-    // atlas.css fija el lienzo (#0b0a14); si la rampa colgara de --amber y --grafo-cluster-0, que en el
-    // tema claro valen #d97706 y #7c3aed (pensados para leer sobre blanco) y en el oscuro #f59e0b y
-    // #a78bfa, la misma región con la misma evidencia se vería más apagada en tema claro sobre el mismo
-    // fondo negro (para 6 registros de 107 el contraste bajaba de 3,9:1 a 2,8:1). formulaRampa() ya
-    // exige hexadecimales fijos; aquí se comprueba además que ninguna regla de la rampa (relleno y trazo
-    // de las regiones) toque un token del tema.
+  it('el lienzo y la lámina son siempre los mismos, así que la rampa está fijada y no cuelga de los tokens del tema', () => {
+    // atlas.css fija el lienzo (#0b0a14) y la lámina (#f0e1df); si la rampa colgara de --amber y
+    // --grafo-cluster-0, que en el tema claro valen #d97706 y #7c3aed (pensados para leer sobre blanco)
+    // y en el oscuro #f59e0b y #a78bfa, la misma región con la misma evidencia se vería de otro color en
+    // tema claro sobre la misma lámina. formulaRampa() ya exige hexadecimales fijos; aquí se comprueba
+    // además que ninguna regla de la rampa (relleno y trazo de las regiones) toque un token del tema.
     const reglas = [...CSS_ATLAS.matchAll(/\.atlas-region[^{]*\{([^}]*)\}/g)].map((m) => m[1]!);
     expect(reglas.length).toBeGreaterThan(0);
     for (const r of reglas) {
       expect(r).not.toMatch(/var\(--(?:amber|grafo-cluster-\d|accent|text|border)/);
     }
-    // Y los tres tokens no llevan var() ni color-mix.
-    for (const nombre of ['--atlas-lienzo', '--atlas-frio', '--atlas-calido']) expect(tokenAtlas(nombre)).toMatch(/^#[0-9a-fA-F]{6}$/);
+    // Y los cuatro tokens no llevan var() ni color-mix.
+    for (const nombre of ['--atlas-lienzo', '--atlas-lamina', '--atlas-frio', '--atlas-calido']) expect(tokenAtlas(nombre)).toMatch(/^#[0-9a-fA-F]{6}$/);
   });
 });
 
