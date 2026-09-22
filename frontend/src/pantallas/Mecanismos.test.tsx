@@ -229,3 +229,90 @@ describe('cuando una hipótesis no tiene amenazas', () => {
     expect(nodo.querySelector('.mec-sin-amenazas')).toBe(null);
   });
 });
+
+describe('señalar un nodo enseña con qué está conectado', () => {
+  const CADENA: Nodo[] = [
+    { id: 'B:amiloide', etiqueta: 'amiloide', rol: 'base', capa: 'patologia' },
+    { id: 'B:tau', etiqueta: 'tau', rol: 'base', capa: 'patologia' },
+    { id: 'B:GFAP', etiqueta: 'GFAP', rol: 'base', capa: 'marcadores' },
+    { id: 'B:NfL', etiqueta: 'NfL', rol: 'base', capa: 'marcadores' },
+  ];
+  const ARISTAS = [
+    { de: 'B:amiloide', a: 'B:tau', tipo: 'base_curada', contexto: 'precede a tau' },
+    { de: 'B:amiloide', a: 'B:GFAP', tipo: 'base_curada', contexto: 'sube el GFAP' },
+  ];
+
+  it('enciende sus flechas y sus vecinos, y apaga lo demás', async () => {
+    await montar(estadoCon([hip('h1', { nodos: CADENA, aristas: ARISTAS })]));
+    const amiloide = [...nodo.querySelectorAll<HTMLElement>('.mec-nodo')].find((n) => n.textContent?.includes('amiloide'))!;
+    await act(async () => {
+      amiloide.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+      amiloide.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+    });
+    expect(nodo.querySelectorAll('.mec-nodo.mec-senalado')).toHaveLength(1);
+    // tau y GFAP son vecinos; NfL no.
+    const vecinos = [...nodo.querySelectorAll('.mec-nodo.mec-vecino')].map((n) => n.textContent);
+    expect(vecinos.join(' ')).toContain('tau');
+    expect(vecinos.join(' ')).toContain('GFAP');
+    const apagados = [...nodo.querySelectorAll('.mec-nodo.mec-apagado')].map((n) => n.textContent);
+    expect(apagados.join(' ')).toContain('NfL');
+    // Las dos flechas de amiloide encendidas.
+    expect(nodo.querySelectorAll('path.mec-consenso.mec-encendida')).toHaveLength(2);
+  });
+
+  it('al quitar el ratón vuelve todo a su sitio', async () => {
+    await montar(estadoCon([hip('h1', { nodos: CADENA, aristas: ARISTAS })]));
+    const amiloide = [...nodo.querySelectorAll<HTMLElement>('.mec-nodo')].find((n) => n.textContent?.includes('amiloide'))!;
+    await act(async () => amiloide.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false })));
+    await act(async () => amiloide.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false })));
+    expect(nodo.querySelectorAll('.mec-nodo.mec-apagado')).toHaveLength(0);
+    expect(nodo.querySelectorAll('path.mec-consenso.mec-encendida')).toHaveLength(0);
+  });
+});
+
+describe('la hipótesis está en el mapa', () => {
+  it('dibuja lo que mueve y dónde lo lee, para que las amenazas tengan a qué apuntar', async () => {
+    await montar(
+      estadoCon([
+        hip('h1', {
+          nodos: [
+            ...CASCADA,
+            { id: 'X', etiqueta: 'dosis de APOE e4', rol: 'exposicion' },
+            { id: 'Y', etiqueta: 'brecha GFAP-NfL a 24 meses', rol: 'desenlace' },
+            { id: 'A1', etiqueta: 'la edad mueve las dos', rol: 'alternativa_confusor' },
+          ],
+          aristas: [
+            { de: 'A1', a: 'Y', tipo: 'supuesto', contexto: '' },
+            { de: 'X', a: 'Y', tipo: 'supuesto', contexto: '' },
+          ],
+        }),
+      ]),
+    );
+    const actores = [...nodo.querySelectorAll('.mec-actor')].map((n) => n.textContent);
+    expect(actores).toHaveLength(2);
+    expect(actores[0]).toContain('dosis de APOE e4');
+    expect(actores[1]).toContain('brecha GFAP-NfL');
+    // La amenaza ataca a Y, así que sale UNA flecha roja, no una inventada.
+    expect(nodo.querySelectorAll('path.mec-amenaza-linea')).toHaveLength(1);
+  });
+
+  it('una amenaza que ataca a los dos dibuja dos flechas', async () => {
+    await montar(
+      estadoCon([
+        hip('h1', {
+          nodos: [
+            ...CASCADA,
+            { id: 'X', etiqueta: 'la exposición', rol: 'exposicion' },
+            { id: 'Y', etiqueta: 'el desenlace', rol: 'desenlace' },
+            { id: 'A1', etiqueta: 'causa común', rol: 'alternativa_confusor' },
+          ],
+          aristas: [
+            { de: 'A1', a: 'X', tipo: 'supuesto', contexto: '' },
+            { de: 'A1', a: 'Y', tipo: 'supuesto', contexto: '' },
+          ],
+        }),
+      ]),
+    );
+    expect(nodo.querySelectorAll('path.mec-amenaza-linea')).toHaveLength(2);
+  });
+});

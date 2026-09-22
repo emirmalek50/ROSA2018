@@ -388,3 +388,44 @@ describe('el orden dentro de una columna', () => {
     expect(c.nodos.find((n) => n.id === 'c')!.profundidad).toBe(2);
   });
 });
+
+describe('a qué ataca cada amenaza', () => {
+  it('sale de las aristas del grafo, no de una suposición de la pantalla', () => {
+    // En la corrida 16 las amenazas apuntan a Y 51 veces y a X 32, y nunca a
+    // un nodo de la cascada. Dibujarlas apuntando a otra cosa sería inventar
+    // una relación, que es justo lo que esta pantalla no puede hacer.
+    const a = amenazasDe({
+      nodos: [
+        { id: 'X', etiqueta: 'la exposición', rol: 'exposicion' },
+        { id: 'Y', etiqueta: 'el desenlace', rol: 'desenlace' },
+        { id: 'A1', etiqueta: 'causa común', rol: 'alternativa_confusor' },
+        { id: 'A2', etiqueta: 'deriva de lote', rol: 'alternativa_artefacto' },
+      ],
+      aristas: [
+        { de: 'A1', a: 'X', tipo: 'supuesto', contexto: '' },
+        { de: 'A1', a: 'Y', tipo: 'supuesto', contexto: '' },
+        { de: 'A2', a: 'Y', tipo: 'supuesto', contexto: '' },
+      ],
+      identificacion: 'acotado',
+      supuestosCumplidos: [],
+      supuestosFaltantes: [],
+      resumen: '',
+      calculadoEn: 0,
+    });
+    expect(a.find((x) => x.id === 'A1')!.hacia.sort()).toEqual(['X', 'Y']);
+    expect(a.find((x) => x.id === 'A2')!.hacia).toEqual(['Y']);
+  });
+
+  it('una amenaza sin arista no ataca a nada, y se dice así', () => {
+    const a = amenazasDe({
+      nodos: [{ id: 'A1', etiqueta: 'suelta', rol: 'alternativa_otra' }],
+      aristas: [],
+      identificacion: 'acotado',
+      supuestosCumplidos: [],
+      supuestosFaltantes: [],
+      resumen: '',
+      calculadoEn: 0,
+    });
+    expect(a[0]!.hacia).toEqual([]);
+  });
+});

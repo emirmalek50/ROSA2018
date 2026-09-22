@@ -48,6 +48,12 @@ const META =
  *  se separan al cambiar el tamaño de la ventana. */
 const ANCHO = 1000;
 const ALTO = 430;
+/** La banda de la hipótesis (X e Y) y la de las amenazas, debajo de la
+ *  cascada. La hipótesis se dibuja: si no, las flechas rojas no tienen a qué
+ *  apuntar y la pantalla acaba inventando un destino. */
+const Y_HIPOTESIS = ALTO + 24;
+const Y_AMENAZAS = ALTO + 150;
+const LIENZO_ALTO = ALTO + 300;
 
 /** Cuánto ocupa una caja, para que las flechas salgan del borde y no del
  *  centro. En coordenadas del lienzo. */
@@ -60,8 +66,13 @@ function curva(a: { x: number; y: number }, b: { x: number; y: number }, desvio 
   const x1 = a.x + CAJA_ANCHO / 2;
   const x2 = b.x - CAJA_ANCHO / 2;
   if (x2 <= x1) {
-    const caida = Math.max(Math.abs(b.y - a.y), 40);
-    return `M${a.x},${a.y + CAJA_ALTO / 2} C${a.x},${a.y + caida} ${b.x},${b.y + caida} ${b.x},${b.y + CAJA_ALTO / 2}`;
+    // Misma columna: se rodea por el LADO, no por debajo. Con un bucle hacia
+    // abajo la curva se salía de la cascada y entraba en la banda de la
+    // hipótesis, y entonces parecía que el nodo conectaba con ella (22 de
+    // septiembre de 2026). Una flecha nunca puede acabar donde no acaba.
+    const lado = a.x - CAJA_ANCHO / 2;
+    const fuera = lado - 58;
+    return `M${lado},${a.y} C${fuera},${a.y} ${fuera},${b.y} ${b.x - CAJA_ANCHO / 2},${b.y}`;
   }
   const medio = (x1 + x2) / 2;
   // Con desvío, los puntos de control se separan de la recta y la flecha
@@ -87,6 +98,10 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
   // llevarían. Se vacía al cambiar de hipótesis: son preguntas de esa, no del
   // programa.
   const [encendidos, encender] = useState<Set<string>>(new Set());
+  // El nodo que se está señalando con el ratón (o con el teclado). Al
+  // señalarlo se encienden sus flechas y los nodos del otro extremo: es la
+  // única forma de seguir una línea en un grafo con quince aristas.
+  const [sobre, señalar] = useState<string | null>(null);
 
   const elegida: Hipotesis | null = useMemo(
     () => hipotesis.find((h) => h.id === elegidaId) ?? hipotesis[0] ?? null,
@@ -116,6 +131,17 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
     () => puestos.map((p) => ({ id: p.id, x: p.x + CAJA_ANCHO / 2, y: p.y + CAJA_ALTO / 2 })),
     [puestos],
   );
+
+  /** Los nodos al otro extremo de una flecha del señalado. */
+  const vecinos = useMemo(() => {
+    if (!sobre) return new Set<string>();
+    const v = new Set<string>();
+    for (const a of casc.aristas) {
+      if (a.de === sobre) v.add(a.a);
+      if (a.a === sobre) v.add(a.de);
+    }
+    return v;
+  }, [sobre, casc.aristas]);
 
   const columnas = useMemo(() => {
     const vistas = new Map<Capa, number>();
@@ -213,8 +239,8 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
 
       <div className="mec-fila">
         <div className="mec-marco">
-          <div className="mec-lienzo" style={{ aspectRatio: `${ANCHO} / ${ALTO + 150}` }}>
-            <svg viewBox={`0 0 ${ANCHO} ${ALTO + 150}`} aria-hidden="true">
+          <div className="mec-lienzo" style={{ aspectRatio: `${ANCHO} / ${LIENZO_ALTO}` }}>
+            <svg viewBox={`0 0 ${ANCHO} ${LIENZO_ALTO}`}>
               <defs>
                 <marker
                   id="mec-gris"
@@ -226,6 +252,17 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                   orient="auto"
                 >
                   <path d="M0,0 L9,3.5 L0,7 z" fill="var(--text-3)" />
+                </marker>
+                <marker
+                  id="mec-morado"
+                  markerUnits="userSpaceOnUse"
+                  markerWidth="11"
+                  markerHeight="9"
+                  refX="10"
+                  refY="4.5"
+                  orient="auto"
+                >
+                  <path d="M0,0 L11,4.5 L0,9 z" fill="var(--accent)" />
                 </marker>
                 <marker
                   id="mec-rojo"
@@ -247,25 +284,51 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                 const estorbos = cajas.filter((c) => c.id !== a.de && c.id !== a.a);
                 const desvio = desvioDeArco(de, hacia, estorbos, CAJA_ANCHO, CAJA_ALTO);
                 return (
-                  <path key={`${a.de}-${a.a}`} d={curva(de, hacia, desvio)} className="mec-consenso" markerEnd="url(#mec-gris)">
+                  <path
+                    key={`${a.de}-${a.a}`}
+                    d={curva(de, hacia, desvio)}
+                    className={
+                      !sobre
+                        ? 'mec-consenso'
+                        : a.de === sobre || a.a === sobre
+                          ? 'mec-consenso mec-encendida'
+                          : 'mec-consenso mec-apagada'
+                    }
+                    markerEnd="url(#mec-gris)"
+                  >
                     <title>{`Consenso del campo: ${a.de} lleva a ${a.a}. ${a.contexto}`}</title>
                   </path>
                 );
               })}
+              {/* La hipótesis: lo que afirma, de X a Y. Sin dato propio, por eso
+                  va en morado discontinuo. */}
+              {(actores.exposicion || actores.desenlace) && (
+                <path
+                  d={`M${ANCHO * 0.3 + CAJA_ANCHO},${Y_HIPOTESIS + CAJA_ALTO / 2} L${ANCHO * 0.7 - CAJA_ANCHO},${Y_HIPOTESIS + CAJA_ALTO / 2}`}
+                  className="mec-afirma"
+                  markerEnd="url(#mec-morado)"
+                >
+                  <title>Lo que afirma la hipótesis, sin dato propio que lo sostenga</title>
+                </path>
+              )}
               {amenazas.map((am, i) => {
-                const destino = porId.get(casc.nodos[Math.min(i * 3 + 3, casc.nodos.length - 1)]?.id ?? '');
+                // A donde apunta DE VERDAD, segun las aristas del grafo.
+                const aX = am.hacia.includes('X');
+                const aY = am.hacia.includes('Y');
                 const x = (ANCHO * (i + 0.5)) / amenazas.length;
-                if (!destino) return null;
-                return (
-                  <path
-                    key={am.id}
-                    d={`M${x},${ALTO + 42} C${x},${ALTO - 20} ${destino.x},${destino.y + 90} ${destino.x},${destino.y + CAJA_ALTO / 2 + 6}`}
-                    className="mec-amenaza-linea"
-                    markerEnd="url(#mec-rojo)"
-                  >
-                    <title>{`${am.clase} que ensucia esta lectura: ${am.texto}`}</title>
-                  </path>
-                );
+                return [aX ? 'X' : null, aY ? 'Y' : null].filter(Boolean).map((cual) => {
+                  const dx = cual === 'X' ? ANCHO * 0.3 : ANCHO * 0.7;
+                  return (
+                    <path
+                      key={`${am.id}-${cual}`}
+                      d={`M${x},${Y_AMENAZAS - 6} C${x},${Y_AMENAZAS - 50} ${dx},${Y_HIPOTESIS + CAJA_ALTO + 70} ${dx},${Y_HIPOTESIS + CAJA_ALTO + 8}`}
+                      className="mec-amenaza-linea"
+                      markerEnd="url(#mec-rojo)"
+                    >
+                      <title>{`${am.clase}: ataca a ${cual === 'X' ? 'lo que la hipótesis mueve' : 'lo que la hipótesis lee'}. ${am.texto}`}</title>
+                    </path>
+                  );
+                });
               })}
             </svg>
 
@@ -281,10 +344,23 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
               return (
                 <div
                   key={n.id}
-                  className={`mec-nodo mec-${intensidad(n.enJuego, casc.total)}`}
+                  className={[
+                    'mec-nodo',
+                    `mec-${intensidad(n.enJuego, casc.total)}`,
+                    sobre === n.id ? 'mec-senalado' : '',
+                    sobre && vecinos.has(n.id) ? 'mec-vecino' : '',
+                    sobre && sobre !== n.id && !vecinos.has(n.id) ? 'mec-apagado' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  tabIndex={0}
+                  onMouseEnter={() => señalar(n.id)}
+                  onMouseLeave={() => señalar(null)}
+                  onFocus={() => señalar(n.id)}
+                  onBlur={() => señalar(null)}
                   style={{
                     left: `${((p.x + CAJA_ANCHO / 2) / ANCHO) * 100}%`,
-                    top: `${(p.y / (ALTO + 150)) * 100}%`,
+                    top: `${(p.y / LIENZO_ALTO) * 100}%`,
                     width: `${(CAJA_ANCHO / ANCHO) * 100}%`,
                   }}
                   title={`${n.etiqueta} entra en juego en ${n.enJuego} de las ${casc.total} hipótesis, como actor o como confusor`}
@@ -297,13 +373,34 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
               );
             })}
 
+            {(actores.exposicion || actores.desenlace) && (
+              <>
+                <div
+                  className="mec-actor"
+                  style={{ left: '30%', top: `${(Y_HIPOTESIS / LIENZO_ALTO) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
+                  title={actores.exposicion}
+                >
+                  <b>LO QUE MUEVE</b>
+                  <span>{actores.exposicion || 'sin declarar'}</span>
+                </div>
+                <div
+                  className="mec-actor"
+                  style={{ left: '70%', top: `${(Y_HIPOTESIS / LIENZO_ALTO) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
+                  title={actores.desenlace}
+                >
+                  <b>Y LO LEE EN</b>
+                  <span>{actores.desenlace || 'sin declarar'}</span>
+                </div>
+              </>
+            )}
+
             {amenazas.map((am, i) => (
               <div
                 key={am.id}
                 className="mec-amenaza"
                 style={{
                   left: `${((i + 0.5) / amenazas.length) * 100}%`,
-                  top: `${((ALTO + 46) / (ALTO + 150)) * 100}%`,
+                  top: `${(Y_AMENAZAS / LIENZO_ALTO) * 100}%`,
                   width: `${94 / amenazas.length}%`,
                 }}
               >

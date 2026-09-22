@@ -1380,3 +1380,54 @@ Regla que sale de aquí, y que vale para cualquier grafo que se pinte en
 ROSA2018: **si el dibujo permite leer una arista que no existe, el dibujo está
 mal, por bonito que sea.** En un programa cuyo trabajo es no afirmar de más,
 una flecha fantasma es del mismo tipo de error que una cita que no resuelve.
+
+### La hipótesis no estaba en el mapa, y las flechas rojas apuntaban a cualquier sitio (22 de septiembre de 2026)
+
+Emir pidió dos cosas: resaltar las conexiones al pasar el ratón, e iluminar lo
+que tiene que ver con la hipótesis elegida. Al ir a hacerlo apareció un fallo
+peor que los dos anteriores.
+
+**Las flechas de amenaza apuntaban a una caja elegida por índice**
+(`casc.nodos[i * 3 + 3]`), o sea inventada. En los datos las amenazas apuntan
+siempre a `X` (32 veces) o a `Y` (51) y **nunca** a un nodo de la cascada,
+porque atacan a lo que la hipótesis mueve o a donde lo lee. Y la pantalla no
+dibujaba ni X ni Y.
+
+De ahí salía la pregunta de Emir: *"si lo que realmente importaría serían los
+cuadros rojos... no entiendo para qué tendría sentido seguir viendo esos
+cuadritos"*. Tenía razón por una razón que yo no había visto: **la hipótesis no
+estaba en el mapa**, así que el mapa no podía decir nada de ella.
+
+Arreglado: se dibujan `LO QUE MUEVE` y `Y LO LEE EN` (X e Y) en su propia
+banda, en morado discontinuo porque es lo que la hipótesis afirma sin dato
+propio, y cada amenaza apunta a X, a Y o a las dos **según sus aristas**. Una
+amenaza que ataca a los dos dibuja dos flechas.
+
+Y con eso, señalar un nodo enciende sus flechas y sus vecinos y apaga el resto,
+que es lo que hace legible un grafo de quince aristas.
+
+**Un tercer fantasma, de regalo.** Las aristas de la misma columna se dibujaban
+con un bucle hacia abajo cuya caída era la distancia vertical, así que se
+salían de la cascada y entraban en la banda de la hipótesis: parecía que
+`amiloide` conectaba con `LO QUE MUEVE`. Ahora rodean por el lado y se quedan
+dentro.
+
+### Lo que hice mal en este bloque, para no repetirlo
+
+Emir, con razón: *"estas cometiendo demasiados errores"*. En esta pantalla
+metí, por orden: paleta del Atlas en una aplicación clara, cajas con fondo
+translúcido que dejaban ver las flechas por detrás, un morado con dos
+significados, flechas que cruzaban cajas y se leían como aristas que no
+existen, un número sin explicar, y flechas rojas con destino inventado.
+
+Dos causas, y las dos tienen el mismo remedio:
+
+1. **Cambiar lo visual sin mirarlo.** Los tests pasaban en todos esos casos:
+   ninguno comprueba que una flecha acabe donde dice. Antes de tocar el dibujo,
+   renderizar y mirar.
+2. **Aceptar el marco de quien pregunta sin comprobarlo.** Cuando preguntó si
+   las líneas grises deberían cambiar según la hipótesis, le dije que sí. Es
+   que no: la cascada es la biología y no cambia. Lo implementé, rompió la
+   cadena (apagaba `tau` y `amiloide -> tau -> neurodegeneracion` aparecía
+   partida) y hubo que revertirlo. **Comprobar primero, contestar después**, y
+   decir que no cuando toca.

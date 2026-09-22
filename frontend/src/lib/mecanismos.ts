@@ -268,15 +268,28 @@ export interface Amenaza {
   id: string;
   clase: string;
   texto: string;
+  /** A qué ataca, según las aristas del grafo: la exposición ('X'), el
+   *  desenlace ('Y') o las dos. Medido el 22 de septiembre de 2026 sobre la
+   *  corrida 16: las amenazas apuntan a Y 51 veces y a X 32, y NUNCA a un nodo
+   *  de la cascada. Si la pantalla las dibuja apuntando a otra cosa, está
+   *  inventando una relación. */
+  hacia: string[];
 }
 
 /** Las explicaciones alternativas de un grafo: lo que tendría que ser falso
- *  para que el efecto sea del actor y no de otra cosa. */
+ *  para que el efecto sea del actor y no de otra cosa, con lo que ataca cada
+ *  una. */
 export function amenazasDe(grafo: GrafoCausal | null | undefined): Amenaza[] {
   if (!grafo || !Array.isArray(grafo.nodos)) return [];
+  const aristas = Array.isArray(grafo.aristas) ? grafo.aristas : [];
   return grafo.nodos
     .filter((n) => typeof n.rol === 'string' && n.rol.startsWith('alternativa_'))
-    .map((n) => ({ id: n.id, clase: CLASE_AMENAZA[n.rol] ?? 'Otra explicación', texto: n.etiqueta ?? '' }));
+    .map((n) => ({
+      id: n.id,
+      clase: CLASE_AMENAZA[n.rol] ?? 'Otra explicación',
+      texto: n.etiqueta ?? '',
+      hacia: [...new Set(aristas.filter((a) => a.de === n.id).map((a) => a.a))],
+    }));
 }
 
 /** La exposición y el desenlace de un grafo, que es lo que la hipótesis
