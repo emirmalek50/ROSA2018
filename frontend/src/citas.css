@@ -136,3 +136,6 @@ button.citas-af:focus-visible { outline: 2px solid var(--accent, #f0a030); outli
   padding: 1px 7px;
   font-size: 11px;
 }
+
+/* La pista de que el enlace salta al pasaje: una línea bajo los botones. */
+.citas-pista-enlace { margin: 7px 0 0; }

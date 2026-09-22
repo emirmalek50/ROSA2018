@@ -162,6 +162,51 @@ export function senalesDe(hoy: ComprobacionDeHoy | undefined | null): Comprobaci
   };
 }
 
+/** Cuántas palabras de cada extremo del pasaje se usan para señalarlo en la
+ *  página web. Pocas no distinguen entre dos frases parecidas; demasiadas
+ *  fallan en cuanto la web difiere en una coma del texto que se guardó. */
+const PALABRAS_DE_ANCLA = 6;
+
+/** Escapa un trozo para un fragmento de texto: además de lo normal, la coma y
+ *  el guion tienen significado propio en esa sintaxis. */
+function paraFragmento(trozo: string): string {
+  return encodeURIComponent(trozo.trim()).replace(/-/g, '%2D').replace(/,/g, '%2C');
+}
+
+/** Un enlace que lleva AL TEXTO, no solo al documento.
+ *
+ *  - En un PDF, la página va en el ancla (`#page=N`): es la convención que
+ *    entienden los visores de PDF de los navegadores desde hace años.
+ *  - En una página web, se usa un FRAGMENTO DE TEXTO (`#:~:text=`), que hace
+ *    que el navegador baje solo hasta el pasaje y lo resalte. Con pasajes
+ *    largos se dan los dos extremos separados por coma, que es como se
+ *    señala un rango; con uno corto, el pasaje entero.
+ *
+ *  Devuelve cadena vacía si no hay a dónde llevar. El fragmento de texto no lo
+ *  entienden todos los navegadores: los que no, abren la página por arriba, que
+ *  es exactamente lo que hacían antes. */
+export function enlaceAlPasaje(ficha: Pick<FichaCita, 'clase' | 'pagina' | 'url' | 'conPdf' | 'afirmacion' | 'fuente'>, urlPdf?: string): string {
+  if (ficha.conPdf && urlPdf) {
+    const pagina = typeof ficha.pagina === 'number' && ficha.pagina > 0 ? ficha.pagina : null;
+    return pagina ? `${urlPdf}${urlPdf.includes('#') ? '' : '#'}page=${pagina}` : urlPdf;
+  }
+  const base = ficha.url || (ficha.fuente.doi ? `https://doi.org/${ficha.fuente.doi}` : ficha.fuente.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ficha.fuente.pmid}/` : '');
+  if (!base) return '';
+  const pasaje = (ficha.afirmacion.pasaje || '').replace(/\s+/g, ' ').trim();
+  // Solo se ancla cuando la fuente trae su propia dirección (la que se leyó) y
+  // el pasaje da para señalar algo. Muchas de esas direcciones son un doi.org,
+  // que redirige: el ancla sobrevive al salto en los navegadores que la
+  // entienden, y donde no, la página se abre por arriba, que es lo que hacía
+  // antes. Lo que nunca se hace es anclar a una dirección que ROSA2018 no leyó.
+  const palabras = pasaje.split(' ').filter(Boolean);
+  if (!ficha.url || palabras.length < 3) return base;
+  const limpia = base.split('#')[0]!;
+  if (palabras.length <= PALABRAS_DE_ANCLA * 2) return `${limpia}#:~:text=${paraFragmento(palabras.join(' '))}`;
+  const inicio = palabras.slice(0, PALABRAS_DE_ANCLA).join(' ');
+  const fin = palabras.slice(-PALABRAS_DE_ANCLA).join(' ');
+  return `${limpia}#:~:text=${paraFragmento(inicio)},${paraFragmento(fin)}`;
+}
+
 /** Cómo se dice en llano de qué se apoya una cita. La primera es la única que
  *  resuelve a página exacta; las demás se nombran sin disimular. */
 export function enLlanoLaClase(clase: ClaseCita, localizador: string): string {

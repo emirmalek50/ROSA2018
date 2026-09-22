@@ -1054,3 +1054,18 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   comando sin leer su salida. Cerró limpio en 20 s y la corrida reanudó sola
   (iteración 1, 6 de 7 pasos), pero la regla es no hacerlo: comprobar, LEER la
   respuesta, y solo entonces parar.
+- **El enlace lleva al pasaje, no al documento (22 sep, petición de Emir:
+  "que cuando le des a ver cita te lleve literalmente al texto").** En
+  `lib/citas.ts`, `enlaceAlPasaje` construye la dirección según la fuente: un
+  PDF se abre en su página con `#page=N`, que es lo que entienden los visores
+  de los navegadores, y una página web usa un FRAGMENTO DE TEXTO
+  (`#:~:text=inicio,fin`), con lo que el navegador baja solo hasta el pasaje y
+  lo resalta. Con pasajes largos se dan los dos extremos, seis palabras cada
+  uno; con uno corto, el pasaje entero; las comas y los guiones se escapan
+  porque significan otra cosa en esa sintaxis. Solo se ancla a la dirección
+  que ROSA2018 leyó de verdad. Donde el navegador no entienda el fragmento, o
+  donde la página haya cambiado, se abre por arriba, y la pantalla lo avisa en
+  una línea. Comprobado contra el servidor real: el botón sale como "Ver la
+  cita en el PDF, página 3" y apunta a `.../pdf#page=3`; el PDF se sirve
+  (1,8 MB). En la corrida 16, las 481 afirmaciones de texto web traen su
+  dirección propia.

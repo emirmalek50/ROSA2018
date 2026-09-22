@@ -184,13 +184,30 @@ describe('la pantalla de citas', () => {
     expect(nodo.querySelectorAll('.citas-af').length).toBe(1);
   });
 
-  it('el enlace al PDF solo aparece cuando la fuente tiene PDF guardado', async () => {
+  it('el botón lleva al pasaje: en un PDF, a su página exacta', async () => {
     await montar();
-    expect([...nodo.querySelectorAll('a')].some((a) => a.textContent === 'Abrir el PDF')).toBe(true);
-    await act(async () => root.render(<div />));
-    respuestas.ficha = { ...FICHA, conPdf: false };
+    const enlace = [...nodo.querySelectorAll('a')].find((a) => (a.textContent ?? '').startsWith('Ver la cita en el PDF'))!;
+    expect(enlace.textContent).toBe('Ver la cita en el PDF, página 3508');
+    expect(enlace.getAttribute('href')).toBe('/api/corridas/cor-1/citas/af-1/pdf#page=3508');
+  });
+
+  it('en una fuente web, el botón lleva al texto y el navegador lo resalta solo', async () => {
+    respuestas.ficha = { ...FICHA, conPdf: false, clase: 'web', pagina: null, localizador: 'texto web, parte 2', url: 'https://ejemplo.org/articulo' };
     await montar();
-    expect([...nodo.querySelectorAll('a')].some((a) => a.textContent === 'Abrir el PDF')).toBe(false);
+    const enlace = [...nodo.querySelectorAll('a')].find((a) => a.textContent === 'Ver la cita en la fuente original')!;
+    const href = enlace.getAttribute('href') ?? '';
+    expect(href.startsWith('https://ejemplo.org/articulo#:~:text=')).toBe(true);
+    expect(decodeURIComponent(href)).toContain('Plasma GFAP was associated');
+    expect(texto()).toContain('salta solo hasta el pasaje');
+  });
+
+  it('sin PDF ni página propia, se ofrece la ficha del artículo y no se finge un enlace al texto', async () => {
+    respuestas.ficha = { ...FICHA, conPdf: false, clase: 'resumen', pagina: null, url: '' };
+    await montar();
+    expect([...nodo.querySelectorAll('a')].some((a) => (a.textContent ?? '').startsWith('Ver la cita en el PDF'))).toBe(false);
+    const enlace = [...nodo.querySelectorAll('a')].find((a) => a.textContent === 'Abrir la fuente')!;
+    expect(enlace.getAttribute('href')).toBe('https://doi.org/10.1093/brain/awab223');
+    expect(texto()).not.toContain('salta solo hasta el pasaje');
   });
 
   it('si el servidor no responde lo dice con esas palabras y no finge que no hay citas', async () => {

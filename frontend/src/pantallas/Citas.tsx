@@ -26,7 +26,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { acciones } from '../datos/almacen';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import { enLlanoElVeredicto, enLlanoLaClase, senalesDe, trozosDeTexto, type AfirmacionCitada, type ComprobacionDeHoy, type FichaCita, type ListaCitas } from '../lib/citas';
+import { enLlanoElVeredicto, enLlanoLaClase, enlaceAlPasaje, senalesDe, trozosDeTexto, type AfirmacionCitada, type ComprobacionDeHoy, type FichaCita, type ListaCitas } from '../lib/citas';
 import { Esqueleto } from '../componentes/Esqueleto';
 import { AvisoMuestra } from '../componentes/piezas';
 import { plural } from '../lib/formato';
@@ -314,7 +314,11 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
     const dentro = marca.getBoundingClientRect().top - caja.getBoundingClientRect().top;
     caja.scrollTop = Math.max(0, caja.scrollTop + dentro - 90);
   }, [ficha.afirmacion.id, trozos]);
-  const enlace = ficha.fuente.doi ? `https://doi.org/${ficha.fuente.doi}` : ficha.url || (ficha.fuente.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ficha.fuente.pmid}/` : '');
+  // El enlace lleva AL PASAJE, no solo al documento: el PDF se abre en su
+  // página y la web salta al texto y lo resalta sola (Emir, 22 de septiembre
+  // de 2026: "que cuando le des a ver cita te lleve literalmente al texto").
+  const alPasaje = enlaceAlPasaje(ficha, ficha.conPdf ? acciones.pdfDeCita(corridaId, ficha.afirmacion.id) : undefined);
+  const enLaFuente = ficha.fuente.doi ? `https://doi.org/${ficha.fuente.doi}` : ficha.fuente.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ficha.fuente.pmid}/` : '';
   return (
     <>
       <div className="citas-doc-cab">
@@ -341,17 +345,26 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
       )}
 
       <div className="citas-barra">
-        {ficha.conPdf && (
-          <a className="btn btn-s" href={acciones.pdfDeCita(corridaId, ficha.afirmacion.id)} target="_blank" rel="noreferrer">
-            Abrir el PDF
+        {alPasaje && (
+          <a className="btn btn-s btn-primario" href={alPasaje} target="_blank" rel="noreferrer">
+            {ficha.conPdf && ficha.pagina !== null
+              ? `Ver la cita en el PDF, página ${ficha.pagina}`
+              : ficha.conPdf
+                ? 'Ver la cita en el PDF'
+                : ficha.url
+                  ? 'Ver la cita en la fuente original'
+                  : 'Abrir la fuente'}
           </a>
         )}
-        {enlace && (
-          <a className="btn btn-s" href={enlace} target="_blank" rel="noreferrer">
-            Ir a la fuente
+        {enLaFuente && enLaFuente !== alPasaje && (
+          <a className="btn btn-s" href={enLaFuente} target="_blank" rel="noreferrer">
+            Ficha del artículo
           </a>
         )}
       </div>
+      {alPasaje && !ficha.conPdf && ficha.url && (
+        <p className="meta citas-pista-enlace">El navegador salta solo hasta el pasaje y lo resalta. Si la página ha cambiado desde que ROSA2018 la leyó, se abrirá por el principio.</p>
+      )}
 
       <div className="citas-comparacion">
         <div>

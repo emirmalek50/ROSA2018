@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { enLlanoElVeredicto, enLlanoLaClase, trozosDeTexto, type TramoCita } from './citas';
+import { enLlanoElVeredicto, enLlanoLaClase, enlaceAlPasaje, trozosDeTexto, type FichaCita, type TramoCita } from './citas';
 
 const T = (inicio: number, fin: number, texto = ''): TramoCita => ({ inicio, fin, texto });
 
@@ -73,5 +73,67 @@ describe('cómo se nombra en llano de qué se apoya una cita', () => {
     expect(enLlanoElVeredicto('ausencia_refutada').tono).toBe('mal');
     // Uno que no conozcamos se enseña tal cual, no se inventa.
     expect(enLlanoElVeredicto('raro_nuevo').texto).toBe('raro_nuevo');
+  });
+});
+
+describe('el enlace que lleva al texto, no solo al documento', () => {
+  const base = {
+    clase: 'pagina' as const,
+    pagina: 3508,
+    url: '',
+    conPdf: true,
+    afirmacion: { pasaje: 'Plasma GFAP was associated with amyloid beta PET burden independently of tau PET in the cohort' } as FichaCita['afirmacion'],
+    fuente: { doi: '10.1093/brain/awab223', pmid: '34273149' } as FichaCita['fuente'],
+  };
+
+  it('en un PDF lleva a la página exacta con el ancla que entienden los visores', () => {
+    expect(enlaceAlPasaje(base, '/api/corridas/c/citas/af-1/pdf')).toBe('/api/corridas/c/citas/af-1/pdf#page=3508');
+  });
+
+  it('un PDF sin página conocida se abre igual, por el principio', () => {
+    expect(enlaceAlPasaje({ ...base, pagina: null }, '/x.pdf')).toBe('/x.pdf');
+    expect(enlaceAlPasaje({ ...base, pagina: 0 }, '/x.pdf')).toBe('/x.pdf');
+  });
+
+  it('si el PDF no está guardado no se inventa una dirección de PDF', () => {
+    const r = enlaceAlPasaje({ ...base, conPdf: false }, '/x.pdf');
+    expect(r).toBe('https://doi.org/10.1093/brain/awab223');
+  });
+
+  it('en una página web ancla al pasaje por sus dos extremos, que es como se señala un rango', () => {
+    const r = enlaceAlPasaje({ ...base, clase: 'web', conPdf: false, pagina: null, url: 'https://ejemplo.org/articulo' });
+    expect(r.startsWith('https://ejemplo.org/articulo#:~:text=')).toBe(true);
+    const [inicio, fin] = r.split('#:~:text=')[1]!.split(',');
+    expect(decodeURIComponent(inicio!)).toBe('Plasma GFAP was associated with amyloid');
+    expect(decodeURIComponent(fin!)).toBe('of tau PET in the cohort');
+  });
+
+  it('un pasaje corto va entero en el ancla, sin partirlo en dos', () => {
+    const r = enlaceAlPasaje({ ...base, clase: 'web', conPdf: false, url: 'https://ejemplo.org/a', afirmacion: { pasaje: 'sube el GFAP en plasma' } as FichaCita['afirmacion'] });
+    expect(r).toBe('https://ejemplo.org/a#:~:text=sube%20el%20GFAP%20en%20plasma');
+    expect(r.split(',').length).toBe(1);
+  });
+
+  it('las comas y los guiones del pasaje se escapan, porque significan otra cosa en el ancla', () => {
+    const r = enlaceAlPasaje({ ...base, clase: 'web', conPdf: false, url: 'https://ejemplo.org/a', afirmacion: { pasaje: 'p-tau181, GFAP y NfL' } as FichaCita['afirmacion'] });
+    const trozo = r.split('#:~:text=')[1]!;
+    expect(trozo).toContain('%2D');
+    expect(trozo).toContain('%2C');
+    // Sin partir: el ancla sigue siendo un solo trozo.
+    expect(trozo.split(',').length).toBe(1);
+  });
+
+  it('sin la dirección que ROSA2018 leyó no se ancla al texto: se abre la ficha del artículo', () => {
+    const r = enlaceAlPasaje({ ...base, clase: 'resumen', conPdf: false, pagina: null, url: '' });
+    expect(r).toBe('https://doi.org/10.1093/brain/awab223');
+  });
+
+  it('con una dirección que redirige (un doi) se ancla igual: el ancla sobrevive al salto o la página abre por arriba', () => {
+    const r = enlaceAlPasaje({ ...base, clase: 'web', conPdf: false, pagina: null, url: 'https://doi.org/10.1001/jamaneurol.2022.2793' });
+    expect(r.startsWith('https://doi.org/10.1001/jamaneurol.2022.2793#:~:text=')).toBe(true);
+  });
+
+  it('sin nada a donde ir devuelve vacío en vez de un enlace roto', () => {
+    expect(enlaceAlPasaje({ ...base, conPdf: false, url: '', fuente: {} as FichaCita['fuente'] })).toBe('');
   });
 });
