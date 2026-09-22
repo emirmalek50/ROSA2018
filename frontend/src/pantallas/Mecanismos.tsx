@@ -22,7 +22,6 @@ import {
   amenazasDe,
   cascada,
   EN_LLANO_IDENTIFICACION,
-  idBase,
   intensidad,
   nombreDeSupuesto,
   posicionesCascada,
@@ -38,6 +37,11 @@ import { rutaDe } from '../lib/ruta';
 import { AvisoMuestra } from '../componentes/piezas';
 import '../mecanismos.css';
 
+const AYUDA =
+  'El grafo causal de cada hipótesis: qué dice que causa qué, sobre el fondo de lo que el campo ya da por sentado, y con las explicaciones alternativas que tendrían que ser falsas para que el efecto sea del actor y no de otra cosa.';
+const META =
+  'Un efecto es identificable cuando se puede estimar sin que lo confunda otra causa. Las tres amenazas clásicas son la causa inversa (que Y cause X), el confusor (una causa común de X y de Y) y el artefacto de medida (que lo que se mueva sea el instrumento). Un ensayo aleatorizado las cierra por diseño; sin él hacen falta temporalidad, ajuste por confusores y replicación independiente. ROSA2018 comprueba esos tres supuestos por regla, sin modelo, y de ahí sale el veredicto de la derecha.';
+
 /** El lienzo de la cascada, en sus propias coordenadas. Las cajas se colocan
  *  en porcentaje sobre estas mismas medidas, así el dibujo y las etiquetas no
  *  se separan al cambiar el tamaño de la ventana. */
@@ -48,14 +52,6 @@ const ALTO = 430;
  *  centro. En coordenadas del lienzo. */
 const CAJA_ANCHO = 128;
 const CAJA_ALTO = 46;
-
-function Chip({ activo, onClick, children }: { activo: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button type="button" className={activo ? 'mec-chip activo' : 'mec-chip'} aria-pressed={activo} onClick={onClick}>
-      {children}
-    </button>
-  );
-}
 
 /** Una arista de consenso, curvada del borde derecho de una caja al izquierdo
  *  de la otra. Si van en la misma columna se rodea por debajo. */
@@ -94,7 +90,8 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
   useEffect(() => encender(new Set()), [elegida?.id]);
 
   const grafo = elegida?.grafoCausal ?? null;
-  const amenazas = useMemo(() => (verAmenazas ? amenazasDe(grafo) : []), [grafo, verAmenazas]);
+  const todasLasAmenazas = useMemo(() => amenazasDe(grafo), [grafo]);
+  const amenazas = verAmenazas ? todasLasAmenazas : [];
   const actores = useMemo(() => actoresDe(grafo), [grafo]);
 
   const cumplidos = grafo?.supuestosCumplidos ?? [];
@@ -105,13 +102,10 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
   const tocado = encendidos.size > 0;
 
   const puestos = useMemo(() => posicionesCascada(casc.nodos, ANCHO - CAJA_ANCHO, ALTO - CAJA_ALTO), [casc.nodos]);
-  const porId = useMemo(() => new Map(puestos.map((p) => [p.id, { x: p.x + CAJA_ANCHO / 2, y: p.y + CAJA_ALTO / 2 }])), [puestos]);
-  // Los nodos de la base que esta hipótesis tiene en su grafo: se encienden.
-  const suyos = useMemo(() => {
-    const s = new Set<string>();
-    for (const n of grafo?.nodos ?? []) if (n.rol === 'base') s.add(idBase(n.id));
-    return s;
-  }, [grafo]);
+  const porId = useMemo(
+    () => new Map(puestos.map((p) => [p.id, { x: p.x + CAJA_ANCHO / 2, y: p.y + CAJA_ALTO / 2 }])),
+    [puestos],
+  );
 
   const columnas = useMemo(() => {
     const vistas = new Map<Capa, number>();
@@ -126,6 +120,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
         <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
           <div>
             <h2>Mecanismos</h2>
+            <p>{AYUDA}</p>
           </div>
         </div>
         <p className="nota">
@@ -137,6 +132,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
   }
 
   const enLlano = EN_LLANO_IDENTIFICACION[veredictoAhora] ?? EN_LLANO_IDENTIFICACION.acotado!;
+  const guardado = EN_LLANO_IDENTIFICACION[grafo?.identificacion ?? 'acotado']?.titulo.toLowerCase() ?? '';
 
   return (
     <div className="contenido contenido-ancho mec">
@@ -144,14 +140,45 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
           <h2>Mecanismos</h2>
-          <p>Qué causa qué: lo que afirma la hipótesis, lo que sostiene la evidencia y lo que da por sentado el campo.</p>
+          <p>{AYUDA}</p>
+          <p className="meta">{META}</p>
         </div>
       </div>
 
+      <p className="mec-comose">
+        <b>Cómo se lee:</b>
+        <span>
+          <i className="mec-trazo mec-t-consenso" />
+          lo que el campo da por sentado, sin comprobar ({aristas.base_curada})
+        </span>
+        <span>
+          <i className="mec-trazo mec-t-afirma" />
+          lo que afirma la hipótesis, sin dato propio ({aristas.supuesto})
+        </span>
+        <span>
+          <i className="mec-trazo mec-t-evidencia" />
+          sostenido por evidencia propia{' '}
+          {aristas.inferencia_con_evidencia === 0 ? (
+            <b className="mec-cero">(0 en esta corrida)</b>
+          ) : (
+            `(${aristas.inferencia_con_evidencia})`
+          )}
+        </span>
+        <span>
+          <i className="mec-trazo mec-t-amenaza" />
+          lo que lo tumbaría: confusor, artefacto, selección o causa inversa
+        </span>
+      </p>
+
       <div className="mec-chips">
-        <Chip activo={verAmenazas} onClick={() => cambiarAmenazas(!verAmenazas)}>
-          Amenazas ({amenazasDe(grafo).length})
-        </Chip>
+        <button
+          type="button"
+          className={verAmenazas ? 'mec-chip mec-activo' : 'mec-chip'}
+          aria-pressed={verAmenazas}
+          onClick={() => cambiarAmenazas(!verAmenazas)}
+        >
+          Amenazas ({todasLasAmenazas.length})
+        </button>
         <span className="mec-cuenta">
           {casc.total} hipótesis con grafo · {veredictos.identificable} identificables · {veredictos.acotado} acotadas
           {veredictos.sin_resolver ? ` · ${veredictos.sin_resolver} sin resolver` : ''}
@@ -171,25 +198,35 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
           <div className="mec-lienzo" style={{ aspectRatio: `${ANCHO} / ${ALTO + 150}` }}>
             <svg viewBox={`0 0 ${ANCHO} ${ALTO + 150}`} aria-hidden="true">
               <defs>
-                <marker id="mec-gris" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
-                  <path d="M0,0 L9,3.5 L0,7 z" fill="var(--mec-consenso)" />
+                <marker
+                  id="mec-gris"
+                  markerUnits="userSpaceOnUse"
+                  markerWidth="9"
+                  markerHeight="7"
+                  refX="8"
+                  refY="3.5"
+                  orient="auto"
+                >
+                  <path d="M0,0 L9,3.5 L0,7 z" fill="var(--text-3)" />
                 </marker>
-                <marker id="mec-rojo" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
-                  <path d="M0,0 L10,4 L0,8 z" fill="var(--mec-amenaza)" />
+                <marker
+                  id="mec-rojo"
+                  markerUnits="userSpaceOnUse"
+                  markerWidth="10"
+                  markerHeight="8"
+                  refX="9"
+                  refY="4"
+                  orient="auto"
+                >
+                  <path d="M0,0 L10,4 L0,8 z" fill="var(--red)" />
                 </marker>
               </defs>
               {casc.aristas.map((a) => {
                 const de = porId.get(a.de);
                 const hacia = porId.get(a.a);
                 if (!de || !hacia) return null;
-                const suya = suyos.has(a.de) && suyos.has(a.a);
                 return (
-                  <path
-                    key={`${a.de}-${a.a}`}
-                    d={curva(de, hacia)}
-                    className={suya ? 'mec-consenso suya' : 'mec-consenso'}
-                    markerEnd="url(#mec-gris)"
-                  />
+                  <path key={`${a.de}-${a.a}`} d={curva(de, hacia)} className="mec-consenso" markerEnd="url(#mec-gris)" />
                 );
               })}
               {amenazas.map((am, i) => {
@@ -225,7 +262,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                     top: `${(p.y / (ALTO + 150)) * 100}%`,
                     width: `${(CAJA_ANCHO / ANCHO) * 100}%`,
                   }}
-                  title={`${n.etiqueta}: en juego en ${n.enJuego} de ${casc.total} hipótesis`}
+                  title={`${n.etiqueta} entra en juego en ${n.enJuego} de las ${casc.total} hipótesis, como actor o como confusor`}
                 >
                   {n.etiqueta}
                   <span className="mec-cuantas">
@@ -242,7 +279,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                 style={{
                   left: `${((i + 0.5) / amenazas.length) * 100}%`,
                   top: `${((ALTO + 46) / (ALTO + 150)) * 100}%`,
-                  width: `${(94 / amenazas.length)}%`,
+                  width: `${94 / amenazas.length}%`,
                 }}
               >
                 <b>{am.clase}</b>
@@ -254,9 +291,10 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
           </div>
 
           <p className="mec-pie">
-            La cascada es el consenso del campo (marco ATN), escrito a mano en <code>rosa/causal.py</code> y revisable. No
-            es verdad revelada: es contexto declarado. El número de cada caja es en cuántas hipótesis entra en juego, como
-            actor o como confusor, no cuántas la estudian.
+            Las cajas y sus flechas grises son la cascada del campo (marco ATN), escrita a mano en{' '}
+            <code>rosa/causal.py</code> y revisable: es contexto declarado, no verdad comprobada. Debajo de cada caja, en
+            cuántas de las {casc.total} hipótesis entra en juego ese nodo, como actor o como confusor. No es cuántas lo
+            estudian.
           </p>
         </div>
 
@@ -277,12 +315,12 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
           <div className={`mec-veredicto ${veredictoAhora}`}>
             <p className="mec-t">{enLlano.titulo}</p>
             <p className="mec-d">
-              {cumplenAhora} de {cumplenAhora + faltanAhora} supuestos cumplidos{tocado ? ' con lo que has encendido' : ' con la evidencia que hay'}. {enLlano.que}
+              {cumplenAhora} de {cumplenAhora + faltanAhora} supuestos cumplidos
+              {tocado ? ' con lo que has encendido' : ' con la evidencia que hay'}. {enLlano.que}
             </p>
             {tocado && (
               <p className="mec-d mec-d-nota">
-                Esto es una pregunta, no un resultado: ROSA2018 sigue guardando{' '}
-                <b>{EN_LLANO_IDENTIFICACION[grafo?.identificacion ?? 'acotado']?.titulo.toLowerCase()}</b>.
+                Esto es una pregunta, no un resultado: ROSA2018 sigue guardando <b>{guardado}</b>.
               </p>
             )}
           </div>
@@ -296,9 +334,10 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
             </dl>
           )}
 
+          <p className="mec-supuestos-t">QUÉ HACE FALTA PARA CREÉRSELO</p>
           <ul className="mec-supuestos">
             {cumplidos.map((s) => (
-              <li key={s} className="mec-cumplido">
+              <li key={s}>
                 <span className="mec-caja mec-si" aria-hidden="true">
                   <i />
                 </span>
@@ -311,10 +350,10 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
             {faltantes.map((s) => {
               const puesto = encendidos.has(s);
               return (
-                <li key={s} className={puesto ? 'mec-cumplido' : ''}>
+                <li key={s}>
                   <button
                     type="button"
-                    className={`mec-caja ${puesto ? 'mec-si' : 'mec-no'}`}
+                    className={`mec-caja ${puesto ? 'mec-supuesto' : ''}`}
                     aria-pressed={puesto}
                     aria-label={`Suponer que se cumple: ${s}`}
                     onClick={() =>
@@ -339,8 +378,8 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
 
           {!!faltantes.length && (
             <p className="meta mec-pista">
-              Enciende un supuesto que falta y el veredicto se recalcula por la misma regla que usa el servidor. Es para
-              ver qué haría falta, no para darlo por hecho.
+              Los que faltan se pueden encender para ver a dónde llevarían: el veredicto se recalcula con la misma regla
+              que usa el servidor. Es para saber qué haría falta, no para darlo por hecho.
             </p>
           )}
 
@@ -352,28 +391,12 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
         </div>
       </div>
 
-      <div className="mec-leyenda">
-        <span>
-          <i className="l-evidencia" />
-          sostenido por evidencia propia{' '}
-          {aristas.inferencia_con_evidencia === 0 ? <b className="mec-cero">(0 en esta corrida)</b> : `(${aristas.inferencia_con_evidencia})`}
-        </span>
-        <span>
-          <i className="l-supuesto" />
-          lo que afirma la hipótesis, sin dato propio ({aristas.supuesto})
-        </span>
-        <span>
-          <i className="l-amenaza" />
-          amenaza: confusor, artefacto, selección o causa inversa
-        </span>
-        <span>
-          <i className="l-consenso" />
-          consenso del campo ({aristas.base_curada})
-        </span>
-      </div>
-
       <div className="mec-falta">
-        <p className="mec-falta-t">QUÉ LE FALTA AL PROGRAMA · los supuestos de las {casc.total} hipótesis con grafo</p>
+        <p className="mec-falta-t">QUÉ LE FALTA AL PROGRAMA</p>
+        <p className="mec-falta-d">
+          Los mismos supuestos, contados sobre las {casc.total} hipótesis con grafo. Lo ámbar es lo que habría que
+          conseguir para que esos efectos dejaran de estar acotados.
+        </p>
         <ul>
           {supuestos.map((s) => (
             <li key={s.clave}>
@@ -383,7 +406,10 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                 <i className="mec-parte-falta" style={{ flexGrow: s.faltan }} />
               </span>
               <span className="mec-c">
-                {s.cumplen} cumplen · <b>{s.faltan} falta{s.faltan === 1 ? '' : 'n'}</b>
+                {s.cumplen} cumplen ·{' '}
+                <b>
+                  {s.faltan} falta{s.faltan === 1 ? '' : 'n'}
+                </b>
               </span>
             </li>
           ))}

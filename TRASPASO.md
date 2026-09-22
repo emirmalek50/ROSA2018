@@ -1259,3 +1259,28 @@ de 21 (es confusor conocido de NfL) y `cognicion` en 5.
 
 La muestra (`frontend/src/datos/muestra.ts`) lleva ahora tres grafos causales,
 uno de ellos `identificable`, para que la pantalla no salga vacía sin servidor.
+
+### La paleta: el primer intento estaba mal (22 de septiembre de 2026)
+
+Emir, al verla: *"que son esos colores? no va con ningun apartado de rosa, no
+convinan"*. Tenía razón. La pinté con la paleta oscura del Atlas, y el Atlas es
+oscuro porque es un visor 3D; el resto de ROSA2018 es claro con acento morado
+(`--accent: #5b2aa8`). La pantalla parecía pegada de otro programa.
+
+Rehecha con los tokens de `styles.css` y ninguno propio. Ahora el color dice
+qué CLASE de afirmación es una flecha, y nada más:
+
+- **gris** (`--text-3`): lo que el campo da por sentado y ROSA2018 no ha comprobado.
+- **morado** (`--accent`): lo que afirma la hipótesis, sin dato propio. Es el
+  acento de la aplicación, y aquí significa "suposición".
+- **rojo** (`--red`): lo que lo tumbaría (confusor, artefacto, selección, causa inversa).
+- **verde** (`--green`): un supuesto que la evidencia sí cumple.
+- **ámbar** (`--amber`): un supuesto que falta.
+
+Y el interruptor que la persona enciende a mano va en morado, no en verde: no
+es un supuesto cumplido, es una suposición suya.
+
+La otra mitad de esa queja era que no se entendía. La pantalla ahora se explica
+sola: cabecera con `AYUDA` y `META` como las demás (qué es identificable, cuáles
+son las tres amenazas clásicas y de dónde sale el veredicto), y una tira "Cómo
+se lee" encima del lienzo en vez de una leyenda al final.
