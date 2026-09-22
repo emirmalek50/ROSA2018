@@ -1188,3 +1188,74 @@ tomado del principio del pasaje**: el rango exige que casen los DOS extremos y
 basta que falle uno para que no se resalte nada. Sobre páginas reales los dos
 saltaban igual, así que **esto es tolerancia, no un arreglo**, y así está
 escrito en el código para que nadie lo lea como la causa del fallo de Emir.
+
+## Mecanismos, la tercera pantalla de estructura (22 de septiembre de 2026)
+
+Emir pidió una tercera sección al nivel del Atlas y del Árbol. El hueco era el
+eje que faltaba:
+
+- **Atlas**: el **dónde** (espacio, el cuerpo).
+- **Árbol**: el **de dónde** (linaje de las hipótesis).
+- **Mecanismos**: el **por qué** (la cadena causal, y qué la rompe).
+
+No hay endpoint nuevo. Cada hipótesis ya trae su `grafoCausal`, lo calcula
+`rosa/causal.py` sin modelo y ya viajaba al navegador dentro del estado. La
+pantalla junta los 21 grafos de la corrida 16 para dibujar la cascada del campo
+una sola vez, con los nodos de cada hipótesis encima.
+
+Lo que la hace herramienta y no adorno: **se puede encender un supuesto que hoy
+falta y ver el veredicto recalculado**, por la misma regla del servidor
+(`identificable` si no falta nada, `acotado` si falta algo y se cumple algo,
+`sin_resolver` si no se cumple nada). La pantalla avisa de que eso es una
+pregunta y no un resultado, y sigue enseñando lo que ROSA2018 tiene guardado.
+
+Lo medido sobre la corrida 16, que es lo que la pantalla enseña:
+
+- 21 hipótesis con grafo: **4 identificables, 17 acotadas**, ninguna sin resolver.
+- 294 aristas: **118 supuestos, 176 consenso del campo y CERO sostenidas por
+  evidencia propia**. Eso no se esconde: sale en un aviso arriba, y la leyenda
+  pone "(0 en esta corrida)" en rojo. Que el contador esté a cero es el dato.
+- Supuestos: **Ajuste por confusores falta en 16 de 21**, Replicación
+  independiente en 9 de 21, Temporalidad solo en 1 de 21.
+
+### Tres fallos de datos que aparecieron al construirla
+
+**1. `función renal` era un identificador con tilde.** Todos sus hermanos van
+sin ella (`neurodegeneracion`, `cognicion`, `neuroinflamacion`), así que los
+grafos calculados antes de la pasada de tildes guardaron `funcion renal` y los
+de después `función renal`: la misma cosa, dos nodos en la cascada. Arreglado en
+`rosa/causal.py` (identificador sin tilde, `ETIQUETAS` aparte para leer) y
+normalizado al leer en `frontend/src/lib/mecanismos.ts`, que los grafos ya
+guardados no cambian solos. El guion `scripts/acentuar_py.py` seguirá pidiendo
+la tilde ahí: **es un identificador y se decide a mano**, como dice la regla.
+
+**2. Un mismo supuesto se llamaba distinto según se cumpliera o faltara.** El
+cumplido era "Ajuste" y el faltante "Confusión"; el cumplido "Replicación
+independiente" y el faltante "Replicación". La pantalla los contaba como cuatro
+supuestos en vez de dos. Se ve en que las cuentas suman 21: 5 + 16 y 12 + 9.
+Unificados en `rosa/causal.py`, con un test que lo sujeta
+(`test_un_supuesto_se_llama_igual_se_cumpla_o_falte`) y un alias en el frontend
+para los grafos ya guardados.
+
+**3. Mi propia cuenta de cobertura estaba mal.** Al preparar el boceto conté
+"cuántas hipótesis tocan cada nodo" con un patrón que buscaba `APOE4` mientras
+los textos dicen `APOE ε4`: daba 0 y la hipótesis del ejemplo era justamente
+sobre APOE ε4. La versión buena no usa patrones en TypeScript: cuenta **en
+cuántos grafos aparece el nodo**, que sale del dato y no duplica en el frontend
+lo que ya decide Python. Ojo con leerlo: es "en juego en N hipótesis, como
+actor o como confusor", no "N la estudian". Por eso `funcion renal` sale en 20
+de 21 (es confusor conocido de NfL) y `cognicion` en 5.
+
+### Dos reglas de la pantalla que conviene conservar
+
+- **El realce de un nodo va por cuánto pesa en el programa, no por estar en el
+  grafo de la hipótesis elegida.** El grafo de una hipótesis trae casi siempre
+  los once nodos de la base, así que "está en el grafo" encendía todo y no
+  distinguía nada.
+- **Las clases CSS van con prefijo `mec-`.** La primera versión usó `.barra`,
+  que ya existe en `styles.css` (es la barra superior de la aplicación) y le
+  pisaba la altura al recuento de supuestos. El guardia `src/clases.test.ts`
+  comprueba que la clase exista, no que no choque.
+
+La muestra (`frontend/src/datos/muestra.ts`) lleva ahora tres grafos causales,
+uno de ellos `identificable`, para que la pantalla no salga vacía sin servidor.

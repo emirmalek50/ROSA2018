@@ -97,3 +97,75 @@ def test_nivel_de_autonomia_declarado_y_politicas():
     assert "Nivel 2 de 5" in t and "Autonomía parcial" in t
     r = politicas.resumen()
     assert r["nivelAutonomiaDeclarado"] == 2 and len(r["nivelesAutonomia"]) == 6 and r["tarifaHoraRevisionUsd"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Identificadores sin tilde y capas de la cascada (22 de septiembre de 2026).
+#
+# "función renal" se usaba como identificador de nodo CON tilde, y todos sus
+# hermanos van sin ella ("neurodegeneracion", "cognicion"). El resultado fue
+# que los grafos calculados antes de la pasada de tildes guardaron
+# "funcion renal" y los de despues "función renal": la misma cosa, dos nodos.
+# Medido el 22 de septiembre de 2026 sobre las 21 hipotesis con grafo de la
+# corrida 16, las dos formas convivian (7 grafos con una, 20 con la otra).
+
+
+def test_ningun_identificador_de_la_base_lleva_tilde():
+    """El identificador es sin tilde; el texto con tilde va en ETIQUETAS."""
+    import unicodedata
+
+    for relacion in CAUSAL.BASE_CURADA:
+        for extremo in ("de", "a"):
+            nodo = relacion[extremo]
+            sin = unicodedata.normalize("NFKD", nodo).encode("ascii", "ignore").decode()
+            assert nodo == sin, f"el nodo {nodo!r} lleva tilde y se usa como identificador"
+
+
+def test_cada_nodo_de_la_base_tiene_capa_y_etiqueta():
+    """La cascada se escribe una sola vez, aqui: si un nodo se queda sin capa,
+    la pantalla de mecanismos no sabria en que columna ponerlo."""
+    nodos = {r[e] for r in CAUSAL.BASE_CURADA for e in ("de", "a")}
+    for nodo in nodos:
+        assert CAUSAL.capa_de(nodo) in CAUSAL.CAPAS, f"{nodo} no tiene capa"
+        assert CAUSAL.etiqueta_de(nodo).strip()
+
+
+def test_la_etiqueta_lleva_su_tilde_aunque_el_identificador_no():
+    assert CAUSAL.etiqueta_de("funcion renal") == "función renal"
+    assert CAUSAL.etiqueta_de("neurodegeneracion") == "neurodegeneración"
+    # Un nodo que no esta en la base se devuelve tal cual, sin inventar.
+    assert CAUSAL.etiqueta_de("GFAP") == "GFAP"
+    assert CAUSAL.capa_de("lo que sea") == "otros"
+
+
+def test_las_capas_van_en_orden_de_la_enfermedad():
+    """Factores antes que patologia, patologia antes que daño: si se
+    desordenan, las flechas de la cascada irian hacia atras."""
+    orden = {c: i for i, c in enumerate(CAUSAL.CAPAS)}
+    for relacion in CAUSAL.BASE_CURADA:
+        cd, ca = CAUSAL.capa_de(relacion["de"]), CAUSAL.capa_de(relacion["a"])
+        assert orden[cd] <= orden[ca], f"{relacion['de']} ({cd}) -> {relacion['a']} ({ca}) va hacia atras"
+
+
+def test_un_supuesto_se_llama_igual_se_cumpla_o_falte():
+    """El nombre es lo que va antes de los dos puntos, y agrupa la pantalla de
+    mecanismos. Si el cumplido se llama "Ajuste" y el faltante "Confusión",
+    salen dos filas para el mismo supuesto. Medido el 22 de septiembre de 2026
+    sobre la corrida 16: "Ajuste" cumplía en 5 y "Confusión" faltaba en 16, que
+    son las 21 hipótesis partidas en dos."""
+    import inspect
+    import re
+
+    fuente = inspect.getsource(CAUSAL)
+    nombres = lambda lista: {  # noqa: E731
+        m.group(1)
+        for m in re.finditer(rf'{lista}\.append\("([^":]+):', fuente)
+    }
+    cumplidos, faltantes = nombres("cumplidos"), nombres("faltantes")
+    assert cumplidos and faltantes
+    # Al reves no se exige: hay condiciones que solo existen como cumplidas
+    # (aleatorizacion, exposicion genetica) porque cierran la identificacion
+    # por diseno y no tienen version "falta".
+    assert faltantes <= cumplidos, (
+        f"supuestos que faltan con un nombre y se cumplen con otro: {faltantes - cumplidos}"
+    )

@@ -67,6 +67,7 @@ import { Arbol, EsqueletoArbol } from './pantallas/Arbol';
 import { Artefactos } from './pantallas/Artefactos';
 import { Atlas, EsqueletoAtlas } from './pantallas/Atlas';
 import { Citas } from './pantallas/Citas';
+import { Mecanismos } from './pantallas/Mecanismos';
 import { Calidad } from './pantallas/Calidad';
 import { Corrida } from './pantallas/Corrida';
 import { Hipotesis } from './pantallas/Hipotesis';
@@ -85,6 +86,7 @@ const TITULO_PANTALLA = {
   mundo: 'Modelo de mundo',
   arbol: 'Árbol de la investigación',
   atlas: 'Atlas de la enfermedad',
+  mecanismos: 'Mecanismos',
   citas: 'Citas',
   artefactos: 'Artefactos',
   calidad: 'Calidad',
@@ -229,6 +231,9 @@ export default function App() {
           break;
         case 'atlas':
           pantalla = <Atlas key={inv.id} inv={inv} estado={estado} />;
+          break;
+        case 'mecanismos':
+          pantalla = <Mecanismos key={inv.id} inv={inv} estado={estado} />;
           break;
         case 'citas':
           pantalla = <Citas key={inv.id} inv={inv} estado={estado} />;

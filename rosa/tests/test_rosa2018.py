@@ -387,7 +387,11 @@ def test_grafo_causal_identifica_por_regla():
     g = causal.grafo_local(h, ["El NfL podría subir por la edad, causa común", "Podría ser artefacto de la plataforma de medida"], None, 1)
     assert g["identificacion"] == "acotado"
     assert any("genética" in c for c in g["supuestosCumplidos"])
-    assert any(f.startswith("Confusión") and "edad" in f for f in g["supuestosFaltantes"]) and any(f.startswith("Replicación") for f in g["supuestosFaltantes"])
+    # El nombre del supuesto es el mismo se cumpla o falte (22 de septiembre de
+    # 2026): antes el cumplido era "Ajuste" y el faltante "Confusión", y la
+    # pantalla de mecanismos los contaba como dos supuestos distintos.
+    assert any(f.startswith("Ajuste por confusores") and "edad" in f for f in g["supuestosFaltantes"])
+    assert any(f.startswith("Replicación independiente") for f in g["supuestosFaltantes"])
     roles = {n["rol"] for n in g["nodos"]}
     assert "alternativa_confusor" in roles and "alternativa_artefacto" in roles and "base" in roles
     tipos = {a["tipo"] for a in g["aristas"]}

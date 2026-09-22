@@ -37,8 +37,8 @@ BASE_CURADA: list[dict[str, str]] = [
     {"de": "edad", "a": "neurodegeneracion", "contexto": "La edad causa pérdida neuronal también sin Alzheimer"},
     {"de": "edad", "a": "NfL", "contexto": "El NfL sube con la edad sin enfermedad"},
     {"de": "edad", "a": "GFAP", "contexto": "El GFAP sube con la edad sin enfermedad"},
-    {"de": "función renal", "a": "NfL", "contexto": "La función renal cambia las concentraciones plasmáticas de NfL y p-tau"},
-    {"de": "función renal", "a": "p-tau181", "contexto": "La función renal cambia las concentraciones plasmáticas de NfL y p-tau"},
+    {"de": "funcion renal", "a": "NfL", "contexto": "La función renal cambia las concentraciones plasmáticas de NfL y p-tau"},
+    {"de": "funcion renal", "a": "p-tau181", "contexto": "La función renal cambia las concentraciones plasmáticas de NfL y p-tau"},
     {"de": "neuroinflamacion", "a": "GFAP", "contexto": "La activación glial sube el GFAP"},
     {"de": "amiloide", "a": "neuroinflamacion", "contexto": "El amiloide activa microglía y astrocitos"},
 ]
@@ -54,7 +54,7 @@ _SINONIMOS: dict[str, str] = {
     r"\bgfap\b|astrocit": "GFAP",
     r"\bnfl\b|neurofilament": "NfL",
     r"\bedad\b|\bage\b|aging|envejec": "edad",
-    r"renal|kidney|egfr|creatinin": "función renal",
+    r"renal|kidney|egfr|creatinin": "funcion renal",
     r"inflam|microglia|trem2|nlrp3|citoquin|cytokin": "neuroinflamacion",
 }
 
@@ -81,9 +81,50 @@ CANONICOS: dict[str, str] = {
     "GFAP": "HGNC:4235",
     "NfL": "HGNC:7739",
     "edad": "NCIT:C25150",
-    "función renal": "UBERON:0002113",
+    "funcion renal": "UBERON:0002113",
     "neuroinflamacion": "GO:0150076",
 }
+
+
+# Como se escribe cada nodo en la interfaz. El identificador va sin tilde
+# (regla del proyecto: los identificadores no llevan), y aqui esta el texto
+# para leer. Antes no habia separacion y "función renal" acabo siendo un nodo
+# distinto de "funcion renal" segun cuando se calculara el grafo.
+ETIQUETAS: dict[str, str] = {
+    "amiloide": "amiloide",
+    "neurodegeneracion": "neurodegeneración",
+    "cognicion": "cognición",
+    "neuroinflamacion": "neuroinflamación",
+    "funcion renal": "función renal",
+}
+
+# En que tramo de la enfermedad cae cada nodo. Ordena las columnas de la
+# pantalla de mecanismos, y vive aqui para que la cascada se escriba una sola
+# vez: la interfaz la lee del grafo, no la repite.
+CAPAS: tuple[str, ...] = ("factores", "patologia", "dano", "marcadores", "desenlace")
+CAPA_DE: dict[str, str] = {
+    "APOE4": "factores",
+    "edad": "factores",
+    "funcion renal": "factores",
+    "amiloide": "patologia",
+    "tau": "patologia",
+    "neuroinflamacion": "patologia",
+    "neurodegeneracion": "dano",
+    "GFAP": "marcadores",
+    "p-tau181": "marcadores",
+    "NfL": "marcadores",
+    "cognicion": "desenlace",
+}
+
+
+def etiqueta_de(nodo: str) -> str:
+    """Como se escribe un nodo de la base para leerlo."""
+    return ETIQUETAS.get(nodo, nodo)
+
+
+def capa_de(nodo: str) -> str:
+    """En que tramo de la cascada cae. "otros" si no es de la base curada."""
+    return CAPA_DE.get(nodo, "otros")
 
 
 def nodos_base_en(texto: str) -> list[str]:
@@ -156,7 +197,7 @@ def grafo_local(h: dict[str, Any], alternativas: list[str], independencia_pasa: 
         if r["de"] in bx | by or r["a"] in bx | by:
             for n in (r["de"], r["a"]):
                 if not any(z["id"] == f"B:{n}" for z in nodos):
-                    nodos.append({"id": f"B:{n}", "etiqueta": n, "rol": "base"})
+                    nodos.append({"id": f"B:{n}", "etiqueta": etiqueta_de(n), "rol": "base", "capa": capa_de(n)})
             aristas.append({"de": f"B:{r['de']}", "a": f"B:{r['a']}", "tipo": "base_curada", "contexto": r["contexto"]})
     for n in {r["de"] for r in BASE_CURADA}:
         hijos = {r["a"] for r in BASE_CURADA if r["de"] == n}
@@ -182,14 +223,14 @@ def grafo_local(h: dict[str, Any], alternativas: list[str], independencia_pasa: 
         # Confusores (los del Killer y las causas comunes de la base).
         nombrados = clases.get("confusor", []) + [f"causa común conocida: {c}" for c in causas_comunes]
         if _AJUSTE.search(textos):
-            cumplidos.append("Ajuste: la evidencia declara ajuste o estratificación por covariables" + (f"; confusores planteados: {'; '.join(nombrados)[:200]}" if nombrados else ""))
+            cumplidos.append("Ajuste por confusores: la evidencia declara ajuste o estratificación por covariables" + (f"; confusores planteados: {'; '.join(nombrados)[:200]}" if nombrados else ""))
         else:
-            faltantes.append("Confusión: la evidencia no declara ajuste por " + ("; ".join(nombrados)[:200] if nombrados else "posibles causas comunes"))
+            faltantes.append("Ajuste por confusores: la evidencia no declara ajuste por " + ("; ".join(nombrados)[:200] if nombrados else "posibles causas comunes"))
         # Artefacto y seleccion (replicacion independiente).
         if independencia_pasa or _REPLICA.search(textos):
             cumplidos.append("Replicación independiente: el efecto se vio en más de una cohorte o plataforma")
         else:
-            faltantes.append("Replicación: sin cohorte independiente no se separa el efecto de un artefacto de medida o de selección" + (f" ({'; '.join(clases.get('artefacto', []) + clases.get('seleccion', []))[:160]})" if clases.get("artefacto") or clases.get("seleccion") else ""))
+            faltantes.append("Replicación independiente: sin cohorte independiente no se separa el efecto de un artefacto de medida o de selección" + (f" ({'; '.join(clases.get('artefacto', []) + clases.get('seleccion', []))[:160]})" if clases.get("artefacto") or clases.get("seleccion") else ""))
         identificacion = "identificable" if not faltantes else ("acotado" if cumplidos else "sin_resolver")
     resumen = {
         "identificable": "El efecto que afirma la hipótesis se puede estimar con la evidencia que tiene, bajo los supuestos listados.",

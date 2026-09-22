@@ -36,6 +36,22 @@ function IconAtlas({ size = 16 }: { size?: number }) {
   );
 }
 
+/** Icono de los mecanismos: dos nodos y una flecha entre ellos, con una
+ *  tercera causa que entra desde arriba, que es la forma de un confusor y lo
+ *  que la pantalla enseña. */
+function IconMecanismo({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="4.5" cy="17" r="2.5" />
+      <circle cx="19.5" cy="17" r="2.5" />
+      <circle cx="12" cy="4.5" r="2.5" />
+      <path d="M7 17h10" />
+      <path d="M10.4 6.6 5.8 14.6" />
+      <path d="M13.6 6.6l4.6 8" />
+    </svg>
+  );
+}
+
 /** Icono de las citas: una página con una línea resaltada, que es justo lo que
  *  la pantalla enseña (el pasaje marcado dentro de la página de la fuente). */
 function IconCita({ size = 16 }: { size?: number }) {
@@ -57,6 +73,7 @@ const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number
   { clave: 'mundo', etiqueta: 'Modelo de mundo', icono: IconLayers },
   { clave: 'arbol', etiqueta: 'Árbol', icono: IconTree },
   { clave: 'atlas', etiqueta: 'Atlas', icono: IconAtlas },
+  { clave: 'mecanismos', etiqueta: 'Mecanismos', icono: IconMecanismo },
   { clave: 'citas', etiqueta: 'Citas', icono: IconCita },
   { clave: 'artefactos', etiqueta: 'Artefactos', icono: IconDocument },
   { clave: 'calidad', etiqueta: 'Calidad', icono: IconGauge },

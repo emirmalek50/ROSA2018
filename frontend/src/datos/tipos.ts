@@ -2112,7 +2112,11 @@ export interface EstadoRosa {
 export type TipoArista = 'supuesto' | 'inferencia_con_evidencia' | 'base_curada';
 
 export interface GrafoCausal {
-  nodos: { id: string; etiqueta: string; rol: string; idCanonico?: string }[];
+  /** `capa` es el tramo de la enfermedad en el que cae un nodo de la base
+   *  curada (rosa/causal.py, CAPA_DE): ordena las columnas de la pantalla de
+   *  mecanismos. Opcional porque los grafos calculados antes del 22 de
+   *  septiembre de 2026 no la traen. */
+  nodos: { id: string; etiqueta: string; rol: string; idCanonico?: string; capa?: string }[];
   aristas: { de: string; a: string; tipo: TipoArista; contexto: string }[];
   identificacion: 'identificable' | 'acotado' | 'sin_resolver';
   supuestosCumplidos: string[];

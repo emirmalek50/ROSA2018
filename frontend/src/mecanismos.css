@@ -1,0 +1,461 @@
+/* Mecanismos: la cascada causal, sus amenazas y el veredicto por regla.
+   La paleta es la del Atlas, que es la otra pantalla de lienzo oscuro, para
+   que las dos se lean como la misma familia. */
+
+.mec {
+  --mec-lienzo: #0b0a14;
+  --mec-panel: #100e1d;
+  --mec-linea: #2a2540;
+  --mec-texto: #f4efe4;
+  --mec-tenue: #8a82a5;
+  --mec-apagado: #5d5678;
+  --mec-calido: #f0a030;
+  --mec-frio: #edc472;
+  --mec-amenaza: #d1352b;
+  --mec-consenso: #433c60;
+}
+
+.mec-chips {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 14px 0 12px;
+}
+.mec-chip {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--mec-linea);
+  background: transparent;
+  color: var(--mec-tenue);
+  cursor: pointer;
+}
+.mec-chip:hover {
+  border-color: var(--mec-calido);
+  color: var(--mec-frio);
+}
+.mec-chip.activo {
+  background: rgba(240, 160, 48, 0.14);
+  border-color: var(--mec-calido);
+  color: var(--mec-calido);
+}
+.mec-chip:focus-visible {
+  outline: 2px solid var(--mec-calido);
+  outline-offset: 2px;
+}
+.mec-cuenta {
+  font-size: 12px;
+  color: var(--mec-apagado);
+  font-family: var(--font-mono);
+}
+
+.mec-aviso {
+  border: 1px solid var(--mec-linea);
+  border-left: 3px solid var(--mec-calido);
+  background: #15121f;
+  border-radius: 0 9px 9px 0;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: var(--mec-tenue);
+  line-height: 1.45;
+  margin: 0 0 13px;
+}
+.mec-aviso b {
+  color: var(--mec-frio);
+}
+
+.mec-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  align-items: start;
+}
+
+.mec-marco {
+  background: var(--mec-panel);
+  border: 1px solid var(--mec-linea);
+  border-radius: 13px;
+  padding: 14px 16px 12px;
+  min-width: 0;
+}
+.mec-lienzo {
+  position: relative;
+  width: 100%;
+}
+.mec-lienzo svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.mec-consenso {
+  stroke: var(--mec-consenso);
+  stroke-width: 1.4;
+  fill: none;
+}
+.mec-consenso.suya {
+  stroke: #6a6090;
+  stroke-width: 1.8;
+}
+.mec-amenaza-linea {
+  stroke: var(--mec-amenaza);
+  stroke-width: 2.2;
+  fill: none;
+}
+
+.mec-col {
+  position: absolute;
+  top: -2px;
+  transform: translateX(-50%);
+  font-size: 10.5px;
+  letter-spacing: 0.11em;
+  color: var(--mec-apagado);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mec-nodo {
+  position: absolute;
+  transform: translate(-50%, 0);
+  border: 1px solid #3a3357;
+  background: #191527;
+  border-radius: 9px;
+  padding: 7px 8px;
+  font-size: 12.5px;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--mec-tenue);
+}
+/* Cuanto mas hipotesis lo tienen en juego, mas fuerte se pinta. */
+.mec-nodo.mec-alta {
+  border-color: var(--mec-calido);
+  background: #251a10;
+  color: var(--mec-texto);
+}
+.mec-nodo.mec-media {
+  border-color: #7a5f37;
+  background: #1d1720;
+  color: #d9d0c2;
+}
+.mec-nodo.mec-baja {
+  border-style: dashed;
+  border-color: #3a3357;
+  background: #141120;
+}
+.mec-cuantas {
+  display: block;
+  font-size: 9.5px;
+  color: var(--mec-apagado);
+  font-family: var(--font-mono);
+  margin-top: 2px;
+}
+.mec-nodo.mec-alta .mec-cuantas {
+  color: #a08a63;
+}
+
+.mec-amenaza {
+  position: absolute;
+  transform: translate(-50%, 0);
+  border: 1px solid var(--mec-amenaza);
+  background: #241012;
+  border-radius: 9px;
+  padding: 7px 9px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #f0b8b4;
+  text-align: left;
+}
+.mec-amenaza {
+  overflow-wrap: anywhere;
+}
+.mec-amenaza-texto {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mec-amenaza b {
+  display: block;
+  color: var(--mec-amenaza);
+  font-size: 9.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.mec-pie {
+  font-size: 10.5px;
+  color: #4f4a68;
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+.mec-pie code {
+  color: var(--mec-tenue);
+}
+
+.mec-panel {
+  background: var(--mec-panel);
+  border: 1px solid var(--mec-linea);
+  border-radius: 13px;
+  padding: 15px 16px;
+  min-width: 0;
+}
+.mec-elige {
+  display: block;
+  margin-bottom: 11px;
+}
+.mec-elige select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  font: inherit;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--mec-linea);
+  background: #191527;
+  color: var(--mec-texto);
+}
+.mec-panel h3 {
+  color: var(--mec-texto);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+  margin: 0 0 12px;
+}
+
+.mec-veredicto {
+  border: 1px solid var(--mec-calido);
+  background: #1d1509;
+  border-radius: 10px;
+  padding: 11px 12px;
+  margin-bottom: 13px;
+}
+.mec-veredicto.identificable {
+  border-color: #6f9c5a;
+  background: #141d10;
+}
+.mec-veredicto.sin_resolver {
+  border-color: var(--mec-amenaza);
+  background: #211014;
+}
+.mec-veredicto .mec-t {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--mec-calido);
+  margin: 0;
+}
+.mec-veredicto.identificable .mec-t {
+  color: #a8d48c;
+}
+.mec-veredicto.sin_resolver .mec-t {
+  color: #f0817a;
+}
+.mec-veredicto .mec-d {
+  font-size: 12px;
+  color: #b6ad95;
+  margin: 5px 0 0;
+  line-height: 1.45;
+}
+.mec-veredicto .mec-d-nota {
+  color: var(--mec-tenue);
+  border-top: 1px solid rgba(240, 160, 48, 0.25);
+  padding-top: 7px;
+  margin-top: 8px;
+}
+
+.mec-actores {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.mec-actores dt {
+  color: var(--mec-apagado);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 7px;
+}
+.mec-actores dd {
+  margin: 2px 0 0;
+  color: var(--mec-texto);
+}
+
+.mec-supuestos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.mec-supuestos li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 9px 0;
+  border-bottom: 1px solid #201c33;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--mec-tenue);
+}
+.mec-supuestos b {
+  font-weight: 650;
+  color: var(--mec-frio);
+}
+.mec-cola {
+  display: block;
+  color: var(--mec-apagado);
+  font-size: 11.5px;
+  margin-top: 2px;
+}
+.mec-supuestos li.mec-cumplido {
+  color: var(--mec-texto);
+}
+.mec-supuestos .mec-caja {
+  width: 34px;
+  height: 19px;
+  border-radius: 999px;
+  flex: 0 0 34px;
+  position: relative;
+  margin-top: 1px;
+  padding: 0;
+  border: 1px solid #3a3357;
+  background: #1c1830;
+}
+button.mec-caja {
+  cursor: pointer;
+}
+button.mec-caja:focus-visible {
+  outline: 2px solid var(--mec-calido);
+  outline-offset: 2px;
+}
+.mec-supuestos .mec-caja i {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  top: 2px;
+  background: #4f4a68;
+  left: 3px;
+}
+.mec-supuestos .mec-caja.mec-si {
+  background: rgba(240, 160, 48, 0.32);
+  border-color: var(--mec-calido);
+}
+.mec-supuestos .mec-caja.mec-si i {
+  background: var(--mec-calido);
+  left: auto;
+  right: 3px;
+}
+
+.mec-pista {
+  margin: 11px 0 0;
+  line-height: 1.5;
+}
+.mec-panel .btn {
+  display: inline-block;
+  margin-top: 12px;
+}
+
+.mec-leyenda {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--mec-tenue);
+}
+.mec-leyenda i {
+  display: inline-block;
+  width: 28px;
+  height: 0;
+  vertical-align: middle;
+  margin-right: 7px;
+}
+.mec-leyenda .l-evidencia {
+  border-top: 4px solid var(--mec-calido);
+  opacity: 0.35;
+}
+.mec-leyenda .l-supuesto {
+  border-top: 2.5px dashed var(--mec-calido);
+}
+.mec-leyenda .l-amenaza {
+  border-top: 2px solid var(--mec-amenaza);
+}
+.mec-leyenda .l-consenso {
+  border-top: 1.5px solid var(--mec-consenso);
+}
+.mec-leyenda .mec-cero {
+  color: var(--mec-amenaza);
+  font-weight: 600;
+}
+
+.mec-falta {
+  margin-top: 14px;
+  background: var(--mec-panel);
+  border: 1px solid var(--mec-linea);
+  border-radius: 13px;
+  padding: 13px 16px;
+}
+.mec-falta-t {
+  font-size: 11px;
+  letter-spacing: 0.09em;
+  color: var(--mec-apagado);
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+.mec-falta ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mec-falta li {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) 170px;
+  gap: 12px;
+  align-items: center;
+  font-size: 12px;
+}
+.mec-falta .mec-n {
+  color: var(--mec-texto);
+}
+.mec-barra {
+  display: flex;
+  height: 10px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #1c1830;
+}
+.mec-barra .mec-cumple {
+  background: #6f9c5a;
+}
+.mec-barra .mec-parte-falta {
+  background: var(--mec-calido);
+}
+.mec-falta .mec-c {
+  color: var(--mec-tenue);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: right;
+}
+.mec-falta .mec-c b {
+  color: var(--mec-frio);
+}
+
+@media (max-width: 1100px) {
+  .mec-fila {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mec-falta li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .mec-falta .mec-c {
+    text-align: left;
+  }
+}
