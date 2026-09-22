@@ -26,16 +26,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { acciones } from '../datos/almacen';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import { enLlanoElVeredicto, enLlanoLaClase, trozosDeTexto, type AfirmacionCitada, type FichaCita, type ListaCitas } from '../lib/citas';
+import { enLlanoElVeredicto, enLlanoLaClase, senalesDe, trozosDeTexto, type AfirmacionCitada, type ComprobacionDeHoy, type FichaCita, type ListaCitas } from '../lib/citas';
 import { Esqueleto } from '../componentes/Esqueleto';
 import { AvisoMuestra } from '../componentes/piezas';
 import { plural } from '../lib/formato';
 import '../citas.css';
 
 const AYUDA =
-  'Cada afirmación que ROSA2018 ha extraído, junto al trozo exacto de la fuente que la sostiene. A la izquierda la afirmación con su veredicto; a la derecha la página tal como ROSA2018 la leyó, con el pasaje resaltado. Cuando el pasaje no está entero en la fuente, aquí se dice qué tramo falta, que es justo el motivo del veredicto.';
+  'Cada afirmación que ROSA2018 ha extraído, junto al trozo exacto de la fuente que la sostiene. A la izquierda la afirmación; a la derecha la página tal como ROSA2018 la leyó, con el pasaje resaltado.';
 const META =
-  'La comprobación es literal contra el texto de la fuente: el mismo que vio el verificador, no una relectura. Las fuentes sin PDF en acceso abierto se apoyan en el resumen, en una sección o en el texto de la web, y entonces la ficha dice que no hay número de página en lugar de inventarlo.';
+  'De cada cita se comprueban dos cosas distintas, y se enseñan por separado: si APUNTA a un sitio que existe (fuente y localizador) y si su pasaje ESTÁ ahí, literal. Pueden darse las cuatro combinaciones: un texto que coincide con la fuente pero cuya cita apunta a un sitio que no existe sigue siendo un problema, y no el mismo. El veredicto que acompaña a cada afirmación es el que se tomó al extraerla; las dos señales se vuelven a medir ahora, con las reglas de hoy, y cuando no coinciden se dice.';
 
 type Estado = 'cargando' | 'listo' | 'sin_servidor' | 'sin_respuesta' | 'vacia';
 
@@ -57,7 +57,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   const [corridaId, setCorridaId] = useState<string>(() => corridas[0]?.id ?? '');
   const [lista, setLista] = useState<ListaCitas | null>(null);
   const [fase, setFase] = useState<Estado>('cargando');
-  const [filtro, setFiltro] = useState<'todas' | 'sostenidas' | 'fallidas' | 'pagina'>('todas');
+  const [filtro, setFiltro] = useState<'todas' | 'sostenidas' | 'fallidas' | 'pagina' | 'rancias'>('todas');
   const [elegida, setElegida] = useState<string | null>(null);
   const [ficha, setFicha] = useState<FichaCita | null>(null);
   const [cargandoFicha, setCargandoFicha] = useState(false);
@@ -116,6 +116,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
     if (filtro === 'sostenidas') return todas.filter((a) => a.veredicto === 'sostenida');
     if (filtro === 'fallidas') return todas.filter((a) => a.veredicto !== 'sostenida' && a.veredicto !== 'parcial');
     if (filtro === 'pagina') return todas.filter((a) => a.clase === 'pagina');
+    if (filtro === 'rancias') return todas.filter((a) => Boolean(a.bloqueoViejo));
     return todas;
   }, [lista, filtro]);
 
@@ -139,6 +140,9 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
           <p className="meta">
             {META}
             {resumen ? ` En esta corrida, ${plural(resumen.conPagina, 'afirmación resuelve', 'afirmaciones resuelven')} a página exacta de ${resumen.total}.` : ''}
+            {resumen && (resumen.bloqueosViejos ?? 0) > 0
+              ? ` ${plural(resumen.bloqueosViejos, 'afirmación quedó bloqueada', 'afirmaciones quedaron bloqueadas')} con una versión anterior del verificador y hoy su cita resuelve.`
+              : ''}
           </p>
         </div>
         {corridas.length > 1 && (
@@ -191,6 +195,11 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 <button type="button" className="atlas-chip" aria-pressed={filtro === 'pagina'} onClick={() => setFiltro('pagina')}>
                   Con página <span className="atlas-cifra">{resumen?.conPagina ?? 0}</span>
                 </button>
+                {(resumen?.bloqueosViejos ?? 0) > 0 && (
+                  <button type="button" className="atlas-chip" aria-pressed={filtro === 'rancias'} onClick={() => setFiltro('rancias')} title="Bloqueadas con una versión anterior del verificador: hoy su cita resuelve y su pasaje está literal">
+                    Hoy resolverían <span className="atlas-cifra">{resumen?.bloqueosViejos ?? 0}</span>
+                  </button>
+                )}
               </div>
             </header>
             <div className="citas-lista">
@@ -255,13 +264,44 @@ function FilaAfirmacion({ a, elegida, onElegir }: { a: AfirmacionCitada; elegida
         <Veredicto veredicto={a.veredicto} />
         <span className="citas-cita">{a.cita}</span>
         <span className="meta">{enLlanoLaClase(a.clase, a.localizador)}</span>
+        {Boolean(a.bloqueoViejo) && <span className="citas-marca-rancio">hoy resolvería</span>}
       </div>
     </button>
   );
 }
 
+/** Las dos señales, cada una con su sí o su no. Nunca se funden en una: son
+ *  preguntas distintas y la respuesta a una no implica la otra. */
+function Senales({ hoy, clase, localizador }: { hoy: ComprobacionDeHoy; clase: FichaCita['clase']; localizador: string }) {
+  if (hoy.disponible === false) return <p className="meta">{hoy.motivoResuelve}</p>;
+  return (
+    <ul className="citas-senales">
+      <li>
+        <span className={hoy.resuelve ? 'citas-si' : 'citas-no'} aria-hidden="true">
+          {hoy.resuelve ? '✓' : '✗'}
+        </span>
+        <span>
+          <b>La cita apunta a un sitio que existe.</b>{' '}
+          {hoy.resuelve ? enLlanoLaClase(clase, localizador) : hoy.motivoResuelve}
+        </span>
+      </li>
+      <li>
+        <span className={hoy.literal ? 'citas-si' : 'citas-no'} aria-hidden="true">
+          {hoy.literal ? '✓' : '✗'}
+        </span>
+        <span>
+          <b>El pasaje está ahí, literal.</b>{' '}
+          {hoy.literal ? 'Entero y en orden, tras normalizar tipografía y números de línea.' : hoy.resuelve ? 'Falta un tramo del pasaje en la fuente.' : 'No se pudo comprobar: la cita no resuelve.'}
+        </span>
+      </li>
+    </ul>
+  );
+}
+
 function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
   const trozos = useMemo(() => trozosDeTexto(ficha.texto, ficha.tramos), [ficha.texto, ficha.tramos]);
+  // Un servidor anterior no manda las señales: se dice, no se finge.
+  const hoy = senalesDe(ficha.hoy);
   const hoja = useRef<HTMLDivElement>(null);
   // Un resaltado que hay que ir a buscar por la página no sirve de nada: la
   // hoja se coloca sola en el primer tramo, sin mover el resto de la pantalla.
@@ -317,23 +357,23 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
         <div>
           <p className="citas-t">Lo que dijo ROSA2018</p>
           <p>{ficha.afirmacion.texto}</p>
+          <p className="meta">Veredicto al extraerla: <Veredicto veredicto={ficha.afirmacion.veredicto} /></p>
+          {ficha.afirmacion.motivo && <p className="meta">{ficha.afirmacion.motivo}</p>}
         </div>
         <div>
-          <p className="citas-t">Lo que comprueba el verificador</p>
-          <p>
-            <Veredicto veredicto={ficha.afirmacion.veredicto} />{' '}
-            {ficha.completo
-              ? `El pasaje citado está literal en ${enLlanoLaClase(ficha.clase, ficha.localizador)}, entero y en orden.`
-              : ficha.falta
-                ? 'De su pasaje falta un tramo en la fuente.'
-                : 'Su pasaje no se pudo localizar en el texto guardado.'}
-          </p>
-          {!ficha.completo && ficha.falta && (
+          <p className="citas-t">Lo que se comprueba hoy</p>
+          <Senales hoy={hoy} clase={ficha.clase} localizador={ficha.localizador} />
+          {!hoy.literal && hoy.falta && (
             <p>
-              No está en la fuente: <span className="citas-falta">{ficha.falta}</span>
+              No está en la fuente: <span className="citas-falta">{hoy.falta}</span>
             </p>
           )}
-          {ficha.afirmacion.motivo && <p className="meta">{ficha.afirmacion.motivo}</p>}
+          {Boolean(ficha.bloqueoViejo) && (
+            <p className="citas-rancio">
+              Esta afirmación quedó bloqueada con una versión anterior del verificador. Hoy su cita resuelve y su pasaje está literal, así que el bloqueo ya no
+              se sostiene. Para saber si es sostenida hace falta el juez, que cuesta llamadas.
+            </p>
+          )}
         </div>
       </div>
     </>

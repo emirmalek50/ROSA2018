@@ -214,3 +214,115 @@ def test_una_corrida_sin_claves_privadas_no_revienta():
     assert C.ficha({"id": "x"}, "af-1") is None
     assert C.resumen({"id": "x"})["total"] == 0
     assert C.lista({"id": "x", "_fuentes": [], "_afirmaciones": None}) == []
+
+
+def corrida_con_texto_web() -> dict:
+    """Una fuente con partes de texto web, como las que devuelve Exa. Es el
+    caso que destapó que el veredicto guardado y la comprobación de hoy son
+    señales distintas: la cita resuelve y el pasaje es literal, pero la
+    afirmación se guardó bloqueada con un verificador anterior."""
+    return {
+        "id": "cor-2",
+        "_fuentes": {
+            "f-9": {
+                "id": "f-9",
+                "referencia": "Shcherbinin et al., 2022",
+                "titulo": "Association of Amyloid Reduction",
+                "fragmentos": [
+                    {"localizador": "resumen", "texto": "Un resumen cualquiera."},
+                    {"localizador": "texto web, parte 1", "texto": "El estudio TRAILBLAZER-ALZ evaluated amyloid reduction after donanemab treatment."},
+                ],
+            }
+        },
+        "_afirmaciones": [
+            {
+                "id": "af-web",
+                "texto": "TRAILBLAZER-ALZ evaluó la reducción de amiloide.",
+                "cita": "[Shcherbinin et al., 2022, texto web, parte 1]",
+                "fragmento": "evaluated amyloid reduction after donanemab treatment",
+                "veredicto": "cita_no_resuelve",
+                "motivo": "La cita no apunta a ninguna fuente ni localizador conocidos.",
+                "fuenteId": "f-9",
+                "localizador": "texto web, parte 1",
+                "iteracion": 1,
+            },
+            {
+                "id": "af-inventada",
+                "texto": "Una afirmación con un pasaje que no está.",
+                "cita": "[Shcherbinin et al., 2022, texto web, parte 1]",
+                "fragmento": "reduced mortality by ninety per cent",
+                "veredicto": "no_sostenida",
+                "fuenteId": "f-9",
+                "localizador": "texto web, parte 1",
+                "iteracion": 1,
+            },
+            {
+                "id": "af-sitio-inexistente",
+                "texto": "Una afirmación que cita un sitio que no existe.",
+                "cita": "[Shcherbinin et al., 2022, pág. 12]",
+                "fragmento": "El estudio TRAILBLAZER-ALZ",
+                "veredicto": "cita_no_resuelve",
+                "fuenteId": "f-9",
+                "localizador": "pág. 12",
+                "iteracion": 1,
+            },
+        ],
+    }
+
+
+def test_las_dos_senales_se_miden_por_separado():
+    c = corrida_con_texto_web()
+    frs = C._fragmentos_para_verificador(c)
+    # El texto coincide con la fuente y la cita apunta a un sitio que existe.
+    buena = C.comprobacion_de_hoy(c["_afirmaciones"][0], frs)
+    assert buena["resuelve"] is True and buena["literal"] is True
+
+    # La cita apunta a un sitio que existe, pero el pasaje no está ahí: una
+    # señal en verde y la otra en rojo, que es justo lo que hay que poder decir.
+    inventada = C.comprobacion_de_hoy(c["_afirmaciones"][1], frs)
+    assert inventada["resuelve"] is True
+    assert inventada["literal"] is False
+    assert inventada["falta"] is not None
+
+    # La cita apunta a una página que la fuente no tiene: no resuelve, y el
+    # motivo lo dice nombrando los localizadores que sí tiene.
+    sitio = C.comprobacion_de_hoy(c["_afirmaciones"][2], frs)
+    assert sitio["resuelve"] is False
+    assert sitio["literal"] is False
+    assert "texto web, parte 1" in sitio["motivoResuelve"]
+
+
+def test_un_bloqueo_de_una_version_anterior_del_verificador_se_marca_como_tal():
+    c = corrida_con_texto_web()
+    f = C.ficha(c, "af-web")
+    # El veredicto guardado sigue siendo el que se tomó al extraerla: no se
+    # reescribe aquí. Lo que se añade es lo que dicen hoy las dos señales.
+    assert f["afirmacion"]["veredicto"] == "cita_no_resuelve"
+    assert f["hoy"]["resuelve"] is True and f["hoy"]["literal"] is True
+    assert f["bloqueoViejo"] is True
+    # La que de verdad no resuelve hoy no se marca como bloqueo viejo.
+    assert C.ficha(c, "af-sitio-inexistente")["bloqueoViejo"] is False
+    # Una cuyo pasaje no está tampoco: su bloqueo sigue siendo correcto.
+    assert C.ficha(c, "af-inventada")["bloqueoViejo"] is False
+
+
+def test_el_resumen_cuenta_los_bloqueos_viejos_para_poder_recuperarlos():
+    r = C.resumen(corrida_con_texto_web())
+    assert r["total"] == 3
+    assert r["bloqueosViejos"] == 1
+    assert r["resuelvenHoy"] == 2
+    assert r["literalesHoy"] == 1
+
+
+def test_la_recomprobacion_no_promete_veredictos_solo_lo_que_comprueba():
+    c = corrida_con_texto_web()
+    hoy = C.comprobacion_de_hoy(c["_afirmaciones"][0], C._fragmentos_para_verificador(c))
+    # Ni inventa un veredicto ni dice que sería sostenida: eso lo decide el juez.
+    assert "veredicto" not in hoy
+    assert set(hoy) == {"resuelve", "motivoResuelve", "literal", "falta", "localizadorAdmitido"}
+
+
+def test_una_afirmacion_sin_cita_no_resuelve_y_lo_dice():
+    hoy = C.comprobacion_de_hoy({"cita": "", "fragmento": "algo"}, [])
+    assert hoy["resuelve"] is False
+    assert "no lleva cita" in hoy["motivoResuelve"]

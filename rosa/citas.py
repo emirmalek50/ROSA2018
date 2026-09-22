@@ -28,6 +28,26 @@ es exactamente lo que convierte un veredicto en algo discutible.
 El texto de la página no se vuelve a sacar del PDF: ya se guardó al leerla
 (`fragmentos[*].texto` en `pasos.py`), así que el visor enseña lo mismo que vio
 el verificador, no una relectura que podría diferir.
+
+DOS SEÑALES QUE NO SON LA MISMA. Un veredicto como `cita_no_resuelve` junta en
+una sola etiqueta dos preguntas distintas:
+
+1. ¿La cita APUNTA a un sitio localizable? Es decir, si la referencia y el
+   localizador ("pág. 3508", "texto web, parte 2") existen en las fuentes de la
+   corrida. Es una propiedad de la dirección, no del contenido.
+2. ¿El pasaje citado ESTÁ ahí, literal? Es una propiedad del contenido.
+
+Se pueden dar las cuatro combinaciones, y la interfaz tiene que poder decir
+"el texto coincide con la fuente, pero la cita no apunta a una posición
+direccionable", que es informativo, en vez de un solo aprobado o suspenso.
+
+Y hay un tercer eje: el veredicto guardado se tomó CUANDO se extrajo la
+afirmación, con el verificador de entonces y con los fragmentos que la fuente
+tenía entonces. `comprobacion_de_hoy` vuelve a resolver la cita con las reglas
+y los fragmentos de ahora, sin coste de modelo (es determinista, menos de un
+milisegundo por afirmación), y así se ve cuándo un bloqueo es viejo. Lo que la
+recomprobación NO puede decir es si la afirmación sería sostenida: eso lo
+decide el juez, y aquí solo se afirma lo que se comprueba.
 """
 
 from __future__ import annotations
@@ -119,6 +139,56 @@ def marcar_pasaje(texto: str, pasaje: str) -> dict[str, Any]:
     return {"tramos": tramos, "falta": None, "completo": bool(tramos)}
 
 
+def _fragmentos_para_verificador(corrida: dict[str, Any]) -> list[Any]:
+    """Los fragmentos de la corrida en la forma que espera el verificador."""
+    return [
+        V.Fragmento(
+            fuente_id=fid,
+            referencia=f.get("referencia", ""),
+            localizador=fr.get("localizador", ""),
+            texto=fr.get("texto", ""),
+            encabezado=fr.get("encabezado", ""),
+        )
+        for fid, f in _fuentes_de(corrida).items()
+        for fr in (f.get("fragmentos") or [])
+    ]
+
+
+def comprobacion_de_hoy(afirmacion: dict[str, Any], fragmentos: list[Any]) -> dict[str, Any]:
+    """Las dos señales, separadas, con las reglas y los fragmentos de ahora:
+
+    - `resuelve`: la cita apunta a una posición que existe (fuente más
+      localizador). Si no, `motivoResuelve` dice por qué, con el motivo del
+      propio verificador.
+    - `literal`: el pasaje citado está entero en esa posición. Si no,
+      `falta` trae el tramo que no aparece.
+
+    No devuelve veredicto: si una afirmación es sostenida lo decide el juez,
+    y esto es solo la parte determinista. Cuesta menos de un milisegundo."""
+    cita = afirmacion.get("cita") or ""
+    pasaje = afirmacion.get("fragmento") or ""
+    fuente_id = afirmacion.get("fuenteId") or None
+    if not cita.strip():
+        return {"resuelve": False, "motivoResuelve": "La afirmación no lleva cita.", "literal": False, "falta": None, "localizadorAdmitido": False}
+    admitido = V.PATRON_CITA.match(cita.strip()) is not None
+    candidatos = V.candidatos_cita(cita, fragmentos, fuente_id)
+    if not candidatos:
+        return {
+            "resuelve": False,
+            "motivoResuelve": V.motivo_cita_no_resuelta(cita, fragmentos, fuente_id),
+            "literal": False,
+            "falta": None,
+            "localizadorAdmitido": admitido,
+        }
+    if not pasaje.strip():
+        return {"resuelve": True, "motivoResuelve": "", "literal": False, "falta": None, "localizadorAdmitido": admitido}
+    con_pasaje = [c for c in candidatos if V.pasaje_en_texto(pasaje, c.texto)]
+    if con_pasaje:
+        return {"resuelve": True, "motivoResuelve": "", "literal": True, "falta": None, "localizadorAdmitido": admitido}
+    falta = V.pasaje_faltante(pasaje, candidatos[0].texto)
+    return {"resuelve": True, "motivoResuelve": "", "literal": False, "falta": falta, "localizadorAdmitido": admitido}
+
+
 def _fragmento_de(fuente: dict[str, Any], localizador: str) -> dict[str, Any] | None:
     """El fragmento de la fuente cuyo localizador es el de la cita. La
     comparación es laxa en espacios y mayúsculas porque el localizador viaja
@@ -158,8 +228,10 @@ def _fuentes_de(corrida: dict[str, Any]) -> dict[str, Any]:
 
 def lista(corrida: dict[str, Any]) -> list[dict[str, Any]]:
     """Las afirmaciones de la corrida para la columna de la izquierda: texto,
-    veredicto, cita, de qué se apoya y si su página se puede enseñar."""
+    veredicto guardado, cita, de qué se apoya, si su página se puede enseñar y
+    qué dicen hoy las dos señales deterministas."""
     fuentes = _fuentes_de(corrida)
+    fragmentos = _fragmentos_para_verificador(corrida)
     salida = []
     for a in corrida.get("_afirmaciones", []) or []:
         if not isinstance(a, dict):
@@ -167,6 +239,7 @@ def lista(corrida: dict[str, Any]) -> list[dict[str, Any]]:
         localizador = a.get("localizador") or ""
         fuente = fuentes.get(a.get("fuenteId") or "")
         fragmento = _fragmento_de(fuente, localizador) if fuente else None
+        hoy = comprobacion_de_hoy(a, fragmentos)
         salida.append(
             {
                 "id": a.get("id"),
@@ -184,6 +257,10 @@ def lista(corrida: dict[str, Any]) -> list[dict[str, Any]]:
                 # Si hay texto guardado de ese localizador, la ficha se puede abrir.
                 "conTexto": bool(fragmento and fragmento.get("texto")),
                 "conPdf": bool(fragmento and fragmento.get("_ruta") and Path(str(fragmento["_ruta"])).exists()),
+                "hoy": hoy,
+                # El veredicto guardado bloquea, pero hoy la cita resuelve y el
+                # pasaje está literal: el bloqueo es de una versión anterior.
+                "bloqueoViejo": bool(a.get("veredicto") in V.BLOQUEAN and hoy["resuelve"] and hoy["literal"]),
             }
         )
     return salida
@@ -213,7 +290,10 @@ def ficha(corrida: dict[str, Any], afirmacion_id: str) -> dict[str, Any] | None:
         }
         for fr in (fuente.get("fragmentos") or [])
     ]
+    hoy = comprobacion_de_hoy(afirmacion, _fragmentos_para_verificador(corrida))
     return {
+        "hoy": hoy,
+        "bloqueoViejo": bool(afirmacion.get("veredicto") in V.BLOQUEAN and hoy["resuelve"] and hoy["literal"]),
         "afirmacion": {
             "id": afirmacion.get("id"),
             "texto": afirmacion.get("texto"),
@@ -289,4 +369,9 @@ def resumen(corrida: dict[str, Any]) -> dict[str, Any]:
         "porClase": por_clase,
         "conPagina": sum(1 for f in filas if f["clase"] == "pagina"),
         "conPdf": sum(1 for f in filas if f["conPdf"]),
+        # Bloqueadas cuyo veredicto es de una versión anterior del verificador:
+        # hoy su cita resuelve y su pasaje está literal.
+        "bloqueosViejos": sum(1 for f in filas if f["bloqueoViejo"]),
+        "resuelvenHoy": sum(1 for f in filas if f["hoy"]["resuelve"]),
+        "literalesHoy": sum(1 for f in filas if f["hoy"]["literal"]),
     }

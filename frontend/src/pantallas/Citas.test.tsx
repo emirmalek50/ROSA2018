@@ -7,7 +7,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import type { FichaCita, ListaCitas } from '../lib/citas';
+import type { ComprobacionDeHoy, FichaCita, ListaCitas } from '../lib/citas';
 import { Citas } from './Citas';
 
 const respuestas = vi.hoisted(() => ({
@@ -33,17 +33,21 @@ const PAGINA = `Antes del pasaje. ${PASAJE}. Después del pasaje.`;
 // aquí igual que allí, para que el test no dependa de contar a mano.
 const TRAMO = { inicio: PAGINA.indexOf(PASAJE), fin: PAGINA.indexOf(PASAJE) + PASAJE.length, texto: PASAJE };
 
+const HOY_BIEN: ComprobacionDeHoy = { resuelve: true, motivoResuelve: '', literal: true, falta: null, localizadorAdmitido: true };
+
 const LISTA: ListaCitas = {
   corridaId: 'cor-1',
-  resumen: { total: 3, porVeredicto: { sostenida: 1, no_sostenida: 1, parcial: 1 }, porClase: { pagina: 1, resumen: 1, web: 1 }, conPagina: 1, conPdf: 1 },
+  resumen: { total: 3, porVeredicto: { sostenida: 1, no_sostenida: 1, parcial: 1 }, porClase: { pagina: 1, resumen: 1, web: 1 }, conPagina: 1, conPdf: 1, bloqueosViejos: 1, resuelvenHoy: 3, literalesHoy: 2 },
   afirmaciones: [
-    { id: 'af-1', texto: 'El GFAP se asocia al amiloide.', cita: '[Pereira 2021, pág. 3508]', veredicto: 'sostenida', iteracion: 1, fuenteId: 'f-1', referencia: 'Pereira 2021', localizador: 'pág. 3508', clase: 'pagina', conTexto: true, conPdf: true },
-    { id: 'af-2', texto: 'Sube un treinta por ciento.', cita: '[Syrjanen 2022, resumen]', veredicto: 'no_sostenida', iteracion: 1, fuenteId: 'f-2', referencia: 'Syrjanen 2022', localizador: 'resumen', clase: 'resumen', conTexto: true, conPdf: false },
-    { id: 'af-3', texto: 'Algo del texto de la web.', cita: '[Schindler 2019, texto web, parte 2]', veredicto: 'parcial', iteracion: 2, fuenteId: 'f-3', referencia: 'Schindler 2019', localizador: 'texto web, parte 2', clase: 'web', conTexto: true, conPdf: false },
+    { id: 'af-1', texto: 'El GFAP se asocia al amiloide.', cita: '[Pereira 2021, pág. 3508]', veredicto: 'sostenida', iteracion: 1, fuenteId: 'f-1', referencia: 'Pereira 2021', localizador: 'pág. 3508', clase: 'pagina', conTexto: true, conPdf: true, hoy: HOY_BIEN, bloqueoViejo: false },
+    { id: 'af-2', texto: 'Sube un treinta por ciento.', cita: '[Syrjanen 2022, resumen]', veredicto: 'no_sostenida', iteracion: 1, fuenteId: 'f-2', referencia: 'Syrjanen 2022', localizador: 'resumen', clase: 'resumen', conTexto: true, conPdf: false, hoy: { ...HOY_BIEN, literal: false, falta: 'un treinta por ciento' }, bloqueoViejo: false },
+    { id: 'af-3', texto: 'Algo del texto de la web.', cita: '[Schindler 2019, texto web, parte 2]', veredicto: 'parcial', iteracion: 2, fuenteId: 'f-3', referencia: 'Schindler 2019', localizador: 'texto web, parte 2', clase: 'web', conTexto: true, conPdf: false, hoy: HOY_BIEN, bloqueoViejo: true },
   ],
 };
 
 const FICHA: FichaCita = {
+  hoy: HOY_BIEN,
+  bloqueoViejo: false,
   afirmacion: { id: 'af-1', texto: 'El GFAP se asocia al amiloide.', cita: '[Pereira 2021, pág. 3508]', veredicto: 'sostenida', motivo: 'Literal en la página.', iteracion: 1, pasaje: PASAJE },
   fuente: { id: 'f-1', referencia: 'Pereira 2021', titulo: 'Plasma GFAP is an early marker', doi: '10.1093/brain/awab223', anio: 2021, textoCompleto: true },
   localizador: 'pág. 3508',
@@ -125,16 +129,46 @@ describe('la pantalla de citas', () => {
     expect(nodo.querySelector('.citas-numpag')?.textContent).toBe('3508');
   });
 
-  it('el veredicto que se enseña es el del verificador, no una deducción de la pantalla', async () => {
+  it('el veredicto que se enseña es el guardado y se dice que es del momento de extraerla', async () => {
     respuestas.ficha = { ...FICHA, afirmacion: { ...FICHA.afirmacion, veredicto: 'cita_no_resuelve' }, completo: true };
     await montar();
     const comparacion = nodo.querySelector('.citas-comparacion')!.textContent ?? '';
     expect(comparacion).toContain('la cita no resuelve');
-    expect(comparacion).toContain('Lo que dijo ROSA2018');
+    expect(comparacion).toContain('Veredicto al extraerla');
+  });
+
+  it('las dos señales van separadas: el texto puede coincidir con la fuente aunque la cita no apunte a ningún sitio', async () => {
+    respuestas.ficha = { ...FICHA, hoy: { resuelve: false, motivoResuelve: 'La fuente no tiene ese localizador.', literal: false, falta: null, localizadorAdmitido: true }, afirmacion: { ...FICHA.afirmacion, veredicto: 'cita_no_resuelve' } };
+    await montar();
+    const senales = nodo.querySelectorAll('.citas-senales li');
+    expect(senales.length).toBe(2);
+    expect(senales[0]!.textContent).toContain('La cita apunta a un sitio que existe');
+    expect(senales[0]!.querySelector('.citas-no')).not.toBeNull();
+    expect(senales[1]!.textContent).toContain('El pasaje está ahí, literal');
+    // Y al revés: el sitio no existe pero el texto sí coincidiría.
+    await act(async () => root.render(<div />));
+    respuestas.ficha = { ...FICHA, hoy: { resuelve: true, motivoResuelve: '', literal: false, falta: 'un tramo inventado' }, afirmacion: { ...FICHA.afirmacion, veredicto: 'no_sostenida' } } as FichaCita;
+    await montar();
+    const dos = nodo.querySelectorAll('.citas-senales li');
+    expect(dos[0]!.querySelector('.citas-si')).not.toBeNull();
+    expect(dos[1]!.querySelector('.citas-no')).not.toBeNull();
+    expect(nodo.querySelector('.citas-falta')?.textContent).toBe('un tramo inventado');
+  });
+
+  it('un bloqueo de una versión anterior se marca y se puede filtrar, sin reescribir el veredicto', async () => {
+    respuestas.ficha = { ...FICHA, bloqueoViejo: true, afirmacion: { ...FICHA.afirmacion, veredicto: 'cita_no_resuelve' } };
+    await montar();
+    expect(nodo.querySelector('.citas-rancio')?.textContent).toContain('versión anterior del verificador');
+    // El veredicto guardado sigue ahí: la pantalla no decide por el verificador.
+    expect(nodo.querySelector('.citas-comparacion')?.textContent).toContain('la cita no resuelve');
+    expect(texto()).toContain('Hoy resolverían');
+    await pulsar(boton('Hoy resolverían'));
+    expect(nodo.querySelectorAll('.citas-af').length).toBe(1);
+    expect(nodo.querySelector('.citas-marca-rancio')?.textContent).toBe('hoy resolvería');
   });
 
   it('cuando falta un tramo del pasaje lo enseña tachado, que es el motivo del veredicto', async () => {
-    respuestas.ficha = { ...FICHA, afirmacion: { ...FICHA.afirmacion, veredicto: 'no_sostenida' }, completo: false, falta: 'in ninety per cent of participants', tramos: [] };
+    respuestas.ficha = { ...FICHA, afirmacion: { ...FICHA.afirmacion, veredicto: 'no_sostenida' }, completo: false, falta: 'in ninety per cent of participants', tramos: [], hoy: { resuelve: true, motivoResuelve: '', literal: false, falta: 'in ninety per cent of participants', localizadorAdmitido: true } };
     await montar();
     expect(nodo.querySelector('.citas-falta')?.textContent).toBe('in ninety per cent of participants');
     expect(texto()).toContain('No está en la fuente');
@@ -173,8 +207,33 @@ describe('la pantalla de citas', () => {
   });
 
   it('una corrida sin afirmaciones lo dice en llano', async () => {
-    respuestas.lista = { corridaId: 'cor-1', resumen: { total: 0, porVeredicto: {}, porClase: {}, conPagina: 0, conPdf: 0 }, afirmaciones: [] };
+    respuestas.lista = { corridaId: 'cor-1', resumen: { total: 0, porVeredicto: {}, porClase: {}, conPagina: 0, conPdf: 0, bloqueosViejos: 0, resuelvenHoy: 0, literalesHoy: 0 }, afirmaciones: [] };
     await montar();
     expect(texto()).toContain('todavía no tiene afirmaciones extraídas');
+  });
+});
+
+describe('la pantalla de citas con un servidor anterior', () => {
+  it('si la ficha llega sin las señales nuevas, lo dice y no rompe la pantalla', async () => {
+    // Es lo que pasa justo después de desplegar: el servidor que está vivo
+    // arrancó antes y su respuesta no trae `hoy`.
+    const sinSenales = { ...FICHA } as Partial<FichaCita>;
+    delete sinSenales.hoy;
+    delete sinSenales.bloqueoViejo;
+    respuestas.ficha = sinSenales as FichaCita;
+    await montar();
+    expect(nodo.querySelector('.citas-hoja mark')).not.toBeNull();
+    expect(texto()).toContain('todavía no comprueba la cita');
+    expect(nodo.querySelectorAll('.citas-senales li').length).toBe(0);
+    expect(nodo.querySelector('.citas-rancio')).toBeNull();
+  });
+
+  it('una lista sin las cifras nuevas tampoco rompe: el filtro extra no aparece', async () => {
+    const resumen = { ...LISTA.resumen } as Partial<ListaCitas['resumen']>;
+    delete resumen.bloqueosViejos;
+    respuestas.lista = { ...LISTA, resumen: resumen as ListaCitas['resumen'], afirmaciones: LISTA.afirmaciones.map((a) => ({ ...a, bloqueoViejo: undefined as unknown as boolean })) };
+    await montar();
+    expect(texto()).toContain('El GFAP se asocia al amiloide.');
+    expect(texto()).not.toContain('Hoy resolverían');
   });
 });

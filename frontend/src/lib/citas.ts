@@ -16,6 +16,24 @@ export interface TramoCita {
   texto: string;
 }
 
+/** Las dos señales deterministas, medidas con las reglas y los fragmentos de
+ *  hoy. Son distintas y no hay que juntarlas: una cita puede apuntar a un sitio
+ *  que no existe aunque su texto coincida con la fuente, y al revés. */
+export interface ComprobacionDeHoy {
+  /** La cita apunta a una posición que existe: fuente más localizador. */
+  resuelve: boolean;
+  /** Por qué no resuelve, con las palabras del verificador. */
+  motivoResuelve: string;
+  /** El pasaje citado está entero en esa posición. */
+  literal: boolean;
+  /** El tramo del pasaje que no aparece, si falta alguno. */
+  falta: string | null;
+  /** El localizador tiene un formato de los que el verificador admite. */
+  localizadorAdmitido: boolean;
+  /** Falso cuando el servidor no manda estas señales (versión anterior). */
+  disponible?: boolean;
+}
+
 export interface AfirmacionCitada {
   id: string;
   texto: string;
@@ -31,6 +49,9 @@ export interface AfirmacionCitada {
   clase: ClaseCita;
   conTexto: boolean;
   conPdf: boolean;
+  hoy: ComprobacionDeHoy;
+  /** El veredicto guardado bloquea, pero hoy la cita resuelve y es literal. */
+  bloqueoViejo: boolean;
 }
 
 export interface ResumenCitas {
@@ -39,6 +60,9 @@ export interface ResumenCitas {
   porClase: Record<string, number>;
   conPagina: number;
   conPdf: number;
+  bloqueosViejos: number;
+  resuelvenHoy: number;
+  literalesHoy: number;
 }
 
 export interface ListaCitas {
@@ -48,6 +72,8 @@ export interface ListaCitas {
 }
 
 export interface FichaCita {
+  hoy: ComprobacionDeHoy;
+  bloqueoViejo: boolean;
   afirmacion: {
     id: string;
     texto: string;
@@ -116,6 +142,24 @@ export function trozosDeTexto(texto: string, tramos: readonly TramoCita[]): Troz
   }
   if (cursor < largo) salida.push({ texto: texto.slice(cursor), marcado: false });
   return salida;
+}
+
+/** Las señales de una ficha que viene de un servidor anterior, que todavía no
+ *  las manda: se dice que no se pudieron comprobar, en vez de romper la
+ *  pantalla o de inventar un sí. */
+export const SIN_COMPROBAR: ComprobacionDeHoy = { resuelve: false, motivoResuelve: 'Este servidor todavía no comprueba la cita al abrir la ficha.', literal: false, falta: null, localizadorAdmitido: false, disponible: false };
+
+/** Las señales de una respuesta, con su respaldo si no vienen. */
+export function senalesDe(hoy: ComprobacionDeHoy | undefined | null): ComprobacionDeHoy {
+  if (!hoy || typeof hoy !== 'object') return SIN_COMPROBAR;
+  return {
+    resuelve: Boolean(hoy.resuelve),
+    motivoResuelve: typeof hoy.motivoResuelve === 'string' ? hoy.motivoResuelve : '',
+    literal: Boolean(hoy.literal),
+    falta: typeof hoy.falta === 'string' ? hoy.falta : null,
+    localizadorAdmitido: Boolean(hoy.localizadorAdmitido),
+    disponible: true,
+  };
 }
 
 /** Cómo se dice en llano de qué se apoya una cita. La primera es la única que

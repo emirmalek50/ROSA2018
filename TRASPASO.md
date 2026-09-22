@@ -1028,3 +1028,29 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   reinicio. No se reinició porque la corrida 16 está en marcha (regla de Emir).
   Para la prueba se levantó una instancia aparte en el 8799 sobre una copia de
   la base, ya cerrada.
+- **Las dos señales de una cita, y un hallazgo gordo (22 sep).** Revisando el
+  visor, Emir señaló una contradicción visible: una tarjeta decía "la cita no
+  resuelve" y a la vez que el pasaje estaba literal en la fuente. Tenía razón y
+  el diagnóstico era exacto: se estaban colapsando dos preguntas distintas en
+  una sola etiqueta. Ahora van separadas en pantalla y en `rosa/citas.py`
+  (`comprobacion_de_hoy`): (1) si la cita APUNTA a un sitio que existe (fuente
+  más localizador) y (2) si el pasaje ESTÁ ahí, literal. Se pueden dar las
+  cuatro combinaciones.
+  Al investigar la causa apareció algo mayor: esos veredictos son de cuando se
+  extrajo la afirmación, con el verificador de entonces. Pasando las 609
+  afirmaciones de la corrida 16 por el verificador de HOY (410 ms, cero
+  llamadas a modelos): 151 de las 157 que estaban en `cita_no_resuelve`
+  resuelven, más 14 `no_sostenida`; en total 166 bloqueos que ya no se
+  sostienen. Casi todos son citas a "texto web, parte N", el localizador que
+  llegó con Exa. La pantalla lo marca con un chip "hoy resolvería", tiene un
+  filtro para verlas y lo dice en la cabecera; NO reescribe el veredicto
+  guardado, porque para pasar a sostenida hace falta el juez, que cuesta
+  llamadas. Esto es exactamente la prioridad 5 de INVESTIGACION-FEATURES
+  ("recuperar las afirmaciones bloqueadas, la mitad gratis") y ahora se ve.
+  La pantalla también aguanta un servidor anterior que no mande las señales:
+  lo dice en una línea en vez de romperse (se rompió una vez en pruebas).
+  ERROR MÍO QUE NO SE REPITE: reinicié el servidor con la corrida 16 en marcha.
+  La comprobación previa lo decía y aun así encadené el parón en el mismo
+  comando sin leer su salida. Cerró limpio en 20 s y la corrida reanudó sola
+  (iteración 1, 6 de 7 pasos), pero la regla es no hacerlo: comprobar, LEER la
+  respuesta, y solo entonces parar.
