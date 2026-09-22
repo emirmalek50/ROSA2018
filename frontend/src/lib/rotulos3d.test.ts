@@ -1,47 +1,54 @@
 import { describe, expect, it } from 'vitest';
-import { repartirRotulos, sePisan, type Ancla } from './rotulos3d';
+import { colocarRotulos, sePisan, type Ancla } from './rotulos3d';
 
-const ancla = (clave: string, x: number, y: number, prioridad = 1): Ancla => ({ clave, texto: clave, x, y, prioridad });
+const ancla = (clave: string, x: number, y: number, prioridad = 1, ancho = 90): Ancla => ({ clave, texto: clave, x, y, ancho, alto: 16, prioridad });
+const OP = { ancho: 1000, alto: 620, centroX: 500, centroY: 310 };
 
-describe('el reparto de los nombres alrededor del cerebro', () => {
-  it('manda a la izquierda lo que cae a la izquierda del centro, y a la derecha lo demás', () => {
-    const r = repartirRotulos([ancla('a', 100, 200), ancla('b', 900, 300)], { ancho: 1000, alto: 600, paso: 14 });
-    expect(r.find((x) => x.clave === 'a')?.lado).toBe('izquierda');
-    expect(r.find((x) => x.clave === 'b')?.lado).toBe('derecha');
-    expect(r.find((x) => x.clave === 'a')?.rx).toBe(16);
-    expect(r.find((x) => x.clave === 'b')?.rx).toBe(984);
+describe('la colocación de los nombres junto a las estructuras', () => {
+  it('cada rótulo queda pegado a su ancla, hacia fuera del centro del cerebro, con la guía corta', () => {
+    const r = colocarRotulos([ancla('derecha', 700, 310), ancla('arriba', 500, 150), ancla('izquierda', 300, 310)], OP);
+    expect(r).toHaveLength(3);
+    const der = r.find((x) => x.clave === 'derecha')!;
+    expect(der.cx).toBeGreaterThan(700);
+    expect(Math.hypot(der.gx - der.x, der.gy - der.y)).toBeLessThan(30);
+    const izq = r.find((x) => x.clave === 'izquierda')!;
+    expect(izq.cx + izq.ancho).toBeLessThan(300);
+    const arr = r.find((x) => x.clave === 'arriba')!;
+    expect(arr.cy + arr.alto).toBeLessThan(150);
   });
 
-  it('ningún rótulo pisa a otro de su columna aunque todas las anclas estén a la misma altura', () => {
-    const anclas = Array.from({ length: 9 }, (_, i) => ancla(`r${i}`, 200, 300));
-    const r = repartirRotulos(anclas, { ancho: 1000, alto: 600, paso: 15 });
-    expect(r).toHaveLength(9);
-    for (const a of r) for (const b of r) if (a !== b) expect(sePisan(a, b, 15)).toBe(false);
-    // Y el bloque queda centrado alrededor de la altura común, no colgando por abajo.
-    const ys = r.map((x) => x.ry);
-    expect(Math.min(...ys)).toBeGreaterThanOrEqual(16 + 7.5);
-    expect(Math.max(...ys)).toBeLessThanOrEqual(600 - 16 - 7.5);
+  it('dos rótulos con anclas casi iguales no se pisan: el segundo se aleja por su radio', () => {
+    const r = colocarRotulos([ancla('a', 700, 300, 2), ancla('b', 704, 306, 1)], OP);
+    expect(r).toHaveLength(2);
+    expect(sePisan(r[0]!, r[1]!)).toBe(false);
+    const b = r.find((x) => x.clave === 'b')!;
+    // El de menor prioridad es el que se ha alejado, pero sigue cerca.
+    expect(Math.hypot(b.gx - b.x, b.gy - b.y)).toBeGreaterThan(18);
+    expect(Math.hypot(b.gx - b.x, b.gy - b.y)).toBeLessThan(160);
   });
 
-  it('conserva el orden vertical de las anclas dentro de la columna', () => {
-    const r = repartirRotulos([ancla('abajo', 100, 500), ancla('arriba', 100, 100), ancla('medio', 100, 300)], { ancho: 1000, alto: 600, paso: 14 });
-    const orden = r.sort((a, b) => a.ry - b.ry).map((x) => x.clave);
-    expect(orden).toEqual(['arriba', 'medio', 'abajo']);
+  it('con muchas anclas apiñadas ninguno se pisa, caben la mayoría rodeando el cúmulo y la de mayor prioridad siempre entra', () => {
+    const anclas = Array.from({ length: 24 }, (_, i) => ancla(`r${i}`, 600 + (i % 3) * 5, 300 + Math.floor(i / 3) * 4, i));
+    const r = colocarRotulos(anclas, OP);
+    for (const a of r) for (const b of r) if (a !== b) expect(sePisan(a, b)).toBe(false);
+    expect(r.length).toBeGreaterThanOrEqual(12);
+    expect(r.some((x) => x.clave === 'r23')).toBe(true);
+    // Todos siguen cerca de lo que nombran: a menos de doscientos píxeles del ancla.
+    for (const x of r) expect(Math.hypot(x.gx - x.x, x.gy - x.y)).toBeLessThan(200);
   });
 
-  it('si no caben todos en una columna, se quedan los de mayor prioridad', () => {
-    const anclas = Array.from({ length: 30 }, (_, i) => ancla(`r${i}`, 100, 10 * i, i));
-    const r = repartirRotulos(anclas, { ancho: 1000, alto: 200, paso: 14, margen: 10 });
-    expect(r.length).toBeLessThan(30);
-    expect(r.every((x) => x.prioridad >= 30 - r.length)).toBe(true);
-  });
-
-  it('con anclas fuera del lienzo o rotas los rótulos siguen dentro del lienzo', () => {
-    const r = repartirRotulos([ancla('lejos', 100, -500), ancla('nan', Number.NaN, Number.NaN), ancla('fondo', 900, 5000)], { ancho: 1000, alto: 600, paso: 14 });
+  it('los rótulos no se salen del lienzo aunque el ancla esté en el borde', () => {
+    const r = colocarRotulos([ancla('borde', 995, 5), ancla('esquina', 3, 615)], OP);
     for (const x of r) {
-      expect(x.ry).toBeGreaterThanOrEqual(0);
-      expect(x.ry).toBeLessThanOrEqual(600);
-      expect(Number.isFinite(x.rx)).toBe(true);
+      expect(x.cx).toBeGreaterThanOrEqual(0);
+      expect(x.cx + x.ancho).toBeLessThanOrEqual(1000);
+      expect(x.cy).toBeGreaterThanOrEqual(0);
+      expect(x.cy + x.alto).toBeLessThanOrEqual(620);
     }
+  });
+
+  it('un ancla rota se descarta y el resto sigue', () => {
+    const r = colocarRotulos([ancla('nan', Number.NaN, 10), ancla('bien', 700, 300)], OP);
+    expect(r.map((x) => x.clave)).toEqual(['bien']);
   });
 });

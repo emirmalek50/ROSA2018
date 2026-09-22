@@ -47,7 +47,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { distanciaParaEncuadrar, multiplicar, normal3, orbita, perspectiva, transformar } from '../lib/matriz4';
 import { encuadre, leerMalla, validarIndice, type EstructuraCerebro, type IndiceCerebro, type Malla } from '../lib/cerebro_malla';
 import { cajaDe, esfera, gota, tubo, unir, type Forma } from '../lib/formas3d';
-import { repartirRotulos, type Ancla } from '../lib/rotulos3d';
+import { colocarRotulos, type Ancla } from '../lib/rotulos3d';
 import { rellenoRegion, tokenAtlas } from '../lib/atlas_color';
 import { NOMBRE_CORTO } from '../lib/atlas_dibujo';
 import { intensidad, type Atlas } from '../lib/atlas';
@@ -108,7 +108,6 @@ const FONDO: [number, number, number] = [0.043, 0.039, 0.078];
 const TEXTO = '#f4efe4';
 const TEXTO_TENUE = 'rgba(244, 239, 228, 0.72)';
 const AMBAR = '#f0a030';
-const GUIA = 'rgba(238, 233, 255, 0.36)';
 
 /** Los compartimentos de fuera del cerebro, como cuerpos en la escena. Las
  *  medidas van en milímetros, en el sistema del modelo (x a la derecha, y
@@ -418,7 +417,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
       contexto.enable(contexto.DEPTH_TEST);
     };
 
-    /** Los nombres alrededor del cerebro, en el lienzo plano de encima. */
+    /** Los nombres junto a las estructuras, en el lienzo plano de encima. */
     const rotular = (anchoCss: number, altoCss: number, dpr: number) => {
       const w = Math.round(anchoCss * dpr), h = Math.round(altoCss * dpr);
       if (plano.width !== w || plano.height !== h) { plano.width = w; plano.height = h; }
@@ -429,6 +428,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
       const mirada = focoRef.current ?? datos.current.seleccion;
       const porDentro = mirada !== null && PROFUNDAS.has(mirada);
       const porClave = new Map(datos.current.atlas.regiones.map((r) => [r.clave, r]));
+      const fuente = (fuerte: boolean) => `${fuerte ? 600 : 500} 13px -apple-system, "Inter", "Segoe UI", sans-serif`;
       const anclas: Ancla[] = [];
       const vistas = new Set<string>();
       for (const p of piezas) {
@@ -444,36 +444,42 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         const y = ((1 - q.y) / 2) * altoCss;
         if (x < -40 || x > anchoCss + 40 || y < -40 || y > altoCss + 40) continue;
         const conteo = porClave.get(clave)?.conteo ?? 0;
-        anclas.push({ clave, texto: `${nombreCorto(p.estructura)}${conteo ? ` · ${conteo}` : ''}`, x, y, prioridad: clave === mirada ? 1000 : conteo + 1 });
+        const texto = `${nombreCorto(p.estructura)}${conteo ? ` · ${conteo}` : ''}`;
+        rotulador.font = fuente(conteo > 0 || clave === mirada);
+        anclas.push({ clave, texto, x, y, ancho: rotulador.measureText(texto).width + 12, alto: 20, prioridad: clave === mirada ? 1000 : conteo + 1 });
       }
-      const paso = 16;
-      const repartidos = repartirRotulos(anclas, { ancho: anchoCss, alto: altoCss, paso, margen: 14, maximoPorColumna: Math.floor((altoCss - 60) / paso) });
-      rotulador.font = '12px -apple-system, "Inter", "Segoe UI", sans-serif';
+      // El centro del cerebro en pantalla: de él huyen los rótulos.
+      const qc = transformar(mvp, centro);
+      const centroX = ((qc.x + 1) / 2) * anchoCss;
+      const centroY = ((1 - qc.y) / 2) * altoCss;
+      const colocados = colocarRotulos(anclas, { ancho: anchoCss, alto: altoCss, centroX, centroY, separacion: 16, paso: 9, intentos: 12, holgura: 3 });
+      const fondo = `rgb(${Math.round(FONDO[0] * 255)}, ${Math.round(FONDO[1] * 255)}, ${Math.round(FONDO[2] * 255)})`;
       rotulador.textBaseline = 'middle';
-      rotulador.lineWidth = 1;
-      for (const r of repartidos) {
-        const izquierda = r.lado === 'izquierda';
-        const ancho = rotulador.measureText(r.texto).width;
-        const xTexto = izquierda ? r.rx : r.rx - ancho;
-        const xFinGuia = izquierda ? r.rx + ancho + 6 : r.rx - ancho - 6;
-        // La guía: del rótulo sale en horizontal y después va derecha al ancla.
-        rotulador.strokeStyle = r.clave === mirada ? AMBAR : GUIA;
+      rotulador.textAlign = 'left';
+      rotulador.lineJoin = 'round';
+      for (const r of colocados) {
+        const esMirada = r.clave === mirada;
+        const conDatos = r.prioridad > 1;
+        // La guía corta, del ancla al borde de la caja, con su punto en el ancla.
+        rotulador.strokeStyle = esMirada ? AMBAR : 'rgba(244, 239, 228, 0.55)';
+        rotulador.lineWidth = 1.2;
         rotulador.beginPath();
-        rotulador.moveTo(xFinGuia, r.ry);
-        rotulador.lineTo(xFinGuia + (izquierda ? 14 : -14), r.ry);
-        rotulador.lineTo(r.x, r.y);
+        rotulador.moveTo(r.x, r.y);
+        rotulador.lineTo(r.gx, r.gy);
         rotulador.stroke();
         rotulador.beginPath();
-        rotulador.arc(r.x, r.y, 2.2, 0, Math.PI * 2);
-        rotulador.fillStyle = r.clave === mirada ? AMBAR : GUIA;
+        rotulador.arc(r.x, r.y, 2.6, 0, Math.PI * 2);
+        rotulador.fillStyle = esMirada ? AMBAR : 'rgba(244, 239, 228, 0.9)';
         rotulador.fill();
-        rotulador.textAlign = 'left';
-        rotulador.strokeStyle = `rgb(${Math.round(FONDO[0] * 255)}, ${Math.round(FONDO[1] * 255)}, ${Math.round(FONDO[2] * 255)})`;
-        rotulador.lineWidth = 3;
-        rotulador.strokeText(r.texto, xTexto, r.ry);
-        rotulador.lineWidth = 1;
-        rotulador.fillStyle = r.clave === mirada ? AMBAR : r.prioridad > 1 ? TEXTO : TEXTO_TENUE;
-        rotulador.fillText(r.texto, xTexto, r.ry);
+        // El texto con halo del color del fondo, para que se lea sobre el tejido.
+        rotulador.font = fuente(conDatos || esMirada);
+        const tx = r.cx + 6;
+        const ty = r.cy + r.alto / 2;
+        rotulador.strokeStyle = fondo;
+        rotulador.lineWidth = 4;
+        rotulador.strokeText(r.texto, tx, ty);
+        rotulador.fillStyle = esMirada ? AMBAR : conDatos ? TEXTO : TEXTO_TENUE;
+        rotulador.fillText(r.texto, tx, ty);
       }
     };
 

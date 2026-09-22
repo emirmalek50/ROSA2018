@@ -960,3 +960,11 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   repintaba al fotograma siguiente; ahora la escena de verdad se vuelve a
   pintar en la misma tarea, así que la copia de colores nunca se presenta. La
   carga ya no enseña las piezas una a una: espera a todas y entra girando.
+- **Los nombres del cerebro 3D, segunda vuelta (22 sep):** las dos columnas
+  con guías largas hasta los bordes le parecieron a Emir "horribles, ni ganas
+  dan de leerlos". Ahora cada nombre va pegado a su estructura, desplazado
+  hacia fuera del centro del cerebro con una guía corta y un punto en el
+  ancla, letra de 13 px con halo del color del fondo, y si pisa a otro se
+  aleja por su radio y por un abanico de ángulos hasta que cabe
+  (lib/rotulos3d.ts, cinco pruebas). Con el cerebro abierto se nombra también
+  lo de dentro y queda denso pero legible.
