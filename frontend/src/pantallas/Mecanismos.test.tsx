@@ -208,3 +208,24 @@ describe('la pantalla de mecanismos', () => {
     expect(filas[1]).toContain('3 cumplen');
   });
 });
+
+describe('cuando una hipótesis no tiene amenazas', () => {
+  it('lo dice, y aclara que no significa que esté limpia', async () => {
+    // El 22 de septiembre de 2026 una hipótesis se recalculó con cero
+    // alternativas y las cajas rojas desaparecieron sin explicación.
+    await montar(estadoCon([hip('h1', { nodos: CASCADA })]));
+    expect(nodo.querySelectorAll('.mec-amenaza')).toHaveLength(0);
+    const aviso = nodo.querySelector('.mec-sin-amenazas')?.textContent ?? '';
+    expect(aviso).toContain('no tiene ninguna explicación alternativa');
+    expect(aviso).toContain('No quiere decir que esté limpia');
+  });
+
+  it('con amenazas no sale ese aviso', async () => {
+    await montar(
+      estadoCon([
+        hip('h1', { nodos: [...CASCADA, { id: 'A1', etiqueta: 'la edad', rol: 'alternativa_confusor' }] }),
+      ]),
+    );
+    expect(nodo.querySelector('.mec-sin-amenazas')).toBe(null);
+  });
+});

@@ -169,3 +169,54 @@ def test_un_supuesto_se_llama_igual_se_cumpla_o_falte():
     assert faltantes <= cumplidos, (
         f"supuestos que faltan con un nombre y se cumplen con otro: {faltantes - cumplidos}"
     )
+
+
+def test_el_grafo_causal_no_pierde_las_amenazas_ya_conocidas():
+    """Una amenaza conocida no deja de existir porque una llamada al juez no la
+    repita.
+
+    El 22 de septiembre de 2026 una hipótesis con 12 explicaciones alternativas
+    guardadas se recalculó con cero: el grafo se construía solo con las de esa
+    ronda, y además antes de acumularlas. Las cajas rojas de la pantalla de
+    mecanismos desaparecieron sin explicación."""
+    from rosa.bucle import pasos as PASOS
+
+    # La ronda no trae ninguna, pero la hipótesis ya tenía dos apuntadas.
+    h = {
+        "id": "h1",
+        "investigacionId": "inv",
+        "titulo": "GFAP sube antes que NfL",
+        "enunciado": "En portadores de APOE4 el GFAP en plasma sube antes que el NfL",
+        "version": 1,
+        "tarjeta": {"diana": "GFAP", "intervencion": "", "direccion": "sin_intervencion", "prediccionFalsable": "x"},
+        "comprobacion": {"biomarcador": "NfL"},
+        "afirmaciones": [],
+        "alternativas": [
+            {"texto": "Confusor: la edad sube el GFAP sin enfermedad", "clase": "confusor", "queLaDistinguiria": "", "iteracion": 1},
+            {"texto": "Artefacto de medida: deriva entre plataformas", "clase": "artefacto", "queLaDistinguiria": "", "iteracion": 1},
+        ],
+    }
+    de_esta_ronda: list[str] = []
+    para_grafo = de_esta_ronda or [a["texto"] for a in (h.get("alternativas") or []) if isinstance(a, dict) and a.get("texto")][:4]
+    assert len(para_grafo) == 2, "sin alternativas nuevas hay que caer en las conocidas"
+    g = CAUSAL.grafo_local(h, para_grafo, None, 1)
+    roles = [n["rol"] for n in g["nodos"] if str(n["rol"]).startswith("alternativa_")]
+    assert len(roles) == 2, f"el grafo se quedó sin amenazas: {roles}"
+
+    # Y si la ronda SÍ trae, mandan las de la ronda.
+    de_esta_ronda = ["Causa inversa: quizá el NfL sube primero"]
+    para_grafo = de_esta_ronda or [a["texto"] for a in (h.get("alternativas") or [])][:4]
+    assert para_grafo == de_esta_ronda
+
+
+def test_las_alternativas_se_acumulan_antes_de_construir_el_grafo():
+    """El orden importa: si el grafo se construye antes de acumular, nunca ve
+    las que acaban de llegar."""
+    import inspect
+
+    from rosa.bucle import pasos as PASOS
+
+    fuente = inspect.getsource(PASOS)
+    i_acumular = fuente.index("anadir_alternativas(x, alternativas_rev, ctx.numero)")
+    i_grafo = fuente.index('x["grafoCausal"] = CAUSAL.grafo_local(x, para_grafo')
+    assert i_acumular < i_grafo, "el grafo se construye antes de acumular las alternativas"

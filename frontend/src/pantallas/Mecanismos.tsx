@@ -302,6 +302,14 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
             ))}
           </div>
 
+          {verAmenazas && !todasLasAmenazas.length && (
+            <p className="mec-sin-amenazas">
+              Esta hipótesis no tiene ninguna explicación alternativa apuntada en su grafo, así que no hay cajas rojas que
+              pintar. <b>No quiere decir que esté limpia</b>: quiere decir que el Killer no dejó ninguna en el último
+              cálculo. Las que se le conocen, si las hay, están en la ficha de la hipótesis.
+            </p>
+          )}
+
           <p className="mec-pie">
             Las cajas y sus flechas grises son la cascada del campo (marco ATN), escrita a mano en{' '}
             <code>rosa/causal.py</code> y revisable: es contexto declarado, no verdad comprobada. Debajo de cada caja, en

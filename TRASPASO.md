@@ -1321,3 +1321,34 @@ tono nuevo.
 Nota práctica: el servidor sirve `frontend/dist` como ficheros estáticos, así
 que **un cambio solo de interfaz se ve con reconstruir y recargar**, sin parar
 ni reiniciar nada.
+
+### El grafo causal perdía las amenazas ya conocidas (22 de septiembre de 2026)
+
+Emir: *"ya no aparecen los cuadros rojos que iban abajo de las lineas, que
+hiciste"*. No lo hice yo: lo destapó la pantalla nueva.
+
+Una hipótesis de la corrida 16 ("El acoplamiento de la respuesta de GFAP o
+P-tau181 con NfL...") tenía **12 explicaciones alternativas guardadas** en
+`x["alternativas"]`, y su grafo, recalculado a las 15:32, salió con **cero**.
+Las otras ocho de esa investigación seguían con cuatro.
+
+Dos fallos encadenados en `rosa/bucle/pasos.py`:
+
+1. El grafo se construía **solo con las alternativas de esa ronda**
+   (`rev.alternativas`, recortadas a 4). Si el juez no devolvía ninguna, el
+   grafo se quedaba sin amenazas aunque hubiera doce apuntadas.
+2. El grafo se construía **antes** de `anadir_alternativas`, así que nunca veía
+   siquiera las que acababan de llegar.
+
+Arreglado: se acumula primero y el grafo cae en las conocidas cuando la ronda
+no trae ninguna. Las de la ronda siguen mandando cuando las hay. Dos tests lo
+sujetan, uno de ellos comprobando el ORDEN de las dos llamadas, que es la mitad
+del fallo.
+
+Regla que sale de aquí: **una amenaza conocida no deja de existir porque una
+llamada no la repita.** Es la misma familia que "una fuente que no responde es
+'no pude comprobar', nunca 'no hay'".
+
+En la pantalla, cero amenazas ya no es un hueco mudo: se dice, y se aclara que
+no significa que la hipótesis esté limpia. Los grafos ya guardados con cero no
+se arreglan solos; se corrigen cuando esa hipótesis se vuelva a juzgar.

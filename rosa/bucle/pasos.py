@@ -3213,10 +3213,23 @@ async def _killer(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: str, pista: P
         for objetivo in contradice_a:
             if objetivo in vivas_ids and not any(t.get("hipotesisId") == objetivo for t in x.setdefault("ataca", [])):
                 x["ataca"].append({"hipotesisId": objetivo, "motivo": "contradiccion_declarada", "detalle": f"El Killer (v{version_juzgada}) la declaró incompatible con {objetivo}: {resumen[:160]}"})
+        # Explicaciones alternativas del Killer, con su clase y qué las
+        # distinguiría, para la ficha de la hipótesis (frontend Alternativas.tsx).
+        # Se acumulan ANTES del grafo causal: el grafo tiene que poder caer en
+        # las ya conocidas si esta ronda no trae ninguna (ver abajo).
+        anadir_alternativas(x, alternativas_rev, ctx.numero)
         # Motor causal minimo: grafo local tipado e identificacion por regla, con
         # las alternativas del Killer como nodos. Entra al modelo de mundo como arista.
+        #
+        # Las de ESTA ronda mandan, pero si el juez no devolvió ninguna se cae a
+        # las ya conocidas en vez de dejar el grafo sin amenazas. El 22 de
+        # septiembre de 2026 pasó justo eso: una hipótesis con 12 alternativas
+        # guardadas se recalculó con cero y las cajas rojas desaparecieron de la
+        # pantalla de mecanismos. Una amenaza conocida no deja de existir porque
+        # una llamada no la repita.
         indep = next((c["resultado"] for c in comprobaciones if c["comprobacion"] == "independencia_cohortes"), None)
-        x["grafoCausal"] = CAUSAL.grafo_local(x, alternativas, True if indep == "pasa" else False if indep == "falla" else None, ahora)
+        para_grafo = alternativas or [a["texto"] for a in (x.get("alternativas") or []) if isinstance(a, dict) and a.get("texto")][:4]
+        x["grafoCausal"] = CAUSAL.grafo_local(x, para_grafo, True if indep == "pasa" else False if indep == "falla" else None, ahora)
         CAUSAL.registrar_relacion(e2, x, x["grafoCausal"], ahora)
         # Ruta terapéutica por regla (rosa/ruta.py): el grafo causal recién
         # calculado cambia el paso 'mecanismo', así que se recalcula aquí. Nunca
@@ -3226,9 +3239,6 @@ async def _killer(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: str, pista: P
         except Exception as ex:  # noqa: BLE001
             x.setdefault("ruta", None)
             x["procedencia"]["mensajes"].append({"id": P.nuevo_id("m"), "de": "rosa", "texto": f"No pude calcular la ruta terapéutica por regla: {type(ex).__name__}", "creadoEn": ahora})
-        # Explicaciones alternativas del Killer, con su clase y qué las
-        # distinguiría, para la ficha de la hipótesis (frontend Alternativas.tsx).
-        anadir_alternativas(x, alternativas_rev, ctx.numero)
         for r in x["revisionesAutomaticas"]:
             if r["tipo"] == "completa":
                 r.update(estado="hecha" if r["estado"] == "pendiente" else "rehecha", resumen=f"Killer: {decision}. {resumen}", fecha=ahora)
