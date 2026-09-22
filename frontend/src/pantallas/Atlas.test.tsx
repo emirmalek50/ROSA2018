@@ -138,10 +138,19 @@ async function esperarPintado(ms = 60) {
 const montarSinEsperar = async (estado: EstadoRosa, inv: Investigacion) => {
   await act(async () => root.render(<Atlas inv={inv} estado={estado} />));
 };
-/** Monta el atlas y espera a que el cálculo diferido lo haya pintado. */
+/** Monta el atlas y espera a que el cálculo diferido lo haya pintado. La
+ *  pantalla abre en relieve, que es un lienzo: para mirar el dibujo region a
+ *  region estos tests piden la vista 2D, como hace quien quiere leerlo. */
 const montar = async (estado: EstadoRosa, inv: Investigacion) => {
   await montarSinEsperar(estado, inv);
   await esperarPintado();
+  const plano = [...nodo.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Vista 2D');
+  if (plano && plano.getAttribute('aria-pressed') === 'false') {
+    await act(async () => {
+      plano.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await esperarPintado();
+  }
 };
 const region = (clave: string) => nodo.querySelector<SVGPathElement>(`[role="button"][data-clave="${clave}"]`)!;
 const regiones = () => [...nodo.querySelectorAll<SVGPathElement>('[role="button"][data-clave]')];
@@ -763,12 +772,31 @@ describe('la espera del atlas', () => {
     expect(nodo.querySelector('[role="button"]')).toBeNull();
     expect(nodo.querySelector('button')).toBeNull();
     expect(nodo.querySelector('a')).toBeNull();
-    // Tras el pintado: el contenido en el sitio de la silueta, sin aria-busy en ninguna parte.
+    // Tras el pintado: el contenido en el sitio de la silueta, sin aria-busy en
+    // ninguna parte. La pantalla abre en relieve, así que lo que llega es su
+    // lienzo; el dibujo region a region está a un botón.
     await esperarPintado();
     expect(nodo.querySelector('.atlas-esqueleto')).toBeNull();
-    expect(nodo.querySelector('svg.atlas-figura')).not.toBeNull();
+    expect(nodo.querySelector('.atlas-lienzo.atlas-3d-lienzo')).not.toBeNull();
     expect(nodo.querySelectorAll('[aria-busy]').length).toBe(0);
     expect(nodo.querySelector('.sr-only')).toBeNull();
+    const plano = [...nodo.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Vista 2D')!;
+    expect(plano.getAttribute('aria-pressed')).toBe('false');
+    await pulsar(plano);
+    expect(nodo.querySelector('svg.atlas-figura')).not.toBeNull();
+    expect(regiones().length).toBe(18);
+  });
+
+  it('abre en la vista de relieve, que es la que enseña el volumen, y la vista 2D sigue a un botón', async () => {
+    const { estado, inv } = estadoConMapa();
+    await montarSinEsperar(estado, inv);
+    await esperarPintado();
+    expect(boton('Vista 3D').getAttribute('aria-pressed')).toBe('true');
+    expect(boton('Vista 2D').getAttribute('aria-pressed')).toBe('false');
+    expect(nodo.querySelector('section.atlas-3d')).not.toBeNull();
+    expect(nodo.querySelector('svg.atlas-figura')).toBeNull();
+    await pulsar(boton('Vista 2D'));
+    expect(nodo.querySelector('section.atlas-3d')).toBeNull();
     expect(regiones().length).toBe(18);
   });
 

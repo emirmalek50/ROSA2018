@@ -884,3 +884,28 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   shapely de frontend/scripts/atlas/ queda obsoleto (se conserva por historia).
   Alternativas descartadas: la lámina 720 de Gray (dominio público, pero grabado
   en blanco y negro) y los esquemas coloreados de Commons (colores de escuela).
+- **El cerebro en tres dimensiones de verdad (21 sep, decisión de Emir):** el
+  relieve del corte, por bueno que quede, sigue siendo el dibujo sagital con
+  cuerpo detrás. Emir lo dijo sin rodeos con dos imágenes de referencia:
+  "literalmente el cerebro en 3d", un encéfalo entero con sus circunvoluciones,
+  girable, y "rellenar esos espacios marrones sin nada vacío". Lo que se
+  descartó por el camino, para no repetirlo: (a) extruir la silueta un grosor
+  fijo deja una pared lisa del tamaño del cerebro, que es lo que se ve en un
+  sello de goma; (b) levantar un mapa de alturas sobre el corte (hemisferio
+  idealizado, faldón hasta el contorno, surcos por ondulación y luz envolvente,
+  en lib/atlas_relieve.ts) sí llena esa pared con tejido y va a sesenta
+  fotogramas por segundo, pero de frente casi no se distingue del 2D y de lado
+  solo se ve el canto: no es un cerebro. Se queda como paso intermedio mientras
+  llega el modelo.
+  El camino bueno, ya construido a falta de los datos: una MALLA ANATÓMICA por
+  estructura, con licencia comprobada, pintada con WebGL. Las piezas nuevas son
+  lib/matriz4.ts (cámara en órbita, perspectiva, matriz de normales, encuadre;
+  ocho pruebas), lib/cerebro_malla.ts (formato binario R2M1: marca, número de
+  vértices y de triángulos, banderas, posiciones, normales e índices, más el
+  indice.json con crédito, licencia, ejes y caja por estructura; seis pruebas) y
+  componentes/Cerebro3D.tsx (luz difusa con relleno, luz de borde y brillo corto,
+  selección leyendo el color de un pase invisible, y la corteza translúcida al
+  señalar una estructura profunda como el hipocampo). La pantalla del atlas ya
+  pregunta por hayModeloCerebro(): si el modelo está en src/datos/cerebro3d, la
+  vista 3D es el cerebro; si no, el relieve del corte. La vista 3D es además la
+  que abre por defecto, a petición de Emir.

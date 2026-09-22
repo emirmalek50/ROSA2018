@@ -171,9 +171,18 @@ async function esperarPintado(ms = 60) {
     await new Promise((r) => setTimeout(r, ms));
   });
 }
+/** La pantalla abre en relieve, que es un lienzo: para examinar el dibujo
+ *  region a region estos tests piden la vista 2D, como hace quien va a leerlo. */
 const montar = async (estado: EstadoRosa, inv: Investigacion) => {
   await act(async () => root.render(<Atlas inv={inv} estado={estado} />));
   await esperarPintado();
+  const plano = [...nodo.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Vista 2D');
+  if (plano && plano.getAttribute('aria-pressed') === 'false') {
+    await act(async () => {
+      plano.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await esperarPintado();
+  }
 };
 const region = (clave: string) => nodo.querySelector<SVGPathElement>(`[role="button"][data-clave="${clave}"]`)!;
 const pulsar = async (el: Element) => {

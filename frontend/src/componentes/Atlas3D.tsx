@@ -1,54 +1,65 @@
-// Relieve del corte sagital existente, no una reconstrucción anatómica.
-// Comparte la cámara orbital del árbol (lib/arbol3d.ts). La evidencia conserva
-// sus claves y conteos; la profundidad es exclusivamente ilustrativa.
+// El atlas en relieve: el HEMISFERIO del corte sagital, no el dibujo plano
+// estirado hacia atrás. Comparte la cámara orbital del árbol (lib/arbol3d.ts).
+// La evidencia conserva sus claves y sus conteos; el volumen es ilustrativo.
 //
-// Cómo se pinta (21 de septiembre de 2026): se extruye la silueta del atlas
-// (CONTORNO_CEREBRO, la lámina más el bulbo) un grosor fijo y en la cara que
-// mira a la cámara se pinta la lámina anatómica en sus colores naturales
-// (los campos y los trazos de tinta de lib/cerebro_base.ts, con Path2D) y
-// encima las regiones con el MISMO color que el 2D (lib/atlas_color.ts,
-// rellenoRegion: la fórmula de atlas.css en código, porque el lienzo no
-// entiende color-mix), los huecos rayados, las marcas, las guías y las
-// etiquetas. Los compartimentos de fuera (ojo, gota, intestino) son también
-// volúmenes (requisito de Emir del 21 de septiembre: planos parecían recortes
-// de papel junto al relieve del cerebro): cada uno se extruye con el mismo
-// procedimiento que la silueta, con un grosor propio (la gota y el ojo,
-// redondos, la mitad de su anchura; el intestino, un tubo, la mitad de su
-// diámetro), paredes sombreadas en su color natural y la cara delantera con su
-// base y, encima, su capa de evidencia, etiqueta, guía y marcas. El ojo es la
-// excepción: un globo es una esfera, no un disco extruido, así que se pinta
-// como esfera (su silueta es siempre un círculo: gradiente radial con la luz
-// arriba a la izquierda, sombra hacia el borde y un brillo) y dentro, en el
-// plano medio y recortados a la esfera, el corte con la córnea, el iris, el
-// cristalino y la retina tintada forrando el fondo; el nervio sale por detrás.
-// Los sólidos se pintan de lejos a cerca por la profundidad de su centro (el
-// algoritmo del pintor), como las paredes de cada uno.
+// Por qué cambió (Emir, 21 de septiembre de 2026: "en el 3d no sería mejor que
+// la parte que no tiene diseño siga teniendo diseño? digo, los cerebros son
+// 3d"): antes la silueta se extruía un grosor fijo y al girar aparecía una
+// pared lisa del tamaño del cerebro, que es lo que se ve en un sello de goma y
+// no en un encéfalo. Ahora el cuerpo es un mapa de alturas construido en
+// lib/atlas_relieve.ts: el corte medial queda en un plano y la superficie se
+// levanta hacia el lado, redondeada en el borde, estrecha en el tronco, más
+// ancha en el cerebelo y plegada con surcos. La malla se pinta cuadrilátero a
+// cuadrilátero con luz difusa, de lejos a cerca.
 //
-// Cómo entra: de frente, idéntico al 2D (guiñada 0, cabeceo 0, y la cámara a
-// FOCAL + GROSOR, de modo que la cara cercana se proyecta a escala 1), y gira
-// en unos 700 ms hasta la vista en reposo (guiñada -0,42, cabeceo 0,18,
-// distancia 1100). Emir se quejó de una "transición incómoda" al cambiar de
-// vista; así el 3D nace donde estaba el 2D. Con movimiento reducido no hay
-// animación: empieza ya en reposo. Cualquier gesto (arrastre, rueda, teclado,
-// botones) corta la animación. El lienzo va dentro de una caja .atlas-lienzo
-// del mismo tamaño que la del 2D, con las herramientas superpuestas dentro,
-// para que la maqueta no salte al cambiar de vista.
+// Cómo se pinta:
+// - Los sólidos (el cerebro y cada compartimento de fuera) se ordenan de lejos
+//   a cerca por la profundidad de su centro, el algoritmo del pintor.
+// - Del cerebro: si la cara del corte mira a la cámara, primero la superficie
+//   (que queda detrás y solo asoma por los lados) y encima el corte con la
+//   lámina anatómica, sus regiones, sus marcas y sus etiquetas; si la cámara
+//   ha pasado al otro lado, primero la silueta del corte como fondo del canto
+//   y encima la superficie, que entonces es lo que se ve.
+// - La superficie lleva el tinte de la evidencia solo en las regiones que de
+//   verdad llegan a ella (las cortezas, el cerebelo, el tronco y el bulbo).
+//   Las estructuras profundas, como el tálamo o el hipocampo, no se pintan en
+//   la superficie: sacarlas ahí fuera sería inventar dónde están.
+// - Los compartimentos de fuera son volúmenes: la gota y el intestino se
+//   extruyen con paredes sombreadas, y el ojo, que es una esfera, se pinta
+//   como esfera, con la retina forrando el fondo por dentro.
+//
+// Cómo entra: de frente, idéntico al 2D (guiñada y cabeceo a cero, y la cámara
+// a FOCAL del plano del corte, que así se proyecta a escala 1) y gira en unos
+// 700 ms hasta la vista en reposo. Con movimiento reducido no hay animación.
+// Cualquier gesto corta el giro. El lienzo mide lo mismo que el SVG del 2D,
+// así que al cambiar de vista la maqueta no salta.
 import { useEffect, useRef, useState } from 'react';
-import { acotarCamara, FOCAL, proyectar, SENSIBILIDAD_GIRO, type Camara } from '../lib/arbol3d';
+import { acotarCamara, ESCALA_MAXIMA, FOCAL, PLANO_CERCANO, proyectar, SENSIBILIDAD_GIRO, type Camara } from '../lib/arbol3d';
 import { rellenoRegion, tokenAtlas } from '../lib/atlas_color';
 import { BASE_EXTERIOR, CONTORNO_CEREBRO, finGuia, GLOBO_OCULAR, NOMBRE_CORTO, puntoMarca, RECORTADAS, REGIONES_DIBUJO, TRAZOS_FINOS, VISTA } from '../lib/atlas_dibujo';
+import { construirRelieve, type Poligono, type Relieve } from '../lib/atlas_relieve';
 import { CEREBRO_BASE } from '../lib/cerebro_base';
 import { intensidad, NO_LOCALIZADAS, type Atlas, type RegionAtlas } from '../lib/atlas';
 import { useMovimientoReducido } from '../lib/movimiento';
 
 type Punto = { x: number; y: number };
 type Trazo = { puntos: Punto[]; cerrado: boolean };
-/** Grosor del relieve, en unidades del lienzo. */
-export const GROSOR = 95;
-/** La vista en reposo: un poco de lado y desde arriba. */
-export const inicial = (): Camara => ({ guinada: -0.42, cabeceo: 0.18, distancia: 1100 });
-/** La vista frontal idéntica al 2D: la cara cercana (z = -GROSOR) queda a FOCAL de la cámara y se proyecta a escala 1. */
-export const frontal = (): Camara => ({ guinada: 0, cabeceo: 0, distancia: FOCAL + GROSOR });
+/** Mitad del ancho del hemisferio, en unidades del lienzo. Con el cerebro de
+ *  la lámina midiendo unos 620 de largo (unos 170 mm de verdad), 232 son los
+ *  65 mm que hay del plano medio a la cara lateral. */
+export const PROFUNDIDAD = 232;
+/** El plano del corte, centrado para que el cuerpo gire alrededor de su medio. */
+export const Z_CORTE = -PROFUNDIDAD / 2;
+/** Lado de la celda de la malla: menos es más fino y más caro de pintar. */
+export const PASO_MALLA = 9;
+/** La vista en reposo: de lado y algo desde arriba, con el volumen asomando por detrás. */
+export const inicial = (): Camara => ({ guinada: 0.72, cabeceo: 0.16, distancia: 1260 });
+/** El punto alrededor del que gira la vista: el centro del hemisferio. La
+ *  pantalla lo mantiene clavado donde lo deja la vista frontal, así que el
+ *  cerebro no se va de paseo por el lienzo al girarlo. */
+export const PIVOTE = { x: 608 - VISTA.ancho / 2, y: 300 - VISTA.alto / 2, z: -PROFUNDIDAD / 2 + PROFUNDIDAD * 0.45 };
+/** La vista frontal idéntica al 2D: el plano del corte queda a FOCAL de la cámara y se proyecta a escala 1. */
+export const frontal = (): Camara => ({ guinada: 0, cabeceo: 0, distancia: FOCAL - Z_CORTE });
 /** Cuánto dura el giro de entrada, en milisegundos. */
 export const DURACION_ENTRADA = 700;
 const regiones = REGIONES_DIBUJO.filter((r) => !NO_LOCALIZADAS.has(r.clave));
@@ -58,20 +69,43 @@ const DISCORDIA = '#d1352b';
 const SELECCION = '#2b1b10';
 const BORDE = 'rgba(255, 255, 255, 0.78)';
 const TINTA = CEREBRO_BASE.tinta;
-/** Medio grosor de cada compartimento exterior, en unidades del lienzo: la gota
- *  (56 de ancho) y el ojo (72) son redondos, el intestino un tubo de unos 22. */
+/** Las regiones que llegan de verdad a la superficie del hemisferio y por eso
+ *  se tiñen en ella. Las profundas (tálamo, hipocampo, amígdala, sustancia
+ *  blanca, ventrículos, vasos mediales) solo se pintan en la cara del corte. */
+const SUPERFICIALES: ReadonlySet<string> = new Set(['corteza_prefrontal', 'corteza_parietal', 'corteza_occipital', 'corteza_temporal', 'cingulo_precuneo', 'corteza_entorrinal', 'cerebelo', 'tronco_locus_coeruleus', 'bulbo_olfatorio', 'neocorteza']);
+/** El color del tejido de cada zona de la superficie, en canales 0 a 255. */
+const TEJIDO: Record<string, [number, number, number]> = {
+  corteza: [236, 205, 196],
+  cerebelo: [238, 219, 201],
+  tronco: [241, 233, 208],
+};
+/** Semiancho y plegado de cada zona: el tronco es estrecho y liso, el cerebelo
+ *  ancho y con folias finas, el bulbo casi un cordón. */
+const ZONAS: { clave: string; region: string; semiancho: number; surco: number; onda: number }[] = [
+  { clave: 'tronco', region: 'tronco_locus_coeruleus', semiancho: 42, surco: 2, onda: 40 },
+  { clave: 'cerebelo', region: 'cerebelo', semiancho: 168, surco: 5, onda: 21 },
+  { clave: 'corteza', region: 'bulbo_olfatorio', semiancho: 16, surco: 1, onda: 40 },
+];
+/** La luz de la escena, en el sistema de la cámara: arriba, a la izquierda y
+ *  por delante. La misma para el hemisferio y para los compartimentos. */
+const LUZ = { x: -0.44, y: -0.58, z: -0.69 };
+const AMBIENTE = 0.26;
+/** Niveles de luz distintos que se guardan en la caché de colores. */
+const NIVELES_LUZ = 48;
+/** Medio grosor de cada compartimento exterior: la gota (56 de ancho) es
+ *  redonda, el intestino un tubo de unos 22, y el ojo una esfera aparte. */
 const GROSOR_EXTERIOR: Record<string, number> = { plasma: 26, retina: 0, intestino_microbiota: 11 };
-/** El color de las paredes de cada sólido según la luz (0 en sombra, 1 de cara a la cámara). */
+/** El color de las paredes de cada sólido extruido según la luz (0 en sombra, 1 de cara). */
 const PARED: Record<string, (luz: number) => string> = {
-  cerebro: (luz) => `hsl(18 30% ${Math.round(22 + 24 * luz)}%)`,
   plasma: (luz) => `hsl(358 62% ${Math.round(22 + 18 * luz)}%)`,
   intestino_microbiota: (luz) => `hsl(6 42% ${Math.round(40 + 24 * luz)}%)`,
 };
-// El atlas ocupa más que el tronco del árbol: impedir atravesar su volumen.
-const ajustar = (c: Camara): Camara => acotarCamara({ ...c, distancia: Math.max(760, c.distancia) });
+// El hemisferio ocupa más que el tronco del árbol: impedir atravesar su volumen.
+const ajustar = (c: Camara): Camara => acotarCamara({ ...c, distancia: Math.max(880, c.distancia) });
 /** Salida suave (la misma curva que lib/movimiento.ts, cúbica). */
 const suavizar = (k: number): number => 1 - (1 - k) ** 3;
 const entre = (a: Camara, b: Camara, k: number): Camara => ({ guinada: a.guinada + (b.guinada - a.guinada) * k, cabeceo: a.cabeceo + (b.cabeceo - a.cabeceo) * k, distancia: a.distancia + (b.distancia - a.distancia) * k });
+const acotar01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /** El navegador muestrea cada subtrazado por separado: conserva agujeros y
  * vasos disjuntos, sin unirlos con diagonales inventadas. Solo al montar. */
@@ -87,6 +121,9 @@ function muestrear(d: string, paso = 3): Trazo[] {
     }) };
   });
 }
+
+/** Los trazos muestreados como polígonos para lib/atlas_relieve.ts. */
+const aPoligonos = (trazos: Trazo[]): Poligono[] => trazos.map((t) => t.puntos.map((p) => [p.x, p.y] as const));
 
 function camino(trazos: Trazo[], z: number, camara: Camara): Path2D {
   const path = new Path2D();
@@ -138,30 +175,61 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
     // La lámina: los campos (con su color) y la tinta, muestreados una vez; la médula se recorta con la propia silueta.
     const campos = CEREBRO_BASE.campos.map((c) => ({ fill: c.fill, trazos: muestrear(c.d, 4) }));
     const tinta = CEREBRO_BASE.trazos.map((t) => muestrear(t.d, 4));
-    // Los sólidos: el cerebro (la silueta) y cada compartimento exterior (su primera base es el contorno que se extruye).
-    const solidos = [
-      { clave: 'cerebro', contorno, grosor: GROSOR, centro: [600, 300] as const, bases: [] as { fill: string; stroke?: string; papel?: string; trazos: Trazo[] }[] },
-      ...Object.entries(BASE_EXTERIOR).map(([clave, partes]) => ({ clave, contorno: muestrear((partes.find((b) => b.papel === 'globo') ?? partes[0]!).d), grosor: GROSOR_EXTERIOR[clave] ?? 12, centro: (clave === 'retina' ? GLOBO_OCULAR.centro : REGIONES_DIBUJO.find((r) => r.clave === clave)?.centro ?? [500, 310]) as readonly [number, number], bases: partes.map((b) => ({ fill: b.fill, stroke: b.stroke, papel: b.papel, trazos: muestrear(b.d) })) })),
-    ];
-    // A qué sólido pertenece cada trazo fino (el ojo con su cristalino y su nervio, el brillo de la gota): el que contiene su primer punto de frente.
-    const solidoDe = (t: Trazo[]): string => {
-      const p = t[0]?.puntos[0];
-      if (!p) return 'cerebro';
-      for (const s of solidos) {
-        if (s.clave === 'cerebro') continue;
-        const path = new Path2D();
-        s.contorno.forEach((tr) => tr.puntos.forEach((q, i) => (i ? path.lineTo(q.x, q.y) : path.moveTo(q.x, q.y))));
-        path.closePath();
-        contexto.save(); contexto.resetTransform();
-        const dentro = contexto.isPointInPath(path, p.x, p.y, 'evenodd');
-        contexto.restore();
-        if (dentro) return s.clave;
-      }
-      return 'cerebro';
-    };
-    const finosConSolido = finos.map((f) => ({ ...f, solido: solidoDe(f.trazos) }));
+    // El volumen del hemisferio: mapa de alturas sobre el plano del corte.
+    const superficiales = formas.filter((r) => SUPERFICIALES.has(r.clave) && !r.exterior);
+    const relieve: Relieve = construirRelieve({
+      contorno: aPoligonos(contorno),
+      paso: PASO_MALLA,
+      semiancho: PROFUNDIDAD,
+      radio: 150,
+      surco: 9,
+      onda: 44,
+      zonas: ZONAS.map((z) => ({ clave: z.clave, semiancho: z.semiancho, surco: z.surco, onda: z.onda, poligonos: aPoligonos(formas.find((f) => f.clave === z.region)?.trazos ?? []) })),
+      regiones: superficiales.map((r) => ({ clave: r.clave, poligonos: aPoligonos(r.trazos) })),
+    });
+    const nNodos = relieve.nodos.length / 3;
+    const px = new Float32Array(nNodos);
+    const py = new Float32Array(nNodos);
+    const visibleNodo = new Uint8Array(nNodos);
+    // La clase de cada celda (su región y su zona) decide su color: son pocas,
+    // así que el color se calcula una vez por clase y se guarda por nivel de luz.
+    const nZonas = relieve.zonas.length + 1;
+    const nClases = (relieve.regiones.length + 1) * nZonas;
+    const claseDeCelda = new Int16Array(relieve.total);
+    for (let c = 0; c < relieve.total; c++) claseDeCelda[c] = (relieve.region[c]! + 1) * nZonas + (relieve.zona[c]! + 1);
+    const baseClase = new Float64Array(nClases * 3);
+    const cacheColor: (string | undefined)[] = new Array(nClases * NIVELES_LUZ);
+    const orden: number[] = new Array(relieve.total);
+    const profundidadCelda = new Float32Array(relieve.total);
+    const luzCelda = new Uint8Array(relieve.total);
+    const hitX = new Float32Array(relieve.total);
+    const hitY = new Float32Array(relieve.total);
+    const finosConSolido: { trazos: Trazo[]; recortado?: boolean; solido: string }[] = [];
     const frio = tokenAtlas('--atlas-frio', '');
     const calido = tokenAtlas('--atlas-calido', '');
+    // Los sólidos: el cerebro y cada compartimento exterior (su primera base es el contorno que se extruye).
+    const solidos = [
+      { clave: 'cerebro', contorno, grosor: 0, centro: [600, 300] as const, bases: [] as { fill: string; stroke?: string; papel?: string; trazos: Trazo[] }[] },
+      ...Object.entries(BASE_EXTERIOR).map(([clave, partes]) => ({ clave, contorno: muestrear((partes.find((b) => b.papel === 'globo') ?? partes[0]!).d), grosor: GROSOR_EXTERIOR[clave] ?? 12, centro: (clave === 'retina' ? GLOBO_OCULAR.centro : REGIONES_DIBUJO.find((r) => r.clave === clave)?.centro ?? [500, 310]) as readonly [number, number], bases: partes.map((b) => ({ fill: b.fill, stroke: b.stroke, papel: b.papel, trazos: muestrear(b.d) })) })),
+    ];
+    // A qué sólido pertenece cada trazo fino (el cristalino y el nervio del ojo, el brillo de la gota): el que contiene su primer punto de frente.
+    for (const f of finos) {
+      const p = f.trazos[0]?.puntos[0];
+      let solido = 'cerebro';
+      if (p) {
+        for (const s of solidos) {
+          if (s.clave === 'cerebro') continue;
+          const path = new Path2D();
+          s.contorno.forEach((tr) => tr.puntos.forEach((q, i) => (i ? path.lineTo(q.x, q.y) : path.moveTo(q.x, q.y))));
+          path.closePath();
+          contexto.save(); contexto.resetTransform();
+          const dentro = contexto.isPointInPath(path, p.x, p.y, 'evenodd');
+          contexto.restore();
+          if (dentro) { solido = s.clave; break; }
+        }
+      }
+      finosConSolido.push({ ...f, solido });
+    }
     const tile = document.createElement('canvas');
     tile.width = tile.height = 8;
     const tc = tile.getContext('2d')!;
@@ -174,7 +242,131 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
     let escala = 1;
     let ox = 0;
     let oy = 0;
+    let desvioX = 0;
+    let desvioY = 0;
+    let selloAtlas: Atlas | null = null;
+    let sello = '';
+    let nVisibles = 0;
     let zonas: { clave: string; path: Path2D; clip: Path2D | null; vasos: boolean }[] = [];
+    /** El color de cada clase de celda: el tejido de su zona con el tinte de su
+     *  región encima. Se rehace cuando cambian los datos, el foco o la selección. */
+    const prepararColores = () => {
+      // El atlas se rehace entero cuando cambian los datos o los filtros, así
+      // que basta comparar su identidad con la de la última pintada.
+      const clave = `${datos.current.seleccion ?? ''}|${focoRef.current ?? ''}`;
+      if (clave === sello && datos.current.atlas === selloAtlas) return;
+      sello = clave;
+      selloAtlas = datos.current.atlas;
+      cacheColor.fill(undefined);
+      const porClave = new Map(datos.current.atlas.regiones.map((r) => [r.clave, r]));
+      for (let ri = -1; ri < relieve.regiones.length; ri++) {
+        const clave = ri >= 0 ? relieve.regiones[ri]! : '';
+        const dato = clave ? porClave.get(clave) : undefined;
+        const conFoco = clave !== '' && (clave === focoRef.current || clave === datos.current.seleccion);
+        const t = intensidad(dato?.cohortes.length ?? 0, datos.current.atlas.cohortesMax);
+        const relleno = dato?.conteo ? rellenoRegion(t, { frio, calido, foco: conFoco }) : null;
+        const tinte = relleno ? (relleno.color.match(/\d+/g) ?? []).map(Number) : null;
+        for (let zi = -1; zi < relieve.zonas.length; zi++) {
+          const zona = zi >= 0 ? relieve.zonas[zi]! : 'corteza';
+          const base = TEJIDO[zona] ?? TEJIDO.corteza!;
+          let r = base[0];
+          let g = base[1];
+          let b = base[2];
+          if (tinte && tinte.length === 3) {
+            // El tinte sobre el tejido, algo más suave que en el corte: aquí es
+            // superficie, no mapa, y la luz tiene que seguir leyéndose.
+            const op = acotar01(relleno!.opacidad * 0.86);
+            r = r * (1 - op) + tinte[0]! * op;
+            g = g * (1 - op) + tinte[1]! * op;
+            b = b * (1 - op) + tinte[2]! * op;
+          }
+          if (dato?.discordia.length) { r = r * 0.76 + 209 * 0.24; g = g * 0.76 + 53 * 0.24; b = b * 0.76 + 43 * 0.24; }
+          const i = ((ri + 1) * nZonas + (zi + 1)) * 3;
+          baseClase[i] = r; baseClase[i + 1] = g; baseClase[i + 2] = b;
+        }
+      }
+    };
+    const colorDe = (clase: number, nivel: number): string => {
+      const k = clase * NIVELES_LUZ + nivel;
+      const guardado = cacheColor[k];
+      if (guardado) return guardado;
+      const f = AMBIENTE + (1 - AMBIENTE) * (nivel / (NIVELES_LUZ - 1));
+      const i = clase * 3;
+      const color = `rgb(${Math.round(baseClase[i]! * f)}, ${Math.round(baseClase[i + 1]! * f)}, ${Math.round(baseClase[i + 2]! * f)})`;
+      cacheColor[k] = color;
+      return color;
+    };
+    /** La superficie del hemisferio: proyecta los nodos, descarta las celdas que
+     *  dan la espalda a la cámara y pinta el resto de lejos a cerca. */
+    const pintarSuperficie = (c: Camara) => {
+      if (!relieve.total) return;
+      prepararColores();
+      const cg = Math.cos(c.guinada), sg = Math.sin(c.guinada), cc = Math.cos(c.cabeceo), sc = Math.sin(c.cabeceo);
+      const cx = VISTA.ancho / 2, cy = VISTA.alto / 2;
+      for (let k = 0; k < nNodos; k++) {
+        if (!relieve.dentro[k]) { visibleNodo[k] = 0; continue; }
+        const x = relieve.nodos[k * 3]!, y = relieve.nodos[k * 3 + 1]!, z = Z_CORTE + relieve.nodos[k * 3 + 2]!;
+        const x1 = x * cg + z * sg;
+        const z1 = -x * sg + z * cg;
+        const profundidad = y * sc + z1 * cc + c.distancia;
+        if (!(profundidad > PLANO_CERCANO)) { visibleNodo[k] = 0; continue; }
+        const e = Math.min(ESCALA_MAXIMA, FOCAL / profundidad);
+        px[k] = cx + x1 * e;
+        py[k] = cy + (y * cc - z1 * sc) * e;
+        visibleNodo[k] = 1;
+      }
+      nVisibles = 0;
+      for (let cel = 0; cel < relieve.total; cel++) {
+        const a = relieve.celdas[cel * 4]!, b = relieve.celdas[cel * 4 + 1]!, d = relieve.celdas[cel * 4 + 2]!, e = relieve.celdas[cel * 4 + 3]!;
+        if (!visibleNodo[a] || !visibleNodo[b] || !visibleNodo[d] || !visibleNodo[e]) continue;
+        // La normal rotada: si mira hacia donde mira la cámara, la celda está de espaldas.
+        const nx = relieve.normales[cel * 3]!, ny = relieve.normales[cel * 3 + 1]!, nz = relieve.normales[cel * 3 + 2]!;
+        const nx1 = nx * cg + nz * sg;
+        const nz1 = -nx * sg + nz * cg;
+        const rny = ny * cc - nz1 * sc;
+        const rnz = ny * sc + nz1 * cc;
+        // Un margen al descartar: las celdas del canto quedan casi de perfil y,
+        // con el corte justo delante, descartarlas abría una franja negra
+        // entre el dibujo y el cuerpo.
+        if (rnz >= 0.12) continue;
+        const cz = Z_CORTE + relieve.centros[cel * 3 + 2]!;
+        const cxm = relieve.centros[cel * 3]!, cym = relieve.centros[cel * 3 + 1]!;
+        profundidadCelda[cel] = cym * sc + (-cxm * sg + cz * cg) * cc + c.distancia;
+        // Luz envolvente (media difusa, "wrap"): la cara que se aparta de la luz
+        // no cae a negro, como pasa en el tejido de verdad, que reparte la luz
+        // por dentro. Sin esto el hemisferio se veía de piedra gris.
+        const difusa = acotar01(0.5 + 0.5 * (nx1 * LUZ.x + rny * LUZ.y + rnz * LUZ.z));
+        // Luz de borde: donde la superficie se va de canto, la cara que mira a
+        // la cámara recibe poca difusa y salía gris apagada; encenderla es lo
+        // que hace que el tejido parezca húmedo y no piedra.
+        const borde = (1 + rnz) ** 2.4;
+        const lam = acotar01(difusa * 0.82 + borde * 0.34);
+        luzCelda[cel] = Math.min(NIVELES_LUZ - 1, Math.round(lam * (NIVELES_LUZ - 1)));
+        hitX[cel] = (px[a]! + px[b]! + px[d]! + px[e]!) / 4;
+        hitY[cel] = (py[a]! + py[b]! + py[d]! + py[e]!) / 4;
+        orden[nVisibles++] = cel;
+      }
+      const lista = orden.slice(0, nVisibles).sort((p, q) => profundidadCelda[q]! - profundidadCelda[p]!);
+      contexto.lineJoin = 'round';
+      contexto.lineWidth = 0.7;
+      for (const cel of lista) {
+        const a = relieve.celdas[cel * 4]!, b = relieve.celdas[cel * 4 + 1]!, d = relieve.celdas[cel * 4 + 2]!, e = relieve.celdas[cel * 4 + 3]!;
+        const color = colorDe(claseDeCelda[cel]!, luzCelda[cel]!);
+        contexto.beginPath();
+        contexto.moveTo(px[a]!, py[a]!);
+        contexto.lineTo(px[b]!, py[b]!);
+        contexto.lineTo(px[d]!, py[d]!);
+        contexto.lineTo(px[e]!, py[e]!);
+        contexto.closePath();
+        contexto.fillStyle = color;
+        contexto.fill();
+        // El mismo color en el borde: sin esto el fondo se cuela entre celdas.
+        contexto.strokeStyle = color;
+        contexto.stroke();
+      }
+      // Reordenar deja la lista mezclada: el hit test usa su propia copia.
+      for (let i = 0; i < nVisibles; i++) orden[i] = lista[i]!;
+    };
     const pintar = () => {
       frame = 0;
       const rect = lienzo.getBoundingClientRect();
@@ -193,13 +385,20 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
       oy = (rect.height - VISTA.alto * escala) / 2;
       contexto.translate(ox, oy); contexto.scale(escala, escala);
       const c = camara.current;
-      // La cara que mira a la cámara está en z negativa cuando la cámara mira de frente.
-      const hacia = Math.cos(c.guinada) * Math.cos(c.cabeceo) >= 0 ? -1 : 1;
-      const z = hacia * GROSOR;
-      /** La z de la cara delantera de cada sólido, por clave de región exterior (el cerebro va en `z`). */
+      // El giro se hace alrededor del origen del lienzo, no del cerebro: sin
+      // compensarlo, el hemisferio se iba hacia un lado al girar y se salía.
+      const anclaAhora = proyectar(PIVOTE, c, VISTA.ancho, VISTA.alto);
+      const anclaFrontal = proyectar(PIVOTE, frontal(), VISTA.ancho, VISTA.alto);
+      desvioX = anclaFrontal.x - anclaAhora.x;
+      desvioY = anclaFrontal.y - anclaAhora.y;
+      contexto.translate(desvioX, desvioY);
+      // La cara del corte mira a la cámara mientras el coseno de los dos giros sea positivo.
+      const corteVisible = Math.cos(c.guinada) * Math.cos(c.cabeceo) >= 0;
+      const z = Z_CORTE;
+      /** La z de la cara delantera de cada compartimento exterior (el cerebro va en `z`). */
       const zDe = new Map<string, number>();
       const zRegion = (r: { clave: string; exterior?: boolean }) => (r.exterior ? zDe.get(r.clave) ?? z : z);
-      /** Paredes de un sólido: un cuadrilátero por segmento del contorno entre -grosor y +grosor, de lejos a cerca, sombreado por la profundidad. */
+      /** Paredes de un sólido extruido: un cuadrilátero por segmento del contorno, de lejos a cerca, sombreado por la profundidad. */
       const pintarParedes = (trazos: Trazo[], grosor: number, color: (luz: number) => string) => {
         const paredes = trazos.flatMap((t) => t.puntos.slice(1).map((b, i) => {
           const a = t.puntos[i]!;
@@ -210,27 +409,32 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
           contexto.beginPath();
           pts.forEach((p, i) => i ? contexto.lineTo(p.x, p.y) : contexto.moveTo(p.x, p.y));
           contexto.closePath();
-          contexto.fillStyle = color(Math.max(0, Math.min(1, 0.5 + (c.distancia - profundidad) / 480)));
+          contexto.fillStyle = color(acotar01(0.5 + (c.distancia - profundidad) / 480));
           contexto.fill();
         }
       };
-      // Los sólidos de lejos a cerca (por la profundidad de su centro): paredes y después la cara delantera.
-      const orden = solidos.map((s) => ({ s, profundidad: proyectar({ x: s.centro[0] - VISTA.ancho / 2, y: s.centro[1] - VISTA.alto / 2, z: 0 }, c, VISTA.ancho, VISTA.alto).profundidad })).sort((a, b) => b.profundidad - a.profundidad);
+      // Los sólidos de lejos a cerca (por la profundidad de su centro).
+      const ordenSolidos = solidos.map((s) => ({ s, profundidad: proyectar({ x: s.centro[0] - VISTA.ancho / 2, y: s.centro[1] - VISTA.alto / 2, z: 0 }, c, VISTA.ancho, VISTA.alto).profundidad })).sort((a, b) => b.profundidad - a.profundidad);
       let silueta = new Path2D();
-      for (const { s } of orden) {
-        if (s.grosor > 0) pintarParedes(s.contorno, s.grosor, PARED[s.clave] ?? PARED.cerebro!);
-        const zc = hacia * s.grosor;
-        const cara = camino(s.contorno, zc, c);
+      for (const { s } of ordenSolidos) {
         if (s.clave === 'cerebro') {
-          // La cara del cerebro: la lámina anatómica recortada a la silueta.
-          silueta = cara;
-          contexto.fillStyle = CEREBRO_BASE.campos[0]!.fill; contexto.fill(silueta, 'evenodd');
-          contexto.save();
-          contexto.clip(silueta, 'evenodd');
-          for (const campo of campos) { contexto.fillStyle = campo.fill; contexto.fill(camino(campo.trazos, z, c), 'evenodd'); }
-          contexto.fillStyle = TINTA;
-          for (const t of tinta) contexto.fill(camino(t, z, c), 'evenodd');
-          contexto.restore();
+          silueta = camino(s.contorno, z, c);
+          if (corteVisible) {
+            // La superficie queda detrás: solo asoma por los lados del corte.
+            pintarSuperficie(c);
+            contexto.fillStyle = CEREBRO_BASE.campos[0]!.fill; contexto.fill(silueta, 'evenodd');
+            contexto.save();
+            contexto.clip(silueta, 'evenodd');
+            for (const campo of campos) { contexto.fillStyle = campo.fill; contexto.fill(camino(campo.trazos, z, c), 'evenodd'); }
+            contexto.fillStyle = TINTA;
+            for (const t of tinta) contexto.fill(camino(t, z, c), 'evenodd');
+            contexto.restore();
+          } else {
+            // Se ve el hemisferio desde fuera: el corte solo hace de fondo del
+            // canto, donde la malla no llega por quedarse sin celda entera.
+            contexto.fillStyle = 'rgb(176, 152, 146)'; contexto.fill(silueta, 'evenodd');
+            pintarSuperficie(c);
+          }
         } else if (s.clave === 'retina') {
           // El globo ocular como esfera, en el plano medio: el nervio detrás, la esfera sombreada, y dentro el corte.
           zDe.set(s.clave, 0);
@@ -261,6 +465,8 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
           contexto.beginPath(); contexto.ellipse(q.x - 0.38 * R, q.y - 0.4 * R, 0.2 * R, 0.12 * R, 0, 0, Math.PI * 2);
           contexto.fillStyle = 'rgba(255, 255, 255, 0.6)'; contexto.fill();
         } else {
+          const zc = (Math.cos(c.guinada) * Math.cos(c.cabeceo) >= 0 ? -1 : 1) * s.grosor;
+          if (s.grosor > 0) pintarParedes(s.contorno, s.grosor, PARED[s.clave] ?? PARED.plasma!);
           zDe.set(s.clave, zc);
           for (const b of s.bases) {
             const path = camino(b.trazos, zc, c);
@@ -268,12 +474,16 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
             if (b.stroke) { contexto.strokeStyle = b.stroke; contexto.lineWidth = 1; contexto.stroke(path); }
           }
         }
+        const zFinos = s.clave === 'cerebro' ? z : zDe.get(s.clave) ?? 0;
         contexto.strokeStyle = 'rgba(238, 233, 255, 0.4)'; contexto.lineWidth = 0.9;
-        for (const f of finosConSolido) if (f.solido === s.clave) contexto.stroke(camino(f.trazos, zc, c));
+        for (const f of finosConSolido) if (f.solido === s.clave) contexto.stroke(camino(f.trazos, zFinos, c));
       }
       const porClave = new Map(datos.current.atlas.regiones.map((r) => [r.clave, r]));
       zonas = [];
       for (const r of formas) {
+        // Las regiones del corte solo se dibujan si el corte se ve; si la cámara
+        // pasó al otro lado, la evidencia va en el tinte de la propia superficie.
+        if (!r.exterior && !corteVisible) continue;
         const dato = porClave.get(r.clave);
         const t = intensidad(dato?.cohortes.length ?? 0, datos.current.atlas.cohortesMax);
         const path = camino(r.trazos, zRegion(r), c);
@@ -321,6 +531,7 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
       }
       // Las marcas: el punto de «buscada sin hallazgo» y el de discordia, donde dice puntoMarca() con el texto que se pinta.
       for (const r of formas) {
+        if (!r.exterior && !corteVisible) continue;
         const dato = porClave.get(r.clave);
         if (!dato) continue;
         const buscada = dato.conteo === 0 && dato.cobertura === 'buscada_sin_hallazgo';
@@ -340,22 +551,33 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
         contexto.beginPath(); contexto.arc(p.x, p.y, 5 / escala, 0, Math.PI * 2);
         contexto.fillStyle = '#fff1b8'; contexto.fill();
       }
-      // De frente se conservan los nombres del corte, con sus guías; de perfil
-      // solo la región enfocada para que las etiquetas no se apilen.
+      // Los nombres, con sus guías. Al girar, la perspectiva comprime el corte
+      // y las etiquetas se montan unas sobre otras: se ordenan por interés (la
+      // que se está mirando, y después las que tienen registros) y se descarta
+      // la que chocaría con otra ya escrita. Si la cámara pasó al otro lado
+      // solo se nombra lo que de verdad se ve: la superficie y lo de fuera.
       contexto.font = `${12 / escala}px sans-serif`;
       contexto.textAlign = 'center'; contexto.textBaseline = 'middle';
-      for (const r of formas) {
-        if ((rect.width < 760 || Math.abs(Math.cos(c.guinada)) < 0.65) && r.clave !== clave) continue;
-        const conteo = porClave.get(r.clave)?.conteo ?? 0;
+      const altoEtiqueta = 15 / escala;
+      const puestas: { x: number; y: number; w: number; h: number }[] = [];
+      const candidatas = formas
+        .filter((r) => r.clave === clave || corteVisible || r.exterior || SUPERFICIALES.has(r.clave))
+        .map((r) => ({ r, conteo: porClave.get(r.clave)?.conteo ?? 0 }))
+        .sort((a, b) => (a.r.clave === clave ? -1 : b.r.clave === clave ? 1 : b.conteo - a.conteo));
+      for (const { r, conteo } of candidatas) {
+        if (rect.width < 760 && r.clave !== clave) continue;
         const texto = `${NOMBRE_CORTO[r.clave] ?? r.clave}${conteo ? ` · ${conteo}` : ''}`;
         const zr = zRegion(r);
+        const p = punto([r.etiqueta[0], r.etiqueta[1] - 4], zr, c);
+        const caja = { x: p.x, y: p.y, w: contexto.measureText(texto).width + 10 / escala, h: altoEtiqueta };
+        if (r.clave !== clave && puestas.some((q) => Math.abs(q.x - caja.x) < (q.w + caja.w) / 2 && Math.abs(q.y - caja.y) < (q.h + caja.h) / 2)) continue;
+        puestas.push(caja);
         if (r.guia) {
           const a = punto(r.centro, zr, c);
           const b = punto(finGuia(r, texto), zr, c);
           contexto.beginPath(); contexto.moveTo(a.x, a.y); contexto.lineTo(b.x, b.y);
           contexto.strokeStyle = 'rgba(238, 233, 255, 0.34)'; contexto.lineWidth = 0.8; contexto.stroke();
         }
-        const p = punto([r.etiqueta[0], r.etiqueta[1] - 4], zr, c);
         contexto.strokeStyle = FONDO; contexto.lineWidth = 3 / escala;
         contexto.strokeText(texto, p.x, p.y); contexto.fillStyle = conteo ? TEXTO : 'rgba(244, 239, 228, 0.78)'; contexto.fillText(texto, p.x, p.y);
       }
@@ -377,15 +599,29 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
       animacion = requestAnimationFrame(paso);
     }
     detectar.current = (x, y) => {
-      const px = (x - ox) / escala, py = (y - oy) / escala;
+      const pxl = (x - ox) / escala - desvioX, pyl = (y - oy) / escala - desvioY;
       contexto.save(); contexto.resetTransform();
       const zona = [...zonas].reverse().find((r) => {
-        if (r.clip && !contexto.isPointInPath(r.clip, px, py, 'evenodd')) return false;
+        if (r.clip && !contexto.isPointInPath(r.clip, pxl, pyl, 'evenodd')) return false;
         contexto.lineWidth = 10;
-        return r.vasos ? contexto.isPointInStroke(r.path, px, py) : contexto.isPointInPath(r.path, px, py, 'evenodd');
+        return r.vasos ? contexto.isPointInStroke(r.path, pxl, pyl) : contexto.isPointInPath(r.path, pxl, pyl, 'evenodd');
       });
       contexto.restore();
-      return zona?.clave ?? null;
+      if (zona) return zona.clave;
+      // Sobre la superficie del hemisferio: la celda pintada cuyo centro queda
+      // más cerca, dentro de su propio tamaño en pantalla.
+      const tope = PASO_MALLA * Math.min(ESCALA_MAXIMA, FOCAL / Math.max(1, camara.current.distancia)) * 1.1;
+      let mejor = -1;
+      let dist = tope * tope;
+      for (let i = 0; i < nVisibles; i++) {
+        const cel = orden[i]!;
+        const dx = hitX[cel]! - pxl, dy = hitY[cel]! - pyl;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < dist) { dist = d2; mejor = cel; }
+      }
+      if (mejor < 0) return null;
+      const ri = relieve.region[mejor]!;
+      return ri >= 0 ? relieve.regiones[ri]! : null;
     };
     const rueda = (e: WheelEvent) => {
       e.preventDefault();
@@ -464,7 +700,7 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
           onPointerLeave={() => cambiarFoco(null)}
         />}
       </div>
-      <p className="meta">Relieve 3D esquemático del corte sagital sobre la lámina anatómica, con grosor ilustrativo. No es una reconstrucción anatómica. Arrastra para girar, usa la rueda para acercar y pulsa una región para leer su evidencia.</p>
+      <p className="meta">El hemisferio del corte sagital en relieve, con el volumen y los pliegues idealizados: el mapa anatómico es el del corte, no la superficie. Arrastra para girar, usa la rueda para acercar y pulsa una región para leer su evidencia.</p>
       <p className="atlas-3d-lectura" aria-live="polite">{apuntada ? `${apuntada.etiqueta}: ${apuntada.conteo} registros · ${apuntada.cohortes.length} cohortes nombradas por sus hipótesis${apuntada.discordia.length ? ' · Discordia entre hechos' : ''}${!apuntada.conteo ? apuntada.cobertura === 'buscada_sin_hallazgo' ? ' · Buscada sin hallazgo' : ' · No buscada' : ''}` : 'Selecciona una región para ver sus cifras y abrir su ficha.'}</p>
     </section>
   );

@@ -98,6 +98,16 @@
 }
 .atlas-3d-canvas:active { cursor: grabbing; }
 .atlas-3d-canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+/* Mientras llega el modelo del cerebro: la silueta ocupa el lienzo entero, sin salto al aparecer. */
+.atlas-3d-cargando {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: stretch;
+  padding: 24px;
+  pointer-events: none;
+}
+.atlas-3d-cargando .esqueleto { height: 100%; border-radius: 14px; }
 .atlas-3d-lectura { min-height: 3em; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .atlas-3d-sin-lienzo { margin: 0; padding: 16px 16px 56px; min-height: 280px; color: var(--atlas-texto); }
 

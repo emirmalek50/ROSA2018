@@ -69,6 +69,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CertezaEvidencia, EstadoConexion, EstadoRosa, HechoMundo, Investigacion } from '../datos/tipos';
 import { Esqueleto, EsqueletoTexto } from '../componentes/Esqueleto';
 import { Atlas3D } from '../componentes/Atlas3D';
+import { Cerebro3D, hayModeloCerebro } from '../componentes/Cerebro3D';
 import { AvisoMuestra, Chip, Vacio } from '../componentes/piezas';
 import { construirAtlas, ETIQUETAS_MAPA, hechosDe, hipotesisDe, intensidad, NO_LOCALIZADAS, type Atlas as DatosAtlas, type RegionAtlas } from '../lib/atlas';
 import { BASE_EXTERIOR, CONTORNO_CEREBRO, finGuia, GLOBO_OCULAR, NOMBRE_CORTO, puntoMarca, RECORTADAS, RECORTE_HEMISFERIO, REGIONES_DIBUJO, TRAZOS_FINOS, VISTA, type RegionDibujo } from '../lib/atlas_dibujo';
@@ -389,7 +390,11 @@ export function EsqueletoAtlas({ conexion, rotulo = ROTULO_ATLAS }: { conexion?:
 type DatosCalculados = { invId: string; base: DatosAtlas | null; atlas: DatosAtlas | null };
 
 export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
-  const [vista3d, setVista3d] = useState(false);
+  // El atlas abre en relieve (Emir, 21 de septiembre de 2026: "quiero que
+  // pongas el 3d como default siempre"). La vista 2D sigue a un botón y es la
+  // que se imprime, la que leen los lectores de pantalla region a region y la
+  // que queda si el navegador no sabe dibujar el lienzo.
+  const [vista3d, setVista3d] = useState(true);
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [foco, setFoco] = useState<string | null>(null);
   const [estadio, setEstadio] = useState<string | null>(null);
@@ -576,7 +581,9 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
       {/* Mientras llega el atlas con filtros nuevos el marco lleva aria-busy y se queda el anterior (atlas.css lo atenúa solo si tarda). */}
       <div className="atlas-marco" aria-busy={calculando ? true : undefined}>
         <div>
-          {vista3d ? <Atlas3D key={inv.id} atlas={atlas} seleccion={seleccion} seleccionar={seleccionar} /> : <div className={`atlas-lienzo${reducido ? ' atlas-sin-movimiento' : ''}`}>
+          {vista3d ? (hayModeloCerebro()
+            ? <Cerebro3D key={inv.id} atlas={atlas} seleccion={seleccion} seleccionar={seleccionar} />
+            : <Atlas3D key={inv.id} atlas={atlas} seleccion={seleccion} seleccionar={seleccionar} />) : <div className={`atlas-lienzo${reducido ? ' atlas-sin-movimiento' : ''}`}>
             <svg className="atlas-figura" viewBox={`0 0 ${VISTA.ancho} ${VISTA.alto}`} role="group" aria-label={`Atlas de ${inv.titulo}: corte sagital del cerebro con ${plural(conEvidencia, 'región', 'regiones')} con evidencia de ${DIBUJADAS.length}`}>
               <defs>
                 <clipPath id="atlas-recorte">

@@ -199,7 +199,7 @@ describe('adversario: la silueta de App tiene que ser la misma que la de la pant
     expect(g.formas).toHaveLength(1);
     expect(g.formas[0]).toContain('contenido-ancho');
     expect(g.formas[0]).toContain('.atlas-marco');
-    expect(raiz.querySelector('svg.atlas-figura')).not.toBeNull();
+    expect(raiz.querySelector('.atlas-marco .atlas-lienzo')).not.toBeNull();
   });
 });
 
@@ -243,7 +243,7 @@ describe('guardias: lo que el constructor dice que funciona', () => {
     await esperarPintado(2, 60);
     expect(raiz.querySelector('.atlas-esqueleto')).toBeNull();
     expect(raiz.querySelectorAll('[aria-busy="true"]').length).toBe(0);
-    expect(raiz.querySelector('svg.atlas-figura')).not.toBeNull();
+    expect(raiz.querySelector('.atlas-marco .atlas-lienzo')).not.toBeNull();
     const rango = raiz.querySelector<HTMLInputElement>('#atlas-iteracion')!;
     expect(rango.max).toBe('1');
     expect(rango.value).toBe('1');
@@ -274,7 +274,7 @@ describe('guardias: lo que el constructor dice que funciona', () => {
     // Llega un estado nuevo (el canal en vivo) antes de que termine el recálculo del chip.
     await montarAtlas({ ...estado }, inv);
     expect(raiz.querySelector('.atlas-esqueleto')).toBeNull();
-    expect(raiz.querySelector('svg.atlas-figura')).not.toBeNull();
+    expect(raiz.querySelector('.atlas-marco .atlas-lienzo')).not.toBeNull();
     expect(raiz.querySelector<HTMLInputElement>('#atlas-iteracion')!.value).toBe('1');
     expect([...raiz.querySelectorAll('button.atlas-chip')].find((b) => b.textContent?.includes('autosómica dominante'))?.getAttribute('aria-pressed')).toBe('true');
     await esperarPintado(2, 60);
