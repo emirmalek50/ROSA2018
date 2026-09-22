@@ -31,7 +31,7 @@
 //   cerebro: al señalarlos, la corteza se vuelve translúcida para dejarlos
 //   ver, en vez de esconder la evidencia.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { distanciaParaEncuadrar, normal3, orbita, perspectiva } from '../lib/matriz4';
+import { distanciaParaEncuadrar, normal3, orbita, perspectiva, transformar } from '../lib/matriz4';
 import { encuadre, leerMalla, validarIndice, type EstructuraCerebro, type IndiceCerebro, type Malla } from '../lib/cerebro_malla';
 import { rellenoRegion, tokenAtlas } from '../lib/atlas_color';
 import { intensidad, type Atlas } from '../lib/atlas';
@@ -54,8 +54,14 @@ export function hayModeloCerebro(): boolean {
 
 /** Las estructuras que están dentro del cerebro: al mirarlas, la corteza se aparta. */
 const PROFUNDAS: ReadonlySet<string> = new Set(['hipocampo', 'amigdala', 'corteza_entorrinal', 'ganglios_basales_talamo', 'sustancia_blanca', 'lcr', 'vascular_bhe', 'cingulo_precuneo']);
-/** Las que forman la cáscara: son las que se vuelven translúcidas. */
-const CASCARA: ReadonlySet<string> = new Set(['corteza_prefrontal', 'corteza_parietal', 'corteza_temporal', 'corteza_occipital', 'neocorteza', 'corteza']);
+/** Las que forman la cáscara: al mirar dentro casi desaparecen. */
+const CASCARA: ReadonlySet<string> = new Set(['corteza_prefrontal', 'corteza_sensitivomotora', 'corteza_parietal', 'corteza_temporal', 'corteza_occipital', 'insula', 'neocorteza', 'corteza']);
+/** Las que envuelven las estructuras profundas por dentro: la sustancia blanca
+ *  y el cuerpo calloso taparían el hipocampo aunque fueran translúcidas. */
+const ENVOLTURA: ReadonlySet<string> = new Set(['sustancia_blanca', 'cuerpo_calloso']);
+/** Cuánto se ve cada cosa con el cerebro abierto. Diecisiete capas a un
+ *  quinto cada una suman una nube: por eso lo que envuelve casi desaparece. */
+const opacidadAbierta = (clave: string): number => (CASCARA.has(clave) ? 0.09 : ENVOLTURA.has(clave) ? 0.05 : 0.16);
 /** El color del tejido en reposo, antes del tinte de la evidencia. */
 const TEJIDO: Record<string, [number, number, number]> = {
   corteza: [233, 199, 192],
@@ -70,6 +76,12 @@ const TEJIDO: Record<string, [number, number, number]> = {
 };
 const TEJIDO_POR_DEFECTO: [number, number, number] = [226, 196, 190];
 const FOV = 0.82;
+/** La vista en reposo: de lado y algo desde delante, como se enseña un cerebro. */
+const REPOSO = { guinada: -1.75, cabeceo: 0.12 };
+/** La distancia que encuadra el cerebro: el radio de la caja es la media
+ *  diagonal, mayor que el cuerpo en cualquier dirección, y con él tal cual el
+ *  cerebro salía pequeño. */
+const distanciaReposo = (radio: number): number => distanciaParaEncuadrar(radio * 0.74, FOV, 16 / 9, 0.06);
 
 const VERTICES_GLSL = `
 attribute vec3 posicion;
@@ -95,6 +107,9 @@ varying vec3 vNormal;
 varying vec3 vHaciaCamara;
 void main() {
   vec3 N = normalize(vNormal);
+  // Una malla simplificada trae algún triángulo del revés: se ilumina por la
+  // cara que mira a la cámara, en vez de dejar un hueco negro.
+  if (!gl_FrontFacing) N = -N;
   vec3 haciaCamara = normalize(vHaciaCamara);
   // La luz principal, arriba a la izquierda y algo por delante, y un relleno
   // suave por el otro lado para que la sombra no se cierre en negro.
@@ -109,7 +124,7 @@ void main() {
   float brillo = pow(max(0.0, dot(N, media)), 28.0) * 0.16;
   vec3 base = color * (0.34 + 0.72 * difusa + suave);
   vec3 final = base + borde * 0.22 * (color * 0.5 + vec3(0.5)) + brillo;
-  final += resalte * 0.28 * vec3(1.0, 0.86, 0.55) * (0.4 + borde);
+  final += resalte * (0.22 + 0.55 * borde) * vec3(1.0, 0.82, 0.45);
   gl_FragColor = vec4(final, opacidad);
 }`;
 
@@ -172,7 +187,10 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
   const redibujar = useRef(() => {});
   const detener = useRef(() => {});
   const detectar = useRef<(x: number, y: number) => string | null>(() => null);
-  const camara = useRef({ guinada: 0.6, cabeceo: 0.12, distancia: 320 });
+  const camara = useRef({ ...REPOSO, distancia: 320 });
+  const radioRef = useRef(100);
+  const pendientePick = useRef<{ x: number; y: number } | null>(null);
+  const framePick = useRef(0);
   const arrastre = useRef<{ id: number; x: number; y: number; movido: boolean } | null>(null);
 
   const indice: IndiceCerebro | null = useMemo(() => {
@@ -267,13 +285,34 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
       const aPos = contexto.getAttribLocation(prog, 'posicion');
       const aNor = contexto.getAttribLocation(prog, 'normal');
       const mirada = focoRef.current ?? datos.current.seleccion;
-      const porDentro = !seleccionando && mirada !== null && PROFUNDAS.has(mirada);
-      // Primero lo opaco y después lo translúcido, de dentro hacia fuera, que
-      // es como se compone bien la transparencia.
-      const orden = [...piezas].sort((a, b) => Number(porDentro && CASCARA.has(a.estructura.clave)) - Number(porDentro && CASCARA.has(b.estructura.clave)));
+      const porDentro = mirada !== null && PROFUNDAS.has(mirada);
+      // Al mirar una estructura de dentro, todo lo demás se vuelve fantasma
+      // (la corteza más que el resto) y ella queda entera. Primero lo opaco;
+      // después lo translúcido de lejos a cerca, que es como se compone bien.
+      const profundidadDe = (p: Pieza): number => {
+        const c = p.estructura.caja;
+        return transformar(vista, [(c[0] + c[3]) / 2, (c[1] + c[4]) / 2, (c[2] + c[5]) / 2]).z;
+      };
+      const esTranslucida = (p: Pieza): boolean => porDentro && !seleccionando && p.estructura.clave !== mirada;
+      const esMirada = (p: Pieza): boolean => porDentro && !seleccionando && p.estructura.clave === mirada;
+      // Con el cerebro abierto, la estructura mirada va la última y sin test de
+      // profundidad: se ve entera aunque quede detrás de algo, como en una
+      // radiografía. Es el sentido de abrirlo.
+      const orden = [...piezas].sort((a, b) => {
+        const ma = Number(esMirada(a));
+        const mb = Number(esMirada(b));
+        if (ma !== mb) return ma - mb;
+        const ta = Number(esTranslucida(a));
+        const tb = Number(esTranslucida(b));
+        if (ta !== tb) return ta - tb;
+        return ta ? profundidadDe(a) - profundidadDe(b) : 0;
+      });
       for (const p of orden) {
-        const translucida = porDentro && CASCARA.has(p.estructura.clave);
-        if (seleccionando && translucida) continue;
+        const translucida = esTranslucida(p);
+        if (esMirada(p)) contexto.disable(contexto.DEPTH_TEST);
+        // En la pasada de selección, con el cerebro abierto, la cáscara no
+        // estorba: así se puede pasar de una estructura de dentro a otra.
+        if (seleccionando && porDentro && CASCARA.has(p.estructura.clave)) continue;
         contexto.bindBuffer(contexto.ARRAY_BUFFER, p.posiciones);
         contexto.enableVertexAttribArray(aPos);
         contexto.vertexAttribPointer(aPos, 3, contexto.FLOAT, false, 0, 0);
@@ -288,13 +327,14 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         } else {
           const c = colores.get(p.estructura.clave) ?? [0.8, 0.7, 0.7];
           contexto.uniform3fv(uColor, c);
-          contexto.uniform1f(uOpacidad, translucida ? 0.3 : 1);
+          contexto.uniform1f(uOpacidad, translucida ? opacidadAbierta(p.estructura.clave) : 1);
           contexto.uniform1f(uResalte, p.estructura.clave === mirada ? 1 : 0);
           contexto.depthMask(!translucida);
         }
         contexto.drawElements(contexto.TRIANGLES, p.cuenta, contexto.UNSIGNED_INT, 0);
       }
       contexto.depthMask(true);
+      contexto.enable(contexto.DEPTH_TEST);
     };
 
     const pintar = () => {
@@ -309,8 +349,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
       contexto.enable(contexto.DEPTH_TEST);
       contexto.enable(contexto.BLEND);
       contexto.blendFunc(contexto.SRC_ALPHA, contexto.ONE_MINUS_SRC_ALPHA);
-      contexto.enable(contexto.CULL_FACE);
-      contexto.cullFace(contexto.BACK);
+      contexto.disable(contexto.CULL_FACE);
       contexto.clear(contexto.COLOR_BUFFER_BIT | contexto.DEPTH_BUFFER_BIT);
       dibujar(pintor, false);
     };
@@ -339,7 +378,8 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         const encaje = encuadre(indice.estructuras);
         centro = encaje.centro;
         radio = encaje.radio;
-        camara.current = { ...camara.current, distancia: distanciaParaEncuadrar(radio, FOV, 16 / 9, 0.12) };
+        radioRef.current = radio;
+        camara.current = { ...camara.current, distancia: distanciaReposo(radio) };
         let orden = 0;
         for (const e of indice.estructuras) {
           let bytes: ArrayBuffer;
@@ -364,7 +404,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         // La entrada: gira un poco hasta la vista en reposo, para que se vea
         // de entrada que es un cuerpo y no una foto.
         if (!reducidoRef.current) {
-          const desde = { guinada: 0.02, cabeceo: 0.02, distancia: camara.current.distancia * 1.12 };
+          const desde = { guinada: REPOSO.guinada + 0.55, cabeceo: 0.02, distancia: camara.current.distancia * 1.12 };
           const hasta = { ...camara.current };
           camara.current = { ...desde };
           let t0 = 0;
@@ -410,6 +450,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
   }, [indice]);
 
   useEffect(() => { redibujar.current(); }, [atlas, seleccion, foco]);
+  useEffect(() => () => { if (framePick.current) cancelAnimationFrame(framePick.current); }, []);
 
   const cambiarFoco = (clave: string | null) => {
     if (focoRef.current !== clave) { focoRef.current = clave; setFoco(clave); }
@@ -422,23 +463,19 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
   const apuntada = atlas.regiones.find((r) => r.clave === (foco ?? seleccion));
   const nombre = indice?.estructuras.find((e) => e.clave === (foco ?? seleccion))?.nombre;
 
-  if (estado === 'sin_modelo' || estado === 'sin_webgl' || estado === 'error') {
-    return (
-      <section className="atlas-3d" aria-label="Cerebro en tres dimensiones">
-        <p role="status" className="atlas-3d-sin-lienzo">
-          {estado === 'sin_webgl' ? 'Este navegador no puede dibujar el cerebro en tres dimensiones. Puedes consultar toda la evidencia en «Vista 2D».'
-            : estado === 'sin_modelo' ? 'El modelo anatómico del cerebro todavía no está instalado en esta copia. La evidencia está entera en «Vista 2D».'
-            : `No se pudo cargar el modelo del cerebro. ${detalle}`}
-        </p>
-      </section>
-    );
-  }
+  // Sin WebGL, sin modelo o con un fallo de carga, la caja del lienzo se queda
+  // con sus medidas y el aviso dentro: la maqueta no salta y la silueta de
+  // espera sigue midiendo lo que el contenido (regla de los esqueletos).
+  const respaldo = estado === 'sin_modelo' || estado === 'sin_webgl' || estado === 'error';
+  const aviso = estado === 'sin_webgl' ? 'Este navegador no puede dibujar el cerebro en tres dimensiones. Puedes consultar toda la evidencia en «Vista 2D».'
+    : estado === 'sin_modelo' ? 'El modelo anatómico del cerebro todavía no está instalado en esta copia. La evidencia está entera en «Vista 2D».'
+    : `No se pudo cargar el modelo del cerebro. ${detalle}`;
 
   return (
     <section className="atlas-3d" aria-label="Cerebro en tres dimensiones">
       <div className="atlas-lienzo atlas-3d-lienzo">
         <div className="atlas-3d-herramientas">
-          <button type="button" className="btn btn-s" onClick={() => { detener.current(); camara.current = { guinada: 0.6, cabeceo: 0.12, distancia: distanciaParaEncuadrar(100, FOV, 16 / 9, 0.12) }; redibujar.current(); }}>Restablecer vista</button>
+          <button type="button" className="btn btn-s" onClick={() => { detener.current(); camara.current = { ...REPOSO, distancia: distanciaReposo(radioRef.current) }; redibujar.current(); }}>Restablecer vista</button>
           <button type="button" className="btn btn-s" aria-label="Girar a la izquierda" onClick={() => girar(-0.25, 0)}>◄</button>
           <button type="button" className="btn btn-s" aria-label="Girar a la derecha" onClick={() => girar(0.25, 0)}>►</button>
           <label>Estructura <select aria-label="Seleccionar estructura del cerebro" value={seleccion ?? ''} onChange={(e) => { if (e.target.value) seleccionar(e.target.value); }}>
@@ -447,7 +484,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
           </select></label>
         </div>
         {estado === 'cargando' && <div className="atlas-3d-cargando"><Esqueleto alto={280} /><span className="sr-only">Cargando el modelo del cerebro</span></div>}
-        <canvas
+        {respaldo ? <p role="status" className="atlas-3d-sin-lienzo">{aviso}</p> : <canvas
           ref={canvas} className="atlas-3d-canvas" tabIndex={0} role="img"
           aria-label="Cerebro en tres dimensiones: arrastra o usa las flechas para girarlo, la rueda para acercarlo y el selector Estructura para consultar la evidencia de cada una."
           onKeyDown={(e) => {
@@ -468,8 +505,17 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
               a.movido = true; a.x = e.clientX; a.y = e.clientY;
               girar(dx * 0.008, -dy * 0.008);
             } else if (!a) {
+              // Leer el píxel de selección para cada movimiento del ratón para
+              // la tarjeta gráfica en seco: se resuelve una vez por fotograma.
               const rect = e.currentTarget.getBoundingClientRect();
-              cambiarFoco(detectar.current(e.clientX - rect.left, e.clientY - rect.top));
+              pendientePick.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+              if (!framePick.current) {
+                framePick.current = requestAnimationFrame(() => {
+                  framePick.current = 0;
+                  const q = pendientePick.current;
+                  if (q) cambiarFoco(detectar.current(q.x, q.y));
+                });
+              }
             }
           }}
           onPointerUp={(e) => {
@@ -486,7 +532,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
           onPointerCancel={() => { arrastre.current = null; cambiarFoco(null); }}
           onLostPointerCapture={() => { arrastre.current = null; }}
           onPointerLeave={() => cambiarFoco(null)}
-        />
+        />}
       </div>
       <p className="meta">{indice?.atribucion ? `${indice.atribucion}. ` : ''}Las estructuras se encienden con la evidencia reunida: el color va por cohortes. Arrastra para girar el cerebro y pulsa una estructura para leer lo que hay sobre ella.</p>
       <p className="atlas-3d-lectura" aria-live="polite">{apuntada ? `${nombre ?? apuntada.etiqueta}: ${apuntada.conteo} registros · ${apuntada.cohortes.length} cohortes nombradas por sus hipótesis${apuntada.discordia.length ? ' · Discordia entre hechos' : ''}` : 'Señala una estructura para ver sus cifras y abrir su ficha.'}</p>

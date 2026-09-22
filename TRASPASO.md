@@ -909,3 +909,39 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   pregunta por hayModeloCerebro(): si el modelo está en src/datos/cerebro3d, la
   vista 3D es el cerebro; si no, el relieve del corte. La vista 3D es además la
   que abre por defecto, a petición de Emir.
+- **El cerebro anatómico ya está (21 sep, noche):** las mallas salen de
+  BodyParts3D 4.0 (DBCLS, Japón, CC BY 4.0, atribución literal en
+  frontend/src/datos/cerebro3d/LICENCIA.md y en pantalla). Diecisiete
+  estructuras, cada una compuesta de los giros de BodyParts3D que le tocan
+  (tabla en frontend/scripts/cerebro3d/estructuras.py, correspondencia con los
+  OBJ en procedencia.json), unos 224.000 triángulos y 5,3 MB en total, en el
+  formato R2M1 de lib/cerebro_malla.ts. Se regeneran con
+  frontend/scripts/cerebro3d/generar.py a partir del zip original (136 MB, no
+  se guarda; su SHA-256 está en procedencia.json). Lo que la fuente no tiene:
+  el bulbo olfatorio; el precúneo va dentro del parietal; la corteza entorrinal
+  se enseña como giro parahipocampal; la barrera hematoencefálica es el árbol
+  arterial. Tres claves nuevas sin evidencia del atlas (corteza
+  sensitivomotora, ínsula, cuerpo calloso) se pintan en tejido. Lo comprobado
+  en Chromium con el estado real: carga, luz, giro, señalado por color y el
+  cerebro abierto al mirar el hipocampo (todo fantasma y el hipocampo entero,
+  como una radiografía). Sin GPU (SwiftShader) va a unos 180 ms por fotograma;
+  con la tarjeta de la Mac tiene que ir suelto, y hay que mirarlo ahí. Con el
+  modelo instalado, lib/atlas_relieve.ts y componentes/Atlas3D.tsx quedan solo
+  como respaldo si alguien borra la carpeta del modelo.
+  Pendientes anotados: el lienzo del cerebro sigue oscuro en tema claro; el
+  peso de 5,3 MB se descarga entero al abrir el atlas (comprimir en el servidor
+  o cargar por demanda); etiquetas con nombre sobre el cerebro; y el corte
+  sagital dentro del 3D (enseñar la lámina de Lynch como plano de corte).
+- **La siguiente sección interactiva es el mapa causal ("Mecanismos"),
+  decisión de Emir del 21 sep:** el árbol dice qué se investiga, el atlas
+  dónde, y esta el porqué. Los datos ya viajan al navegador (el grafo causal
+  local por hipótesis con aristas tipadas y la identificación por regla, de
+  rosa/causal.py, con la base curada del marco ATN) y hoy no se ven en ninguna
+  pantalla. Boceto acordado en ~/Downloads/boceto-mecanismos.png: mapa por
+  capas (factores, patología, daño, marcadores y desenlace), el camino que
+  afirma la hipótesis en ámbar con el grosor por afirmaciones sostenidas, lo
+  supuesto en punteado, el consenso del campo en tenue, las amenazas
+  (confusor, causa inversa, artefacto) cruzando en rojo, y al pulsar una
+  flecha la evidencia con su cita a la página; panel con el veredicto
+  (identificable, acotado, sin resolver) y los supuestos que faltan. Después,
+  el torneo de hipótesis en vivo como cuarta.

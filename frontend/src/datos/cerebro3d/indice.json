@@ -1,0 +1,287 @@
+{
+  "version": 1,
+  "fuente": "BodyParts3D 4.0, Database Center for Life Science (DBCLS)",
+  "url": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/desc.html",
+  "licencia": "CC BY 4.0",
+  "atribucion": "BodyParts3D, © The Database Center for Life Science, con licencia CC Attribution 4.0 International. Mallas simplificadas y recentradas por ROSA2018.",
+  "ejes": "x a la derecha, y arriba, z hacia atrás (hacia el occipucio)",
+  "unidad": "milímetros",
+  "hemisferios": "los dos",
+  "ausentes": {
+    "bulbo_olfatorio": "BodyParts3D 4.0 no segmenta el bulbo olfatorio."
+  },
+  "estructuras": [
+    {
+      "clave": "corteza_prefrontal",
+      "nombre": "Corteza prefrontal",
+      "fichero": "corteza_prefrontal.bin",
+      "vertices": 12878,
+      "triangulos": 23992,
+      "caja": [
+        -61.642,
+        -10.545,
+        -90.003,
+        61.486,
+        86.155,
+        25.974
+      ],
+      "nota": "Giros frontal superior, frontal medio, frontal inferior y orbitario de los dos hemisferios. No incluye el giro precentral, que va aparte."
+    },
+    {
+      "clave": "corteza_sensitivomotora",
+      "nombre": "Corteza sensitivomotora",
+      "fichero": "corteza_sensitivomotora.bin",
+      "vertices": 7661,
+      "triangulos": 15000,
+      "caja": [
+        -67.909,
+        16.245,
+        -25.165,
+        67.672,
+        82.385,
+        55.417
+      ],
+      "nota": "Giro precentral (motor primario) y giro postcentral (somatosensorial primario). Clave propia de ROSA2018: no estaba en la lista de partida."
+    },
+    {
+      "clave": "corteza_parietal",
+      "nombre": "Corteza parietal",
+      "fichero": "corteza_parietal.bin",
+      "vertices": 10661,
+      "triangulos": 19998,
+      "caja": [
+        -69.512,
+        -5.015,
+        6.547,
+        68.98,
+        72.805,
+        86.132
+      ],
+      "nota": "Giro supramarginal, giro angular y lobulillo parietal superior. El precúneo no viene separado en BodyParts3D: queda dentro del lobulillo parietal superior, o sea dentro de esta malla."
+    },
+    {
+      "clave": "corteza_temporal",
+      "nombre": "Corteza temporal",
+      "fichero": "corteza_temporal.bin",
+      "vertices": 10530,
+      "triangulos": 19998,
+      "caja": [
+        -70.424,
+        -30.805,
+        -48.408,
+        70.424,
+        28.685,
+        65.681
+      ],
+      "nota": "Giros temporal superior (partes anterior y posterior), temporal medio, temporal inferior y fusiforme."
+    },
+    {
+      "clave": "corteza_occipital",
+      "nombre": "Corteza occipital",
+      "fichero": "corteza_occipital.bin",
+      "vertices": 4481,
+      "triangulos": 8954,
+      "caja": [
+        -44.253,
+        -26.565,
+        26.722,
+        44.099,
+        27.255,
+        90.003
+      ],
+      "nota": "Lóbulo occipital entero. BodyParts3D no separa cuña, giro lingual ni polo occipital."
+    },
+    {
+      "clave": "cingulo_precuneo",
+      "nombre": "Giro del cíngulo",
+      "fichero": "cingulo_precuneo.bin",
+      "vertices": 2385,
+      "triangulos": 4762,
+      "caja": [
+        -29.056,
+        -13.725,
+        -62.432,
+        28.89,
+        52.925,
+        48.946
+      ],
+      "nota": "Solo el giro del cíngulo. El precúneo no está segmentado en esta fuente y cae dentro de corteza_parietal."
+    },
+    {
+      "clave": "insula",
+      "nombre": "Ínsula",
+      "fichero": "insula.bin",
+      "vertices": 2452,
+      "triangulos": 4896,
+      "caja": [
+        -45.005,
+        1.225,
+        -42.749,
+        44.865,
+        35.795,
+        9.032
+      ],
+      "nota": "Lóbulo de la ínsula de los dos hemisferios. Clave propia de ROSA2018."
+    },
+    {
+      "clave": "hipocampo",
+      "nombre": "Hipocampo",
+      "fichero": "hipocampo.bin",
+      "vertices": 1004,
+      "triangulos": 2000,
+      "caja": [
+        -37.327,
+        -15.055,
+        -22.694,
+        37.181,
+        6.935,
+        20.228
+      ],
+      "nota": "Hipocampo derecho e izquierdo."
+    },
+    {
+      "clave": "amigdala",
+      "nombre": "Amígdala",
+      "fichero": "amigdala.bin",
+      "vertices": 387,
+      "triangulos": 766,
+      "caja": [
+        -34.111,
+        -12.375,
+        -27.917,
+        33.902,
+        0.485,
+        -9.46
+      ],
+      "nota": "Complejo amigdalino derecho e izquierdo."
+    },
+    {
+      "clave": "corteza_entorrinal",
+      "nombre": "Giro parahipocampal (contiene la corteza entorrinal)",
+      "fichero": "corteza_entorrinal.bin",
+      "vertices": 815,
+      "triangulos": 1622,
+      "caja": [
+        -30.644,
+        -22.665,
+        -21.123,
+        30.546,
+        -0.615,
+        28.407
+      ],
+      "nota": "BodyParts3D no separa la corteza entorrinal. La corteza entorrinal ocupa la parte anterior del giro parahipocampal, que es esta malla; por eso la publicamos con la clave corteza_entorrinal y con el nombre que dice la verdad en pantalla."
+    },
+    {
+      "clave": "ganglios_basales_talamo",
+      "nombre": "Ganglios basales y tálamo",
+      "fichero": "ganglios_basales_talamo.bin",
+      "vertices": 9157,
+      "triangulos": 17999,
+      "caja": [
+        -35.178,
+        -4.057,
+        -44.268,
+        35.022,
+        33.045,
+        19.317
+      ],
+      "nota": "Tálamo, núcleo caudado, putamen y globo pálido de los dos hemisferios. El núcleo accumbens y el claustro no vienen separados en esta fuente."
+    },
+    {
+      "clave": "sustancia_blanca",
+      "nombre": "Sustancia blanca cerebral",
+      "fichero": "sustancia_blanca.bin",
+      "vertices": 12331,
+      "triangulos": 21999,
+      "caja": [
+        -63.212,
+        -22.536,
+        -82.921,
+        63.081,
+        78.728,
+        80.386
+      ],
+      "nota": "Sustancia blanca de los dos hemisferios más la cápsula interna. El cuerpo calloso va en su propia malla."
+    },
+    {
+      "clave": "cuerpo_calloso",
+      "nombre": "Cuerpo calloso",
+      "fichero": "cuerpo_calloso.bin",
+      "vertices": 6413,
+      "triangulos": 11998,
+      "caja": [
+        -31.56,
+        -9.007,
+        -51.41,
+        31.413,
+        38.963,
+        40.262
+      ],
+      "nota": "Cuerpo calloso y fórnix. Clave propia de ROSA2018."
+    },
+    {
+      "clave": "lcr",
+      "nombre": "Ventrículos (líquido cefalorraquídeo)",
+      "fichero": "lcr.bin",
+      "vertices": 8074,
+      "triangulos": 15998,
+      "caja": [
+        -38.82,
+        -53.185,
+        -47.276,
+        38.683,
+        35.039,
+        62.068
+      ],
+      "nota": "Ventrículos laterales, tercer ventrículo, acueducto de Silvio y cuarto ventrículo. Es el molde del LCR intraventricular, no el espacio subaracnoideo."
+    },
+    {
+      "clave": "tronco_locus_coeruleus",
+      "nombre": "Tronco del encéfalo",
+      "fichero": "tronco_locus_coeruleus.bin",
+      "vertices": 10161,
+      "triangulos": 17999,
+      "caja": [
+        -21.159,
+        -79.803,
+        -17.309,
+        21.023,
+        1.215,
+        28.435
+      ],
+      "nota": "Mesencéfalo, protuberancia y bulbo raquídeo. El locus coeruleus no está segmentado en esta fuente: queda dentro de la protuberancia."
+    },
+    {
+      "clave": "cerebelo",
+      "nombre": "Cerebelo",
+      "fichero": "cerebelo.bin",
+      "vertices": 11137,
+      "triangulos": 21997,
+      "caja": [
+        -53.351,
+        -57.053,
+        11.206,
+        53.188,
+        -3.802,
+        67.51
+      ],
+      "nota": "Cerebelo entero, con sus dos hemisferios."
+    },
+    {
+      "clave": "vascular_bhe",
+      "nombre": "Arterias cerebrales",
+      "fichero": "vascular_bhe.bin",
+      "vertices": 7113,
+      "triangulos": 13999,
+      "caja": [
+        -54.117,
+        -86.155,
+        -41.533,
+        52.665,
+        26.105,
+        21.099
+      ],
+      "nota": "Arterias cerebrales anterior, media y posterior, arteria basilar y arterias vertebrales. Es el árbol arterial, no la barrera hematoencefálica, que no es una superficie que se pueda dibujar."
+    }
+  ]
+}

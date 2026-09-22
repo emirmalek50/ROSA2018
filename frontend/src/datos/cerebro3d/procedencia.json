@@ -1,0 +1,209 @@
+{
+  "fuente": "BodyParts3D 4.0, Database Center for Life Science (DBCLS)",
+  "url": "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/desc.html",
+  "zip": "isa_BP3D_4.0_obj_99.zip",
+  "sha256_zip": "40665852c49f218326590e204db91064a1ecfc3c6f8cbd7bbbcaac62c7cd409e",
+  "explicacion": "Por cada estructura publicada, los conceptos anatómicos de BodyParts3D que la componen y los ficheros OBJ de cada uno.",
+  "estructuras": {
+    "corteza_prefrontal": {
+      "superior frontal gyrus": [
+        "FJ1833",
+        "FJ1834"
+      ],
+      "middle frontal gyrus": [
+        "FJ1787",
+        "FJ1788"
+      ],
+      "inferior frontal gyrus": [
+        "FJ1744",
+        "FJ1745"
+      ],
+      "orbital gyrus": [
+        "FJ1793",
+        "FJ1794"
+      ]
+    },
+    "corteza_sensitivomotora": {
+      "precentral gyrus": [
+        "FJ1800",
+        "FJ1801"
+      ],
+      "postcentral gyrus": [
+        "FJ1797",
+        "FJ1798"
+      ]
+    },
+    "corteza_parietal": {
+      "supramarginal gyrus": [
+        "FJ1841",
+        "FJ1842"
+      ],
+      "angular gyrus": [
+        "FJ1732",
+        "FJ1733"
+      ],
+      "superior parietal lobule": [
+        "FJ1835",
+        "FJ1836"
+      ]
+    },
+    "corteza_temporal": {
+      "anterior part of superior temporal gyrus": [
+        "FJ1837",
+        "FJ1838"
+      ],
+      "posterior part of superior temporal gyrus": [
+        "FJ1839",
+        "FJ1840"
+      ],
+      "middle temporal gyrus": [
+        "FJ1789",
+        "FJ1790"
+      ],
+      "inferior temporal gyrus": [
+        "FJ1746",
+        "FJ1747"
+      ],
+      "fusiform gyrus": [
+        "FJ1783",
+        "FJ1784"
+      ]
+    },
+    "corteza_occipital": {
+      "occipital lobe": [
+        "FJ1791",
+        "FJ1792"
+      ]
+    },
+    "cingulo_precuneo": {
+      "cingulate gyrus": [
+        "FJ1739",
+        "FJ1740"
+      ]
+    },
+    "insula": {
+      "insula": [
+        "FJ1748",
+        "FJ1749"
+      ]
+    },
+    "hipocampo": {
+      "hippocampus": [
+        "FJ1759",
+        "FJ1807"
+      ]
+    },
+    "amigdala": {
+      "amygdala": [
+        "FJ1753",
+        "FJ1829"
+      ]
+    },
+    "corteza_entorrinal": {
+      "parahippocampal gyrus": [
+        "FJ1785",
+        "FJ1786"
+      ]
+    },
+    "ganglios_basales_talamo": {
+      "thalamus": [
+        "FJ1782",
+        "FJ1827"
+      ],
+      "caudate nucleus": [
+        "FJ1754",
+        "FJ1802"
+      ],
+      "putamen": [
+        "FJ1776",
+        "FJ1823"
+      ],
+      "globus pallidus": [
+        "FJ1757",
+        "FJ1805"
+      ]
+    },
+    "sustancia_blanca": {
+      "cerebral white matter": [
+        "FJ1758",
+        "FJ1806"
+      ],
+      "internal capsule": [
+        "FJ1750",
+        "FJ1751"
+      ]
+    },
+    "cuerpo_calloso": {
+      "corpus callosum": [
+        "FJ1742"
+      ],
+      "fornix of forebrain": [
+        "FJ1756",
+        "FJ1804"
+      ]
+    },
+    "lcr": {
+      "lateral ventricle": [
+        "FJ1767",
+        "FJ1814"
+      ],
+      "third ventricle": [
+        "FJ1730"
+      ],
+      "fourth ventricle": [
+        "FJ1731"
+      ],
+      "cerebral aqueduct": [
+        "FJ1738"
+      ]
+    },
+    "tronco_locus_coeruleus": {
+      "midbrain": [
+        "FJ1770",
+        "FJ1817"
+      ],
+      "pons": [
+        "FJ1775",
+        "FJ1822"
+      ],
+      "medulla oblongata": [
+        "FJ1769",
+        "FJ1831"
+      ]
+    },
+    "cerebelo": {
+      "cerebellum": [
+        "FJ1781",
+        "FJ1830"
+      ]
+    },
+    "vascular_bhe": {
+      "anterior cerebral artery": [
+        "FJ1654",
+        "FJ1654M"
+      ],
+      "zone of middle cerebral artery": [
+        "FJ1660",
+        "FJ1660M",
+        "FJ1692",
+        "FJ1692M",
+        "FJ1694",
+        "FJ1694M"
+      ],
+      "zone of posterior cerebral artery": [
+        "FJ1714",
+        "FJ1714M",
+        "FJ1723",
+        "FJ1723M"
+      ],
+      "basilar artery": [
+        "FJ1672",
+        "FJ1844"
+      ],
+      "vertebral artery": [
+        "FJ1725",
+        "FJ1725M"
+      ]
+    }
+  }
+}
