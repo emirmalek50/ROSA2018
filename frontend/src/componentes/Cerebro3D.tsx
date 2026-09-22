@@ -79,20 +79,32 @@ const ENVOLTURA: ReadonlySet<string> = new Set(['sustancia_blanca', 'cuerpo_call
  *  quinto cada una suman una nube: por eso lo que envuelve casi desaparece. */
 const opacidadAbierta = (clave: string): number => (CASCARA.has(clave) ? 0.09 : ENVOLTURA.has(clave) ? 0.05 : 0.16);
 /** El color del tejido en reposo, antes del tinte de la evidencia. */
+/** El color del tejido de cada estructura, en reposo. Tonos naturales pero
+ *  distintos por región, como en los atlas anatómicos: con todo el cerebro
+ *  del mismo rosa no se sabía cuál era cuál (Emir, 22 sep). */
 const TEJIDO: Record<string, [number, number, number]> = {
   corteza: [233, 199, 192],
-  cerebelo: [226, 198, 176],
-  tronco_locus_coeruleus: [231, 218, 188],
-  sustancia_blanca: [238, 232, 224],
+  corteza_prefrontal: [236, 196, 186],
+  corteza_sensitivomotora: [222, 186, 196],
+  corteza_parietal: [226, 205, 178],
+  corteza_temporal: [214, 198, 176],
+  corteza_occipital: [206, 190, 206],
+  insula: [228, 184, 172],
+  cingulo_precuneo: [230, 200, 168],
+  cerebelo: [216, 186, 164],
+  tronco_locus_coeruleus: [232, 220, 190],
+  sustancia_blanca: [240, 234, 226],
   cuerpo_calloso: [236, 229, 220],
-  lcr: [198, 218, 232],
-  ganglios_basales_talamo: [206, 175, 176],
-  hipocampo: [212, 176, 170],
-  amigdala: [208, 170, 168],
-  corteza_entorrinal: [214, 180, 172],
-  vascular_bhe: [198, 120, 112],
-  retina: [242, 238, 228],
-  iris: [66, 84, 104],
+  lcr: [190, 214, 232],
+  ganglios_basales_talamo: [200, 168, 172],
+  hipocampo: [212, 170, 160],
+  amigdala: [204, 160, 160],
+  corteza_entorrinal: [212, 178, 168],
+  vascular_bhe: [196, 116, 108],
+  retina: [244, 240, 232],
+  iris: [72, 98, 120],
+  pupila: [12, 10, 14],
+  nervio: [236, 226, 206],
   plasma: [178, 34, 38],
   intestino_microbiota: [216, 142, 132],
 };
@@ -122,13 +134,28 @@ interface Satelite {
   rotulo: boolean;
 }
 function satelites(): Satelite[] {
-  const ojos = unir([esfera(12, [-31, -24, -104]), esfera(12, [31, -24, -104])]);
-  const iris = unir([esfera(5.6, [-31, -24, -113.5], 12, 24), esfera(5.6, [31, -24, -113.5], 12, 24)]);
+  // Los ojos, justo debajo del polo frontal y algo por delante, donde están
+  // las órbitas. La córnea asoma dos milímetros, como la de verdad, y no
+  // como un casquete pegado; la pupila, menos de uno. Y de cada globo sale
+  // el nervio óptico hacia el quiasma, bajo el cerebro: sin él, dos esferas
+  // sueltas parecen bolas de billar y no ojos.
+  const ojos = unir([esfera(11, [-30, -36, -86]), esfera(11, [30, -36, -86])]);
+  const iris = unir([esfera(6.5, [-30, -36, -92.5], 12, 24), esfera(6.5, [30, -36, -92.5], 12, 24)]);
+  const pupila = unir([esfera(2.8, [-30, -36, -94.9], 10, 20), esfera(2.8, [30, -36, -94.9], 10, 20)]);
+  const nervio = (lado: number): [number, number, number][] => {
+    const puntos: [number, number, number][] = [];
+    for (let i = 0; i <= 12; i++) {
+      const t = i / 12;
+      puntos.push([lado * (30 - 26 * t * t), -36 + 6 * t, -76 + 40 * t]);
+    }
+    return puntos;
+  };
+  const nervios = unir([tubo(nervio(-1), 1.6, 10), tubo(nervio(1), 1.6, 10)]);
   // La gota delante y abajo, el tubo detrás y abajo: vistos de lado no se tapan.
-  const sangre = gota(13, [-40, -130, -84]);
+  const sangre = gota(12, [-36, -112, -76]);
   const curva: [number, number, number][] = [];
-  for (let i = 0; i <= 40; i++) curva.push([36, -128 + Math.sin(i / 6.4) * 14, -14 + i * 2.2]);
-  const intestino = tubo(curva, 8, 18);
+  for (let i = 0; i <= 40; i++) curva.push([34, -112 + Math.sin(i / 6.4) * 12, -10 + i * 2.1]);
+  const intestino = tubo(curva, 7.5, 18);
   const con = (clave: string, nombre: string, forma: Forma, tejido: string, rotulo: boolean): Satelite => ({
     estructura: { clave, nombre, fichero: '', vertices: forma.posiciones.length / 3, triangulos: forma.indices.length / 3, caja: cajaDe(forma) },
     forma, tejido, rotulo,
@@ -136,6 +163,8 @@ function satelites(): Satelite[] {
   return [
     con('retina', 'Retina (globo ocular)', ojos, 'retina', true),
     con('retina', 'Retina (globo ocular)', iris, 'iris', false),
+    con('retina', 'Retina (globo ocular)', pupila, 'pupila', false),
+    con('retina', 'Retina (globo ocular)', nervios, 'nervio', false),
     con('plasma', 'Sangre y plasma', sangre, 'plasma', true),
     con('intestino_microbiota', 'Intestino y microbiota', intestino, 'intestino_microbiota', true),
   ];
@@ -182,7 +211,7 @@ void main() {
   float brillo = pow(max(0.0, dot(N, media)), 28.0) * 0.16;
   vec3 base = color * (0.34 + 0.72 * difusa + suave);
   vec3 final = base + borde * 0.22 * (color * 0.5 + vec3(0.5)) + brillo;
-  final += resalte * (0.22 + 0.55 * borde) * vec3(1.0, 0.82, 0.45);
+  final += resalte * (0.34 + 0.6 * borde) * vec3(1.0, 0.84, 0.5);
   gl_FragColor = vec4(final, opacidad);
 }`;
 
@@ -330,8 +359,8 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         const dato = porClave.get(clave);
         const base = TEJIDO[p.tejido] ?? (CASCARA.has(clave) ? TEJIDO.corteza! : TEJIDO_POR_DEFECTO);
         let [r, g, b] = base;
-        // El iris no se tiñe: es el detalle que hace ojo al ojo.
-        if (dato?.conteo && p.tejido !== 'iris') {
+        // El iris, la pupila y el nervio no se tiñen: la evidencia va en el globo.
+        if (dato?.conteo && p.tejido !== 'iris' && p.tejido !== 'pupila' && p.tejido !== 'nervio') {
           const t = intensidad(dato.cohortes.length, datos.current.atlas.cohortesMax);
           const relleno = rellenoRegion(t, { frio, calido });
           const tinte = (relleno.color.match(/\d+/g) ?? []).map(Number);
@@ -408,7 +437,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
           const c = colores.get(`${p.estructura.clave}|${p.tejido}`) ?? [0.8, 0.7, 0.7];
           contexto.uniform3fv(uColor, c);
           contexto.uniform1f(uOpacidad, translucida ? opacidadAbierta(p.estructura.clave) : 1);
-          contexto.uniform1f(uResalte, p.estructura.clave === mirada && p.tejido !== 'iris' ? 1 : 0);
+          contexto.uniform1f(uResalte, p.estructura.clave === mirada && p.tejido !== 'iris' && p.tejido !== 'pupila' && p.tejido !== 'nervio' ? 1 : 0);
           contexto.depthMask(!translucida);
         }
         contexto.drawElements(contexto.TRIANGLES, p.cuenta, contexto.UNSIGNED_INT, 0);
@@ -437,6 +466,11 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         const clave = p.estructura.clave;
         // Las de dentro solo se nombran con el cerebro abierto o si son la mirada.
         if (PROFUNDAS.has(clave) && !porDentro && clave !== mirada) continue;
+        // Diez nombres encima del cerebro tapaban los giros y no decían nada:
+        // se nombra lo que tiene evidencia y lo que se señala; el resto está en
+        // los chips de debajo y sale al pasar el ratón.
+        const registros = porClave.get(clave)?.conteo ?? 0;
+        if (!registros && clave !== mirada && !porDentro) continue;
         const c = p.estructura.caja;
         const q = transformar(mvp, [(c[0] + c[3]) / 2, (c[1] + c[4]) / 2, (c[2] + c[5]) / 2]);
         if (q.w <= 0) continue;
@@ -452,7 +486,8 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
       const qc = transformar(mvp, centro);
       const centroX = ((qc.x + 1) / 2) * anchoCss;
       const centroY = ((1 - qc.y) / 2) * altoCss;
-      const colocados = colocarRotulos(anclas, { ancho: anchoCss, alto: altoCss, centroX, centroY, separacion: 16, paso: 9, intentos: 12, holgura: 3 });
+      // La franja de abajo es de los botones: los rótulos no entran ahí.
+      const colocados = colocarRotulos(anclas, { ancho: anchoCss, alto: altoCss - 58, centroX, centroY, separacion: 16, paso: 9, intentos: 12, holgura: 3 });
       const fondo = `rgb(${Math.round(FONDO[0] * 255)}, ${Math.round(FONDO[1] * 255)}, ${Math.round(FONDO[2] * 255)})`;
       rotulador.textBaseline = 'middle';
       rotulador.textAlign = 'left';
@@ -625,6 +660,12 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
     : estado === 'sin_modelo' ? 'El modelo anatómico del cerebro todavía no está instalado en esta copia. La evidencia está entera en «Vista 2D».'
     : `No se pudo cargar el modelo del cerebro. ${detalle}`;
   const credito = indice?.atribucion ? `${indice.atribucion.replace(/\.\s*$/, '')}. ` : '';
+  const porClave = new Map(atlas.regiones.map((r) => [r.clave, r]));
+  /** El color de tejido de cada chip, el mismo que en la escena. */
+  const colorChip = (clave: string): string => {
+    const t = TEJIDO[clave] ?? (CASCARA.has(clave) ? TEJIDO.corteza! : TEJIDO_POR_DEFECTO);
+    return `rgb(${t[0]}, ${t[1]}, ${t[2]})`;
+  };
 
   return (
     <section className="atlas-3d" aria-label="Cerebro en tres dimensiones">
@@ -691,6 +732,22 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
           <canvas ref={rotulos} className="atlas-3d-rotulos" aria-hidden="true" />
         </>}
       </div>
+      {!respaldo && (
+        <ul className="atlas-3d-leyenda" aria-label="Estructuras del cerebro: pasa el ratón para verlas y pulsa para abrir su evidencia">
+          {seleccionables.map((e) => {
+            const dato = porClave.get(e.clave);
+            const activo = e.clave === (foco ?? seleccion);
+            return (
+              <li key={e.clave}>
+                <button type="button" className={`atlas-3d-chip${activo ? ' activo' : ''}${dato?.conteo ? ' con-datos' : ''}`} style={{ ['--tejido' as string]: colorChip(e.clave) }}
+                  onMouseEnter={() => cambiarFoco(e.clave)} onMouseLeave={() => cambiarFoco(null)} onFocus={() => cambiarFoco(e.clave)} onBlur={() => cambiarFoco(null)} onClick={() => seleccionar(e.clave)}>
+                  <span className="atlas-3d-chip-color" aria-hidden="true" />{nombreCorto(e)}{dato?.conteo ? <span className="atlas-cifra">{dato.conteo}</span> : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <p className="meta">{credito}Las estructuras se encienden con la evidencia reunida: el color va por cohortes. El ojo, la gota de sangre y el intestino son cuerpos esquemáticos, no anatomía medida. Arrastra para girar el cerebro y pulsa una estructura para leer lo que hay sobre ella.</p>
       <p className="atlas-3d-lectura" aria-live="polite">{apuntada ? `${nombre ?? apuntada.etiqueta}: ${apuntada.conteo} registros · ${apuntada.cohortes.length} cohortes nombradas por sus hipótesis${apuntada.discordia.length ? ' · Discordia entre hechos' : ''}` : 'Señala una estructura para ver sus cifras y abrir su ficha.'}</p>
     </section>

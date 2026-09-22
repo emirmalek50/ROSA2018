@@ -968,3 +968,15 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   aleja por su radio y por un abanico de ángulos hasta que cabe
   (lib/rotulos3d.ts, cinco pruebas). Con el cerebro abierto se nombra también
   lo de dentro y queda denso pero legible.
+- **Tercera vuelta del cerebro 3D (22 sep), tras "no sé bien cuál es cuál,
+  está lioso":** el problema era que todo el cerebro iba del mismo rosa y
+  había diez nombres encima. Ahora cada región lleva su tono de tejido
+  (paleta natural pero distinta por lóbulo, como en los atlas), en la escena
+  solo se nombran las estructuras con evidencia y la que se señala, y debajo
+  del lienzo hay una fila de chips con el punto de color de cada estructura:
+  pasar el ratón la enciende entera en ámbar con su nombre, pulsar abre su
+  ficha. Es el patrón de los visores anatómicos serios (BioDigital: la
+  estructura elegida se ilumina y su nombre sale al tocarla; el resto se
+  navega por una lista). Los ojos llevan córnea que asoma dos milímetros,
+  pupila y nervio óptico hasta el quiasma: sin nervio parecían bolas de
+  billar. Los rótulos no entran en la franja de los botones.

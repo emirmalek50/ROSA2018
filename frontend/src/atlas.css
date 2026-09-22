@@ -98,6 +98,39 @@
 }
 .atlas-3d-canvas:active { cursor: grabbing; }
 .atlas-3d-canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+/* Los chips con el color de cada estructura, debajo del lienzo: se pasa el ratón para verla y se pulsa para abrirla. */
+.atlas-3d-leyenda {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+.atlas-3d-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--atlas-linea, rgba(244, 239, 228, 0.16));
+  background: transparent;
+  color: var(--atlas-texto-tenue, rgba(244, 239, 228, 0.72));
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.atlas-3d-chip.con-datos { color: var(--atlas-texto, #f4efe4); }
+.atlas-3d-chip:hover, .atlas-3d-chip.activo, .atlas-3d-chip:focus-visible { border-color: var(--atlas-calido, #f0a030); color: var(--atlas-texto, #f4efe4); outline: none; }
+.atlas-3d-chip-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--tejido);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.atlas-3d-chip .atlas-cifra { margin-left: 2px; }
 /* Los nombres alrededor del cerebro: un lienzo plano encima del de WebGL, que no recibe el ratón. */
 .atlas-3d-rotulos {
   position: absolute;
