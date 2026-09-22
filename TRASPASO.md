@@ -980,3 +980,22 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   navega por una lista). Los ojos llevan córnea que asoma dos milímetros,
   pupila y nervio óptico hasta el quiasma: sin nervio parecían bolas de
   billar. Los rótulos no entran en la franja de los botones.
+- **Qué secciones interactivas vienen después (22 sep):** investigación en
+  `INVESTIGACION-SECCIONES-2026-09-22.md`, cruzando tres fuentes: las
+  herramientas de referencia comprobadas página a página (cinco informes con
+  URL por afirmación, copiados a ~/Downloads/informes-secciones-rosa2018), una
+  auditoría de solo lectura de qué datos tiene ya cada candidata con fichero y
+  línea y los recuentos reales de rosa.db, y el criterio del plan del sistema
+  (nivel 5 de evaluación: reconstruir y cuestionar decisiones; "a visually
+  clear report is not an independent scientific success measure").
+  El hallazgo que ordena la lista: de diez herramientas de literatura, ninguna
+  resuelve la cita a la página exacta del PDF; las mejores llegan al fragmento.
+  Es la regla no negociable de ROSA2018 y hoy no se ve en pantalla.
+  Orden recomendado: mesa de la Killer (2 a 3,5 días, 59 decisiones ya en el
+  estado), escalera de certeza GRADE (3 a 4, las 28 conclusiones listas), visor
+  de citas a la página (5 a 7, hace falta endpoint de PDF); después PRISMA,
+  torneo y línea de tiempo, que son baratas y tienen datos; luego sala de
+  control y grafo del modelo de mundo; al final las que dependen de datos que
+  aún no existen (etiquetado a ciegas con 0 etiquetas, procedencia con 0
+  sellos, costes sin hipótesis en la tabla de llamadas, ensayo en seco con 0
+  registros). Cuatro dudas para Emir al final del documento.

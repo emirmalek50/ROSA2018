@@ -32,7 +32,13 @@ INTEC. Antes de tocar nada, leer en este orden:
 9. `INVESTIGACION-ROSA2018.md`: los cuatro informes (Killer, procedencia,
    ejecucion in silico, priorizacion y aprendizaje) que sostienen las
    decisiones de dise�o de ROSA2018 en ROSA2018, con URL por afirmacion.
-10. `README.md`: como arrancar ROSA2018 y como se investiga con ella.
+10. `INVESTIGACION-SECCIONES-2026-09-22.md`: qué secciones interactivas
+    construir y en qué orden, cruzando las herramientas de referencia
+    comprobadas una a una (AI scientists, literatura, GRADE, portales de
+    Alzheimer, procedencia, visualización causal), la auditoría de qué datos
+    tiene ya cada candidata con fichero y línea, y el criterio del plan del
+    sistema (reconstruir y cuestionar decisiones).
+11. `README.md`: como arrancar ROSA2018 y como se investiga con ella.
 
 `casos_evaluacion.jsonl` son los 17 casos de control del RAG anterior, todos
 sin aprobar por un humano.
