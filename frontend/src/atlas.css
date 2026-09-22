@@ -98,6 +98,14 @@
 }
 .atlas-3d-canvas:active { cursor: grabbing; }
 .atlas-3d-canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+/* Los nombres alrededor del cerebro: un lienzo plano encima del de WebGL, que no recibe el ratón. */
+.atlas-3d-rotulos {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
 /* Mientras llega el modelo del cerebro: la silueta ocupa el lienzo entero, sin salto al aparecer. */
 .atlas-3d-cargando {
   position: absolute;

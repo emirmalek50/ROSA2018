@@ -945,3 +945,18 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   flecha la evidencia con su cita a la página; panel con el veredicto
   (identificable, acotado, sin resolver) y los supuestos que faltan. Después,
   el torneo de hipótesis en vivo como cuarta.
+- **Cerrado el 22 sep de madrugada, tras dos quejas de Emir sobre el cerebro:**
+  "no salen los nombres de las cosas, tampoco las demás cosas del 2D
+  (plasma, sangre)" y "tiene algunos parpadeos raros". Los nombres van en un
+  lienzo plano encima del de WebGL, repartidos en dos columnas sin pisarse y
+  con guía hasta la estructura (lib/rotulos3d.ts, probado): las de dentro
+  solo se nombran con el cerebro abierto. Los tres compartimentos de fuera son
+  cuerpos generados por código (lib/formas3d.ts: esfera, sólido de revolución,
+  tubo con transporte paralelo; probados por volumen con signo): el globo
+  ocular con su iris delante de los frontales, y la gota y el tubo debajo, la
+  gota delante y el tubo detrás para que no se tapen de lado; reciben el tinte
+  de la evidencia como el resto y la leyenda dice que son esquemáticos. El
+  parpadeo era la selección por color: se pintaba en el lienzo visible y se
+  repintaba al fotograma siguiente; ahora la escena de verdad se vuelve a
+  pintar en la misma tarea, así que la copia de colores nunca se presenta. La
+  carga ya no enseña las piezas una a una: espera a todas y entra girando.
