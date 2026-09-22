@@ -86,18 +86,29 @@ describe('el enlace que lleva al texto, no solo al documento', () => {
     fuente: { doi: '10.1093/brain/awab223', pmid: '34273149' } as FichaCita['fuente'],
   };
 
-  it('en un PDF lleva a la página exacta con el ancla que entienden los visores', () => {
-    expect(enlaceAlPasaje(base, '/api/corridas/c/citas/af-1/pdf')).toBe('/api/corridas/c/citas/af-1/pdf#page=3508');
+  it('en un PDF lleva a la página exacta y le pide al visor que busque el pasaje', () => {
+    const r = enlaceAlPasaje(base, '/api/corridas/c/citas/af-1/pdf');
+    expect(r.startsWith('/api/corridas/c/citas/af-1/pdf#page=3508&search=')).toBe(true);
+    expect(decodeURIComponent(r.split('search=')[1]!)).toBe('Plasma GFAP was associated with');
   });
 
-  it('un PDF sin página conocida se abre igual, por el principio', () => {
-    expect(enlaceAlPasaje({ ...base, pagina: null }, '/x.pdf')).toBe('/x.pdf');
-    expect(enlaceAlPasaje({ ...base, pagina: 0 }, '/x.pdf')).toBe('/x.pdf');
+  it('si el PDF lleva token, el ancla se añade sin romper la dirección', () => {
+    const r = enlaceAlPasaje(base, '/api/corridas/c/citas/af-1/pdf?token=abc');
+    expect(r.startsWith('/api/corridas/c/citas/af-1/pdf?token=abc#page=3508')).toBe(true);
   });
 
-  it('si el PDF no está guardado no se inventa una dirección de PDF', () => {
+  it('un PDF sin página conocida se abre igual, pidiendo la búsqueda del pasaje', () => {
+    expect(enlaceAlPasaje({ ...base, pagina: null }, '/x.pdf')).toContain('#search=');
+    expect(enlaceAlPasaje({ ...base, pagina: null }, '/x.pdf')).not.toContain('page=');
+    // Sin pasaje que buscar ni página, se abre tal cual y no se inventa ancla.
+    expect(enlaceAlPasaje({ ...base, pagina: null, afirmacion: { pasaje: '' } as FichaCita['afirmacion'] }, '/x.pdf')).toBe('/x.pdf');
+  });
+
+  it('si el PDF no está guardado no se inventa una dirección de PDF: se va a la fuente', () => {
     const r = enlaceAlPasaje({ ...base, conPdf: false }, '/x.pdf');
-    expect(r).toBe('https://doi.org/10.1093/brain/awab223');
+    expect(r.startsWith('https://doi.org/10.1093/brain/awab223')).toBe(true);
+    expect(r).not.toContain('/x.pdf');
+    expect(r).not.toContain('page=');
   });
 
   it('en una página web ancla al pasaje por sus dos extremos, que es como se señala un rango', () => {
@@ -123,8 +134,13 @@ describe('el enlace que lleva al texto, no solo al documento', () => {
     expect(trozo.split(',').length).toBe(1);
   });
 
-  it('sin la dirección que ROSA2018 leyó no se ancla al texto: se abre la ficha del artículo', () => {
+  it('una cita al resumen también intenta el salto al texto: el resumen suele estar en la página del artículo', () => {
     const r = enlaceAlPasaje({ ...base, clase: 'resumen', conPdf: false, pagina: null, url: '' });
+    expect(r.startsWith('https://doi.org/10.1093/brain/awab223#:~:text=')).toBe(true);
+  });
+
+  it('sin pasaje con el que señalar no se ancla nada: se abre la fuente y punto', () => {
+    const r = enlaceAlPasaje({ ...base, conPdf: false, pagina: null, url: '', afirmacion: { pasaje: 'dos palabras' } as FichaCita['afirmacion'] });
     expect(r).toBe('https://doi.org/10.1093/brain/awab223');
   });
 

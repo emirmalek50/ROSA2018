@@ -188,26 +188,27 @@ describe('la pantalla de citas', () => {
     await montar();
     const enlace = [...nodo.querySelectorAll('a')].find((a) => (a.textContent ?? '').startsWith('Ver la cita en el PDF'))!;
     expect(enlace.textContent).toBe('Ver la cita en el PDF, página 3508');
-    expect(enlace.getAttribute('href')).toBe('/api/corridas/cor-1/citas/af-1/pdf#page=3508');
+    const href = enlace.getAttribute('href') ?? '';
+    expect(href.startsWith('/api/corridas/cor-1/citas/af-1/pdf#page=3508&search=')).toBe(true);
   });
 
   it('en una fuente web, el botón lleva al texto y el navegador lo resalta solo', async () => {
     respuestas.ficha = { ...FICHA, conPdf: false, clase: 'web', pagina: null, localizador: 'texto web, parte 2', url: 'https://ejemplo.org/articulo' };
     await montar();
-    const enlace = [...nodo.querySelectorAll('a')].find((a) => a.textContent === 'Ver la cita en la fuente original')!;
+    const enlace = [...nodo.querySelectorAll('a')].find((a) => a.textContent === 'Ver la cita en la fuente')!;
     const href = enlace.getAttribute('href') ?? '';
     expect(href.startsWith('https://ejemplo.org/articulo#:~:text=')).toBe(true);
     expect(decodeURIComponent(href)).toContain('Plasma GFAP was associated');
     expect(texto()).toContain('salta solo hasta el pasaje');
   });
 
-  it('sin PDF ni página propia, se ofrece la ficha del artículo y no se finge un enlace al texto', async () => {
+  it('una cita al resumen también lleva al texto, por la página del artículo', async () => {
     respuestas.ficha = { ...FICHA, conPdf: false, clase: 'resumen', pagina: null, url: '' };
     await montar();
     expect([...nodo.querySelectorAll('a')].some((a) => (a.textContent ?? '').startsWith('Ver la cita en el PDF'))).toBe(false);
-    const enlace = [...nodo.querySelectorAll('a')].find((a) => a.textContent === 'Abrir la fuente')!;
-    expect(enlace.getAttribute('href')).toBe('https://doi.org/10.1093/brain/awab223');
-    expect(texto()).not.toContain('salta solo hasta el pasaje');
+    const enlace = [...nodo.querySelectorAll('a')].find((a) => a.textContent === 'Ver la cita en la fuente')!;
+    expect((enlace.getAttribute('href') ?? '').startsWith('https://doi.org/10.1093/brain/awab223#:~:text=')).toBe(true);
+    expect(texto()).toContain('salta solo hasta el pasaje');
   });
 
   it('si el servidor no responde lo dice con esas palabras y no finge que no hay citas', async () => {

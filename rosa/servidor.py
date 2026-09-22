@@ -655,6 +655,23 @@ def crear_app(almacen: Almacen) -> FastAPI:
             raise HTTPException(404, "Esa cita no tiene PDF guardado")
         return FileResponse(str(ruta), media_type="application/pdf", headers={"Cache-Control": "no-store", "Content-Disposition": f'inline; filename="{ruta.name}"'})
 
+    @app.post("/api/corridas/{corrida_id}/citas/reverificar")
+    async def reverificar_citas(corrida_id: str) -> dict[str, Any]:
+        """Vuelve a verificar las afirmaciones que hoy ya no estarían
+        bloqueadas: deterministas y, cuando hacen falta, el juez. Lo hace por
+        el mismo camino que el bucle, así que gasta del presupuesto de la
+        corrida y queda en el registro de llamadas."""
+        from rosa import citas as CI
+
+        supervisor = getattr(app.state, "supervisor", None)
+        if supervisor is None:
+            raise HTTPException(503, "El bucle todavía no está listo: inténtalo en unos segundos.")
+        try:
+            return await CI.reverificar(almacen, supervisor.programas, supervisor.modelos, corrida_id)
+        except Exception as ex:  # noqa: BLE001  el fallo se cuenta, no tumba el servidor
+            print(f"reverificar citas falló: {type(ex).__name__}: {str(ex)[:300]}", file=sys.stderr)
+            return {"ok": False, "motivo": f"{type(ex).__name__}: {str(ex)[:200]}"}
+
     @app.post("/api/hipotesis/{hipotesis_id}/datos")
     async def subir_datos(hipotesis_id: str, fichero: UploadFile = File(...), analisis: str = Form(""), sintetico: str = Form("no")) -> dict[str, Any]:
         """Los datos del laboratorio para una hipótesis con experimento

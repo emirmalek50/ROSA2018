@@ -1039,6 +1039,18 @@ export const acciones = {
       return 'sin_respuesta';
     }
   },
+  /** Vuelve a verificar las afirmaciones que hoy ya no estarían bloqueadas:
+   *  deterministas y, cuando hacen falta, el juez. Gasta del presupuesto de la
+   *  corrida, como cualquier verificación del bucle. */
+  reverificarCitas: async (corridaId: string): Promise<{ ok: boolean; revisadas?: number; desbloqueadas?: number; recuento?: Record<string, number>; motivo?: string } | null | SinRespuesta> => {
+    if (modo !== 'servidor') return null;
+    try {
+      const r = await fetch(`${API}/corridas/${encodeURIComponent(corridaId)}/citas/reverificar`, { method: 'POST', headers: cabeceras() });
+      return r.ok ? await r.json() : 'sin_respuesta';
+    } catch {
+      return 'sin_respuesta';
+    }
+  },
   /** La dirección del PDF de una cita, con el token de acceso si hace falta. */
   pdfDeCita: (corridaId: string, afirmacionId: string): string =>
     conToken(`${API}/corridas/${encodeURIComponent(corridaId)}/citas/${encodeURIComponent(afirmacionId)}/pdf`),

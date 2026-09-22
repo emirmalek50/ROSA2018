@@ -382,6 +382,60 @@ def ruta_pdf(corrida: dict[str, Any], afirmacion_id: str) -> Path | None:
     return ruta
 
 
+# Estados en los que la corrida tiene trabajo en vuelo: reverificar a la vez
+# sería escribir sobre las mismas afirmaciones desde dos sitios.
+ESTADOS_VIVOS = ("en_marcha", "esperando_aprobacion", "esperando_plan", "esperando_modelo")
+
+
+def a_reverificar(corrida: dict[str, Any]) -> list[dict[str, Any]]:
+    """Las afirmaciones bloqueadas que el verificador de hoy ya no bloquearía.
+    Son las que tiene sentido volver a pasar: las demás siguen caídas por una
+    razón que no ha cambiado."""
+    fragmentos = _fragmentos_para_verificador(corrida)
+    return [
+        a
+        for a in corrida.get("_afirmaciones", []) or []
+        if isinstance(a, dict) and a.get("veredicto") in V.BLOQUEAN and not bloquea_hoy(a, fragmentos)["bloquea"]
+    ]
+
+
+async def reverificar(almacen: Any, programas: Any, modelos: Any, corrida_id: str) -> dict[str, Any]:
+    """Vuelve a verificar las afirmaciones que hoy ya no estarían bloqueadas:
+    primero las comprobaciones deterministas y, para las que las pasan, el
+    juez. Escribe el veredicto nuevo en el estado.
+
+    Se hace con el mismo camino que usa el bucle (`verificar_afirmaciones`), no
+    con una copia: el veredicto que sale de aquí es el mismo que saldría de una
+    iteración, con su registro de llamadas y su presupuesto."""
+    from rosa.bucle import pasos as PASOS
+
+    estado = almacen.estado
+    corrida = next((c for c in estado["corridas"] if c["id"] == corrida_id), None)
+    if corrida is None:
+        return {"ok": False, "motivo": "Corrida desconocida"}
+    if corrida.get("estado") in ESTADOS_VIVOS:
+        return {"ok": False, "motivo": "La corrida está trabajando ahora mismo: se reverifica cuando pare, para no escribir las mismas afirmaciones desde dos sitios."}
+    afirmaciones = a_reverificar(corrida)
+    if not afirmaciones:
+        return {"ok": True, "revisadas": 0, "recuento": {}, "desbloqueadas": 0, "motivo": "No hay ninguna afirmación bloqueada que hoy dejara de estarlo."}
+    iteraciones = [i for i in estado["iteraciones"] if i.get("corridaId") == corrida_id]
+    ultima = iteraciones[-1] if iteraciones else None
+    ctx = PASOS.Ctx(
+        almacen=almacen,
+        programas=programas,
+        modelos=modelos,
+        corrida_id=corrida_id,
+        investigacion_id=corrida["investigacionId"],
+        iteracion_id=(ultima or {}).get("id", ""),
+        numero=(ultima or {}).get("numero", 0),
+    )
+    inv = next((i for i in estado["investigaciones"] if i["id"] == corrida["investigacionId"]), {})
+    antes = {a["id"]: a.get("veredicto") for a in afirmaciones}
+    recuento = await PASOS.verificar_afirmaciones(ctx, afirmaciones, None, inv.get("objetivo", ""))
+    desbloqueadas = sum(1 for a in afirmaciones if antes.get(a["id"]) in V.BLOQUEAN and a.get("veredicto") not in V.BLOQUEAN)
+    return {"ok": True, "revisadas": len(afirmaciones), "recuento": recuento, "desbloqueadas": desbloqueadas}
+
+
 def resumen(corrida: dict[str, Any]) -> dict[str, Any]:
     """Cuántas afirmaciones hay por veredicto y cuántas resuelven a página
     exacta. Es la cifra honesta de la pantalla: la mayoría de las fuentes no

@@ -183,6 +183,11 @@ export function senalesDe(hoy: ComprobacionDeHoy | undefined | null): Comprobaci
  *  fallan en cuanto la web difiere en una coma del texto que se guardó. */
 const PALABRAS_DE_ANCLA = 6;
 
+/** Cuántas palabras del pasaje se le dan al buscador del visor de PDF. Pocas
+ *  encuentran otra frase; muchas no encuentran nada, porque el PDF corta
+ *  palabras al final de línea y el buscador no las recompone. */
+const PALABRAS_DE_BUSQUEDA = 5;
+
 /** Escapa un trozo para un fragmento de texto: además de lo normal, la coma y
  *  el guion tienen significado propio en esa sintaxis. */
 function paraFragmento(trozo: string): string {
@@ -191,8 +196,11 @@ function paraFragmento(trozo: string): string {
 
 /** Un enlace que lleva AL TEXTO, no solo al documento.
  *
- *  - En un PDF, la página va en el ancla (`#page=N`): es la convención que
- *    entienden los visores de PDF de los navegadores desde hace años.
+ *  - En un PDF, la página y el texto van en el ancla (`#page=N&search=...`):
+ *    son los parámetros de apertura que entienden los visores de PDF de los
+ *    navegadores, así que abre por esa página y además busca el pasaje y lo
+ *    marca. Donde `search` no esté soportado, queda la página, que ya es
+ *    llegar al sitio.
  *  - En una página web, se usa un FRAGMENTO DE TEXTO (`#:~:text=`), que hace
  *    que el navegador baje solo hasta el pasaje y lo resalte. Con pasajes
  *    largos se dan los dos extremos separados por coma, que es como se
@@ -204,18 +212,24 @@ function paraFragmento(trozo: string): string {
 export function enlaceAlPasaje(ficha: Pick<FichaCita, 'clase' | 'pagina' | 'url' | 'conPdf' | 'afirmacion' | 'fuente'>, urlPdf?: string): string {
   if (ficha.conPdf && urlPdf) {
     const pagina = typeof ficha.pagina === 'number' && ficha.pagina > 0 ? ficha.pagina : null;
-    return pagina ? `${urlPdf}${urlPdf.includes('#') ? '' : '#'}page=${pagina}` : urlPdf;
+    // El visor busca mejor una frase corta y sin puntuación rara que el pasaje
+    // entero: con el pasaje completo no encuentra nada en cuanto el PDF parte
+    // una palabra en dos líneas.
+    const palabras = (ficha.afirmacion.pasaje || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+    const buscar = palabras.slice(0, PALABRAS_DE_BUSQUEDA).join(' ').replace(/[^\p{L}\p{N} .,-]/gu, '');
+    const partes = [pagina ? `page=${pagina}` : '', buscar ? `search=${encodeURIComponent(buscar)}` : ''].filter(Boolean);
+    return partes.length ? `${urlPdf}${urlPdf.includes('#') ? '&' : '#'}${partes.join('&')}` : urlPdf;
   }
   const base = ficha.url || (ficha.fuente.doi ? `https://doi.org/${ficha.fuente.doi}` : ficha.fuente.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ficha.fuente.pmid}/` : '');
   if (!base) return '';
   const pasaje = (ficha.afirmacion.pasaje || '').replace(/\s+/g, ' ').trim();
-  // Solo se ancla cuando la fuente trae su propia dirección (la que se leyó) y
-  // el pasaje da para señalar algo. Muchas de esas direcciones son un doi.org,
-  // que redirige: el ancla sobrevive al salto en los navegadores que la
-  // entienden, y donde no, la página se abre por arriba, que es lo que hacía
-  // antes. Lo que nunca se hace es anclar a una dirección que ROSA2018 no leyó.
+  // Se ancla siempre que haya pasaje con el que señalar algo, también cuando la
+  // dirección es un doi que redirige o la página del artículo en PubMed: un
+  // pasaje del resumen suele estar en esa página, así que el salto acierta a
+  // menudo, y cuando no, la página se abre por arriba, que es lo que hacía
+  // antes. No se pierde nada por intentarlo.
   const palabras = pasaje.split(' ').filter(Boolean);
-  if (!ficha.url || palabras.length < 3) return base;
+  if (palabras.length < 3) return base;
   const limpia = base.split('#')[0]!;
   if (palabras.length <= PALABRAS_DE_ANCLA * 2) return `${limpia}#:~:text=${paraFragmento(palabras.join(' '))}`;
   const inicio = palabras.slice(0, PALABRAS_DE_ANCLA).join(' ');

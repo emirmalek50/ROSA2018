@@ -117,6 +117,9 @@ async def principal() -> None:
     app = crear_app(almacen)
     servidor = uvicorn.Server(uvicorn.Config(app, host=config.HOST, port=config.PUERTO, log_level="warning", loop="asyncio"))
     supervisor = Supervisor(almacen, programas, modelos)
+    # El servidor necesita los programas y los modelos para lo que una persona
+    # pide a mano y gasta modelo (reverificar citas): mismo camino que el bucle.
+    app.state.supervisor = supervisor
 
     bucle = asyncio.get_running_loop()
     almacen.enganchar_bucle(bucle)

@@ -391,3 +391,95 @@ def test_el_resumen_separa_las_dos_cuentas_que_no_son_la_misma():
     assert r["bloqueadasConCitaEnOrden"] == 2
     assert r["bloqueosViejos"] == 1
     assert r["conCitaEnOrden"] == 2
+
+
+@pytest.mark.asyncio
+async def test_reverificar_pasa_por_el_mismo_camino_que_el_bucle(monkeypatch: pytest.MonkeyPatch):
+    """La reverificación no es una copia del verificador: usa el mismo paso del
+    bucle, así que el veredicto que sale es el que saldría en una iteración."""
+    from rosa import citas as CI
+
+    c = corrida_con_texto_web()
+    c["estado"] = "terminada"
+    c["investigacionId"] = "inv-1"
+    estado = {"corridas": [c], "iteraciones": [{"id": "it-1", "corridaId": "cor-2", "numero": 3}], "investigaciones": [{"id": "inv-1", "objetivo": "Un objetivo"}]}
+
+    class AlmacenFalso:
+        def __init__(self):
+            self.estado = estado
+
+    vistas: dict = {}
+
+    async def verificar_falso(ctx, afirmaciones, pista, pregunta):
+        vistas["ids"] = [a["id"] for a in afirmaciones]
+        vistas["numero"] = ctx.numero
+        vistas["corrida"] = ctx.corrida_id
+        vistas["pregunta"] = pregunta
+        for a in afirmaciones:
+            a["veredicto"], a["motivo"] = "sostenida", "El juez la sostiene."
+        return {"sostenida": len(afirmaciones)}
+
+    from rosa.bucle import pasos as PASOS
+
+    monkeypatch.setattr(PASOS, "verificar_afirmaciones", verificar_falso)
+    r = await CI.reverificar(AlmacenFalso(), object(), object(), "cor-2")
+    assert r["ok"] is True
+    # Solo van las que hoy ya no bloquearían: la del pasaje que no está en la
+    # fuente y la que cita una página inexistente se quedan fuera.
+    assert vistas["ids"] == ["af-web"]
+    assert vistas["numero"] == 3 and vistas["corrida"] == "cor-2"
+    assert vistas["pregunta"] == "Un objetivo"
+    assert r["revisadas"] == 1 and r["desbloqueadas"] == 1
+    assert c["_afirmaciones"][0]["veredicto"] == "sostenida"
+    # Las que siguen caídas por otra razón no se tocan.
+    assert c["_afirmaciones"][1]["veredicto"] == "no_sostenida"
+
+
+@pytest.mark.asyncio
+async def test_no_se_reverifica_una_corrida_que_esta_trabajando():
+    """Dos manos escribiendo las mismas afirmaciones es justo lo que no se
+    hace: se dice y no se toca nada."""
+    from rosa import citas as CI
+
+    c = corrida_con_texto_web()
+    c["estado"] = "en_marcha"
+    c["investigacionId"] = "inv-1"
+
+    class AlmacenFalso:
+        estado = {"corridas": [c], "iteraciones": [], "investigaciones": []}
+
+    r = await CI.reverificar(AlmacenFalso(), object(), object(), "cor-2")
+    assert r["ok"] is False
+    assert "trabajando" in r["motivo"]
+    assert c["_afirmaciones"][0]["veredicto"] == "cita_no_resuelve"
+
+
+@pytest.mark.asyncio
+async def test_sin_nada_que_recuperar_lo_dice_y_no_llama_a_nadie(monkeypatch: pytest.MonkeyPatch):
+    from rosa import citas as CI
+    from rosa.bucle import pasos as PASOS
+
+    c = corrida_de_prueba()
+    c["estado"] = "terminada"
+    c["investigacionId"] = "inv-1"
+
+    class AlmacenFalso:
+        estado = {"corridas": [c], "iteraciones": [], "investigaciones": [{"id": "inv-1", "objetivo": "x"}]}
+
+    async def no_llamar(*a, **k):
+        raise AssertionError("no debía llamarse a nadie")
+
+    monkeypatch.setattr(PASOS, "verificar_afirmaciones", no_llamar)
+    r = await CI.reverificar(AlmacenFalso(), object(), object(), "cor-1")
+    assert r["ok"] is True and r["revisadas"] == 0
+
+
+@pytest.mark.asyncio
+async def test_una_corrida_desconocida_no_revienta():
+    from rosa import citas as CI
+
+    class AlmacenFalso:
+        estado = {"corridas": [], "iteraciones": [], "investigaciones": []}
+
+    r = await CI.reverificar(AlmacenFalso(), object(), object(), "no-existe")
+    assert r["ok"] is False and "desconocida" in r["motivo"]

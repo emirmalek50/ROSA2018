@@ -1100,3 +1100,24 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   bifurca: ya pasó el 15 de septiembre y la comprobación de integridad lo
   detecta y lo nombra. El reinicio del 22 de septiembre NO dejó rotura: la
   única de la cadena sigue siendo la del 15.
+- **Reverificar de verdad, y que el enlace lleve al texto (22 sep, Emir: "si
+  necesita del juez se le llame y ya, no que salga ROSA con que el juez cuesta
+  llamada").** Dos cosas:
+  1. **Botón "Reverificar".** `rosa/citas.py::reverificar` vuelve a pasar las
+     afirmaciones que hoy ya no bloquearían por `PASOS.verificar_afirmaciones`,
+     el MISMO camino del bucle: deterministas y, para las que las pasan, el
+     juez. Escribe el veredicto nuevo, gasta del presupuesto de la corrida y
+     queda en el registro de llamadas. Endpoint
+     `POST /api/corridas/{id}/citas/reverificar`; el servidor necesita los
+     programas y los modelos, así que `main.py` le pasa el supervisor por
+     `app.state`. Se niega si la corrida está trabajando (dos manos sobre las
+     mismas afirmaciones). Fuera los avisos de "cuesta llamadas": el botón lo
+     hace y cuenta el resultado.
+  2. **El enlace lleva al texto siempre que haya manera.** Antes, 407 de 1091
+     afirmaciones de la corrida 16 solo abrían la ficha del artículo, porque
+     citaban el resumen y no se anclaba sin dirección leída. Ahora se ancla
+     también por doi o PubMed (el resumen suele estar en esa página) y en los
+     PDF el ancla lleva además `search=` con las cinco primeras palabras del
+     pasaje, así que el visor abre la página Y marca el texto. Reparto actual:
+     762 al texto con salto y resaltado, 203 al PDF en su página buscando el
+     pasaje, 126 sin destino (fuentes sin doi, sin PubMed y sin dirección).

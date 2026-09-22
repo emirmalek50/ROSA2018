@@ -28,6 +28,7 @@ import { acciones } from '../datos/almacen';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
 import { enLlanoElVeredicto, enLlanoLaClase, enlaceAlPasaje, senalesDe, trozosDeTexto, type AfirmacionCitada, type ComprobacionDeHoy, type FichaCita, type ListaCitas } from '../lib/citas';
 import { Esqueleto } from '../componentes/Esqueleto';
+import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
 import { AvisoMuestra } from '../componentes/piezas';
 import { plural } from '../lib/formato';
 import '../citas.css';
@@ -61,6 +62,8 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   const [elegida, setElegida] = useState<string | null>(null);
   const [ficha, setFicha] = useState<FichaCita | null>(null);
   const [cargandoFicha, setCargandoFicha] = useState(false);
+  const [enVuelo, envolver] = useEnVuelo();
+  const [recuperacion, setRecuperacion] = useState<string | null>(null);
 
   // La corrida elegida sigue siendo válida al cambiar de investigación.
   useEffect(() => {
@@ -110,6 +113,32 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
       vivo = false;
     };
   }, [corridaId, elegida]);
+
+  const recuperar = envolver(async () => {
+    setRecuperacion(null);
+    const r = await acciones.reverificarCitas(corridaId);
+    if (!r || r === 'sin_respuesta') {
+      setRecuperacion('No pude reverificarlas: el servidor no respondió.');
+      return;
+    }
+    if (!r.ok) {
+      setRecuperacion(r.motivo ?? 'No se pudieron reverificar.');
+      return;
+    }
+    const partes = Object.entries(r.recuento ?? {}).map(([k, n]) => `${n} ${enLlanoElVeredicto(k).texto}`);
+    setRecuperacion(
+      r.revisadas
+        ? `${plural(r.revisadas, 'afirmación revisada', 'afirmaciones revisadas')}: ${partes.join(', ')}.`
+        : (r.motivo ?? 'No había ninguna que recuperar.'),
+    );
+    // Los veredictos han cambiado: se vuelve a pedir la lista y la ficha.
+    const lista2 = await acciones.citasDe(corridaId);
+    if (lista2 && lista2 !== 'sin_respuesta') setLista(lista2);
+    if (elegida) {
+      const f2 = await acciones.citaDe(corridaId, elegida);
+      if (f2 && f2 !== 'sin_respuesta') setFicha(f2);
+    }
+  });
 
   const afirmaciones = useMemo(() => {
     const todas = lista?.afirmaciones ?? [];
@@ -199,12 +228,22 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                   Con página <span className="atlas-cifra">{resumen?.conPagina ?? 0}</span>
                 </button>
                 {(resumen?.bloqueosViejos ?? 0) > 0 && (
+                  <button type="button" className="btn btn-s btn-primario citas-recuperar" onClick={() => void recuperar()} {...atributosEnVuelo(enVuelo)}>
+                    {enVuelo ? 'Reverificando...' : `Reverificar ${resumen?.bloqueosViejos ?? 0}`}
+                  </button>
+                )}
+                {(resumen?.bloqueosViejos ?? 0) > 0 && (
                   <button type="button" className="atlas-chip" aria-pressed={filtro === 'rancias'} onClick={() => setFiltro('rancias')} title="Bloqueadas con una versión anterior del verificador: hoy el verificador entero ya no las bloquearía">
                     Ya no bloquearían <span className="atlas-cifra">{resumen?.bloqueosViejos ?? 0}</span>
                   </button>
                 )}
               </div>
             </header>
+            {recuperacion && (
+              <p className="nota citas-recuperacion" role="status">
+                {recuperacion}
+              </p>
+            )}
             <div className="citas-lista">
               {fase === 'cargando' ? (
                 <div className="citas-esqueleto" aria-busy="true">
@@ -350,13 +389,7 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
       <div className="citas-barra">
         {alPasaje && (
           <a className="btn btn-s btn-primario" href={alPasaje} target="_blank" rel="noreferrer">
-            {ficha.conPdf && ficha.pagina !== null
-              ? `Ver la cita en el PDF, página ${ficha.pagina}`
-              : ficha.conPdf
-                ? 'Ver la cita en el PDF'
-                : ficha.url
-                  ? 'Ver la cita en la fuente original'
-                  : 'Abrir la fuente'}
+            {ficha.conPdf && ficha.pagina !== null ? `Ver la cita en el PDF, página ${ficha.pagina}` : ficha.conPdf ? 'Ver la cita en el PDF' : 'Ver la cita en la fuente'}
           </a>
         )}
         {enLaFuente && enLaFuente !== alPasaje && (
@@ -365,7 +398,7 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
           </a>
         )}
       </div>
-      {alPasaje && !ficha.conPdf && ficha.url && (
+      {alPasaje && !ficha.conPdf && (
         <p className="meta citas-pista-enlace">El navegador salta solo hasta el pasaje y lo resalta. Si la página ha cambiado desde que ROSA2018 la leyó, se abrirá por el principio.</p>
       )}
 
@@ -386,8 +419,8 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
           )}
           {Boolean(ficha.bloqueoViejo) && (
             <p className="citas-rancio">
-              Esta afirmación quedó bloqueada con una versión anterior del verificador y hoy ya no lo estaría. Para saber si es sostenida hace falta el juez,
-              que cuesta llamadas.
+              Esta afirmación quedó bloqueada con una versión anterior del verificador y hoy ya no lo estaría. Con «Reverificar» se vuelve a juzgar y su
+              veredicto se actualiza.
             </p>
           )}
           {!ficha.bloqueoViejo && hoy.resuelve && hoy.literal && ficha.veredictoDeHoy?.bloquea && (
