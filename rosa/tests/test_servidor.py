@@ -117,3 +117,75 @@ def test_prisma_rocrate_costes_e_integridad_responden(cliente):
     r = c.get("/api/calidad/acuerdo")
     assert r.status_code == 200 and r.json()["casos"] == 0
     assert c.get("/api/corridas/nada/prisma").status_code == 404 and c.get("/api/hipotesis/nada/rocrate").status_code == 404
+
+
+def _corrida_con_citas(al, tmp: Path):
+    """Una corrida con su fuente, su página leída y dos afirmaciones, metida
+    directamente en el estado: es lo que el bucle deja al verificar."""
+    pdfs = tmp / "pdfs"
+    pdfs.mkdir(exist_ok=True)
+    pdf = pdfs / "articulo.pdf"
+    pdf.write_bytes(b"%PDF-1.4 de prueba")
+    pagina = "Plasma GFAP was associated with amyloid beta PET burden independently of tau PET."
+    with al._lock:
+        al.estado["corridas"].append(
+            {
+                "id": "cor-citas",
+                "_fuentes": {
+                    "f-1": {
+                        "id": "f-1",
+                        "referencia": "Pereira et al., 2021",
+                        "titulo": "Plasma GFAP",
+                        "fragmentos": [{"localizador": "pág. 3508", "texto": pagina, "encabezado": "Resultados", "_ruta": str(pdf)}],
+                    }
+                },
+                "_afirmaciones": [
+                    {"id": "af-1", "texto": "El GFAP se asocia al amiloide.", "cita": "[Pereira et al., 2021, pág. 3508]", "fragmento": "Plasma GFAP was associated with amyloid beta PET burden", "veredicto": "sostenida", "fuenteId": "f-1", "localizador": "pág. 3508", "tipo": "literatura", "iteracion": 1},
+                    {"id": "af-2", "texto": "Sube un 30 %.", "cita": "[Pereira et al., 2021, pág. 3508]", "fragmento": "increased by thirty per cent", "veredicto": "no_sostenida", "fuenteId": "f-1", "localizador": "pág. 3508", "tipo": "literatura", "iteracion": 1},
+                ],
+            }
+        )
+    return pdfs
+
+
+def test_las_citas_de_una_corrida_se_listan_con_su_veredicto_y_su_apoyo(cliente, tmp_path):
+    c, al = cliente
+    _corrida_con_citas(al, tmp_path)
+    r = c.get("/api/corridas/cor-citas/citas")
+    assert r.status_code == 200
+    datos = r.json()
+    assert [a["id"] for a in datos["afirmaciones"]] == ["af-1", "af-2"]
+    assert datos["afirmaciones"][0]["clase"] == "pagina"
+    assert datos["resumen"]["total"] == 2
+    assert datos["resumen"]["conPagina"] == 2
+    assert c.get("/api/corridas/no-existe/citas").status_code == 404
+
+
+def test_la_ficha_de_una_cita_trae_la_pagina_con_el_pasaje_localizado(cliente, tmp_path):
+    c, al = cliente
+    _corrida_con_citas(al, tmp_path)
+    r = c.get("/api/corridas/cor-citas/citas/af-1")
+    assert r.status_code == 200
+    f = r.json()
+    assert f["pagina"] == 3508
+    assert f["completo"] is True
+    assert f["texto"][f["tramos"][0]["inicio"]:f["tramos"][0]["fin"]] == "Plasma GFAP was associated with amyloid beta PET burden"
+    assert f["fuente"]["referencia"] == "Pereira et al., 2021"
+    # La que no está en la página dice qué le falta, en vez de callarse.
+    g = c.get("/api/corridas/cor-citas/citas/af-2").json()
+    assert g["completo"] is False
+    assert g["falta"] == "increased by thirty per cent"
+    assert c.get("/api/corridas/cor-citas/citas/af-99").status_code == 404
+
+
+def test_el_pdf_de_una_cita_solo_sale_del_directorio_de_pdf(cliente, tmp_path, monkeypatch):
+    c, al = cliente
+    pdfs = _corrida_con_citas(al, tmp_path)
+    monkeypatch.setattr(config, "DIR_PDFS", pdfs)
+    r = c.get("/api/corridas/cor-citas/citas/af-1/pdf")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content.startswith(b"%PDF")
+    # Con el directorio en otro sitio, la ruta guardada en el estado no basta.
+    monkeypatch.setattr(config, "DIR_PDFS", tmp_path / "otro")
+    assert c.get("/api/corridas/cor-citas/citas/af-1/pdf").status_code == 404

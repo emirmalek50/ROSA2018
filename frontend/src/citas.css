@@ -1,0 +1,114 @@
+/* El visor de citas: la afirmación a la izquierda, la página de la fuente a la
+   derecha. La hoja imita el papel (fondo claro, serif, medidas de lectura)
+   también en tema oscuro: se está leyendo un artículo, no una interfaz. */
+.citas-cuerpo {
+  display: grid;
+  grid-template-columns: minmax(320px, 470px) minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .citas-cuerpo { grid-template-columns: 1fr; }
+}
+.citas-col {
+  background: var(--panel, #14121f);
+  border: 1px solid var(--linea, rgba(244, 239, 228, 0.14));
+  border-radius: 14px;
+  overflow: hidden;
+}
+.citas-col > header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--linea, rgba(244, 239, 228, 0.14));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+.citas-col > header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-tenue, rgba(244, 239, 228, 0.62));
+}
+.citas-filtros { display: flex; flex-wrap: wrap; gap: 6px; }
+.citas-lista { max-height: 720px; overflow-y: auto; }
+.citas-fila { padding: 13px 16px; border-bottom: 1px solid var(--linea, rgba(244, 239, 228, 0.14)); }
+.citas-esqueleto .citas-fila { display: flex; flex-direction: column; gap: 7px; }
+/* Cada afirmación es un botón: se elige con el ratón y con el teclado. */
+button.citas-af {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+button.citas-af:hover { background: rgba(244, 239, 228, 0.05); }
+button.citas-af.elegida { background: rgba(240, 160, 48, 0.10); border-left-color: var(--atlas-calido, #f0a030); }
+button.citas-af:focus-visible { outline: 2px solid var(--accent, #f0a030); outline-offset: -2px; }
+.citas-af p { margin: 0 0 6px; font-size: 13.5px; line-height: 1.45; }
+.citas-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; color: var(--texto-tenue, rgba(244, 239, 228, 0.62)); }
+.citas-cita { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: var(--atlas-frio, #edc472); }
+.citas-veredicto { border: 1px solid; border-radius: 5px; padding: 1px 7px; font-size: 11px; }
+.citas-bien { color: #7cc48a; border-color: rgba(124, 196, 138, 0.45); }
+.citas-mal { color: #d1352b; border-color: rgba(209, 53, 43, 0.5); }
+.citas-medio { color: var(--atlas-frio, #edc472); border-color: rgba(237, 196, 114, 0.45); }
+
+.citas-doc { padding: 14px 16px 16px; }
+.citas-doc-cab { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; }
+.citas-doc-cab h4 { margin: 0 0 3px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+.citas-doc-cab p { margin: 0; }
+.citas-loc { white-space: nowrap; }
+.citas-retraccion { color: #d1352b; font-size: 12.5px; margin-top: 4px; }
+.citas-leidos { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.citas-pagina {
+  border: 1px solid var(--linea, rgba(244, 239, 228, 0.14));
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 11.5px;
+  color: var(--texto-tenue, rgba(244, 239, 228, 0.62));
+}
+.citas-pagina.actual { background: rgba(240, 160, 48, 0.16); border-color: rgba(240, 160, 48, 0.55); color: var(--texto, #f4efe4); }
+
+/* La hoja: papel claro en los dos temas, con serif y medida de lectura. */
+.citas-hoja {
+  background: #f7f4ee;
+  color: #2a2620;
+  border-radius: 10px;
+  padding: 26px 30px 34px;
+  position: relative;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13.5px;
+  line-height: 1.85;
+  max-height: 560px;
+  overflow-y: auto;
+}
+.citas-encabezado { margin: 0 0 12px; color: #6b6459; font-size: 11.5px; font-family: inherit; letter-spacing: 0.03em; text-transform: uppercase; }
+.citas-texto { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.citas-texto mark {
+  background: rgba(240, 160, 48, 0.42);
+  color: inherit;
+  border-radius: 2px;
+  box-shadow: 0 0 0 3px rgba(240, 160, 48, 0.42);
+}
+.citas-numpag { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; color: #8d8577; font-size: 11px; margin: 0; }
+
+.citas-barra { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.citas-comparacion {
+  margin-top: 14px;
+  border-top: 1px solid var(--linea, rgba(244, 239, 228, 0.14));
+  padding-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.citas-comparacion p { margin: 0 0 4px; font-size: 13px; line-height: 1.5; }
+.citas-t { color: var(--texto-tenue, rgba(244, 239, 228, 0.62)); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; }
+.citas-falta { background: rgba(209, 53, 43, 0.22); text-decoration: line-through; font-family: ui-monospace, Menlo, monospace; font-size: 12px; padding: 0 3px; border-radius: 3px; }
+.citas-selector select { margin-left: 6px; }

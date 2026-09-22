@@ -615,6 +615,46 @@ def crear_app(almacen: Almacen) -> FastAPI:
             raise HTTPException(404, "Corrida desconocida")
         return JSONResponse(content=datos, headers={"Cache-Control": "no-store"})
 
+    @app.get("/api/corridas/{corrida_id}/citas")
+    async def citas_de(corrida_id: str) -> JSONResponse:
+        """Las afirmaciones de la corrida con su veredicto y de qué se apoyan,
+        para la columna de la izquierda del visor de citas."""
+        from rosa import citas as CI
+
+        c = next((x for x in almacen.estado["corridas"] if x["id"] == corrida_id), None)
+        if not c:
+            raise HTTPException(404, "Corrida desconocida")
+        return JSONResponse(content={"corridaId": corrida_id, "resumen": CI.resumen(c), "afirmaciones": CI.lista(c)}, headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/corridas/{corrida_id}/citas/{afirmacion_id}")
+    async def cita(corrida_id: str, afirmacion_id: str) -> JSONResponse:
+        """La página tal como ROSA2018 la leyó, con el pasaje localizado dentro
+        de ella y, si no está entero, el tramo que falta."""
+        from rosa import citas as CI
+
+        c = next((x for x in almacen.estado["corridas"] if x["id"] == corrida_id), None)
+        if not c:
+            raise HTTPException(404, "Corrida desconocida")
+        ficha = CI.ficha(c, afirmacion_id)
+        if ficha is None:
+            raise HTTPException(404, "Afirmación desconocida")
+        return JSONResponse(content=ficha, headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/corridas/{corrida_id}/citas/{afirmacion_id}/pdf")
+    async def cita_pdf(corrida_id: str, afirmacion_id: str) -> FileResponse:
+        """El PDF del que salió esa página. Solo se sirve si está dentro del
+        directorio de PDF: la ruta viene del estado y el estado no decide qué
+        ficheros publica ROSA2018."""
+        from rosa import citas as CI
+
+        c = next((x for x in almacen.estado["corridas"] if x["id"] == corrida_id), None)
+        if not c:
+            raise HTTPException(404, "Corrida desconocida")
+        ruta = CI.ruta_pdf(c, afirmacion_id)
+        if ruta is None:
+            raise HTTPException(404, "Esa cita no tiene PDF guardado")
+        return FileResponse(str(ruta), media_type="application/pdf", headers={"Cache-Control": "no-store", "Content-Disposition": f'inline; filename="{ruta.name}"'})
+
     @app.post("/api/hipotesis/{hipotesis_id}/datos")
     async def subir_datos(hipotesis_id: str, fichero: UploadFile = File(...), analisis: str = Form(""), sintetico: str = Form("no")) -> dict[str, Any]:
         """Los datos del laboratorio para una hipótesis con experimento

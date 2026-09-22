@@ -999,3 +999,32 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   aún no existen (etiquetado a ciegas con 0 etiquetas, procedencia con 0
   sellos, costes sin hipótesis en la tabla de llamadas, ensayo en seco con 0
   registros). Cuatro dudas para Emir al final del documento.
+- **Visor de citas a la página exacta (22 sep), primera de las secciones
+  nuevas.** Emir lo aprobó desde un boceto ("no se ve mal, hazlo"). El hallazgo
+  que lo justifica está en INVESTIGACION-SECCIONES: de diez herramientas de
+  literatura, ninguna resuelve la cita a la página del PDF; ROSA2018 ya lo hacía
+  por dentro y no se veía.
+  Backend: `rosa/citas.py` localiza el pasaje DENTRO del texto de la página y
+  devuelve los tramos a resaltar en coordenadas del texto original. Compara por
+  palabras con su posición (NFKC más la normalización del verificador), parte
+  el pasaje por elisiones y exige cada tramo en orden, y salta las palabras que
+  son solo un número (los números de línea de los preprints). Cuando un tramo
+  no está, lo devuelve: eso es el motivo del veredicto. El texto no se relee
+  del PDF, se usa el que guardó el verificador. Tres endpoints nuevos en
+  `rosa/servidor.py`: lista, ficha y PDF; el PDF solo se sirve si la ruta cae
+  dentro de config.DIR_PDFS, porque la ruta viene del estado y el estado no
+  decide qué ficheros publica ROSA2018. Quince pruebas del módulo y tres del
+  servidor.
+  Frontend: `lib/citas.ts` (tipos y reparto del texto en trozos marcados, nueve
+  pruebas), `pantallas/Citas.tsx` y `citas.css`, con ruta, entrada en la barra
+  lateral y esqueletos. La hoja se desplaza sola hasta el primer resaltado. El
+  panel de abajo enfrenta lo que dijo ROSA2018 con el veredicto del verificador
+  y su motivo; si falta un tramo, sale tachado en rojo. Lo que no tiene página
+  (resumen, sección, texto web) lo dice con esas palabras y no inventa una.
+  Cifras reales de la corrida 16: 609 afirmaciones, 41 con página exacta, 350
+  de texto web, 145 de resumen y 73 de sección.
+  PENDIENTE AL REINICIAR: el servidor vivo arrancó antes que estos endpoints,
+  así que la pantalla dirá "no pude comprobar las citas" hasta el primer
+  reinicio. No se reinició porque la corrida 16 está en marcha (regla de Emir).
+  Para la prueba se levantó una instancia aparte en el 8799 sobre una copia de
+  la base, ya cerrada.

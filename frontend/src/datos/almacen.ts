@@ -20,6 +20,7 @@ import { estadoDeMuestra } from './muestra';
 import { iniciarSimulacion } from './simulacion';
 import type { AlcancePermiso, Amplitud, AnclaComentario, Avisos, CampoEnmendable, CampoLecturaEnmendable, ClaseAccion, ClasificacionDatos, ConocimientoOperativo, Dataset, EstadoArea, EstadoEspejo, EstadoRosa, Investigacion, MetodoRegistrado, NivelAutonomia, NivelPermisoConector, ParadaCorrida, PasoPlan, PoliticaEsperas, PreguntaCampana, ProcedenciaDataset, RevisionHumana, TipoArtefacto } from './tipos';
 import { senalDeTope } from '../lib/diferido';
+import type { FichaCita, ListaCitas } from '../lib/citas';
 
 const CLAVE_VISITA = 'rosa-ultima-visita';
 const API = '/api';
@@ -1018,6 +1019,29 @@ export const acciones = {
       return 'sin_respuesta';
     }
   },
+  /** Las citas de una corrida: afirmaciones con su veredicto y de qué se apoyan. */
+  citasDe: async (corridaId: string): Promise<ListaCitas | null | SinRespuesta> => {
+    if (modo !== 'servidor') return null;
+    try {
+      const r = await fetch(`${API}/corridas/${encodeURIComponent(corridaId)}/citas`, { cache: 'no-store', headers: cabeceras(false), ...senalDeTope() });
+      return r.ok ? ((await r.json()) as ListaCitas) : 'sin_respuesta';
+    } catch {
+      return 'sin_respuesta';
+    }
+  },
+  /** La ficha de una cita: la página tal como se leyó y dónde cae el pasaje. */
+  citaDe: async (corridaId: string, afirmacionId: string): Promise<FichaCita | null | SinRespuesta> => {
+    if (modo !== 'servidor') return null;
+    try {
+      const r = await fetch(`${API}/corridas/${encodeURIComponent(corridaId)}/citas/${encodeURIComponent(afirmacionId)}`, { cache: 'no-store', headers: cabeceras(false), ...senalDeTope() });
+      return r.ok ? ((await r.json()) as FichaCita) : 'sin_respuesta';
+    } catch {
+      return 'sin_respuesta';
+    }
+  },
+  /** La dirección del PDF de una cita, con el token de acceso si hace falta. */
+  pdfDeCita: (corridaId: string, afirmacionId: string): string =>
+    conToken(`${API}/corridas/${encodeURIComponent(corridaId)}/citas/${encodeURIComponent(afirmacionId)}/pdf`),
   /** Integridad del registro de acciones (cadena de hashes). */
   integridadRegistro: async (): Promise<{ ok: boolean; filas: number; encadenadas: number; sinHash: number; rotaEn: number | null; motivo?: string } | null | SinRespuesta> => {
     if (modo !== 'servidor') return null;

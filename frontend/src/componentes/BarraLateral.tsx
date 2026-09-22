@@ -36,6 +36,19 @@ function IconAtlas({ size = 16 }: { size?: number }) {
   );
 }
 
+/** Icono de las citas: una página con una línea resaltada, que es justo lo que
+ *  la pantalla enseña (el pasaje marcado dentro de la página de la fuente). */
+function IconCita({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 3h8l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+      <path d="M14 3v4h4" />
+      <path d="M8 13h8" strokeWidth="3.4" opacity="0.45" />
+      <path d="M8 17h5" />
+    </svg>
+  );
+}
+
 const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number }) => JSX.Element }[] = [
   { clave: 'corrida', etiqueta: 'Corrida en vivo', icono: IconActivity },
   { clave: 'hipotesis', etiqueta: 'Cola de hipótesis', icono: IconFlask },
@@ -44,6 +57,7 @@ const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number
   { clave: 'mundo', etiqueta: 'Modelo de mundo', icono: IconLayers },
   { clave: 'arbol', etiqueta: 'Árbol', icono: IconTree },
   { clave: 'atlas', etiqueta: 'Atlas', icono: IconAtlas },
+  { clave: 'citas', etiqueta: 'Citas', icono: IconCita },
   { clave: 'artefactos', etiqueta: 'Artefactos', icono: IconDocument },
   { clave: 'calidad', etiqueta: 'Calidad', icono: IconGauge },
   { clave: 'investigacion', etiqueta: 'Objetivo y datos', icono: IconUsers },
