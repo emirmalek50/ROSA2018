@@ -21,6 +21,7 @@ import {
   actoresDe,
   amenazasDe,
   cascada,
+  desvioDeArco,
   EN_LLANO_IDENTIFICACION,
   intensidad,
   nombreDeSupuesto,
@@ -55,7 +56,7 @@ const CAJA_ALTO = 46;
 
 /** Una arista de consenso, curvada del borde derecho de una caja al izquierdo
  *  de la otra. Si van en la misma columna se rodea por debajo. */
-function curva(a: { x: number; y: number }, b: { x: number; y: number }): string {
+function curva(a: { x: number; y: number }, b: { x: number; y: number }, desvio = 0): string {
   const x1 = a.x + CAJA_ANCHO / 2;
   const x2 = b.x - CAJA_ANCHO / 2;
   if (x2 <= x1) {
@@ -63,7 +64,11 @@ function curva(a: { x: number; y: number }, b: { x: number; y: number }): string
     return `M${a.x},${a.y + CAJA_ALTO / 2} C${a.x},${a.y + caida} ${b.x},${b.y + caida} ${b.x},${b.y + CAJA_ALTO / 2}`;
   }
   const medio = (x1 + x2) / 2;
-  return `M${x1},${a.y} C${medio},${a.y} ${medio},${b.y} ${x2},${b.y}`;
+  // Con desvío, los puntos de control se separan de la recta y la flecha
+  // rodea la caja que estorba en vez de cruzarla por detrás.
+  const cy1 = a.y + desvio;
+  const cy2 = b.y + desvio;
+  return `M${x1},${a.y} C${medio},${cy1} ${medio},${cy2} ${x2},${b.y}`;
 }
 
 export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
@@ -104,6 +109,11 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
   const puestos = useMemo(() => posicionesCascada(casc.nodos, ANCHO - CAJA_ANCHO, ALTO - CAJA_ALTO), [casc.nodos]);
   const porId = useMemo(
     () => new Map(puestos.map((p) => [p.id, { x: p.x + CAJA_ANCHO / 2, y: p.y + CAJA_ALTO / 2 }])),
+    [puestos],
+  );
+
+  const cajas = useMemo(
+    () => puestos.map((p) => ({ id: p.id, x: p.x + CAJA_ANCHO / 2, y: p.y + CAJA_ALTO / 2 })),
     [puestos],
   );
 
@@ -233,8 +243,11 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                 const de = porId.get(a.de);
                 const hacia = porId.get(a.a);
                 if (!de || !hacia) return null;
+                // Sin las dos puntas: una flecha nunca estorba a sí misma.
+                const estorbos = cajas.filter((c) => c.id !== a.de && c.id !== a.a);
+                const desvio = desvioDeArco(de, hacia, estorbos, CAJA_ANCHO, CAJA_ALTO);
                 return (
-                  <path key={`${a.de}-${a.a}`} d={curva(de, hacia)} className="mec-consenso" markerEnd="url(#mec-gris)">
+                  <path key={`${a.de}-${a.a}`} d={curva(de, hacia, desvio)} className="mec-consenso" markerEnd="url(#mec-gris)">
                     <title>{`Consenso del campo: ${a.de} lleva a ${a.a}. ${a.contexto}`}</title>
                   </path>
                 );

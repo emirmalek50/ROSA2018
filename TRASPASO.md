@@ -1352,3 +1352,31 @@ llamada no la repita.** Es la misma familia que "una fuente que no responde es
 En la pantalla, cero amenazas ya no es un hueco mudo: se dice, y se aclara que
 no significa que la hipótesis esté limpia. Los grafos ya guardados con cero no
 se arreglan solos; se corrigen cuando esa hipótesis se vuelva a juzgar.
+
+### Una flecha que cruza una caja se lee como si saliera de ella (22 de septiembre de 2026)
+
+Emir, leyendo el dibujo: *"por que amiloide apunta tambien a neurodegeneracion
+si lo que deberia apuntar es a tau?"*. Buena pregunta, y la respuesta es que
+**esa flecha no existe**. Lo que veía era `edad -> neurodegeneracion` cruzando
+por detrás de la caja de `amiloide`. Lo mismo con la que parecía
+`neurodegeneracion -> GFAP`, que era `amiloide -> GFAP` pasando por detrás de
+`neurodegeneracion`.
+
+Es el fallo más grave que ha tenido la pantalla: **hacía leer relaciones
+causales que no están en los datos**. Quitar la transparencia de las cajas no
+bastó; las líneas seguían pasando por detrás.
+
+Dos arreglos:
+
+1. `desvioDeArco` (en `frontend/src/lib/mecanismos.ts`): si el tramo recto
+   cruzaría por una caja que no es ninguna de sus dos puntas, la flecha se
+   arquea y la rodea, por el lado con más sitio.
+2. Los nodos se ordenan **dentro de su columna por profundidad en la cascada**
+   (camino más largo desde una raíz) y no por popularidad. Antes `tau` salía
+   encima de `amiloide` porque aparecía en más grafos, y la flecha
+   `amiloide -> tau` apuntaba hacia arriba.
+
+Regla que sale de aquí, y que vale para cualquier grafo que se pinte en
+ROSA2018: **si el dibujo permite leer una arista que no existe, el dibujo está
+mal, por bonito que sea.** En un programa cuyo trabajo es no afirmar de más,
+una flecha fantasma es del mismo tipo de error que una cita que no resuelve.

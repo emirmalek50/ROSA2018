@@ -89,6 +89,10 @@ export interface NodoCascada {
   /** En cuántos grafos aparece: como actor de la hipótesis o como confusor
    *  que el campo pone encima. No es "cuántas lo estudian". */
   enJuego: number;
+  /** Cuántos pasos de la cascada hay por delante de él. Ordena los nodos
+   *  DENTRO de su columna, para que la cadena se lea de arriba abajo y las
+   *  flechas no vayan hacia atrás. */
+  profundidad: number;
 }
 
 export interface AristaCascada {
@@ -131,7 +135,7 @@ export function cascada(hipotesis: Hipotesis[]): Cascada {
       if (!id) continue;
       const capa = ((n as { capa?: string }).capa as Capa | undefined) ?? CAPA_DE_RESPALDO[id] ?? 'otros';
       const etiqueta = n.etiqueta && sinTildes(n.etiqueta) !== n.etiqueta ? n.etiqueta : ETIQUETA_DE_RESPALDO[id] ?? n.etiqueta ?? id;
-      if (!nodos.has(id)) nodos.set(id, { id, etiqueta, capa, enJuego: 0 });
+      if (!nodos.has(id)) nodos.set(id, { id, etiqueta, capa, enJuego: 0, profundidad: 0 });
       // Un grafo cuenta una vez por nodo aunque lo repita.
       if (!vistosAqui.has(id)) {
         vistosAqui.add(id);
@@ -152,9 +156,30 @@ export function cascada(hipotesis: Hipotesis[]): Cascada {
       }
     }
   }
+  // Profundidad: el camino más largo desde una raíz. Ordena dentro de la
+  // columna. Sin ella los nodos salían por popularidad y `tau` quedaba encima
+  // de `amiloide`, con la flecha `amiloide -> tau` apuntando hacia atrás.
+  const prof = new Map<string, number>([...nodos.keys()].map((k) => [k, 0]));
+  for (let vuelta = 0; vuelta < nodos.size; vuelta += 1) {
+    let cambio = false;
+    for (const a of aristas.values()) {
+      const nueva = (prof.get(a.de) ?? 0) + 1;
+      if (nueva > (prof.get(a.a) ?? 0)) {
+        prof.set(a.a, nueva);
+        cambio = true;
+      }
+    }
+    if (!cambio) break;
+  }
+  for (const n of nodos.values()) n.profundidad = prof.get(n.id) ?? 0;
+
   const orden = new Map(CAPAS.map((c, i) => [c as Capa, i]));
   const lista = [...nodos.values()].sort(
-    (x, y) => (orden.get(x.capa) ?? 99) - (orden.get(y.capa) ?? 99) || y.enJuego - x.enJuego || x.id.localeCompare(y.id),
+    (x, y) =>
+      (orden.get(x.capa) ?? 99) - (orden.get(y.capa) ?? 99) ||
+      x.profundidad - y.profundidad ||
+      y.enJuego - x.enJuego ||
+      x.id.localeCompare(y.id),
   );
   return { nodos: lista, aristas: [...aristas.values()], total: pares.length };
 }
@@ -337,4 +362,48 @@ export function intensidad(enJuego: number, total: number): 'alta' | 'media' | '
   if (parte >= 0.66) return 'alta';
   if (parte >= 0.33) return 'media';
   return 'baja';
+}
+
+/** Una caja del lienzo, en coordenadas del dibujo: centro y medidas. */
+export interface Caja {
+  id: string;
+  x: number;
+  y: number;
+}
+
+/** Cuánto hay que desviar una flecha para que NO pase por detrás de una caja
+ *  que no es la suya.
+ *
+ *  Por qué existe. Una flecha que cruza por detrás de una caja parece salir de
+ *  ella, y entonces el lector se cree una relación causal que no está en los
+ *  datos. Pasó el 22 de septiembre de 2026: `edad -> neurodegeneracion` cruza
+ *  por detrás de `amiloide` y se lee como `amiloide -> neurodegeneracion`, que
+ *  no existe; y `amiloide -> GFAP` cruza por detrás de `neurodegeneracion` y se
+ *  lee como `neurodegeneracion -> GFAP`, que tampoco.
+ *
+ *  Devuelve el desplazamiento vertical (0 si no estorba nadie). El signo elige
+ *  el lado con más sitio: hacia arriba si la caja que estorba está por debajo
+ *  de la trayectoria, y al revés. */
+export function desvioDeArco(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  cajas: Caja[],
+  anchoCaja: number,
+  altoCaja: number,
+): number {
+  const izq = Math.min(a.x, b.x);
+  const der = Math.max(a.x, b.x);
+  // La altura por la que pasaría la curva en su tramo central.
+  const medio = (a.y + b.y) / 2;
+  let estorbo: Caja | null = null;
+  for (const c of cajas) {
+    // Solo las que quedan ENTRE las dos puntas, sin contar las puntas mismas.
+    if (c.x <= izq + anchoCaja / 2 || c.x >= der - anchoCaja / 2) continue;
+    if (Math.abs(c.y - medio) > altoCaja) continue;
+    if (!estorbo || Math.abs(c.y - medio) < Math.abs(estorbo.y - medio)) estorbo = c;
+  }
+  if (!estorbo) return 0;
+  const hueco = altoCaja * 0.85 + 12;
+  // Se rodea por el lado contrario a donde está la caja que estorba.
+  return estorbo.y >= medio ? -hueco : hueco;
 }

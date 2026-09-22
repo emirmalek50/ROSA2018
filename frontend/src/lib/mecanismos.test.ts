@@ -5,6 +5,7 @@ import {
   amenazasDe,
   actoresDe,
   cascada,
+  desvioDeArco,
   idBase,
   intensidad,
   nombreDeSupuesto,
@@ -265,7 +266,7 @@ describe('el veredicto sale de contar', () => {
 });
 
 describe('la disposición de la cascada', () => {
-  const nodo = (id: string, capa: string): NodoCascada => ({ id, etiqueta: id, capa: capa as Capa, enJuego: 1 });
+  const nodo = (id: string, capa: string): NodoCascada => ({ id, etiqueta: id, capa: capa as Capa, enJuego: 1, profundidad: 0 });
 
   it('pone una columna por tramo, en el orden en que ocurre la enfermedad', () => {
     const p = posicionesCascada([nodo('cognicion', 'desenlace'), nodo('APOE4', 'factores'), nodo('tau', 'patologia')], 900, 400);
@@ -308,5 +309,82 @@ describe('cuánto pesa un nodo', () => {
 
   it('sin hipótesis no se inventa fuerza', () => {
     expect(intensidad(0, 0)).toBe('baja');
+  });
+});
+
+describe('las flechas que rodean las cajas', () => {
+  // El 22 de septiembre de 2026 Emir leyó en el dibujo dos relaciones que no
+  // existen, porque las flechas cruzaban por detrás de cajas ajenas.
+  const CAJAS = [
+    { id: 'edad', x: 100, y: 200 },
+    { id: 'amiloide', x: 400, y: 200 },
+    { id: 'neurodegeneracion', x: 700, y: 200 },
+  ];
+
+  it('desvía la flecha que pasaría por detrás de una caja ajena', () => {
+    // edad -> neurodegeneracion cruzaría justo por amiloide.
+    const d = desvioDeArco({ x: 100, y: 200 }, { x: 700, y: 200 }, CAJAS, 128, 46);
+    expect(d).not.toBe(0);
+  });
+
+  it('no desvía la que va de una caja a la de al lado', () => {
+    const d = desvioDeArco({ x: 100, y: 200 }, { x: 400, y: 200 }, CAJAS, 128, 46);
+    expect(d).toBe(0);
+  });
+
+  it('no cuenta como estorbo una caja que está lejos en vertical', () => {
+    const lejos = [{ id: 'otra', x: 400, y: 500 }];
+    expect(desvioDeArco({ x: 100, y: 200 }, { x: 700, y: 200 }, lejos, 128, 46)).toBe(0);
+  });
+
+  it('rodea por el lado contrario al estorbo', () => {
+    // El estorbo por debajo de la trayectoria: se rodea por arriba (negativo).
+    expect(desvioDeArco({ x: 100, y: 100 }, { x: 700, y: 100 }, [{ id: 'x', x: 400, y: 120 }], 128, 46)).toBeLessThan(0);
+    // Y al revés.
+    expect(desvioDeArco({ x: 100, y: 200 }, { x: 700, y: 200 }, [{ id: 'x', x: 400, y: 180 }], 128, 46)).toBeGreaterThan(0);
+  });
+
+  it('sin cajas no hay desvío y no revienta', () => {
+    expect(desvioDeArco({ x: 0, y: 0 }, { x: 100, y: 0 }, [], 128, 46)).toBe(0);
+  });
+});
+
+describe('el orden dentro de una columna', () => {
+  it('sigue la cadena, no la popularidad', () => {
+    // amiloide -> tau, y los dos son PATOLOGÍA. Sin ordenar por la cadena, tau
+    // salía primero por aparecer en más grafos y la flecha iba hacia atrás.
+    const nodos = [
+      { id: 'B:amiloide', etiqueta: 'amiloide', rol: 'base', capa: 'patologia' },
+      { id: 'B:tau', etiqueta: 'tau', rol: 'base', capa: 'patologia' },
+    ];
+    const c = cascada([
+      hip('h1', { nodos, aristas: [{ de: 'B:amiloide', a: 'B:tau', tipo: 'base_curada', contexto: '' }] }),
+      // tau aparece en más grafos que amiloide.
+      hip('h2', { nodos: [nodos[1]!] }),
+      hip('h3', { nodos: [nodos[1]!] }),
+    ]);
+    expect(c.nodos.map((n) => n.id)).toEqual(['amiloide', 'tau']);
+    expect(c.nodos[0]!.profundidad).toBe(0);
+    expect(c.nodos[1]!.profundidad).toBe(1);
+  });
+
+  it('la profundidad es el camino más largo, no el más corto', () => {
+    const nodos = [
+      { id: 'B:a', etiqueta: 'a', rol: 'base', capa: 'patologia' },
+      { id: 'B:b', etiqueta: 'b', rol: 'patologia', capa: 'patologia' },
+      { id: 'B:c', etiqueta: 'c', rol: 'base', capa: 'patologia' },
+    ];
+    const c = cascada([
+      hip('h1', {
+        nodos: nodos.map((n) => ({ ...n, rol: 'base' })),
+        aristas: [
+          { de: 'B:a', a: 'B:b', tipo: 'base_curada', contexto: '' },
+          { de: 'B:b', a: 'B:c', tipo: 'base_curada', contexto: '' },
+          { de: 'B:a', a: 'B:c', tipo: 'base_curada', contexto: '' },
+        ],
+      }),
+    ]);
+    // c es alcanzable en 1 paso desde a, pero el camino más largo es 2.
+    expect(c.nodos.find((n) => n.id === 'c')!.profundidad).toBe(2);
   });
 });
