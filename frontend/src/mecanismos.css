@@ -183,26 +183,28 @@
   color: var(--text);
   box-shadow: var(--shadow-soft);
 }
-/* Cuantas más hipótesis lo tienen en juego, más peso visual.
-   El tinte va como imagen sobre una base OPACA: con el color translúcido a
-   secas, las flechas de detrás se veían a través de la caja y parecía que la
-   atravesaban (Emir, 22 de septiembre de 2026: "que significan cuando pasan
-   por arriba de un cuadro"). Una flecha solo significa algo donde empieza y
-   donde acaba. */
+/* Cuantas más hipótesis lo tienen en juego, más peso visual. La escala es
+   NEUTRA a propósito: el morado ya significa "lo que la hipótesis supone" en
+   las flechas, y usarlo también aquí le daba dos sentidos en la misma
+   pantalla (Emir, 22 de septiembre de 2026: "por que algunos estan morados y
+   otros grises?"). El peso se dice con el relleno y el borde, no con un tono
+   nuevo; la cifra de debajo lo dice exacto. */
 .mec-nodo.mec-alta {
-  border-color: var(--accent-border);
-  background-color: var(--surface);
-  background-image: linear-gradient(var(--accent-soft), var(--accent-soft));
+  background-color: var(--inset);
+  border-color: var(--text-3);
+  font-weight: 600;
 }
 .mec-nodo.mec-media {
-  border-color: var(--border-strong);
   background-color: var(--surface);
+  border-color: var(--border-strong);
 }
 .mec-nodo.mec-baja {
-  border-style: dashed;
-  color: var(--text-2);
   background-color: var(--surface);
+  border-style: dashed;
+  border-color: var(--border);
+  color: var(--text-2);
 }
+
 .mec-cuantas {
   display: block;
   font-size: 9.5px;

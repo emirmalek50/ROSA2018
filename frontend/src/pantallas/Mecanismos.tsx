@@ -173,7 +173,8 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
         <b>El número de cada caja:</b>
         <span>
           en cuántas de las {casc.total} hipótesis entra en juego ese nodo, sea porque lo estudian o porque es un confusor
-          que hay que vigilar. No es cuántas lo estudian. Pasa el ratón por una flecha y te dice qué afirma.
+          que hay que vigilar. No es cuántas lo estudian. Cuanto más relleno está el recuadro, en más entra; el de borde
+          discontinuo apenas aparece. Pasa el ratón por una flecha y te dice qué afirma.
         </span>
       </p>
 

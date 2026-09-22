@@ -1302,3 +1302,22 @@ Lección para la próxima: **el arranque no puede colgar de un `&&` con la
 parada**, porque `&&` encadena con la orden anterior y no con el código de
 salida del guardián. Para reiniciar está `./scripts/reiniciar_servidor.sh`, que
 comprueba el código y no arranca si la parada no se completó. Usarlo.
+
+### El morado tenía dos significados (22 de septiembre de 2026)
+
+Emir: *"por que algunos estan morados y otros grises?"*. Porque el peso de un
+nodo (en cuántas hipótesis entra en juego) se pintaba con el acento morado, y
+el morado ya significaba "lo que la hipótesis supone, sin dato propio" en las
+flechas. Dos sentidos para el mismo color en la misma pantalla.
+
+Ahora el peso va en una escala NEUTRA (relleno y borde, sin tono nuevo) y el
+morado significa una sola cosa: suposición. Eso incluye el interruptor que la
+persona enciende a mano, que por eso también es morado y no verde.
+
+Regla que sale de aquí: en esta pantalla **un color es un significado**. Si
+hace falta codificar algo más, se hace con forma, relleno o grosor, no con un
+tono nuevo.
+
+Nota práctica: el servidor sirve `frontend/dist` como ficheros estáticos, así
+que **un cambio solo de interfaz se ve con reconstruir y recargar**, sin parar
+ni reiniciar nada.
