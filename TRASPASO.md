@@ -1121,3 +1121,70 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
      pasaje, así que el visor abre la página Y marca el texto. Reparto actual:
      762 al texto con salto y resaltado, 203 al PDF en su página buscando el
      pasaje, 126 sin destino (fuentes sin doi, sin PubMed y sin dirección).
+
+## Por qué "ver la cita" abría la página sin marcar nada (22 de septiembre de 2026)
+
+Emir: "cuando le doy a ver cita en la fuente solo me abre la pagina pero no el
+texto marcado". La causa no era el pasaje, ni la página, ni el enlace: es que
+**el visor de PDF de Chrome no sabe resaltar**. Su analizador de parámetros de
+apertura (`chrome/browser/resources/pdf/open_pdf_params_parser.ts`) lee
+`nameddest`, `navpanes`, `page`, `toolbar`, `view` y `zoom`, y nada más; la
+cadena `search` no aparece en el fichero. ROSA2018 mandaba `#page=N&search=...`,
+así que el navegador abría por la página buena y tiraba la búsqueda sin avisar.
+El síntoma era exactamente el que describía Emir.
+
+Lo que se hizo: como el PDF lo sirve ROSA2018, la marca la pone ROSA2018.
+`rosa/citas.py` renderiza la página con el pasaje pintado encima
+(`pagina_marcada`) y el servidor la da en `GET
+/api/corridas/{id}/citas/{af}/pagina.png`. La pantalla de citas la enseña
+dentro, con un conmutador entre "Texto leído" y "Página N del PDF".
+
+La regla del resaltado es la MISMA que la del panel de texto: los mismos tramos
+por elisión, la misma normalización y el mismo `_buscar_tramo`, solo que sobre
+las palabras del PDF con su rectángulo en vez de sobre posiciones de una
+cadena. Medido sobre las 203 citas con PDF de la corrida 16: **la marca del PDF
+y la del texto coinciden en 203 de 203**, 173 marcadas y 30 sin marcar (las 30
+son citas que el panel de texto tampoco resuelve, o sea citas malas de verdad).
+Coste: 88 ms de mediana por página, 314 KB de mediana por imagen, y solo se
+pide si se pulsa.
+
+Tres decisiones que conviene conservar:
+
+- Una página sin el pasaje **se enseña igual**, sin marca y diciéndolo. Es lo
+  que permite discutir el veredicto; esconderla, no.
+- Un PDF roto (`PdfIlegible`, 422) no es un PDF que falta (404). Si se juntaran
+  las dos cosas, un fallo quedaría escondido detrás de una ausencia.
+- Un número de página que no cae dentro del PDF no dice dónde mirar: se busca
+  el pasaje por el documento en vez de enseñar la primera página y callarse.
+
+### Lo que se midió sobre el salto en páginas web, y una hipótesis que era falsa
+
+De las 1091 citas de la corrida 16: 203 con PDF, 888 web (126 sin ninguna
+dirección a la que ir, 470 a doi.org, 249 a alzforum, el resto a
+clinicaltrials, pubmed y pmc).
+
+Se probó el salto contra las páginas de verdad con un navegador. Resultados que
+conviene no volver a investigar:
+
+- **El fragmento de texto funciona**, y `page.goto` lo activa: control en
+  Wikipedia, `scrollY` 0 -> 32242. La selección del DOM sale siempre vacía
+  (Chrome usa `::target-text`, no una selección), así que **no sirve** para
+  detectar el salto; hay que comparar `scrollY` con y sin fragmento.
+- **La hipótesis del apóstrofo era falsa.** Parecía que "Alzheimer's" (U+0027)
+  guardado no casaría con "Alzheimer’s" (U+2019) de la página, porque
+  `innerText.includes()` fallaba ahí. Pero el navegador **salta igual**: su
+  comparador normaliza esas diferencias, al revés que una comparación de
+  cadenas a pelo. Comprobado en medRxiv, que pinta el rizado.
+- **Los 403 de PubMed, PMC y Alzforum eran del robot**, no del enlace: con un
+  agente de usuario y cabeceras de navegador de verdad, Alzforum responde 200 y
+  salta. No son un problema para Emir, que navega con su navegador.
+- Lo que sí no puede funcionar: **ClinicalTrials.gov** (es una aplicación que
+  pinta el texto después de la carga, y esa ficha además da error) y las 470 de
+  **doi.org**, que redirigen a la página del editor, a menudo de pago, donde el
+  pasaje no está en el documento.
+
+Con eso, el ancla web se cambió de un rango `inicio,fin` a **un solo trozo
+tomado del principio del pasaje**: el rango exige que casen los DOS extremos y
+basta que falle uno para que no se resalte nada. Sobre páginas reales los dos
+saltaban igual, así que **esto es tolerancia, no un arreglo**, y así está
+escrito en el código para que nadie lo lea como la causa del fallo de Emir.

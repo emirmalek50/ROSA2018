@@ -86,10 +86,12 @@ describe('el enlace que lleva al texto, no solo al documento', () => {
     fuente: { doi: '10.1093/brain/awab223', pmid: '34273149' } as FichaCita['fuente'],
   };
 
-  it('en un PDF lleva a la página exacta y le pide al visor que busque el pasaje', () => {
+  it('en un PDF lleva a la página exacta y NO pide una búsqueda que el visor ignora', () => {
     const r = enlaceAlPasaje(base, '/api/corridas/c/citas/af-1/pdf');
-    expect(r.startsWith('/api/corridas/c/citas/af-1/pdf#page=3508&search=')).toBe(true);
-    expect(decodeURIComponent(r.split('search=')[1]!)).toBe('Plasma GFAP was associated with');
+    expect(r).toBe('/api/corridas/c/citas/af-1/pdf#page=3508');
+    // `search=` no lo lee el visor de Chrome (solo nameddest, navpanes, page,
+    // toolbar, view y zoom), así que prometía una marca que nunca llegaba.
+    expect(r).not.toContain('search=');
   });
 
   it('si el PDF lleva token, el ancla se añade sin romper la dirección', () => {
@@ -97,10 +99,8 @@ describe('el enlace que lleva al texto, no solo al documento', () => {
     expect(r.startsWith('/api/corridas/c/citas/af-1/pdf?token=abc#page=3508')).toBe(true);
   });
 
-  it('un PDF sin página conocida se abre igual, pidiendo la búsqueda del pasaje', () => {
-    expect(enlaceAlPasaje({ ...base, pagina: null }, '/x.pdf')).toContain('#search=');
-    expect(enlaceAlPasaje({ ...base, pagina: null }, '/x.pdf')).not.toContain('page=');
-    // Sin pasaje que buscar ni página, se abre tal cual y no se inventa ancla.
+  it('un PDF sin página conocida se abre tal cual, sin ancla inventada', () => {
+    expect(enlaceAlPasaje({ ...base, pagina: null }, '/x.pdf')).toBe('/x.pdf');
     expect(enlaceAlPasaje({ ...base, pagina: null, afirmacion: { pasaje: '' } as FichaCita['afirmacion'] }, '/x.pdf')).toBe('/x.pdf');
   });
 
@@ -111,12 +111,32 @@ describe('el enlace que lleva al texto, no solo al documento', () => {
     expect(r).not.toContain('page=');
   });
 
-  it('en una página web ancla al pasaje por sus dos extremos, que es como se señala un rango', () => {
+  it('en una página web ancla por el PRINCIPIO del pasaje, con un solo trozo', () => {
     const r = enlaceAlPasaje({ ...base, clase: 'web', conPdf: false, pagina: null, url: 'https://ejemplo.org/articulo' });
     expect(r.startsWith('https://ejemplo.org/articulo#:~:text=')).toBe(true);
-    const [inicio, fin] = r.split('#:~:text=')[1]!.split(',');
-    expect(decodeURIComponent(inicio!)).toBe('Plasma GFAP was associated with amyloid');
-    expect(decodeURIComponent(fin!)).toBe('of tau PET in the cohort');
+    const trozo = r.split('#:~:text=')[1]!;
+    // Un ancla, no un rango `inicio,fin`: el rango exige que casen los dos
+    // extremos y basta que falle uno para que no se resalte nada.
+    expect(trozo.split(',').length).toBe(1);
+    expect(decodeURIComponent(trozo)).toBe('Plasma GFAP was associated with amyloid beta PET burden independently of tau');
+  });
+
+  it('el ancla empieza donde empieza el pasaje, para no dejar al lector en mitad', () => {
+    const r = enlaceAlPasaje({ ...base, clase: 'web', conPdf: false, pagina: null, url: 'https://ejemplo.org/a' });
+    expect(decodeURIComponent(r.split('#:~:text=')[1]!).startsWith('Plasma GFAP')).toBe(true);
+  });
+
+  it('si el pasaje arranca con algo inestable, se cae al tramo estable más largo', () => {
+    const r = enlaceAlPasaje({
+      ...base,
+      clase: 'web',
+      conPdf: false,
+      pagina: null,
+      url: 'https://ejemplo.org/a',
+      afirmacion: { pasaje: '95 % de los casos mostraron reduccion sostenida de amiloide' } as FichaCita['afirmacion'],
+    });
+    // "%" se queda fuera: un espacio de más ahí no lo normaliza nadie.
+    expect(decodeURIComponent(r.split('#:~:text=')[1]!)).toBe('de los casos mostraron reduccion sostenida de amiloide');
   });
 
   it('un pasaje corto va entero en el ancla, sin partirlo en dos', () => {
@@ -125,13 +145,20 @@ describe('el enlace que lleva al texto, no solo al documento', () => {
     expect(r.split(',').length).toBe(1);
   });
 
-  it('las comas y los guiones del pasaje se escapan, porque significan otra cosa en el ancla', () => {
-    const r = enlaceAlPasaje({ ...base, clase: 'web', conPdf: false, url: 'https://ejemplo.org/a', afirmacion: { pasaje: 'p-tau181, GFAP y NfL' } as FichaCita['afirmacion'] });
+  it('la coma y el guion nunca llegan crudos al ancla: ahí significan otra cosa', () => {
+    const r = enlaceAlPasaje({
+      ...base,
+      clase: 'web',
+      conPdf: false,
+      pagina: null,
+      url: 'https://ejemplo.org/a',
+      afirmacion: { pasaje: 'p-tau181, GFAP y NfL subieron en plasma de forma sostenida' } as FichaCita['afirmacion'],
+    });
     const trozo = r.split('#:~:text=')[1]!;
-    expect(trozo).toContain('%2D');
-    expect(trozo).toContain('%2C');
-    // Sin partir: el ancla sigue siendo un solo trozo.
     expect(trozo.split(',').length).toBe(1);
+    expect(trozo).not.toContain('-');
+    // El ancla se toma del tramo estable: "p-tau181," y su coma quedan fuera.
+    expect(decodeURIComponent(trozo)).toBe('GFAP y NfL subieron en plasma de forma sostenida');
   });
 
   it('una cita al resumen también intenta el salto al texto: el resumen suele estar en la página del artículo', () => {

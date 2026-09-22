@@ -24,6 +24,7 @@ vi.mock('../datos/almacen', async (original) => ({
       return respuestas.ficha;
     }),
     pdfDeCita: (c: string, a: string) => `/api/corridas/${c}/citas/${a}/pdf`,
+    paginaDeCita: (c: string, a: string) => `/api/corridas/${c}/citas/${a}/pagina.png`,
   },
 }));
 
@@ -184,12 +185,39 @@ describe('la pantalla de citas', () => {
     expect(nodo.querySelectorAll('.citas-af').length).toBe(1);
   });
 
-  it('el botón lleva al pasaje: en un PDF, a su página exacta', async () => {
+  it('en un PDF la marca se enseña dentro: el botón abre la página pintada', async () => {
     await montar();
-    const enlace = [...nodo.querySelectorAll('a')].find((a) => (a.textContent ?? '').startsWith('Ver la cita en el PDF'))!;
-    expect(enlace.textContent).toBe('Ver la cita en el PDF, página 3508');
+    // Antes se enseñaba la página del PDF en el visor del navegador con
+    // `search=`, que Chrome ignora: abría por la página buena y sin marcar
+    // nada (Emir, 22 de septiembre de 2026). Ahora la marca la pinta ROSA2018.
+    const boton = [...nodo.querySelectorAll('button')].find((b) => (b.textContent ?? '').startsWith('Ver la cita marcada'))!;
+    expect(boton.textContent).toBe('Ver la cita marcada en la página 3508');
+    expect(nodo.querySelector('img.citas-pagina')).toBe(null);
+    await act(async () => {
+      boton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    const imagen = nodo.querySelector('img.citas-pagina')!;
+    expect(imagen.getAttribute('src')).toBe('/api/corridas/cor-1/citas/af-1/pagina.png');
+    expect(imagen.getAttribute('alt')).toContain('marcado en naranja');
+  });
+
+  it('el enlace al PDF entero no promete una marca: solo lleva a la página', async () => {
+    await montar();
+    const enlace = [...nodo.querySelectorAll('a')].find((a) => a.textContent === 'Abrir el PDF entero')!;
     const href = enlace.getAttribute('href') ?? '';
-    expect(href.startsWith('/api/corridas/cor-1/citas/af-1/pdf#page=3508&search=')).toBe(true);
+    expect(href).toBe('/api/corridas/cor-1/citas/af-1/pdf#page=3508');
+    expect(href).not.toContain('search=');
+  });
+
+  it('si el pasaje no está en esa página, la página se enseña igual y se dice', async () => {
+    respuestas.ficha = { ...FICHA, completo: false, tramos: [] };
+    await montar();
+    const boton = [...nodo.querySelectorAll('button')].find((b) => (b.textContent ?? '').startsWith('Ver la cita marcada'))!;
+    await act(async () => {
+      boton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(nodo.querySelector('img.citas-pagina')).not.toBe(null);
+    expect(nodo.textContent).toContain('El pasaje no está en esta página');
   });
 
   it('en una fuente web, el botón lleva al texto y el navegador lo resalta solo', async () => {

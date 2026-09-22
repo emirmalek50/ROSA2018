@@ -655,6 +655,42 @@ def crear_app(almacen: Almacen) -> FastAPI:
             raise HTTPException(404, "Esa cita no tiene PDF guardado")
         return FileResponse(str(ruta), media_type="application/pdf", headers={"Cache-Control": "no-store", "Content-Disposition": f'inline; filename="{ruta.name}"'})
 
+    @app.get("/api/corridas/{corrida_id}/citas/{afirmacion_id}/pagina.png")
+    async def cita_pagina(corrida_id: str, afirmacion_id: str) -> Response:
+        """La página del PDF con el pasaje ya pintado encima.
+
+        El visor de PDF de Chrome no sabe resaltar: de los parámetros de
+        apertura solo lee `nameddest`, `navpanes`, `page`, `toolbar`, `view` y
+        `zoom`, y tira `search=` sin avisar. Como el PDF lo sirve ROSA2018, la
+        marca la pone ROSA2018 y llega hecha, con la misma regla de palabras
+        que usa el panel de texto."""
+        from rosa import citas as CI
+
+        c = next((x for x in almacen.estado["corridas"] if x["id"] == corrida_id), None)
+        if not c:
+            raise HTTPException(404, "Corrida desconocida")
+        try:
+            hecho = await asyncio.to_thread(CI.pagina_marcada, c, afirmacion_id)
+        except CI.PdfIlegible as ex:
+            # Un PDF roto no es un PDF que falta: se dice lo que pasa.
+            raise HTTPException(422, str(ex)) from ex
+        if hecho is None:
+            raise HTTPException(404, "Esa cita no tiene PDF guardado")
+        png, info = hecho
+        return Response(
+            content=png,
+            media_type="image/png",
+            headers={
+                "Cache-Control": "no-store",
+                # La interfaz necesita saber si de verdad se marcó algo para no
+                # prometer una marca que no está.
+                "X-Rosa-Marcado": "si" if info["marcado"] else "no",
+                "X-Rosa-Pagina": str(info["pagina"]),
+                "X-Rosa-Paginas": str(info["paginas"]),
+                "X-Rosa-Palabras": str(info["palabras"]),
+            },
+        )
+
     @app.post("/api/corridas/{corrida_id}/citas/reverificar")
     async def reverificar_citas(corrida_id: str) -> dict[str, Any]:
         """Vuelve a verificar las afirmaciones que hoy ya no estarían

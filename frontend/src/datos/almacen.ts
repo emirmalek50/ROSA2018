@@ -1054,6 +1054,11 @@ export const acciones = {
   /** La dirección del PDF de una cita, con el token de acceso si hace falta. */
   pdfDeCita: (corridaId: string, afirmacionId: string): string =>
     conToken(`${API}/corridas/${encodeURIComponent(corridaId)}/citas/${encodeURIComponent(afirmacionId)}/pdf`),
+  /** La página del PDF ya pintada con el pasaje encima. La marca la pone
+   *  ROSA2018 en el servidor porque el visor de PDF del navegador no sabe
+   *  resaltar: solo entiende por qué página abrir. */
+  paginaDeCita: (corridaId: string, afirmacionId: string): string =>
+    conToken(`${API}/corridas/${encodeURIComponent(corridaId)}/citas/${encodeURIComponent(afirmacionId)}/pagina.png`),
   /** Integridad del registro de acciones (cadena de hashes). */
   integridadRegistro: async (): Promise<{ ok: boolean; filas: number; encadenadas: number; sinHash: number; rotaEn: number | null; motivo?: string } | null | SinRespuesta> => {
     if (modo !== 'servidor') return null;

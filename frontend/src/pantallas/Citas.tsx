@@ -342,6 +342,11 @@ function Senales({ hoy, clase, localizador }: { hoy: ComprobacionDeHoy; clase: F
 
 function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
   const trozos = useMemo(() => trozosDeTexto(ficha.texto, ficha.tramos), [ficha.texto, ficha.tramos]);
+  // Con PDF se puede enseñar la página de verdad, con el pasaje pintado
+  // encima. Se empieza por el texto, que ya está cargado, y la imagen se pide
+  // solo si se pulsa: son 300 KB por página.
+  const [vista, cambiarVista] = useState<'texto' | 'pagina'>('texto');
+  useEffect(() => cambiarVista('texto'), [ficha.afirmacion.id]);
   // Un servidor anterior no manda las señales: se dice, no se finge.
   const hoy = senalesDe(ficha.hoy);
   const hoja = useRef<HTMLDivElement>(null);
@@ -374,7 +379,26 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
         <p className="meta citas-loc">{enLlanoLaClase(ficha.clase, ficha.localizador)}</p>
       </div>
 
-      {ficha.texto ? (
+      {ficha.conPdf && (
+        <div className="citas-vistas" role="group" aria-label="Cómo ver la página">
+          <button type="button" className={vista === 'texto' ? 'activo' : ''} onClick={() => cambiarVista('texto')} aria-pressed={vista === 'texto'}>
+            Texto leído
+          </button>
+          <button type="button" className={vista === 'pagina' ? 'activo' : ''} onClick={() => cambiarVista('pagina')} aria-pressed={vista === 'pagina'}>
+            {ficha.pagina !== null ? `Página ${ficha.pagina} del PDF` : 'Página del PDF'}
+          </button>
+        </div>
+      )}
+
+      {vista === 'pagina' && ficha.conPdf ? (
+        <div className="citas-hoja citas-hoja-pdf">
+          <img
+            className="citas-pagina"
+            src={acciones.paginaDeCita(corridaId, ficha.afirmacion.id)}
+            alt={ficha.completo ? `Página ${ficha.pagina ?? ''} del PDF con el pasaje citado marcado en naranja` : `Página ${ficha.pagina ?? ''} del PDF, sin marcar: el pasaje no se encontró en ella`}
+          />
+        </div>
+      ) : ficha.texto ? (
         <div className="citas-hoja" ref={hoja}>
           {ficha.encabezado && <p className="citas-encabezado">{ficha.encabezado}</p>}
           <p className="citas-texto">
@@ -385,11 +409,25 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
       ) : (
         <p className="nota">De esta fuente no se guardó el texto de ese localizador, así que no puedo enseñar dónde estaba el pasaje.</p>
       )}
+      {vista === 'pagina' && ficha.conPdf && !ficha.completo && (
+        <p className="nota">El pasaje no está en esta página, así que no hay nada que marcar. La página se enseña igual, para poder comprobarlo.</p>
+      )}
 
       <div className="citas-barra">
-        {alPasaje && (
-          <a className="btn btn-s btn-primario" href={alPasaje} target="_blank" rel="noreferrer">
-            {ficha.conPdf && ficha.pagina !== null ? `Ver la cita en el PDF, página ${ficha.pagina}` : ficha.conPdf ? 'Ver la cita en el PDF' : 'Ver la cita en la fuente'}
+        {ficha.conPdf ? (
+          <button type="button" className="btn btn-s btn-primario" onClick={() => cambiarVista('pagina')}>
+            {ficha.pagina !== null ? `Ver la cita marcada en la página ${ficha.pagina}` : 'Ver la cita marcada en la página'}
+          </button>
+        ) : (
+          alPasaje && (
+            <a className="btn btn-s btn-primario" href={alPasaje} target="_blank" rel="noreferrer">
+              Ver la cita en la fuente
+            </a>
+          )
+        )}
+        {ficha.conPdf && alPasaje && (
+          <a className="btn btn-s" href={alPasaje} target="_blank" rel="noreferrer">
+            Abrir el PDF entero
           </a>
         )}
         {enLaFuente && enLaFuente !== alPasaje && (
@@ -398,8 +436,14 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
           </a>
         )}
       </div>
-      {alPasaje && !ficha.conPdf && (
-        <p className="meta citas-pista-enlace">El navegador salta solo hasta el pasaje y lo resalta. Si la página ha cambiado desde que ROSA2018 la leyó, se abrirá por el principio.</p>
+      {ficha.conPdf ? (
+        <p className="meta citas-pista-enlace">
+          La marca la pinta ROSA2018 sobre la página: el visor de PDF del navegador solo sabe abrir por una página, no resaltar, así que abrir el PDF entero lleva a la página {ficha.pagina ?? ''} sin marcar.
+        </p>
+      ) : (
+        alPasaje && (
+          <p className="meta citas-pista-enlace">El navegador salta solo hasta el pasaje y lo resalta. Si la página ha cambiado desde que ROSA2018 la leyó, se abrirá por el principio.</p>
+        )
       )}
 
       <div className="citas-comparacion">

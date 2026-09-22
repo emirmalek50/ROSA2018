@@ -483,3 +483,196 @@ async def test_una_corrida_desconocida_no_revienta():
 
     r = await CI.reverificar(AlmacenFalso(), object(), object(), "no-existe")
     assert r["ok"] is False and "desconocida" in r["motivo"]
+
+
+# ---------------------------------------------------------------------------
+# La página del PDF con el pasaje pintado encima.
+#
+# Nació el 22 de septiembre de 2026, midiendo por qué "ver la cita" abría el
+# PDF por la página buena y sin marcar nada. La causa no era el pasaje ni la
+# página: el visor de PDF de Chrome solo lee `nameddest`, `navpanes`, `page`,
+# `toolbar`, `view` y `zoom` (chrome/browser/resources/pdf/
+# open_pdf_params_parser.ts), y tira `search=` sin decir nada. Como el PDF lo
+# sirve ROSA2018, la marca la pone ROSA2018.
+
+
+def pdf_de_prueba(ruta: Path, paginas: list[str]) -> Path:
+    """Un PDF de verdad, con una línea de texto por página."""
+    import pymupdf
+
+    documento = pymupdf.open()
+    for texto in paginas:
+        pagina = documento.new_page(width=420, height=300)
+        pagina.insert_text((40, 80), texto, fontsize=11)
+    documento.save(ruta)
+    documento.close()
+    return ruta
+
+
+def corrida_con_pdf_de_verdad(tmp_path: Path, pagina_citada: str = "pág. 2") -> dict:
+    pdfs = tmp_path / "pdfs"
+    pdfs.mkdir(exist_ok=True)
+    pdf = pdf_de_prueba(
+        pdfs / "articulo.pdf",
+        [
+            "Página primera sin nada que marcar aquí.",
+            "Plasma GFAP was associated with amyloid burden.",
+            "Página tercera con otra cosa distinta.",
+        ],
+    )
+    return {
+        "id": "cor-1",
+        "_fuentes": {
+            "f-1": {
+                "id": "f-1",
+                "referencia": "Pereira et al., 2021",
+                "fragmentos": [
+                    {
+                        "localizador": pagina_citada,
+                        "texto": "Plasma GFAP was associated with amyloid burden.",
+                        "encabezado": "Resultados",
+                        "_ruta": str(pdf),
+                    }
+                ],
+            }
+        },
+        "_afirmaciones": [
+            {
+                "id": "af-1",
+                "texto": "El GFAP en plasma se asocia a la carga amiloide.",
+                "cita": f"[Pereira et al., 2021, {pagina_citada}]",
+                "fragmento": "Plasma GFAP was associated with amyloid burden",
+                "veredicto": "sostenida",
+                "fuenteId": "f-1",
+                "localizador": pagina_citada,
+                "tipo": "literatura",
+                "iteracion": 1,
+            }
+        ],
+    }
+
+
+def test_la_pagina_del_pdf_llega_pintada_con_el_pasaje(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from rosa import config
+
+    monkeypatch.setattr(config, "DIR_PDFS", tmp_path / "pdfs")
+    hecho = C.pagina_marcada(corrida_con_pdf_de_verdad(tmp_path), "af-1")
+    assert hecho is not None
+    png, info = hecho
+    assert png.startswith(b"\x89PNG")
+    assert info["pagina"] == 2
+    assert info["marcado"] is True
+    assert info["completo"] is True
+    # Siete palabras en el pasaje, siete rectángulos que pintar.
+    assert info["palabras"] == 7
+    assert info["falta"] is None
+
+
+def test_la_marca_del_pdf_y_la_del_texto_dicen_lo_mismo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """La regla es una sola: si el panel de texto da el pasaje por encontrado,
+    la página lo pinta, y si no, ninguno de los dos. Medido el 22 de
+    septiembre de 2026 sobre las 203 citas con PDF de la corrida 16: coinciden
+    en 203 de 203."""
+    from rosa import config
+
+    monkeypatch.setattr(config, "DIR_PDFS", tmp_path / "pdfs")
+    corrida = corrida_con_pdf_de_verdad(tmp_path)
+    for pasaje, esperado in [
+        ("Plasma GFAP was associated with amyloid burden", True),
+        ("Plasma GFAP was associated with tau burden", False),
+    ]:
+        corrida["_afirmaciones"][0]["fragmento"] = pasaje
+        del_texto = C.ficha(corrida, "af-1")
+        del_pdf = C.pagina_marcada(corrida, "af-1")
+        assert del_texto is not None and del_pdf is not None
+        assert del_texto["completo"] is esperado
+        assert del_pdf[1]["completo"] is esperado
+
+
+def test_una_pagina_que_no_lleva_el_pasaje_se_enseña_igual_y_se_dice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Enseñar la página sin marca es lo que permite discutir el veredicto;
+    esconderla, no."""
+    from rosa import config
+
+    monkeypatch.setattr(config, "DIR_PDFS", tmp_path / "pdfs")
+    corrida = corrida_con_pdf_de_verdad(tmp_path, pagina_citada="pág. 3")
+    corrida["_fuentes"]["f-1"]["fragmentos"][0]["texto"] = "Página tercera con otra cosa distinta."
+    hecho = C.pagina_marcada(corrida, "af-1")
+    assert hecho is not None
+    png, info = hecho
+    assert png.startswith(b"\x89PNG")
+    assert info["pagina"] == 3
+    assert info["marcado"] is False
+    assert info["falta"]
+
+
+def test_un_numero_de_pagina_fuera_del_pdf_busca_el_pasaje_en_vez_de_inventar(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Una página que no existe en el PDF no dice dónde mirar. Antes que
+    enseñar la primera y callarse, se busca el pasaje por el documento."""
+    from rosa import config
+
+    monkeypatch.setattr(config, "DIR_PDFS", tmp_path / "pdfs")
+    corrida = corrida_con_pdf_de_verdad(tmp_path, pagina_citada="pág. 3508")
+    hecho = C.pagina_marcada(corrida, "af-1")
+    assert hecho is not None
+    _, info = hecho
+    assert info["paginaDeclarada"] is False
+    assert info["pagina"] == 2
+    assert info["marcado"] is True
+
+
+def test_sin_pdf_guardado_no_hay_pagina_que_pintar():
+    assert C.pagina_marcada(corrida_de_prueba(), "af-1") is None
+
+
+def test_los_rectangulos_del_pasaje_caen_sobre_las_palabras_del_pasaje(tmp_path: Path):
+    """Lo que se pinta cae donde está el texto, no en cualquier sitio: los
+    rectángulos tienen que estar dentro de la página y en orden de lectura."""
+    import pymupdf
+
+    pdf = pdf_de_prueba(tmp_path / "uno.pdf", ["Plasma GFAP was associated with amyloid burden."])
+    documento = pymupdf.open(pdf)
+    hallado = C.rectangulos_del_pasaje(documento[0], "GFAP was associated")
+    caja = documento[0].rect
+    assert len(hallado["rectangulos"]) == 3
+    for x0, y0, x1, y1 in hallado["rectangulos"]:
+        assert caja.x0 <= x0 < x1 <= caja.x1
+        assert caja.y0 <= y0 < y1 <= caja.y1
+    # En orden de lectura: cada palabra empieza a la derecha de la anterior.
+    equis = [r[0] for r in hallado["rectangulos"]]
+    assert equis == sorted(equis)
+    documento.close()
+
+
+def test_un_pdf_roto_no_se_confunde_con_un_pdf_que_falta(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Dos cosas distintas, dos respuestas distintas: si se juntaran, un fallo
+    quedaría escondido detrás de una ausencia."""
+    from rosa import config
+
+    pdfs = tmp_path / "pdfs"
+    pdfs.mkdir()
+    roto = pdfs / "roto.pdf"
+    roto.write_bytes(b"%PDF-1.4 esto no es un PDF")
+    monkeypatch.setattr(config, "DIR_PDFS", pdfs)
+    corrida = corrida_con_pdf_de_verdad(tmp_path)
+    corrida["_fuentes"]["f-1"]["fragmentos"][0]["_ruta"] = str(roto)
+    with pytest.raises(C.PdfIlegible):
+        C.pagina_marcada(corrida, "af-1")
+
+
+def test_el_resaltado_del_pdf_es_un_trazo_por_linea_y_no_una_fila_de_cajitas():
+    """Palabra a palabra el resaltado sale a huecos y se lee mal. Se unen las
+    de una misma línea; las de líneas distintas, nunca."""
+    # Tres palabras seguidas en una línea y una cuarta en la de abajo.
+    rectangulos = [(10.0, 20.0, 30.0, 32.0), (33.0, 20.0, 50.0, 32.0), (53.0, 20.0, 70.0, 32.0), (10.0, 40.0, 28.0, 52.0)]
+    unidos = C._unir_por_linea(rectangulos)
+    assert len(unidos) == 2
+    assert unidos[0] == (10.0, 20.0, 70.0, 32.0)
+    assert unidos[1] == (10.0, 40.0, 28.0, 52.0)
+
+
+def test_dos_palabras_lejos_en_la_misma_linea_no_se_unen_cruzando_el_hueco():
+    """Un salto de columna no es un espacio: si se uniera, el trazo taparía
+    texto que no se citó."""
+    unidos = C._unir_por_linea([(10.0, 20.0, 30.0, 32.0), (300.0, 20.0, 330.0, 32.0)])
+    assert len(unidos) == 2

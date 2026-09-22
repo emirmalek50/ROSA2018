@@ -382,6 +382,160 @@ def ruta_pdf(corrida: dict[str, Any], afirmacion_id: str) -> Path | None:
     return ruta
 
 
+# El resaltado del PDF. Chrome no sabe hacerlo: su visor solo lee `nameddest`,
+# `navpanes`, `page`, `toolbar`, `view` y `zoom`
+# (chrome/browser/resources/pdf/open_pdf_params_parser.ts), y `search=` lo
+# ignora sin decir nada. Por eso el PDF se abría por la página buena y el
+# pasaje sin marcar. Como el PDF lo sirve ROSA2018, lo marca ROSA2018: se
+# pintan las palabras del pasaje sobre la página y se devuelve una imagen.
+# Naranja de la interfaz (.citas-texto mark), para que marque igual en los dos
+# sitios.
+class PdfIlegible(Exception):
+    """El PDF está en disco pero no se puede abrir (roto, cifrado, truncado).
+    No es lo mismo que no tenerlo, y se dice distinto: si se juntaran las dos
+    cosas en un 404 se estaría escondiendo un fallo detrás de una ausencia."""
+
+
+MARCA = (0.94, 0.63, 0.19)
+OPACIDAD_MARCA = 0.38
+ESCALA_PAGINA = 2.0
+# Un respiro alrededor de la palabra, para que se lea como un subrayador y no
+# como una caja pegada a las letras.
+HOLGURA = 1.2
+
+
+def _palabras_del_pdf(pagina: Any) -> list[tuple[str, Any]]:
+    """(palabra normalizada, rectángulo) por cada palabra de la página, en el
+    orden de lectura y con la misma normalización que el texto.
+
+    Una "palabra" del PDF puede llevar puntuación pegada ("(ADAD),"), así que
+    se parte igual que el texto y cada trozo se queda con el rectángulo de la
+    palabra entera: se resalta un pelo de más, que es lo que hace un
+    subrayador, nunca de menos."""
+    salida: list[tuple[str, Any]] = []
+    for x0, y0, x1, y1, palabra, *_ in pagina.get_text("words"):
+        for m in _PALABRA.finditer(palabra):
+            p = V.normalizar(unicodedata.normalize("NFKC", m.group(0)))
+            if p:
+                salida.append((p, (x0, y0, x1, y1)))
+    return salida
+
+
+def rectangulos_del_pasaje(pagina: Any, pasaje: str) -> dict[str, Any]:
+    """Dónde cae el pasaje dentro de una página de PDF, en rectángulos.
+
+    Misma regla que `marcar_pasaje`: los mismos tramos por elisión, la misma
+    normalización y el mismo `_buscar_tramo`, para que lo que se pinta sobre
+    el PDF sea exactamente lo que el verificador dio por encontrado. Devuelve
+    `{"rectangulos": [...], "falta": str | None, "completo": bool}`."""
+    palabras = _palabras_del_pdf(pagina)
+    # `_buscar_tramo` solo mira la palabra; las posiciones le dan igual, así
+    # que se le pasa el índice en las dos y se reaprovecha tal cual.
+    indexadas = [(p, i, i) for i, (p, _) in enumerate(palabras)]
+    trozos = [t for t in V._ELISION.split(pasaje or "") if t and t.strip()]
+    if not trozos or not palabras:
+        return {"rectangulos": [], "falta": None, "completo": False}
+    rectangulos: list[tuple[float, float, float, float]] = []
+    desde = 0
+    for trozo in trozos:
+        buscado = [p for p, _, _ in palabras_con_posicion(trozo)]
+        if not buscado:
+            continue
+        encontrado = _buscar_tramo(indexadas, buscado, desde)
+        if encontrado is None:
+            return {"rectangulos": rectangulos, "falta": " ".join(buscado), "completo": False}
+        i, j = encontrado
+        rectangulos.extend(r for _, r in palabras[i : j + 1])
+        desde = j + 1
+    return {"rectangulos": rectangulos, "falta": None, "completo": bool(rectangulos)}
+
+
+def _unir_por_linea(rectangulos: list[tuple[float, float, float, float]]) -> list[tuple[float, float, float, float]]:
+    """Junta en un solo trazo las palabras seguidas de una misma línea.
+
+    Palabra a palabra el resaltado sale a huecos, porque los espacios de en
+    medio no son de ninguna palabra y quedan sin pintar: se lee como una fila
+    de cajitas en vez de como un subrayador. Se unen las que comparten línea y
+    están pegadas; entre líneas no se une nada, que si no el trazo cruzaría el
+    margen."""
+    if not rectangulos:
+        return []
+    # Por líneas: dos palabras son de la misma si sus bandas verticales se
+    # solapan más de la mitad de la altura de la más baja.
+    ordenados = sorted(rectangulos, key=lambda r: (round(r[1], 1), r[0]))
+    salida: list[list[float]] = []
+    for x0, y0, x1, y1 in ordenados:
+        if salida:
+            ax0, ay0, ax1, ay1 = salida[-1]
+            solape = min(ay1, y1) - max(ay0, y0)
+            misma_linea = solape > 0.5 * min(ay1 - ay0, y1 - y0)
+            # El hueco de un espacio, no el de una columna entera.
+            pegadas = x0 - ax1 <= 0.6 * (ay1 - ay0)
+            if misma_linea and pegadas:
+                salida[-1] = [min(ax0, x0), min(ay0, y0), max(ax1, x1), max(ay1, y1)]
+                continue
+        salida.append([x0, y0, x1, y1])
+    return [(a, b, c, d) for a, b, c, d in salida]
+
+
+def pagina_marcada(corrida: dict[str, Any], afirmacion_id: str, escala: float = ESCALA_PAGINA) -> tuple[bytes, dict[str, Any]] | None:
+    """La página del PDF de esa cita, en PNG, con el pasaje pintado encima.
+
+    Devuelve `(png, {"pagina", "marcado", "palabras", "falta"})`, o None si no
+    hay PDF. `marcado` en False es una página honrada sin marca: se enseña la
+    página igual y se dice que el pasaje no se encontró ahí, que es
+    justamente lo que hay que poder discutir."""
+    import pymupdf
+
+    ruta = ruta_pdf(corrida, afirmacion_id)
+    if ruta is None:
+        return None
+    ficha_ = ficha(corrida, afirmacion_id)
+    if not ficha_:
+        return None
+    try:
+        documento = pymupdf.open(ruta)
+    except Exception as ex:  # noqa: BLE001  un PDF roto o cifrado no es "no hay PDF"
+        raise PdfIlegible(f"el PDF guardado no se pudo abrir: {type(ex).__name__}") from ex
+    try:
+        pasaje = ficha_["afirmacion"].get("pasaje") or ""
+        numero = ficha_.get("pagina")
+        declarada = isinstance(numero, int) and 1 <= numero <= documento.page_count
+        if declarada:
+            indice = numero - 1
+        else:
+            # El número de página no cae dentro del PDF, así que no dice dónde
+            # mirar: se busca el pasaje por el documento y se enseña la página
+            # donde esté de verdad. Si no está en ninguna, la primera, que es
+            # lo único que se puede enseñar sin inventar.
+            indice = next(
+                (i for i in range(documento.page_count) if rectangulos_del_pasaje(documento[i], pasaje)["completo"]),
+                0,
+            )
+        pagina = documento[indice]
+        hallado = rectangulos_del_pasaje(pagina, pasaje)
+        for x0, y0, x1, y1 in _unir_por_linea(hallado["rectangulos"]):
+            pagina.draw_rect(
+                pymupdf.Rect(x0 - HOLGURA, y0 - HOLGURA, x1 + HOLGURA, y1 + HOLGURA),
+                color=None,
+                fill=MARCA,
+                fill_opacity=OPACIDAD_MARCA,
+                overlay=True,
+            )
+        imagen = pagina.get_pixmap(matrix=pymupdf.Matrix(escala, escala))
+        return imagen.tobytes("png"), {
+            "pagina": indice + 1,
+            "paginas": documento.page_count,
+            "marcado": bool(hallado["rectangulos"]),
+            "palabras": len(hallado["rectangulos"]),
+            "falta": hallado["falta"],
+            "completo": hallado["completo"],
+            "paginaDeclarada": bool(declarada),
+        }
+    finally:
+        documento.close()
+
+
 # Estados en los que la corrida tiene trabajo en vuelo: reverificar a la vez
 # sería escribir sobre las mismas afirmaciones desde dos sitios.
 ESTADOS_VIVOS = ("en_marcha", "esperando_aprobacion", "esperando_plan", "esperando_modelo")

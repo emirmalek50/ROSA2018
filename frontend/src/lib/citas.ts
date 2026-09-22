@@ -178,15 +178,22 @@ export function senalesDe(hoy: ComprobacionDeHoy | undefined | null): Comprobaci
   };
 }
 
-/** Cuántas palabras de cada extremo del pasaje se usan para señalarlo en la
- *  página web. Pocas no distinguen entre dos frases parecidas; demasiadas
- *  fallan en cuanto la web difiere en una coma del texto que se guardó. */
-const PALABRAS_DE_ANCLA = 6;
+/** Cuántas palabras se usan para señalar el pasaje en la página web. Pocas
+ *  no distinguen entre dos frases parecidas; demasiadas fallan en cuanto la
+ *  web difiere en una coma del texto que se guardó. */
+const ANCLA_MINIMA = 4;
+const ANCLA_MAXIMA = 12;
 
-/** Cuántas palabras del pasaje se le dan al buscador del visor de PDF. Pocas
- *  encuentran otra frase; muchas no encuentran nada, porque el PDF corta
- *  palabras al final de línea y el buscador no las recompone. */
-const PALABRAS_DE_BUSQUEDA = 5;
+/** Una palabra sirve de ancla si es solo letras, cifras o paréntesis.
+ *
+ *  No es por el apóstrofo: medido el 22 de septiembre de 2026 contra medRxiv,
+ *  que pinta "Alzheimer’s" (U+2019) donde el pasaje guardado dice
+ *  "Alzheimer's" (U+0027), el navegador SALTA igual. Su comparador normaliza
+ *  esas diferencias, al revés que una comparación de cadenas a pelo. Lo que
+ *  sí puede romper es un espacio de más dentro de un símbolo ("95 %" frente a
+ *  "95%"), porque ahí no hay nada que normalizar. Así que se recorta por ahí,
+ *  sin pretender que sea la causa de nada. */
+const PALABRA_ESTABLE = /^[\p{L}\p{N}()]+$/u;
 
 /** Escapa un trozo para un fragmento de texto: además de lo normal, la coma y
  *  el guion tienen significado propio en esa sintaxis. */
@@ -194,17 +201,50 @@ function paraFragmento(trozo: string): string {
   return encodeURIComponent(trozo.trim()).replace(/-/g, '%2D').replace(/,/g, '%2C');
 }
 
+/** El ancla con la que se señala el pasaje: sus primeras palabras estables.
+ *
+ *  Se empieza por el PRINCIPIO del pasaje a propósito, para que el navegador
+ *  deje al lector donde el pasaje empieza y no en mitad de él. Si la primera
+ *  palabra ya no sirve, se cae al tramo estable más largo, que al menos cae
+ *  dentro del pasaje. Devuelve null si no hay con qué señalar. */
+export function anclaEstable(pasaje: string): string | null {
+  const palabras = pasaje.split(' ').filter(Boolean);
+  const desdeElPrincipio: string[] = [];
+  for (const palabra of palabras) {
+    if (!PALABRA_ESTABLE.test(palabra)) break;
+    desdeElPrincipio.push(palabra);
+    if (desdeElPrincipio.length >= ANCLA_MAXIMA) break;
+  }
+  if (desdeElPrincipio.length >= ANCLA_MINIMA) return desdeElPrincipio.join(' ');
+  let mejor: string[] = [];
+  let actual: string[] = [];
+  for (const palabra of palabras) {
+    if (PALABRA_ESTABLE.test(palabra)) {
+      actual.push(palabra);
+      if (actual.length > mejor.length) mejor = actual.slice();
+    } else {
+      actual = [];
+    }
+  }
+  if (mejor.length < ANCLA_MINIMA) return null;
+  return mejor.slice(0, ANCLA_MAXIMA).join(' ');
+}
+
 /** Un enlace que lleva AL TEXTO, no solo al documento.
  *
- *  - En un PDF, la página y el texto van en el ancla (`#page=N&search=...`):
- *    son los parámetros de apertura que entienden los visores de PDF de los
- *    navegadores, así que abre por esa página y además busca el pasaje y lo
- *    marca. Donde `search` no esté soportado, queda la página, que ya es
- *    llegar al sitio.
- *  - En una página web, se usa un FRAGMENTO DE TEXTO (`#:~:text=`), que hace
- *    que el navegador baje solo hasta el pasaje y lo resalte. Con pasajes
- *    largos se dan los dos extremos separados por coma, que es como se
- *    señala un rango; con uno corto, el pasaje entero.
+ *  - En un PDF va solo la página (`#page=N`). NO se manda `search=`: el visor
+ *    de Chrome lee `nameddest`, `navpanes`, `page`, `toolbar`, `view` y
+ *    `zoom`, y tira `search` sin decir nada
+ *    (chrome/browser/resources/pdf/open_pdf_params_parser.ts), así que
+ *    prometía una marca que no llegaba nunca. La marca de verdad la pinta
+ *    ROSA2018 sobre la página, que para eso sirve ella el PDF.
+ *  - En una página web se usa un FRAGMENTO DE TEXTO (`#:~:text=`), que hace
+ *    que el navegador baje solo hasta el pasaje y lo resalte. Se manda UN
+ *    ancla, no un rango `inicio,fin`: el rango exige que casen los DOS
+ *    extremos y, si falla uno, no se resalta nada. Con un ancla sola hay una
+ *    cosa que puede fallar en vez de dos. Sobre páginas de verdad los dos
+ *    saltaban igual (medido en alzforum y medRxiv el 22 de septiembre de
+ *    2026), así que esto es tolerancia, no un arreglo.
  *
  *  Devuelve cadena vacía si no hay a dónde llevar. El fragmento de texto no lo
  *  entienden todos los navegadores: los que no, abren la página por arriba, que
@@ -212,13 +252,7 @@ function paraFragmento(trozo: string): string {
 export function enlaceAlPasaje(ficha: Pick<FichaCita, 'clase' | 'pagina' | 'url' | 'conPdf' | 'afirmacion' | 'fuente'>, urlPdf?: string): string {
   if (ficha.conPdf && urlPdf) {
     const pagina = typeof ficha.pagina === 'number' && ficha.pagina > 0 ? ficha.pagina : null;
-    // El visor busca mejor una frase corta y sin puntuación rara que el pasaje
-    // entero: con el pasaje completo no encuentra nada en cuanto el PDF parte
-    // una palabra en dos líneas.
-    const palabras = (ficha.afirmacion.pasaje || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
-    const buscar = palabras.slice(0, PALABRAS_DE_BUSQUEDA).join(' ').replace(/[^\p{L}\p{N} .,-]/gu, '');
-    const partes = [pagina ? `page=${pagina}` : '', buscar ? `search=${encodeURIComponent(buscar)}` : ''].filter(Boolean);
-    return partes.length ? `${urlPdf}${urlPdf.includes('#') ? '&' : '#'}${partes.join('&')}` : urlPdf;
+    return pagina ? `${urlPdf}${urlPdf.includes('#') ? '&' : '#'}page=${pagina}` : urlPdf;
   }
   const base = ficha.url || (ficha.fuente.doi ? `https://doi.org/${ficha.fuente.doi}` : ficha.fuente.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ficha.fuente.pmid}/` : '');
   if (!base) return '';
@@ -228,13 +262,10 @@ export function enlaceAlPasaje(ficha: Pick<FichaCita, 'clase' | 'pagina' | 'url'
   // pasaje del resumen suele estar en esa página, así que el salto acierta a
   // menudo, y cuando no, la página se abre por arriba, que es lo que hacía
   // antes. No se pierde nada por intentarlo.
-  const palabras = pasaje.split(' ').filter(Boolean);
-  if (palabras.length < 3) return base;
+  const ancla = anclaEstable(pasaje);
+  if (!ancla) return base;
   const limpia = base.split('#')[0]!;
-  if (palabras.length <= PALABRAS_DE_ANCLA * 2) return `${limpia}#:~:text=${paraFragmento(palabras.join(' '))}`;
-  const inicio = palabras.slice(0, PALABRAS_DE_ANCLA).join(' ');
-  const fin = palabras.slice(-PALABRAS_DE_ANCLA).join(' ');
-  return `${limpia}#:~:text=${paraFragmento(inicio)},${paraFragmento(fin)}`;
+  return `${limpia}#:~:text=${paraFragmento(ancla)}`;
 }
 
 /** Cómo se dice en llano de qué se apoya una cita. La primera es la única que

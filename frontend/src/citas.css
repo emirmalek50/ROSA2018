@@ -153,3 +153,24 @@ button.citas-af:focus-visible { outline: 2px solid var(--accent, #f0a030); outli
 
 .citas-recuperar { margin-left: 4px; }
 .citas-recuperacion { margin: 10px 16px 0; }
+
+/* El conmutador entre el texto que se leyó y la página del PDF con la marca
+   pintada. Dos vistas de lo mismo: la de texto es la que usó el verificador,
+   la de imagen es la página tal cual, para poder comprobarlo a ojo. */
+.citas-vistas { display: flex; gap: 6px; margin: 0 0 10px; }
+.citas-vistas button {
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 11px;
+  border: 1px solid #d9d2c4;
+  background: #fbf9f4;
+  color: #6b6459;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.citas-vistas button:hover { border-color: #f0a030; color: #3d382f; }
+.citas-vistas button.activo { background: rgba(240, 160, 48, 0.18); border-color: #f0a030; color: #3d382f; }
+.citas-vistas button:focus-visible { outline: 2px solid #f0a030; outline-offset: 2px; }
+
+.citas-hoja-pdf { padding: 0; line-height: 0; background: #efece4; }
+.citas-pagina { display: block; width: 100%; height: auto; }
