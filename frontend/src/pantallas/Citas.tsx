@@ -141,7 +141,10 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
             {META}
             {resumen ? ` En esta corrida, ${plural(resumen.conPagina, 'afirmación resuelve', 'afirmaciones resuelven')} a página exacta de ${resumen.total}.` : ''}
             {resumen && (resumen.bloqueosViejos ?? 0) > 0
-              ? ` ${plural(resumen.bloqueosViejos, 'afirmación quedó bloqueada', 'afirmaciones quedaron bloqueadas')} con una versión anterior del verificador y hoy su cita resuelve.`
+              ? ` ${plural(resumen.bloqueosViejos, 'afirmación quedó bloqueada', 'afirmaciones quedaron bloqueadas')} con una versión anterior del verificador y hoy el verificador ya no ${resumen.bloqueosViejos === 1 ? 'la bloquearía' : 'las bloquearía'}.` +
+                ((resumen.bloqueadasConCitaEnOrden ?? 0) > resumen.bloqueosViejos
+                  ? ` Otras ${(resumen.bloqueadasConCitaEnOrden ?? 0) - resumen.bloqueosViejos} tienen la cita en orden pero siguen bloqueadas por otra comprobación.`
+                  : '')
               : ''}
           </p>
         </div>
@@ -196,8 +199,8 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                   Con página <span className="atlas-cifra">{resumen?.conPagina ?? 0}</span>
                 </button>
                 {(resumen?.bloqueosViejos ?? 0) > 0 && (
-                  <button type="button" className="atlas-chip" aria-pressed={filtro === 'rancias'} onClick={() => setFiltro('rancias')} title="Bloqueadas con una versión anterior del verificador: hoy su cita resuelve y su pasaje está literal">
-                    Hoy resolverían <span className="atlas-cifra">{resumen?.bloqueosViejos ?? 0}</span>
+                  <button type="button" className="atlas-chip" aria-pressed={filtro === 'rancias'} onClick={() => setFiltro('rancias')} title="Bloqueadas con una versión anterior del verificador: hoy el verificador entero ya no las bloquearía">
+                    Ya no bloquearían <span className="atlas-cifra">{resumen?.bloqueosViejos ?? 0}</span>
                   </button>
                 )}
               </div>
@@ -264,7 +267,7 @@ function FilaAfirmacion({ a, elegida, onElegir }: { a: AfirmacionCitada; elegida
         <Veredicto veredicto={a.veredicto} />
         <span className="citas-cita">{a.cita}</span>
         <span className="meta">{enLlanoLaClase(a.clase, a.localizador)}</span>
-        {Boolean(a.bloqueoViejo) && <span className="citas-marca-rancio">hoy resolvería</span>}
+        {Boolean(a.bloqueoViejo) && <span className="citas-marca-rancio">ya no bloquearía</span>}
       </div>
     </button>
   );
@@ -383,8 +386,13 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
           )}
           {Boolean(ficha.bloqueoViejo) && (
             <p className="citas-rancio">
-              Esta afirmación quedó bloqueada con una versión anterior del verificador. Hoy su cita resuelve y su pasaje está literal, así que el bloqueo ya no
-              se sostiene. Para saber si es sostenida hace falta el juez, que cuesta llamadas.
+              Esta afirmación quedó bloqueada con una versión anterior del verificador y hoy ya no lo estaría. Para saber si es sostenida hace falta el juez,
+              que cuesta llamadas.
+            </p>
+          )}
+          {!ficha.bloqueoViejo && hoy.resuelve && hoy.literal && ficha.veredictoDeHoy?.bloquea && (
+            <p className="citas-sigue">
+              La cita está en orden, pero la afirmación sigue bloqueada hoy por otra comprobación: {ficha.veredictoDeHoy.motivo}
             </p>
           )}
         </div>

@@ -139,3 +139,14 @@ button.citas-af:focus-visible { outline: 2px solid var(--accent, #f0a030); outli
 
 /* La pista de que el enlace salta al pasaje: una línea bajo los botones. */
 .citas-pista-enlace { margin: 7px 0 0; }
+
+/* La cita está en orden pero la afirmación sigue bloqueada por otra regla:
+   ni verde ni ámbar, porque no es una recuperación. */
+.citas-sigue {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-left: 3px solid rgba(244, 239, 228, 0.3);
+  background: rgba(244, 239, 228, 0.05);
+  font-size: 12.5px;
+  line-height: 1.5;
+}

@@ -100,6 +100,16 @@ sin aprobar por un humano.
   mano por contexto.
 - Antes de cada commit, escanear `sk-proj-`, `sb_secret_`, `vcp_`, `vck_`,
   `github_pat_`, `ghp_`, `eyJhbGci`, `eyJ2MiI6`, `ntn_`, `secret_`, `GOCSPX-`.
+- El servidor se para SOLO con `./.venv/bin/python scripts/parar_servidor.py`,
+  que se niega si hay una corrida viva (en marcha, esperando aprobación,
+  esperando plan o esperando modelo) y sale con código 2 sin tocar nada; para
+  reiniciar, `./scripts/reiniciar_servidor.sh`, que no arranca nada si la
+  parada no se completó. Nada de `kill` a mano: la regla escrita ya se saltó
+  una vez (22 de septiembre de 2026: se comprobó que la corrida 16 estaba en
+  marcha y se paró igual), y dos procesos escribiendo a la vez bifurcan el
+  registro de auditoría, como pasó el 15 de septiembre. Con `--estado` se
+  consulta sin tocar; `--forzar` exige `--motivo` escrito y es para un servidor
+  colgado, no para desplegar.
 - Commit y push al cerrar cada bloque de trabajo, sin esperar a que se pida
   (regla de Emir, 11 de septiembre de 2026), con los tests pasando y el
   escaneo de secretos limpio. Remoto `origin`, rama `main`.

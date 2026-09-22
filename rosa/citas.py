@@ -163,8 +163,11 @@ def comprobacion_de_hoy(afirmacion: dict[str, Any], fragmentos: list[Any]) -> di
     - `literal`: el pasaje citado está entero en esa posición. Si no,
       `falta` trae el tramo que no aparece.
 
-    No devuelve veredicto: si una afirmación es sostenida lo decide el juez,
-    y esto es solo la parte determinista. Cuesta menos de un milisegundo."""
+    Estas dos señales son de la CITA. Que las dos estén bien no quiere decir
+    que la afirmación deje de estar bloqueada: el verificador comprueba además
+    los identificadores que nombra y las ausencias que declara, y por ahí puede
+    seguir cayendo. Para eso está `bloquea_hoy`. Y para saber si es sostenida
+    hace falta el juez, que no se llama aquí."""
     cita = afirmacion.get("cita") or ""
     pasaje = afirmacion.get("fragmento") or ""
     fuente_id = afirmacion.get("fuenteId") or None
@@ -187,6 +190,26 @@ def comprobacion_de_hoy(afirmacion: dict[str, Any], fragmentos: list[Any]) -> di
         return {"resuelve": True, "motivoResuelve": "", "literal": True, "falta": None, "localizadorAdmitido": admitido}
     falta = V.pasaje_faltante(pasaje, candidatos[0].texto)
     return {"resuelve": True, "motivoResuelve": "", "literal": False, "falta": falta, "localizadorAdmitido": admitido}
+
+
+def bloquea_hoy(afirmacion: dict[str, Any], fragmentos: list[Any]) -> dict[str, Any]:
+    """Si el verificador de HOY seguiría bloqueando esta afirmación, con todas
+    sus comprobaciones deterministas, no solo las dos de la cita.
+
+    Hace falta porque una cita puede resolver y ser literal y la afirmación
+    seguir bloqueada por otra razón: un identificador de ensayo que no aparece
+    en el fragmento, o una ausencia que la fuente desmiente. Contar esas como
+    recuperables sería inflar la cifra, que es justo lo que no se hace aquí."""
+    r = V.comprobar_determinista(
+        afirmacion.get("texto", ""),
+        afirmacion.get("cita", ""),
+        afirmacion.get("fragmento"),
+        fragmentos,
+        fragmentos,
+        None,
+        afirmacion.get("fuenteId"),
+    )
+    return {"veredicto": r.veredicto, "motivo": r.motivo or "", "bloquea": r.veredicto in V.BLOQUEAN}
 
 
 def _fragmento_de(fuente: dict[str, Any], localizador: str) -> dict[str, Any] | None:
@@ -240,6 +263,7 @@ def lista(corrida: dict[str, Any]) -> list[dict[str, Any]]:
         fuente = fuentes.get(a.get("fuenteId") or "")
         fragmento = _fragmento_de(fuente, localizador) if fuente else None
         hoy = comprobacion_de_hoy(a, fragmentos)
+        veredicto_hoy = bloquea_hoy(a, fragmentos)
         salida.append(
             {
                 "id": a.get("id"),
@@ -258,9 +282,11 @@ def lista(corrida: dict[str, Any]) -> list[dict[str, Any]]:
                 "conTexto": bool(fragmento and fragmento.get("texto")),
                 "conPdf": bool(fragmento and fragmento.get("_ruta") and Path(str(fragmento["_ruta"])).exists()),
                 "hoy": hoy,
-                # El veredicto guardado bloquea, pero hoy la cita resuelve y el
-                # pasaje está literal: el bloqueo es de una versión anterior.
-                "bloqueoViejo": bool(a.get("veredicto") in V.BLOQUEAN and hoy["resuelve"] and hoy["literal"]),
+                "veredictoDeHoy": veredicto_hoy,
+                # El veredicto guardado bloquea y el verificador de hoy ya no:
+                # el bloqueo es de una versión anterior. No basta con que la
+                # cita resuelva, porque puede seguir cayendo por otra regla.
+                "bloqueoViejo": bool(a.get("veredicto") in V.BLOQUEAN and not veredicto_hoy["bloquea"]),
             }
         )
     return salida
@@ -290,10 +316,13 @@ def ficha(corrida: dict[str, Any], afirmacion_id: str) -> dict[str, Any] | None:
         }
         for fr in (fuente.get("fragmentos") or [])
     ]
-    hoy = comprobacion_de_hoy(afirmacion, _fragmentos_para_verificador(corrida))
+    fragmentos = _fragmentos_para_verificador(corrida)
+    hoy = comprobacion_de_hoy(afirmacion, fragmentos)
+    veredicto_hoy = bloquea_hoy(afirmacion, fragmentos)
     return {
         "hoy": hoy,
-        "bloqueoViejo": bool(afirmacion.get("veredicto") in V.BLOQUEAN and hoy["resuelve"] and hoy["literal"]),
+        "veredictoDeHoy": veredicto_hoy,
+        "bloqueoViejo": bool(afirmacion.get("veredicto") in V.BLOQUEAN and not veredicto_hoy["bloquea"]),
         "afirmacion": {
             "id": afirmacion.get("id"),
             "texto": afirmacion.get("texto"),
@@ -369,9 +398,13 @@ def resumen(corrida: dict[str, Any]) -> dict[str, Any]:
         "porClase": por_clase,
         "conPagina": sum(1 for f in filas if f["clase"] == "pagina"),
         "conPdf": sum(1 for f in filas if f["conPdf"]),
-        # Bloqueadas cuyo veredicto es de una versión anterior del verificador:
-        # hoy su cita resuelve y su pasaje está literal.
+        # Bloqueadas que el verificador de hoy ya no bloquea. Es el número que
+        # cuenta para recuperarlas, y NO es el mismo que el de las que tienen
+        # la cita en orden: alguna pasa las dos señales y sigue cayendo por un
+        # identificador que no aparece o por una ausencia que la fuente niega.
         "bloqueosViejos": sum(1 for f in filas if f["bloqueoViejo"]),
+        "conCitaEnOrden": sum(1 for f in filas if f["hoy"]["resuelve"] and f["hoy"]["literal"]),
+        "bloqueadasConCitaEnOrden": sum(1 for f in filas if f["veredicto"] in V.BLOQUEAN and f["hoy"]["resuelve"] and f["hoy"]["literal"]),
         "resuelvenHoy": sum(1 for f in filas if f["hoy"]["resuelve"]),
         "literalesHoy": sum(1 for f in filas if f["hoy"]["literal"]),
     }

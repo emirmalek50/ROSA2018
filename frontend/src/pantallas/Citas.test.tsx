@@ -37,7 +37,7 @@ const HOY_BIEN: ComprobacionDeHoy = { resuelve: true, motivoResuelve: '', litera
 
 const LISTA: ListaCitas = {
   corridaId: 'cor-1',
-  resumen: { total: 3, porVeredicto: { sostenida: 1, no_sostenida: 1, parcial: 1 }, porClase: { pagina: 1, resumen: 1, web: 1 }, conPagina: 1, conPdf: 1, bloqueosViejos: 1, resuelvenHoy: 3, literalesHoy: 2 },
+  resumen: { total: 3, porVeredicto: { sostenida: 1, no_sostenida: 1, parcial: 1 }, porClase: { pagina: 1, resumen: 1, web: 1 }, conPagina: 1, conPdf: 1, bloqueosViejos: 1, conCitaEnOrden: 2, bloqueadasConCitaEnOrden: 2, resuelvenHoy: 3, literalesHoy: 2 },
   afirmaciones: [
     { id: 'af-1', texto: 'El GFAP se asocia al amiloide.', cita: '[Pereira 2021, pág. 3508]', veredicto: 'sostenida', iteracion: 1, fuenteId: 'f-1', referencia: 'Pereira 2021', localizador: 'pág. 3508', clase: 'pagina', conTexto: true, conPdf: true, hoy: HOY_BIEN, bloqueoViejo: false },
     { id: 'af-2', texto: 'Sube un treinta por ciento.', cita: '[Syrjanen 2022, resumen]', veredicto: 'no_sostenida', iteracion: 1, fuenteId: 'f-2', referencia: 'Syrjanen 2022', localizador: 'resumen', clase: 'resumen', conTexto: true, conPdf: false, hoy: { ...HOY_BIEN, literal: false, falta: 'un treinta por ciento' }, bloqueoViejo: false },
@@ -161,10 +161,10 @@ describe('la pantalla de citas', () => {
     expect(nodo.querySelector('.citas-rancio')?.textContent).toContain('versión anterior del verificador');
     // El veredicto guardado sigue ahí: la pantalla no decide por el verificador.
     expect(nodo.querySelector('.citas-comparacion')?.textContent).toContain('la cita no resuelve');
-    expect(texto()).toContain('Hoy resolverían');
-    await pulsar(boton('Hoy resolverían'));
+    expect(texto()).toContain('Ya no bloquearían');
+    await pulsar(boton('Ya no bloquearían'));
     expect(nodo.querySelectorAll('.citas-af').length).toBe(1);
-    expect(nodo.querySelector('.citas-marca-rancio')?.textContent).toBe('hoy resolvería');
+    expect(nodo.querySelector('.citas-marca-rancio')?.textContent).toBe('ya no bloquearía');
   });
 
   it('cuando falta un tramo del pasaje lo enseña tachado, que es el motivo del veredicto', async () => {
@@ -224,7 +224,7 @@ describe('la pantalla de citas', () => {
   });
 
   it('una corrida sin afirmaciones lo dice en llano', async () => {
-    respuestas.lista = { corridaId: 'cor-1', resumen: { total: 0, porVeredicto: {}, porClase: {}, conPagina: 0, conPdf: 0, bloqueosViejos: 0, resuelvenHoy: 0, literalesHoy: 0 }, afirmaciones: [] };
+    respuestas.lista = { corridaId: 'cor-1', resumen: { total: 0, porVeredicto: {}, porClase: {}, conPagina: 0, conPdf: 0, bloqueosViejos: 0, conCitaEnOrden: 0, bloqueadasConCitaEnOrden: 0, resuelvenHoy: 0, literalesHoy: 0 }, afirmaciones: [] };
     await montar();
     expect(texto()).toContain('todavía no tiene afirmaciones extraídas');
   });
@@ -251,6 +251,32 @@ describe('la pantalla de citas con un servidor anterior', () => {
     respuestas.lista = { ...LISTA, resumen: resumen as ListaCitas['resumen'], afirmaciones: LISTA.afirmaciones.map((a) => ({ ...a, bloqueoViejo: undefined as unknown as boolean })) };
     await montar();
     expect(texto()).toContain('El GFAP se asocia al amiloide.');
-    expect(texto()).not.toContain('Hoy resolverían');
+    expect(texto()).not.toContain('Ya no bloquearían');
+  });
+});
+
+describe('la cuenta de los bloqueos que ya no se sostienen', () => {
+  it('una cita en orden que sigue bloqueada por otra comprobación no se cuenta como recuperada', async () => {
+    respuestas.ficha = {
+      ...FICHA,
+      bloqueoViejo: false,
+      hoy: HOY_BIEN,
+      veredictoDeHoy: { veredicto: 'no_sostenida', motivo: 'Identificadores que no aparecen en el fragmento citado: NCT04437511.', bloquea: true },
+      afirmacion: { ...FICHA.afirmacion, veredicto: 'cita_no_resuelve' },
+    };
+    await montar();
+    // Las dos señales de la cita están en verde...
+    expect(nodo.querySelectorAll('.citas-senales .citas-si').length).toBe(2);
+    // ...y aun así no se promete que se recupere: se dice por qué sigue caída.
+    expect(nodo.querySelector('.citas-rancio')).toBeNull();
+    expect(nodo.querySelector('.citas-sigue')?.textContent).toContain('NCT04437511');
+  });
+
+  it('la cabecera separa las dos cuentas cuando no coinciden', async () => {
+    respuestas.lista = { ...LISTA, resumen: { ...LISTA.resumen, bloqueosViejos: 151, bloqueadasConCitaEnOrden: 153 } };
+    await montar();
+    const cabecera = nodo.querySelector('.pantalla-cabecera')!.textContent ?? '';
+    expect(cabecera).toContain('151 afirmaciones quedaron bloqueadas');
+    expect(cabecera).toContain('Otras 2 tienen la cita en orden pero siguen bloqueadas por otra comprobación');
   });
 });

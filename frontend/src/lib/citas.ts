@@ -34,6 +34,15 @@ export interface ComprobacionDeHoy {
   disponible?: boolean;
 }
 
+/** Lo que diría hoy el verificador entero, no solo las dos señales de la cita:
+ *  comprueba además los identificadores que la afirmación nombra y las
+ *  ausencias que declara. Una cita en orden no basta para desbloquear. */
+export interface VeredictoDeHoy {
+  veredicto: string;
+  motivo: string;
+  bloquea: boolean;
+}
+
 export interface AfirmacionCitada {
   id: string;
   texto: string;
@@ -50,7 +59,8 @@ export interface AfirmacionCitada {
   conTexto: boolean;
   conPdf: boolean;
   hoy: ComprobacionDeHoy;
-  /** El veredicto guardado bloquea, pero hoy la cita resuelve y es literal. */
+  veredictoDeHoy?: VeredictoDeHoy;
+  /** El veredicto guardado bloquea y el verificador de hoy ya no. */
   bloqueoViejo: boolean;
 }
 
@@ -60,7 +70,12 @@ export interface ResumenCitas {
   porClase: Record<string, number>;
   conPagina: number;
   conPdf: number;
+  /** Bloqueadas que el verificador de hoy ya no bloquea. */
   bloqueosViejos: number;
+  /** Con la cita en orden: resuelve y es literal. No es lo mismo. */
+  conCitaEnOrden: number;
+  /** Bloqueadas cuya cita está en orden, bloqueadas o no por otra regla. */
+  bloqueadasConCitaEnOrden: number;
   resuelvenHoy: number;
   literalesHoy: number;
 }
@@ -73,6 +88,7 @@ export interface ListaCitas {
 
 export interface FichaCita {
   hoy: ComprobacionDeHoy;
+  veredictoDeHoy?: VeredictoDeHoy;
   bloqueoViejo: boolean;
   afirmacion: {
     id: string;

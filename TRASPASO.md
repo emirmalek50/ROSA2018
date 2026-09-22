@@ -1069,3 +1069,34 @@ tarde (commit de la tanda 1) y cambia el diagnóstico de varios pendientes:
   cita en el PDF, página 3" y apunta a `.../pdf#page=3`; el PDF se sirve
   (1,8 MB). En la corrida 16, las 481 afirmaciones de texto web traen su
   dirección propia.
+- **Dos correcciones tras una revisión externa (22 sep).** Emir pasó el arreglo
+  de las citas por otra instancia de Claude, que encontró dos cosas, las dos
+  ciertas:
+  1. **La cuenta estaba inflada.** El chip decía "hoy resolvería" cuando las
+     dos señales de la CITA estaban bien, pero el verificador comprueba más
+     cosas: los identificadores que la afirmación nombra y las ausencias que
+     declara. Medido en la corrida 16: 185 con la cita en orden, pero solo 183
+     que el verificador de hoy ya no bloquearía. Las dos de diferencia siguen
+     caídas, una porque cita el ensayo NCT04592874 que no aparece en el
+     fragmento y otra porque declara ausente KISUNLA, que sí está en la fuente.
+     Ahora `bloquea_hoy` usa el verificador entero, el chip dice "ya no
+     bloquearía", y la ficha explica el caso intermedio ("la cita está en
+     orden, pero sigue bloqueada por..."). Los identificadores de las dos
+     listas quedaron exportados para poder auditarlas.
+  2. **El reinicio con corrida viva era un near-miss, no un descuido.** La
+     regla estaba escrita y se comprobó; el agente obtuvo "la 16 está en
+     marcha" y siguió. Una regla que quien la ejecuta puede razonar y saltarse
+     no está implementada. Ahora es `scripts/parar_servidor.py`, que lee la
+     base en solo lectura, se niega con cualquier estado vivo, sale con código
+     2 sin mandar ninguna señal, y trata "no pude leer la base" como motivo
+     para no parar; `scripts/reiniciar_servidor.sh` no arranca nada si la
+     parada no se completó. Quince pruebas, incluidas las de forzar (exige
+     motivo escrito) y las de que un fallo de lectura bloquea. En CLAUDE.md.
+  Qué se arriesgaba de verdad, medido en el código y no supuesto: el estado NO
+  se corrompe (cada cambio es una transacción con hash encadenado) y lo ya
+  hecho NO se repite (el bucle escribe por unidad terminada, con sus marcas);
+  lo que se pierde es el trabajo en vuelo de la unidad en curso, con sus
+  llamadas ya pagadas. Y si dos procesos escriben a la vez, el registro se
+  bifurca: ya pasó el 15 de septiembre y la comprobación de integridad lo
+  detecta y lo nombra. El reinicio del 22 de septiembre NO dejó rotura: la
+  única de la cadena sigue siendo la del 15.

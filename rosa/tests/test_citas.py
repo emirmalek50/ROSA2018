@@ -326,3 +326,68 @@ def test_una_afirmacion_sin_cita_no_resuelve_y_lo_dice():
     hoy = C.comprobacion_de_hoy({"cita": "", "fragmento": "algo"}, [])
     assert hoy["resuelve"] is False
     assert "no lleva cita" in hoy["motivoResuelve"]
+
+
+def corrida_con_identificador_que_falta() -> dict:
+    """El caso que destapó que las dos señales de la cita no bastan: la cita
+    resuelve, el pasaje está literal, y aun así el verificador la bloquea
+    porque la afirmación nombra un ensayo que no aparece en el fragmento."""
+    return {
+        "id": "cor-3",
+        "_fuentes": {
+            "f-3": {
+                "id": "f-3",
+                "referencia": "Sims et al., 2023",
+                "titulo": "Donanemab en Alzheimer precoz",
+                "fragmentos": [{"localizador": "texto web, parte 1", "texto": "Donanemab reduced amyloid plaques in participants with early Alzheimer disease."}],
+            }
+        },
+        "_afirmaciones": [
+            {
+                "id": "af-id",
+                "texto": "En el ensayo NCT04437511, donanemab redujo las placas de amiloide.",
+                "cita": "[Sims et al., 2023, texto web, parte 1]",
+                "fragmento": "Donanemab reduced amyloid plaques",
+                "veredicto": "cita_no_resuelve",
+                "fuenteId": "f-3",
+                "localizador": "texto web, parte 1",
+                "iteracion": 1,
+            },
+            {
+                "id": "af-limpia",
+                "texto": "Donanemab redujo las placas de amiloide.",
+                "cita": "[Sims et al., 2023, texto web, parte 1]",
+                "fragmento": "Donanemab reduced amyloid plaques",
+                "veredicto": "cita_no_resuelve",
+                "fuenteId": "f-3",
+                "localizador": "texto web, parte 1",
+                "iteracion": 1,
+            },
+        ],
+    }
+
+
+def test_una_cita_en_orden_no_basta_para_decir_que_hoy_resolveria():
+    c = corrida_con_identificador_que_falta()
+    frs = C._fragmentos_para_verificador(c)
+    conflictiva = c["_afirmaciones"][0]
+    # Las dos señales de la cita están bien...
+    senales = C.comprobacion_de_hoy(conflictiva, frs)
+    assert senales["resuelve"] is True and senales["literal"] is True
+    # ...y aun así el verificador de hoy la sigue bloqueando, por el ensayo
+    # que la afirmación nombra y que no está en el fragmento.
+    hoy = C.bloquea_hoy(conflictiva, frs)
+    assert hoy["bloquea"] is True
+    assert "NCT04437511" in hoy["motivo"]
+    # Por eso NO se marca como bloqueo viejo: contarla sería inflar la cifra.
+    assert C.ficha(c, "af-id")["bloqueoViejo"] is False
+    # La misma afirmación sin ese identificador sí se recupera.
+    assert C.ficha(c, "af-limpia")["bloqueoViejo"] is True
+
+
+def test_el_resumen_separa_las_dos_cuentas_que_no_son_la_misma():
+    r = C.resumen(corrida_con_identificador_que_falta())
+    # Las dos tienen la cita en orden, pero solo una deja de estar bloqueada.
+    assert r["bloqueadasConCitaEnOrden"] == 2
+    assert r["bloqueosViejos"] == 1
+    assert r["conCitaEnOrden"] == 2
