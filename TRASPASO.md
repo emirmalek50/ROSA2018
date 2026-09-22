@@ -1284,3 +1284,21 @@ La otra mitad de esa queja era que no se entendía. La pantalla ahora se explica
 sola: cabecera con `AYUDA` y `META` como las demás (qué es identificable, cuáles
 son las tres amenazas clásicas y de dónde sale el veredicto), y una tira "Cómo
 se lee" encima del lienzo en vez de una leyenda al final.
+
+### El cerrojo de rosa.db salvó un reinicio mal hecho (22 de septiembre de 2026)
+
+Al cerrar el bloque encadené `parar_servidor.py` con el arranque en la misma
+orden. El guardián hizo su trabajo y se NEGÓ a parar (corrida 16 en marcha,
+código 2), pero el `&&` solo encadenaba la parada, así que el arranque se
+ejecutó igual y hubo dos procesos vivos un minuto.
+
+No pasó nada, y conviene saber por qué: ROSA2018 tiene un SEGUNDO cerrojo, a
+nivel de proceso, sobre `rosa.db`. El proceso nuevo lo detectó y se quedó
+esperando sin escribir ni una fila ("Otra ROSA2018 (PID 37222) sigue cerrando
+rosa.db... espero"). La cadena de auditoría sigue con una sola rotura, la del
+15 de septiembre en la fila 6450, sobre 25.743 filas.
+
+Lección para la próxima: **el arranque no puede colgar de un `&&` con la
+parada**, porque `&&` encadena con la orden anterior y no con el código de
+salida del guardián. Para reiniciar está `./scripts/reiniciar_servidor.sh`, que
+comprueba el código y no arranca si la parada no se completó. Usarlo.

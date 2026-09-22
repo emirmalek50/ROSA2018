@@ -58,6 +58,15 @@
   border-top: 3px solid var(--green);
 }
 
+.mec-comose-2 {
+  margin-top: 0;
+  align-items: flex-start;
+}
+.mec-comose-2 span {
+  flex: 1 1 520px;
+  line-height: 1.5;
+}
+
 .mec-chips {
   display: flex;
   gap: 9px;
@@ -80,7 +89,8 @@
   color: var(--text);
 }
 .mec-chip.mec-activo {
-  background: var(--accent-soft);
+  background-color: var(--surface);
+  background-image: linear-gradient(var(--accent-soft), var(--accent-soft));
   border-color: var(--accent-border);
   color: var(--accent-strong);
 }
@@ -173,17 +183,25 @@
   color: var(--text);
   box-shadow: var(--shadow-soft);
 }
-/* Cuantas más hipótesis lo tienen en juego, más peso visual. */
+/* Cuantas más hipótesis lo tienen en juego, más peso visual.
+   El tinte va como imagen sobre una base OPACA: con el color translúcido a
+   secas, las flechas de detrás se veían a través de la caja y parecía que la
+   atravesaban (Emir, 22 de septiembre de 2026: "que significan cuando pasan
+   por arriba de un cuadro"). Una flecha solo significa algo donde empieza y
+   donde acaba. */
 .mec-nodo.mec-alta {
   border-color: var(--accent-border);
-  background: var(--accent-soft);
+  background-color: var(--surface);
+  background-image: linear-gradient(var(--accent-soft), var(--accent-soft));
 }
 .mec-nodo.mec-media {
   border-color: var(--border-strong);
+  background-color: var(--surface);
 }
 .mec-nodo.mec-baja {
   border-style: dashed;
   color: var(--text-2);
+  background-color: var(--surface);
 }
 .mec-cuantas {
   display: block;

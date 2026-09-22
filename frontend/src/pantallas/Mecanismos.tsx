@@ -169,6 +169,13 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
           lo que lo tumbaría: confusor, artefacto, selección o causa inversa
         </span>
       </p>
+      <p className="mec-comose mec-comose-2">
+        <b>El número de cada caja:</b>
+        <span>
+          en cuántas de las {casc.total} hipótesis entra en juego ese nodo, sea porque lo estudian o porque es un confusor
+          que hay que vigilar. No es cuántas lo estudian. Pasa el ratón por una flecha y te dice qué afirma.
+        </span>
+      </p>
 
       <div className="mec-chips">
         <button
@@ -226,7 +233,9 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                 const hacia = porId.get(a.a);
                 if (!de || !hacia) return null;
                 return (
-                  <path key={`${a.de}-${a.a}`} d={curva(de, hacia)} className="mec-consenso" markerEnd="url(#mec-gris)" />
+                  <path key={`${a.de}-${a.a}`} d={curva(de, hacia)} className="mec-consenso" markerEnd="url(#mec-gris)">
+                    <title>{`Consenso del campo: ${a.de} lleva a ${a.a}. ${a.contexto}`}</title>
+                  </path>
                 );
               })}
               {amenazas.map((am, i) => {
@@ -239,7 +248,9 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                     d={`M${x},${ALTO + 42} C${x},${ALTO - 20} ${destino.x},${destino.y + 90} ${destino.x},${destino.y + CAJA_ALTO / 2 + 6}`}
                     className="mec-amenaza-linea"
                     markerEnd="url(#mec-rojo)"
-                  />
+                  >
+                    <title>{`${am.clase} que ensucia esta lectura: ${am.texto}`}</title>
+                  </path>
                 );
               })}
             </svg>
@@ -266,7 +277,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                 >
                   {n.etiqueta}
                   <span className="mec-cuantas">
-                    {n.enJuego} de {casc.total}
+                    en {n.enJuego} de {casc.total}
                   </span>
                 </div>
               );

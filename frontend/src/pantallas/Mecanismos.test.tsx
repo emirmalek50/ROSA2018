@@ -84,9 +84,9 @@ describe('la pantalla de mecanismos', () => {
     const cajas = [...nodo.querySelectorAll('.mec-nodo')].map((n) => n.textContent);
     expect(cajas).toHaveLength(4);
     expect(cajas[0]).toContain('APOE4');
-    expect(cajas[0]).toContain('2 de 2');
+    expect(cajas[0]).toContain('en 2 de 2');
     // GFAP solo está en un grafo de los dos.
-    expect(cajas.find((c) => c?.includes('GFAP'))).toContain('1 de 2');
+    expect(cajas.find((c) => c?.includes('GFAP'))).toContain('en 1 de 2');
   });
 
   it('las columnas van en el orden en que ocurre la enfermedad', async () => {
