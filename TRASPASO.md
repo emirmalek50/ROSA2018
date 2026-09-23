@@ -1465,3 +1465,45 @@ Los dos grupos de supuestos no son lo mismo y conviene no confundirlos nunca:
 
 Pueden ir en direcciones opuestas, y en esta hipótesis van: identificable con
 once de doce ingredientes sin sostener.
+
+### Por qué 0 de 294 flechas tienen evidencia, y por qué NO se arregla con texto (23 de septiembre de 2026)
+
+En Mecanismos, ninguna arista X -> Y sale como `inferencia_con_evidencia`. Le
+dije a Emir que eso era una regla rota y que la evidencia existía sin llegar al
+grafo. **Era medio falso**, y conviene que quien venga detrás no repita el error.
+
+Lo que sí es cierto: la regla (`rosa/causal.py`, `grafo_local`) mira si los
+primeros 12 caracteres de X y de Y aparecen en el texto de una afirmación
+sostenida. Se diseñó para X e Y cortos ("GFAP", "NfL"), y ahí funciona: el test
+de `test_rosa2018.py` con "GFAP rose before NfL in longitudinal follow-up" es un
+caso legítimo. Pero en producción X e Y son frases largas ("sin diana", "GFAP y
+NfL plasmáticos seriados...") y nunca casa.
+
+Lo que NO es cierto: que se pueda arreglar con otra regla de texto. Medido sobre
+las 21 hipótesis con grafo de la corrida 16:
+
+- **Casar por entidades** (la afirmación nombra algo de X y algo de Y): 16 de 21
+  pasarían a "con evidencia". Leídas a mano, la mayoría son falsas. "Los
+  portadores de APOE ε4 mostraron mayores incrementos de p-tau181 y GFAP" casa
+  con una hipótesis sobre la brecha GFAP-NfL y ni siquiera nombra el NfL.
+- **Casar por lo propio de cada lado** (algo de X que no está en Y y al revés):
+  1 de 21, y también falso (nombra "Alzheimer" y "P-tau181"; la hipótesis va de
+  carga vascular).
+- **16 de las 21 tienen X e Y hechas de las mismas entidades**, porque tratan de
+  relaciones ENTRE biomarcadores (orden temporal, brecha, dependencia de dosis),
+  no de "exposición causa desenlace". Ahí no hay nada que separar por nombres.
+
+Y además 4 tienen X = "sin diana", que no es una exposición sino el marcador de
+"no hay diana terapéutica".
+
+Conclusión: **nombrar dos cosas no es sostener que una lleva a la otra**, y eso
+lo decide un juicio, no una comparación de cadenas. Por eso no se tocó
+`causal.py`: todo "supuesto" es lo honesto, y el tipo de arista llega al modelo
+de mundo (`registrar_relacion`), donde afirmar de más es peor que afirmar de
+menos. Los veredictos de identificación no dependen del tipo de arista, así que
+nada de esto los mueve.
+
+El arreglo de verdad, pendiente: que el juez (el Killer, que ya lee cada
+hipótesis con sus afirmaciones) devuelva qué afirmaciones sostienen la relación
+X -> Y. Cuesta llamadas y cambia la firma del juez, así que es decisión de
+Emir, no algo que se mete de paso.
