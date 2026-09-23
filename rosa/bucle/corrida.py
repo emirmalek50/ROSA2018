@@ -662,7 +662,7 @@ class Supervisor:
                 except Exception as ex:  # noqa: BLE001
                     traceback.print_exc()
                     pista.fallar(f"La reproducción fallo: {str(ex)[:160]}")
-                    self.almacen.mutar(lambda e2: AN._estado_rep(e2, rep["id"], "error_tecnico", None, None, str(ex)[:200]), "reproduccion")
+                    self.almacen.mutar(lambda e2: AN._estado_rep(e2, rep["id"], "error_tecnico", None, None, str(ex)[:200]), "reproduccion")  # noqa: F821  se ejecuta dentro del except, con `ex` vivo
                 else:
                     pista.cerrar("Reproducción terminada")
                 return
@@ -728,7 +728,7 @@ class Supervisor:
             return
         except Exception as ex:  # noqa: BLE001
             traceback.print_exc()
-            self.almacen.mutar(lambda e2: _quitar_marca_arnes(e2, c["id"], f"el cerebro no respondió: {str(ex)[:120]}"), "aprendizaje")
+            self.almacen.mutar(lambda e2: _quitar_marca_arnes(e2, c["id"], f"el cerebro no respondió: {str(ex)[:120]}"), "aprendizaje")  # noqa: F821  se ejecuta dentro del except, con `ex` vivo
             return
 
         def fn(e2: dict[str, Any]) -> bool:
@@ -1372,7 +1372,7 @@ class Supervisor:
         except ModeloSinRespuesta:
             raise  # la hipótesis sigue "aclarando": se aclara cuando el cerebro vuelva
         except Exception as ex:  # noqa: BLE001
-            self.almacen.mutar(lambda e: A.aclarar_hipotesis(e, h["id"], f"No pude aclararla ahora: el modelo no respondió ({str(ex)[:100]}). Vuelve a la cola tal cual.", P.ahora_ms()), "aclarar")
+            self.almacen.mutar(lambda e: A.aclarar_hipotesis(e, h["id"], f"No pude aclararla ahora: el modelo no respondió ({str(ex)[:100]}). Vuelve a la cola tal cual.", P.ahora_ms()), "aclarar")  # noqa: F821  se ejecuta dentro del except, con `ex` vivo
             return
         self.almacen.mutar(lambda e: A.aclarar_hipotesis(e, h["id"], pred.aclaracion, P.ahora_ms()), "aclarar")
 
@@ -1611,7 +1611,7 @@ class Supervisor:
                 try:
                     await self._proponer_plan(c, it)
                 except ModeloSinRespuesta as ex:
-                    self.almacen.mutar(lambda e2: _entrar_en_esperando_modelo(e2, corrida_id, ex, None, P.ahora_ms()), "modelo_sin_respuesta")
+                    self.almacen.mutar(lambda e2: _entrar_en_esperando_modelo(e2, corrida_id, ex, None, P.ahora_ms()), "modelo_sin_respuesta")  # noqa: F821  se ejecuta dentro del except, con `ex` vivo
                     return  # la tarea termina limpia: la relanza el sondeo, la persona o el tic (ver _ejecutar_paso)
                 continue
             if not it["planAprobado"]:
@@ -1634,7 +1634,7 @@ class Supervisor:
                     await self._cerrar_con_presupuesto(c, it)
                 except ModeloSinRespuesta as ex:
                     # El cierre guarda lo ya calculado en `it._cierre`: se retoma sin repagar.
-                    self.almacen.mutar(lambda e2: _entrar_en_esperando_modelo(e2, corrida_id, ex, None, P.ahora_ms()), "modelo_sin_respuesta")
+                    self.almacen.mutar(lambda e2: _entrar_en_esperando_modelo(e2, corrida_id, ex, None, P.ahora_ms()), "modelo_sin_respuesta")  # noqa: F821  se ejecuta dentro del except, con `ex` vivo
                     return
                 continue
             if not await self._permiso_presupuesto(c, it):
@@ -1986,7 +1986,7 @@ class Supervisor:
                     if p_.get("pasoId") == paso["id"] and p_.get("estado") == "en_curso":
                         p_["estado"] = "fallida"
                         p_["resumen"] = f"Interrumpida: {nombre} no respondió; el paso se retoma cuando vuelva"
-                _entrar_en_esperando_modelo(e, c["id"], ex, paso["id"], ahora)
+                _entrar_en_esperando_modelo(e, c["id"], ex, paso["id"], ahora)  # noqa: F821  se ejecuta dentro del except, con `ex` vivo
                 return True
 
             self.almacen.mutar(esperar, "modelo_sin_respuesta")
@@ -2001,13 +2001,13 @@ class Supervisor:
             traceback.print_exc()
 
             def fallar_paso(e: dict[str, Any]) -> bool:
-                _estado_paso(e, it["id"], paso["id"], "fallido", motivo=f"{type(ex).__name__}: {str(ex)[:200]}")
+                _estado_paso(e, it["id"], paso["id"], "fallido", motivo=f"{type(ex).__name__}: {str(ex)[:200]}")  # noqa: F821  se ejecuta dentro del except, con `ex` vivo
                 it2 = next((x for x in e["iteraciones"] if x["id"] == it["id"]), None)
                 # Las pistas del paso que quedaron en curso no pueden seguir "en curso" para siempre.
                 for p_ in (it2 or {}).get("pistas", []):
                     if p_.get("pasoId") == paso["id"] and p_.get("estado") == "en_curso":
                         p_["estado"] = "fallida"
-                        p_["resumen"] = f"Interrumpida por un fallo del paso: {type(ex).__name__}"
+                        p_["resumen"] = f"Interrumpida por un fallo del paso: {type(ex).__name__}"  # noqa: F821  se ejecuta dentro del except, con `ex` vivo
                 return True
 
             self.almacen.mutar(fallar_paso, "paso")

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from rosa.fuentes.base import Limitador, json_de, pedir
+from rosa.fuentes.base import FuenteNoDisponible, Limitador, json_de, pedir
 
 URL = "https://api.platform.opentargets.org/api/v4/graphql"
 _limitador = Limitador(2.0)

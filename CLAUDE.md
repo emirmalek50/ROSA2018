@@ -100,6 +100,11 @@ sin aprobar por un humano.
   mano por contexto.
 - Antes de cada commit, escanear `sk-proj-`, `sb_secret_`, `vcp_`, `vck_`,
   `github_pat_`, `ghp_`, `eyJhbGci`, `eyJ2MiI6`, `ntn_`, `secret_`, `GOCSPX-`.
+  Lo hace `python3 scripts/escanear_secretos.py`. Antes de cada commit también
+  `uvx ruff check rosa scripts` (config en `ruff.toml`) y
+  `./.venv/bin/python scripts/trinquete_mypy.py` (falla si suben los errores de
+  tipos; si bajan, bajar `LIMITE`). El CI de GitHub (`.github/workflows/ci.yml`)
+  corre todo eso más los tests de backend y frontend en cada push a `main`.
 - El servidor se para SOLO con `./.venv/bin/python scripts/parar_servidor.py`,
   que se niega si hay una corrida viva (en marcha, esperando aprobación,
   esperando plan o esperando modelo) y sale con código 2 sin tocar nada; para

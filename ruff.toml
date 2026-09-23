@@ -1,0 +1,14 @@
+# Ruff: el linter de Python de ROSA2018. Se corre con `uvx ruff check`.
+# De momento solo reglas que encuentran fallos (nombres sin definir, sintaxis,
+# redefiniciones); el estilo y el orden de imports se dejan para más adelante
+# para no reescribir el árbol entero de golpe.
+target-version = "py312"
+extend-exclude = [".venv", "frontend", "mlruns", "datos", "pdfs"]
+
+[lint]
+select = ["E9", "F"]
+ignore = [
+  "F401",  # import sin usar: pendiente de limpiar (29 al 23 de septiembre de 2026)
+  "F841",  # variable sin usar: pendiente de limpiar (13)
+  "F541",  # f-string sin marcadores: inofensivo
+]

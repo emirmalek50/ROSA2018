@@ -31,7 +31,6 @@ import dspy
 
 from rosa import acuerdo_dorado as ACU
 from rosa import ontologias as ONTO
-from rosa import politicas
 from rosa import sesgo as SESGO
 from rosa import config, politicas
 from rosa import cuestiones as CU
