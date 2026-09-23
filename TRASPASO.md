@@ -1741,3 +1741,54 @@ nadie escribe un grupo de miles con un cero delante. Arreglado solo ese caso.
 - **Que el juez del revisor pueda recalcular con los datos**, no solo leer el
   registro. El de ellos recomputa en una caja de arena; el nuestro lee. Si se
   hace, con Opus: Sonnet nunca juzga (TRASPASO 7.4).
+
+## "Sin evidencia" ahora dice qué quiere decir: regla 3 de los supuestos (23 de septiembre de 2026)
+
+La segunda cosa que se trajo de las conversaciones de Claude Science. Su agente
+nunca escribe "refutado" a secas: separa "no evaluado" de "refutado", y un
+resultado nulo con potencia de uno sin ella ("no evaluado no es refutado",
+escrito en la propia celda de su tabla de veredictos). ROSA2018 tenía la regla
+para las fuentes ("una fuente que no responde es no pude comprobar, nunca no
+hay") pero no la aplicaba a los supuestos: `sin_evidencia` decía lo mismo cuando
+las afirmaciones de la corrida no hablaban del tema que cuando hablaban y no lo
+resolvían. El primero no informa de nada; el segundo, sí.
+
+Lo que cambió:
+
+- `EvaluarSupuesto` devuelve además `indices_que_lo_tocan` (qué afirmaciones
+  tratan el tema aunque no lo resuelvan), `donde_se_responde` (literatura,
+  catálogo de cohorte, registro de ensayos, análisis de datos, experimento
+  nuevo) y `cota` (el límite de un nulo con intervalo o potencia declarada). Y
+  su instrucción dice ahora que un nulo sin intervalo ni potencia no
+  contradice: no se sabe si el efecto no existe o si el estudio no podía verlo.
+- `alcance_del_supuesto` (rosa/bucle/pasos.py) guarda en cada supuesto su
+  `alcance`: resuelto, tocado sin respuesta, no tocado, o no evaluado (el modelo
+  no respondió). Lo decide la regla con los índices, no el modelo, y los índices
+  se validan contra la lista numerada igual que los de S-10.
+- La ficha de la hipótesis lo enseña debajo de cada supuesto ("Las fuentes
+  reunidas no hablan de esto · se respondería en el catálogo de una cohorte").
+  A lo evaluado con una regla anterior no se le inventa nada.
+
+Por qué `dondeSeResponde` importa: en las dos primeras hipótesis reevaluadas
+esta mañana, la mayoría de los supuestos "sin evidencia" no eran preguntas de
+literatura ("existe un subconjunto suficientemente grande de participantes de
+ADNI portadores de APOE ε4", "esos umbrales son transportables entre
+plataformas"). Se contestan mirando el catálogo de la cohorte, no PubMed, y
+marcarlos "sin evidencia" tras preguntar en el sitio equivocado sonaba a "no
+hay".
+
+**Es una regla nueva, la 3** (`REGLA_SUPUESTOS` en rosa/vigencia.py y en
+frontend/src/lib/desbloqueo.ts): todo lo evaluado con la 1 o la 2 sale en "Qué
+desbloquea más" como por reevaluar, porque su estado puede cambiar (un
+"contradicho" que se apoyaba en un nulo sin potencia ya no lo es). **No se pide
+solo**: `REEVALUAR_AL_CARGAR_HASTA_REGLA` sigue en 1, y subirlo es decidir
+gastar. La reevaluación se pide con el botón de la pantalla.
+
+Los textos del aviso dicen ahora con qué regla se evaluó cada cosa
+(`LO_QUE_FALTABA`): antes decían siempre "antes del 18 de septiembre", que con
+la regla 3 habría sido falso para todo lo evaluado con la 2. De paso se
+corrigió "1 evaluadas".
+
+Un test intermitente de la interfaz falló una vez en cinco pases completos y no
+se pudo ver cuál era; los cuatro pases siguientes, limpios. Queda para la
+revisión de fallos.

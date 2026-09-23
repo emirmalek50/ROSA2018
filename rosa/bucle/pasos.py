@@ -2679,6 +2679,58 @@ def validar_supuesto_evaluado(estado: Any, evidencia: Any, indices: Any, afirmac
     return estado, evidencia, ids
 
 
+DONDE_SE_RESPONDE = ("literatura", "catalogo_de_cohorte", "registro_de_ensayos", "analisis_de_datos", "experimento_nuevo")
+_TIENE_CIFRA = re.compile(r"\d")
+
+
+def alcance_del_supuesto(estado: str, indices_tocan: Any, ids_niegan: list[str], donde: Any, cota: Any, afirmaciones: list[dict[str, Any]]) -> dict[str, Any]:
+    """Qué significa el estado de un supuesto (regla 3 de rosa/vigencia.py, 23 de
+    septiembre de 2026). "Sin evidencia" decía lo mismo cuando las afirmaciones de
+    la corrida no hablaban del tema que cuando hablaban y no lo resolvían; el
+    primero no informa de nada, el segundo sí. Viene de las conversaciones de
+    Claude Science, que nunca escriben "refutado" a secas: separan "no evaluado"
+    de "refutado", y un nulo con potencia de uno sin ella.
+
+    - `alcance`: 'resuelto' si el estado es respaldado o contradicho; si no,
+      'tocado_sin_respuesta' cuando alguna afirmación trata el tema, y
+      'no_tocado' cuando ninguna. Lo decide la regla con los índices, no el
+      modelo: los índices se validan contra la lista numerada (1..N) como los de
+      `validar_supuesto_evaluado`, y las que lo niegan cuentan como que lo tocan.
+      El cuarto valor, 'no_evaluado', no sale de aquí: lo pone `_revisar_hipotesis`
+      cuando el modelo no respondió.
+    - `dondeSeResponde`: dónde estaría la respuesta; None si el modelo dio algo
+      fuera de la lista, que no se adivina.
+    - `cota`: el límite de un nulo acotado. Sin una cifra no es un límite y se
+      descarta.
+    """
+    tocan: list[int] = []
+    for i in (indices_tocan if isinstance(indices_tocan, (list, tuple)) else []):
+        try:
+            n = int(i)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= n <= len(afirmaciones) and n not in tocan:
+            tocan.append(n)
+    ids = [str(afirmaciones[n - 1].get("afirmacionId") or afirmaciones[n - 1].get("id") or f"#{n}") for n in tocan]
+    for x in ids_niegan:
+        if x not in ids:
+            ids.append(x)
+    if estado in ("respaldado", "contradicho"):
+        alcance = "resuelto"
+    elif ids:
+        alcance = "tocado_sin_respuesta"
+    else:
+        alcance = "no_tocado"
+    donde = str(donde or "").strip()
+    cota = str(cota or "").strip()
+    return {
+        "alcance": alcance,
+        "tocaAfirmaciones": ids,
+        "dondeSeResponde": donde if donde in DONDE_SE_RESPONDE else None,
+        "cota": cota[:300] if _TIENE_CIFRA.search(cota) else "",
+    }
+
+
 def fusionar_supuestos(existentes: Any, del_revisor: Any, nunca_revisada: bool, maximo: int = 12) -> list[dict[str, Any]]:
     """Los supuestos con los que se evalúa la hipótesis (S-10): se conservan los
     que ya tenía (los del generador, con origen 'generador'; en un registro ya
@@ -3486,13 +3538,15 @@ async def _revisar_hipotesis(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: st
                 p2 = await ctx.llamar("volumen", ctx.programas.evaluar_supuesto, supuesto=s["texto"], afirmaciones_sostenidas=texto_sup)
                 ev = p2.evaluacion
                 estado, evidencia, ids = validar_supuesto_evaluado(getattr(ev, "estado", None), getattr(ev, "evidencia", None), getattr(ev, "indices_que_lo_niegan", None), lista_sup)
-                evaluados[i] = {**s, "estado": estado, "evidencia": evidencia, "niegaAfirmaciones": ids}
+                alcance = alcance_del_supuesto(estado, getattr(ev, "indices_que_lo_tocan", None), ids, getattr(ev, "donde_se_responde", None), getattr(ev, "cota", None), lista_sup)
+                evaluados[i] = {**s, "estado": estado, "evidencia": evidencia, "niegaAfirmaciones": ids, **alcance}
             except PresupuestoAgotado:
                 raise
             except VIG.ModeloSinRespuesta:
                 raise
             except Exception as ex:  # noqa: BLE001
-                evaluados[i] = {**s, "estado": "sin_evidencia", "evidencia": f"No se pudo evaluar: el modelo no respondió ({type(ex).__name__})", "niegaAfirmaciones": []}
+                # "No pude comprobar", nunca "no hay": el alcance lo dice aparte del estado.
+                evaluados[i] = {**s, "estado": "sin_evidencia", "evidencia": f"No se pudo evaluar: el modelo no respondió ({type(ex).__name__})", "niegaAfirmaciones": [], "alcance": "no_evaluado", "tocaAfirmaciones": [], "dondeSeResponde": None, "cota": ""}
 
     await _en_paralelo(*(evaluar(i, s) for i, s in enumerate(supuestos)))
     finales = [s for s in evaluados if s is not None]

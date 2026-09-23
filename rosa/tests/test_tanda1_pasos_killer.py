@@ -198,6 +198,44 @@ def test_validar_supuesto_evaluado_exige_indice_valido_y_no_lee_ausencia_como_ne
     assert v("contradicho", "x", [1], [])[0] == "sin_evidencia"
 
 
+def test_alcance_del_supuesto_separa_no_tocado_de_tocado_sin_respuesta():
+    """Regla 3 (23 de septiembre de 2026): «sin evidencia» decía lo mismo cuando
+    las afirmaciones no hablaban del tema que cuando hablaban y no lo resolvían.
+    El alcance lo decide la regla con los índices, no el modelo."""
+    lista = [{"afirmacionId": "af-1"}, {"afirmacionId": "af-2"}, {"afirmacionId": "af-3"}]
+    a = PASOS.alcance_del_supuesto
+    # Ninguna afirmación habla del tema: las que hay no informan de nada.
+    r = a("sin_evidencia", [], [], "catalogo_de_cohorte", "", lista)
+    assert r == {"alcance": "no_tocado", "tocaAfirmaciones": [], "dondeSeResponde": "catalogo_de_cohorte", "cota": ""}
+    # Hablan del tema y no lo resuelven: eso sí informa.
+    r = a("sin_evidencia", [2, "2", 0, 99, "x", None], [], "literatura", "", lista)
+    assert r["alcance"] == "tocado_sin_respuesta" and r["tocaAfirmaciones"] == ["af-2"]
+    assert a("plausible", [1], [], "literatura", "", lista)["alcance"] == "tocado_sin_respuesta"
+    # Respaldado o contradicho: resuelto, y las que lo niegan cuentan como que lo tocan.
+    assert a("respaldado", [1], [], "literatura", "", lista)["alcance"] == "resuelto"
+    r = a("contradicho", [], ["af-3"], "literatura", "", lista)
+    assert r["alcance"] == "resuelto" and r["tocaAfirmaciones"] == ["af-3"]
+    # Un índice que no existe no convierte un «no tocado» en «tocado».
+    assert a("sin_evidencia", [7, -1], [], "literatura", "", lista)["alcance"] == "no_tocado"
+
+
+def test_alcance_del_supuesto_no_adivina_donde_ni_acepta_cotas_sin_cifra():
+    lista = [{"afirmacionId": "af-1"}]
+    a = PASOS.alcance_del_supuesto
+    # Dónde se responde: fuera de la lista no se adivina.
+    assert a("sin_evidencia", [], [], "en internet", "", lista)["dondeSeResponde"] is None
+    assert a("sin_evidencia", [], [], None, "", lista)["dondeSeResponde"] is None
+    for donde in PASOS.DONDE_SE_RESPONDE:
+        assert a("sin_evidencia", [], [], donde, "", lista)["dondeSeResponde"] == donde
+    # Una cota sin cifra no es un límite.
+    assert a("contradicho", [1], ["af-1"], "literatura", "el efecto es pequeño", lista)["cota"] == ""
+    cota = "si hay efecto, es menor que 0,04 (IC 95 % -0,04 a 0,03, afirmación 1)"
+    assert a("contradicho", [1], ["af-1"], "literatura", cota, lista)["cota"] == cota
+    assert len(a("sin_evidencia", [], [], "literatura", "1" * 900, lista)["cota"]) == 300
+    # Entradas rotas no rompen nada.
+    assert a("sin_evidencia", "basura", [], 5, 5, [])["alcance"] == "no_tocado"
+
+
 def test_fusionar_supuestos_conserva_los_del_generador_y_etiqueta_los_del_revisor():
     existentes = [{"id": "sup-g1", "texto": "El generador supone A", "estado": "sin_evidencia", "evidencia": "Pendiente", "hijos": []}, {"texto": "  "}, None, {"id": "sup-g2", "texto": "El generador supone B", "estado": "plausible"}]
     salida = PASOS.fusionar_supuestos(existentes, ["El revisor supone C", "el generador supone a", "", "El revisor supone C"], nunca_revisada=True)

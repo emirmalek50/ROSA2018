@@ -19,7 +19,7 @@
 
 import { useMemo, useState } from 'react';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import { ingrediente as ingredienteDe, plan, tablero, VIAS, vigenciaEnLlano, type FilaHipotesis, type IdIngrediente, type MotivoVigencia, type SupuestoFlojo } from '../lib/desbloqueo';
+import { ingrediente as ingredienteDe, LO_QUE_FALTABA, plan, tablero, VIAS, vigenciaEnLlano, type FilaHipotesis, type IdIngrediente, type MotivoVigencia, type SupuestoFlojo } from '../lib/desbloqueo';
 import { ESTADO_HIPOTESIS } from '../lib/etiquetas';
 import { fechaCorta } from '../lib/formato';
 import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
@@ -382,8 +382,15 @@ export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: Estado
     const pausadas = [...new Set(pedidas.map((f) => ultimaCorrida.get(f.hipotesis.investigacionId)).filter((c) => c?.estado === 'pausada_por_presupuesto').map((c) => c!.numero))];
     const esperan = pedidas.filter((f) => ultimaCorrida.get(f.hipotesis.investigacionId)?.estado === 'pausada_por_presupuesto').length;
     const cuenta = (m: MotivoVigencia) => viejas.filter((f) => f.vigencia.motivo === m).length;
+    // Por regla, cada una con lo que le faltaba: la 1 y la 2 no fallaban en lo mismo,
+    // y una frase única con la fecha de la 1 mentía sobre las de la 2.
+    const porRegla = new Map<number | null, number>();
+    for (const f of viejas) if (f.vigencia.motivo === 'regla') porRegla.set(f.vigencia.regla, (porRegla.get(f.vigencia.regla) ?? 0) + 1);
+    const deRegla = [...porRegla.entries()]
+      .sort(([a], [b]) => (a ?? -1) - (b ?? -1))
+      .map(([r, n]) => `${n} ${n === 1 ? 'evaluada' : 'evaluadas'} ${r !== null && LO_QUE_FALTABA[r] ? LO_QUE_FALTABA[r] : 'con una regla anterior a la de hoy'}`);
     const partes = [
-      cuenta('regla') ? `${cuenta('regla')} evaluadas antes del 18 de septiembre, cuando el evaluador no miraba su evidencia propia` : '',
+      ...deRegla,
       cuenta('evidencia') ? `${cuenta('evidencia')} con evidencia llegada después` : '',
       cuenta('fallidos') ? `${cuenta('fallidos')} con supuestos que el modelo no pudo evaluar` : '',
       cuenta('sin_sello') ? `${cuenta('sin_sello')} sin fecha de evaluación` : '',

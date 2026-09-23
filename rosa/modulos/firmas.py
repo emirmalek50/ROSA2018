@@ -179,6 +179,9 @@ class SupuestoEvaluado(BaseModel):
     estado: Literal["respaldado", "plausible", "sin_evidencia", "contradicho"]
     evidencia: str = Field(description="Qué afirmación o fuente lo respalda o contradice; 'ninguna' si no hay")
     indices_que_lo_niegan: list[int] = Field(default_factory=list, description="Los números (tal como van numeradas en afirmaciones_sostenidas) de las afirmaciones que niegan el supuesto. Vacío si ninguna lo niega; sin al menos un número, el estado no puede ser 'contradicho'")
+    indices_que_lo_tocan: list[int] = Field(default_factory=list, description="Los números de las afirmaciones que tratan el tema del supuesto, lo resuelvan o no. Vacío si ninguna habla de esto. Separa 'miré donde estaría y no lo resuelve' de 'las afirmaciones que tengo no hablan de esto', que son cosas distintas y hoy se escriben igual")
+    donde_se_responde: Literal["literatura", "catalogo_de_cohorte", "registro_de_ensayos", "analisis_de_datos", "experimento_nuevo"] = Field(default="literatura", description="Dónde estaría la respuesta, la haya o no: literatura (un artículo lo diría); catalogo_de_cohorte (qué variables mide una cohorte, cuántos participantes tienen tal característica, con qué frecuencia se extrajo la muestra); registro_de_ensayos (qué se ensayó y con qué resultado); analisis_de_datos (hay que calcularlo sobre datos que existen); experimento_nuevo (nadie lo ha medido y haría falta medirlo)")
+    cota: str = Field(default="", description="Solo si una afirmación da un resultado NULO con intervalo de confianza o potencia declarada: el límite que pone, en la forma 'si hay efecto, es menor que X', con la cifra y el número de la afirmación. Vacío en cualquier otro caso. Un nulo sin intervalo ni potencia no pone límite y no va aquí")
 
 
 # ---------------------------------------------------------------------------
@@ -355,7 +358,17 @@ class EvaluarSupuesto(dspy.Signature):
     alguna afirmación numerada lo niega, y entonces `indices_que_lo_niegan` lleva sus
     números; `plausible` si es consistente pero sin evidencia directa; `sin_evidencia` si
     nada aplica. No inventar evidencia: un supuesto que las afirmaciones no tocan es
-    `sin_evidencia` o `plausible`, nunca `contradicho`."""
+    `sin_evidencia` o `plausible`, nunca `contradicho`.
+
+    Un resultado nulo no niega por sí solo. Si una afirmación dice que no encontró
+    efecto pero no da intervalo de confianza ni potencia, no se sabe si el efecto no
+    existe o si el estudio no podía verlo: eso es `sin_evidencia`, no `contradicho`.
+    Solo un nulo acotado (un intervalo estrecho que excluye el efecto que el supuesto
+    necesita) lo contradice, y entonces el límite va en `cota`.
+
+    Decir siempre qué afirmaciones tocan el tema aunque no lo resuelvan
+    (`indices_que_lo_tocan`), y dónde estaría la respuesta (`donde_se_responde`): muchos
+    supuestos no se contestan leyendo artículos sino mirando qué mide una cohorte."""
 
     supuesto: str = dspy.InputField()
     afirmaciones_sostenidas: str = dspy.InputField()

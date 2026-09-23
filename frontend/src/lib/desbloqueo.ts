@@ -365,8 +365,18 @@ export function esViva(h: Hipotesis): boolean {
  *  REGLA_SUPUESTOS en rosa/vigencia.py: 1 hasta el arranque del 18 de
  *  septiembre de 2026 a las 05:48 (el evaluador veía el principio de las
  *  afirmaciones de la corrida, no la evidencia propia de la hipótesis, y leía
- *  la ausencia como negación), 2 desde entonces. */
-export const REGLA_SUPUESTOS = 2;
+ *  la ausencia como negación); 2 hasta el 23 de septiembre; 3 desde entonces
+ *  (cada supuesto dice si las fuentes tocaron el tema, dónde se respondería y
+ *  el límite de un nulo, y un nulo sin potencia ya no contradice). */
+export const REGLA_SUPUESTOS = 3;
+
+/** Qué le faltaba a cada regla anterior, en una frase para la pantalla. La
+ *  regla que falte aquí cae en la frase genérica: nunca se nombra una fecha
+ *  que no le corresponde. */
+export const LO_QUE_FALTABA: Record<number, string> = {
+  1: 'antes del 18 de septiembre, cuando el evaluador no miraba la evidencia propia de la hipótesis sino el principio de las afirmaciones de la corrida',
+  2: 'antes del 23 de septiembre, cuando «sin evidencia» no decía si las fuentes habían tocado el tema, ni qué límite ponía un resultado nulo',
+};
 
 export type MotivoVigencia = 'sin_sello' | 'regla' | 'fallidos' | 'evidencia';
 
@@ -381,6 +391,8 @@ export interface Vigencia {
   pedidaEn: number | null;
   /** Por qué no se pudo hacer la última pedida (la corrida sin presupuesto). */
   noAtendida: string | null;
+  /** Con qué regla se evaluaron; null si no consta. */
+  regla: number | null;
 }
 
 function tieneSupuestos(h: Hipotesis): boolean {
@@ -405,6 +417,7 @@ export function vigencia(h: Hipotesis): Vigencia {
     evaluadosEn: typeof s?.en === 'number' ? s.en : null,
     pedidaEn: typeof s?.pedidaEn === 'number' && s.pedidaEn > 0 ? s.pedidaEn : null,
     noAtendida: typeof s?.noAtendida === 'string' && s.noAtendida ? s.noAtendida : null,
+    regla: typeof s?.regla === 'number' && Number.isInteger(s.regla) ? s.regla : null,
   };
   if (!tieneSupuestos(h)) return { alDia: true, motivo: null, nuevas: 0, ...extra };
   if (!s || typeof s.en !== 'number') return { alDia: false, motivo: 'sin_sello', nuevas: 0, ...extra };
@@ -419,7 +432,7 @@ export function vigencia(h: Hipotesis): Vigencia {
 export function vigenciaEnLlano(v: Vigencia): string {
   switch (v.motivo) {
     case 'regla':
-      return 'Sus supuestos se evaluaron antes del 18 de septiembre, cuando el evaluador no miraba la evidencia propia de la hipótesis sino el principio de las afirmaciones de la corrida.';
+      return `Sus supuestos se evaluaron ${v.regla !== null && LO_QUE_FALTABA[v.regla] ? LO_QUE_FALTABA[v.regla] : 'con una regla anterior a la de hoy'}.`;
     case 'evidencia':
       return `Le ${v.nuevas === 1 ? 'llegó 1 afirmación' : `llegaron ${v.nuevas} afirmaciones`} después de evaluar sus supuestos.`;
     case 'fallidos':

@@ -14,6 +14,12 @@ no se recalcula solo. Se queda viejo por dos caminos:
    2. Desde entonces: primero la evidencia propia, con la lista numerada exacta
       contra la que se validan los índices, y "contradicho" solo si señala la
       afirmación que lo niega; la ausencia no es negación (S-08 y S-10).
+   3. Desde el 23 de septiembre de 2026 (lectura de las conversaciones de Claude
+      Science): cada supuesto dice además su `alcance` (resuelto, tocado sin
+      respuesta, no tocado, no evaluado), dónde estaría la respuesta y, si un
+      nulo lo acota, el límite. Y un nulo sin intervalo ni potencia ya no
+      contradice: el estado de un supuesto evaluado con la 2 puede cambiar.
+      No se pide sola (ver `REEVALUAR_AL_CARGAR_HASTA_REGLA`).
 2. Llega evidencia después. La revisión se pide sola con dos afirmaciones o una
    fuente nueva (rosa/bucle/evidencia.py), no con una, y además espera a que
    una corrida con presupuesto pase por la hipótesis.
@@ -49,7 +55,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-REGLA_SUPUESTOS = 2
+REGLA_SUPUESTOS = 3
 
 # El arranque del servidor que cargó la regla 2: evento ev-mu6rzvrs-9, "ROSA2018
 # volvió a arrancar; la corrida 3 retoma donde estaba". Entre el commit (05:30)

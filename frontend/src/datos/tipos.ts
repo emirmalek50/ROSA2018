@@ -1052,12 +1052,31 @@ export type EstadoSupuesto = 'respaldado' | 'plausible' | 'sin_evidencia' | 'con
 
 /** Un supuesto de la hipotesis, descompuesto e independiente de las citas
  *  (la "verificacion profunda" de Co-Scientist). */
+/** Qué significa el estado de un supuesto (regla 3 de rosa/vigencia.py, 23 de
+ *  septiembre de 2026). "Sin evidencia" decía lo mismo cuando las afirmaciones
+ *  no hablaban del tema que cuando hablaban y no lo resolvían.
+ *  - resuelto: respaldado o contradicho por una afirmación concreta.
+ *  - tocado_sin_respuesta: hay afirmaciones sobre el tema y ninguna lo decide.
+ *  - no_tocado: ninguna afirmación de las reunidas habla de esto.
+ *  - no_evaluado: el modelo no respondió; "no pude comprobar", nunca "no hay". */
+export type AlcanceSupuesto = 'resuelto' | 'tocado_sin_respuesta' | 'no_tocado' | 'no_evaluado';
+
+/** Dónde estaría la respuesta a un supuesto, la haya o no. */
+export type DondeSeResponde = 'literatura' | 'catalogo_de_cohorte' | 'registro_de_ensayos' | 'analisis_de_datos' | 'experimento_nuevo';
+
 export interface Supuesto {
   id: Id;
   texto: string;
   estado: EstadoSupuesto;
   evidencia: string;
   hijos: Supuesto[];
+  /** Desde la regla 3; los evaluados antes no lo traen. */
+  alcance?: AlcanceSupuesto;
+  dondeSeResponde?: DondeSeResponde | null;
+  /** El límite de un resultado nulo acotado: "si hay efecto, es menor que X". */
+  cota?: string;
+  tocaAfirmaciones?: Id[];
+  niegaAfirmaciones?: Id[];
 }
 
 /** Sello de vigencia de los supuestos de una hipótesis (rosa/vigencia.py): cuándo

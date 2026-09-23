@@ -29,6 +29,8 @@ import type {
   EstadoInvestigacion,
   EstadoPaso,
   EstadoPista,
+  AlcanceSupuesto,
+  DondeSeResponde,
   EstadoSupuesto,
   EtapaDecision,
   FactorCerteza,
@@ -327,6 +329,24 @@ export const ESTADO_SUPUESTO: Record<EstadoSupuesto, { etiqueta: string; tono: '
   plausible: { etiqueta: 'Plausible', tono: 'aviso' },
   sin_evidencia: { etiqueta: 'Sin evidencia', tono: 'neutro' },
   contradicho: { etiqueta: 'Contradicho', tono: 'mal' },
+};
+
+/** Qué quiere decir el estado de un supuesto (regla 3). Lo que va aquí es lo
+ *  que distingue un "sin evidencia" que informa de uno que no. */
+export const ALCANCE_SUPUESTO: Record<AlcanceSupuesto, string> = {
+  resuelto: 'Una afirmación lo decide',
+  tocado_sin_respuesta: 'Las fuentes tocan el tema, pero no lo resuelven',
+  no_tocado: 'Las fuentes reunidas no hablan de esto',
+  no_evaluado: 'No se pudo evaluar: no quiere decir que no haya',
+};
+
+/** Dónde estaría la respuesta a un supuesto. */
+export const DONDE_SE_RESPONDE: Record<DondeSeResponde, string> = {
+  literatura: 'en la literatura',
+  catalogo_de_cohorte: 'en el catálogo de una cohorte',
+  registro_de_ensayos: 'en un registro de ensayos',
+  analisis_de_datos: 'analizando datos que ya existen',
+  experimento_nuevo: 'con un experimento que nadie ha hecho',
 };
 
 export const TIPO_FUENTE: Record<TipoFuente, string> = {

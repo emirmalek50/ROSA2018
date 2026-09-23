@@ -287,3 +287,45 @@ describe('la ficha con las reglas del 17 de septiembre', () => {
     expect(tarjetas.length === 0 || tarjetas.every((t) => !t.className.includes('mal'))).toBe(true);
   });
 });
+
+describe('el alcance de cada supuesto (regla 3, 23 de septiembre de 2026)', () => {
+  /** La sección de supuestos es de detalle: en modo sencillo nace plegada. */
+  async function abrirSupuestos() {
+    // Exacto: «Supuestos causales» también lleva la palabra y va antes.
+    const titulo = [...nodo.querySelectorAll('.seccion-plegar')].find((b) => b.textContent?.replace(/[▸▾]/g, '').trim() === 'Supuestos') as HTMLButtonElement | undefined;
+    if (titulo && titulo.getAttribute('aria-expanded') === 'false') await act(async () => titulo.click());
+  }
+
+  it('dice si las fuentes tocaron el tema y dónde se respondería, que es lo que "sin evidencia" callaba', async () => {
+    await montar(estadoDeMuestra(), 'hip-1');
+    await abrirSupuestos();
+    const notas = [...nodo.querySelectorAll('.supuesto-alcance')].map((x) => x.textContent);
+    expect(notas).toContain('Las fuentes reunidas no hablan de esto · se respondería en el catálogo de una cohorte');
+    expect(notas).toContain('Las fuentes tocan el tema, pero no lo resuelven · se respondería en la literatura');
+    // Resuelto ya lo dice el estado: sin nota, salvo que haya cota.
+    expect(nodo.querySelectorAll('.supuesto-alcance-resuelto')).toHaveLength(0);
+  });
+
+  it('enseña el límite de un nulo acotado', async () => {
+    await montar(estadoDeMuestra(), 'hip-3');
+    await abrirSupuestos();
+    expect(nodo.textContent).toContain('Límite: si la pérdida de peso mueve el NfL, el efecto es menor que un 8 %');
+  });
+
+  it('a lo evaluado con una regla anterior no se le inventa alcance', async () => {
+    await montar(estadoDeMuestra(), 'hip-2');
+    await abrirSupuestos();
+    expect(nodo.querySelectorAll('.supuesto').length).toBeGreaterThan(0);
+    expect(nodo.querySelectorAll('.supuesto-alcance')).toHaveLength(0);
+  });
+
+  it('«no evaluado» se distingue de «no hay»', async () => {
+    const e = structuredClone(estadoDeMuestra());
+    const h = e.hipotesis.find((x) => x.id === 'hip-1')!;
+    h.supuestos[2] = { ...h.supuestos[2]!, alcance: 'no_evaluado', dondeSeResponde: null, evidencia: 'No se pudo evaluar: el modelo no respondió (TimeoutError)' };
+    await montar(e, 'hip-1');
+    await abrirSupuestos();
+    const nota = nodo.querySelector('.supuesto-alcance-no_evaluado');
+    expect(nota?.textContent).toBe('No se pudo evaluar: no quiere decir que no haya');
+  });
+});

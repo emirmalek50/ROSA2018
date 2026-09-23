@@ -9,6 +9,7 @@
 // paginas indicadas. La interfaz lo marca como "datos de muestra" mientras
 // el almacen no este conectado a ROSA2018 de verdad.
 
+import { REGLA_SUPUESTOS } from '../lib/desbloqueo';
 import type {
   Artefacto,
   CasoControl,
@@ -719,13 +720,15 @@ const HIPOTESIS_BASE: HipotesisParcial[] = [
         texto: 'Abeta42 en plasma baja cuando empieza el depósito amiloide cerebral.',
         estado: 'respaldado',
         evidencia: 'Cociente Abeta42/40 en plasma correlaciona con PET de amiloide en varias cohortes.',
-        hijos: [{ id: 's1a', texto: 'La producción periférica de Abeta no enmascara la señal cerebral.', estado: 'plausible', evidencia: 'Se corrige con el cociente, pero la función renal y hepática lo alteran.', hijos: [] }],
+        alcance: 'resuelto',
+        dondeSeResponde: 'literatura',
+        hijos: [{ id: 's1a', texto: 'La producción periférica de Abeta no enmascara la señal cerebral.', estado: 'plausible', evidencia: 'Se corrige con el cociente, pero la función renal y hepática lo alteran.', alcance: 'tocado_sin_respuesta', dondeSeResponde: 'literatura', hijos: [] }],
       },
-      { id: 's2', texto: 'p-tau217 sube en respuesta al depósito amiloide, antes de los síntomas.', estado: 'respaldado', evidencia: 'Anticipación de años en cohortes autosómicas dominantes.', hijos: [] },
-      { id: 's3', texto: 'Lo que vale en PSEN1 vale en el esporádico.', estado: 'sin_evidencia', evidencia: 'Es la premisa del Alzheimer familiar como modelo; la edad y las comorbilidades difieren.', hijos: [] },
-      { id: 's3b', texto: 'Existe un intervalo de referencia de p-tau217 en plasma para la plataforma de FLENI, definido en personas amiloide-negativas.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación sostenida da ese intervalo para esa plataforma.', hijos: [] },
-      { id: 's3c', texto: 'El cociente se mide igual en todas las visitas: mismos lotes o lotes armonizables.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
-      { id: 's3d', texto: 'La cohorte de FLENI tiene un número suficiente de portadores con plasma seriado y seguimiento a cinco años.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación da el tamaño de ese subgrupo.', hijos: [] },
+      { id: 's2', texto: 'p-tau217 sube en respuesta al depósito amiloide, antes de los síntomas.', estado: 'respaldado', evidencia: 'Anticipación de años en cohortes autosómicas dominantes.', alcance: 'resuelto', dondeSeResponde: 'literatura', hijos: [] },
+      { id: 's3', texto: 'Lo que vale en PSEN1 vale en el esporádico.', estado: 'sin_evidencia', evidencia: 'Es la premisa del Alzheimer familiar como modelo; la edad y las comorbilidades difieren.', alcance: 'tocado_sin_respuesta', dondeSeResponde: 'literatura', hijos: [] },
+      { id: 's3b', texto: 'Existe un intervalo de referencia de p-tau217 en plasma para la plataforma de FLENI, definido en personas amiloide-negativas.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación sostenida da ese intervalo para esa plataforma.', alcance: 'no_tocado', dondeSeResponde: 'analisis_de_datos', hijos: [] },
+      { id: 's3c', texto: 'El cociente se mide igual en todas las visitas: mismos lotes o lotes armonizables.', estado: 'sin_evidencia', evidencia: 'Ninguna.', alcance: 'no_tocado', dondeSeResponde: 'catalogo_de_cohorte', hijos: [] },
+      { id: 's3d', texto: 'La cohorte de FLENI tiene un número suficiente de portadores con plasma seriado y seguimiento a cinco años.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación da el tamaño de ese subgrupo.', alcance: 'no_tocado', dondeSeResponde: 'catalogo_de_cohorte', hijos: [] },
     ],
     grafoCausal: {
       nodos: [
@@ -953,10 +956,10 @@ const HIPOTESIS_BASE: HipotesisParcial[] = [
   {
     id: 'hip-3',
     supuestos: [
-      { id: 's8', texto: 'Los resultados de evoke y evoke+ incluyen GFAP y NfL en plasma con su incertidumbre.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación sostenida los recoge.', hijos: [] },
-      { id: 's9', texto: 'Los cambios de peso corporal inducidos por el fármaco no alteran por sí solos los biomarcadores plasmáticos.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
-      { id: 's10', texto: 'Existe un intervalo de referencia de GFAP en plasma específico de la plataforma de los ensayos.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
-      { id: 's11', texto: 'El efecto sobre la microglía es causal y no una consecuencia de la pérdida de peso.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
+      { id: 's8', texto: 'Los resultados de evoke y evoke+ incluyen GFAP y NfL en plasma con su incertidumbre.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación sostenida los recoge.', alcance: 'no_tocado', dondeSeResponde: 'registro_de_ensayos', hijos: [] },
+      { id: 's9', texto: 'Los cambios de peso corporal inducidos por el fármaco no alteran por sí solos los biomarcadores plasmáticos.', estado: 'plausible', evidencia: 'Un estudio de la muestra no ve cambio de NfL con la pérdida de peso, con un intervalo que no llega a excluir un efecto pequeño.', alcance: 'tocado_sin_respuesta', dondeSeResponde: 'literatura', cota: 'si la pérdida de peso mueve el NfL, el efecto es menor que un 8 % (dato de muestra)', hijos: [] },
+      { id: 's10', texto: 'Existe un intervalo de referencia de GFAP en plasma específico de la plataforma de los ensayos.', estado: 'sin_evidencia', evidencia: 'Ninguna.', alcance: 'no_tocado', dondeSeResponde: 'analisis_de_datos', hijos: [] },
+      { id: 's11', texto: 'El efecto sobre la microglía es causal y no una consecuencia de la pérdida de peso.', estado: 'sin_evidencia', evidencia: 'Ninguna.', alcance: 'no_tocado', dondeSeResponde: 'experimento_nuevo', hijos: [] },
     ],
     investigacionId: 'inv-1',
     titulo: 'Los agonistas de GLP-1 reducen la progresión por una vía microglial independiente del amiloide',
@@ -1076,10 +1079,10 @@ const HIPOTESIS_BASE: HipotesisParcial[] = [
   {
     id: 'hip-4',
     supuestos: [
-      { id: 's12', texto: 'Hay suficientes portadores de TREM2 R47H y de APOE4 a la vez para estimar la interacción.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación da el tamaño de ese subgrupo.', hijos: [] },
-      { id: 's13', texto: 'La cohorte tiene extracciones seriadas lo bastante seguidas para fechar cuándo cambia cada marcador.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
-      { id: 's14', texto: 'La brecha temporal entre GFAP y NfL es identificable aunque no se observen los cruces exactos.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
-      { id: 's15', texto: 'El GFAP en plasma es específico de la microglía asociada a enfermedad.', estado: 'contradicho', evidencia: 'El GFAP es una proteína de los astrocitos: sube también sin cambio microglial.', hijos: [] },
+      { id: 's12', texto: 'Hay suficientes portadores de TREM2 R47H y de APOE4 a la vez para estimar la interacción.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación da el tamaño de ese subgrupo.', alcance: 'no_tocado', dondeSeResponde: 'catalogo_de_cohorte', hijos: [] },
+      { id: 's13', texto: 'La cohorte tiene extracciones seriadas lo bastante seguidas para fechar cuándo cambia cada marcador.', estado: 'sin_evidencia', evidencia: 'Ninguna.', alcance: 'no_tocado', dondeSeResponde: 'catalogo_de_cohorte', hijos: [] },
+      { id: 's14', texto: 'La brecha temporal entre GFAP y NfL es identificable aunque no se observen los cruces exactos.', estado: 'sin_evidencia', evidencia: 'Ninguna.', alcance: 'no_tocado', dondeSeResponde: 'analisis_de_datos', hijos: [] },
+      { id: 's15', texto: 'El GFAP en plasma es específico de la microglía asociada a enfermedad.', estado: 'contradicho', evidencia: 'El GFAP es una proteína de los astrocitos: sube también sin cambio microglial.', alcance: 'resuelto', dondeSeResponde: 'literatura', hijos: [] },
     ],
     investigacionId: 'inv-1',
     titulo: 'TREM2 R47H y APOE4 actuan en sinergia sobre la microglía asociada a enfermedad, y GFAP en plasma lo refleja antes que NfL',
@@ -1206,12 +1209,14 @@ const HIPOTESIS_BASE: HipotesisParcial[] = [
 ];
 
 /** El sello de vigencia de los supuestos (rosa/vigencia.py) en la muestra: dos
- *  al día, una evaluada con la regla anterior al 18 de septiembre y otra con una
- *  afirmación llegada después, para que "Qué desbloquea más" enseñe los dos
- *  casos sin servidor. */
+ *  al día con la regla vigente (sus supuestos dicen su alcance, dónde se
+ *  responderían y, uno, el límite de un nulo), una evaluada con la regla
+ *  anterior al 18 de septiembre y otra con una afirmación llegada después, para
+ *  que "Qué desbloquea más" y la ficha de la hipótesis enseñen los casos sin
+ *  servidor. */
 function conSello(h: Hipotesis): Hipotesis {
   if (!h.supuestos.length) return h;
-  const base = { en: h.creadaEn + 20 * MIN, regla: 2, afirmaciones: h.afirmaciones.length, fallidos: 0, pedidaEn: null, noAtendida: null, reconstruido: false };
+  const base = { en: h.creadaEn + 20 * MIN, regla: REGLA_SUPUESTOS, afirmaciones: h.afirmaciones.length, fallidos: 0, pedidaEn: null, noAtendida: null, reconstruido: false };
   if (h.id === 'hip-2') return { ...h, supuestosEvaluados: { ...base, regla: 1, reconstruido: true } };
   if (h.id === 'hip-4') return { ...h, supuestosEvaluados: { ...base, afirmaciones: Math.max(0, h.afirmaciones.length - 1) } };
   return { ...h, supuestosEvaluados: base };

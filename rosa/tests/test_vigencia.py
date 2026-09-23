@@ -130,8 +130,16 @@ def test_la_migracion_sella_y_pide_una_sola_vez_lo_evaluado_con_la_regla_vieja()
     assert por_id["vieja"]["supuestosEvaluados"]["pedidaEn"] and any("regla anterior al 18 de septiembre" in m["texto"] for m in por_id["vieja"]["procedencia"]["mensajes"])
     # La que ya tenía la revisión pedida por evidencia nueva: se ve como pedida y no se marca como automática.
     assert por_id["con_evidencia"]["supuestosEvaluados"]["pedidaEn"] and not por_id["con_evidencia"]["supuestosEvaluados"].get("reevaluacionAutomatica")
-    assert V.vigencia(por_id["con_evidencia"]) == {"alDia": False, "motivo": "evidencia", "nuevas": 1}
-    assert V.vigencia(por_id["nueva"])["alDia"] is True and "supuestosEvaluados" not in por_id["sin_supuestos"]
+    # El sello reconstruido guarda la regla de su fecha y las afirmaciones que
+    # había entonces (4 de hoy menos 1 llegada después).
+    assert por_id["con_evidencia"]["supuestosEvaluados"]["regla"] == 2 and por_id["con_evidencia"]["supuestosEvaluados"]["afirmaciones"] == 3
+    assert por_id["nueva"]["supuestosEvaluados"]["regla"] == 2 and por_id["nueva"]["supuestosEvaluados"]["afirmaciones"] == 4
+    # Desde la regla 3 (23 de septiembre) lo evaluado con la 2 queda por reevaluar,
+    # pero NO se pide solo: "nueva" no está en `pedidas` (arriba). Subir
+    # REEVALUAR_AL_CARGAR_HASTA_REGLA es decidir gastar, y eso lo decide una persona.
+    assert V.vigencia(por_id["nueva"]) == {"alDia": False, "motivo": "regla", "nuevas": 0}
+    assert not por_id["nueva"].get("_revisionPedida") and not por_id["nueva"]["supuestosEvaluados"]["pedidaEn"]
+    assert "supuestosEvaluados" not in por_id["sin_supuestos"]
     assert not por_id["descartada"].get("_revisionPedida") and not por_id["fundida"].get("_revisionPedida")
     assert [ev["texto"] for ev in e["eventos"] if "regla anterior" in ev["texto"]] == ["Supuestos evaluados con la regla anterior al 18 de septiembre: ROSA2018 vuelve a revisar 2 hipótesis con la regla de hoy (supuestos y Killer)."]
     # Idempotente.
@@ -178,6 +186,12 @@ def test_la_revision_escribe_el_sello_con_las_afirmaciones_que_vio_y_los_fallido
     s = _hip(al, h)["supuestosEvaluados"]
     assert s["regla"] == V.REGLA_SUPUESTOS and s["afirmaciones"] == 2 and s["fallidos"] == 1 and s["pedidaEn"] is None and s["reconstruido"] is False
     assert V.vigencia(_hip(al, h))["motivo"] == "fallidos"
+    # Regla 3: cada supuesto dice su alcance. El que el modelo no pudo evaluar
+    # es «no evaluado», no «sin evidencia»: no pude comprobar, nunca no hay.
+    por_texto = {x["texto"]: x for x in _hip(al, h)["supuestos"]}
+    assert por_texto["El generador supone B"]["alcance"] == "no_evaluado" and por_texto["El generador supone B"]["dondeSeResponde"] is None
+    assert por_texto["El generador supone A"]["alcance"] == "no_tocado"  # el modelo no dio índices
+    assert por_texto["El generador supone A"]["dondeSeResponde"] == "literatura"  # el valor por defecto de la firma
     # Todo bien a la segunda: al día.
     monkeypatch.setattr(Ctx, "llamar", _llamar({"evaluar_supuesto": SimpleNamespace(evaluacion=F.SupuestoEvaluado(estado="plausible", evidencia="consistente", indices_que_lo_niegan=[])), "killer": _revision_killer()}))
     asyncio.run(PASOS._revisar_hipotesis(ctx, _hip(al, h), "", None))

@@ -12,6 +12,7 @@ import type { EstadoRosa, Hipotesis, Investigacion } from '../datos/tipos';
 import { estadoDeMuestra } from '../datos/muestra';
 import { acciones } from '../datos/almacen';
 import { Desbloqueo } from './Desbloqueo';
+import { REGLA_SUPUESTOS } from '../lib/desbloqueo';
 
 const INV = { id: 'inv-a', titulo: 'Investigación A' } as unknown as Investigacion;
 
@@ -180,7 +181,7 @@ describe('la pantalla de qué desbloquea más', () => {
 });
 
 describe('lo que no está al día (rosa/vigencia.py)', () => {
-  const sello = (extra: Record<string, unknown> = {}) => ({ en: 1000, regla: 2, afirmaciones: 0, fallidos: 0, pedidaEn: null, noAtendida: null, reconstruido: false, ...extra });
+  const sello = (extra: Record<string, unknown> = {}) => ({ en: 1000, regla: REGLA_SUPUESTOS, afirmaciones: 0, fallidos: 0, pedidaEn: null, noAtendida: null, reconstruido: false, ...extra });
   const con = (h: Hipotesis, s: unknown) => ({ ...h, afirmaciones: [], supuestosEvaluados: s }) as unknown as Hipotesis;
   const estadoCorridas = (hs: Hipotesis[], corridas: unknown[] = []) => ({ ...estadoCon(hs), corridas }) as unknown as EstadoRosa;
 
@@ -191,7 +192,7 @@ describe('lo que no está al día (rosa/vigencia.py)', () => {
     const ojo = nodo.querySelector('.des-ojo')!.textContent!;
     // h1: 2 flojos (regla vieja); h3: 2 flojos (evidencia llegada después). h2 al día.
     expect(ojo).toContain('4 de 7 supuestos flojos están por reevaluar');
-    expect(ojo).toContain('1 evaluadas antes del 18 de septiembre');
+    expect(ojo).toContain('1 evaluada antes del 18 de septiembre');
     expect(ojo).toContain('1 con evidencia llegada después');
     expect(filaHip('Brecha GFAP y NfL').querySelector('.des-viejo')).not.toBeNull();
     expect(filaHip('Normalización de p-tau181').querySelector('.des-viejo')).toBeNull();

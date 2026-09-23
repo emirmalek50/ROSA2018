@@ -2453,6 +2453,23 @@ mark.fuerte {
   border-left-color: var(--red);
 }
 
+/* Lo que el estado del supuesto no dice solo (regla 3): si se miró, dónde se
+   respondería y el límite de un nulo. En cursiva para leerse como nota del
+   estado, no como otra evidencia. El "no tocado" en su color apagado: no
+   informa de nada, y no debe pesar lo mismo que un "tocado sin respuesta". */
+.supuesto-alcance {
+  font-style: italic;
+}
+
+.supuesto-alcance-no_tocado {
+  opacity: 0.75;
+}
+
+.supuesto-alcance-no_evaluado {
+  color: var(--amber);
+  font-style: normal;
+}
+
 .revisiones-auto {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

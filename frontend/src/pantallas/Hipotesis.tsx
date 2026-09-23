@@ -30,7 +30,7 @@ import { Bloqueos, ConsultasABases, ContextoDeBases, ContratoDelExperimento, Dec
 import { FranjaRanking } from '../componentes/FranjaRanking';
 import { Alternativas } from '../componentes/Alternativas';
 import { dependeDeRetractada, resumenEvidencia, tramosFuertes } from '../lib/calidad';
-import { ESTADO_HIPOTESIS, ESTADO_SUPUESTO, TIPO_REVISION, DECISION_KILLER, RESULTADO_LABORATORIO, certezaDe, killerPendienteDe } from '../lib/etiquetas';
+import { ALCANCE_SUPUESTO, DONDE_SE_RESPONDE, ESTADO_HIPOTESIS, ESTADO_SUPUESTO, TIPO_REVISION, DECISION_KILLER, RESULTADO_LABORATORIO, certezaDe, killerPendienteDe } from '../lib/etiquetas';
 import { expediente } from '../lib/exportar';
 import { formatearDuracion } from '../lib/formato';
 import { motivoNoAceptable, ordenarCola, resumirVerificacion, variacionElo } from '../lib/hipotesis';
@@ -163,6 +163,26 @@ function salidaDe(h: Hip): TargetAndTransition {
   return salidaPorDecision.neutra;
 }
 
+/** Lo que el estado de un supuesto no dice solo (regla 3, 23 de septiembre de
+ *  2026): si alguien miró donde estaría la respuesta, dónde se respondería, y
+ *  el límite de un resultado nulo. Un "sin evidencia" que no toca el tema no
+ *  informa de nada; uno que lo toca y no lo resuelve, sí. Los evaluados antes
+ *  de la regla 3 no traen nada de esto y no se les inventa. */
+function AlcanceDelSupuesto({ s }: { s: Supuesto }) {
+  if (!s.alcance) return null;
+  // Resuelto se ve ya en el estado; solo se añade la cota si la hay.
+  const alcance = s.alcance === 'resuelto' ? null : ALCANCE_SUPUESTO[s.alcance];
+  const donde = s.alcance !== 'resuelto' && s.dondeSeResponde ? DONDE_SE_RESPONDE[s.dondeSeResponde] : null;
+  if (!alcance && !s.cota) return null;
+  return (
+    <p className={`meta supuesto-alcance supuesto-alcance-${s.alcance}`}>
+      {alcance}
+      {donde && <> · se respondería {donde}</>}
+      {s.cota && <>{alcance ? ' · ' : ''}Límite: {s.cota}</>}
+    </p>
+  );
+}
+
 function ArbolSupuestos({ supuestos, nivel = 0 }: { supuestos: Supuesto[]; nivel?: number }) {
   return (
     <ul className="supuestos" style={{ paddingLeft: nivel * 18 }}>
@@ -175,6 +195,7 @@ function ArbolSupuestos({ supuestos, nivel = 0 }: { supuestos: Supuesto[]; nivel
               <span style={{ fontSize: 13.5 }}>{s.texto}</span>
             </div>
             {s.evidencia !== '' && <p className="meta">{s.evidencia}</p>}
+            <AlcanceDelSupuesto s={s} />
             {s.hijos.length > 0 && <ArbolSupuestos supuestos={s.hijos} nivel={nivel + 1} />}
           </li>
         );
