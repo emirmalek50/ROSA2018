@@ -428,6 +428,31 @@
   color: var(--text);
 }
 
+/* El contrapeso al panel verde: tres supuestos causales cumplidos no quieren
+   decir que la hipótesis tenga con qué. */
+.mec-ojo {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--amber);
+  background: var(--amber-soft);
+  border-radius: 0 8px 8px 0;
+  padding: 9px 12px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.mec-ojo b {
+  color: var(--text);
+}
+.mec-ojo i {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--text);
+}
+.mec-ojo a {
+  color: var(--accent-strong);
+}
+
 .mec-supuestos-t {
   font-size: 10.5px;
   letter-spacing: 0.08em;

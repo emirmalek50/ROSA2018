@@ -1431,3 +1431,37 @@ Dos causas, y las dos tienen el mismo remedio:
    cadena (apagaba `tau` y `amiloide -> tau -> neurodegeneracion` aparecía
    partida) y hubo que revertirlo. **Comprobar primero, contestar después**, y
    decir que no cuando toca.
+
+### Tres supuestos causales en verde no quieren decir que haya con qué (23 de septiembre de 2026)
+
+Emir preguntó si la hipótesis "La normalización de P-tau181, no su reducción
+porcentual, predice el beneficio clínico" era buena, porque el panel le daba
+3/3. La respuesta corta es que **3/3 no significa buena**: significa que, SI el
+efecto existiera, el diseño podría detectarlo sin que otra cosa lo confunda. Es
+una afirmación sobre si la pregunta se puede contestar, no sobre la respuesta.
+
+Mirando el resto de lo que ROSA2018 sabe de ella:
+
+- 15 afirmaciones, 14 sostenidas y 1 parcial, **ninguna bloqueada**. Limpio.
+- Elo 1590 en 20 partidos, alto.
+- Pero el Killer dice **suspender**, `candidata: false`, y tiene un bloqueo
+  abierto (`revision_registro_abierta`).
+- Y sobre todo: de sus **12 supuestos de ficha, 10 sin evidencia y 1
+  contradicho**. Entre los que faltan está el que la define: que exista un
+  intervalo de referencia de P-tau181 en amiloide-negativos, fijado ANTES de
+  consultar los resultados clínicos. Sin eso, "normalización" no tiene
+  definición y el umbral se puede colocar donde dé la razón.
+
+**El fallo de la pantalla era que nada de eso se veía.** Mecanismos enseñaba
+los tres supuestos causales en verde y la hipótesis parecía impecable. Ahora,
+cuando la ficha tiene supuestos sin evidencia o contradichos, sale un aviso al
+lado del veredicto con la cuenta y un enlace a la hipótesis.
+
+Los dos grupos de supuestos no son lo mismo y conviene no confundirlos nunca:
+
+- **Los tres causales** (temporalidad, ajuste, replicación): ¿el efecto sería
+  *identificable*?
+- **Los de la ficha**: ¿existen los *ingredientes*?
+
+Pueden ir en direcciones opuestas, y en esta hipótesis van: identificable con
+once de doce ingredientes sin sostener.

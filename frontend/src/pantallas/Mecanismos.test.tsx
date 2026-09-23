@@ -316,3 +316,39 @@ describe('la hipótesis está en el mapa', () => {
     expect(nodo.querySelectorAll('path.mec-amenaza-linea')).toHaveLength(2);
   });
 });
+
+describe('el aviso de los supuestos de la ficha', () => {
+  // Tres supuestos causales en verde pueden convivir con casi todos los
+  // ingredientes sin evidencia. Medido el 22 de septiembre de 2026: "La
+  // normalización de P-tau181" es identificable y tiene 10 de 12 sin evidencia.
+  const sup = (estado: string) => ({ id: `s-${estado}`, texto: 'un supuesto', estado, evidencia: '', hijos: [] });
+
+  function conFicha(supuestos: unknown[]) {
+    const h = hip('h1', {
+      nodos: CASCADA,
+      identificacion: 'identificable',
+      cumplidos: ['Temporalidad: sí', 'Ajuste por confusores: sí', 'Replicación independiente: sí'],
+    }) as unknown as Record<string, unknown>;
+    h.supuestos = supuestos;
+    return estadoCon([h as unknown as Hipotesis]);
+  }
+
+  it('avisa cuando la ficha tiene supuestos sin evidencia, aunque el veredicto sea identificable', async () => {
+    await montar(conFicha([sup('respaldado'), sup('sin_evidencia'), sup('sin_evidencia'), sup('contradicho')]));
+    expect(nodo.querySelector('.mec-veredicto .mec-t')?.textContent).toBe('Efecto identificable');
+    const ojo = nodo.querySelector('.mec-ojo')?.textContent ?? '';
+    expect(ojo).toContain('3 de 4 supuestos de su ficha no sostienen nada');
+    expect(ojo).toContain('2 sin evidencia');
+    expect(ojo).toContain('1 contradicho');
+  });
+
+  it('con todos respaldados no molesta', async () => {
+    await montar(conFicha([sup('respaldado'), sup('respaldado')]));
+    expect(nodo.querySelector('.mec-ojo')).toBe(null);
+  });
+
+  it('sin ficha de supuestos tampoco avisa', async () => {
+    await montar(estadoCon([hip('h1', { nodos: CASCADA })]));
+    expect(nodo.querySelector('.mec-ojo')).toBe(null);
+  });
+});

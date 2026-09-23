@@ -420,3 +420,47 @@ export function desvioDeArco(
   // Se rodea por el lado contrario a donde está la caja que estorba.
   return estorbo.y >= medio ? -hueco : hueco;
 }
+
+/** Los supuestos de la FICHA de la hipótesis, contados por estado.
+ *
+ *  No son los mismos que los tres supuestos causales del panel. Los causales
+ *  dicen si el efecto sería identificable; estos dicen si los ingredientes de
+ *  la hipótesis existen. Pueden ir en direcciones opuestas y de hecho van:
+ *  medido el 22 de septiembre de 2026, "La normalización de P-tau181" tiene
+ *  los 3 causales cumplidos (identificable) y 10 de sus 12 supuestos de ficha
+ *  SIN evidencia, incluido el que la define (que exista un intervalo de
+ *  referencia de P-tau181 en amiloide-negativos). Enseñar solo los tres verdes
+ *  la vende mejor de lo que es.
+ *
+ *  Vienen en árbol (`hijos`), así que se recorren enteros. */
+export interface RecuentoSupuestos {
+  total: number;
+  respaldado: number;
+  plausible: number;
+  sin_evidencia: number;
+  contradicho: number;
+  /** Los que no sostienen nada: sin evidencia más contradichos. */
+  flojos: number;
+}
+
+type SupuestoArbol = { estado?: string; hijos?: SupuestoArbol[] };
+
+export function supuestosDeLaFicha(hipotesis: Hipotesis | null | undefined): RecuentoSupuestos {
+  const r: RecuentoSupuestos = { total: 0, respaldado: 0, plausible: 0, sin_evidencia: 0, contradicho: 0, flojos: 0 };
+  const andar = (lista: SupuestoArbol[] | undefined, profundidad: number) => {
+    // Un árbol roto o con un ciclo no puede colgar la pantalla.
+    if (!Array.isArray(lista) || profundidad > 12) return;
+    for (const s of lista) {
+      if (!s || typeof s !== 'object') continue;
+      r.total += 1;
+      if (s.estado === 'respaldado') r.respaldado += 1;
+      else if (s.estado === 'plausible') r.plausible += 1;
+      else if (s.estado === 'sin_evidencia') r.sin_evidencia += 1;
+      else if (s.estado === 'contradicho') r.contradicho += 1;
+      andar(s.hijos, profundidad + 1);
+    }
+  };
+  andar((hipotesis as { supuestos?: SupuestoArbol[] } | null | undefined)?.supuestos, 0);
+  r.flojos = r.sin_evidencia + r.contradicho;
+  return r;
+}

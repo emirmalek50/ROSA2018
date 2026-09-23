@@ -29,6 +29,7 @@ import {
   recuentoAristas,
   recuentoVeredictos,
   supuestosAgregados,
+  supuestosDeLaFicha,
   TITULO_CAPA,
   veredictoPorRegla,
   type Capa,
@@ -113,6 +114,10 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
   const todasLasAmenazas = useMemo(() => amenazasDe(grafo), [grafo]);
   const amenazas = verAmenazas ? todasLasAmenazas : [];
   const actores = useMemo(() => actoresDe(grafo), [grafo]);
+  // Los supuestos de la FICHA, que no son los tres causales del panel y pueden
+  // ir en dirección contraria: una hipótesis identificable puede tener casi
+  // todos sus ingredientes sin evidencia.
+  const ficha = useMemo(() => supuestosDeLaFicha(elegida), [elegida]);
 
   const cumplidos = grafo?.supuestosCumplidos ?? [];
   const faltantes = grafo?.supuestosFaltantes ?? [];
@@ -462,6 +467,21 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
               <dt>Y lo lee en</dt>
               <dd>{actores.desenlace || 'sin declarar'}</dd>
             </dl>
+          )}
+
+          {ficha.flojos > 0 && (
+            <p className="mec-ojo">
+              <b>
+                Ojo: {ficha.flojos} de {ficha.total} supuestos de su ficha no sostienen nada
+              </b>{' '}
+              ({ficha.sin_evidencia} sin evidencia
+              {ficha.contradicho ? `, ${ficha.contradicho} contradicho${ficha.contradicho === 1 ? '' : 's'}` : ''}). Los
+              tres de aquí abajo dicen si el efecto sería <i>identificable</i>; esos dicen si los <i>ingredientes</i>{' '}
+              existen, y son cosas distintas.{' '}
+              {elegida && (
+                <a href={rutaDe(inv.id, 'hipotesis', elegida.id)}>Verlos en la hipótesis</a>
+              )}
+            </p>
           )}
 
           <p className="mec-supuestos-t">QUÉ HACE FALTA PARA CREÉRSELO</p>

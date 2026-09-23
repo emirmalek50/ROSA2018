@@ -13,6 +13,7 @@ import {
   recuentoVeredictos,
   posicionesCascada,
   supuestosAgregados,
+  supuestosDeLaFicha,
   veredictoPorRegla,
 } from './mecanismos';
 
@@ -427,5 +428,39 @@ describe('a qué ataca cada amenaza', () => {
       calculadoEn: 0,
     });
     expect(a[0]!.hacia).toEqual([]);
+  });
+});
+
+describe('los supuestos de la ficha', () => {
+  const sup = (estado: string, hijos: unknown[] = []) => ({ id: 's', texto: 't', estado, evidencia: '', hijos });
+
+  it('cuenta el árbol entero, no solo la primera fila', () => {
+    const h = {
+      supuestos: [
+        sup('respaldado', [sup('sin_evidencia'), sup('contradicho')]),
+        sup('sin_evidencia'),
+      ],
+    } as unknown as Hipotesis;
+    const r = supuestosDeLaFicha(h);
+    expect(r.total).toBe(4);
+    expect(r.respaldado).toBe(1);
+    expect(r.sin_evidencia).toBe(2);
+    expect(r.contradicho).toBe(1);
+    // Los que no sostienen nada: sin evidencia más contradichos.
+    expect(r.flojos).toBe(3);
+  });
+
+  it('sin supuestos, o con el campo roto, devuelve ceros y no revienta', () => {
+    expect(supuestosDeLaFicha(null).total).toBe(0);
+    expect(supuestosDeLaFicha({ supuestos: 'no soy una lista' } as unknown as Hipotesis).total).toBe(0);
+    expect(supuestosDeLaFicha({ supuestos: [null, 3] } as unknown as Hipotesis).total).toBe(0);
+  });
+
+  it('un árbol con un ciclo no cuelga la pantalla', () => {
+    const a: Record<string, unknown> = { id: 'a', texto: 'a', estado: 'plausible', evidencia: '', hijos: [] };
+    a.hijos = [a];
+    const r = supuestosDeLaFicha({ supuestos: [a] } as unknown as Hipotesis);
+    expect(r.total).toBeGreaterThan(0);
+    expect(r.total).toBeLessThan(20);
   });
 });
