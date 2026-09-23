@@ -22,6 +22,16 @@ from typing import Any
 
 TIPOS_ARISTA = ("supuesto", "inferencia_con_evidencia", "base_curada")
 
+# La flecha X -> Y de cada hipótesis sale siempre como supuesto (23 de
+# septiembre de 2026). Antes pasaba a inferencia_con_evidencia si una
+# afirmación sostenida contenía los primeros 12 caracteres de X y de Y: con
+# nombres cortos ("GFAP", "NfL") eso es coincidir en nombres, no sostener que
+# uno lleva al otro; con los nombres largos de las hipótesis reales no casaba
+# nunca, y el texto decía que ninguna afirmación nombraba las dos cosas, cosa
+# falsa en 16 de 21 grafos. Qué afirmaciones sostienen la relación es un
+# juicio y le toca al juez; el tipo inferencia_con_evidencia queda para él.
+CONTEXTO_XY = "Lo que afirma la hipótesis. Queda como supuesto: que una fuente nombre las dos cosas no basta para sostener que una lleva a la otra, y ese juicio todavía no lo hace el juez"
+
 # Relaciones de consenso en la enfermedad de Alzheimer, en lenguaje llano y
 # con el marco del que salen. Son contexto para el grafo, no verdad revelada:
 # entran como aristas base_curada y se ven como tales.
@@ -118,7 +128,7 @@ CAPA_DE: dict[str, str] = {
 
 
 def etiqueta_de(nodo: str) -> str:
-    """Como se escribe un nodo de la base para leerlo."""
+    """Cómo se escribe un nodo de la base para leerlo."""
     return ETIQUETAS.get(nodo, nodo)
 
 
@@ -163,8 +173,7 @@ def grafo_local(h: dict[str, Any], alternativas: list[str], independencia_pasa: 
     if y:
         nodos.append({"id": "Y", "etiqueta": y, "rol": "desenlace"})
     if x and y:
-        con_evidencia = any(x.lower()[:12] in a.get("texto", "").lower() and y.lower()[:12] in a.get("texto", "").lower() for a in afs)
-        aristas.append({"de": "X", "a": "Y", "tipo": "inferencia_con_evidencia" if con_evidencia else "supuesto", "contexto": "Lo que afirma la hipótesis" + (" (con afirmaciones sostenidas que nombran las dos cosas)" if con_evidencia else " (ninguna afirmación sostenida nombra las dos cosas a la vez)")})
+        aristas.append({"de": "X", "a": "Y", "tipo": "supuesto", "contexto": CONTEXTO_XY})
     # Alternativas del Killer como nodos tipados.
     clases: dict[str, list[str]] = {}
     for i, alt in enumerate(alternativas[:4]):
@@ -219,7 +228,7 @@ def grafo_local(h: dict[str, Any], alternativas: list[str], independencia_pasa: 
         elif _GENETICO.search(x) or ((bx | set(nodos_base_en(enunciado))) & {"APOE4"}):
             cumplidos.append("La exposición es genética: Y no puede causar X (la causa inversa queda excluida)")
         else:
-            faltantes.append("Temporalidad: ninguna afirmación sostenida muestra que X se midio antes que Y" + (" (el Killer planteo causa inversa)" if "causa_inversa" in clases else ""))
+            faltantes.append("Temporalidad: ninguna afirmación sostenida muestra que X se midió antes que Y" + (" (el Killer planteó causa inversa)" if "causa_inversa" in clases else ""))
         # Confusores (los del Killer y las causas comunes de la base).
         nombrados = clases.get("confusor", []) + [f"causa común conocida: {c}" for c in causas_comunes]
         if _AJUSTE.search(textos):
@@ -234,7 +243,7 @@ def grafo_local(h: dict[str, Any], alternativas: list[str], independencia_pasa: 
         identificacion = "identificable" if not faltantes else ("acotado" if cumplidos else "sin_resolver")
     resumen = {
         "identificable": "El efecto que afirma la hipótesis se puede estimar con la evidencia que tiene, bajo los supuestos listados.",
-        "acotado": f"El efecto esta acotado: {len(cumplidos)} de {len(cumplidos) + len(faltantes)} supuestos cumplidos; faltan {len(faltantes)}. Lo que falta es lo que un experimento o un dataset tendría que aportar.",
+        "acotado": f"El efecto está acotado: {len(cumplidos)} de {len(cumplidos) + len(faltantes)} supuestos cumplidos; {'falta' if len(faltantes) == 1 else 'faltan'} {len(faltantes)}. Lo que falta es lo que un experimento o un dataset tendría que aportar.",
         "sin_resolver": "No se puede decir nada del efecto causal con lo que hay: faltan los nodos o todos los supuestos.",
     }[identificacion]
     for n in nodos:

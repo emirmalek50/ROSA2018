@@ -52,6 +52,7 @@ import sqlite3
 import sys
 import threading
 import time
+import unicodedata
 from pathlib import Path
 from typing import Any, Callable
 
@@ -727,6 +728,7 @@ def _migrar(estado: dict[str, Any]) -> None:
     _migrar_hechos_repetidos(estado)
     _migrar_siete_modulos(estado)
     _migrar_novedad_no_comprobada(estado)
+    _migrar_contexto_xy(estado)
     _migrar_progreso_por_ventana(estado)
     _migrar_vigilante_modelos(estado)
     _migrar_gasto_grande_automatico(estado)
@@ -785,6 +787,55 @@ def _migrar_novedad_no_comprobada(estado: dict[str, Any]) -> None:
             precedente["estado"] = "no_comprobado"
             precedente["motivo"] = "la búsqueda de precedentes devolvió 0 obras: no se comparó con ninguna publicación"
             precedente["detalle"] = "No comprobado: la búsqueda de precedentes devolvió 0 obras (la consulta estaba mal construida), así que no se comparó con ninguna publicación. Pendiente de volver a buscar. Antes decía: " + detalle[:300]
+
+
+# Lo que decía la flecha X -> Y del grafo causal antes del 23 de septiembre de
+# 2026, sin tildes y en minúsculas (hay grafos guardados con y sin tildes).
+_XY_NINGUNA = "lo que afirma la hipotesis (ninguna afirmacion sostenida nombra las dos cosas a la vez)"
+_XY_NOMBRAN = "lo que afirma la hipotesis (con afirmaciones sostenidas que nombran las dos cosas)"
+
+
+def _llano(texto: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", texto) if not unicodedata.combining(c)).lower()
+
+
+def _migrar_contexto_xy(estado: dict[str, Any]) -> None:
+    """La flecha X -> Y del grafo causal decía "ninguna afirmación sostenida
+    nombra las dos cosas a la vez" cada vez que su regla (los primeros 12
+    caracteres de X y de Y dentro de una afirmación) no casaba, y en 16 de los
+    21 grafos guardados sí había afirmaciones que nombraban las dos. Pasa a
+    `causal.CONTEXTO_XY`. Si alguna flecha había subido a inferencia con
+    evidencia por esa regla (solo por nombrar las dos cosas), vuelve a
+    supuesto, y su relación en el modelo de mundo también. De paso, el resumen
+    del grafo acotado recupera su tilde ("está acotado") y su singular ("falta
+    1"). Idempotente: el texto nuevo no casa con los antiguos. Tolera formas
+    raras: las salta."""
+    from rosa import causal as CAUSAL
+
+    rebajadas: set[str] = set()
+    hipotesis = estado.get("hipotesis")
+    for h in hipotesis if isinstance(hipotesis, list) else []:
+        grafo = h.get("grafoCausal") if isinstance(h, dict) else None
+        aristas = grafo.get("aristas") if isinstance(grafo, dict) else None
+        for a in aristas if isinstance(aristas, list) else []:
+            if not isinstance(a, dict) or a.get("de") != "X" or a.get("a") != "Y" or not isinstance(a.get("contexto"), str):
+                continue
+            antes = _llano(a["contexto"])
+            if antes not in (_XY_NINGUNA, _XY_NOMBRAN):
+                continue
+            if antes == _XY_NOMBRAN and a.get("tipo") == "inferencia_con_evidencia":
+                a["tipo"] = "supuesto"
+                if isinstance(h.get("id"), str):
+                    rebajadas.add(h["id"])
+            a["contexto"] = CAUSAL.CONTEXTO_XY
+        resumen = grafo.get("resumen") if isinstance(grafo, dict) else None
+        if isinstance(resumen, str) and resumen.startswith("El efecto esta acotado"):
+            resumen = "El efecto está acotado" + resumen[len("El efecto esta acotado"):]
+            grafo["resumen"] = resumen.replace("; faltan 1.", "; falta 1.")
+    relaciones = estado.get("relaciones")
+    for r in relaciones if isinstance(relaciones, list) else []:
+        if isinstance(r, dict) and r.get("hipotesisId") in rebajadas and r.get("tipo") == "inferencia_con_evidencia":
+            r["tipo"] = "supuesto"
 
 
 def _migrar_progreso_por_ventana(estado: dict[str, Any]) -> None:

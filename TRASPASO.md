@@ -1497,11 +1497,17 @@ Y además 4 tienen X = "sin diana", que no es una exposición sino el marcador d
 "no hay diana terapéutica".
 
 Conclusión: **nombrar dos cosas no es sostener que una lleva a la otra**, y eso
-lo decide un juicio, no una comparación de cadenas. Por eso no se tocó
-`causal.py`: todo "supuesto" es lo honesto, y el tipo de arista llega al modelo
-de mundo (`registrar_relacion`), donde afirmar de más es peor que afirmar de
-menos. Los veredictos de identificación no dependen del tipo de arista, así que
-nada de esto los mueve.
+lo decide un juicio, no una comparación de cadenas. Así que se quitó la regla:
+la flecha X -> Y sale siempre como `supuesto`, con el texto
+`causal.CONTEXTO_XY`, que dice justo eso, en vez de "ninguna afirmación
+sostenida nombra las dos cosas a la vez" (falso en 16 de 21). Los grafos ya
+guardados se corrigen al cargar (`_migrar_contexto_xy` en
+`rosa/estado/almacen.py`; si alguna flecha hubiera subido a "con evidencia" solo
+por nombrar las dos cosas, vuelve a supuesto con su relación del modelo de
+mundo, pero en la base real no había ninguna). El tipo de arista llega al
+modelo de mundo (`registrar_relacion`), donde afirmar de más es peor que
+afirmar de menos. Los veredictos de identificación no dependen del tipo de
+arista, así que nada de esto los mueve.
 
 El arreglo de verdad, pendiente: que el juez (el Killer, que ya lee cada
 hipótesis con sus afirmaciones) devuelva qué afirmaciones sostienen la relación

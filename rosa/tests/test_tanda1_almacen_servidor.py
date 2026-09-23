@@ -34,6 +34,7 @@ from rosa.estado.almacen import (
     Almacen,
     AlmacenOcupado,
     EscritorObsoleto,
+    _migrar_contexto_xy,
     _migrar_novedad_no_comprobada,
     _migrar_progreso_por_ventana,
     componer_json_con_avisos,
@@ -769,6 +770,48 @@ def test_migracion_de_novedad_pasa_los_0_obras_a_no_comprobado_y_es_idempotente(
     # Formas raras: no rompen la carga.
     for raro in ({"hipotesis": "texto"}, {"hipotesis": [None, 3, {"novedad": None}, {"novedad": {"precedente": "texto"}}, {"novedad": {"precedente": {"detalle": None}}}]}, {}):
         _migrar_novedad_no_comprobada(raro)
+
+
+def test_migracion_cambia_la_frase_falsa_de_la_flecha_xy():
+    """Los grafos guardados antes del 23 de septiembre de 2026 decían que
+    ninguna afirmación sostenida nombraba X e Y a la vez, y en 16 de 21 era
+    falso. La carga lo cambia por el texto verdadero; una flecha que subió a
+    inferencia con evidencia solo por nombrar las dos cosas vuelve a supuesto,
+    con su relación del modelo de mundo."""
+    from rosa import causal as CAUSAL
+
+    def grafo(tipo, contexto):
+        return {"aristas": [{"de": "X", "a": "Y", "tipo": tipo, "contexto": contexto}, {"de": "A1", "a": "Y", "tipo": "supuesto", "contexto": "Artefacto de medida planteado por el Killer"}], "resumen": "El efecto esta acotado: 2 de 3 supuestos cumplidos; faltan 1. Lo que falta es lo que un experimento o un dataset tendría que aportar."}
+
+    e = {
+        "hipotesis": [
+            {"id": "h1", "grafoCausal": grafo("supuesto", "Lo que afirma la hipótesis (ninguna afirmación sostenida nombra las dos cosas a la vez)")},
+            {"id": "h2", "grafoCausal": grafo("supuesto", "Lo que afirma la hipotesis (ninguna afirmacion sostenida nombra las dos cosas a la vez)")},
+            {"id": "h3", "grafoCausal": grafo("inferencia_con_evidencia", "Lo que afirma la hipótesis (con afirmaciones sostenidas que nombran las dos cosas)")},
+            # Una que ya puso el juez con su propio texto: no se toca.
+            {"id": "h4", "grafoCausal": grafo("inferencia_con_evidencia", "Sostenida por el juez con tres afirmaciones")},
+            {"id": "h5", "grafoCausal": None},
+        ],
+        "relaciones": [
+            {"hipotesisId": "h3", "tipo": "inferencia_con_evidencia"},
+            {"hipotesisId": "h4", "tipo": "inferencia_con_evidencia"},
+            {"hipotesisId": None, "tipo": "base_curada"},
+        ],
+    }
+    _migrar_contexto_xy(e)
+    xy = {h["id"]: h["grafoCausal"]["aristas"][0] for h in e["hipotesis"] if h["grafoCausal"]}
+    assert [xy[i]["contexto"] for i in ("h1", "h2", "h3")] == [CAUSAL.CONTEXTO_XY] * 3
+    assert [xy[i]["tipo"] for i in ("h1", "h2", "h3", "h4")] == ["supuesto", "supuesto", "supuesto", "inferencia_con_evidencia"]
+    assert xy["h4"]["contexto"] == "Sostenida por el juez con tres afirmaciones"
+    assert [r["tipo"] for r in e["relaciones"]] == ["supuesto", "inferencia_con_evidencia", "base_curada"]
+    assert all(h["grafoCausal"]["aristas"][1]["contexto"] == "Artefacto de medida planteado por el Killer" for h in e["hipotesis"] if h["grafoCausal"])
+    assert e["hipotesis"][0]["grafoCausal"]["resumen"].startswith("El efecto está acotado: 2 de 3 supuestos cumplidos; falta 1. Lo que")
+    antes = json.dumps(e, sort_keys=True)
+    _migrar_contexto_xy(e)
+    assert json.dumps(e, sort_keys=True) == antes
+    # Formas raras: no rompen la carga.
+    for raro in ({"hipotesis": "texto"}, {"hipotesis": [None, 3, {"grafoCausal": "x"}, {"grafoCausal": {"aristas": [None, {"de": "X", "a": "Y", "contexto": None}]}}], "relaciones": "x"}, {}):
+        _migrar_contexto_xy(raro)
 
 
 def test_migracion_de_progreso_recuenta_con_la_ventana_temporal(monkeypatch):

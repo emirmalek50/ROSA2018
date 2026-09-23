@@ -396,11 +396,19 @@ def test_grafo_causal_identifica_por_regla():
     assert "alternativa_confusor" in roles and "alternativa_artefacto" in roles and "base" in roles
     tipos = {a["tipo"] for a in g["aristas"]}
     assert tipos == {"supuesto", "base_curada"}
-    # Con evidencia longitudinal ajustada y replicada: identificable, y la arista X->Y pasa a inferencia con evidencia.
+    # Con evidencia longitudinal ajustada y replicada: identificable. La arista
+    # X->Y sigue siendo supuesto (23 de septiembre de 2026): que una afirmación
+    # nombre GFAP y NfL no basta para sostener que uno lleva al otro, y eso no
+    # se decide comparando textos.
     h2 = dict(h, afirmaciones=[{"texto": "GFAP rose before NfL in longitudinal follow-up, adjusted for age and eGFR", "fragmento": "", "veredicto": "sostenida"}])
     g2 = causal.grafo_local(h2, [], True, 2)
     assert g2["identificacion"] == "identificable" and g2["supuestosFaltantes"] == []
-    assert next(a for a in g2["aristas"] if a["de"] == "X" and a["a"] == "Y")["tipo"] == "inferencia_con_evidencia"
+    xy = next(a for a in g2["aristas"] if a["de"] == "X" and a["a"] == "Y")
+    assert xy["tipo"] == "supuesto" and xy["contexto"] == causal.CONTEXTO_XY
+    # El caso por el que se quitó la regla: nombrar las dos cosas sin sostener nada.
+    h_mencion = dict(h, afirmaciones=[{"texto": "GFAP and NfL were both measured at baseline", "fragmento": "", "veredicto": "sostenida"}])
+    assert next(a for a in causal.grafo_local(h_mencion, [], True, 2)["aristas"] if a["de"] == "X" and a["a"] == "Y")["tipo"] == "supuesto"
+    assert "ninguna afirmación" not in xy["contexto"]
     # Sin tarjeta ni biomarcador: sin resolver, y lo dice.
     g3 = causal.grafo_local({"id": "h3", "investigacionId": "inv", "titulo": "", "enunciado": "", "afirmaciones": []}, [], None, 3)
     assert g3["identificacion"] == "sin_resolver" and "sin X y Y" in g3["supuestosFaltantes"][0]
@@ -409,7 +417,9 @@ def test_grafo_causal_identifica_por_regla():
     n0 = len(e["relaciones"])
     causal.registrar_relacion(e, h, g, 1)
     causal.registrar_relacion(e, h2, g2, 2)
-    assert len(e["relaciones"]) == n0 + 1 and e["relaciones"][-1]["tipo"] == "inferencia_con_evidencia" and e["relaciones"][-1]["de"] == "GFAP"
+    assert len(e["relaciones"]) == n0 + 1 and e["relaciones"][-1]["tipo"] == "supuesto" and e["relaciones"][-1]["de"] == "GFAP"
+    # Actualizable: la segunda llamada reescribe la misma relación con el grafo nuevo.
+    assert e["relaciones"][-1]["contexto"].endswith("identificable") and e["relaciones"][-1]["actualizadoEn"] == 2
 
 
 def test_estado_arranca_con_la_base_curada(al):

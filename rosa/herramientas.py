@@ -7,7 +7,7 @@ que se vea de donde salio cada dato.
 
 ReAct es el patron "razonar y actuar": el modelo elige una herramienta,
 lee el resultado, y repite hasta responder o agotar las iteraciones. Aqui
-esta acotado a pocas iteraciones y solo a herramientas de lectura.
+está acotado a pocas iteraciones y solo a herramientas de lectura.
 """
 
 from __future__ import annotations
