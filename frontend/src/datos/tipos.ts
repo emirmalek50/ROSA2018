@@ -1888,9 +1888,10 @@ export interface ProcedenciaArtefacto {
   revision: RevisionRegistro | null;
 }
 
-/** El revisor de registro: hallazgos de seis clases al comparar lo que ROSA2018
- *  dijo con lo que el registro prueba. */
-export type ClaseHallazgoRegistro = 'calculo_no_ejecutado' | 'contradiccion_con_registro' | 'cita_sin_soporte' | 'identificador_no_coincide' | 'paso_incompleto' | 'conclusion_no_sigue';
+/** El revisor de registro: hallazgos de siete clases al comparar lo que ROSA2018
+ *  dijo con lo que el registro prueba. La séptima, `cifra_fuera_de_contexto`,
+ *  sale solo de la regla que compara anclas, nunca del juez. */
+export type ClaseHallazgoRegistro = 'calculo_no_ejecutado' | 'contradiccion_con_registro' | 'cita_sin_soporte' | 'identificador_no_coincide' | 'paso_incompleto' | 'conclusion_no_sigue' | 'cifra_fuera_de_contexto';
 
 export interface HallazgoRegistro {
   id?: string;

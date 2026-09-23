@@ -1646,3 +1646,98 @@ estaban al día:
 **La lección**, también en la memoria de Claude: un número que sale de estados
 guardados se compara, antes de darlo por bueno, con las fechas de los cambios
 de regla y con la llegada de evidencia.
+
+## Las cifras ahora dicen de quién son (23 de septiembre de 2026)
+
+Viene de leer veinte conversaciones de Claude Science del científico biomédico
+argentino que trabaja con el programa. La parte útil no fue su ciencia sino la
+auditoría de su propio revisor: 213 hallazgos sobre el agente científico, de
+los que 64 son fallos. La mitad de esos fallos son de cifras, y el más repetido
+(13 de 64) es el mismo: un número correcto colgado del sujeto equivocado. El
+umbral de un marcador escrito sobre otro, el valor de una cohorte atribuido a
+otra. Su verificador no lo veía, y su revisor dijo por qué con una frase que
+describe también lo que ROSA2018 tenía: "only tests whether a numeral STRING
+exists anywhere in the spec, not whether it is attached to the correct field".
+
+`corpus_del_registro` construía `numeros`, un conjunto plano con todas las
+cifras de la investigación entera, y `comprobaciones_deterministas` daba por
+buena cualquier cifra del resumen que apareciera en él. Una cifra existía o no
+existía; de qué era, no se preguntaba.
+
+Ahora cada cifra se guarda con las entidades que la rodean en su propio texto
+(`anclar_numeros`, `anclas_cerca`), y una cifra del resumen que existe en el
+registro pero referida a otra cosa es un hallazgo aparte,
+`cifra_fuera_de_contexto`, de gravedad alta. Las anclas salen del diccionario
+curado de `rosa/ontologias.py` (determinista, sin red), de los identificadores
+de conjunto de datos y de ensayo, y de las siglas del dominio. La clase nueva
+sale SOLO de la regla: `CLASES_JUEZ` mantiene las seis de siempre para que el
+modelo no la use de comodín.
+
+Tres decisiones que conviene conservar, las tres salidas de intentar romperlo:
+
+1. **Manda el dueño, no el contexto** (`_discrepan`). Cuando las dos frases
+   nombran gen, marcador, cohorte o ensayo, se comparan esos y no el resto: un
+   umbral de un marcador puesto sobre otro discrepa aunque las dos digan "en
+   plasma". El tejido, la célula, la enfermedad y el compuesto son contexto, y
+   dos medidas distintas comparten contexto todo el rato. Cuando alguna de las
+   dos no nombra dueño, hace falta que no coincida nada para hablar.
+
+2. **Solo se pregunta por las medidas, no por la contabilidad** (`es_medida`).
+   Un decimal ya es medida; un entero solo si lleva unidad detrás. La primera
+   versión no distinguía y dio 16 avisos falsos en los 41 resúmenes reales del
+   estado, todos de recuentos del tipo "de 35 afirmaciones, 29 sostenidas", que
+   se anclaban al marcador que la frase nombrara de paso. Un recuento no tiene
+   dueño biológico, y además ya tiene su propia comprobación
+   (`recuentos_del_registro`), que lo recalcula del estado.
+
+3. **Callar cuando no se puede saber.** Si la frase no nombra a nadie, o el
+   registro no ancló esa cifra, no se dice nada. Un falso positivo aquí hace
+   que se deje de mirar la lista entera.
+
+Comprobado contra el estado real: 0 avisos falsos en los 41 resúmenes de
+iteración guardados, y un fallo inyectado a mano (un decimal de un marcador
+atribuido a otro, sobre el registro de la corrida 1) se detecta con la frase y
+los dos dueños a la vista.
+
+### Un fallo que estaba desde antes: "0,027" se leía como 27
+
+Lo encontraron los tests nuevos. `_norm` trataba la coma como separador de
+miles siempre que el patrón cuadrara, así que "0,027" pasaba a "0027" y de ahí
+a 27, y una p de "0,001" a 1. Son justo las cifras que ROSA2018 más escribe.
+"1,234" es ambiguo de verdad (mil doscientos treinta y cuatro en inglés, uno
+coma doscientos treinta y cuatro en castellano) y se sigue leyendo como miles,
+que es de donde vienen los fragmentos en inglés; pero "0,027" no lo es, porque
+nadie escribe un grupo de miles con un cero delante. Arreglado solo ese caso.
+
+### Lo que NO se trajo de Claude Science, y por qué
+
+- **La rúbrica de ocho parámetros.** Sus propios datos la entierran como
+  criterio de selección: al repuntuar 28 expedientes a ciegas, la correlación
+  de Spearman entre rondas fue 0,03 en falsabilidad y 0,04 en confiabilidad, y
+  27 de los 28 bajaron de nota; sobre 69 expedientes, la correlación de rangos
+  del compuesto fue 0,17 y solo 26 cayeron en la misma banda de tercios (por
+  azar caerían 23). Su conclusión, textual: "El compuesto no sirve para elegir
+  qué expediente financiar; sirve para el perfil de la cartera". ROSA2018 no
+  tiene número compuesto: `rosa/priorizacion.py` descarta por bloqueos que no
+  se compensan y ordena por Bradley-Terry con diversidad, que es la respuesta
+  correcta al problema que ellos documentaron. No añadir puntuaciones.
+- **Su forma de guardar memoria.** De sus 222 filas, 34 retractan algo escrito
+  antes, y la memoria no se edita en sitio: la versión mala y la corregida
+  conviven, con 10 cadenas de reescritura casi literal. ROSA2018 tiene
+  `sustituyeA`, `sustituidoPor` y `contradiceA` mas la propagacion de
+  `rosa/dependencias.py`, que marca como pendiente lo que colgaba de lo que
+  cambió.
+- **Sus resultados científicos tal cual.** Son juicio de un modelo sobre
+  cohortes públicas, sin aprobar por ninguna persona. Entran como propuestas a
+  la cola si entran, nunca al modelo de mundo.
+
+### Lo que queda pendiente de esta lectura
+
+- **El efecto mínimo detectable en la evaluación de evidencia.** Hoy `potencia`
+  solo existe en el dossier de experimentos de laboratorio. Sin MDE, ROSA2018
+  no puede escribir "refutado en un rango acotado" ni separar "plano con
+  potencia" de "no medible", y su `sin_evidencia` mezcla "miré y no hay" con
+  "las citas de esta corrida no lo tocan". Es lo siguiente por valor.
+- **Que el juez del revisor pueda recalcular con los datos**, no solo leer el
+  registro. El de ellos recomputa en una caja de arena; el nuestro lee. Si se
+  hace, con Opus: Sonnet nunca juzga (TRASPASO 7.4).

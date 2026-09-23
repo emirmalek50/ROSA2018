@@ -724,6 +724,7 @@ export const CLASE_HALLAZGO_REGISTRO: Record<string, string> = {
   identificador_no_coincide: 'Identificador que no coincide',
   paso_incompleto: 'Paso del plan incompleto',
   conclusion_no_sigue: 'La conclusión no se sigue del método',
+  cifra_fuera_de_contexto: 'Cifra dicha de otra cosa',
 };
 
 /** Juicios de riesgo de sesgo por instrumento (RoB 2 y familia). */
