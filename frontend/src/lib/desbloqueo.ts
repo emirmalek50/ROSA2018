@@ -24,7 +24,7 @@
 // Comprobar no es confirmar. Conseguir un ingrediente deja comprobar un
 // supuesto, y el dato puede darle la razón o quitársela.
 
-import type { Hipotesis } from '../datos/tipos';
+import type { Hipotesis, SelloSupuestos } from '../datos/tipos';
 
 /** Por dónde se consigue un ingrediente. Es lo que decide el plazo y quién
  *  tiene que moverse, y por eso agrupa la lista. */
@@ -361,6 +361,76 @@ export function esViva(h: Hipotesis): boolean {
   return h.estado !== 'descartada' && !h.fusionadaEn;
 }
 
+/** La regla de evaluación de supuestos vigente, la misma cifra que
+ *  REGLA_SUPUESTOS en rosa/vigencia.py: 1 hasta el arranque del 18 de
+ *  septiembre de 2026 a las 05:48 (el evaluador veía el principio de las
+ *  afirmaciones de la corrida, no la evidencia propia de la hipótesis, y leía
+ *  la ausencia como negación), 2 desde entonces. */
+export const REGLA_SUPUESTOS = 2;
+
+export type MotivoVigencia = 'sin_sello' | 'regla' | 'fallidos' | 'evidencia';
+
+export interface Vigencia {
+  /** Si el estado de los supuestos es el que saldría hoy. */
+  alDia: boolean;
+  motivo: MotivoVigencia | null;
+  /** Afirmaciones llegadas después de evaluarlos. */
+  nuevas: number;
+  evaluadosEn: number | null;
+  /** Reevaluación pedida y todavía no hecha. */
+  pedidaEn: number | null;
+  /** Por qué no se pudo hacer la última pedida (la corrida sin presupuesto). */
+  noAtendida: string | null;
+}
+
+function tieneSupuestos(h: Hipotesis): boolean {
+  const lista = (h as { supuestos?: unknown }).supuestos;
+  return Array.isArray(lista) && lista.some((s) => s && typeof s === 'object');
+}
+
+function nAfirmaciones(h: Hipotesis): number {
+  const a = (h as { afirmaciones?: unknown }).afirmaciones;
+  return Array.isArray(a) ? a.length : 0;
+}
+
+/** Si el estado de los supuestos de la hipótesis sigue siendo el que saldría
+ *  hoy. Es `vigencia` de rosa/vigencia.py, uno a uno: sin sello, evaluados con
+ *  una regla anterior, con supuestos que el modelo no pudo evaluar, o con
+ *  afirmaciones llegadas después, no están al día. Sin supuestos, sí: no hay
+ *  nada que reevaluar. */
+export function vigencia(h: Hipotesis): Vigencia {
+  const bruto = (h as { supuestosEvaluados?: unknown }).supuestosEvaluados;
+  const s = bruto && typeof bruto === 'object' ? (bruto as Partial<SelloSupuestos>) : null;
+  const extra = {
+    evaluadosEn: typeof s?.en === 'number' ? s.en : null,
+    pedidaEn: typeof s?.pedidaEn === 'number' && s.pedidaEn > 0 ? s.pedidaEn : null,
+    noAtendida: typeof s?.noAtendida === 'string' && s.noAtendida ? s.noAtendida : null,
+  };
+  if (!tieneSupuestos(h)) return { alDia: true, motivo: null, nuevas: 0, ...extra };
+  if (!s || typeof s.en !== 'number') return { alDia: false, motivo: 'sin_sello', nuevas: 0, ...extra };
+  if (typeof s.regla !== 'number' || !Number.isInteger(s.regla) || s.regla < REGLA_SUPUESTOS) return { alDia: false, motivo: 'regla', nuevas: 0, ...extra };
+  if (typeof s.fallidos === 'number' && s.fallidos > 0) return { alDia: false, motivo: 'fallidos', nuevas: 0, ...extra };
+  const nuevas = typeof s.afirmaciones === 'number' ? Math.max(0, nAfirmaciones(h) - s.afirmaciones) : 0;
+  if (nuevas > 0) return { alDia: false, motivo: 'evidencia', nuevas, ...extra };
+  return { alDia: true, motivo: null, nuevas: 0, ...extra };
+}
+
+/** Por qué no está al día, en una frase. */
+export function vigenciaEnLlano(v: Vigencia): string {
+  switch (v.motivo) {
+    case 'regla':
+      return 'Sus supuestos se evaluaron antes del 18 de septiembre, cuando el evaluador no miraba la evidencia propia de la hipótesis sino el principio de las afirmaciones de la corrida.';
+    case 'evidencia':
+      return `Le ${v.nuevas === 1 ? 'llegó 1 afirmación' : `llegaron ${v.nuevas} afirmaciones`} después de evaluar sus supuestos.`;
+    case 'fallidos':
+      return 'El modelo no pudo evaluar alguno de sus supuestos: eso es "no pude comprobar", no "no hay".';
+    case 'sin_sello':
+      return 'No consta cuándo se evaluaron sus supuestos.';
+    default:
+      return 'Sus supuestos están al día.';
+  }
+}
+
 export interface FilaHipotesis {
   hipotesis: Hipotesis;
   /** Sin evidencia: lo que falta comprobar. */
@@ -369,6 +439,8 @@ export interface FilaHipotesis {
   contradichos: SupuestoFlojo[];
   /** Los ingredientes que piden sus pendientes. */
   necesita: IdIngrediente[];
+  /** Si el estado de sus supuestos es el que saldría hoy. */
+  vigencia: Vigencia;
 }
 
 export interface FilaIngrediente {
@@ -386,6 +458,10 @@ export interface Tablero {
   pendientes: number;
   contradichos: number;
   sinClasificar: SupuestoFlojo[];
+  /** Las filas con supuestos flojos que no están al día. */
+  porReevaluar: FilaHipotesis[];
+  /** Supuestos flojos (pendientes y contradichos) de esas filas. */
+  flojosPorReevaluar: number;
 }
 
 export function tablero(hipotesis: Hipotesis[]): Tablero {
@@ -393,8 +469,9 @@ export function tablero(hipotesis: Hipotesis[]): Tablero {
     const flojos = supuestosFlojos(h);
     const pendientes = flojos.filter((s) => s.estado === 'sin_evidencia');
     const necesita = INGREDIENTES.map((i) => i.id).filter((id) => pendientes.some((s) => s.ingrediente === id));
-    return { hipotesis: h, pendientes, contradichos: flojos.filter((s) => s.estado === 'contradicho'), necesita };
+    return { hipotesis: h, pendientes, contradichos: flojos.filter((s) => s.estado === 'contradicho'), necesita, vigencia: vigencia(h) };
   });
+  const porReevaluar = filas.filter((f) => !f.vigencia.alDia && f.pendientes.length + f.contradichos.length > 0);
   const ingredientes = INGREDIENTES.map((i) => ({
     ingrediente: i,
     supuestos: filas.reduce((n, f) => n + f.pendientes.filter((s) => s.ingrediente === i.id).length, 0),
@@ -408,6 +485,8 @@ export function tablero(hipotesis: Hipotesis[]): Tablero {
     pendientes: filas.reduce((n, f) => n + f.pendientes.length, 0),
     contradichos: filas.reduce((n, f) => n + f.contradichos.length, 0),
     sinClasificar: filas.flatMap((f) => f.pendientes.filter((s) => s.ingrediente === null)),
+    porReevaluar,
+    flojosPorReevaluar: porReevaluar.reduce((n, f) => n + f.pendientes.length + f.contradichos.length, 0),
   };
 }
 

@@ -19,9 +19,12 @@
 
 import { useMemo, useState } from 'react';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import { ingrediente as ingredienteDe, plan, tablero, VIAS, type FilaHipotesis, type IdIngrediente, type SupuestoFlojo } from '../lib/desbloqueo';
+import { ingrediente as ingredienteDe, plan, tablero, VIAS, vigenciaEnLlano, type FilaHipotesis, type IdIngrediente, type MotivoVigencia, type SupuestoFlojo } from '../lib/desbloqueo';
 import { ESTADO_HIPOTESIS } from '../lib/etiquetas';
+import { fechaCorta } from '../lib/formato';
+import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
 import { rutaDe } from '../lib/ruta';
+import { acciones } from '../datos/almacen';
 import { AvisoMuestra } from '../componentes/piezas';
 import '../desbloqueo.css';
 
@@ -83,6 +86,7 @@ export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: Estado
   // La lista de supuestos desplegada entera, por la clave de lo elegido: al
   // elegir otra cosa vuelve a salir recogida.
   const [desplegado, desplegar] = useState('');
+  const [pidiendo, envolverPedir] = useEnVuelo();
 
   const todas = estado.hipotesis ?? [];
   const programa = useMemo(() => tablero(todas), [todas]);
@@ -119,6 +123,16 @@ export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: Estado
   const filaFoco = foco?.tipo === 'hipotesis' ? (t.filas.find((f) => f.hipotesis.id === foco.id) ?? null) : null;
 
   const titulos = useMemo(() => new Map((estado.investigaciones ?? []).map((i) => [i.id, i.titulo])), [estado.investigaciones]);
+  // La revisión pedida se hace con el presupuesto de la última corrida de la
+  // investigación: si está pausada por presupuesto, la petición espera.
+  const ultimaCorrida = useMemo(() => {
+    const m = new Map<string, { numero: number; estado: string }>();
+    for (const c of estado.corridas ?? []) {
+      const x = m.get(c.investigacionId);
+      if (!x || c.numero > x.numero) m.set(c.investigacionId, { numero: c.numero, estado: c.estado });
+    }
+    return m;
+  }, [estado.corridas]);
 
   // Dónde cae cada fila, en las coordenadas de los hilos.
   const disp = useMemo(() => {
@@ -359,6 +373,53 @@ export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: Estado
     return encontrada || 'sin nota';
   }
 
+  // Lo que no está al día: el aviso de arriba del tablero, con el botón.
+  function avisoViejos(): JSX.Element {
+    const viejas = t.porReevaluar;
+    const pedidas = viejas.filter((f) => f.vigencia.pedidaEn);
+    const sinPedir = viejas.filter((f) => !f.vigencia.pedidaEn);
+    const noAtendidas = sinPedir.filter((f) => f.vigencia.noAtendida);
+    const pausadas = [...new Set(pedidas.map((f) => ultimaCorrida.get(f.hipotesis.investigacionId)).filter((c) => c?.estado === 'pausada_por_presupuesto').map((c) => c!.numero))];
+    const esperan = pedidas.filter((f) => ultimaCorrida.get(f.hipotesis.investigacionId)?.estado === 'pausada_por_presupuesto').length;
+    const cuenta = (m: MotivoVigencia) => viejas.filter((f) => f.vigencia.motivo === m).length;
+    const partes = [
+      cuenta('regla') ? `${cuenta('regla')} evaluadas antes del 18 de septiembre, cuando el evaluador no miraba su evidencia propia` : '',
+      cuenta('evidencia') ? `${cuenta('evidencia')} con evidencia llegada después` : '',
+      cuenta('fallidos') ? `${cuenta('fallidos')} con supuestos que el modelo no pudo evaluar` : '',
+      cuenta('sin_sello') ? `${cuenta('sin_sello')} sin fecha de evaluación` : '',
+    ].filter(Boolean);
+    return (
+      <div className="des-ojo" role="status">
+        <p>
+          <b>
+            {t.flojosPorReevaluar} de {t.pendientes + t.contradichos} supuestos flojos están por reevaluar
+          </b>
+          , en {plural(viejas.length, 'hipótesis', 'hipótesis')}: {partes.join('; ')}. Hasta que ROSA2018 los reevalúe, este orden es
+          provisional: el tablero los cuenta con el estado que tienen guardado.
+        </p>
+        {(pedidas.length > 0 || noAtendidas.length > 0) && (
+          <p className="meta">
+            {pedidas.length > 0 &&
+              `${plural(pedidas.length, 'tiene', 'tienen')} la reevaluación pedida: ROSA2018 la hace con el presupuesto de la última corrida de su investigación${esperan ? `, y ${esperan} ${esperan === 1 ? 'espera' : 'esperan'} a que la corrida ${pausadas.join(' y la ')} tenga presupuesto (está pausada por presupuesto)` : ''}. `}
+            {noAtendidas.length > 0 && `${plural(noAtendidas.length, 'no se pudo hacer', 'no se pudieron hacer')}: ${noAtendidas[0]!.vigencia.noAtendida}`}
+          </p>
+        )}
+        {sinPedir.length > 0 && (
+          <button
+            type="button"
+            className="btn btn-s"
+            title="Vuelve a revisarlas como cuando llega evidencia nueva: reevalúa sus supuestos contra su evidencia propia y vuelve a pasar el Killer (salvo en las aceptadas), con el presupuesto de la última corrida de cada investigación. Gasta llamadas al modelo; descartar sigue necesitando a una persona."
+            disabled={pidiendo}
+            {...atributosEnVuelo(pidiendo)}
+            onClick={envolverPedir(() => acciones.reevaluarSupuestos(alcance === 'programa' ? null : inv.id))}
+          >
+            Reevaluar {plural(sinPedir.length, 'hipótesis', 'hipótesis')} con la regla de hoy
+          </button>
+        )}
+      </div>
+    );
+  }
+
   let detalle: JSX.Element | null = null;
   if (actual?.tipo === 'ingrediente') {
     const fila = t.ingredientes.find((f) => f.ingrediente.id === actual.id)!;
@@ -402,6 +463,17 @@ export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: Estado
           {plural(grupos.length, 'ingrediente', 'ingredientes')}
           {sinClase.length ? ` (y ${plural(sinClase.length, 'sin clasificar', 'sin clasificar')})` : ''}.
         </p>
+        {!fila.vigencia.alDia && (
+          <p className="des-viejo-nota">
+            <i className="des-viejo" aria-hidden="true" />
+            <b>Por reevaluar.</b> {vigenciaEnLlano(fila.vigencia)}{' '}
+            {fila.vigencia.pedidaEn
+              ? `Reevaluación pedida el ${fechaCorta(fila.vigencia.pedidaEn)}.`
+              : fila.vigencia.noAtendida
+                ? `La última petición no se pudo hacer: ${fila.vigencia.noAtendida}`
+                : ''}
+          </p>
+        )}
         {grupos.map((g) => (
           <div key={g.ingrediente.id}>
             <div className="des-grupo-detalle">
@@ -513,6 +585,8 @@ export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: Estado
         </span>
       </p>
 
+      {t.porReevaluar.length > 0 && avisoViejos()}
+
       <section className="des-tablero" aria-label="Ingredientes e hipótesis">
         <div className="des-ingredientes">
           <div className="des-cab" style={{ height: CAB }}>
@@ -583,11 +657,12 @@ export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: Estado
                     className={`des-hip${esElegida ? ' des-elegido' : ''}${encendidaHip(f) ? '' : ' des-apagada'}`}
                     style={{ height: FILA_H }}
                     aria-pressed={esElegida}
-                    aria-label={`${f.hipotesis.titulo}: ${plural(f.pendientes.length, 'supuesto sin evidencia', 'supuestos sin evidencia')}${f.contradichos.length ? `, ${plural(f.contradichos.length, 'contradicho', 'contradichos')}` : ''}`}
+                    aria-label={`${f.hipotesis.titulo}: ${plural(f.pendientes.length, 'supuesto sin evidencia', 'supuestos sin evidencia')}${f.contradichos.length ? `, ${plural(f.contradichos.length, 'contradicho', 'contradichos')}` : ''}${f.vigencia.alDia ? '' : ', por reevaluar'}`}
                     {...señales(foc)}
                   >
                     <span className="des-hip-estado">{ESTADO_HIPOTESIS[f.hipotesis.estado] ?? f.hipotesis.estado}</span>
                     <span className="des-hip-titulo" title={f.hipotesis.titulo}>
+                      {!f.vigencia.alDia && <i className="des-viejo" title={`Por reevaluar. ${vigenciaEnLlano(f.vigencia)}`} aria-hidden="true" />}
                       {f.hipotesis.titulo}
                     </span>
                     <span className="des-qs">
@@ -673,6 +748,7 @@ export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: Estado
                   ` ${conPendientes.length - libres === 1 ? 'La otra' : `Las otras ${conPendientes.length - libres}`}: ${[conBio ? `${conBio} ${conBio === 1 ? 'pide' : 'piden'} biología sin medir` : '', soloSin ? `${soloSin} ${soloSin === 1 ? 'tiene' : 'tienen'} algún supuesto sin clasificar` : ''].filter(Boolean).join(' y ')}.`}
                 {conContra.length > 0 &&
                   ` Y ${conContra.length} ${conContra.length === 1 ? 'tiene' : 'tienen'} ya algún supuesto contradicho: comprobar el resto no ${conContra.length === 1 ? 'la salva' : 'las salva'}.`}
+                {t.porReevaluar.length > 0 && ` Cuenta ${t.flojosPorReevaluar} supuestos por reevaluar: el orden es provisional.`}
               </p>
             </>
           )}

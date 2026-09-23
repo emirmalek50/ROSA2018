@@ -18,9 +18,11 @@
 //   estabas".
 
 import { partesAutomatizadas } from '../lib/parada';
+import { esViva, vigencia } from '../lib/desbloqueo';
 import type {
   Afirmacion,
   AlcancePermiso,
+  SelloSupuestos,
   Cuestion,
   Amplitud,
   AnclaComentario,
@@ -548,6 +550,32 @@ export function solicitarRevision(estado: EstadoRosa, hipotesisId: string, ahora
     })),
   };
   return conEvento(siguiente, h.investigacionId, 'revision_automatica', `Revisión pedida sobre: ${h.titulo}`, `#/investigaciones/${h.investigacionId}/hipotesis/${h.id}`, ahora);
+}
+
+/** Pedir que ROSA2018 vuelva a revisar las hipótesis vivas cuyos supuestos no
+ *  están al día (la misma regla que rosa/vigencia.py, en lib/desbloqueo.ts).
+ *  Aquí solo queda la petición con su fecha; la revisión la hace el bucle, con
+ *  el presupuesto de la última corrida de cada investigación. */
+export function reevaluarSupuestos(estado: EstadoRosa, investigacionId: string | null, ahora: number): EstadoRosa {
+  const porInvestigacion = new Map<string, number>();
+  const hipotesis = estado.hipotesis.map((h) => {
+    if (!esViva(h) || (investigacionId && h.investigacionId !== investigacionId)) return h;
+    if (vigencia(h).alDia || h.supuestosEvaluados?.pedidaEn) return h;
+    porInvestigacion.set(h.investigacionId, (porInvestigacion.get(h.investigacionId) ?? 0) + 1);
+    const sello: SelloSupuestos = h.supuestosEvaluados
+      ? { ...h.supuestosEvaluados, pedidaEn: ahora, noAtendida: null }
+      : { en: null, regla: 0, afirmaciones: null, fallidos: 0, pedidaEn: ahora, noAtendida: null, reconstruido: false };
+    return {
+      ...h,
+      supuestosEvaluados: sello,
+      procedencia: { ...h.procedencia, mensajes: [...h.procedencia.mensajes, { id: nuevoId('m'), de: 'revisor' as const, texto: 'Reevaluación de supuestos pedida desde Qué desbloquea más: no estaban al día. ROSA2018 los reevalúa con la regla de hoy y vuelve a pasar el Killer.', creadoEn: ahora }] },
+    };
+  });
+  let siguiente: EstadoRosa = { ...estado, hipotesis };
+  for (const [inv, n] of porInvestigacion) {
+    siguiente = conEvento(siguiente, inv, 'revision_automatica', `Reevaluación de supuestos pedida para ${n} hipótesis cuyos supuestos no estaban al día.`, null, ahora);
+  }
+  return siguiente;
 }
 
 /** Replicar la hipotesis con N trayectorias independientes. Gasta presupuesto;

@@ -1205,7 +1205,19 @@ const HIPOTESIS_BASE: HipotesisParcial[] = [
   },
 ];
 
-export const HIPOTESIS: Hipotesis[] = HIPOTESIS_BASE.map(completarHipotesis);
+/** El sello de vigencia de los supuestos (rosa/vigencia.py) en la muestra: dos
+ *  al día, una evaluada con la regla anterior al 18 de septiembre y otra con una
+ *  afirmación llegada después, para que "Qué desbloquea más" enseñe los dos
+ *  casos sin servidor. */
+function conSello(h: Hipotesis): Hipotesis {
+  if (!h.supuestos.length) return h;
+  const base = { en: h.creadaEn + 20 * MIN, regla: 2, afirmaciones: h.afirmaciones.length, fallidos: 0, pedidaEn: null, noAtendida: null, reconstruido: false };
+  if (h.id === 'hip-2') return { ...h, supuestosEvaluados: { ...base, regla: 1, reconstruido: true } };
+  if (h.id === 'hip-4') return { ...h, supuestosEvaluados: { ...base, afirmaciones: Math.max(0, h.afirmaciones.length - 1) } };
+  return { ...h, supuestosEvaluados: base };
+}
+
+export const HIPOTESIS: Hipotesis[] = HIPOTESIS_BASE.map(completarHipotesis).map(conSello);
 
 /* ---------------------------------------------------------------------
    Modelo de mundo

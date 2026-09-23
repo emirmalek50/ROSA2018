@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { Hipotesis } from '../datos/tipos';
+import type { EstadoRosa, Hipotesis } from '../datos/tipos';
 import { estadoDeMuestra } from '../datos/muestra';
 import casos from './desbloqueo.casos.json';
-import { clasificar, esViva, INGREDIENTES, plan, plano, supuestosFlojos, tablero, VIAS, type IdIngrediente } from './desbloqueo';
+import { clasificar, esViva, INGREDIENTES, plan, plano, REGLA_SUPUESTOS, supuestosFlojos, tablero, VIAS, vigencia, vigenciaEnLlano, type IdIngrediente } from './desbloqueo';
+import { reevaluarSupuestos } from '../datos/acciones';
 
 type Nodo = { id?: string; texto?: string; estado?: string; evidencia?: string; hijos?: Nodo[] };
 
@@ -226,5 +227,55 @@ describe('sobre los datos de muestra', () => {
     const pasos = plan(t);
     expect(pasos.length).toBeGreaterThan(0);
     expect(pasos[pasos.length - 1]!.libresAcumuladas).toContain('hip-4');
+  });
+});
+
+describe('vigencia de los supuestos (la regla de rosa/vigencia.py, uno a uno)', () => {
+  const sello = (extra: Record<string, unknown> = {}) => ({ en: 1000, regla: REGLA_SUPUESTOS, afirmaciones: 2, fallidos: 0, pedidaEn: null, noAtendida: null, reconstruido: false, ...extra });
+  const conSello = (s: unknown, afirmaciones = 2, supuestos: Nodo[] = [sin('Existe un intervalo de referencia independiente.')]) =>
+    ({ ...hip('h', supuestos), afirmaciones: Array.from({ length: afirmaciones }, (_, i) => ({ texto: `a${i}` })), supuestosEvaluados: s }) as unknown as Hipotesis;
+
+  it('dice por qué no está al día, y sin supuestos no hay nada que reevaluar', () => {
+    expect(vigencia(conSello(null)).motivo).toBe('sin_sello');
+    expect(vigencia(conSello(sello())).alDia).toBe(true);
+    expect(vigencia(conSello(sello({ regla: 1 }))).motivo).toBe('regla');
+    expect(vigencia(conSello(sello({ fallidos: 2 }))).motivo).toBe('fallidos');
+    const nueva = vigencia(conSello(sello(), 4));
+    expect([nueva.motivo, nueva.nuevas]).toEqual(['evidencia', 2]);
+    expect(vigencia(conSello(null, 2, [])).alDia).toBe(true);
+    expect(vigencia(conSello({ en: null, regla: 0, pedidaEn: 5 })).motivo).toBe('sin_sello');
+    // Formas raras: no rompen.
+    for (const raro of ['x', { en: 1, regla: '2' }, { en: 1, regla: 2.5 }]) vigencia(conSello(raro));
+  });
+
+  it('lleva la petición y el motivo de la última que no se pudo hacer', () => {
+    const v = vigencia(conSello(sello({ regla: 1, pedidaEn: 77, noAtendida: null })));
+    expect([v.pedidaEn, v.noAtendida]).toEqual([77, null]);
+    expect(vigencia(conSello(sello({ regla: 1, noAtendida: 'La corrida 3 no tiene presupuesto.' }))).noAtendida).toContain('presupuesto');
+    expect(vigenciaEnLlano(vigencia(conSello(sello({ regla: 1 }))))).toContain('18 de septiembre');
+    expect(vigenciaEnLlano(vigencia(conSello(sello(), 3)))).toBe('Le llegó 1 afirmación después de evaluar sus supuestos.');
+  });
+
+  it('el tablero cuenta lo que está por reevaluar', () => {
+    const t = tablero([
+      conSello(sello()),
+      { ...conSello(sello({ regla: 1 })), id: 'vieja' } as Hipotesis,
+      { ...conSello(sello({ regla: 1 }), 2, []), id: 'sin_supuestos' } as Hipotesis,
+    ]);
+    expect(t.porReevaluar.map((f) => f.hipotesis.id)).toEqual(['vieja']);
+    expect(t.flojosPorReevaluar).toBe(1);
+  });
+
+  it('el reductor pide solo lo que no está al día, en su alcance, y no repite lo ya pedido', () => {
+    const base = { hipotesis: [] as Hipotesis[], eventos: [] } as unknown as EstadoRosa;
+    const vieja = { ...conSello(sello({ regla: 1 })), id: 'vieja', investigacionId: 'inv', procedencia: { mensajes: [] } } as unknown as Hipotesis;
+    const otra = { ...vieja, id: 'otra', investigacionId: 'inv-2' } as Hipotesis;
+    const al = { ...conSello(sello()), id: 'al', investigacionId: 'inv', procedencia: { mensajes: [] } } as unknown as Hipotesis;
+    const e1 = reevaluarSupuestos({ ...base, hipotesis: [vieja, otra, al] }, 'inv', 500);
+    const pedida = (e: EstadoRosa, id: string) => e.hipotesis.find((h) => h.id === id)!.supuestosEvaluados?.pedidaEn ?? null;
+    expect([pedida(e1, 'vieja'), pedida(e1, 'otra'), pedida(e1, 'al')]).toEqual([500, null, null]);
+    expect(e1.eventos.map((ev) => ev.texto)).toEqual(['Reevaluación de supuestos pedida para 1 hipótesis cuyos supuestos no estaban al día.']);
+    const e2 = reevaluarSupuestos(e1, null, 900);
+    expect([pedida(e2, 'vieja'), pedida(e2, 'otra')]).toEqual([500, 900]);
   });
 });

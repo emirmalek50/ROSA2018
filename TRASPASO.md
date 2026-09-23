@@ -1588,3 +1588,61 @@ dato puede quitarle la razón al supuesto, y la pantalla lo dice.
 leyendo estos 164, así que con supuestos nuevos acertarán menos y crecerá
 "sin clasificar". Si crece de verdad, clasificar con modelo y medirlo contra el
 mismo conjunto hecho a mano; hasta entonces, reglas a la vista.
+
+### Los supuestos estaban viejos: auditoría, sello de vigencia y reevaluación (23 de septiembre de 2026)
+
+Otra instancia de Claude le preguntó a Emir si el estado de los supuestos que
+alimenta "Qué desbloquea más" estaba al día. No lo había comprobado. La
+clasificación en ingredientes se recalcula en el navegador cada vez, pero el
+estado de cada supuesto (respaldado, plausible, sin evidencia, contradicho) lo
+pone el evaluador al revisar la hipótesis y no se recalcula solo.
+
+**Auditoría sin modelo, sobre la base real:** ningún fallo del modelo guardado
+como "sin evidencia", ninguno sin evaluar y ningún recorte de la evidencia
+propia con el código de hoy. Pero solo **27 de los 164 supuestos flojos**
+estaban al día:
+
+- **107, de 20 hipótesis, se evaluaron antes del arranque del 18 de septiembre
+  a las 05:48** (el que cargó el commit 80bc256). Hasta entonces el evaluador
+  recibía los primeros 8000 caracteres de las afirmaciones de toda la corrida,
+  no la evidencia propia de la hipótesis, y un "contradicho" valía sin señalar
+  la afirmación que lo negaba. En 8 de esas hipótesis vio 6 de sus 60
+  afirmaciones.
+- **30, de 4 hipótesis, tenían evidencia llegada después.** La revisión estaba
+  pedida pero atascada: la corrida 16 está pausada por presupuesto.
+- **El Killer había propuesto descartar 4 hipótesis por supuestos con la regla
+  vieja** (122, 52, 898, 5575). La 898, por "INVOKE-2 publica p-tau181",
+  contradicho solo porque ninguna afirmación nombra ese ensayo; la 122, por
+  supuestos sin respaldo, que hoy ya no tumban nada; y en las cuatro, hoy un
+  contradicho suspende, no descarta.
+
+**El arreglo (rosa/vigencia.py):**
+
+- Cada evaluación deja un sello público, `supuestosEvaluados`: cuándo, con qué
+  regla (`REGLA_SUPUESTOS = 2`), cuántas afirmaciones veía la hipótesis y
+  cuántos supuestos no pudo evaluar el modelo. Si hoy tiene más afirmaciones,
+  llegó evidencia después.
+- La migración `_migrar_supuestos_evaluados` reconstruye el sello de lo
+  evaluado antes (fecha de la revisión profunda, no la de
+  `ultimaRevisionAutomatica`, que `solicitar_revision` pone al pedir; y las
+  afirmaciones de entonces por los eventos "Evidencia nueva para") y **pide una
+  sola vez la revisión de las hipótesis vivas evaluadas con la regla 1**, con
+  el visto bueno de Emir. El bucle la hace como cuando llega evidencia nueva:
+  reevalúa los supuestos contra la evidencia propia y vuelve a pasar el Killer
+  (no en las aceptadas). Descartar sigue necesitando a una persona (autonomía
+  "preguntar"). `REEVALUAR_AL_CARGAR_HASTA_REGLA` impide que una regla futura
+  gaste sola: subirla es decidir gastar.
+- La revisión se cobra a la última corrida de cada investigación. Si no tiene
+  presupuesto, se abandona y el sello lo dice (`noAtendida`). Las 6 hipótesis
+  de "Qué distingue a un biomarcador..." esperan a que la corrida 16 tenga
+  presupuesto; en "GFAP y NfL en portadores de APOE4" quedaban 68 llamadas para
+  6 hipótesis, así que alguna puede quedarse sin hacer.
+- La pantalla lo enseña: un aviso con cuántos supuestos están por reevaluar y
+  por qué, un botón para pedirlo (acción `reevaluarSupuestos`), una marca en
+  cada hipótesis que no está al día y la advertencia en el plan de que el orden
+  es provisional. La regla está en los dos lados, uno a uno
+  (`vigencia` en rosa/vigencia.py y en frontend/src/lib/desbloqueo.ts).
+
+**La lección**, también en la memoria de Claude: un número que sale de estados
+guardados se compara, antes de darlo por bueno, con las fechas de los cambios
+de regla y con la llegada de evidencia.

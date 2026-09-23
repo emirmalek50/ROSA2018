@@ -47,6 +47,7 @@ from rosa import metodos as METODOS
 from rosa import verificador as V
 from rosa import torneo
 from rosa import vigilante_modelos as VIG
+from rosa import vigencia as VIGENCIA
 from rosa.bucle import contexto as T
 from rosa.bucle.pista import Pista
 from rosa.estado import acciones as A
@@ -3453,6 +3454,9 @@ async def _revisar_hipotesis(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: st
     inv = ctx.inv()
     ahora = P.ahora_ms()
     version = h.get("version", 1)
+    # Cuántas afirmaciones ve esta evaluación: si luego llegan más, el sello lo
+    # delata (rosa/vigencia.py). Se cuenta aquí, antes de las llamadas.
+    afirmaciones_vistas = VIGENCIA.n_afirmaciones(h)
     rev = None
     inicial_fallo: str | None = None
     ya_revisada = h.get("_revisionInicialVersion") == version and h.get("ultimaRevisionAutomatica") is not None
@@ -3499,6 +3503,7 @@ async def _revisar_hipotesis(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: st
         if not x:
             return False
         x["supuestos"] = finales
+        x["supuestosEvaluados"] = VIGENCIA.sello(afirmaciones_vistas, ahora, sum(1 for s in finales if str(s.get("evidencia") or "").startswith(VIGENCIA.NO_SE_PUDO)))
         for r in x["revisionesAutomaticas"]:
             if r["tipo"] == "inicial" and rev is not None:
                 r.update(estado="hecha" if r["estado"] == "pendiente" else "rehecha", resumen=("Pasa: " if rev.pasa else "NO pasa: ") + rev.resumen, fecha=ahora)

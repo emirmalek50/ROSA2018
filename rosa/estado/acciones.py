@@ -1170,6 +1170,29 @@ def solicitar_revision(e: Estado, hipotesis_id: str, ahora: int) -> bool:
     return True
 
 
+def reevaluar_supuestos(e: Estado, investigacion_id: str | None, ahora: int) -> bool:
+    """Pide que ROSA2018 vuelva a revisar las hipótesis vivas cuyos supuestos
+    no están al día (rosa/vigencia.py): evaluados con una regla anterior, con
+    evidencia llegada después, con supuestos que el modelo no pudo evaluar o
+    sin evaluar nunca. Con `investigacion_id`, solo las de esa investigación;
+    sin él, las de todo el programa. El bucle atiende la petición como
+    cualquier revisión pedida (supuestos y Killer), con el presupuesto de la
+    última corrida de cada investigación; si no lo hay, el sello dice por qué."""
+    from rosa import vigencia as VIGENCIA
+
+    por_inv: dict[str, int] = {}
+    for h in e.get("hipotesis", []):
+        if not VIGENCIA.es_viva(h) or (investigacion_id and h.get("investigacionId") != investigacion_id):
+            continue
+        if VIGENCIA.vigencia(h)["alDia"] or not VIGENCIA.pedir(h, ahora):
+            continue
+        h["procedencia"]["mensajes"].append({"id": P.nuevo_id("m"), "de": "revisor", "texto": "Reevaluación de supuestos pedida desde Qué desbloquea más: no estaban al día. ROSA2018 los reevalúa con la regla de hoy y vuelve a pasar el Killer.", "creadoEn": ahora})
+        por_inv[h["investigacionId"]] = por_inv.get(h["investigacionId"], 0) + 1
+    for inv, n in por_inv.items():
+        con_evento(e, inv, "revision_automatica", f"Reevaluación de supuestos pedida para {n} hipótesis cuyos supuestos no estaban al día.", None, ahora)
+    return bool(por_inv)
+
+
 def replicar_hipotesis(e: Estado, hipotesis_id: str, total: int, ahora: int) -> bool:
     h = _buscar(e["hipotesis"], hipotesis_id)
     if not h or (h["replicacion"] and h["replicacion"]["estado"] == "en_curso") or total < 2:

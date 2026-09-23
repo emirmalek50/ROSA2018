@@ -7,9 +7,10 @@
 // plan no meta la biología sin medir como si fuera un pedido.
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EstadoRosa, Hipotesis, Investigacion } from '../datos/tipos';
 import { estadoDeMuestra } from '../datos/muestra';
+import { acciones } from '../datos/almacen';
 import { Desbloqueo } from './Desbloqueo';
 
 const INV = { id: 'inv-a', titulo: 'Investigación A' } as unknown as Investigacion;
@@ -175,5 +176,62 @@ describe('la pantalla de qué desbloquea más', () => {
     await montar(estadoDeMuestra());
     expect(nodo.querySelector('.des-tablero')).not.toBeNull();
     expect(nodo.querySelectorAll('.des-hip').length).toBeGreaterThan(0);
+  });
+});
+
+describe('lo que no está al día (rosa/vigencia.py)', () => {
+  const sello = (extra: Record<string, unknown> = {}) => ({ en: 1000, regla: 2, afirmaciones: 0, fallidos: 0, pedidaEn: null, noAtendida: null, reconstruido: false, ...extra });
+  const con = (h: Hipotesis, s: unknown) => ({ ...h, afirmaciones: [], supuestosEvaluados: s }) as unknown as Hipotesis;
+  const estadoCorridas = (hs: Hipotesis[], corridas: unknown[] = []) => ({ ...estadoCon(hs), corridas }) as unknown as EstadoRosa;
+
+  it('avisa de cuántos supuestos están por reevaluar y por qué, marca las filas y pide con el alcance de la pantalla', async () => {
+    const pedir = vi.spyOn(acciones, 'reevaluarSupuestos').mockResolvedValue(undefined);
+    const [h1, h2, h3] = HIPOTESIS;
+    await montar(estadoCorridas([con(h1!, sello({ regla: 1 })), con(h2!, sello()), con(h3!, sello({ afirmaciones: -1 }))]));
+    const ojo = nodo.querySelector('.des-ojo')!.textContent!;
+    // h1: 2 flojos (regla vieja); h3: 2 flojos (evidencia llegada después). h2 al día.
+    expect(ojo).toContain('4 de 7 supuestos flojos están por reevaluar');
+    expect(ojo).toContain('1 evaluadas antes del 18 de septiembre');
+    expect(ojo).toContain('1 con evidencia llegada después');
+    expect(filaHip('Brecha GFAP y NfL').querySelector('.des-viejo')).not.toBeNull();
+    expect(filaHip('Normalización de p-tau181').querySelector('.des-viejo')).toBeNull();
+    expect(filaHip('Brecha GFAP y NfL').getAttribute('aria-label')).toContain('por reevaluar');
+    expect(nodo.querySelector('.des-pie')!.textContent).toContain('Cuenta 4 supuestos por reevaluar');
+    await pulsar(boton(/^Reevaluar 2 hipótesis con la regla de hoy/));
+    expect(pedir).toHaveBeenLastCalledWith(null);
+    await pulsar(boton(/^Esta investigación/));
+    await pulsar(boton(/^Reevaluar 1 hipótesis con la regla de hoy/));
+    expect(pedir).toHaveBeenLastCalledWith('inv-a');
+    pedir.mockRestore();
+  });
+
+  it('lo ya pedido no ofrece el botón y dice si espera presupuesto; lo no atendido dice por qué', async () => {
+    const [h1, , h3] = HIPOTESIS;
+    await montar(
+      estadoCorridas(
+        [con(h1!, sello({ regla: 1, pedidaEn: 5000 })), con(h3!, sello({ regla: 1, noAtendida: 'La corrida 3 no tiene presupuesto: amplíalo o abre otra corrida y vuelve a pedirla.' }))],
+        [
+          { id: 'c16', investigacionId: 'inv-a', numero: 16, estado: 'pausada_por_presupuesto' },
+          { id: 'c15', investigacionId: 'inv-a', numero: 15, estado: 'terminada' },
+          { id: 'c3', investigacionId: 'inv-b', numero: 3, estado: 'detenida' },
+        ],
+      ),
+    );
+    const ojo = nodo.querySelector('.des-ojo')!.textContent!;
+    expect(ojo).toContain('1 tiene la reevaluación pedida');
+    expect(ojo).toContain('a que la corrida 16 tenga presupuesto');
+    expect(ojo).toContain('1 no se pudo hacer: La corrida 3 no tiene presupuesto');
+    // Solo la no atendida se puede volver a pedir.
+    expect(boton(/^Reevaluar 1 hipótesis con la regla de hoy/)).toBeTruthy();
+    await pulsar(filaHip('Brecha GFAP y NfL'));
+    const nota = nodo.querySelector('.des-viejo-nota')!.textContent!;
+    expect(nota).toContain('Por reevaluar.');
+    expect(nota).toContain('Reevaluación pedida el');
+  });
+
+  it('con todo al día no hay aviso', async () => {
+    await montar(estadoCorridas(HIPOTESIS.map((h) => con(h, sello()))));
+    expect(nodo.querySelector('.des-ojo')).toBeNull();
+    expect(nodo.querySelector('.des-viejo')).toBeNull();
   });
 });

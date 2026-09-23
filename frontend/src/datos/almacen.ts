@@ -642,6 +642,12 @@ export const acciones = {
     aplicar((e) => A.solicitarRevision(e, id, Date.now()));
     return enviar('solicitarRevision', { hipotesis_id: id });
   },
+  /** Qué desbloquea más: pedir que se revisen otra vez las hipótesis cuyos
+   *  supuestos no están al día; sin investigación, las de todo el programa. */
+  reevaluarSupuestos: (investigacionId: string | null) => {
+    aplicar((e) => A.reevaluarSupuestos(e, investigacionId, Date.now()));
+    return enviar('reevaluarSupuestos', { investigacion_id: investigacionId });
+  },
   replicarHipotesis: (id: string, total: number) => {
     aplicar((e) => A.replicarHipotesis(e, id, total, Date.now()));
     return enviar('replicarHipotesis', { hipotesis_id: id, total });

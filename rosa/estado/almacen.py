@@ -729,6 +729,7 @@ def _migrar(estado: dict[str, Any]) -> None:
     _migrar_siete_modulos(estado)
     _migrar_novedad_no_comprobada(estado)
     _migrar_contexto_xy(estado)
+    _migrar_supuestos_evaluados(estado)
     _migrar_progreso_por_ventana(estado)
     _migrar_vigilante_modelos(estado)
     _migrar_gasto_grande_automatico(estado)
@@ -836,6 +837,51 @@ def _migrar_contexto_xy(estado: dict[str, Any]) -> None:
     for r in relaciones if isinstance(relaciones, list) else []:
         if isinstance(r, dict) and r.get("hipotesisId") in rebajadas and r.get("tipo") == "inferencia_con_evidencia":
             r["tipo"] = "supuesto"
+
+
+def _migrar_supuestos_evaluados(estado: dict[str, Any]) -> None:
+    """El sello de vigencia de los supuestos (rosa/vigencia.py, 23 de
+    septiembre de 2026). Tres cosas, idempotentes:
+
+    1. A la hipótesis evaluada antes de que existiera el sello se le
+       reconstruye con lo que el estado guarda (fecha de la revisión profunda,
+       regla por esa fecha, afirmaciones de entonces por los eventos).
+    2. La fecha pública de petición sigue a la marca interna `_revisionPedida`.
+    3. Las hipótesis vivas evaluadas con una regla hasta
+       `REEVALUAR_AL_CARGAR_HASTA_REGLA` quedan con la revisión pedida, una sola
+       vez por hipótesis (`reevaluacionAutomatica`): si luego se abandona por
+       falta de presupuesto, se vuelve a pedir desde la pantalla, no en cada
+       arranque. El bucle la atiende como cualquier revisión pedida: reevalúa
+       los supuestos con la evidencia propia y vuelve a pasar el Killer (salvo
+       en las aceptadas, que ya decidió una persona).
+
+    Tolera hipótesis y sellos con forma rara: los salta."""
+    from rosa import vigencia as VIGENCIA
+
+    ahora = P.ahora_ms()
+    hipotesis = estado.get("hipotesis")
+    pedidas: dict[str, int] = {}
+    for h in hipotesis if isinstance(hipotesis, list) else []:
+        if not isinstance(h, dict):
+            continue
+        if not isinstance(h.get("supuestosEvaluados"), dict):
+            s = VIGENCIA.reconstruir_sello(h, estado.get("eventos"))
+            if s is not None:
+                h["supuestosEvaluados"] = s
+        VIGENCIA.reconciliar(h, ahora)
+        s = h.get("supuestosEvaluados")
+        if not (VIGENCIA.es_viva(h) and isinstance(s, dict) and isinstance(s.get("regla"), int) and 1 <= s["regla"] <= VIGENCIA.REEVALUAR_AL_CARGAR_HASTA_REGLA and not s.get("reevaluacionAutomatica")):
+            continue
+        VIGENCIA.pedir(h, ahora)
+        s["reevaluacionAutomatica"] = True
+        mensajes = (h.get("procedencia") or {}).get("mensajes")
+        if isinstance(mensajes, list):
+            mensajes.append({"id": P.nuevo_id("m"), "de": "revisor", "texto": "Revisión pedida al cargar: sus supuestos se evaluaron con la regla anterior al 18 de septiembre de 2026, cuando el evaluador no miraba la evidencia propia de la hipótesis sino el principio de las afirmaciones de la corrida. ROSA2018 los reevalúa con la regla de hoy y vuelve a pasar el Killer.", "creadoEn": ahora})
+        inv = h.get("investigacionId")
+        if isinstance(inv, str):
+            pedidas[inv] = pedidas.get(inv, 0) + 1
+    for inv, n in pedidas.items():
+        A.con_evento(estado, inv, "revision_automatica", f"Supuestos evaluados con la regla anterior al 18 de septiembre: ROSA2018 vuelve a revisar {n} hipótesis con la regla de hoy (supuestos y Killer).", None, ahora)
 
 
 def _migrar_progreso_por_ventana(estado: dict[str, Any]) -> None:
@@ -1128,6 +1174,7 @@ _TABLA: dict[str, Callable] = {
     "revisarHipotesis": A.revisar_hipotesis,
     "votarRelevancia": A.votar_relevancia,
     "solicitarRevision": A.solicitar_revision,
+    "reevaluarSupuestos": A.reevaluar_supuestos,
     "replicarHipotesis": A.replicar_hipotesis,
     "proponerHipotesis": A.proponer_hipotesis,
     "asignarExperimento": A.asignar_experimento,

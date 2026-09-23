@@ -73,6 +73,7 @@ from rosa.modulos.firmas import Programas
 # como atributo del módulo, y los textos de respaldo de abajo lo toleran a None,
 # para que un test pueda comprobar esos respaldos por sí solos.
 from rosa import vigilante_modelos as VIG
+from rosa import vigencia as VIGENCIA
 from rosa.vigilante_modelos import INTERVALO_SONDEO_S, ModeloSinRespuesta
 
 # Cada cuánto da una vuelta el supervisor (tic). Los tests lo acortan.
@@ -2763,6 +2764,7 @@ def _abandonar_peticion_sin_presupuesto(e: dict[str, Any], hipotesis_id: str, co
     h.pop("_killerIntentos", None)
     h.pop("killerPendiente", None)
     nota = f"revisión pedida no atendida: la corrida {corrida.get('numero')} ({str(corrida.get('estado', '')).replace('_', ' ')}) no tiene presupuesto; amplíalo o abre otra corrida y vuelve a pedirla"
+    VIGENCIA.no_atendida(h, f"La corrida {corrida.get('numero')} no tiene presupuesto: amplíalo o abre otra corrida y vuelve a pedirla.")
     registro = (h.get("procedencia") or {}).get("registro")
     if isinstance(registro, list):
         registro.append(nota)

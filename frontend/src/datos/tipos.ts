@@ -1060,6 +1060,22 @@ export interface Supuesto {
   hijos: Supuesto[];
 }
 
+/** Sello de vigencia de los supuestos de una hipótesis (rosa/vigencia.py): cuándo
+ *  se evaluaron, con qué regla y cuántas afirmaciones veía entonces la
+ *  hipótesis; si hay una reevaluación pedida y, si no se pudo hacer, por qué. */
+export interface SelloSupuestos {
+  en: number | null;
+  regla: number;
+  afirmaciones: number | null;
+  /** Supuestos que el modelo no pudo evaluar: "no pude comprobar", no "no hay". */
+  fallidos: number;
+  pedidaEn: number | null;
+  noAtendida: string | null;
+  /** Reconstruido por la migración para lo evaluado antes de que existiera el sello. */
+  reconstruido: boolean;
+  reevaluacionAutomatica?: boolean;
+}
+
 export interface AnclaComentario {
   cita: string;
   campo: 'enunciado' | 'mecanismo' | 'afirmacion' | 'comprobacion' | 'fuente';
@@ -1529,6 +1545,8 @@ export interface Hipotesis {
   /** Grafo causal local con aristas tipadas y la identificacion por regla
    *  (identificable, acotado, sin resolver) con los supuestos que faltan. */
   grafoCausal?: GrafoCausal | null;
+  /** Cuándo y con qué regla se evaluaron los supuestos (rosa/vigencia.py). */
+  supuestosEvaluados?: SelloSupuestos | null;
   /** Fuerza de Bradley-Terry en escala Elo con intervalo del 95 % por bootstrap
    *  de los partidos. Es lo que ordena a las candidatas; el Elo es la vista. */
   bt?: { fuerza: number; ic95: [number, number]; partidos: number };
