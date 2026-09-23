@@ -1513,3 +1513,78 @@ El arreglo de verdad, pendiente: que el juez (el Killer, que ya lee cada
 hipótesis con sus afirmaciones) devuelva qué afirmaciones sostienen la relación
 X -> Y. Cuesta llamadas y cambia la firma del juez, así que es decisión de
 Emir, no algo que se mete de paso.
+
+## Qué desbloquea más, la cuarta pantalla de estructura (23 de septiembre de 2026)
+
+Emir pidió otra sección al nivel del Atlas, el Árbol y Mecanismos. Es la pareja
+de Mecanismos: aquella dice qué le falta a **una** hipótesis; esta junta lo que
+les falta a **todas** y contesta la pregunta de quien dirige el laboratorio:
+qué conseguir primero. Boceto en ~/Downloads/boceto-que-desbloquea-mas.png,
+hecho con los datos reales antes de construirla.
+
+No hay endpoint nuevo. Los supuestos de la ficha de cada hipótesis ya viajan
+en el estado, con su estado (respaldado, plausible, sin evidencia,
+contradicho). La pantalla (`frontend/src/pantallas/Desbloqueo.tsx`) y su regla
+(`frontend/src/lib/desbloqueo.ts`) trabajan en el navegador. Cuentan las
+hipótesis vivas: ni descartadas ni fundidas en otra.
+
+**Un ingrediente** es lo que haría falta tener para poder comprobar un
+supuesto sin evidencia. Hay once, en cuatro vías, porque la vía decide quién
+se mueve:
+
+- Buscar en lo publicado: resultados de ensayos clínicos, intervalo de
+  referencia, fiabilidad de la medida, resultados de cohortes por subgrupo,
+  desenlace clínico comparable.
+- Pedir datos de una cohorte: tamaño del subgrupo (ADNI, de acceso
+  controlado, que hoy el proyecto no solicita), muestras seriadas frecuentes,
+  estado amiloide de cada persona, covariables para ajustar.
+- Hacer el análisis, sin pedir nada: que el análisis se pueda estimar (se
+  prueba con datos sintéticos, el ensayo en seco).
+- Investigación nueva: biología sin medir. No entra en el plan de pedidos,
+  porque un estudio nuevo no es un trámite.
+
+**Cómo se clasifica cada supuesto:** reglas de palabras, sin modelo, en orden;
+gana la primera que casa y se guarda la frase y su posición, para que la
+pantalla subraye por qué. Las reglas se escribieron leyendo los 164 supuestos
+flojos de la base de hoy, y se miden contra una lectura hecha a mano de esos
+mismos 164 (`frontend/src/lib/desbloqueo.casos.json`; cuando un supuesto pide
+de verdad dos cosas lleva las dos etiquetas). La primera medición dio 154 de
+164, y los fallos tenían una causa común: **una palabra que el supuesto solo
+menciona ganaba a lo que pide** ("adicional a la del propio estado amiloide"
+no pide el estado amiloide; "en ambos compartimentos" no pide armonizar nada).
+Con las reglas exigiendo la necesidad y no la palabra: **162 de 164, cero mal
+clasificados**, y los 2 que quedan salen como "sin clasificar", a la vista.
+Los tests sujetan las dos cosas (al menos 162, y ninguno en un ingrediente
+equivocado). "Ensayo" en castellano es también el de laboratorio ("específico
+del ensayo"), así que la regla de ensayos clínicos exige otra palabra de ensayo
+clínico al lado.
+
+**Una corrección a lo que le dije a Emir con la tabla rápida:** "estado
+amiloide" salía en 20 de 28 hipótesis, contando la palabra. Leídos uno a uno,
+son **3 supuestos en 3 hipótesis**: casi siempre "amiloide" sale porque el
+intervalo de referencia se calcula en amiloide-negativos o porque el subgrupo
+de ADNI es amiloide-positivo, y eso son otros ingredientes. Lo que más se
+repite de verdad, con los datos de hoy (155 supuestos sin evidencia en 28
+hipótesis, 9 contradichos, 2 sin clasificar):
+
+- Biología sin medir: 15 hipótesis, 30 supuestos (no se pide, se investiga).
+- Fiabilidad de la medida: 13 hipótesis, 22 supuestos.
+- Intervalo de referencia: 12 hipótesis, 21 supuestos.
+- Resultados de ensayos clínicos: 11 hipótesis, 31 supuestos. Es donde más
+  rendiría leer los resultados estructurados de ClinicalTrials.gov.
+
+**El plan** ("si se pidieran en este orden") es voraz: en cada paso gana el
+ingrediente que deja más hipótesis con todo lo pendiente comprobable; a
+igualdad, el que más acerca a las que pueden quedar así; y a igualdad, el que
+más supuestos abre. El segundo criterio se añadió porque, sin él, con los datos
+de muestra tardaba seis pasos en liberar la única hipótesis liberable. Con los
+diez ingredientes pedibles, **12 de 28** hipótesis quedan con todo lo pendiente
+comprobable (123 de 155 supuestos); de las otras 16, 15 piden biología sin
+medir y 1 tiene un supuesto sin clasificar, y 7 tienen ya algún supuesto
+contradicho, que ningún ingrediente arregla. Comprobable no es confirmado: el
+dato puede quitarle la razón al supuesto, y la pantalla lo dice.
+
+**Lo que queda abierto, y es decisión de Emir:** las reglas se hicieron
+leyendo estos 164, así que con supuestos nuevos acertarán menos y crecerá
+"sin clasificar". Si crece de verdad, clasificar con modelo y medirlo contra el
+mismo conjunto hecho a mano; hasta entonces, reglas a la vista.

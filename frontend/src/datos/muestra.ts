@@ -723,6 +723,9 @@ const HIPOTESIS_BASE: HipotesisParcial[] = [
       },
       { id: 's2', texto: 'p-tau217 sube en respuesta al depósito amiloide, antes de los síntomas.', estado: 'respaldado', evidencia: 'Anticipación de años en cohortes autosómicas dominantes.', hijos: [] },
       { id: 's3', texto: 'Lo que vale en PSEN1 vale en el esporádico.', estado: 'sin_evidencia', evidencia: 'Es la premisa del Alzheimer familiar como modelo; la edad y las comorbilidades difieren.', hijos: [] },
+      { id: 's3b', texto: 'Existe un intervalo de referencia de p-tau217 en plasma para la plataforma de FLENI, definido en personas amiloide-negativas.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación sostenida da ese intervalo para esa plataforma.', hijos: [] },
+      { id: 's3c', texto: 'El cociente se mide igual en todas las visitas: mismos lotes o lotes armonizables.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
+      { id: 's3d', texto: 'La cohorte de FLENI tiene un número suficiente de portadores con plasma seriado y seguimiento a cinco años.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación da el tamaño de ese subgrupo.', hijos: [] },
     ],
     grafoCausal: {
       nodos: [
@@ -894,6 +897,8 @@ const HIPOTESIS_BASE: HipotesisParcial[] = [
         hijos: [{ id: 's5a', texto: 'Ocurre a las concentraciones de ASC del cerebro humano.', estado: 'plausible', evidencia: 'No medido en humanos.', hijos: [] }],
       },
       { id: 's6', texto: 'Inhibir NLRP3 en personas frena la progresión con amiloide persistente.', estado: 'sin_evidencia', evidencia: 'Es la predicción de la hipótesis; los ensayos de fase 1 y 2 no miden progresión.', hijos: [] },
+      { id: 's6b', texto: 'Los ensayos de inhibidores de NLRP3 publican biomarcadores plasmáticos frente a placebo.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
+      { id: 's6c', texto: 'El GFAP en plasma refleja la activación glial que dispara NLRP3.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación liga GFAP a NLRP3.', hijos: [] },
       { id: 's7', texto: 'La tau puede propagarse sin amiloide.', estado: 'contradicho', evidencia: 'La hipótesis lo niega implícitamente, pero las tauopatías primarias muestran propagación sin placas.', hijos: [] },
     ],
     grafoCausal: {
@@ -947,6 +952,12 @@ const HIPOTESIS_BASE: HipotesisParcial[] = [
   },
   {
     id: 'hip-3',
+    supuestos: [
+      { id: 's8', texto: 'Los resultados de evoke y evoke+ incluyen GFAP y NfL en plasma con su incertidumbre.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación sostenida los recoge.', hijos: [] },
+      { id: 's9', texto: 'Los cambios de peso corporal inducidos por el fármaco no alteran por sí solos los biomarcadores plasmáticos.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
+      { id: 's10', texto: 'Existe un intervalo de referencia de GFAP en plasma específico de la plataforma de los ensayos.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
+      { id: 's11', texto: 'El efecto sobre la microglía es causal y no una consecuencia de la pérdida de peso.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
+    ],
     investigacionId: 'inv-1',
     titulo: 'Los agonistas de GLP-1 reducen la progresión por una vía microglial independiente del amiloide',
     enunciado:
@@ -1064,6 +1075,12 @@ const HIPOTESIS_BASE: HipotesisParcial[] = [
   },
   {
     id: 'hip-4',
+    supuestos: [
+      { id: 's12', texto: 'Hay suficientes portadores de TREM2 R47H y de APOE4 a la vez para estimar la interacción.', estado: 'sin_evidencia', evidencia: 'Ninguna afirmación da el tamaño de ese subgrupo.', hijos: [] },
+      { id: 's13', texto: 'La cohorte tiene extracciones seriadas lo bastante seguidas para fechar cuándo cambia cada marcador.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
+      { id: 's14', texto: 'La brecha temporal entre GFAP y NfL es identificable aunque no se observen los cruces exactos.', estado: 'sin_evidencia', evidencia: 'Ninguna.', hijos: [] },
+      { id: 's15', texto: 'El GFAP en plasma es específico de la microglía asociada a enfermedad.', estado: 'contradicho', evidencia: 'El GFAP es una proteína de los astrocitos: sube también sin cambio microglial.', hijos: [] },
+    ],
     investigacionId: 'inv-1',
     titulo: 'TREM2 R47H y APOE4 actuan en sinergia sobre la microglía asociada a enfermedad, y GFAP en plasma lo refleja antes que NfL',
     enunciado:

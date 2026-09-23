@@ -52,6 +52,17 @@ function IconMecanismo({ size = 16 }: { size?: number }) {
   );
 }
 
+/** Icono de Qué desbloquea más: un candado abierto. */
+function IconDesbloqueo({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="4.5" y="11" width="15" height="10" rx="2" />
+      <path d="M8 11V7.5a4 4 0 0 1 7.6-1.7" />
+      <path d="M12 15v2" />
+    </svg>
+  );
+}
+
 /** Icono de las citas: una página con una línea resaltada, que es justo lo que
  *  la pantalla enseña (el pasaje marcado dentro de la página de la fuente). */
 function IconCita({ size = 16 }: { size?: number }) {
@@ -74,6 +85,7 @@ const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number
   { clave: 'arbol', etiqueta: 'Árbol', icono: IconTree },
   { clave: 'atlas', etiqueta: 'Atlas', icono: IconAtlas },
   { clave: 'mecanismos', etiqueta: 'Mecanismos', icono: IconMecanismo },
+  { clave: 'desbloqueo', etiqueta: 'Qué desbloquea más', icono: IconDesbloqueo },
   { clave: 'citas', etiqueta: 'Citas', icono: IconCita },
   { clave: 'artefactos', etiqueta: 'Artefactos', icono: IconDocument },
   { clave: 'calidad', etiqueta: 'Calidad', icono: IconGauge },

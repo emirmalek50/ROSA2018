@@ -1,0 +1,1343 @@
+[
+ {
+  "hipotesis": "hip-mtvulxbg-140",
+  "estado": "sin_evidencia",
+  "texto": "El primer cruce del umbral define una fecha de 'anormalidad' estable y no un artefacto de variabilidad analítica o biológica intraindividual.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbg-140",
+  "estado": "sin_evidencia",
+  "texto": "Las mediciones seriadas de GFAP y NfL son comparables a lo largo del tiempo pese a cambios de lote, plataforma o laboratorio.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbg-140",
+  "estado": "sin_evidencia",
+  "texto": "Es posible definir un límite de referencia análogo para NfL plasmático en esa misma muestra independiente.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbg-140",
+  "estado": "sin_evidencia",
+  "texto": "Es posible definir un límite de referencia específico del ensayo para GFAP plasmático, ajustado por edad y sexo, en una muestra independiente cognitivamente normal y amiloide-negativa.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbg-140",
+  "estado": "sin_evidencia",
+  "texto": "La elevación de NfL refleja daño axonal (interpretación mecanicista no demostrada por el diseño).",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbg-140",
+  "estado": "sin_evidencia",
+  "texto": "Los mayores incrementos de GFAP descritos en portadores de APOE ε4 provienen de estudios citables con página exacta y no se transfieren desde otras cohortes o analitos.",
+  "validos": [
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbp-150",
+  "estado": "sin_evidencia",
+  "texto": "Es posible definir un umbral o referencia independiente de anormalidad para GFAP que no dependa de los datos del estudio de derivación.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbp-150",
+  "estado": "sin_evidencia",
+  "texto": "Es posible definir un umbral o referencia independiente de anormalidad para NfL que no dependa de los datos del estudio de derivación.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbp-150",
+  "estado": "sin_evidencia",
+  "texto": "Existe un subconjunto suficientemente grande de participantes de ADNI que son portadores de APOE ε4, amiloide-positivos y cognitivamente normales al inicio.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbp-150",
+  "estado": "sin_evidencia",
+  "texto": "La brecha temporal Δ entre el cruce de GFAP y el cruce de NfL es una cantidad identificable en presencia de censura, es decir, cuando uno o ambos cruces aún no se han observado.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbp-150",
+  "estado": "sin_evidencia",
+  "texto": "La variabilidad interindividual de Δ no queda completamente explicada por los niveles y pendientes concurrentes de GFAP y NfL.",
+  "validos": [
+   "investigar",
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvuvbm2-10",
+  "estado": "sin_evidencia",
+  "texto": "Los umbrales de anormalidad derivados de una referencia independiente cognitivamente normal y amiloide-negativa, ajustados por edad, sexo y plataforma, son transportables a la subcohorte de estudio.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvuvbm2-10",
+  "estado": "sin_evidencia",
+  "texto": "El momento del cruce de umbral es una aproximación válida del inicio biológico de la alteración de cada marcador.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvuvbm2-10",
+  "estado": "sin_evidencia",
+  "texto": "La diferencia entre dos tiempos de evento censurados por intervalo (brecha) es estimable con los datos disponibles sin supuestos distribucionales no verificables.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvuvbm2-10",
+  "estado": "sin_evidencia",
+  "texto": "Existe un número suficiente de portadores de APOE ε4, cognitivamente normales, amiloide-PET positivos, con GFAP y NfL normales al inicio y con tau-PET basal en ADNI para estimar la diferencia entre estratos.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvuvbm2-10",
+  "estado": "sin_evidencia",
+  "texto": "La patología tau medida por tau-PET basal marca un contexto de activación astrocitaria temprana reflejada en GFAP plasmático.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvuvbm2-10",
+  "estado": "sin_evidencia",
+  "texto": "El brazo placebo de A4 dispone de plasma seriado, tau-PET y seguimiento suficientes para servir de replicación.",
+  "validos": [
+   "seriado",
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0ta-55",
+  "estado": "sin_evidencia",
+  "texto": "Esas publicaciones reportan resultados específicos para portadores de APOE ε4, y no solo resultados de la muestra total o ajustados por APOE.",
+  "validos": [
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0ta-55",
+  "estado": "sin_evidencia",
+  "texto": "Existe una estimación publicada de la diferencia GFAP–NfL o información suficiente para caracterizar la incertidumbre conjunta de ambos tiempos.",
+  "validos": [
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0ta-55",
+  "estado": "sin_evidencia",
+  "texto": "El orden temporal de biomarcadores propuesto en esquemas generales de Alzheimer se conserva en el subgrupo de portadores de APOE ε4 amiloide-positivos preclínicos.",
+  "validos": [
+   "investigar",
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0ta-55",
+  "estado": "sin_evidencia",
+  "texto": "Las diferencias de rango dinámico, variabilidad analítica y escala entre GFAP y NfL no generan por sí solas una brecha aparente.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0ta-55",
+  "estado": "sin_evidencia",
+  "texto": "El signo de la brecha GFAP–NfL es robusto a la definición operativa de 'alteración' (cambio de pendiente, separación respecto a controles, cruce de umbral de anormalidad).",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0tn-66",
+  "estado": "sin_evidencia",
+  "texto": "Existen o pueden extraerse contrastes publicados estratificados simultáneamente por genotipo APOE ε4, positividad amiloide, GFAP anormal y NfL normal.",
+  "validos": [
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0tn-66",
+  "estado": "sin_evidencia",
+  "texto": "Es posible definir operativamente un cociente p-tau181/Aβ42 y un umbral de anormalidad aplicable de forma comparable entre cohortes y plataformas de ensayo.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0tn-66",
+  "estado": "sin_evidencia",
+  "texto": "El estado 'GFAP anormal con NfL normal' identifica un subgrupo con heterogeneidad pronóstica real y no un grupo ya homogéneamente destinado a progresar o no progresar.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0tn-66",
+  "estado": "sin_evidencia",
+  "texto": "El cociente p-tau181/Aβ42 aporta información pronóstica sobre progresión a MCI adicional a la del propio estado amiloide basal.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwqw1i-37",
+  "estado": "sin_evidencia",
+  "texto": "Se publican estimaciones agregadas de asociación ajustada (p. ej. hazard ratio) entre BACE1 basal y el tiempo hasta el inicio clínico en portadores.",
+  "validos": [
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwqw1i-37",
+  "estado": "sin_evidencia",
+  "texto": "Se publican métricas de discriminación y calibración para modelos anidados que permitan cuantificar el cambio al añadir BACE1 a GFAP+NfL.",
+  "validos": [
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwqw1i-37",
+  "estado": "sin_evidencia",
+  "texto": "BACE1 plasmática es medible con precisión analítica y reproducibilidad suficientes para sostener inferencia pronóstica individual.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwqw1i-37",
+  "estado": "sin_evidencia",
+  "texto": "BACE1 aporta información parcialmente no redundante respecto a GFAP y NfL sobre la transición presintomática (supuesto de complementariedad, no demostrado por la coincidencia temporal publicada).",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwqw1z-46",
+  "estado": "sin_evidencia",
+  "texto": "El momento de la primera diferencia discernible entre grupos depende de la varianza y del tamaño muestral, y no solo de la trayectoria biológica subyacente.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwqw1z-46",
+  "estado": "sin_evidencia",
+  "texto": "Diferencias en la definición del hito pueden invertir el orden aparente de dos biomarcadores sin que exista inversión de la secuencia biológica.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtwztiwr-154",
+  "estado": "sin_evidencia",
+  "texto": "Existe un sustrato estructural mínimo por debajo del cual una mejoría metabólica cerebral no puede expresarse como mejor rendimiento cognitivo.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtwztiwr-154",
+  "estado": "sin_evidencia",
+  "texto": "Es posible obtener respuestas metabólicas cerebrales comparables entre estratos de atrofia conservada y atrofia establecida.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtwztiwr-154",
+  "estado": "sin_evidencia",
+  "texto": "La atrofia regional basal medida por resonancia magnética indexa la capacidad estructural para traducir un cambio fisiológico en rendimiento cognitivo.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtwztiwr-154",
+  "estado": "sin_evidencia",
+  "texto": "El FDG-PET longitudinal mide una respuesta cerebral al tratamiento y no solo el curso natural de la neurodegeneración.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtwztiwr-154",
+  "estado": "sin_evidencia",
+  "texto": "Semaglutida oral puede producir en humanos con Alzheimer esporádico una respuesta metabólica cerebral sostenida y detectable.",
+  "validos": [
+   "ensayos",
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx08plv-390",
+  "estado": "sin_evidencia",
+  "texto": "Los cambios de peso corporal y de volumen plasmático inducidos por el fármaco no alteran por sí solos las concentraciones plasmáticas de los biomarcadores de forma que simulen un efecto biológico.",
+  "validos": [
+   "covariables"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx08plv-390",
+  "estado": "sin_evidencia",
+  "texto": "La semaglutida oral alcanza el sistema nervioso central en exposición suficiente para modificar el estado astrocitario en humanos.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx08plv-390",
+  "estado": "sin_evidencia",
+  "texto": "La concordancia de la reducción de GFAP entre plasma y LCR es indicativa de origen central y no un artefacto compartido de medición o de estado metabólico.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx08plv-390",
+  "estado": "sin_evidencia",
+  "texto": "El GFAP en plasma refleja astrogliosis del sistema nervioso central y no predominantemente fuentes periféricas o cambios de aclaramiento.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx08plv-390",
+  "estado": "sin_evidencia",
+  "texto": "La astrogliosis medida por GFAP no se sitúa en una vía causal suficiente para modificar la trayectoria cognitiva cuando tau y neurodegeneración permanecen sin cambios.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx08plv-390",
+  "estado": "sin_evidencia",
+  "texto": "Existe un desenlace cognitivo, en deterioro cognitivo temprano, con sensibilidad al cambio suficiente para detectar una diferencia de 0,20 desviaciones estándar.",
+  "validos": [
+   "escalas"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx08plv-390",
+  "estado": "sin_evidencia",
+  "texto": "El p-tau181 es sensible al cambio bajo intervención terapéutica, de modo que su estabilidad puede interpretarse como ausencia de modificación de la patología tau y no como insensibilidad del marcador.",
+  "validos": [
+   "ensayos",
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx4tbe3-122",
+  "estado": "sin_evidencia",
+  "texto": "Esa reducción de GFAP se mantiene mientras dura la exposición y decae tras la retirada del fármaco.",
+  "validos": [
+   "ensayos",
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx4tbe3-122",
+  "estado": "sin_evidencia",
+  "texto": "Semaglutida oral produce una reducción medible de GFAP plasmático frente a placebo en la población estudiada.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx4tbe3-122",
+  "estado": "sin_evidencia",
+  "texto": "La astrogliosis contribuye causalmente al daño neuronal en la enfermedad de Alzheimer esporádica, y no es únicamente una consecuencia de él.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx4tbe3-122",
+  "estado": "sin_evidencia",
+  "texto": "El efecto sobre el daño neuronal es acumulativo con el tiempo de exposición, de modo que la exposición prolongada supera a la limitada.",
+  "validos": [
+   "investigar",
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxcyxox-61",
+  "estado": "sin_evidencia",
+  "texto": "Existe en ADNI una subcohorte de portadores de APOE ε4 cognitivamente normales al inicio con clasificación amiloide basal, muestras plasmáticas seriadas y seguimiento suficiente hasta MCI.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxcyxox-61",
+  "estado": "sin_evidencia",
+  "texto": "GFAP y NfL plasmáticos pueden medirse de forma seriada con precisión analítica suficiente para identificar un primer cruce de umbral.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxcyxox-61",
+  "estado": "sin_evidencia",
+  "texto": "Es posible fijar umbrales de alteración de GFAP y NfL en una muestra de referencia separada, sin usar la progresión futura de la cohorte de estudio.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxcyxox-61",
+  "estado": "sin_evidencia",
+  "texto": "Dentro de esa subcohorte hay suficientes participantes amiloide-negativos basales para una comparación informativa frente a los amiloide-positivos.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxcyxox-61",
+  "estado": "sin_evidencia",
+  "texto": "La censura por intervalos y el mantenimiento del orden como 'incierto' cuando no puede resolverse no sesgan la estimación de la probabilidad de secuencia completa.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxcyxox-61",
+  "estado": "sin_evidencia",
+  "texto": "Los valores basales de GFAP y NfL dentro del intervalo de referencia identifican un estado 'no alterado' verdadero y no un falso negativo por variabilidad de medición.",
+  "validos": [
+   "medida",
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxcyxox-61",
+  "estado": "sin_evidencia",
+  "texto": "Un modelo multiestado que admite GFAP primero, NfL primero, ambos y MCI puede estimarse con los tamaños muestrales disponibles sin imponer la secuencia esperada.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxcyxox-61",
+  "estado": "sin_evidencia",
+  "texto": "La frecuencia de extracciones permite resolver el orden temporal entre el cruce de GFAP y el de NfL en una fracción suficiente de participantes.",
+  "validos": [
+   "seriado"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxd120r-18",
+  "estado": "sin_evidencia",
+  "texto": "Es posible definir umbrales de anormalidad para GFAP y NfL en una referencia independiente, sin seleccionarla por la estabilidad cognitiva futura de los participantes.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxd120r-18",
+  "estado": "sin_evidencia",
+  "texto": "Una regla de confirmación de cruce (medición repetida) reduce suficientemente los cruces falsos por variabilidad analítica o biológica.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxd120r-18",
+  "estado": "sin_evidencia",
+  "texto": "La variabilidad analítica intraindividuo y los efectos de lote no dominan la señal de cruce de umbral a lo largo de las visitas.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxd120r-18",
+  "estado": "sin_evidencia",
+  "texto": "La plataforma de medición se mantiene comparable entre visitas y entre cohortes, o sus diferencias son corregibles.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxfgfpi-70",
+  "estado": "sin_evidencia",
+  "texto": "Existe un subgrupo de participantes portadores de APOE ε4, con positividad amiloide documentada al inicio y sin deterioro cognitivo, de tamaño suficiente para estimaciones con incertidumbre útil.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxfgfpi-70",
+  "estado": "sin_evidencia",
+  "texto": "La positividad amiloide basal está documentada con fecha y método (PET o LCR) recuperables para cada participante.",
+  "validos": [
+   "amiloide"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxfgfpi-70",
+  "estado": "sin_evidencia",
+  "texto": "El número y espaciado de extracciones por participante permite identificar un cambio de pendiente individual y no solo una pendiente media.",
+  "validos": [
+   "seriado"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxfgfpi-70",
+  "estado": "sin_evidencia",
+  "texto": "Existe una muestra de referencia independiente de los participantes evaluados a partir de la cual pueden derivarse umbrales de anormalidad para GFAP y NfL.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxfgfpi-70",
+  "estado": "sin_evidencia",
+  "texto": "La muestra de referencia usa la misma plataforma analítica, protocolo preanalítico y calibración que la cohorte evaluada, de modo que los umbrales son transferibles.",
+  "validos": [
+   "referencia",
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxfgfpi-70",
+  "estado": "sin_evidencia",
+  "texto": "El ajuste por edad, sexo y lote analítico es suficiente para controlar la variabilidad técnica y demográfica que afecta a los niveles absolutos de ambos biomarcadores.",
+  "validos": [
+   "covariables",
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxfoq5o-16",
+  "estado": "sin_evidencia",
+  "texto": "El efecto de APOE ε4 sobre la trayectoria de GFAP sigue una relación de dosis génica (ε4/ε4 > ε3/ε4).",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxfoq5o-16",
+  "estado": "sin_evidencia",
+  "texto": "Existen suficientes homocigotos ε4/ε4 amiloide-positivos, cognitivamente normales y con muestras plasmáticas seriadas en ADNI para estimar el contraste.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxfoq5o-16",
+  "estado": "sin_evidencia",
+  "texto": "Los límites de referencia externos específicos de ensayo, ajustados por edad y sexo, definen anormalidad de forma comparable en severidad relativa entre GFAP y NfL.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxfoq5o-16",
+  "estado": "sin_evidencia",
+  "texto": "Existen límites de referencia externos específicos de ensayo para GFAP y NfL, ajustables por edad y sexo, definibles sin usar la progresión cognitiva posterior.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxfoq5o-16",
+  "estado": "sin_evidencia",
+  "texto": "El efecto de APOE ε4 sobre la trayectoria longitudinal de GFAP sigue una relación dosis-respuesta (ε4/ε4 > ε3/ε4).",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00ml-52",
+  "estado": "sin_evidencia",
+  "texto": "El orden temporal de alteración de GFAP y NfL es consistente a nivel individual y no solo un promedio poblacional producido por mezcla de subgrupos con secuencias distintas.",
+  "validos": [
+   "investigar",
+   "seriado"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00ml-52",
+  "estado": "contradicho",
+  "texto": "El GFAP plasmático refleja activación astrocítica reactiva ligada a la patología amiloide y no principalmente otras causas (lesión aguda, comorbilidad sistémica, edad).",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00ml-52",
+  "estado": "sin_evidencia",
+  "texto": "Los umbrales así definidos son comparables entre GFAP y NfL en el sentido de que un cruce representa un grado equivalente de desviación biológica, y no simplemente una diferencia en la variabilidad analítica o biológica de cada analito.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00ml-52",
+  "estado": "sin_evidencia",
+  "texto": "Es posible definir un umbral de anormalidad por marcador, con ajuste por edad y sexo, en una población de referencia cognitivamente normal y amiloide-negativa al momento del muestreo.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00ml-52",
+  "estado": "sin_evidencia",
+  "texto": "La cadencia real de visitas y extracciones de plasma en la cohorte tiene resolución temporal suficiente para distinguir dos tiempos de cruce separados por la magnitud esperada de Δ.",
+  "validos": [
+   "seriado"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00ml-52",
+  "estado": "sin_evidencia",
+  "texto": "La variabilidad analítica intraindividuo de ambos ensayos es suficientemente pequeña para que un 'cruce confirmado' no sea principalmente ruido de medida.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00o4-61",
+  "estado": "sin_evidencia",
+  "texto": "La frecuencia y duración del muestreo longitudinal disponible es suficiente para acotar la incertidumbre del momento de cada cruce.",
+  "validos": [
+   "seriado"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00o4-61",
+  "estado": "sin_evidencia",
+  "texto": "La brecha temporal entre ambos cruces es identificable a partir de los datos observados y no queda determinada principalmente por los supuestos del modelo de desenlace.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1ku6hd-164",
+  "estado": "sin_evidencia",
+  "texto": "Ese subconjunto discordante tiene tamaño suficiente en ADNI para estimar tasas de transición con precisión útil.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1ku6hd-164",
+  "estado": "sin_evidencia",
+  "texto": "GFAP y NfL en plasma pueden medirse de forma fiable en muestras almacenadas seriadas sin degradación diferencial entre grupos.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1ku6hd-164",
+  "estado": "sin_evidencia",
+  "texto": "El estado amiloide puede determinarse de forma independiente de GFAP y NfL en la visita índice o en una ventana previamente fijada.",
+  "validos": [
+   "amiloide"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1ku6hd-164",
+  "estado": "sin_evidencia",
+  "texto": "Es posible definir umbrales de alteración de GFAP y NfL a priori mediante una referencia externa o un subconjunto independiente cognitivamente normal y amiloide-negativo.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1ku6hd-164",
+  "estado": "sin_evidencia",
+  "texto": "Los umbrales definidos en una plataforma analítica son aplicables al conjunto de muestras analizadas, con armonización de ensayos y lotes.",
+  "validos": [
+   "medida",
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1ku6hd-164",
+  "estado": "sin_evidencia",
+  "texto": "La variación analítica puede distinguirse del cambio biológico mediante una regla preespecificada de repetición o confirmación de cruces.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1ku6hd-164",
+  "estado": "sin_evidencia",
+  "texto": "El intervalo entre visitas es suficientemente corto para acotar el momento del cruce de NfL con censura por intervalos.",
+  "validos": [
+   "seriado"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1m77rc-285",
+  "estado": "sin_evidencia",
+  "texto": "La variabilidad biológica intraindividual de GFAP y NfL en el intervalo de muestreo disponible es mayor que el coeficiente de variación intra e interensayo.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1m77rc-285",
+  "estado": "sin_evidencia",
+  "texto": "Existe un número suficiente de participantes de ADNI que son portadores de APOE ε4, cognitivamente normales y amiloide-positivos al inicio de la ventana analítica.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1m77rc-285",
+  "estado": "sin_evidencia",
+  "texto": "GFAP y NfL plasmáticos pueden medirse en muestras archivadas con precisión analítica suficiente para que la señal de cambio intraindividual supere el ruido técnico.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1m77rc-285",
+  "estado": "sin_evidencia",
+  "texto": "La positividad amiloide basal está documentada mediante PET o LCR en una determinación contemporánea a la evaluación cognitiva normal de referencia.",
+  "validos": [
+   "amiloide"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1mrftd-377",
+  "estado": "sin_evidencia",
+  "texto": "Un límite de referencia calibrado en controles amiloide-negativos independientes es transferible a la cohorte de estudio (mismo ensayo, plataforma y preanalítica).",
+  "validos": [
+   "referencia",
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1mrftd-377",
+  "estado": "sin_evidencia",
+  "texto": "La 'alteración' de un biomarcador puede definirse operativamente como el cruce de un límite superior de referencia ajustado por edad y sexo.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1mrftd-377",
+  "estado": "sin_evidencia",
+  "texto": "La frecuencia de muestreo y la duración del seguimiento permiten acotar por intervalos ambos tiempos de cruce en una fracción suficiente de participantes.",
+  "validos": [
+   "seriado"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1mrftd-377",
+  "estado": "sin_evidencia",
+  "texto": "Las trayectorias individuales de GFAP y NfL son suficientemente monótonas y crecientes como para que exista un único tiempo de cruce estimable.",
+  "validos": [
+   "investigar",
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1mrftd-377",
+  "estado": "sin_evidencia",
+  "texto": "Existen en ADNI suficientes participantes ε4/ε4 amiloide-positivos, cognitivamente normales y con plasma seriado para estimar una diferencia entre genotipos con precisión útil.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1mrftd-377",
+  "estado": "sin_evidencia",
+  "texto": "El efecto de APOE ε4 sobre el incremento longitudinal de GFAP depende de la dosis alélica.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1mrftd-377",
+  "estado": "sin_evidencia",
+  "texto": "El adelanto de GFAP asociado a la dosis de ε4 supera cualquier adelanto simultáneo de NfL, de modo que Δ crece con la dosis.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tgh7o-1740",
+  "estado": "contradicho",
+  "texto": "El NfL plasmático refleja daño neuroaxonal en curso de forma suficientemente específica como para servir de eslabón intermedio.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tgh7o-1740",
+  "estado": "contradicho",
+  "texto": "La atenuación del aumento de NfL frente a placebo es medible y distinguible del ruido en ensayos de duración de 18 a 24 meses.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tgh7o-1740",
+  "estado": "sin_evidencia",
+  "texto": "En los ensayos donde hubo beneficio clínico (lecanemab, donanemab) se observó atenuación de NfL frente a placebo.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tgh7o-1740",
+  "estado": "sin_evidencia",
+  "texto": "En los ensayos sin beneficio clínico (semaglutida en evoke y evoke+, posdinemab, AL002 en INVOKE-2) no se observó atenuación de NfL frente a placebo.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tgh7o-1740",
+  "estado": "sin_evidencia",
+  "texto": "La secuencia temporal (cambio del marcador inicial antes que el cambio de NfL) es identificable con las mediciones seriadas publicadas.",
+  "validos": [
+   "ensayos",
+   "seriado",
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tgh7o-1740",
+  "estado": "sin_evidencia",
+  "texto": "Existen mediciones longitudinales de NfL con suficientes puntos temporales para estimar una pendiente posterior, y no solo valores basal y final.",
+  "validos": [
+   "ensayos",
+   "seriado"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tskgf-2920",
+  "estado": "sin_evidencia",
+  "texto": "Existen ensayos aleatorizados en Alzheimer amiloide-positivo que publican el efecto tratamiento-placebo sobre P-tau181 y sobre la progresión clínica dentro de los mismos estratos de NfL basal, o una interacción estadística equivalente.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tskgf-2920",
+  "estado": "sin_evidencia",
+  "texto": "Una reducción de P-tau181 bajo tratamiento refleja una respuesta bioquímica del proceso patológico y no únicamente un efecto analítico, de interferencia del fármaco o de aclaramiento inespecífico.",
+  "validos": [
+   "investigar",
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tskgf-2920",
+  "estado": "sin_evidencia",
+  "texto": "La magnitud de la reducción de P-tau181 es comparable entre fármacos con mecanismos de acción distintos.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tskgf-2920",
+  "estado": "sin_evidencia",
+  "texto": "Los valores de P-tau181 y de NfL medidos en plasma y en líquido cefalorraquídeo no son intercambiables y deben analizarse por separado.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tskgf-2920",
+  "estado": "sin_evidencia",
+  "texto": "Las plataformas analíticas no armonizables introducen variabilidad que puede aislarse manteniéndolas en comparaciones separadas.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2tskgf-2920",
+  "estado": "sin_evidencia",
+  "texto": "Los horizontes de seguimiento de los ensayos pueden igualarse aproximadamente entre comparaciones sin distorsionar la relación biomarcador-clínica.",
+  "validos": [
+   "escalas",
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uajpx-4553",
+  "estado": "sin_evidencia",
+  "texto": "Los ensayos citados (evoke, evoke+, ensayo de posdinemab, INVOKE-2, lecanemab, donanemab) han publicado contrastes tratamiento-control del cambio de GFAP plasmático con medida de incertidumbre.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uajpx-4553",
+  "estado": "contradicho",
+  "texto": "Las mediciones de GFAP son comparables o armonizables entre ensayos pese a diferencias de plataforma, compartimento, valor basal y momento de medición.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uajpx-4553",
+  "estado": "sin_evidencia",
+  "texto": "Existe al menos un ensayo con reducción de GFAP de magnitud comparable a la observada con anti-amiloides pero sin reducción de amiloide cerebral; sin él, el contraste central carece de brazo de comparación.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uajpx-4553",
+  "estado": "sin_evidencia",
+  "texto": "El contraste clínico tratamiento-control publicado es un desenlace externo comparable entre ensayos pese al uso de escalas distintas (p. ej., CDR-SB frente a iADRS) y duraciones distintas.",
+  "validos": [
+   "escalas"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uajpx-4553",
+  "estado": "sin_evidencia",
+  "texto": "Es posible distinguir con precisión estadística suficiente una ausencia de cambio amiloide de una reducción amiloide pequeña pero clínicamente relevante, según un umbral fijado antes de mirar la clínica.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uajpx-4553",
+  "estado": "sin_evidencia",
+  "texto": "El GFAP plasmático refleja principalmente reactividad astrocitaria y no variaciones de aclaramiento, volumen plasmático, función renal o peso corporal (relevante en un fármaco que induce pérdida de peso).",
+  "validos": [
+   "covariables",
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uajpx-4553",
+  "estado": "sin_evidencia",
+  "texto": "Existen mediciones publicadas de GFAP plasmático, con estimación e incertidumbre, para el contraste tratamiento-control en evoke, evoke+, el ensayo de posdinemab, INVOKE-2, lecanemab y donanemab.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uajpx-4553",
+  "estado": "sin_evidencia",
+  "texto": "En al menos un ensayo sin beneficio clínico se observa una reducción de GFAP de magnitud comparable a la observada con lecanemab o donanemab.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uqqzu-5871",
+  "estado": "sin_evidencia",
+  "texto": "Existe un intervalo de referencia de P-tau181 plasmático en personas amiloide-negativas, definido en una publicación independiente, específico de la plataforma analítica y ajustado por edad cuando corresponda.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uqqzu-5871",
+  "estado": "sin_evidencia",
+  "texto": "Ese intervalo de referencia puede fijarse antes de consultar los resultados clínicos de los ensayos evaluados, permitiendo una validación genuinamente externa.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uqqzu-5871",
+  "estado": "sin_evidencia",
+  "texto": "Los resultados de evoke y evoke+ están publicados y accesibles en el momento de la prueba.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uqqzu-5871",
+  "estado": "sin_evidencia",
+  "texto": "Los resultados del ensayo de posdinemab están publicados e incluyen datos de biomarcadores plasmáticos.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uqqzu-5871",
+  "estado": "sin_evidencia",
+  "texto": "Los resultados de INVOKE-2 (AL002) están publicados e incluyen datos de P-tau181 plasmático.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uqqzu-5871",
+  "estado": "sin_evidencia",
+  "texto": "Las publicaciones de los ensayos considerados reportan niveles absolutos de P-tau181 plasmático (basal y en una visita de tratamiento), no solo cambios porcentuales o relativos.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uqqzu-5871",
+  "estado": "sin_evidencia",
+  "texto": "Existe al menos una visita de medición de P-tau181 anterior al desenlace clínico en cada ensayo incluido.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uqqzu-5871",
+  "estado": "sin_evidencia",
+  "texto": "Existe un intervalo de referencia de P-tau181 plasmática definido en población amiloide-negativa, específico de plataforma analítica y publicado de forma independiente de los ensayos evaluados.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uqqzu-5871",
+  "estado": "sin_evidencia",
+  "texto": "Los ensayos citados (evoke, evoke+, el ensayo de posdinemab, INVOKE-2, lecanemab y donanemab) publican niveles absolutos de P-tau181 plasmática basales y bajo tratamiento, no solo cambios relativos.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uqqzu-5871",
+  "estado": "sin_evidencia",
+  "texto": "Al menos algunos de esos ensayos publican la proporción de participantes que alcanzan un nivel de P-tau181 dentro del intervalo de referencia, no solo medias grupales.",
+  "validos": [
+   "ensayos",
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2uqqzu-5871",
+  "estado": "contradicho",
+  "texto": "Los ensayos publican diferencias tratamiento-placebo en una escala de progresión cognitivo-funcional mutuamente comparable.",
+  "validos": [
+   "escalas"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2zedte-898",
+  "estado": "sin_evidencia",
+  "texto": "El ensayo de posdinemab publica mediciones de P-tau181 en plasma y en LCR.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2zedte-898",
+  "estado": "sin_evidencia",
+  "texto": "Existe al menos un conjunto de ensayos aleatorizados de Alzheimer que publican el cambio tratamiento-control de P-tau181 simultáneamente en plasma y en LCR.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2zedte-898",
+  "estado": "sin_evidencia",
+  "texto": "Los ensayos de lecanemab y de donanemab publican P-tau181 (y no solo P-tau217 u otras especies) en ambos compartimentos.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2zedte-898",
+  "estado": "sin_evidencia",
+  "texto": "Los ensayos evoke y evoke+ (semaglutida) publican mediciones de P-tau181 en LCR, además de en plasma.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2zedte-898",
+  "estado": "sin_evidencia",
+  "texto": "En al menos algunos de los ensayos citados se observó una reducción plasmática de P-tau181 sin reducción correspondiente en LCR (existe variación en la concordancia entre ensayos).",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2zedte-898",
+  "estado": "sin_evidencia",
+  "texto": "El cambio de P-tau181 en LCR refleja el proceso cerebral asociado a tau mejor que el cambio de P-tau181 en plasma.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2zedte-898",
+  "estado": "contradicho",
+  "texto": "El ensayo INVOKE-2 (AL002) publica mediciones de P-tau181 en plasma y en LCR.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2zz5y8-2440",
+  "estado": "sin_evidencia",
+  "texto": "En al menos dos ensayos con resultados clínicos divergentes se observó un descenso inicial de P-tau181 de magnitud comparable, condición sin la cual el contraste persistencia/rebote no existe empíricamente.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2zz5y8-2440",
+  "estado": "sin_evidencia",
+  "texto": "El P-tau181 medido es comparable entre ensayos en especie molecular, compartimento (plasma) y plataforma analítica, o es armonizable.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2zz5y8-2440",
+  "estado": "sin_evidencia",
+  "texto": "La precisión analítica publicada de las plataformas usadas permite fijar un margen de equivalencia que distingue persistencia de rebote más allá del ruido de medición.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu2zz5y8-2440",
+  "estado": "sin_evidencia",
+  "texto": "Las poblaciones comparadas son equiparables en estadio clínico, positividad de amiloide, exposición al fármaco y duración del seguimiento.",
+  "validos": [
+   "ensayos",
+   "escalas"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu30n7o9-4025",
+  "estado": "sin_evidencia",
+  "texto": "Los ensayos publican la carga vascular basal (hiperintensidades de sustancia blanca, infartos o lagunas) en forma estratificada y no solo como media global.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu30n7o9-4025",
+  "estado": "sin_evidencia",
+  "texto": "Existe, o puede calcularse a partir de lo publicado, un contraste tratamiento-placebo del desenlace clínico dentro de cada estrato vascular.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu30n7o9-4025",
+  "estado": "sin_evidencia",
+  "texto": "Las hiperintensidades de sustancia blanca y las lesiones lacunares en resonancia son una aproximación suficientemente informativa de la contribución vascular al deterioro clínico.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu30n7o9-4025",
+  "estado": "sin_evidencia",
+  "texto": "El cambio plasmático de P-tau181 frente a placebo está publicado, con especie molecular, plataforma y momento de medición comparables, en al menos varios de los ensayos considerados.",
+  "validos": [
+   "ensayos",
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu30n7o9-4025",
+  "estado": "sin_evidencia",
+  "texto": "Los estratos de alta y baja carga vascular son comparables en estadio clínico, carga amiloide y carga tau, o esa comparabilidad puede documentarse con los resúmenes publicados.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu30n7o9-4025",
+  "estado": "contradicho",
+  "texto": "Una reducción de P-tau181 de magnitud comparable refleja un efecto biológico comparable sobre la patología Alzheimer, independientemente del fármaco y del mecanismo de acción.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu30n7o9-4025",
+  "estado": "contradicho",
+  "texto": "CDR-SB (u otra escala común publicada) es comparable entre ensayos y sensible al contraste propuesto en el horizonte temporal disponible.",
+  "validos": [
+   "escalas"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu30n7o9-4025",
+  "estado": "sin_evidencia",
+  "texto": "Un tratamiento puede reducir P-tau181 plasmático sin modificar el componente vascular del deterioro.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu31b467-5575",
+  "estado": "sin_evidencia",
+  "texto": "Ningún tratamiento incluido interfiere con la detección inmunológica de tau en LCR de forma que distorsione el cociente; en particular, un anticuerpo anti-tau podría alterar la medición de ambas especies.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu31b467-5575",
+  "estado": "sin_evidencia",
+  "texto": "Existen ensayos aleatorizados de Alzheimer del conjunto señalado que publican cambios agregados frente a placebo tanto de P-tau181 como de T-tau en LCR.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu31b467-5575",
+  "estado": "sin_evidencia",
+  "texto": "Esas publicaciones (o sus suplementos) aportan medidas de incertidumbre suficientes para calcular una diferencia de cambios logarítmicos con intervalos.",
+  "validos": [
+   "ensayos",
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu31b467-5575",
+  "estado": "sin_evidencia",
+  "texto": "El cálculo a partir de medias agregadas aproxima adecuadamente el contraste buscado, sin sustituir la media de cocientes individuales por el cociente de medias.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu31b467-5575",
+  "estado": "sin_evidencia",
+  "texto": "La diferencia entre el cambio logarítmico de P-tau181 y el de T-tau, corregida por placebo, es una medida estable de 'reducción preferente' y no un artefacto de escala o de límites de cuantificación.",
+  "validos": [
+   "estimable",
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu31b467-5575",
+  "estado": "contradicho",
+  "texto": "Las determinaciones de P-tau181 y T-tau son analíticamente comparables entre los ensayos considerados (plataforma, calibradores, unidades) o pueden armonizarse.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu31b467-5575",
+  "estado": "sin_evidencia",
+  "texto": "Los ensayos con ralentización clínica demostrada muestran un desacoplamiento mayor que aquellos sin efecto clínico.",
+  "validos": [
+   "ensayos",
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu31b467-5575",
+  "estado": "sin_evidencia",
+  "texto": "P-tau181 y T-tau en LCR pueden moverse de forma desacoplada bajo tratamiento, es decir, existe variabilidad real en el indicador propuesto entre brazos.",
+  "validos": [
+   "ensayos",
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu35joen-2494",
+  "estado": "sin_evidencia",
+  "texto": "Existen al menos nueve ensayos aleatorizados en Alzheimer sintomático temprano, distintos de la fuente generadora, con control concurrente y datos publicados elegibles.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu35joen-2494",
+  "estado": "sin_evidencia",
+  "texto": "Tau PET basal es armonizable en escala y regiones entre ensayos con procedencias y trazadores distintos.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu35joen-2494",
+  "estado": "sin_evidencia",
+  "texto": "La interpolación lineal y la regla trapezoidal entre pocas mediciones aproximan aceptablemente la trayectoria real del biomarcador.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu35joen-2494",
+  "estado": "sin_evidencia",
+  "texto": "El rango de A compartido por estratos de tau baja y alta cubre al menos el 50% del rango de cada categoría, con amplitud positiva en ambas.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu35joen-2494",
+  "estado": "sin_evidencia",
+  "texto": "Al menos el 80% de los contrastes de cada ensayo reservado cae dentro del intervalo común de A y del rango de tau del conjunto de ajuste.",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu35joen-2494",
+  "estado": "sin_evidencia",
+  "texto": "Existen al menos nueve ensayos aleatorizados en Alzheimer sintomático temprano, distintos de la fuente generadora, con control concurrente y con PET amiloide basal, al menos una medición intermedia y PET final.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu35joen-2494",
+  "estado": "sin_evidencia",
+  "texto": "Esos mismos ensayos publican tau PET basal en escala y regiones armonizables entre trazadores y protocolos.",
+  "validos": [
+   "medida",
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu35joen-2494",
+  "estado": "sin_evidencia",
+  "texto": "Esos mismos ensayos publican cambio en CDR-SB para los mismos estratos basales y los mismos periodos que el PET, sin mezclar PET global con clínica de subgrupos.",
+  "validos": [
+   "ensayos",
+   "escalas"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu35joen-2494",
+  "estado": "sin_evidencia",
+  "texto": "Cada ensayo elegible aporta al menos dos estratos basales de tau no solapados con mediciones completas.",
+  "validos": [
+   "ensayos"
+  ]
+ }
+]

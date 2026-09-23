@@ -1,0 +1,592 @@
+/* Qué desbloquea más. Usa los tokens de la aplicación (styles.css) y ninguno
+   propio, y todas las clases llevan el prefijo des-: en Mecanismos una clase
+   `.barra` sin prefijo chocó con la barra de arriba de la aplicación.
+
+   El color dice lo mismo que en Mecanismos:
+     ámbar  (--amber)   un supuesto que falta comprobar
+     morado (--accent)  lo que se ha elegido: el ingrediente y lo que abre
+     rojo   (--red)     un supuesto ya contradicho
+     gris a trazos      un supuesto que ninguna regla sabe clasificar
+
+   Las alturas de las filas van fijas desde el componente (Desbloqueo.tsx),
+   porque los hilos se dibujan en esas mismas coordenadas: una fila que
+   creciera por un salto de línea dejaría el hilo apuntando a la de al lado.
+   Por eso los nombres y los títulos no saltan de línea; se cortan con puntos
+   suspensivos y el texto entero va en el título emergente. */
+
+.des-alcance {
+  display: inline-flex;
+  background: var(--inset);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+  flex: none;
+}
+
+.des-alcance button {
+  font: inherit;
+  font-size: 12.5px;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  padding: 5px 11px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.des-alcance button[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: var(--shadow-soft);
+}
+
+.des-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.des-resumen b {
+  color: var(--text);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+/* El tablero: ingredientes, hilos, hipótesis. */
+.des-tablero {
+  display: grid;
+  grid-template-columns: 360px 150px minmax(0, 1fr);
+  align-items: start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  padding: 16px 20px 18px;
+}
+
+/* Las dos columnas de filas: sin esto, un título largo ensancha la rejilla
+   en vez de cortarse con puntos suspensivos. */
+.des-ingredientes,
+.des-hipotesis {
+  min-width: 0;
+}
+
+.des-cab {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.des-sep {
+  border-bottom: 1px solid var(--border);
+  margin-right: 10px;
+  box-sizing: border-box;
+  padding-bottom: 10px;
+}
+
+/* Una fila de ingrediente. Es un botón: se elige con el ratón o el teclado. */
+.des-ing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.des-ing:hover {
+  background: var(--hover);
+}
+
+.des-ing-cuerpo {
+  min-width: 0;
+}
+
+.des-ing-nombre {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.des-ing-barra {
+  display: block;
+  height: 5px;
+  margin: 6px 0 4px;
+  border-radius: 3px;
+  background: var(--inset);
+}
+
+.des-ing-barra i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent-soft-2);
+}
+
+.des-ing-sup {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.des-ing-sup span {
+  color: var(--text-3);
+}
+
+.des-ing-n {
+  text-align: right;
+  line-height: 1.05;
+}
+
+.des-ing-n b {
+  display: block;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.des-ing-n span {
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+
+.des-ing.des-elegido {
+  background: var(--accent-soft);
+}
+
+.des-ing.des-elegido .des-ing-nombre {
+  color: var(--accent-strong);
+}
+
+.des-ing.des-elegido .des-ing-barra i {
+  background: var(--accent);
+}
+
+.des-ing.des-elegido .des-ing-n b {
+  color: var(--accent);
+}
+
+/* La biología sin medir no se pide: su barra va en gris. */
+.des-ing-aparte .des-ing-barra i {
+  background: var(--border-strong);
+}
+
+.des-otro {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.des-otro:hover {
+  background: var(--hover);
+}
+
+.des-otro b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.des-otro.des-elegido {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* Los hilos. */
+.des-hilos {
+  display: block;
+  overflow: visible;
+}
+
+.des-hilos path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-opacity: 0.5;
+  stroke-linecap: round;
+}
+
+.des-hilos circle {
+  fill: var(--accent);
+}
+
+.des-hilos .des-hilo-contra {
+  stroke: var(--red);
+}
+
+.des-hilos circle.des-hilo-contra {
+  fill: var(--red);
+}
+
+/* Las hipótesis, agrupadas por investigación. */
+.des-grupo {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 6px 5px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  box-sizing: border-box;
+}
+
+.des-grupo span:first-child {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.des-grupo-n {
+  flex: none;
+  font-weight: 500;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.des-hip {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.des-hip:hover {
+  background: var(--hover);
+}
+
+.des-hip.des-elegido {
+  background: var(--accent-soft);
+}
+
+.des-hip-estado {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.des-hip-titulo {
+  font-size: 12.8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.des-apagada {
+  opacity: 0.36;
+}
+
+.des-qs {
+  display: flex;
+  gap: 3px;
+}
+
+/* Un supuesto. */
+.des-q {
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--amber-soft);
+  box-shadow: inset 0 0 0 1px var(--amber);
+}
+
+.des-q-elegido {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.des-q-contra {
+  background: var(--red);
+  box-shadow: none;
+}
+
+.des-q-sin {
+  background: transparent;
+  box-shadow: none;
+  border: 1px dashed var(--text-3);
+  box-sizing: border-box;
+}
+
+.des-q-sin.des-q-elegido {
+  border-color: var(--accent);
+  background: var(--accent-soft-2);
+}
+
+.des-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 12px 2px 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.des-leyenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Debajo: el detalle de lo elegido y el plan. */
+.des-bajo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  margin-top: 18px;
+}
+
+.des-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radio);
+  padding: 18px 20px;
+}
+
+.des-panel h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.des-panel > p {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+  max-width: 70ch;
+}
+
+.des-donde {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.des-donde b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.des-sub {
+  margin: 16px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.des-lista {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.des-lista p {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.des-lista mark {
+  background: var(--accent-soft-2);
+  color: var(--accent-strong);
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+.des-lista .meta {
+  display: block;
+  margin-top: 2px;
+}
+
+.des-mas {
+  margin-top: 12px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 0;
+}
+
+.des-grupo-detalle {
+  margin-top: 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.des-grupo-detalle span {
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.des-plan svg {
+  display: block;
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+  margin: 12px 0 4px;
+}
+
+.des-area {
+  fill: var(--accent-soft);
+}
+
+.des-linea {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.des-rej {
+  stroke: var(--border);
+}
+
+.des-eje {
+  font-size: 10.5px;
+  fill: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.des-fin {
+  font-size: 12px;
+  font-weight: 650;
+  fill: var(--accent);
+}
+
+.des-punto {
+  fill: var(--accent);
+}
+
+.des-pasos {
+  list-style: none;
+  display: grid;
+  gap: 3px;
+  margin-top: 6px;
+  counter-reset: paso;
+}
+
+.des-pasos li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 96px 56px;
+  align-items: baseline;
+  font-size: 12.5px;
+  counter-increment: paso;
+}
+
+.des-pasos li::before {
+  content: counter(paso);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.des-paso-n {
+  text-align: right;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.des-paso-n.des-cero {
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.des-paso-s {
+  text-align: right;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.des-pie {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.des-pie b {
+  color: var(--text);
+}
+
+/* En pantallas estrechas los hilos no caben: las columnas se apilan y lo
+   elegido sigue encendiendo y apagando filas. */
+@media (max-width: 980px) {
+  .des-tablero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .des-hilos {
+    display: none;
+  }
+
+  .des-bajo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .des-ing,
+  .des-otro,
+  .des-hip {
+    transition: none;
+  }
+}
