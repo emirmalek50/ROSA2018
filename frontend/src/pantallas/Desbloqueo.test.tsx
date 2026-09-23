@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
-// Qué desbloquea más: que los números salgan de los supuestos de las fichas y
-// no de una tabla escrita aparte; que elegir un ingrediente encienda las
-// hipótesis que haría avanzar y que elegir una hipótesis encienda lo que le
-// falta; que la frase que decidió cada supuesto se subraye donde casó; que lo
-// que no se clasifica y lo contradicho se digan en vez de esconderse; y que el
-// plan no meta la biología sin medir como si fuera un pedido.
+// Qué desbloquea más, con candados y llaves: que las llaves salgan en el orden
+// del plan y los candados se abran cuando el plan dice, no por una cuenta
+// aparte; que pasar por una llave señale a quién llega ella sola; que lo que
+// nunca se abre pidiendo datos se vea distinto (biología sin medir, algo en
+// contra, un supuesto sin clasificar); que la tarjeta diga lo que le falta a
+// cada hipótesis y, al pincharla, sus supuestos con la frase que decidió cada
+// uno marcada; y que el aviso de lo que está por reevaluar pida con el alcance
+// de la pantalla.
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -12,7 +14,7 @@ import type { EstadoRosa, Hipotesis, Investigacion } from '../datos/tipos';
 import { estadoDeMuestra } from '../datos/muestra';
 import { acciones } from '../datos/almacen';
 import { Desbloqueo } from './Desbloqueo';
-import { REGLA_SUPUESTOS } from '../lib/desbloqueo';
+import { ingrediente, plan, REGLA_SUPUESTOS, tablero } from '../lib/desbloqueo';
 
 const INV = { id: 'inv-a', titulo: 'Investigación A' } as unknown as Investigacion;
 
@@ -24,11 +26,11 @@ function hip(id: string, investigacionId: string, titulo: string, supuestos: Nod
   return { id, investigacionId, titulo, estado, supuestos } as unknown as Hipotesis;
 }
 
+// h1 pide referencia y subgrupo; h2, referencia y ensayos, y tiene uno en
+// contra; h3 pide biología sin medir y tiene uno que ninguna regla clasifica;
+// h4 está descartada y no cuenta.
 const HIPOTESIS = [
-  hip('h1', 'inv-a', 'Brecha GFAP y NfL', [
-    sin('s1', 'Existe un intervalo de referencia independiente para GFAP.'),
-    sin('s2', 'Hay suficientes portadores en ADNI.'),
-  ]),
+  hip('h1', 'inv-a', 'Brecha GFAP y NfL', [sin('s1', 'Existe un intervalo de referencia independiente para GFAP.'), sin('s2', 'Hay suficientes portadores en ADNI.')]),
   hip('h2', 'inv-a', 'Normalización de p-tau181', [
     sin('s3', 'Existe un intervalo de referencia de p-tau181 definido en una publicación independiente.'),
     sin('s4', 'Los ensayos citados publican p-tau181 frente a placebo.'),
@@ -48,6 +50,9 @@ function estadoCon(hipotesis: Hipotesis[]): EstadoRosa {
     conexion: 'conectado',
   } as unknown as EstadoRosa;
 }
+
+// El plan que la pantalla tiene que enseñar, calculado con la misma librería.
+const PLAN = plan(tablero(HIPOTESIS));
 
 let nodo: HTMLDivElement;
 let raiz: Root;
@@ -74,94 +79,144 @@ const boton = (nombre: RegExp) => {
 const pulsar = async (b: HTMLElement) => {
   await act(async () => b.click());
 };
-const filaHip = (titulo: string) => boton(new RegExp(`^${titulo}:`));
-const apagada = (b: HTMLElement) => b.classList.contains('des-apagada');
+const enfocar = async (b: HTMLElement) => {
+  await act(async () => b.focus());
+};
+const candado = (titulo: string) => boton(new RegExp(`^${titulo}:`));
+const cuenta = () => nodo.querySelector('.des-n')!.textContent;
+const abiertos = () => [...nodo.querySelectorAll('.des-cand-abierto')].map((b) => b.getAttribute('aria-label')!.split(':')[0]);
 
-describe('la pantalla de qué desbloquea más', () => {
-  it('cuenta lo pendiente de las vivas, deja fuera la descartada y ordena por hipótesis tocadas', async () => {
+describe('las llaves y los candados', () => {
+  it('pone las llaves en el orden del plan, sin la biología sin medir, y abre con la primera elegida', async () => {
     await montar(estadoCon(HIPOTESIS));
-    const resumen = nodo.querySelector('.des-resumen')!.textContent!;
-    expect(resumen).toContain('6 supuestos sin evidencia en 3 hipótesis vivas');
-    expect(resumen).toContain('1 contradicho');
-    expect(resumen).toContain('1 sin clasificar');
+    const nombres = [...nodo.querySelectorAll('.des-llave .des-nombre')].map((x) => x.textContent);
+    expect(nombres).toEqual(PLAN.map((p) => ingrediente(p.ingrediente).nombre));
+    expect(nombres).not.toContain('Biología sin medir');
+    expect(nodo.querySelector('.des-llave [aria-current="step"]')!.getAttribute('aria-label')).toMatch(/^Llave 1, /);
+    // La primera llave sola no abre ninguna: el contador lo dice, con lo máximo al lado.
+    expect(cuenta()).toBe(String(PLAN[0]!.libresAcumuladas.length));
+    expect(nodo.querySelector('.des-cuenta')!.textContent).toContain('de 3');
+    expect(nodo.querySelector('.des-cuenta')!.textContent).toContain(`Con las ${PLAN.length}, ${PLAN[PLAN.length - 1]!.libresAcumuladas.length}.`);
+    // La descartada no está.
     expect(nodo.textContent).not.toContain('Descartada');
-    const nombres = [...nodo.querySelectorAll('.des-ing .des-ing-nombre')].map((x) => x.textContent);
-    // Intervalo de referencia toca dos hipótesis y va primero; la biología sin medir va aparte, al final.
-    expect(nombres[0]).toBe('Intervalo de referencia');
-    expect(nombres[nombres.length - 1]).toBe('Biología sin medir');
   });
 
-  it('abre con el primer ingrediente elegido y sus hilos: el primer fotograma ya dice algo', async () => {
+  it('«Siguiente llave» abre los candados que el plan dice, y al final no deja pasar de ahí', async () => {
     await montar(estadoCon(HIPOTESIS));
-    expect(boton(/^Intervalo de referencia:/).getAttribute('aria-pressed')).toBe('true');
-    expect(nodo.querySelectorAll('.des-hilos path')).toHaveLength(2);
-    expect(apagada(filaHip('Brecha GFAP y NfL'))).toBe(false);
-    expect(apagada(filaHip('GFAP y astrogliosis'))).toBe(true);
-    // El detalle enseña la frase que decidió el ingrediente, marcada donde casó.
-    const marcas = [...nodo.querySelectorAll('.des-lista mark')].map((m) => m.textContent);
-    expect(marcas).toEqual(['intervalo de referencia', 'intervalo de referencia']);
+    for (let k = 2; k <= PLAN.length; k++) {
+      await pulsar(boton(/^Siguiente llave|^Todas las llaves/));
+      expect(cuenta()).toBe(String(PLAN[k - 1]!.libresAcumuladas.length));
+      expect(abiertos().sort()).toEqual(PLAN[k - 1]!.libresAcumuladas.map((id) => HIPOTESIS.find((h) => h.id === id)!.titulo).sort());
+    }
+    const fin = boton(/^Todas las llaves/);
+    expect(fin.hasAttribute('disabled')).toBe(true);
+    expect(nodo.querySelector('.des-cuenta')!.textContent).toContain('Es lo máximo pidiendo datos.');
+    // Hacia atrás también.
+    await pulsar(boton(/^Llave anterior/));
+    expect(cuenta()).toBe(String(PLAN[PLAN.length - 2]!.libresAcumuladas.length));
+    // La que nunca se abre pidiendo no se abre ni con todas.
+    expect(abiertos()).not.toContain('GFAP y astrogliosis');
   });
 
-  it('elegir otro ingrediente mueve los hilos y enciende sus hipótesis', async () => {
+  it('pinchar una llave salta a ese paso', async () => {
     await montar(estadoCon(HIPOTESIS));
-    await pulsar(boton(/^Resultados de ensayos clínicos:/));
-    expect(nodo.querySelectorAll('.des-hilos path')).toHaveLength(1);
-    expect(apagada(filaHip('Normalización de p-tau181'))).toBe(false);
-    expect(apagada(filaHip('Brecha GFAP y NfL'))).toBe(true);
-    expect(nodo.querySelector('.des-panel h3')!.textContent).toContain('Resultados de ensayos clínicos');
-    expect(nodo.querySelector('.des-panel')!.textContent).toContain('ClinicalTrials.gov');
+    await pulsar(boton(new RegExp(`^Llave ${PLAN.length}, `)));
+    expect(cuenta()).toBe(String(PLAN[PLAN.length - 1]!.libresAcumuladas.length));
+    expect(nodo.querySelector('.des-llave [aria-current="step"]')!.getAttribute('aria-label')).toMatch(new RegExp(`^Llave ${PLAN.length}, `));
   });
 
-  it('elegir una hipótesis enciende lo que le falta, con hilos hacia ella, y enseña lo contradicho con la nota del verificador', async () => {
+  it('pasar por una llave señala a quién llega ella sola', async () => {
     await montar(estadoCon(HIPOTESIS));
-    await pulsar(filaHip('Normalización de p-tau181'));
-    expect(apagada(boton(/^Intervalo de referencia:/))).toBe(false);
-    expect(apagada(boton(/^Resultados de ensayos clínicos:/))).toBe(false);
-    expect(apagada(boton(/^Tamaño del subgrupo en la cohorte:/))).toBe(true);
-    // Dos ingredientes y el contradicho: tres hilos, uno rojo.
-    expect(nodo.querySelectorAll('.des-hilos path')).toHaveLength(3);
-    expect(nodo.querySelectorAll('.des-hilos path.des-hilo-contra')).toHaveLength(1);
-    const detalle = nodo.querySelector('.des-panel')!.textContent!;
-    expect(detalle).toContain('Lo que le falta a esta hipótesis');
-    expect(detalle).toContain('Los ensayos usan CDR-SB e iADRS.');
-    const enlace = nodo.querySelector('.des-panel a.enlace') as HTMLAnchorElement;
-    expect(enlace.getAttribute('href')).toBe('#/investigaciones/inv-a/hipotesis/h2');
+    const referencia = PLAN.findIndex((p) => p.ingrediente === 'referencia');
+    await enfocar(boton(new RegExp(`^Llave ${referencia + 1}, Intervalo de referencia`)));
+    expect(candado('Brecha GFAP y NfL').classList.contains('des-alcanza')).toBe(true);
+    expect(candado('Normalización de p-tau181').classList.contains('des-alcanza')).toBe(true);
+    expect(candado('GFAP y astrogliosis').classList.contains('des-alcanza')).toBe(false);
   });
 
-  it('lo sin clasificar se puede elegir y se lista, no se reparte a ojo', async () => {
+  it('lo que nunca se abre pidiendo se ve distinto, y la leyenda lo cuenta', async () => {
     await montar(estadoCon(HIPOTESIS));
-    await pulsar(boton(/sin clasificar$/));
-    expect(nodo.querySelector('.des-panel')!.textContent).toContain('Lo que vale en PSEN1 vale en el esporádico.');
-    expect(apagada(filaHip('GFAP y astrogliosis'))).toBe(false);
-    expect(apagada(filaHip('Brecha GFAP y NfL'))).toBe(true);
+    const h3 = candado('GFAP y astrogliosis');
+    expect(h3.querySelector('.des-interrogacion')).not.toBeNull();
+    expect(h3.querySelector('.des-punto-sin')).not.toBeNull();
+    expect(h3.getAttribute('aria-label')).toContain('le falta biología que nadie ha medido');
+    expect(h3.getAttribute('aria-label')).toContain('tiene un supuesto sin clasificar');
+    const h2 = candado('Normalización de p-tau181');
+    expect(h2.querySelector('.des-grieta')).not.toBeNull();
+    expect(h2.getAttribute('aria-label')).toContain('tiene 1 supuesto en contra');
+    expect(candado('Brecha GFAP y NfL').querySelector('.des-grieta, .des-interrogacion')).toBeNull();
+    const leyenda = nodo.querySelector('.des-leyenda')!.textContent!;
+    expect(leyenda).toContain('1 necesita biología que nadie ha medido');
+    expect(leyenda).toContain('1 tiene ya algo en contra');
+    expect(leyenda).toContain('1 tiene un supuesto que ninguna regla clasifica');
   });
 
-  it('pasar a "esta investigación" recalcula todo con sus hipótesis y no deja una elección colgando', async () => {
+  it('las muescas son los datos que le faltan: llenas las que ya tendría', async () => {
     await montar(estadoCon(HIPOTESIS));
-    await pulsar(boton(/^Tamaño del subgrupo en la cohorte:/));
+    const h1 = candado('Brecha GFAP y NfL');
+    const llenas = h1.querySelectorAll('.des-punto-tengo').length;
+    const vacias = h1.querySelectorAll('.des-punto-falta').length;
+    expect(llenas + vacias).toBe(2);
+    expect(llenas).toBe(['referencia', 'subcohorte'].includes(PLAN[0]!.ingrediente) ? 1 : 0);
+  });
+});
+
+describe('la tarjeta de cada candado', () => {
+  it('al pasar dice lo que le falta, con qué llave y lo que ya tiene en contra', async () => {
+    await montar(estadoCon(HIPOTESIS));
+    await enfocar(candado('Normalización de p-tau181'));
+    const t = nodo.querySelector('.des-tarjeta[role="tooltip"]')!;
+    expect(t).not.toBeNull();
+    const texto = t.textContent!;
+    expect(texto).toContain('le faltan 2 datos');
+    for (const id of ['referencia', 'ensayos'] as const) {
+      const k = PLAN.findIndex((p) => p.ingrediente === id) + 1;
+      expect(texto).toContain(`${ingrediente(id).nombre}llave ${k}`);
+    }
+    expect(texto).toContain('Ya tiene 1 supuesto en contra');
+    expect(texto).toContain('Pincha el candado para ver sus 3 supuestos.');
+  });
+
+  it('al pinchar enseña sus supuestos con la frase marcada donde casó, y el enlace a la ficha', async () => {
+    await montar(estadoCon(HIPOTESIS));
+    await pulsar(candado('Normalización de p-tau181'));
+    const t = nodo.querySelector('.des-tarjeta[role="dialog"]')!;
+    expect(t).not.toBeNull();
+    const marcas = [...t.querySelectorAll('mark')].map((m) => m.textContent);
+    expect(marcas).toContain('intervalo de referencia');
+    expect(t.textContent).toContain('En contra');
+    expect(t.textContent).toContain('Las escalas de los ensayos son comparables.');
+    expect((t.querySelector('a.enlace') as HTMLAnchorElement).getAttribute('href')).toBe('#/investigaciones/inv-a/hipotesis/h2');
+    // Se cierra con la cruz y con Escape.
+    await pulsar(boton(/^Cerrar$/));
+    expect(nodo.querySelector('.des-tarjeta[role="dialog"]')).toBeNull();
+    await pulsar(candado('Normalización de p-tau181'));
+    await act(async () => {
+      candado('Normalización de p-tau181').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(nodo.querySelector('.des-tarjeta')).toBeNull();
+  });
+
+  it('lo sin clasificar se dice en la tarjeta, no se reparte a ojo', async () => {
+    await montar(estadoCon(HIPOTESIS));
+    await pulsar(candado('GFAP y astrogliosis'));
+    const t = nodo.querySelector('.des-tarjeta')!.textContent!;
+    expect(t).toContain('Un supuesto que ninguna regla clasifica');
+    expect(t).toContain('Sin clasificar');
+    expect(t).toContain('Lo que vale en PSEN1 vale en el esporádico.');
+    expect(t).toContain('Biología que nadie ha medido');
+  });
+});
+
+describe('alcance y estados vacíos', () => {
+  it('«Esta investigación» recalcula con sus hipótesis y vuelve a la primera llave', async () => {
+    await montar(estadoCon(HIPOTESIS));
+    await pulsar(boton(/^Todas las llaves|^Siguiente llave/));
     await pulsar(boton(/^Esta investigación/));
-    const resumen = nodo.querySelector('.des-resumen')!.textContent!;
-    expect(resumen).toContain('4 supuestos sin evidencia en 2 hipótesis vivas');
+    expect(nodo.querySelectorAll('.des-cand')).toHaveLength(2);
     expect(nodo.textContent).not.toContain('GFAP y astrogliosis');
-    // Sigue elegido lo que existe aquí.
-    expect(boton(/^Tamaño del subgrupo en la cohorte:/).getAttribute('aria-pressed')).toBe('true');
-    await pulsar(boton(/^Todo el programa/));
-    await pulsar(boton(/^Biología sin medir:/));
-    await pulsar(boton(/^Esta investigación/));
-    // La biología sin medir no existe en inv-a: vuelve al primero de la lista.
-    expect(boton(/^Intervalo de referencia:/).getAttribute('aria-pressed')).toBe('true');
-  });
-
-  it('el plan no mete la biología sin medir y dice por qué quedan hipótesis sin liberar', async () => {
-    await montar(estadoCon(HIPOTESIS));
-    const plan = nodo.querySelector('.des-plan')!;
-    const pasos = [...plan.querySelectorAll('.des-pasos li')].map((li) => li.firstElementChild!.textContent);
-    expect(pasos).not.toContain('Biología sin medir');
-    expect(pasos.length).toBeGreaterThan(0);
-    const pie = plan.querySelector('.des-pie')!.textContent!;
-    expect(pie).toContain('2 de 3');
-    expect(pie).toContain('1 pide biología sin medir');
-    expect(pie).toContain('1 tiene ya algún supuesto contradicho');
+    expect(nodo.querySelector('.des-cuenta')!.textContent).toContain('de 2');
+    expect(nodo.querySelector('.des-llave [aria-current="step"]')!.getAttribute('aria-label')).toMatch(/^Llave 1, /);
   });
 
   it('sin supuestos flojos lo dice, y sin hipótesis vivas también', async () => {
@@ -173,10 +228,17 @@ describe('la pantalla de qué desbloquea más', () => {
     expect(nodo.textContent).toContain('Todavía no hay hipótesis vivas en el programa.');
   });
 
+  it('si nada se consigue pidiendo, lo dice en vez de enseñar una pista vacía', async () => {
+    await montar(estadoCon([HIPOTESIS[2]!]));
+    expect(nodo.querySelector('.des-pista')).toBeNull();
+    expect(nodo.querySelector('.des-cuenta')!.textContent).toContain('Nada de lo que les falta se consigue pidiendo');
+    expect(nodo.querySelectorAll('.des-cand')).toHaveLength(1);
+  });
+
   it('no lanza con los datos de muestra', async () => {
     await montar(estadoDeMuestra());
-    expect(nodo.querySelector('.des-tablero')).not.toBeNull();
-    expect(nodo.querySelectorAll('.des-hip').length).toBeGreaterThan(0);
+    expect(nodo.querySelector('.des-pista')).not.toBeNull();
+    expect(nodo.querySelectorAll('.des-cand').length).toBeGreaterThan(0);
   });
 });
 
@@ -185,23 +247,22 @@ describe('lo que no está al día (rosa/vigencia.py)', () => {
   const con = (h: Hipotesis, s: unknown) => ({ ...h, afirmaciones: [], supuestosEvaluados: s }) as unknown as Hipotesis;
   const estadoCorridas = (hs: Hipotesis[], corridas: unknown[] = []) => ({ ...estadoCon(hs), corridas }) as unknown as EstadoRosa;
 
-  it('avisa de cuántos supuestos están por reevaluar y por qué, marca las filas y pide con el alcance de la pantalla', async () => {
+  it('avisa en una línea, explica el porqué en el título y en la tarjeta, y pide con el alcance de la pantalla', async () => {
     const pedir = vi.spyOn(acciones, 'reevaluarSupuestos').mockResolvedValue(undefined);
     const [h1, h2, h3] = HIPOTESIS;
     await montar(estadoCorridas([con(h1!, sello({ regla: 1 })), con(h2!, sello()), con(h3!, sello({ afirmaciones: -1 }))]));
-    const ojo = nodo.querySelector('.des-ojo')!.textContent!;
-    // h1: 2 flojos (regla vieja); h3: 2 flojos (evidencia llegada después). h2 al día.
-    expect(ojo).toContain('4 de 7 supuestos flojos están por reevaluar');
-    expect(ojo).toContain('1 evaluada antes del 18 de septiembre');
-    expect(ojo).toContain('1 con evidencia llegada después');
-    expect(filaHip('Brecha GFAP y NfL').querySelector('.des-viejo')).not.toBeNull();
-    expect(filaHip('Normalización de p-tau181').querySelector('.des-viejo')).toBeNull();
-    expect(filaHip('Brecha GFAP y NfL').getAttribute('aria-label')).toContain('por reevaluar');
-    expect(nodo.querySelector('.des-pie')!.textContent).toContain('Cuenta 4 supuestos por reevaluar');
-    await pulsar(boton(/^Reevaluar 2 hipótesis con la regla de hoy/));
+    const aviso = nodo.querySelector('.des-aviso')!;
+    expect(aviso.textContent).toContain('Orden provisional: 2 hipótesis por reevaluar');
+    expect(aviso.getAttribute('title')).toContain('1 evaluada antes del 18 de septiembre');
+    expect(aviso.getAttribute('title')).toContain('1 con evidencia llegada después');
+    await enfocar(candado('Brecha GFAP y NfL'));
+    expect(nodo.querySelector('.des-tarjeta-vieja')!.textContent).toContain('Por reevaluar.');
+    await enfocar(candado('Normalización de p-tau181'));
+    expect(nodo.querySelector('.des-tarjeta-vieja')).toBeNull();
+    await pulsar(boton(/^Reevaluar 2$/));
     expect(pedir).toHaveBeenLastCalledWith(null);
     await pulsar(boton(/^Esta investigación/));
-    await pulsar(boton(/^Reevaluar 1 hipótesis con la regla de hoy/));
+    await pulsar(boton(/^Reevaluar 1$/));
     expect(pedir).toHaveBeenLastCalledWith('inv-a');
     pedir.mockRestore();
   });
@@ -218,21 +279,16 @@ describe('lo que no está al día (rosa/vigencia.py)', () => {
         ],
       ),
     );
-    const ojo = nodo.querySelector('.des-ojo')!.textContent!;
-    expect(ojo).toContain('1 tiene la reevaluación pedida');
-    expect(ojo).toContain('a que la corrida 16 tenga presupuesto');
-    expect(ojo).toContain('1 no se pudo hacer: La corrida 3 no tiene presupuesto');
+    const espera = nodo.querySelector('.des-espera')!.textContent!;
+    expect(espera).toContain('1 reevaluación espera a que la corrida 16 tenga presupuesto');
+    expect(espera).toContain('La corrida 3 no tiene presupuesto');
     // Solo la no atendida se puede volver a pedir.
-    expect(boton(/^Reevaluar 1 hipótesis con la regla de hoy/)).toBeTruthy();
-    await pulsar(filaHip('Brecha GFAP y NfL'));
-    const nota = nodo.querySelector('.des-viejo-nota')!.textContent!;
-    expect(nota).toContain('Por reevaluar.');
-    expect(nota).toContain('Reevaluación pedida el');
+    expect(boton(/^Reevaluar 1$/)).toBeTruthy();
   });
 
   it('con todo al día no hay aviso', async () => {
     await montar(estadoCorridas(HIPOTESIS.map((h) => con(h, sello()))));
-    expect(nodo.querySelector('.des-ojo')).toBeNull();
-    expect(nodo.querySelector('.des-viejo')).toBeNull();
+    expect(nodo.querySelector('.des-aviso')).toBeNull();
+    expect(nodo.querySelector('.des-espera')).toBeNull();
   });
 });

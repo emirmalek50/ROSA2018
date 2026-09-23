@@ -1339,5 +1339,377 @@
   "validos": [
    "ensayos"
   ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbg-140",
+  "estado": "sin_evidencia",
+  "texto": "Los niveles plasmáticos de GFAP y NfL pueden dicotomizarse de forma estable en 'normal/anormal' mediante umbrales específicos del ensayo ajustados por edad y sexo.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbg-140",
+  "estado": "sin_evidencia",
+  "texto": "Existe y es accesible una muestra independiente, cognitivamente normal y amiloide-negativa, medida con el mismo ensayo y protocolo preanalítico, para fijar esos umbrales.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbg-140",
+  "estado": "sin_evidencia",
+  "texto": "D24, definido como integral temporal del indicador conjunto en una ventana fija de 24 meses, varía de forma suficiente condicionada a las duraciones marginales de GFAP anormal y NfL normal (no es función determinista ni casi colineal de ellas).",
+  "validos": [
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbp-150",
+  "estado": "sin_evidencia",
+  "texto": "Ese subconjunto dispone de suficientes extracciones longitudinales de plasma para medir GFAP y NfL repetidamente en el tiempo.",
+  "validos": [
+   "seriado"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbp-150",
+  "estado": "sin_evidencia",
+  "texto": "Existe un subgrupo de ADNI con APOE ε4, amiloide positivo y cognición normal al inicio suficientemente grande para estimar diferencias de error de predicción con precisión útil.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbp-150",
+  "estado": "sin_evidencia",
+  "texto": "Existen umbrales o referencias independientes de anormalidad para GFAP y NfL en plasma, derivados de poblaciones externas al conjunto de análisis.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvulxbp-150",
+  "estado": "sin_evidencia",
+  "texto": "Esos umbrales son transportables entre los ensayos analíticos y plataformas usadas en ADNI y en la cohorte de validación.",
+  "validos": [
+   "referencia",
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvuvbm2-10",
+  "estado": "sin_evidencia",
+  "texto": "Existe en ADNI un número suficiente de participantes portadores de APOE ε4, cognitivamente normales y con amiloide-PET positivo al inicio.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvuvbm2-10",
+  "estado": "sin_evidencia",
+  "texto": "Dentro de ese grupo, hay suficientes participantes con GFAP y NfL plasmáticos simultáneamente por debajo del umbral de anormalidad en la evaluación basal.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvuvbm2-10",
+  "estado": "sin_evidencia",
+  "texto": "Esos mismos participantes disponen de tau-PET basal dentro de una ventana preespecificada alrededor de la primera extracción de plasma.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0ta-55",
+  "estado": "sin_evidencia",
+  "texto": "Existen cohortes longitudinales publicadas de participantes cognitivamente normales al inicio con positividad amiloide establecida en la visita basal o en una ventana basal explícitamente definida.",
+  "validos": [
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0ta-55",
+  "estado": "sin_evidencia",
+  "texto": "Esas cohortes reportan resultados estratificados específicamente para portadores de APOE ε4.",
+  "validos": [
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0tn-66",
+  "estado": "sin_evidencia",
+  "texto": "Existen publicaciones que reportan resultados estratificados por portación de APOE ε4 dentro de la población cognitivamente normal amiloide-positiva.",
+  "validos": [
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwd0tn-66",
+  "estado": "sin_evidencia",
+  "texto": "Es posible definir categorías dicotómicas reproducibles de 'anormal' y 'normal' para GFAP, NfL y el cociente p-tau181/Aβ42 comparables entre cohortes y plataformas analíticas.",
+  "validos": [
+   "referencia",
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwqw1i-37",
+  "estado": "sin_evidencia",
+  "texto": "La concentración de BACE1 plasmática es una medida analíticamente estable y reproducible entre laboratorios y plataformas.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtvwqw1i-37",
+  "estado": "contradicho",
+  "texto": "La divergencia temporalmente próxima de BACE1 y GFAP atribuida a Belder et al. corresponde a BACE1 en plasma, en el grupo de portadores, y es verificable con cita a página o figura exacta.",
+  "validos": [
+   "cohortes"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtwztiwr-154",
+  "estado": "sin_evidencia",
+  "texto": "La semaglutida oral produce en el cerebro humano un cambio metabólico medible y sostenido por FDG-PET, no solo cambios en biomarcadores plasmáticos.",
+  "validos": [
+   "investigar",
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtwztiwr-154",
+  "estado": "sin_evidencia",
+  "texto": "El metabolismo cerebral medido con FDG-PET es un indicador válido de 'respuesta cerebral' al tratamiento y no un mero reflejo de pérdida de volumen tisular.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtwztiwr-154",
+  "estado": "sin_evidencia",
+  "texto": "La comparabilidad de la respuesta metabólica entre estratos de atrofia puede establecerse con corrección adecuada del efecto de volumen parcial y con márgenes de equivalencia preespecificados.",
+  "validos": [
+   "estimable",
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtwztiwr-154",
+  "estado": "sin_evidencia",
+  "texto": "La atrofia regional basal por resonancia magnética es cuantificable de forma continua, reproducible y estandarizable entre centros.",
+  "validos": [
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx08plv-390",
+  "estado": "sin_evidencia",
+  "texto": "Semaglutida oral reduce la concentración plasmática de GFAP frente a placebo en Alzheimer esporádico amiloide-positivo con deterioro cognitivo temprano.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx08plv-390",
+  "estado": "sin_evidencia",
+  "texto": "Semaglutida oral reduce también la concentración de GFAP en LCR en esa misma población.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx08plv-390",
+  "estado": "sin_evidencia",
+  "texto": "Semaglutida oral no modifica de forma relevante p-tau181 en plasma ni en LCR en esa población.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx08plv-390",
+  "estado": "sin_evidencia",
+  "texto": "Semaglutida oral no modifica de forma relevante NfL en plasma ni en LCR en esa población.",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx4tbe3-122",
+  "estado": "sin_evidencia",
+  "texto": "GFAP plasmático refleja una respuesta astroglial modificable y no solo un marcador inerte de carga patológica.",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx4tbe3-122",
+  "estado": "sin_evidencia",
+  "texto": "Semaglutida oral produce un descenso medible de GFAP plasmático frente a placebo en personas con Alzheimer esporádico amiloide-positivo (premisa condicional, no verificada aquí).",
+  "validos": [
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx4tbe3-122",
+  "estado": "sin_evidencia",
+  "texto": "El descenso de GFAP plasmático refleja una reducción real de reactividad astroglial en el cerebro y no un artefacto de aclaramiento, volumen plasmático o cambios en composición corporal inducidos por el fármaco.",
+  "validos": [
+   "covariables",
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx4tbe3-122",
+  "estado": "sin_evidencia",
+  "texto": "La respuesta de GFAP puede mantenerse durante exposición prolongada en lugar de atenuarse por taquifilaxia o adaptación.",
+  "validos": [
+   "investigar",
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtx4tbe3-122",
+  "estado": "sin_evidencia",
+  "texto": "Al retirar el fármaco de forma enmascarada, la respuesta de GFAP revierte o se atenúa de manera detectable respecto al brazo continuado.",
+  "validos": [
+   "investigar",
+   "ensayos"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxcyxox-61",
+  "estado": "sin_evidencia",
+  "texto": "Existe en ADNI un número suficiente de portadores de APOE ε4 con cognición normal basal, clasificación amiloide basal y muestras plasmáticas seriadas para comparar amiloide-positivos y amiloide-negativos.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxcyxox-61",
+  "estado": "sin_evidencia",
+  "texto": "El estrato APOE ε4 positivo y amiloide-negativo con cognición normal tiene tamaño y seguimiento suficientes para sostener el contraste central.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mtxcyxox-61",
+  "estado": "sin_evidencia",
+  "texto": "Es posible definir umbrales de alteración de GFAP y de NfL en una muestra de referencia separada, sin usar información de progresión futura.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00ml-52",
+  "estado": "sin_evidencia",
+  "texto": "Existe una subcohorte con tamaño suficiente de participantes cognitivamente normales, portadores de APOE ε4 y amiloide-positivos al inicio, con plasma longitudinal disponible.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00ml-52",
+  "estado": "sin_evidencia",
+  "texto": "Existe una cohorte de referencia independiente, cognitivamente normal y amiloide-negativa al momento del muestreo, adecuada para fijar umbrales ajustados por edad y sexo.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00ml-52",
+  "estado": "sin_evidencia",
+  "texto": "Los umbrales de anormalidad definidos en la referencia externa son transferibles a la cohorte de estudio (misma plataforma analítica, mismas unidades, mismo preanalítico).",
+  "validos": [
+   "referencia",
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00o4-61",
+  "estado": "sin_evidencia",
+  "texto": "Existe una definición operativa reproducible y preespecificada de 'cruce a anormalidad' (umbral o punto de cambio) para cada marcador.",
+  "validos": [
+   "referencia",
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00o4-61",
+  "estado": "sin_evidencia",
+  "texto": "Una brecha GFAP–NfL más corta se asocia con menor tiempo posterior hasta MCI (dirección no establecida a priori por las fuentes).",
+  "validos": [
+   "investigar"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00o4-61",
+  "estado": "sin_evidencia",
+  "texto": "Es posible definir de forma operativa y reproducible un 'cruce' de GFAP y otro de NfL a nivel individual (umbral normativo o punto de cambio en la trayectoria).",
+  "validos": [
+   "referencia",
+   "estimable"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1k00o4-61",
+  "estado": "sin_evidencia",
+  "texto": "La brecha temporal entre ambos cruces es una cantidad identificable con la densidad real de muestreo seriado disponible, y no un artefacto determinado por el prior o por el modelo de desenlace.",
+  "validos": [
+   "estimable",
+   "seriado"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1ku6hd-164",
+  "estado": "sin_evidencia",
+  "texto": "Ese estado discordante puede identificarse de forma fiable en una visita índice a partir de umbrales fijados antes del análisis.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1ku6hd-164",
+  "estado": "sin_evidencia",
+  "texto": "Los umbrales de alteración pueden definirse con una referencia externa o un subconjunto independiente cognitivamente normal y amiloide-negativo, sin usar la estabilidad cognitiva futura para seleccionar controles.",
+  "validos": [
+   "referencia"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1m77rc-285",
+  "estado": "sin_evidencia",
+  "texto": "En ADNI existe un número suficiente de participantes portadores de APOE ε4, amiloide-positivos por PET o LCR y cognitivamente normales al inicio, con plasma seriado disponible.",
+  "validos": [
+   "subcohorte"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1m77rc-285",
+  "estado": "sin_evidencia",
+  "texto": "El intervalo entre extracciones es lo bastante corto para resolver el retardo temporal postulado entre GFAP y NfL.",
+  "validos": [
+   "seriado"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1mrftd-377",
+  "estado": "sin_evidencia",
+  "texto": "Ese límite de referencia puede calibrarse en controles amiloide-negativos independientes y es transferible a la cohorte de estudio con el mismo ensayo y plataforma.",
+  "validos": [
+   "referencia",
+   "medida"
+  ]
+ },
+ {
+  "hipotesis": "hip-mu1mrftd-377",
+  "estado": "sin_evidencia",
+  "texto": "La brecha Δ entre ambos tiempos de cruce es un parámetro estable y estimable a nivel individual, no solo a nivel de grupo.",
+  "validos": [
+   "estimable"
+  ]
  }
 ]

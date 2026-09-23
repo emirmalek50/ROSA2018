@@ -1875,3 +1875,64 @@ solo se demostró" sí cuenta. La tercera palabra la destapó la prueba contra l
 resúmenes reales: "las hipótesis pendientes no equivalen a resultados
 confirmados" daba un aviso falso. Tras el arreglo, 0 avisos en 81 textos reales
 del estado.
+
+## Qué desbloquea más, rehecha como candados y llaves (23 de septiembre de 2026)
+
+Emir paró la primera versión: "siento que está demasiado complicado, a
+cualquiera le hartaría ver eso, nosotros tenemos cosas mucho mejores, como el
+atlas, el árbol". Tenía razón. Eran cuatro zonas compitiendo (ingredientes,
+hilos, hipótesis con cuadritos, detalle y una gráfica de escalones), dos
+párrafos de explicación y cinco códigos visuales antes de entender nada, y la
+respuesta a la pregunta que le da nombre estaba abajo a la derecha.
+
+Ahora es una sola imagen, con la metáfora de su propio icono. Cada hipótesis
+viva es un **candado**, con una muesca por cada dato que le falta. Cada dato es
+una **llave**, y las llaves van en fila en el orden del plan. Se elige hasta
+qué llave se llega ("Siguiente llave" o pinchando una) y se ve qué candados se
+abren; un contador grande dice cuántos. Pasando por una llave se ve a quién
+llega ella sola; pasando por un candado sale una tarjeta con lo que le falta
+(y con qué llave); pinchándolo, sus supuestos con la frase que decidió cada uno
+marcada, y el enlace a la ficha.
+
+Lo que nunca se abre pidiendo datos se ve distinto, para que nadie crea que
+solo faltan más llaves: interrogación ámbar, biología que nadie ha medido;
+grieta roja, algo ya en contra; muesca punteada, un supuesto que ninguna regla
+clasifica. La leyenda los cuenta.
+
+La lógica no cambió (`tablero`, `plan`, `vigencia` en lib/desbloqueo.ts). El
+aviso de lo que está por reevaluar es una línea con el botón, y el porqué va en
+su título y en la tarjeta de cada candado. Boceto antes de construir, como con
+las otras pantallas: ~/Downloads/boceto-candados-y-llaves.png, y la pantalla
+hecha, con los datos de hoy, en ~/Downloads/que-desbloquea-mas-nueva.png.
+
+### Lo que destapó construirla: 45 supuestos nuevos y 12 candados que no se abrían
+
+Al pintarla con los datos reales, la leyenda decía que 12 hipótesis tenían un
+supuesto que ninguna regla clasifica; por la mañana eran 2 supuestos. Las
+reevaluaciones de la mañana volvieron a pasar la revisión inicial y dejaron 45
+supuestos nuevos (los flojos pasaron de 164 a 190), redactados de otra forma, y
+las reglas de palabras, ajustadas sobre los 164 de la mañana, dejaron 19 sin
+clasificar. Como una hipótesis con un supuesto sin clasificar no puede abrirse
+nunca en el plan, la pantalla decía que había 12 bloqueadas que no lo estaban.
+
+Arreglo: los 45 se leyeron uno a uno (los leyó Claude, no una persona; con dos
+etiquetas válidas donde de verdad piden dos cosas) y se añadieron al conjunto
+de casos, y se añadieron doce reglas AL FINAL de la lista. Como gana la primera
+regla que casa, ninguna de las nuevas puede cambiar el ingrediente de los 164
+de la mañana. Resultado sobre 209 casos: 207 bien, 2 sin clasificar (los mismos
+de la mañana), 0 mal. Con el estado real, el plan pasa de abrir 12 hipótesis
+con 10 llaves a abrir 17.
+
+**Lo que ese 207 de 209 no dice**, y hay que tener presente: las reglas se
+escribieron mirando esos textos, así que acertar ahí no es generalizar. La
+medida honesta de generalización es la de ANTES de añadir reglas: con los 45
+supuestos nuevos, las reglas clasificaron 26 (58 %) y no se equivocaron en
+ninguno. Es decir, nunca mandan un supuesto al dato equivocado, pero con
+redacciones nuevas se les escapan cuatro de cada diez. Va a volver a pasar con
+cada tanda de supuestos nuevos. Arreglo de raíz pendiente: usar el
+`dondeSeResponde` de la regla 3 (que ya da el modelo al evaluar cada supuesto)
+como respaldo para lo que las reglas no reconocen, midiendo antes si acierta.
+
+Y una corrección de un texto mío de la mañana: el test de la clasificación
+decía que las etiquetas se las "puso una persona leyéndolo". Las puso Claude;
+ninguna persona del equipo las ha revisado todavía. Ya lo dice así.

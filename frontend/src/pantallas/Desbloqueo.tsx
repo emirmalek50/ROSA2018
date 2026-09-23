@@ -1,63 +1,47 @@
-// Qué desbloquea más: lo que les falta a todas las hipótesis, junto.
+// Qué desbloquea más: candados y llaves.
 //
 // Es la cuarta pantalla de estructura, junto al Atlas (dónde, en el cuerpo),
 // el Árbol (de dónde, el linaje) y Mecanismos (por qué, la cadena causal).
-// Mecanismos dice qué le falta a UNA hipótesis; esta contesta la pregunta de
-// quien dirige el laboratorio: qué conseguir primero para que avancen más.
+// Contesta la pregunta de quien dirige el laboratorio: qué dato conseguir
+// primero para que avancen más hipótesis.
 //
-// A la izquierda, los ingredientes (lo que haría falta tener para poder
-// comprobar un supuesto), ordenados por cuántas hipótesis tocan. A la derecha,
-// las hipótesis vivas, cada una con un cuadrito por supuesto flojo. Al elegir
-// un ingrediente salen hilos a las hipótesis que haría avanzar, y el grosor
-// del hilo es cuántos supuestos de esa hipótesis abre; al elegir una
-// hipótesis los hilos van al revés, de todo lo que le falta hacia ella.
-// Debajo, el detalle de lo elegido (con la frase de cada supuesto que decidió
-// su ingrediente) y el orden en que convendría pedir.
+// Una sola imagen. Cada hipótesis viva es un candado, con una muesca por cada
+// dato que le falta para poder comprobar sus supuestos. Cada dato es una llave,
+// y las llaves van en fila en el mejor orden (el plan de lib/desbloqueo.ts). Se
+// elige hasta qué llave se llega y se ve qué candados se abren: abierto quiere
+// decir que todo lo que le falta a esa hipótesis sería comprobable. Pasando por
+// una llave se ve a quién llega ella sola; pasando por un candado, lo que le
+// falta; pinchándolo, sus supuestos con la frase que decidió cada uno.
+//
+// La primera versión (23 de septiembre de 2026) tenía cuatro zonas, dos
+// párrafos de explicación, hilos, cuadritos de cinco colores y una gráfica de
+// escalones, y Emir la paró: "a cualquiera le hartaría ver eso". La lógica es
+// la misma (tablero, plan y vigencia, medidas y probadas); cambió cómo se ve.
+//
+// Lo que nunca se abre pidiendo datos se ve distinto, para que nadie crea que
+// solo faltan más llaves: con una interrogación, lo que pide biología que nadie
+// ha medido; con una grieta, lo que ya tiene evidencia en contra; con una
+// muesca punteada, lo que tiene un supuesto que ninguna regla sabe clasificar.
 //
 // No hay endpoint nuevo: los supuestos de cada ficha ya viajan en el estado, y
-// la clasificación es una regla en el navegador (lib/desbloqueo.ts).
+// la clasificación es una regla en el navegador.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import { ingrediente as ingredienteDe, LO_QUE_FALTABA, plan, tablero, VIAS, vigenciaEnLlano, type FilaHipotesis, type IdIngrediente, type MotivoVigencia, type SupuestoFlojo } from '../lib/desbloqueo';
+import { ingrediente as ingredienteDe, LO_QUE_FALTABA, plan, tablero, vigenciaEnLlano, type FilaHipotesis, type IdIngrediente, type SupuestoFlojo } from '../lib/desbloqueo';
 import { ESTADO_HIPOTESIS } from '../lib/etiquetas';
-import { fechaCorta } from '../lib/formato';
 import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
 import { rutaDe } from '../lib/ruta';
 import { acciones } from '../datos/almacen';
 import { AvisoMuestra } from '../componentes/piezas';
 import '../desbloqueo.css';
 
-const AYUDA =
-  'Cada hipótesis tiene supuestos que nadie ha podido comprobar todavía porque falta algo: un intervalo de referencia, los resultados de un ensayo, el tamaño de un subgrupo en ADNI. Muchos esperan lo mismo. Aquí se junta lo que falta en todas a la vez: pincha un ingrediente y se encienden las hipótesis que haría avanzar; pincha una hipótesis y se ve todo lo que le falta.';
-const META =
-  'Comprobar no es confirmar: el dato puede dar la razón al supuesto o quitársela. Cada supuesto va a un ingrediente por reglas de palabras, sin modelo, y al elegirlo se ve la frase que lo decidió. Medidas contra una lectura hecha a mano de los 164 supuestos flojos del 23 de septiembre de 2026, coinciden en 162 y los otros 2 quedan sin clasificar, a la vista.';
-
-/** Las alturas de las filas, en píxeles. Los hilos se dibujan en estas mismas
- *  coordenadas, así que las filas las llevan fijas (ver desbloqueo.css). */
-const CAB = 28;
-const FILA_ING = 58;
-const SEP = 22;
-const FILA_OTRO = 34;
-const CAB_GRUPO = 30;
-const FILA_H = 28;
-const HUECO_GRUPO = 8;
-const HILOS = 150;
-/** Cuántos supuestos se enseñan antes de "ver el resto". */
-const VISIBLES = 6;
-
-type Foco = { tipo: 'ingrediente'; id: IdIngrediente } | { tipo: 'hipotesis'; id: string } | { tipo: 'sin_clasificar' } | { tipo: 'contradichos' };
-
-function clave(f: Foco | null): string {
-  if (!f) return '';
-  return f.tipo === 'ingrediente' || f.tipo === 'hipotesis' ? `${f.tipo}:${f.id}` : f.tipo;
-}
-
-const VIA_CORTA: Record<string, string> = { publicado: 'publicado', cohorte: 'cohorte', analisis: 'análisis', investigacion: 'investigación nueva' };
-
-function nombreVia(via: string): string {
-  return VIAS.find((v) => v.id === via)?.nombre ?? via;
-}
+const DONDE: Record<string, string> = {
+  publicado: 'en lo publicado',
+  cohorte: 'en la cohorte',
+  analisis: 'analizando',
+  investigacion: 'investigando',
+};
 
 function plural(n: number, uno: string, varios: string): string {
   return `${n} ${n === 1 ? uno : varios}`;
@@ -71,21 +55,75 @@ function Marcado({ s }: { s: SupuestoFlojo }) {
   return (
     <>
       {texto.slice(0, s.posicion)}
-      <mark title="La frase que decidió el ingrediente">{s.motivo}</mark>
+      <mark title="La frase que decidió el dato que le falta">{s.motivo}</mark>
       {texto.slice(s.posicion + s.motivo.length)}
     </>
   );
 }
 
+/** Lo que un candado enseña, sacado de su fila del tablero. */
+interface Candado {
+  fila: FilaHipotesis;
+  /** Los datos que le faltan y se consiguen pidiendo, en el orden del plan. */
+  pedibles: IdIngrediente[];
+  /** Le falta biología que nadie ha medido: no se abre pidiendo. */
+  investigar: boolean;
+  /** Tiene algún supuesto que ninguna regla clasifica: no se sabe qué pide. */
+  sinClase: boolean;
+}
+
+function describir(f: FilaHipotesis, ordenDe: Map<IdIngrediente, number>): Candado {
+  const pedibles = f.necesita.filter((n) => ingredienteDe(n).via !== 'investigacion');
+  pedibles.sort((a, b) => (ordenDe.get(a) ?? 99) - (ordenDe.get(b) ?? 99));
+  return {
+    fila: f,
+    pedibles,
+    investigar: f.necesita.some((n) => ingredienteDe(n).via === 'investigacion'),
+    sinClase: f.pendientes.some((s) => s.ingrediente === null),
+  };
+}
+
+const LLAVE = (
+  <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true">
+    <circle cx="8" cy="12" r="4.3" fill="none" stroke="currentColor" strokeWidth="2.1" />
+    <path d="M12.3 12H21M17.3 12v3.3M20 12v2.5" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
+  </svg>
+);
+
+/** El candado dibujado. Las muescas son los datos que le faltan: llenas las que
+ *  ya tendría con las llaves elegidas, vacías las que no, punteada la de un
+ *  supuesto sin clasificar. */
+function DibujoCandado({ puntos, investigar, contra }: { puntos: ('tengo' | 'falta' | 'sin')[]; investigar: boolean; contra: boolean }) {
+  const n = puntos.length;
+  const paso = n > 4 ? 34 / (n - 1) : 9.2;
+  return (
+    <svg className="des-dibujo" viewBox="0 0 64 70" width="60" height="66" aria-hidden="true">
+      <path className="des-arco des-arco-cerrado" d="M20 32 V20 A12 12 0 0 1 44 20 V32" />
+      <path className="des-arco des-arco-abierto" d="M20 32 V12 A12 12 0 0 1 44 12 V18" />
+      <rect className="des-cuerpo" x="10" y="31" width="44" height="37" rx="9" />
+      {puntos.map((p, i) => (
+        <circle key={i} className={`des-punto des-punto-${p}`} cx={32 - ((n - 1) * paso) / 2 + i * paso} cy="50" r={p === 'tengo' ? 3.3 : 3} />
+      ))}
+      {contra && <path className="des-grieta" d="M15 37 l6 5 l-3.5 5 l7 6.5" />}
+      {investigar && (
+        <g className="des-interrogacion">
+          <circle cx="53" cy="31" r="8" />
+          <text x="53" y="35" textAnchor="middle">
+            ?
+          </text>
+        </g>
+      )}
+    </svg>
+  );
+}
+
 export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
   const [alcance, cambiarAlcance] = useState<'programa' | 'investigacion'>('programa');
-  const [elegido, elegir] = useState<Foco | null>(null);
-  // Lo que se señala con el ratón o el teclado: enseña sus hilos sin cambiar
-  // lo elegido, que es lo que manda en el detalle de abajo.
-  const [sobre, señalar] = useState<Foco | null>(null);
-  // La lista de supuestos desplegada entera, por la clave de lo elegido: al
-  // elegir otra cosa vuelve a salir recogida.
-  const [desplegado, desplegar] = useState('');
+  // Hasta qué llave se llega. null es "la primera": se abre con algo encendido.
+  const [paso, irAPaso] = useState<number | null>(null);
+  const [sobreLlave, señalarLlave] = useState<number | null>(null);
+  const [sobreCandado, señalarCandado] = useState<string | null>(null);
+  const [fijado, fijar] = useState<string | null>(null);
   const [pidiendo, envolverPedir] = useEnVuelo();
 
   const todas = estado.hipotesis ?? [];
@@ -94,35 +132,30 @@ export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: Estado
   const pasos = useMemo(() => plan(t), [t]);
   const enEsta = programa.filas.filter((f) => f.hipotesis.investigacionId === inv.id).length;
 
-  const pedibles = t.ingredientes.filter((f) => f.ingrediente.via !== 'investigacion');
-  const biologia = t.ingredientes.find((f) => f.ingrediente.via === 'investigacion') ?? null;
-  const conSin = t.filas.filter((f) => f.pendientes.some((s) => s.ingrediente === null));
-  const conContra = t.filas.filter((f) => f.contradichos.length > 0);
-  const conPendientes = t.filas.filter((f) => f.pendientes.length > 0);
+  const k = Math.min(paso ?? (pasos.length ? 1 : 0), pasos.length);
+  const usadas = useMemo(() => new Set(pasos.slice(0, k).map((p) => p.ingrediente)), [pasos, k]);
+  const abiertas = useMemo(() => new Set(k ? pasos[k - 1]!.libresAcumuladas : []), [pasos, k]);
+  const ordenDe = useMemo(() => new Map(pasos.map((p, i) => [p.ingrediente, i + 1])), [pasos]);
+  const final = pasos.length ? pasos[pasos.length - 1]!.libresAcumuladas.length : 0;
+  const llaveSenalada = sobreLlave !== null ? (pasos[sobreLlave]?.ingrediente ?? null) : null;
 
-  const existe = (f: Foco | null): boolean => {
-    if (!f) return false;
-    if (f.tipo === 'ingrediente') return t.ingredientes.some((x) => x.ingrediente.id === f.id);
-    if (f.tipo === 'hipotesis') return t.filas.some((x) => x.hipotesis.id === f.id);
-    if (f.tipo === 'sin_clasificar') return t.sinClasificar.length > 0;
-    return t.contradichos > 0;
-  };
-  const porDefecto: Foco | null = pedibles[0]
-    ? { tipo: 'ingrediente', id: pedibles[0].ingrediente.id }
-    : biologia
-      ? { tipo: 'ingrediente', id: biologia.ingrediente.id }
-      : t.sinClasificar.length
-        ? { tipo: 'sin_clasificar' }
-        : t.contradichos
-          ? { tipo: 'contradichos' }
-          : null;
-  // Lo elegido tiene que existir en el alcance de ahora: al pasar a "esta
-  // investigación" un ingrediente puede quedarse sin hipótesis.
-  const actual = existe(elegido) ? elegido : porDefecto;
-  const foco = existe(sobre) ? sobre : actual;
-  const filaFoco = foco?.tipo === 'hipotesis' ? (t.filas.find((f) => f.hipotesis.id === foco.id) ?? null) : null;
-
+  const candados = useMemo(() => t.filas.map((f) => describir(f, ordenDe)), [t, ordenDe]);
   const titulos = useMemo(() => new Map((estado.investigaciones ?? []).map((i) => [i.id, i.titulo])), [estado.investigaciones]);
+  // Por investigación, la de esta pantalla primero; las demás en el orden en que aparecen.
+  const grupos = useMemo(() => {
+    const orden: string[] = [];
+    for (const c of candados) if (!orden.includes(c.fila.hipotesis.investigacionId)) orden.push(c.fila.hipotesis.investigacionId);
+    orden.sort((a, b) => (a === inv.id ? -1 : b === inv.id ? 1 : 0));
+    return orden.map((id) => ({
+      id,
+      candados: candados.filter((c) => c.fila.hipotesis.investigacionId === id),
+    }));
+  }, [candados, inv.id]);
+
+  const nInvestigar = candados.filter((c) => c.investigar).length;
+  const nContra = candados.filter((c) => c.fila.contradichos.length > 0).length;
+  const nSinClase = candados.filter((c) => c.sinClase).length;
+
   // La revisión pedida se hace con el presupuesto de la última corrida de la
   // investigación: si está pausada por presupuesto, la petición espera.
   const ultimaCorrida = useMemo(() => {
@@ -134,93 +167,76 @@ export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: Estado
     return m;
   }, [estado.corridas]);
 
-  // Dónde cae cada fila, en las coordenadas de los hilos.
-  const disp = useMemo(() => {
-    const yIng = new Map<string, number>();
-    let y = CAB;
-    for (const f of t.ingredientes) {
-      if (f.ingrediente.via === 'investigacion') continue;
-      yIng.set(`ingrediente:${f.ingrediente.id}`, y + FILA_ING / 2);
-      y += FILA_ING;
-    }
-    const bio = t.ingredientes.find((f) => f.ingrediente.via === 'investigacion');
-    if (bio || t.sinClasificar.length || t.contradichos) {
-      y += SEP + CAB;
-      if (bio) {
-        yIng.set(`ingrediente:${bio.ingrediente.id}`, y + FILA_ING / 2);
-        y += FILA_ING;
-      }
-      if (t.sinClasificar.length) {
-        yIng.set('sin_clasificar', y + FILA_OTRO / 2);
-        y += FILA_OTRO;
-      }
-      if (t.contradichos) {
-        yIng.set('contradichos', y + FILA_OTRO / 2);
-        y += FILA_OTRO;
-      }
-    }
-    // Las hipótesis, por investigación, la de esta pantalla primero; las
-    // demás en el orden en que aparecen.
-    const orden: string[] = [];
-    for (const f of t.filas) if (!orden.includes(f.hipotesis.investigacionId)) orden.push(f.hipotesis.investigacionId);
-    orden.sort((a, b) => (a === inv.id ? -1 : b === inv.id ? 1 : 0));
-    const grupos = orden.map((id) => ({ id, filas: t.filas.filter((f) => f.hipotesis.investigacionId === id) }));
-    const yHip = new Map<string, number>();
-    let yh = 0;
-    for (const g of grupos) {
-      yh += CAB_GRUPO;
-      for (const f of g.filas) {
-        yHip.set(f.hipotesis.id, yh + FILA_H / 2);
-        yh += FILA_H;
-      }
-      yh += HUECO_GRUPO;
-    }
-    return { yIng, grupos, yHip, alto: Math.max(y, yh) };
-  }, [t, inv.id]);
-
-  const hilos = useMemo(() => {
-    const salida: { clave: string; desde: number; hasta: number; grosor: number; contra: boolean }[] = [];
-    if (!foco) return salida;
-    const cuantos = (f: FilaHipotesis, id: IdIngrediente | null) => f.pendientes.filter((s) => s.ingrediente === id).length;
-    const añadir = (claveHilo: string, desde: number | undefined, hasta: number | undefined, grosor: number, contra = false) => {
-      if (desde !== undefined && hasta !== undefined && grosor > 0) salida.push({ clave: claveHilo, desde, hasta, grosor, contra });
-    };
-    if (foco.tipo === 'ingrediente') {
-      for (const f of t.filas) añadir(f.hipotesis.id, disp.yIng.get(clave(foco)), disp.yHip.get(f.hipotesis.id), cuantos(f, foco.id));
-    } else if (foco.tipo === 'sin_clasificar') {
-      for (const f of t.filas) añadir(f.hipotesis.id, disp.yIng.get('sin_clasificar'), disp.yHip.get(f.hipotesis.id), cuantos(f, null));
-    } else if (foco.tipo === 'contradichos') {
-      for (const f of t.filas) añadir(f.hipotesis.id, disp.yIng.get('contradichos'), disp.yHip.get(f.hipotesis.id), f.contradichos.length, true);
-    } else if (filaFoco) {
-      const hasta = disp.yHip.get(filaFoco.hipotesis.id);
-      for (const id of filaFoco.necesita) añadir(id, disp.yIng.get(`ingrediente:${id}`), hasta, cuantos(filaFoco, id));
-      añadir('sin_clasificar', disp.yIng.get('sin_clasificar'), hasta, cuantos(filaFoco, null));
-      añadir('contradichos', disp.yIng.get('contradichos'), hasta, filaFoco.contradichos.length, true);
-    }
-    return salida;
-  }, [foco, filaFoco, t, disp]);
+  function cambiar(a: 'programa' | 'investigacion') {
+    cambiarAlcance(a);
+    irAPaso(null);
+    fijar(null);
+    señalarCandado(null);
+  }
 
   const cabecera = (
-    <div className="pantalla-cabecera" style={{ marginTop: 16, marginBottom: 14 }}>
+    <div className="des-cabecera">
       <div>
         <h2>Qué desbloquea más</h2>
-        <p>{AYUDA}</p>
-        <p className="meta">{META}</p>
+        <p>Cada candado es una hipótesis. Cada llave, un dato que falta. Elige hasta qué llave llegas y mira cuántos se abren.</p>
       </div>
-      <div className="des-alcance" role="group" aria-label="Qué hipótesis se miran">
-        <button type="button" aria-pressed={alcance === 'programa'} onClick={() => cambiarAlcance('programa')}>
-          Todo el programa · {programa.filas.length}
-        </button>
-        <button type="button" aria-pressed={alcance === 'investigacion'} onClick={() => cambiarAlcance('investigacion')}>
-          Esta investigación · {enEsta}
-        </button>
+      <div className="des-cabecera-lado">
+        {t.porReevaluar.length > 0 && avisoViejos()}
+        <div className="des-alcance" role="group" aria-label="Qué hipótesis se miran">
+          <button type="button" aria-pressed={alcance === 'programa'} onClick={() => cambiar('programa')}>
+            Todo el programa · {programa.filas.length}
+          </button>
+          <button type="button" aria-pressed={alcance === 'investigacion'} onClick={() => cambiar('investigacion')}>
+            Esta investigación · {enEsta}
+          </button>
+        </div>
       </div>
     </div>
   );
 
+  // Lo que no está al día: una línea con el botón. El porqué, en el título y en
+  // la tarjeta de cada candado.
+  function avisoViejos(): JSX.Element {
+    const viejas = t.porReevaluar;
+    const pedidas = viejas.filter((f) => f.vigencia.pedidaEn);
+    const sinPedir = viejas.filter((f) => !f.vigencia.pedidaEn);
+    const porRegla = new Map<number | null, number>();
+    for (const f of viejas) if (f.vigencia.motivo === 'regla') porRegla.set(f.vigencia.regla, (porRegla.get(f.vigencia.regla) ?? 0) + 1);
+    const partes = [
+      ...[...porRegla.entries()]
+        .sort(([a], [b]) => (a ?? -1) - (b ?? -1))
+        .map(([r, n]) => `${n} ${n === 1 ? 'evaluada' : 'evaluadas'} ${r !== null && LO_QUE_FALTABA[r] ? LO_QUE_FALTABA[r] : 'con una regla anterior a la de hoy'}`),
+      ...(['evidencia', 'fallidos', 'sin_sello'] as const).map((m) => {
+        const n = viejas.filter((f) => f.vigencia.motivo === m).length;
+        if (!n) return '';
+        return m === 'evidencia' ? `${n} con evidencia llegada después` : m === 'fallidos' ? `${n} con supuestos que el modelo no pudo evaluar` : `${n} sin fecha de evaluación`;
+      }),
+    ].filter(Boolean);
+    const detalle = `${partes.join('; ')}. Hasta que ROSA2018 los reevalúe, este orden es provisional.`;
+    return (
+      <div className="des-aviso" role="status" title={detalle}>
+        <span>
+          Orden provisional: {plural(viejas.length, 'hipótesis', 'hipótesis')} por reevaluar
+          {pedidas.length > 0 && !sinPedir.length ? ', ya pedida' : ''}
+        </span>
+        {sinPedir.length > 0 && (
+          <button
+            type="button"
+            title="Vuelve a revisarlas como cuando llega evidencia nueva: reevalúa sus supuestos y vuelve a pasar el Killer (salvo en las aceptadas), con el presupuesto de la última corrida de cada investigación. Gasta llamadas al modelo; descartar sigue necesitando a una persona."
+            disabled={pidiendo}
+            {...atributosEnVuelo(pidiendo)}
+            onClick={envolverPedir(() => acciones.reevaluarSupuestos(alcance === 'programa' ? null : inv.id))}
+          >
+            Reevaluar {sinPedir.length}
+          </button>
+        )}
+      </div>
+    );
+  }
+
   if (!t.filas.length || (!t.pendientes && !t.contradichos)) {
     return (
-      <div className="contenido contenido-ancho">
+      <div className="contenido contenido-ancho des">
         <AvisoMuestra conexion={estado.conexion} />
         {cabecera}
         <p className="nota">
@@ -234,533 +250,298 @@ export function Desbloqueo({ inv, estado }: { inv: Investigacion; estado: Estado
     );
   }
 
-  const encendidaHip = (f: FilaHipotesis): boolean => {
-    if (!foco) return true;
-    if (foco.tipo === 'ingrediente') return f.necesita.includes(foco.id);
-    if (foco.tipo === 'sin_clasificar') return f.pendientes.some((s) => s.ingrediente === null);
-    if (foco.tipo === 'contradichos') return f.contradichos.length > 0;
-    return f.hipotesis.id === foco.id;
-  };
-  // Con una hipótesis en foco, se apagan los ingredientes que no le hacen falta.
-  const apagadoIng = (claveFila: string): boolean => {
-    if (!filaFoco) return false;
-    if (claveFila === 'sin_clasificar') return !filaFoco.pendientes.some((s) => s.ingrediente === null);
-    if (claveFila === 'contradichos') return !filaFoco.contradichos.length;
-    return !filaFoco.necesita.includes(claveFila.replace('ingrediente:', '') as IdIngrediente);
-  };
-  const señales = (f: Foco) => ({
-    onMouseEnter: () => señalar(f),
-    onMouseLeave: () => señalar(null),
-    onFocus: () => señalar(f),
-    onBlur: () => señalar(null),
-    onClick: () => elegir(f),
-  });
+  // Las que esperan presupuesto: la única cosa del aviso que pide actuar en otra pantalla.
+  const esperan = t.porReevaluar.filter((f) => f.vigencia.pedidaEn && ultimaCorrida.get(f.hipotesis.investigacionId)?.estado === 'pausada_por_presupuesto');
+  const pausadas = [...new Set(esperan.map((f) => ultimaCorrida.get(f.hipotesis.investigacionId)!.numero))];
+  const noAtendida = t.porReevaluar.find((f) => !f.vigencia.pedidaEn && f.vigencia.noAtendida)?.vigencia.noAtendida ?? null;
 
-  const filaIngrediente = (f: (typeof t.ingredientes)[number], aparte = false) => {
-    const foc: Foco = { tipo: 'ingrediente', id: f.ingrediente.id };
-    const k = clave(foc);
-    const esElegido = clave(actual) === k;
-    return (
-      <button
-        key={k}
-        type="button"
-        className={`des-ing${aparte ? ' des-ing-aparte' : ''}${esElegido ? ' des-elegido' : ''}${apagadoIng(k) ? ' des-apagada' : ''}`}
-        style={{ height: FILA_ING }}
-        aria-pressed={esElegido}
-        aria-label={`${f.ingrediente.nombre}: ${plural(f.hipotesis.length, 'hipótesis', 'hipótesis')}, ${plural(f.supuestos, 'supuesto', 'supuestos')}`}
-        title={f.ingrediente.que}
-        {...señales(foc)}
-      >
-        <span className="des-ing-cuerpo">
-          <span className="des-ing-nombre">{f.ingrediente.nombre}</span>
-          <span className="des-ing-barra">
-            <i style={{ width: `${((f.hipotesis.length / Math.max(1, t.filas.length)) * 100).toFixed(1)}%` }} />
-          </span>
-          <span className="des-ing-sup">
-            {plural(f.supuestos, 'supuesto', 'supuestos')} <span>· {VIA_CORTA[f.ingrediente.via]}</span>
-          </span>
-        </span>
-        <span className="des-ing-n">
-          <b>{f.hipotesis.length}</b>
-          <span>hipótesis</span>
-        </span>
-      </button>
-    );
-  };
+  const activo = fijado ?? sobreCandado;
 
-  const filaOtra = (foc: Foco, texto: JSX.Element, cuadro: string, etiqueta: string, explicacion: string) => {
-    const k = clave(foc);
-    const esElegido = clave(actual) === k;
-    return (
-      <button
-        key={k}
-        type="button"
-        className={`des-otro${esElegido ? ' des-elegido' : ''}${apagadoIng(k) ? ' des-apagada' : ''}`}
-        style={{ height: FILA_OTRO }}
-        aria-pressed={esElegido}
-        aria-label={etiqueta}
-        title={explicacion}
-        {...señales(foc)}
-      >
-        <i className={cuadro} aria-hidden="true" />
-        <span>{texto}</span>
-      </button>
-    );
-  };
-
-  const claseCuadro = (s: SupuestoFlojo): string => {
-    if (s.estado === 'contradicho') return 'des-q des-q-contra';
-    const sinClase = s.ingrediente === null;
-    const elegidoAqui = (foco?.tipo === 'ingrediente' && s.ingrediente === foco.id) || (foco?.tipo === 'sin_clasificar' && sinClase);
-    return `des-q${sinClase ? ' des-q-sin' : ''}${elegidoAqui ? ' des-q-elegido' : ''}`;
-  };
-  const tituloCuadro = (s: SupuestoFlojo): string =>
-    `${s.estado === 'contradicho' ? 'Contradicho' : 'Sin evidencia'}${s.estado === 'contradicho' ? '' : `, ${s.ingrediente ? ingredienteDe(s.ingrediente).nombre.toLowerCase() : 'sin clasificar'}`}: ${s.texto}`;
-
-  const enlaceHipotesis = (hipotesisId: string) => {
-    const h = t.filas.find((f) => f.hipotesis.id === hipotesisId)?.hipotesis;
-    if (!h) return null;
-    return (
-      <a className="enlace meta" href={rutaDe(h.investigacionId, 'hipotesis', h.id)}>
-        {h.titulo}
-      </a>
-    );
-  };
-
-  const listaSupuestos = (lista: SupuestoFlojo[], conHipotesis: boolean, conEvidencia = false) => {
-    const k = clave(actual);
-    const todos = desplegado === k;
-    const vistos = todos ? lista : lista.slice(0, VISIBLES);
-    return (
-      <>
-        <ul className="des-lista">
-          {vistos.map((s) => (
-            <li key={`${s.hipotesisId}-${s.id}`}>
-              <p>
-                <Marcado s={s} />
-              </p>
-              {conEvidencia && <span className="meta">Lo que dice el verificador: {evidenciaDe(s)}</span>}
-              {conHipotesis && enlaceHipotesis(s.hipotesisId)}
-            </li>
-          ))}
-        </ul>
-        {lista.length > VISIBLES && (
-          <button type="button" className="enlace des-mas" onClick={() => desplegar(todos ? '' : k)}>
-            {todos ? 'Ver menos' : `Ver los ${lista.length - VISIBLES} restantes`}
-          </button>
-        )}
-      </>
-    );
-  };
-
-  // El texto de evidencia del verificador vive en la ficha, no en el supuesto
-  // flojo: se busca por hipótesis e id.
-  function evidenciaDe(s: SupuestoFlojo): string {
-    const h = todas.find((x) => x.id === s.hipotesisId) as { supuestos?: { id?: string; evidencia?: string; hijos?: unknown[] }[] } | undefined;
-    let encontrada = '';
-    const andar = (lista: unknown, profundidad: number) => {
-      if (!Array.isArray(lista) || profundidad > 12 || encontrada) return;
-      for (const n of lista as { id?: string; evidencia?: string; hijos?: unknown[] }[]) {
-        if (!n || typeof n !== 'object') continue;
-        if (n.id === s.id && typeof n.evidencia === 'string') {
-          encontrada = n.evidencia;
-          return;
-        }
-        andar(n.hijos, profundidad + 1);
-      }
-    };
-    andar(h?.supuestos, 0);
-    return encontrada || 'sin nota';
+  function teclas(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Escape') {
+      fijar(null);
+      señalarCandado(null);
+    }
   }
-
-  // Lo que no está al día: el aviso de arriba del tablero, con el botón.
-  function avisoViejos(): JSX.Element {
-    const viejas = t.porReevaluar;
-    const pedidas = viejas.filter((f) => f.vigencia.pedidaEn);
-    const sinPedir = viejas.filter((f) => !f.vigencia.pedidaEn);
-    const noAtendidas = sinPedir.filter((f) => f.vigencia.noAtendida);
-    const pausadas = [...new Set(pedidas.map((f) => ultimaCorrida.get(f.hipotesis.investigacionId)).filter((c) => c?.estado === 'pausada_por_presupuesto').map((c) => c!.numero))];
-    const esperan = pedidas.filter((f) => ultimaCorrida.get(f.hipotesis.investigacionId)?.estado === 'pausada_por_presupuesto').length;
-    const cuenta = (m: MotivoVigencia) => viejas.filter((f) => f.vigencia.motivo === m).length;
-    // Por regla, cada una con lo que le faltaba: la 1 y la 2 no fallaban en lo mismo,
-    // y una frase única con la fecha de la 1 mentía sobre las de la 2.
-    const porRegla = new Map<number | null, number>();
-    for (const f of viejas) if (f.vigencia.motivo === 'regla') porRegla.set(f.vigencia.regla, (porRegla.get(f.vigencia.regla) ?? 0) + 1);
-    const deRegla = [...porRegla.entries()]
-      .sort(([a], [b]) => (a ?? -1) - (b ?? -1))
-      .map(([r, n]) => `${n} ${n === 1 ? 'evaluada' : 'evaluadas'} ${r !== null && LO_QUE_FALTABA[r] ? LO_QUE_FALTABA[r] : 'con una regla anterior a la de hoy'}`);
-    const partes = [
-      ...deRegla,
-      cuenta('evidencia') ? `${cuenta('evidencia')} con evidencia llegada después` : '',
-      cuenta('fallidos') ? `${cuenta('fallidos')} con supuestos que el modelo no pudo evaluar` : '',
-      cuenta('sin_sello') ? `${cuenta('sin_sello')} sin fecha de evaluación` : '',
-    ].filter(Boolean);
-    return (
-      <div className="des-ojo" role="status">
-        <p>
-          <b>
-            {t.flojosPorReevaluar} de {t.pendientes + t.contradichos} supuestos flojos están por reevaluar
-          </b>
-          , en {plural(viejas.length, 'hipótesis', 'hipótesis')}: {partes.join('; ')}. Hasta que ROSA2018 los reevalúe, este orden es
-          provisional: el tablero los cuenta con el estado que tienen guardado.
-        </p>
-        {(pedidas.length > 0 || noAtendidas.length > 0) && (
-          <p className="meta">
-            {pedidas.length > 0 &&
-              `${plural(pedidas.length, 'tiene', 'tienen')} la reevaluación pedida: ROSA2018 la hace con el presupuesto de la última corrida de su investigación${esperan ? `, y ${esperan} ${esperan === 1 ? 'espera' : 'esperan'} a que la corrida ${pausadas.join(' y la ')} tenga presupuesto (está pausada por presupuesto)` : ''}. `}
-            {noAtendidas.length > 0 && `${plural(noAtendidas.length, 'no se pudo hacer', 'no se pudieron hacer')}: ${noAtendidas[0]!.vigencia.noAtendida}`}
-          </p>
-        )}
-        {sinPedir.length > 0 && (
-          <button
-            type="button"
-            className="btn btn-s"
-            title="Vuelve a revisarlas como cuando llega evidencia nueva: reevalúa sus supuestos contra su evidencia propia y vuelve a pasar el Killer (salvo en las aceptadas), con el presupuesto de la última corrida de cada investigación. Gasta llamadas al modelo; descartar sigue necesitando a una persona."
-            disabled={pidiendo}
-            {...atributosEnVuelo(pidiendo)}
-            onClick={envolverPedir(() => acciones.reevaluarSupuestos(alcance === 'programa' ? null : inv.id))}
-          >
-            Reevaluar {plural(sinPedir.length, 'hipótesis', 'hipótesis')} con la regla de hoy
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  let detalle: JSX.Element | null = null;
-  if (actual?.tipo === 'ingrediente') {
-    const fila = t.ingredientes.find((f) => f.ingrediente.id === actual.id)!;
-    const ing = fila.ingrediente;
-    const suyos = t.filas.flatMap((f) => f.pendientes.filter((s) => s.ingrediente === ing.id));
-    detalle = (
-      <section className="des-panel" aria-label={`Detalle: ${ing.nombre}`}>
-        <h3>
-          {ing.nombre} <span className="chip">{nombreVia(ing.via).toLowerCase()}</span>
-        </h3>
-        <p>{ing.que}</p>
-        <p className="des-donde">
-          <b>Dónde se consigue:</b> {ing.donde}
-        </p>
-        <div className="des-sub">
-          {ing.via === 'investigacion'
-            ? `Los ${plural(suyos.length, 'supuesto', 'supuestos')} que piden investigación nueva, en ${plural(fila.hipotesis.length, 'hipótesis', 'hipótesis')}`
-            : `Los ${plural(suyos.length, 'supuesto', 'supuestos')} que dejaría comprobar, en ${plural(fila.hipotesis.length, 'hipótesis', 'hipótesis')}`}
-        </div>
-        {listaSupuestos(suyos, true)}
-      </section>
-    );
-  } else if (actual?.tipo === 'hipotesis') {
-    const fila = t.filas.find((f) => f.hipotesis.id === actual.id)!;
-    const h = fila.hipotesis;
-    const grupos = t.ingredientes.filter((f) => fila.necesita.includes(f.ingrediente.id));
-    const sinClase = fila.pendientes.filter((s) => s.ingrediente === null);
-    detalle = (
-      <section className="des-panel" aria-label="Detalle de la hipótesis">
-        <h3>
-          Lo que le falta a esta hipótesis <span className="chip">{ESTADO_HIPOTESIS[h.estado] ?? h.estado}</span>
-        </h3>
-        <p>
-          <a className="enlace" href={rutaDe(h.investigacionId, 'hipotesis', h.id)}>
-            {h.titulo}
-          </a>
-        </p>
-        <p className="des-donde">
-          {plural(fila.pendientes.length, 'supuesto sin evidencia', 'supuestos sin evidencia')}
-          {fila.contradichos.length ? ` y ${plural(fila.contradichos.length, 'contradicho', 'contradichos')}` : ''}, que piden{' '}
-          {plural(grupos.length, 'ingrediente', 'ingredientes')}
-          {sinClase.length ? ` (y ${plural(sinClase.length, 'sin clasificar', 'sin clasificar')})` : ''}.
-        </p>
-        {!fila.vigencia.alDia && (
-          <p className="des-viejo-nota">
-            <i className="des-viejo" aria-hidden="true" />
-            <b>Por reevaluar.</b> {vigenciaEnLlano(fila.vigencia)}{' '}
-            {fila.vigencia.pedidaEn
-              ? `Reevaluación pedida el ${fechaCorta(fila.vigencia.pedidaEn)}.`
-              : fila.vigencia.noAtendida
-                ? `La última petición no se pudo hacer: ${fila.vigencia.noAtendida}`
-                : ''}
-          </p>
-        )}
-        {grupos.map((g) => (
-          <div key={g.ingrediente.id}>
-            <div className="des-grupo-detalle">
-              {g.ingrediente.nombre} <span>· {VIA_CORTA[g.ingrediente.via]}</span>
-            </div>
-            <ul className="des-lista" style={{ marginTop: 6 }}>
-              {fila.pendientes
-                .filter((s) => s.ingrediente === g.ingrediente.id)
-                .map((s) => (
-                  <li key={s.id}>
-                    <p>
-                      <Marcado s={s} />
-                    </p>
-                  </li>
-                ))}
-            </ul>
-          </div>
-        ))}
-        {sinClase.length > 0 && (
-          <div>
-            <div className="des-grupo-detalle">
-              Sin clasificar <span>· ninguna regla los reconoce</span>
-            </div>
-            <ul className="des-lista" style={{ marginTop: 6 }}>
-              {sinClase.map((s) => (
-                <li key={s.id}>
-                  <p>{s.texto}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {fila.contradichos.length > 0 && (
-          <div>
-            <div className="des-grupo-detalle">
-              Contradichos <span>· ya hay evidencia en contra</span>
-            </div>
-            <ul className="des-lista" style={{ marginTop: 6 }}>
-              {fila.contradichos.map((s) => (
-                <li key={s.id}>
-                  <p>{s.texto}</p>
-                  <span className="meta">Lo que dice el verificador: {evidenciaDe(s)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </section>
-    );
-  } else if (actual?.tipo === 'sin_clasificar') {
-    detalle = (
-      <section className="des-panel" aria-label="Detalle: sin clasificar">
-        <h3>Sin clasificar</h3>
-        <p>
-          Ninguna regla reconoce qué piden. No se reparten a ojo entre los ingredientes: salen aquí para que alguien los lea, y
-          cuentan como pendientes en todo lo demás.
-        </p>
-        <div className="des-sub">{plural(t.sinClasificar.length, 'supuesto', 'supuestos')}, en {plural(conSin.length, 'hipótesis', 'hipótesis')}</div>
-        {listaSupuestos(t.sinClasificar, true)}
-      </section>
-    );
-  } else if (actual?.tipo === 'contradichos') {
-    const lista = conContra.flatMap((f) => f.contradichos);
-    detalle = (
-      <section className="des-panel" aria-label="Detalle: contradichos">
-        <h3>Contradichos</h3>
-        <p>
-          Ya hay evidencia en contra. Conseguir un ingrediente no los arregla por sí solo: o se revisa la hipótesis, o se revisa esa
-          evidencia.
-        </p>
-        <div className="des-sub">{plural(lista.length, 'supuesto', 'supuestos')}, en {plural(conContra.length, 'hipótesis', 'hipótesis')}</div>
-        {listaSupuestos(lista, true, true)}
-      </section>
-    );
-  }
-
-  // El plan: una escalera de hipótesis con todo lo pendiente comprobable.
-  const ultimo = pasos[pasos.length - 1] ?? null;
-  const libres = ultimo?.libresAcumuladas.length ?? 0;
-  const tope = Math.max(1, conPendientes.length);
-  const PW = 440;
-  const PH = 150;
-  const PX = 30;
-  const PY = 14;
-  const xs = (i: number) => PX + (i / Math.max(1, pasos.length)) * (PW - PX - 12);
-  const ys = (v: number) => PY + (1 - v / tope) * (PH - PY - 22);
-  let escalera = `M${xs(0)},${ys(0)}`;
-  pasos.forEach((p, i) => {
-    escalera += ` L${xs(i + 1)},${ys(i === 0 ? 0 : pasos[i - 1]!.libresAcumuladas.length)} L${xs(i + 1)},${ys(p.libresAcumuladas.length)}`;
-  });
-  const marcas = [...new Set(tope < 4 ? Array.from({ length: tope + 1 }, (_, i) => i) : [0, 0.25, 0.5, 0.75, 1].map((q) => Math.round(q * tope)))];
-  const conBio = conPendientes.filter((f) => f.necesita.includes('investigar')).length;
-  const soloSin = conPendientes.filter((f) => !f.necesita.includes('investigar') && f.pendientes.some((s) => s.ingrediente === null)).length;
 
   return (
-    <div className="contenido contenido-ancho">
+    <div className="contenido contenido-ancho des" onKeyDown={teclas}>
       <AvisoMuestra conexion={estado.conexion} />
       {cabecera}
-      <p className="des-resumen">
-        <span>
-          <b>{t.pendientes}</b> supuestos sin evidencia en <b>{conPendientes.length}</b>
-          {conPendientes.length !== t.filas.length ? ` de ${t.filas.length}` : ''} hipótesis vivas
-        </span>
-        <span>
-          <b>{t.contradichos}</b> {t.contradichos === 1 ? 'contradicho' : 'contradichos'}
-        </span>
-        <span>
-          <b>{t.sinClasificar.length}</b> sin clasificar
-        </span>
-      </p>
+      {(esperan.length > 0 || noAtendida) && (
+        <p className="des-espera">
+          {esperan.length > 0 && `${plural(esperan.length, 'reevaluación espera', 'reevaluaciones esperan')} a que la corrida ${pausadas.join(' y la ')} tenga presupuesto. `}
+          {noAtendida}
+        </p>
+      )}
 
-      {t.porReevaluar.length > 0 && avisoViejos()}
-
-      <section className="des-tablero" aria-label="Ingredientes e hipótesis">
-        <div className="des-ingredientes">
-          <div className="des-cab" style={{ height: CAB }}>
-            Se consigue pidiendo
-          </div>
-          {pedibles.map((f) => filaIngrediente(f))}
-          {(biologia || t.sinClasificar.length > 0 || t.contradichos > 0) && (
+      <section className="des-llavero" aria-label="Las llaves, en el mejor orden">
+        <div className="des-cuenta" aria-live="polite">
+          {pasos.length ? (
             <>
-              <div className="des-sep" style={{ height: SEP }} />
-              <div className="des-cab" style={{ height: CAB }}>
-                No se consigue pidiendo
+              <div>
+                <span className="des-n">{abiertas.size}</span> <span className="des-de">de {t.filas.length}</span>
               </div>
-              {biologia && filaIngrediente(biologia, true)}
-              {t.sinClasificar.length > 0 &&
-                filaOtra(
-                  { tipo: 'sin_clasificar' },
-                  <>
-                    <b>{t.sinClasificar.length}</b> sin clasificar: ninguna regla los reconoce
-                  </>,
-                  'des-q des-q-sin',
-                  `${plural(t.sinClasificar.length, 'supuesto', 'supuestos')} sin clasificar`,
-                  'Ninguna regla reconoce qué piden: no se reparten a ojo entre los ingredientes.',
-                )}
-              {t.contradichos > 0 &&
-                filaOtra(
-                  { tipo: 'contradichos' },
-                  <>
-                    <b>{t.contradichos}</b> {t.contradichos === 1 ? 'contradicho' : 'contradichos'} en {plural(conContra.length, 'hipótesis', 'hipótesis')}
-                  </>,
-                  'des-q des-q-contra',
-                  `${plural(t.contradichos, 'supuesto contradicho', 'supuestos contradichos')}`,
-                  'Ya hay evidencia en contra: conseguir un ingrediente no los arregla por sí solo.',
-                )}
+              <p>
+                {k === pasos.length
+                  ? `hipótesis se podrían probar con ${k === 1 ? 'esta llave' : `las ${k} llaves`}. Es lo máximo pidiendo datos.`
+                  : `hipótesis se podrían probar ya con ${k === 1 ? 'esta llave' : `estas ${k} llaves`}. Con las ${pasos.length}, ${final}.`}
+              </p>
+              <div className="des-botones">
+                <button type="button" aria-label="Llave anterior" disabled={k <= 1} onClick={() => irAPaso(Math.max(1, k - 1))}>
+                  ◀
+                </button>
+                <button type="button" className="des-siguiente" disabled={k >= pasos.length} onClick={() => irAPaso(Math.min(pasos.length, k + 1))}>
+                  {k >= pasos.length ? 'Todas las llaves' : 'Siguiente llave ▶'}
+                </button>
+              </div>
             </>
+          ) : (
+            <p>Nada de lo que les falta se consigue pidiendo: o pide biología que nadie ha medido, o ya está en contra, o no se sabe qué pide.</p>
           )}
         </div>
-
-        <svg className="des-hilos" width={HILOS} height={disp.alto} viewBox={`0 0 ${HILOS} ${disp.alto}`} aria-hidden="true">
-          {hilos.map((h) => (
-            <g key={h.clave}>
-              <path
-                className={h.contra ? 'des-hilo-contra' : undefined}
-                d={`M0,${h.desde} C${HILOS * 0.55},${h.desde} ${HILOS * 0.45},${h.hasta} ${HILOS - 4},${h.hasta}`}
-                strokeWidth={(1.1 + (h.grosor - 1) * 0.9).toFixed(2)}
-              />
-              <circle className={h.contra ? 'des-hilo-contra' : undefined} cx={HILOS - 4} cy={h.hasta} r={2.6} />
-            </g>
-          ))}
-        </svg>
-
-        <div className="des-hipotesis">
-          {disp.grupos.map((g) => (
-            <div key={g.id} style={{ marginBottom: HUECO_GRUPO }}>
-              <div className="des-grupo" style={{ height: CAB_GRUPO }}>
-                <span title={titulos.get(g.id) ?? g.id}>{titulos.get(g.id) ?? g.id}</span>
-                <span className="des-grupo-n">
-                  {g.filas.length}
-                  {g.id === inv.id && alcance === 'programa' ? ' · esta investigación' : ''}
-                </span>
-              </div>
-              {g.filas.map((f) => {
-                const foc: Foco = { tipo: 'hipotesis', id: f.hipotesis.id };
-                const esElegida = clave(actual) === clave(foc);
-                return (
-                  <button
-                    key={f.hipotesis.id}
-                    type="button"
-                    className={`des-hip${esElegida ? ' des-elegido' : ''}${encendidaHip(f) ? '' : ' des-apagada'}`}
-                    style={{ height: FILA_H }}
-                    aria-pressed={esElegida}
-                    aria-label={`${f.hipotesis.titulo}: ${plural(f.pendientes.length, 'supuesto sin evidencia', 'supuestos sin evidencia')}${f.contradichos.length ? `, ${plural(f.contradichos.length, 'contradicho', 'contradichos')}` : ''}${f.vigencia.alDia ? '' : ', por reevaluar'}`}
-                    {...señales(foc)}
-                  >
-                    <span className="des-hip-estado">{ESTADO_HIPOTESIS[f.hipotesis.estado] ?? f.hipotesis.estado}</span>
-                    <span className="des-hip-titulo" title={f.hipotesis.titulo}>
-                      {!f.vigencia.alDia && <i className="des-viejo" title={`Por reevaluar. ${vigenciaEnLlano(f.vigencia)}`} aria-hidden="true" />}
-                      {f.hipotesis.titulo}
-                    </span>
-                    <span className="des-qs">
-                      {[...f.pendientes, ...f.contradichos].map((s) => (
-                        <i key={s.id} className={claseCuadro(s)} title={tituloCuadro(s)} />
-                      ))}
-                    </span>
-                  </button>
-                );
-              })}
+        {pasos.length > 0 && (
+          <div className="des-pista-caja">
+            <div className="des-pista-dentro" style={{ '--n': pasos.length } as CSSProperties}>
+              <span className="des-linea" aria-hidden="true">
+                <i
+                  style={{
+                    width: pasos.length > 1 ? `${((k - 1) / (pasos.length - 1)) * 100}%` : '0%',
+                  }}
+                />
+              </span>
+              <ol
+                className="des-pista"
+                style={{
+                  gridTemplateColumns: `repeat(${pasos.length}, minmax(96px, 1fr))`,
+                }}
+              >
+                {pasos.map((p, i) => {
+                  const ing = ingredienteDe(p.ingrediente);
+                  const n = i + 1;
+                  const clase = n < k ? 'des-usada' : n === k ? 'des-usada des-actual' : n === k + 1 ? 'des-proxima' : '';
+                  return (
+                    <li key={p.ingrediente} className={`des-llave ${clase}`}>
+                      <button
+                        type="button"
+                        aria-label={`Llave ${n}, ${ing.nombre}: ${p.libres.length ? `abre ${plural(p.libres.length, 'hipótesis', 'hipótesis')} más` : 'no abre ninguna sola, acerca otras'}. ${ing.que}`}
+                        aria-current={n === k ? 'step' : undefined}
+                        onClick={() => irAPaso(n)}
+                        onMouseEnter={() => señalarLlave(i)}
+                        onMouseLeave={() => señalarLlave(null)}
+                        onFocus={() => señalarLlave(i)}
+                        onBlur={() => señalarLlave(null)}
+                      >
+                        <span className="des-num">{n}</span>
+                        <span className="des-circ">{LLAVE}</span>
+                        <span className="des-nombre">{ing.nombre}</span>
+                        <span className="des-donde">{DONDE[ing.via] ?? ing.via}</span>
+                        <span className={`des-mas ${p.libres.length ? 'des-mas-si' : ''}`}>
+                          {p.libres.length ? `+${p.libres.length} ${p.libres.length === 1 ? 'abierta' : 'abiertas'}` : 'acerca otras'}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </section>
 
-      <div className="des-leyenda">
-        <span>
-          <i className="des-q" /> supuesto sin evidencia
-        </span>
-        <span>
-          <i className="des-q des-q-elegido" /> lo deja comprobar el ingrediente elegido
-        </span>
-        <span>
-          <i className="des-q des-q-contra" /> contradicho
-        </span>
-        <span>
-          <i className="des-q des-q-sin" /> sin clasificar
-        </span>
-        <span>el grosor del hilo es cuántos supuestos de esa hipótesis abre</span>
+      <div className="des-grupos">
+        {grupos.map((g) => {
+          const abiertasAqui = g.candados.filter((c) => abiertas.has(c.fila.hipotesis.id)).length;
+          return (
+            <section key={g.id} className="des-grupo" aria-label={titulos.get(g.id) ?? g.id}>
+              <h3>
+                {titulos.get(g.id) ?? g.id}
+                <span>
+                  {plural(g.candados.length, 'hipótesis', 'hipótesis')} · {abiertasAqui} {abiertasAqui === 1 ? 'abierta' : 'abiertas'}
+                </span>
+              </h3>
+              <div className="des-fila">
+                {g.candados.map((c, i) => {
+                  const h = c.fila.hipotesis;
+                  const abierto = abiertas.has(h.id);
+                  const tengo = c.pedibles.filter((n) => usadas.has(n)).length;
+                  const tocado = !abierto && tengo > 0;
+                  const alcanza = llaveSenalada !== null && c.pedibles.includes(llaveSenalada);
+                  const puntos: ('tengo' | 'falta' | 'sin')[] = [...c.pedibles.map((n) => (usadas.has(n) ? 'tengo' : 'falta') as 'tengo' | 'falta'), ...(c.sinClase ? (['sin'] as const) : [])];
+                  const clases = ['des-cand', abierto ? 'des-cand-abierto' : tocado ? 'des-cand-tocado' : '', alcanza ? 'des-alcanza' : '', fijado === h.id ? 'des-cand-fijado' : '']
+                    .filter(Boolean)
+                    .join(' ');
+                  const resumen = abierto
+                    ? 'se podría probar con las llaves elegidas'
+                    : c.pedibles.length
+                      ? `le ${c.pedibles.length === 1 ? 'falta 1 dato' : `faltan ${c.pedibles.length} datos`}, ${tengo} con las llaves elegidas`
+                      : 'no le falta ningún dato que se consiga pidiendo';
+                  const extra = [
+                    c.investigar ? 'le falta biología que nadie ha medido' : '',
+                    c.fila.contradichos.length ? `tiene ${plural(c.fila.contradichos.length, 'supuesto', 'supuestos')} en contra` : '',
+                    c.sinClase ? 'tiene un supuesto sin clasificar' : '',
+                  ].filter(Boolean);
+                  return (
+                    <div key={h.id} className="des-cand-caja">
+                      <button
+                        type="button"
+                        className={clases}
+                        aria-label={`${h.titulo}: ${[resumen, ...extra].join('; ')}`}
+                        aria-expanded={fijado === h.id}
+                        onMouseEnter={() => señalarCandado(h.id)}
+                        onMouseLeave={() => señalarCandado(null)}
+                        onFocus={() => señalarCandado(h.id)}
+                        onBlur={() => señalarCandado(null)}
+                        onClick={() => fijar(fijado === h.id ? null : h.id)}
+                      >
+                        <DibujoCandado puntos={puntos} investigar={c.investigar} contra={c.fila.contradichos.length > 0} />
+                        <span className="des-cand-titulo">{h.titulo}</span>
+                      </button>
+                      {activo === h.id && (
+                        <Tarjeta
+                          c={c}
+                          usadas={usadas}
+                          ordenDe={ordenDe}
+                          fijada={fijado === h.id}
+                          izquierda={g.candados.length > 3 && i >= Math.ceil(g.candados.length / 2)}
+                          cerrar={() => fijar(null)}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
       </div>
 
-      <div className="des-bajo">
-        {detalle}
-        <section className="des-panel des-plan" aria-label="Orden en que conviene pedir">
-          <h3>Si se pidieran en este orden</h3>
-          <p>
-            En cada paso, el ingrediente que deja más hipótesis con todo lo pendiente comprobable; a igualdad, el que más acerca a las que
-            pueden quedar así. La biología sin medir no entra: no se pide, se investiga.
-          </p>
-          {pasos.length === 0 ? (
-            <p className="nota" style={{ marginTop: 12 }}>
-              Nada de lo que falta se consigue pidiendo: todo es biología sin medir o está sin clasificar.
-            </p>
-          ) : (
-            <>
-              <svg viewBox={`0 0 ${PW} ${PH}`} role="img" aria-label={`Hipótesis con todo lo pendiente comprobable, paso a paso: de 0 a ${libres} de ${conPendientes.length}`}>
-                {marcas.map((v) => (
-                  <g key={v}>
-                    <line className="des-rej" x1={PX} x2={PW - 12} y1={ys(v)} y2={ys(v)} />
-                    <text className="des-eje" x={PX - 8} y={ys(v) + 3.5} textAnchor="end">
-                      {v}
-                    </text>
-                  </g>
-                ))}
-                <path className="des-area" d={`${escalera} L${xs(pasos.length)},${ys(0)} Z`} />
-                <path className="des-linea" d={escalera} />
-                {pasos.map((_, i) => (
-                  <text key={i} className="des-eje" x={xs(i + 1)} y={PH - 4} textAnchor="middle">
-                    {i + 1}
-                  </text>
-                ))}
-                <circle className="des-punto" cx={xs(pasos.length)} cy={ys(libres)} r={4} />
-                <text className="des-fin" x={xs(pasos.length) - 8} y={ys(libres) - 9} textAnchor="end">
-                  {libres} de {conPendientes.length}
-                </text>
-              </svg>
-              <ol className="des-pasos">
-                {pasos.map((p) => (
-                  <li key={p.ingrediente}>
-                    <span>{ingredienteDe(p.ingrediente).nombre}</span>
-                    <span className={`des-paso-n${p.libres.length ? '' : ' des-cero'}`}>+{plural(p.libres.length, 'hipótesis', 'hipótesis')}</span>
-                    <span className="des-paso-s">{p.supuestos} sup.</span>
-                  </li>
-                ))}
-              </ol>
-              <p className="des-pie">
-                Con {pasos.length === 1 ? 'ese' : `los ${pasos.length}`},{' '}
-                <b>
-                  {libres} de {conPendientes.length}
-                </b>{' '}
-                hipótesis quedan con todo lo pendiente comprobable ({ultimo!.acumulados} de {t.pendientes} supuestos).
-                {conPendientes.length - libres > 0 &&
-                  ` ${conPendientes.length - libres === 1 ? 'La otra' : `Las otras ${conPendientes.length - libres}`}: ${[conBio ? `${conBio} ${conBio === 1 ? 'pide' : 'piden'} biología sin medir` : '', soloSin ? `${soloSin} ${soloSin === 1 ? 'tiene' : 'tienen'} algún supuesto sin clasificar` : ''].filter(Boolean).join(' y ')}.`}
-                {conContra.length > 0 &&
-                  ` Y ${conContra.length} ${conContra.length === 1 ? 'tiene' : 'tienen'} ya algún supuesto contradicho: comprobar el resto no ${conContra.length === 1 ? 'la salva' : 'las salva'}.`}
-                {t.porReevaluar.length > 0 && ` Cuenta ${t.flojosPorReevaluar} supuestos por reevaluar: el orden es provisional.`}
-              </p>
-            </>
-          )}
-        </section>
+      <div className="des-leyenda" aria-label="Qué significa cada marca">
+        <span>
+          <i className="des-l-punto des-l-tengo" /> dato que ya tendrías
+        </span>
+        <span>
+          <i className="des-l-punto des-l-falta" /> dato que falta
+        </span>
+        {nInvestigar > 0 && (
+          <span>
+            <i className="des-l-interrogacion">?</i> {plural(nInvestigar, 'necesita', 'necesitan')} biología que nadie ha medido: se investiga, no se pide
+          </span>
+        )}
+        {nContra > 0 && (
+          <span>
+            <i className="des-l-grieta" /> {plural(nContra, 'tiene', 'tienen')} ya algo en contra
+          </span>
+        )}
+        {nSinClase > 0 && (
+          <span>
+            <i className="des-l-punto des-l-sin" /> {plural(nSinClase, 'tiene', 'tienen')} un supuesto que ninguna regla clasifica
+          </span>
+        )}
       </div>
+    </div>
+  );
+}
+
+/** Lo que le falta a una hipótesis. Al pasar por el candado, lo justo; al
+ *  pincharlo, además sus supuestos con la frase que decidió cada uno. */
+function Tarjeta({
+  c,
+  usadas,
+  ordenDe,
+  fijada,
+  izquierda,
+  cerrar,
+}: {
+  c: Candado;
+  usadas: Set<IdIngrediente>;
+  ordenDe: Map<IdIngrediente, number>;
+  fijada: boolean;
+  izquierda: boolean;
+  cerrar: () => void;
+}) {
+  const f = c.fila;
+  const h = f.hipotesis;
+  const total = f.pendientes.length + f.contradichos.length;
+  const bloques: { titulo: string; supuestos: SupuestoFlojo[] }[] = [
+    ...f.necesita.map((n) => ({
+      titulo: ingredienteDe(n).nombre,
+      supuestos: f.pendientes.filter((s) => s.ingrediente === n),
+    })),
+    {
+      titulo: 'Sin clasificar',
+      supuestos: f.pendientes.filter((s) => s.ingrediente === null),
+    },
+    { titulo: 'En contra', supuestos: f.contradichos },
+  ].filter((b) => b.supuestos.length > 0);
+  return (
+    <div className={`des-tarjeta ${izquierda ? 'des-tarjeta-izq' : ''} ${fijada ? 'des-tarjeta-fijada' : ''}`} role={fijada ? 'dialog' : 'tooltip'} aria-label={`Lo que le falta a ${h.titulo}`}>
+      {fijada && (
+        <button type="button" className="des-cerrar" aria-label="Cerrar" onClick={cerrar}>
+          ×
+        </button>
+      )}
+      <p className="des-tarjeta-titulo">{h.titulo}</p>
+      <p className="des-tarjeta-sub">
+        {ESTADO_HIPOTESIS[h.estado] ?? h.estado}
+        {c.pedibles.length ? ` · para poder probarla le ${c.pedibles.length === 1 ? 'falta 1 dato' : `faltan ${c.pedibles.length} datos`}:` : ''}
+      </p>
+      {(c.pedibles.length > 0 || c.investigar || c.sinClase) && (
+        <ul>
+          {c.pedibles.map((n) => (
+            <li key={n} className={usadas.has(n) ? 'des-tengo' : undefined}>
+              <span className="des-marca" aria-hidden="true">
+                {usadas.has(n) ? '✓' : '○'}
+              </span>
+              <span>{ingredienteDe(n).nombre}</span>
+              <span className="des-cual">{ordenDe.has(n) ? `llave ${ordenDe.get(n)}` : 'fuera del plan'}</span>
+            </li>
+          ))}
+          {c.investigar && (
+            <li className="des-investigar">
+              <span className="des-marca" aria-hidden="true">
+                ?
+              </span>
+              <span>Biología que nadie ha medido</span>
+              <span className="des-cual">se investiga</span>
+            </li>
+          )}
+          {c.sinClase && (
+            <li>
+              <span className="des-marca" aria-hidden="true">
+                ◌
+              </span>
+              <span>Un supuesto que ninguna regla clasifica</span>
+              <span className="des-cual">no se sabe qué pide</span>
+            </li>
+          )}
+        </ul>
+      )}
+      {f.contradichos.length > 0 && <p className="des-tarjeta-contra">Ya tiene {plural(f.contradichos.length, 'supuesto', 'supuestos')} en contra: conseguir datos no lo arregla.</p>}
+      {!f.vigencia.alDia && <p className="des-tarjeta-vieja">Por reevaluar. {vigenciaEnLlano(f.vigencia)}</p>}
+      {fijada ? (
+        <>
+          <div className="des-supuestos">
+            {bloques.map((b) => (
+              <div key={b.titulo}>
+                <p className="des-bloque">{b.titulo}</p>
+                <ul>
+                  {b.supuestos.map((s) => (
+                    <li key={s.id}>
+                      <Marcado s={s} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <a className="enlace" href={rutaDe(h.investigacionId, 'hipotesis', h.id)}>
+            Abrir la hipótesis →
+          </a>
+        </>
+      ) : (
+        <p className="des-tarjeta-pista">Pincha el candado para ver {total === 1 ? 'su supuesto' : `sus ${total} supuestos`}.</p>
+      )}
     </div>
   );
 }

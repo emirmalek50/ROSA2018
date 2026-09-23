@@ -14,18 +14,29 @@ function hip(id: string, supuestos: Nodo[], extra: Partial<Hipotesis> = {}): Hip
 const sin = (texto: string, id = texto.slice(0, 12)): Nodo => ({ id, texto, estado: 'sin_evidencia', evidencia: 'ninguna', hijos: [] });
 
 describe('la clasificación frente a la lectura hecha a mano', () => {
-  // Los 164 supuestos flojos de la base del 23 de septiembre de 2026, cada uno
-  // con la etiqueta (o las dos, cuando pide de verdad dos cosas) que le puso
-  // una persona leyéndolo. Si una regla nueva baja de aquí, se ve.
+  // Los supuestos flojos de la base del 23 de septiembre de 2026, cada uno con
+  // la etiqueta (o las dos, cuando pide de verdad dos cosas) que se le puso
+  // leyéndolo uno a uno. Los leyó Claude, no una persona: es una lectura a mano,
+  // no revisada todavía por nadie del equipo. Los 164 primeros son los de la
+  // mañana; los 45 siguientes, los que dejaron las reevaluaciones de ese día
+  // redactados de otra forma. Si una regla nueva baja de aquí, se ve.
+  //
+  // Ojo con lo que mide: las reglas se escribieron mirando estos textos, así
+  // que acertar aquí no es generalizar. Lo que sí generaliza se vio con los 45
+  // nuevos ANTES de añadirles reglas: se clasificaron 26 (58 %) y no se
+  // equivocó ninguno. Nunca mandan un supuesto al dato equivocado; con frases
+  // nuevas, dejan sin clasificar cuatro de cada diez, y eso queda a la vista.
   const lista = casos as { texto: string; validos: string[]; estado: string }[];
 
-  it('coincide en al menos 162 de 164', () => {
-    const bien = lista.filter((c) => {
+  it('coincide en al menos 207 de 209, y los 164 de la mañana siguen en 162', () => {
+    const acierta = (c: { texto: string; validos: string[] }) => {
       const r = clasificar(c.texto);
       return r.ingrediente !== null && c.validos.includes(r.ingrediente);
-    });
-    expect(lista).toHaveLength(164);
-    expect(bien.length).toBeGreaterThanOrEqual(162);
+    };
+    expect(lista).toHaveLength(209);
+    expect(lista.filter(acierta).length).toBeGreaterThanOrEqual(207);
+    // Las reglas de la tarde van al final: no pueden mover a los de la mañana.
+    expect(lista.slice(0, 164).filter(acierta).length).toBeGreaterThanOrEqual(162);
   });
 
   it('no se equivoca en ninguno: lo que no reconoce sale sin clasificar, no en otro sitio', () => {

@@ -289,6 +289,25 @@ const REGLAS: [IdIngrediente, RegExp][] = [
   ['investigar', /\bsin modificar\b/i],
   ['investigar', /\beslabon\b/i],
   ['investigar', /\by no solo\b/i],
+
+  // Añadidas el 23 de septiembre de 2026 por la tarde. Las reevaluaciones de
+  // la mañana pasaron otra vez la revisión inicial y dejaron 45 supuestos
+  // nuevos, redactados de otra forma: 19 salían sin clasificar y 12 hipótesis
+  // no podían abrirse nunca en el plan. Van AL FINAL a propósito: como gana la
+  // primera regla que casa, ninguno de los 164 supuestos de la mañana puede
+  // cambiar de ingrediente por ellas; solo alcanzan a lo que antes no casaba.
+  ['estimable', /\bcolineal\w*|\bfuncion determinista\b/i],
+  ['subcohorte', /\bdisponen? de\b.{0,30}\b(pet|lcr|plasma|resonancia)\b/i],
+  ['subcohorte', /\btamano (y \w+ )?suficientes?\b/i],
+  ['cohortes', /\bcohortes? longitudinales publicadas\b|\bresultados estratificados\b|\breportan resultados\b/i],
+  ['cohortes', /\b(pagina|figura) o (pagina|figura) exacta\b|\bcita a pagina\b/i],
+  ['referencia', /\bdicotomi\w*/i],
+  ['medida', /\banaliticamente (estable|reproducible)\b|\breproducible\w* entre (laboratorios|centros|plataformas)\b|\bestandarizable\w*/i],
+  ['ensayos', /\bsemaglutida\b/i],
+  ['investigar', /\bindicador valido\b|\breflejo\b/i],
+  ['investigar', /\btaquifilaxia\b|\bexposicion prolongada\b/i],
+  ['investigar', /\bretira\w* (el|del) farmaco\b|\bbrazo continuado\b/i],
+  ['investigar', /\bse asocia con\b/i],
 ];
 
 /** El texto sin tildes, con la misma longitud que el original en forma NFC:
