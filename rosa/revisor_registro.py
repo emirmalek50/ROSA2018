@@ -378,6 +378,11 @@ def comprobaciones_deterministas(texto: str, corpus: dict[str, Any], it: dict[st
     fuera = cifras_fuera_de_contexto(texto, corpus)
     if fuera:
         hallazgos.append({"clase": "cifra_fuera_de_contexto", "gravedad": "alta", "detalle": "Cifras que sí están en el registro, pero dichas de otra cosa: " + "; ".join(fuera[:4]) + (" ..." if len(fuera) > 4 else ""), "origen": "regla"})
+    fuertes = sobreafirmaciones(texto)
+    if fuertes:
+        # Es la clase del juez para "afirma más de lo que el método permite", aquí
+        # por regla: el origen lo distingue.
+        hallazgos.append({"clase": "conclusion_no_sigue", "gravedad": "media", "detalle": "Palabras que afirman más de lo que un resumen de evidencia puede: " + "; ".join(fuertes[:4]) + (" ..." if len(fuertes) > 4 else ""), "origen": "regla"})
     cuentas = cuentas_que_no_cuadran(texto)
     if cuentas:
         hallazgos.append({"clase": "cuenta_que_no_cuadra", "gravedad": "alta", "detalle": "Cuentas del texto que no salen con sus propias cifras: " + "; ".join(cuentas[:4]) + (" ..." if len(cuentas) > 4 else ""), "origen": "regla"})
@@ -570,6 +575,69 @@ def cuentas_que_no_cuadran(texto: str) -> list[str]:
             if cambios and all(_lejos(e, x) and abs(e - x) > 1 for e in escritos for x in cambios):
                 malas.append(f"«{frase[:160]}» (dice {c.group(1)} %; de {de_a.group(1)} a {de_a.group(2)} es un " + " o ".join(sorted({f'{x:.3g}' for x in cambios})) + " %)")
     return malas
+
+
+# -- Palabras que afirman más de lo que un resumen de evidencia puede --------------
+#
+# Las reglas de CLAUDE.md para lo que escribe ROSA2018 (sin "demostrado" ni
+# "confirmado", sin porcentajes de confianza inventados, sin recomendaciones
+# clínicas) más la lista que el agente de Claude Science pasaba por código antes
+# de entregar un documento. Las frases de las conclusiones ya salen de plantillas
+# que no las usan; donde se cuelan es en el texto libre del modelo (el resumen de
+# la iteración, el resumen en llano), y ese es el que mira esta regla.
+# "Clave" se deja fuera a propósito: en castellano es demasiado corriente ("la
+# pregunta clave") y daría avisos falsos. Los resaltados en ámbar de la interfaz
+# (frontend/src/lib/calidad.ts) son otra cosa: pintan, no comprueban.
+
+_SOBREAFIRMA = re.compile(
+    r"\b(?:"
+    r"demostrad[oa]s?|se\s+demostr[oó]|demuestran?|queda\s+demostrad[oa]"
+    r"|confirmad[oa]s?|se\s+confirm[oó]|confirman?\s+que"
+    r"|prueban?\s+que|queda\s+probad[oa]"
+    r"|sin\s+(?:ninguna\s+)?duda|sin\s+lugar\s+a\s+dudas?|indudablemente|obviamente|evidentemente"
+    r"|inequ[ií]voc[oa]s?|inequ[ií]vocamente|definitivamente"
+    r"|revolucionari[oa]s?|sin\s+precedentes|cambio\s+de\s+paradigma"
+    r"|crucial(?:es)?|prometedor(?:a|es|as)?"
+    r"|es\s+la\s+causa\s+de"
+    r")\b",
+    re.IGNORECASE,
+)
+# "Un 80 % de certeza": un porcentaje de confianza que nadie midió. El intervalo
+# de confianza del 95 % sí es una medida, y no entra.
+_CERTEZA_PORCENTUAL = re.compile(
+    r"\b\d+(?:[.,]\d+)?\s*%\s+de\s+(?:certeza|seguridad|probabilidad\s+de\s+que)\b"
+    r"|\b(?:certeza|seguridad)\s+(?:es\s+)?del?\s+\d+(?:[.,]\d+)?\s*%",
+    re.IGNORECASE,
+)
+# Una recomendación clínica: tratar, administrar, prescribir a pacientes.
+_RECOMENDACION_CLINICA = re.compile(
+    r"\b(?:se\s+recomienda|recomendamos|deber[ií]an?|habr[ií]a\s+que)\s+(?:tratar|administrar|prescribir|recetar|iniciar\s+(?:el\s+)?tratamiento|suspender\s+(?:el\s+)?tratamiento)\b",
+    re.IGNORECASE,
+)
+# "No se ha demostrado", "sin demostrar", "no equivalen a resultados
+# confirmados": la negación es justo lo contrario de sobreafirmar, y un aviso ahí
+# enseñaría a no escribirla. Hasta tres palabras entre la negación y la
+# expresión (la última de las tres la destapó la prueba con los resúmenes
+# reales). "No solo se demostró" no es negación: es afirmar dos veces.
+_NEGADA = re.compile(r"\b(?:no|ni|nunca|sin|nadie|ning[uú]n[oa]?)\s+(?!s[oó]lo\b|[uú]nicamente\b)(?:\w+\s+){0,3}$", re.IGNORECASE)
+
+
+def sobreafirmaciones(texto: str) -> list[str]:
+    """Las expresiones del texto que afirman más de lo que un resumen de
+    evidencia puede, cada una con su trozo de frase. No cuentan las negadas."""
+    t = texto or ""
+    salida: list[str] = []
+    vistas: set[str] = set()
+    for patron in (_SOBREAFIRMA, _CERTEZA_PORCENTUAL, _RECOMENDACION_CLINICA):
+        for m in patron.finditer(t):
+            if _NEGADA.search(t[max(0, m.start() - 45):m.start()]):
+                continue
+            palabra = m.group(0).lower()
+            if palabra in vistas:
+                continue
+            vistas.add(palabra)
+            salida.append(f"«{m.group(0)}» en «{t[max(0, m.start() - 50):m.end() + 50].strip()}»")
+    return salida
 
 
 # -- Lo que el juez puede leer y calcular ------------------------------------------

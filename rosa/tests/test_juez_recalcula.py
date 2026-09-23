@@ -216,3 +216,42 @@ def test_el_cierre_de_iteracion_le_pone_delante_su_registro(monkeypatch):
     assert r["resumen"] == "ok"
     assert vistas and "GFAP en plasma subió" in vistas[0]
     assert RR.leer_afirmacion(1) == "No hay ningún registro en revisión."  # y al salir se quita
+
+
+# -- Palabras que afirman más de lo que un resumen de evidencia puede ------------------
+
+
+@pytest.mark.parametrize(
+    "texto, avisa",
+    [
+        ("Se demostró que GFAP anticipa la conversión.", True),
+        ("La hipótesis quedó confirmada en dos cohortes.", True),
+        ("Sin duda, el NfL es el mejor marcador.", True),
+        ("Es un resultado prometedor.", True),
+        ("El amiloide es la causa de la subida de GFAP.", True),
+        # Porcentaje de confianza que nadie midió; el IC del 95 % sí es medida.
+        ("Con un 80 % de certeza, la brecha predice MCI.", True),
+        ("El IC del 95 % va de 0,12 a 0,30.", False),
+        # Recomendación clínica, no de método.
+        ("Se recomienda tratar a los portadores con lecanemab.", True),
+        ("Se recomienda buscar una segunda cohorte.", False),
+        # Negadas: justo lo contrario de sobreafirmar.
+        ("No se ha demostrado que GFAP anticipe la conversión.", False),
+        ("Queda sin demostrar el orden temporal.", False),
+        # Esta la destapó la prueba con los resúmenes reales del estado.
+        ("Las hipótesis pendientes no equivalen a resultados confirmados.", False),
+        # "No solo" no niega: afirma dos veces.
+        ("No solo se demostró el orden, también la magnitud.", True),
+        # "Clave" se deja fuera a propósito.
+        ("La brecha es la clave del pronóstico.", False),
+    ],
+)
+def test_sobreafirmaciones(texto, avisa):
+    assert bool(RR.sobreafirmaciones(texto)) is avisa
+
+
+def test_la_sobreafirmacion_entra_como_hallazgo_de_regla():
+    corpus = {"numeros": set(), "anclados": {}, "ids": set(), "textos": [], "recuentos": {}}
+    hallazgos = RR.comprobaciones_deterministas("Se demostró que la brecha predice MCI.", corpus, None, 0)
+    assert [(h["clase"], h["origen"], h["gravedad"]) for h in hallazgos] == [("conclusion_no_sigue", "regla", "media")]
+    assert "Se demostró" in hallazgos[0]["detalle"]

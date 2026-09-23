@@ -1848,3 +1848,30 @@ Lo que no se ha probado todavía: el juez con herramientas contra el modelo de
 verdad. Los tests cubren la estructura, las herramientas y la variable de
 contexto; la primera prueba real será el siguiente cierre de iteración tras
 reiniciar el servidor.
+
+## Palabras que afirman de más, comprobadas por código (23 de septiembre de 2026)
+
+La cuarta cosa traída de Claude Science: su agente pasaba por código una lista
+de palabras prohibidas antes de entregar un documento. ROSA2018 tenía las
+prohibiciones escritas en CLAUDE.md (sin "demostrado" ni "confirmado", sin
+porcentajes de confianza inventados, sin recomendaciones clínicas), y las
+frases de las conclusiones ya salen de plantillas que no las usan; pero el
+texto libre del modelo (el resumen de la iteración, el resumen en llano) no lo
+comprobaba nadie. Los resaltados en ámbar de la interfaz
+(frontend/src/lib/calidad.ts) pintan, no comprueban.
+
+`sobreafirmaciones` en rosa/revisor_registro.py, dentro de
+`comprobaciones_deterministas`: sale como `conclusion_no_sigue` de gravedad
+media con origen "regla". Cubre demostrado y confirmado en sus formas, "prueba
+que", "sin duda", "obviamente", "inequívoco", "revolucionario", "sin
+precedentes", "cambio de paradigma", "crucial", "prometedor", "es la causa
+de", los porcentajes de certeza (el intervalo de confianza del 95 % no entra) y
+las recomendaciones de tratar, administrar o prescribir. "Clave" se deja fuera:
+en castellano es demasiado corriente.
+
+Las negadas no cuentan ("no se ha demostrado" es justo lo contrario de
+sobreafirmar), con hasta tres palabras entre la negación y la expresión, y "no
+solo se demostró" sí cuenta. La tercera palabra la destapó la prueba contra los
+resúmenes reales: "las hipótesis pendientes no equivalen a resultados
+confirmados" daba un aviso falso. Tras el arreglo, 0 avisos en 81 textos reales
+del estado.
