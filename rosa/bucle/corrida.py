@@ -2023,7 +2023,10 @@ class Supervisor:
         hallazgos = list(regla)
         juez = None
         try:
-            pred = await ctx.llamar("juez", self.programas.revisar_registro, texto=texto[:6000], registro=RR.texto_registro(e, inv["id"], it, c), hallazgos_por_regla="\n".join(f"- {h['clase']}: {h['detalle']}" for h in regla) or "Ninguno")
+            # Sus herramientas (calcular, leer_afirmacion, leer_ejecucion) leen este
+            # registro y no otro, aunque cierren dos iteraciones a la vez.
+            with RR.en_revision(e, inv["id"], it, c):
+                pred = await ctx.llamar("juez", self.programas.revisar_registro, texto=texto[:6000], registro=RR.texto_registro(e, inv["id"], it, c), hallazgos_por_regla="\n".join(f"- {h['clase']}: {h['detalle']}" for h in regla) or "Ninguno")
             juez = ctx.modelos.juez.model
             for hz in pred.revision.hallazgos:
                 hallazgos.append({"clase": hz.clase, "gravedad": hz.gravedad, "detalle": hz.detalle.strip()[:400], "origen": "juez"})

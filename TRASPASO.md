@@ -1792,3 +1792,59 @@ corrigió "1 evaluadas".
 Un test intermitente de la interfaz falló una vez en cinco pases completos y no
 se pudo ver cuál era; los cuatro pases siguientes, limpios. Queda para la
 revisión de fallos.
+
+## El juez del revisor recalcula en vez de estimar (23 de septiembre de 2026)
+
+La tercera cosa traída de Claude Science. Su revisor no lee: abre los ficheros
+y recalcula en una caja de arena. El nuestro leía el registro, y el registro
+recorta cada afirmación a 160 caracteres, todo el texto a 9000 y de cada
+ejecución solo da pares clave=valor. Dos piezas:
+
+**Una regla, `cuentas_que_no_cuadran`**, clase nueva `cuenta_que_no_cuadra` de
+gravedad alta, solo de regla. Caza sin modelo una cifra derivada que no sale de
+las que da el propio texto: "N veces más", "el doble", "de A a B, una subida del
+N %", y el log2 convertido a veces. Los dos ejemplos literales del revisor de
+Claude Science los caza: "−1,352 log2, es decir cinco veces más alto" (2
+elevado a 1,352 es 2,55) y "cuatro veces más alta" con 0,2195 frente a 0,0149
+(el cociente es 14,7). Tres decisiones para no dar avisos falsos, salidas de
+intentar romperla:
+- "Tres veces" solo es cociente con un comparativo detrás; "se extrajo sangre
+  tres veces en cinco años" es una frecuencia.
+- El porcentaje y el "de A a B" tienen que ir pegados, y "de 60 a 80 años" es
+  un rango, no un antes y un después.
+- "1,352" es uno coma tres en castellano y mil trescientos en inglés, y el
+  texto mezcla frases propias con fragmentos de fuentes: se prueban todas las
+  lecturas de cada cifra y solo se avisa si la cuenta falla con todas. Con más
+  o menos de dos cifras candidatas en la frase, se calla.
+
+Contra el estado real: 0 avisos en 97 textos (resúmenes, conclusiones,
+enunciados y mecanismos). Pero solo 1 de esos 97 contiene una cuenta derivada:
+ROSA2018 casi no escribe cuentas, así que hoy la regla vigila poco. Es barata y
+queda puesta para cuando las escriba.
+
+**Tres herramientas de solo lectura para el juez** (`HERRAMIENTAS_JUEZ`):
+`calcular` (aritmética con `ast` en lista blanca: números, operadores,
+paréntesis y log2, log10, ln, exp, sqrt, abs, round, min, max; nada de nombres,
+atributos ni llamadas fuera de esa lista; admite coma decimal),
+`leer_afirmacion` (entera, por su número: el registro ahora numera A1, A2...) y
+`leer_ejecucion` (entera, por su id). El programa `revisar_registro` pasa de
+`ChainOfThought` a `ReAct` con esas tres herramientas y `MAX_VUELTAS_REVISOR` =
+4. Lo que devuelven va marcado como DATO DEL REGISTRO, nunca instrucción.
+
+Dos detalles de ingeniería que conviene conservar:
+- Las herramientas leen el registro de la revisión en curso desde una variable
+  de contexto (`en_revision`), no desde un global: DSPy llama a las
+  herramientas en la misma tarea, y dos iteraciones que cierran a la vez no se
+  leen la una a la otra (hay un test con las dos a la vez).
+- El programa sigue siendo el mismo objeto de `Programas`, no uno fabricado en
+  cada llamada: los tests reconocen al juez por ese objeto, y el servicio de
+  GEPA también (`resolver` va por `id(programa)`).
+
+Presupuesto: el corte está antes de cada `ctx.llamar` y las vueltas se cuentan
+dentro por el callback, así que el revisor puede pasarse del tope en hasta
+cuatro llamadas al cerrar una iteración. Por eso el tope de vueltas es bajo.
+
+Lo que no se ha probado todavía: el juez con herramientas contra el modelo de
+verdad. Los tests cubren la estructura, las herramientas y la variable de
+contexto; la primera prueba real será el siguiente cierre de iteración tras
+reiniciar el servidor.
