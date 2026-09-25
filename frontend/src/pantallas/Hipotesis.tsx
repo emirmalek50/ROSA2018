@@ -23,7 +23,7 @@ import { BandejaComentarios, NuevoComentario, useSeleccionComentable } from '../
 import { Procedencia, type PestanaProcedencia } from '../componentes/Procedencia';
 import { Revisor } from '../componentes/Revisor';
 import { Verificacion } from '../componentes/Verificacion';
-import { ConclusionDeRosa, HipotesisEnLlano } from '../componentes/EnLlano';
+import { ConclusionDeRosa, HipotesisEnLlano, ViabilidadDeLaPrueba } from '../componentes/EnLlano';
 import { AvisoMuestra, Chip, Confirmar, Momento, Seccion, Vacio, descargar } from '../componentes/piezas';
 import { Esqueleto, EsqueletoPantalla, EsqueletoTarjetas } from '../componentes/Esqueleto';
 import { Bloqueos, ConsultasABases, ContextoDeBases, ContratoDelExperimento, DecisionesKiller, Dimensiones, EjecucionesInSilico, FusionYConflictos, GrafoCausalDeHipotesis, PerfilDeLaDiana, ProtocoloYEnmiendas, TarjetaDeHipotesis } from '../componentes/Rosa2018';
@@ -387,6 +387,8 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
       )}
 
       <HipotesisEnLlano texto={h.enLlano} />
+
+      <ViabilidadDeLaPrueba v={h.viabilidad} />
 
       <ConclusionDeRosa conclusion={h.conclusion} ahora={ahora} />
 

@@ -50,3 +50,49 @@ async def por_nct(nct: str) -> dict[str, Any] | None:
     if not p:
         return None
     return {"nct": p.get("identificationModule", {}).get("nctId"), "titulo": p.get("identificationModule", {}).get("briefTitle", ""), "estado": p.get("statusModule", {}).get("overallStatus"), "fases": p.get("designModule", {}).get("phases", [])}
+
+
+# Los criterios de elegibilidad de los ensayos grandes de una intervención, para
+# comprobar si la prueba que propone una hipótesis se puede hacer con sus datos
+# (rosa/viabilidad.py). Solo ensayos intervencionales de fase 2 o 3, los más
+# grandes primero: el pivotal es el que se cita, y los de 100 participantes no
+# cambian si un subgrupo existe o no. Comprobado el 25 de septiembre de 2026
+# contra la API: con este filtro, lecanemab devuelve primero CLARITY AD
+# (NCT03887455, 1.906 participantes).
+FILTRO_PIVOTALES = "AREA[StudyType]INTERVENTIONAL AND (AREA[Phase]PHASE2 OR AREA[Phase]PHASE3)"
+CAMPOS_ELEGIBILIDAD = "NCTId,BriefTitle,Acronym,Phase,EnrollmentCount,OverallStatus,EligibilityCriteria"
+
+
+async def elegibilidad(intervencion: str, condicion: str = "Alzheimer Disease", maximo: int = 2) -> list[dict[str, Any]]:
+    """Los `maximo` ensayos más grandes de esa intervención, con sus criterios de
+    elegibilidad en texto. Lanza `FuenteNoDisponible` si la API no responde:
+    quien llama lo trata como "no pude comprobar", nunca como "no hay ensayos"."""
+    params = {"query.cond": condicion, "query.intr": intervencion, "filter.advanced": FILTRO_PIVOTALES, "sort": "EnrollmentCount:desc", "pageSize": max(1, min(maximo, 10)), "fields": CAMPOS_ELEGIBILIDAD}
+    r = await pedir("GET", BASE, _limitador, params=params)
+    salida = []
+    for s in (r.json() or {}).get("studies", []) or []:
+        p = s.get("protocolSection", {})
+        ident, diseno, eleg = p.get("identificationModule", {}), p.get("designModule", {}), p.get("eligibilityModule", {})
+        salida.append(
+            {
+                "nct": ident.get("nctId"),
+                "titulo": ident.get("briefTitle", ""),
+                "acronimo": ident.get("acronym") or "",
+                "fases": diseno.get("phases", []),
+                "participantes": (diseno.get("enrollmentInfo") or {}).get("count"),
+                "estado": p.get("statusModule", {}).get("overallStatus"),
+                "criterios": eleg.get("eligibilityCriteria") or "",
+            }
+        )
+    return salida
+
+
+async def elegibilidad_por_nct(nct: str) -> list[dict[str, Any]]:
+    """El ensayo de ese NCT con sus criterios, en la misma forma que
+    `elegibilidad`. Lista vacía si el registro no lo tiene."""
+    r = await pedir("GET", f"{BASE}/{nct}", _limitador, params={"fields": CAMPOS_ELEGIBILIDAD})
+    p = (r.json() or {}).get("protocolSection", {})
+    if not p:
+        return []
+    ident, diseno, eleg = p.get("identificationModule", {}), p.get("designModule", {}), p.get("eligibilityModule", {})
+    return [{"nct": ident.get("nctId"), "titulo": ident.get("briefTitle", ""), "acronimo": ident.get("acronym") or "", "fases": diseno.get("phases", []), "participantes": (diseno.get("enrollmentInfo") or {}).get("count"), "estado": p.get("statusModule", {}).get("overallStatus"), "criterios": eleg.get("eligibilityCriteria") or ""}]

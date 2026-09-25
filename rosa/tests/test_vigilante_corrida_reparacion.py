@@ -34,6 +34,7 @@ from typing import Any
 
 import pytest
 
+from rosa.bucle import contexto as T
 from rosa.bucle import corrida as CO
 from rosa.bucle import pasos as PASOS
 from rosa.bucle.pasos import Ctx
@@ -336,8 +337,13 @@ def test_un_relleno_con_el_modelo_caido_no_marca_la_hipotesis_como_intentada_y_n
         raise RuntimeError("otro fallo")
 
     monkeypatch.setattr(Ctx, "llamar", llamar_roto)
+    # La conclusión va antes que el resumen, porque el resumen la cuenta: el primer
+    # tic intenta la conclusión y el segundo, el resumen.
     asyncio.run(sup._completar_en_llano())
-    assert next(x for x in al.estado["hipotesis"] if x["id"] == ids["hip"]).get("_enLlanoIntentado") is True
+    asyncio.run(sup._completar_en_llano())
+    h = next(x for x in al.estado["hipotesis"] if x["id"] == ids["hip"])
+    assert h.get("_enLlanoIntentado") == T.huella_llano(al.estado, h), "con un fallo que no es una caída, se marca para esta huella y no se repite en cada tic"
+    assert h.get("enLlano") is None, "no se inventa un resumen cuando el modelo falla"
 
 
 def test_los_datos_del_laboratorio_no_se_evaluan_mientras_la_corrida_espera_al_juez(monkeypatch):

@@ -44,6 +44,7 @@ from rosa import sesgo as SESGO
 from rosa import certeza as CERTEZA, config, lecciones as LEC, parada as PARADA, politicas, priorizacion as PR, progreso as PROG, torneo
 from rosa import revisor_registro as RR
 from rosa import tareas as TA
+from rosa import viabilidad as VIA
 from rosa import killer as KILLER
 # ROSA2018, 16 de septiembre de 2026: ruta terapéutica por regla, contrato del
 # experimento, mapa de la enfermedad, cifras de aprendizaje y perfil por diana.
@@ -966,9 +967,16 @@ class Supervisor:
             return None
 
     async def _hipotesis_en_llano(self, ctx: Ctx, h: dict[str, Any]) -> None:
-        c = h["comprobacion"]
+        """El "En pocas palabras" de la hipótesis. Desde el 25 de septiembre de 2026 lo
+        escribe el cerebro con lo que ROSA2018 ya investigó (su conclusión, el Killer,
+        la viabilidad de la prueba, la revisión pendiente), y se reescribe cuando algo
+        de eso cambia (`T.huella_llano`). Antes lo escribía Sonnet una sola vez al
+        nacer la hipótesis, viendo solo el enunciado, y salía la idea aplanada hasta lo
+        obvio y el trabajo de ROSA2018 pasado a "los investigadores"."""
+        e = self.almacen.estado
+        huella = T.huella_llano(e, h)
         try:
-            pred = await ctx.llamar("volumen", self.programas.hipotesis_en_llano, titulo=h["titulo"], enunciado=h["enunciado"], mecanismo=h["mecanismo"], comprobacion=f"Biomarcador: {c['biomarcador']}. Cohorte: {c['cohorte']}. Diseño: {c['diseno']}", relevancia=h["relevancia"]["justificacion"])
+            pred = await ctx.llamar("cerebro", self.programas.hipotesis_en_llano, titulo=h["titulo"], enunciado=h["enunciado"], mecanismo=h["mecanismo"], prueba=T.prueba_de(h), lo_que_encontro=T.lo_que_encontro(e, h), relevancia=h["relevancia"]["justificacion"])
             texto = pred.explicacion.strip()
         except (PresupuestoAgotado, ModeloSinRespuesta):
             raise  # sin marcar la bandera: se reintenta cuando haya presupuesto o el modelo vuelva
@@ -980,8 +988,10 @@ class Supervisor:
             x = next((y for y in e["hipotesis"] if y["id"] == h["id"]), None)
             if not x:
                 return False
-            x["enLlano"] = texto or None
-            x["_enLlanoIntentado"] = True
+            # Si el cerebro falló, se conserva el resumen anterior en vez de dejar la
+            # hipótesis sin él: uno viejo es mejor que ninguno.
+            x["enLlano"] = texto or x.get("enLlano") or None
+            x["_enLlanoIntentado"] = huella
             return True
 
         self.almacen.mutar(fn, "en_llano")
@@ -1359,15 +1369,22 @@ class Supervisor:
                 if corrida and corrida["estado"] not in ("pausada_por_presupuesto", "esperando_modelo"):
                     await self._evaluar_resultado(self._ctx(corrida), h)
                     return
-            if h.get("enLlano") is None and not h.get("_enLlanoIntentado"):
+            # Orden: la viabilidad de la prueba y la conclusión antes que el resumen,
+            # porque el resumen cuenta las dos y, escrito antes, habría que reescribirlo.
+            if VIA.necesita(h):
                 corrida = A.ultima_corrida_de(e, h["investigacionId"])
-                if _puede_gastar(corrida):
-                    await self._hipotesis_en_llano(self._ctx(corrida), h)
+                if corrida is not None and _puede_gastar(corrida):
+                    await VIA.asegurar(self._ctx(corrida), h, None, pedir_revision=True)
                     return
             if h.get("conclusion") is None and not h.get("_conclusionIntentada"):
                 corrida = A.ultima_corrida_de(e, h["investigacionId"])
                 if _puede_gastar(corrida):
                     await self._concluir_hipotesis(self._ctx(corrida), h)
+                    return
+            if h.get("estado") != "descartada" and h.get("_enLlanoIntentado") != T.huella_llano(e, h):
+                corrida = A.ultima_corrida_de(e, h["investigacionId"])
+                if corrida is not None and _puede_gastar(corrida):
+                    await self._hipotesis_en_llano(self._ctx(corrida), h)
                     return
             if h.get("experimento") is None and not h.get("_experimentoIntentado") and h["estado"] != "descartada":
                 corrida = A.ultima_corrida_de(e, h["investigacionId"])
@@ -2502,6 +2519,10 @@ class Supervisor:
                 estado_rev, _ = TA.registrar_con_motivo(e2, t_rev, ahora, aceptadas_ya=aceptadas_rev)
                 if estado_rev == "aceptada":
                     aceptadas_rev += 1
+            # Las revisiones de lo ya publicado que proponen las hipótesis como prueba:
+            # ROSA2018 se las apunta a sí misma en vez de dejárselas a "los
+            # investigadores" (25 de septiembre de 2026), las que quepan en la cola.
+            aceptadas_rev += TA.registrar_de_escritorio(e2, inv["id"], it["numero"], ahora, aceptadas_ya=aceptadas_rev)
             it2["revisionRegistro"] = revision
             # Conclusiones conservadas al día por regla (M-14): techo, escalera y
             # min(juez, techo) con los factores guardados; si una certeza baja, evento.

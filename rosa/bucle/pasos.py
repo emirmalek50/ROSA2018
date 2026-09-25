@@ -46,6 +46,7 @@ from rosa import metodos as METODOS
 from rosa import verificador as V
 from rosa import solidez as SOL
 from rosa import tareas as TA
+from rosa import viabilidad as VIA
 from rosa import torneo
 from rosa import vigilante_modelos as VIG
 from rosa import vigencia as VIGENCIA
@@ -3195,6 +3196,16 @@ async def _killer(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: str, pista: P
     except Exception as ex:  # noqa: BLE001
         if pista:
             pista.nota(f"Las bases no respondieron para la diana: {str(ex)[:100]}")
+    # ¿Se puede hacer la prueba con los ensayos que nombra? Si es revisar lo ya
+    # publicado, se leen sus criterios de elegibilidad antes de que el Killer juzgue la
+    # factibilidad (rosa/viabilidad.py). Una vez por versión de la prueba.
+    try:
+        await VIA.asegurar(ctx, h, pista)
+    except EXCEPCIONES_QUE_CORTAN_EL_PASO:  # presupuesto, modelo caído o corrida parada
+        raise
+    except Exception as ex:  # noqa: BLE001  la viabilidad no tumba al Killer
+        if pista:
+            pista.nota(f"No se pudo comprobar la viabilidad de la prueba: {str(ex)[:100]}")
     h = next((y for y in e["hipotesis"] if y["id"] == h["id"]), h)
     deterministas = K.comprobaciones_deterministas(h, e)
     # Entidades canonicas de la hipotesis (HGNC para la diana, diccionario curado

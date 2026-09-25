@@ -1595,6 +1595,27 @@ export interface Vigilancia {
   ultimoError?: string | null;
 }
 
+/** ¿Se puede hacer la prueba con los ensayos que nombra? 'inviable': el grupo que la
+ *  prueba necesita comparar estaba excluido de esos ensayos, con el criterio literal
+ *  citado. 'limitada': solo en parte. 'no_comprobable': el registro no respondió, o
+ *  sus criterios son un resumen que no permite decirlo. Nunca "no hay". */
+export interface ViabilidadPrueba {
+  estado: 'viable' | 'limitada' | 'inviable' | 'no_comprobable' | 'sin_ensayos_nombrados';
+  explicacion: string;
+  /** El grupo que la prueba necesita tener para hacer su comparación. */
+  grupoNecesario: string;
+  /** Cada criterio de exclusión, copiado del registro. Solo los que resuelven: una
+   *  cita que no está en el texto del registro se descarta. */
+  exclusiones: { nct: string; titulo: string; criterio: string }[];
+  alternativa: string;
+  /** Los ensayos que se leyeron, los más grandes de cada fármaco. */
+  ensayos: { nct: string; acronimo: string; titulo: string; participantes: number | null; caracteresCriterios: number }[];
+  noEncontrados: string[];
+  sinRespuesta: string[];
+  fecha: number;
+  juez: string | null;
+}
+
 export interface Hipotesis {
   /** Qué se publicó sobre esta hipótesis desde la última comprobación (solo con Exa). */
   vigilancia?: Vigilancia;
@@ -1605,6 +1626,10 @@ export interface Hipotesis {
   mecanismo: string;
   /** Que biomarcador o que cohorte permitiria comprobarla. Siempre va. */
   comprobacion: { biomarcador: string; cohorte: string; diseno: string };
+  /** Si la prueba se puede hacer con los ensayos que nombra, leído en sus criterios
+   *  de elegibilidad de ClinicalTrials.gov (rosa/viabilidad.py). Solo en las
+   *  hipótesis cuya prueba es revisar lo ya publicado. */
+  viabilidad?: ViabilidadPrueba | null;
   estado: EstadoHipotesis;
   elo: number;
   historialElo: PuntoElo[];

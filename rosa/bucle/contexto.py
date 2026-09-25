@@ -952,3 +952,83 @@ def direccion_por_regla(afirmaciones: list[dict[str, Any]] | None, propuesta: st
     if propuesta == "sin_evidencia_directa" and solo_indirectos:
         return "sin_evidencia_directa"
     return "apoya"
+
+
+# -- El resumen en pocas palabras de una hipótesis (25 de septiembre de 2026) ------
+#
+# Hasta hoy lo escribía Sonnet UNA sola vez, al nacer la hipótesis, viendo solo el
+# título, el enunciado, el mecanismo y la prueba. No veía nada de lo que ROSA2018
+# investigó después, y su instrucción le pedía contar "cómo se comprobaría". Así
+# salía: la idea aplanada hasta lo obvio ("un medicamento podría reducir P-tau181")
+# y el trabajo que le toca a ROSA2018 pasado a otros ("los investigadores
+# revisarían..."), en 19 de los 28 resúmenes. Lo que sigue es lo que el cerebro ve
+# ahora, y la huella que decide cuándo se reescribe.
+
+
+def prueba_de(h: dict[str, Any]) -> str:
+    """La prueba que propone la hipótesis y de qué clase es, dicho por regla: si es
+    revisar lo ya publicado, la hace ROSA2018; si no, hace falta un estudio nuevo."""
+    from rosa import viabilidad as VIA
+
+    c = VIA.dic(h.get("comprobacion"))
+    clase = (
+        "Clase de prueba: revisar lo ya publicado. La hace ROSA2018 con sus herramientas (búsqueda de literatura, registros de ensayos, extracción y verificación), no otros investigadores."
+        if VIA.es_trabajo_de_escritorio(c.get("diseno"))
+        else "Clase de prueba: un estudio con datos o muestras de pacientes, o un experimento nuevo. Lo hace un laboratorio o un equipo clínico."
+    )
+    return f"Biomarcador: {c.get('biomarcador', '')}\nCohorte: {c.get('cohorte', '')}\nDiseño: {c.get('diseno', '')}\n{clase}"
+
+
+def lo_que_encontro(e: dict[str, Any], h: dict[str, Any]) -> str:
+    """Lo que ROSA2018 ya hizo con la hipótesis, en el orden en que importa para
+    explicarla: la conclusión, la evidencia, lo que no pudo comprobar, lo que dijo
+    el Killer, si la prueba se puede hacer y si tiene pendiente la revisión."""
+    from rosa import viabilidad as VIA
+
+    partes: list[str] = []
+    c = VIA.dic(h.get("conclusion")) or None
+    if c:
+        partes.append(f"Conclusión de ROSA2018 (certeza {c.get('certeza')}, dirección {c.get('direccion')}): {str(c.get('conclusion') or '')[:600]}")
+        base = c.get("base") if isinstance(c.get("base"), dict) else {}
+        partes.append(f"Evidencia reunida: {base.get('sostenidas', '?')} afirmaciones sostenidas de {base.get('fuentes', '?')} fuentes; {len(c.get('aFavor') or [])} puntos a favor y {len(c.get('enContra') or [])} en contra.")
+        if c.get("loMasFragil"):
+            partes.append(f"Lo más frágil: {str(c['loMasFragil'])[:300]}")
+        if c.get("noComprobado"):
+            partes.append("No pudo comprobar: " + "; ".join(str(x)[:120] for x in (c.get("noComprobado") or [])[:4]))
+    else:
+        partes.append("ROSA2018 todavía no ha escrito la conclusión de esta hipótesis.")
+    decisiones = [d for d in (e.get("decisiones") or []) if isinstance(d, dict) and d.get("hipotesisId") == h.get("id") and str(d.get("etapa", "")).startswith("killer")]
+    if decisiones:
+        d = max(decisiones, key=lambda x: int(x.get("fecha") or 0))
+        partes.append(f"El Killer (la revisión que intenta tumbar la hipótesis) decidió «{str(d.get('decision')).replace('_', ' ')}»: {str(d.get('motivo') or '')[:300]}")
+    v = VIA.dic(h.get("viabilidad")) or None
+    if v and v.get("estado") not in (None, "sin_ensayos_nombrados"):
+        citas = "; ".join(f"{x.get('titulo') or x.get('nct')} ({x.get('nct')}) excluyó «{str(x.get('criterio'))[:160]}»" for x in (v.get("exclusiones") or [])[:3])
+        linea = f"¿Se puede hacer la prueba con los ensayos que nombra? ROSA2018 leyó sus criterios en ClinicalTrials.gov: {str(v.get('estado')).replace('_', ' ')}. {v.get('explicacion', '')}"
+        if citas:
+            linea += f" {citas}."
+        if v.get("alternativa"):
+            linea += f" Alternativa: {v['alternativa']}"
+        partes.append(linea)
+    tareas = [t for t in (e.get("tareas") or []) if isinstance(t, dict) and t.get("hipotesisId") == h.get("id")]
+    if tareas:
+        t = max(tareas, key=lambda x: int(x.get("creadaEn") or 0))
+        cuando = {"aceptada": "la tiene en su cola de trabajo", "programada": "la tiene en el plan de la próxima iteración", "hecha": "ya la hizo", "rechazada": "la descartó", "caducada": "la dejó caducar"}.get(str(t.get("estado")), "la tiene propuesta")
+        partes.append(f"Revisión de lo publicado: ROSA2018 {cuando}. {str(t.get('motivo') or '')[:200]}")
+    return "\n".join(partes)
+
+
+def huella_llano(e: dict[str, Any], h: dict[str, Any]) -> str:
+    """Cuándo hay que reescribir el resumen: cuando cambia la hipótesis, su
+    conclusión, lo que decidió el Killer, la viabilidad de su prueba o el estado de
+    su revisión pendiente. Nada más: el resumen no se reescribe por reescribir."""
+    import hashlib
+    import json as _json
+
+    from rosa import viabilidad as VIA
+
+    c = VIA.dic(h.get("conclusion"))
+    v = VIA.dic(h.get("viabilidad"))
+    tareas = sorted(str(t.get("estado")) for t in (e.get("tareas") or []) if isinstance(t, dict) and t.get("hipotesisId") == h.get("id"))
+    cuerpo = _json.dumps([h.get("enunciado"), VIA.dic(h.get("comprobacion")).get("diseno"), c.get("huella") or c.get("conclusion"), h.get("decisionKiller"), v.get("estado"), v.get("huella"), tareas], ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha1(cuerpo.encode("utf-8")).hexdigest()

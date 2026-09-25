@@ -95,6 +95,11 @@ def equivalente_en(tareas: list[dict[str, Any]], t: dict[str, Any], estados: tup
     for otra in tareas:
         if not isinstance(otra, dict) or otra.get("investigacionId") != t.get("investigacionId") or otra.get("estado") not in estados:
             continue
+        # Dos tareas sobre hipótesis distintas nunca son la misma, aunque el texto se
+        # parezca: las que abre una regla salen de la misma plantilla y el solape de
+        # palabras las fundiría (25 de septiembre de 2026).
+        if t.get("hipotesisId") and otra.get("hipotesisId") and t["hipotesisId"] != otra["hipotesisId"]:
+            continue
         motivo = CU.equivalencia(_texto(t), _texto(otra))
         if motivo:
             return otra, motivo
@@ -244,3 +249,73 @@ def por_regla_al_terminar_paso(e: dict[str, Any], c: dict[str, Any], paso: dict[
     if comp.get("resultado") == "falla" and comp.get("etapa") in HERRAMIENTAS:
         salida.append(nueva(inv_id, f"La etapa de {comp['etapa']} terminó en verde sin producir nada: {_recortar(comp.get('detalle'), 200)}", f"Volver a intentar la etapa de {comp['etapa']} cambiando lo que falló, no repitiéndola igual", "Una etapa que no produce deja sin material a las que vienen detrás", str(comp["etapa"]), origen, ahora))
     return salida[:politicas.MAX_TAREAS_PROPUESTAS_POR_PASO]
+
+
+MARCA_ESCRITORIO = "prueba de escritorio"
+
+
+def por_regla_de_hipotesis(e: dict[str, Any], h: dict[str, Any], iteracion: int, ahora: int) -> dict[str, Any] | None:
+    """La tarea que ROSA2018 se abre a sí misma cuando la prueba que propone una
+    hipótesis es revisar lo ya publicado, o None si no hace falta.
+
+    Es el caso que encontró Emir el 25 de septiembre de 2026: 12 de las 28 hipótesis
+    vivas proponían como prueba "revisar los resultados publicados de varios
+    ensayos", y el resumen le pasaba ese trabajo a "los investigadores". Revisar lo
+    publicado es justo lo que ROSA2018 hace, y no lo hacía: en todo el historial
+    había una sola búsqueda que cruzara lecanemab o donanemab con subgrupos o con
+    carga vascular.
+
+    No se abre si la prueba ya se sabe inviable con esos ensayos (la reformula el
+    Killer, y revisar unos datos que no existen es gastar en vacío), ni si ya existe
+    una tarea de esta clase para la hipótesis, en el estado que sea: una rechazada
+    por una persona no se vuelve a proponer sola."""
+    from rosa import viabilidad as VIA
+
+    c = VIA.dic(h.get("comprobacion"))
+    if h.get("estado") in ("descartada",) or h.get("fusionadaEn") or not VIA.es_trabajo_de_escritorio(c.get("diseno")):
+        return None
+    v = VIA.dic(h.get("viabilidad"))
+    if v.get("estado") == "inviable" and v.get("huella") == VIA.huella(h):
+        return None
+    if any(isinstance(x, dict) and x.get("hipotesisId") == h.get("id") and (x.get("origen") or {}).get("detalle") == MARCA_ESCRITORIO for x in (e.get("tareas") or [])):
+        return None
+    farmacos, ncts = VIA.intervenciones_nombradas(h)
+    donde = ", ".join(farmacos + ncts) or str(c.get("cohorte") or "los estudios que nombra la prueba")[:160]
+    haria = f"Buscar en PubMed, Europe PMC y ClinicalTrials.gov los resultados que pide la prueba ({str(c.get('biomarcador') or '')[:160]}) en {donde}, y registrar por ensayo si existen, si apoyan o contradicen, o si no se publicaron"
+    if v.get("estado") == "limitada":
+        haria += f". Cuidado: {str(v.get('explicacion') or '')[:200]}"
+    return nueva(
+        str(h.get("investigacionId") or ""),
+        f"La prueba que propone «{str(h.get('titulo') or '')[:120]}» es revisar lo ya publicado, y ROSA2018 todavía no lo ha revisado",
+        haria,
+        "Si los datos existen, la hipótesis se juzga ya, sin laboratorio; si no existen, se sabe ahora y no cuando alguien lo intente",
+        "literatura",
+        {"tipo": "regla", "iteracion": iteracion, "detalle": MARCA_ESCRITORIO},
+        ahora,
+        hipotesis_id=h.get("id"),
+    )
+
+
+def registrar_de_escritorio(e: dict[str, Any], investigacion_id: str, iteracion: int, ahora: int, aceptadas_ya: int = 0) -> int:
+    """Reducer: las revisiones de lo publicado que ROSA2018 se apunta a sí misma al
+    cerrar una iteración. Devuelve cuántas aceptó.
+
+    Solo tantas como quepan esta iteración, las hipótesis de más Elo primero. Las
+    demás esperan al cierre siguiente en vez de entrar para que la cola llena las
+    rechace: una tarea rechazada queda marcada, y la próxima vez se rechazaría
+    otra vez "por repetir una rechazada", para siempre."""
+    en_cola = sum(1 for x in (e.get("tareas") or []) if isinstance(x, dict) and x.get("investigacionId") == investigacion_id and x.get("estado") in ("propuesta", "aceptada"))
+    libres = min(politicas.MAX_TAREAS_ACEPTADAS_POR_ITERACION - aceptadas_ya, politicas.MAX_TAREAS_EN_COLA - en_cola)
+    vivas = sorted((x for x in (e.get("hipotesis") or []) if isinstance(x, dict) and x.get("investigacionId") == investigacion_id and x.get("estado") not in ("descartada",)), key=lambda x: -float(x.get("elo") or 0))
+    aceptadas = 0
+    for h in vivas:
+        if libres <= 0:
+            break
+        t = por_regla_de_hipotesis(e, h, iteracion, ahora)
+        if t is None:
+            continue
+        estado, _ = registrar_con_motivo(e, t, ahora, aceptadas_ya=aceptadas_ya + aceptadas)
+        if estado == "aceptada":
+            aceptadas += 1
+            libres -= 1
+    return aceptadas

@@ -5664,3 +5664,23 @@ details.versiones > :not(summary) {
   align-items: center;
   gap: 6px 12px;
 }
+
+/* ¿Se puede hacer la prueba con los datos que existen? (rosa/viabilidad.py) */
+.viabilidad {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--borde);
+}
+.viabilidad h4 {
+  margin: 0 0 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.viabilidad-exclusiones {
+  margin: 6px 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}

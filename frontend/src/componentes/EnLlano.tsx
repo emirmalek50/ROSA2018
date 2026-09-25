@@ -3,7 +3,7 @@
 // que falta, que te toca, glosario) y la hipotesis en tres frases. Van
 // antes del detalle tecnico, no despues: es lo primero que se lee.
 
-import type { ConclusionHipotesis, ResumenLlano } from '../datos/tipos';
+import type { ConclusionHipotesis, ResumenLlano, ViabilidadPrueba } from '../datos/tipos';
 import { CERTEZA_EVIDENCIA, DIRECCION_EVIDENCIA, FACTOR_CERTEZA } from '../lib/etiquetas';
 import { Chip } from './piezas';
 import { Momento, Seccion } from './piezas';
@@ -111,6 +111,60 @@ export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: R
         </div>
       )}
     </Seccion>
+  );
+}
+
+const VEREDICTO_VIABILIDAD: Record<ViabilidadPrueba['estado'], { etiqueta: string; tono: 'ok' | 'aviso' | 'mal' | 'borde' }> = {
+  viable: { etiqueta: 'Sí, con estos ensayos', tono: 'ok' },
+  limitada: { etiqueta: 'Solo en parte', tono: 'aviso' },
+  inviable: { etiqueta: 'No con estos ensayos', tono: 'mal' },
+  no_comprobable: { etiqueta: 'No pude comprobarlo', tono: 'borde' },
+  sin_ensayos_nombrados: { etiqueta: 'La prueba no nombra ensayos', tono: 'borde' },
+};
+
+/** ¿Se puede hacer la prueba con los ensayos que nombra? ROSA2018 lo lee en los
+ *  criterios de elegibilidad de ClinicalTrials.gov (rosa/viabilidad.py): un ensayo
+ *  que excluyó a un grupo no puede decir nada sobre ese grupo. */
+export function ViabilidadDeLaPrueba({ v }: { v: ViabilidadPrueba | null | undefined }) {
+  if (!v || v.estado === 'sin_ensayos_nombrados') return null;
+  const veredicto = VEREDICTO_VIABILIDAD[v.estado];
+  const enlace = (nct: string) => (
+    <a className="enlace" href={`https://clinicaltrials.gov/study/${nct}`} target="_blank" rel="noreferrer">
+      {nct}
+    </a>
+  );
+  return (
+    <div className="viabilidad">
+      <h4>
+        ¿Se puede hacer la prueba con los datos que existen? <Chip tono={veredicto.tono}>{veredicto.etiqueta}</Chip>
+      </h4>
+      {v.explicacion && <p>{v.explicacion}</p>}
+      {v.exclusiones.length > 0 && (
+        <ul className="viabilidad-exclusiones">
+          {v.exclusiones.map((x) => (
+            <li key={`${x.nct}-${x.criterio.slice(0, 20)}`}>
+              <strong>{x.titulo || x.nct}</strong> ({enlace(x.nct)}) excluyó: <q>{x.criterio}</q>
+            </li>
+          ))}
+        </ul>
+      )}
+      {v.alternativa && <p className="meta">Dónde sí puede estar ese grupo: {v.alternativa}</p>}
+      {v.ensayos.length > 0 && (
+        <p className="meta">
+          Leído en ClinicalTrials.gov:{' '}
+          {v.ensayos.map((x, i) => (
+            <span key={x.nct}>
+              {i > 0 ? ', ' : ''}
+              {x.acronimo || x.nct} ({enlace(x.nct)}
+              {x.participantes ? `, ${x.participantes} participantes` : ''})
+            </span>
+          ))}
+          .
+        </p>
+      )}
+      {v.sinRespuesta.length > 0 && <p className="meta">El registro no respondió para {v.sinRespuesta.join(', ')}: no se pudo consultar, y ROSA2018 lo vuelve a intentar.</p>}
+      {v.noEncontrados.length > 0 && <p className="meta">Sin ensayos de fase 2 o 3 en el registro para {v.noEncontrados.join(', ')}; pueden estar registrados con otro nombre.</p>}
+    </div>
   );
 }
 

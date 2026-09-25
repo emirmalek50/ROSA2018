@@ -199,6 +199,16 @@ def comprobaciones_deterministas(h: dict[str, Any], e: dict[str, Any]) -> list[d
     ens = n.get("ensayos") if isinstance(n.get("ensayos"), dict) else {}
     if str(ens.get("detalle", "")).startswith("No comprobado"):
         c.append({"comprobacion": "factibilidad", "resultado": "no_comprobable", "detalle": "ClinicalTrials.gov no respondió: no se pudo ver si existe un ensayo o cohorte que la mida"})
+    # Factibilidad con los criterios de elegibilidad reales de los ensayos que nombra la
+    # prueba (rosa/viabilidad.py, 25 de septiembre de 2026). Cuando la hay, sustituye a
+    # la de arriba: se apoya en citas literales del registro, y como las deterministas
+    # mandan sobre el juez (`fusionar`), ya no se decide de memoria. Si falla, la
+    # hipótesis se reformula con una prueba que se pueda hacer.
+    from rosa import viabilidad as VIA
+
+    fact = VIA.comprobacion_factibilidad(h)
+    if fact:
+        c = [x for x in c if x["comprobacion"] != "factibilidad"] + [fact]
     return c
 
 

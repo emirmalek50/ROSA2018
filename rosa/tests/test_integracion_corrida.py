@@ -766,7 +766,11 @@ def test_completar_en_llano_pega_el_aprendizaje_cuando_el_resumen_llega_tarde(mo
 
     def cerrar_sin_llano(e):
         h = next(z for z in e["hipotesis"] if z["id"] == ids["hip"])
-        h.update({"_enLlanoIntentado": True, "_conclusionIntentada": 1, "_experimentoIntentado": True})  # que el relleno no se pare en la hipótesis
+        h.update({"_conclusionIntentada": 1, "_experimentoIntentado": True})  # que el relleno no se pare en la hipótesis
+        # El resumen de la hipótesis cuenta como hecho cuando se escribió con esta
+        # huella (conclusión, Killer, viabilidad, revisión pendiente); `True` ya no
+        # basta desde el 25 de septiembre de 2026, porque se reescribe al cambiar.
+        h["_enLlanoIntentado"] = T.huella_llano(e, h)
         it = next(x for x in e["iteraciones"] if x["id"] == ids["it"])
         it["terminadaEn"] = 5000
         it["resumen"] = "Resumen."
