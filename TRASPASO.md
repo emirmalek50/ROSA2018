@@ -2105,3 +2105,193 @@ no debe llegar.
 Y la franja lila de los datos ya no se repite arriba de cada página: la Story
 de PyMuPDF volvía a pintar el fondo CSS en las páginas siguientes; ahora se
 pinta a mano solo en la primera, por debajo del texto.
+
+## El arnés de Yoon traído entero: cuatro piezas (25 de septiembre de 2026)
+
+Emir mandó el artículo de Yoon y otros (2026, Anthropic) sobre el arnés con el
+que corrieron 119 tareas y 949 sesiones sin intervención humana, y pidió traer
+lo que sirviera. De ahí salieron cuatro piezas, diseñadas por cuatro
+exploradores en solo lectura y cruzadas por un escéptico que buscó los choques
+entre ellas antes de tocar nada. El orden de implementación es el que ese
+informe recomendó, y sus tres recortes de alcance se respetaron.
+
+Lo que el artículo tiene y ROSA2018 no tenía, en una frase por pieza: el
+supervisor devuelve el trabajo, un agente puede abrir tareas nuevas con una
+cola que las acepta o las rechaza por escrito, el torneo compara a ciegas con
+descalificación automática, y cada etapa se cierra con una comprobación
+programada.
+
+### 1. El torneo, a ciegas y con pérdida automática por solidez
+
+La tarjeta que ve el juez ya no lleva título, cluster ni el bloque de revisiones
+automáticas, que llevaba dentro el veredicto del Killer, el de la novedad y
+"Partido en la iteración N contra <título del rival>: ganó". La caza del 23 de
+septiembre midió la consecuencia: el orden de Bradley-Terry de inv-mu2sz2ns-3
+seguía al veredicto del Killer, y las tres últimas eran justo las tres
+descartadas. `contexto.hipotesis_para_torneo` se renombró a
+`hipotesis_con_revisiones` porque no es la tarjeta del torneo: alimenta el
+panorama de MetaRevisar, que sí debe verlo todo.
+
+Y se arregló de raíz quién cuenta como persona. Cualquier firma distinta de
+"Rosa" contaba como humana, y el Killer firma con el id del modelo juez: 131
+revisiones de modelo (127 de Opus, 4 de Astra) llegaban al torneo y a la
+conclusión GRADE por el campo `revisiones_humanas`, cuya descripción decía "Lo
+que dijeron las personas" y cuyo docstring añadía que pesan más que las
+automáticas. En las 28 hipótesis del estado hay CERO revisiones humanas reales.
+Las 26 conclusiones escritas así se rehacen al próximo cierre y el motivo lo
+dice con esas palabras, no "la evidencia contada cambió": la evidencia no
+cambió, cambió quién se creía que la había revisado.
+
+`rosa/solidez.py` es la pérdida automática, por regla y sin modelo. Se toma de
+Yoon que solidez 2 o menos pierde el partido; se tira la rúbrica del 1 al 5 con
+pesos 0,35/0,30/0,25/0,10, porque las 20 conversaciones de Claude Science
+midieron 0,03 de correlación de Spearman entre dos rondas de repuntuación a
+ciegas de lo mismo, y entre impacto y novedad hay cinco centésimas: un punto de
+temblor cambia el ganador. Descalifican los cuatro veredictos que ya bloquean la
+candidatura, una fuente retractada, el descarte del Killer y los dos bloqueos de
+análisis. NO descalifican "sin verificar", ni el Killer sin juzgar, ni las
+puertas de proceso, que hoy tiene el 100 % de las hipótesis vivas. El partido de
+una descalificada se resuelve sin llamar al juez y ANTES del primer partido con
+juez, así que el torneo sigue dando resultado con el presupuesto agotado (hoy,
+sin presupuesto, no hacía nada).
+
+La rejilla: `emparejar` gastaba cada hipótesis en un solo par por ronda, así que
+con 9 vivas devolvía 4 pares de los 36 posibles; siete pares no se jugaron nunca
+y uno se jugó 9 veces. Con `una_vez_por_ronda=False` el guardia pasa a ser por
+par, y `MAX_PARTIDOS_CON_JUEZ_POR_ITERACION = 6` reparte la rejilla diciendo en
+voz alta cuántos pares aplaza. Medido sobre inv-mu2sz2ns-3: 6 al juez (12
+llamadas), 13 por regla (0 llamadas), 4 aplazados.
+
+El par que se forzaba para siempre: `registrar_partido` solo guardaba la
+relación cuando no era "distintas", y `_torneo` fuerza el par redundante
+mientras ningún partido suyo tenga relación. Ahora se guarda siempre y el
+dirimente se marca aparte con `_dirimidoCon`, que distingue "se lo preguntamos
+antes" de "se lo preguntamos por la redundancia". La primera versión conflaba
+las dos cosas y un test lo cazó.
+
+### 2. Cada etapa se cierra con una comprobación escrita en código
+
+`rosa/comprobaciones.py`, nueve reglas para las nueve herramientas, cero
+llamadas. El estado dice si el paso TERMINÓ; la comprobación dice si SIRVIÓ. En
+el estado guardado son 256 pasos en "hecho" que nadie miró, y la prueba está en
+la novedad: 30 pasos cerrados como hechos mientras 20 de 28 hipótesis siguen con
+la novedad pendiente. No se parsea el resumen del ejecutor porque hay uno que
+miente: `paso_novedad` devuelve "Novedad comprobada en N hipótesis" donde N es
+cuántas intentó.
+
+Cuatro resultados y la diferencia es la regla de la casa: `pasa`, `sin_materia`
+(no es un fallo), `falla` y `no_comprobable`. En novedad nunca hay `falla`: ahí
+quien no responde es la base. La puerta de la cadena pide DOS condiciones a la
+vez (la etapa anterior falló y esta no tiene materia propia), que es lo que
+impide romper el camino real.
+
+Consecuencias, todas gratis: chip en el plan en vivo, lección por regla que ya
+entra en los prompts siguientes, hallazgo del revisor y evento. Sin reintento
+automático: gasta dinero sin permiso y estos fallos son los que repetir igual
+repite. Y si una iteración cierra sin que NINGUNA etapa cumpla y con al menos
+una fallando, ROSA2018 se pausa a sí misma. En las 50 iteraciones guardadas ese
+caso ocurre una vez: la iteración en la que el gateway devolvió un error de
+facturación y las cinco etapas siguientes giraron en vacío mientras la corrida
+seguía como si nada.
+
+### 3. El revisor devuelve el trabajo
+
+170 hallazgos en 33 iteraciones, los 170 abiertos, ninguno atendido nunca. La
+puerta de entrada (un hallazgo grave abierto) dispara en 15 de 33 iteraciones,
+45 %, casi la tasa de Yoon (49 de 119). Rehace el cerebro, que escribió el
+texto; comprueba el juez, con sus herramientas de solo lectura. Si el juez
+reescribiera, corregiría su propia nota.
+
+Tres candados deterministas: las reglas se vuelven a correr enteras (39 de los
+170 hallazgos son de regla y se cierran sin llamar a nadie); `RR.toco_el_texto`
+exige que el texto cambiara DONDE el hallazgo señalaba, que es el fallo de Yoon
+cazado por código y no por otro modelo; y una vuelta que sube el peso de las
+reglas se rechaza y vuelve al texto anterior. Escribir el test del tercero
+encontró un fallo mío: comparaba contra el peso de los hallazgos de regla de la
+revisión en vez de contra las reglas corridas sobre el texto viejo, así que con
+hallazgos solo del juez la base era cero y toda vuelta se rechazaba.
+
+Una vuelta, no dos: Yoon no fija tope y una de sus tareas se quedó colgada tras
+diez revisiones. Un hallazgo rebatido NO queda cerrado y sigue reteniendo la
+publicación en los dos lados de la regla: la rebatida la escribe la misma parte
+que escribió el texto. Y `etapa_incumplida` es clase propia con
+`reparablePorTexto: false`, porque si abriera vuelta el bucle la cerraría
+reescribiendo el resumen PARA QUE MENCIONE la etapa rota: blanqueo por prosa.
+
+Dos arreglos adyacentes: el texto revisable pasa a incluir las listas del llano
+(mediana de 2.419 a 4.173 caracteres, máximo 6.517, corte de 6.000 a 12.000), y
+la partida `reparacion` entra en `desglose_previsto_del_cierre`, que es lo único
+que alimenta `reserva_cierre`; sin ella el cierre pausaría la corrida justo en
+las iteraciones con hallazgos graves, que es S-14 otra vez.
+
+### 4. Un paso puede pedir trabajo: la cola de triaje
+
+`rosa/tareas.py`. Cero llamadas nuevas: las propuestas viajan como campo de
+salida de `ActualizarModeloDeMundo`, `GenerarHipotesis` y `RevisionRegistro`, y
+el triaje es regla pura. El sitio del generador de hipótesis es el equivalente
+exacto del caso de Yoon: ahí una propuesta que no cita afirmaciones sostenidas
+se descarta en silencio y lo que vio se pierde.
+
+El rechazo lleva SIEMPRE motivo escrito, que es la mitad del valor de la cola. La
+equivalencia no se reinventa: es `cuestiones.equivalencia`. Y una cuestión dice
+qué NO sabemos; una tarea dice qué se HACE para saberlo, así que no entran por
+ahí (las cuestiones están en 60 abiertas de 60).
+
+Se ejecuta en la iteración siguiente, nunca en la que corre: el tope se fija al
+nacer y meter un paso a mitad dejaría el cierre sin reserva, y además el plan lo
+aprueba una persona. `ProponerPlan` recibe la cola y devuelve
+`tareas_no_programadas`: dejar una tarea fuera es una decisión que hay que
+defender por escrito.
+
+La cola no sube el nivel de autonomía (sigue en el 2 de Beal y Rogers): las
+herramientas que una tarea puede pedir son las nueve que ya existen, todas leen
+o calculan, y `contactar_laboratorio` se queda fuera. Hay un test que lo fija.
+
+### Los tres recortes del verificador de choques, respetados
+
+La **tarea forzada por regla** se dejó fuera: hasta 90 llamadas
+(`COSTE_POR_TIPO["hipotesis"]`) y el mismo efecto antienterramiento sale gratis
+porque el planificador tiene que explicar cada tarea que deja fuera y la que
+nadie explica caduca sola. La **segunda vuelta de reparación** se dejó en una,
+por lo medido. Y las **tareas del revisor** se registran en la mutación del
+cierre y no dentro de `_revisar_registro`, porque una vuelta rechazada dejaría
+tareas escritas que la sobreviven; `RevisarReparacion` no tiene campo `tareas` a
+propósito, o la segunda vuelta duplicaría cada una.
+
+### Lo medido contra el estado real después de reiniciar (25 de septiembre, 13:50)
+
+Las migraciones entraron: la clave `tareas` existe, y 26 de las 28 hipótesis
+quedaron marcadas para rehacer su conclusión con el motivo "se escribió contando
+revisiones de modelo como si fueran de personas". El campo `revisiones_humanas`
+devuelve ahora "Ninguna." en las 28, que es la verdad.
+
+Las cifras exactas de lo que cambia, medidas sobre las tarjetas reales y no
+estimadas:
+
+- La cabecera que se quita (título, mecanismo, comprobación y cluster) es una
+  mediana de 2.862 caracteres, y el bloque de revisiones automáticas otros 2.335.
+  La tarjeta entera encoge una mediana de 2.486 caracteres (de 1.517 a 3.122); el
+  resto del hueco lo ocupan afirmaciones de verdad, porque el recorte de las
+  afirmaciones ya estaba en su tope de 6.000.
+- **28 de 28 tarjetas llevaban dentro el título de un rival**, y 4 de 28 llevaban
+  un veredicto de descarte.
+- El campo `revisiones_humanas` traía una mediana de 921 caracteres (máximo
+  3.640) a 26 de las 28 hipótesis, y todo era salida de modelo. En un partido
+  medio eran unos 1.842 caracteres de opinión de modelo presentada al juez como
+  humana, junto a la instrucción de que las humanas pesan más.
+- El torneo de inv-mu2sz2ns-3 pasa de 4 pares con juez (8 llamadas) a 6 con juez
+  (12 llamadas) más 14 por regla (0 llamadas) y 8 aplazados a las iteraciones
+  siguientes.
+- En los 50 planes guardados hay **5 combinaciones distintas** de tipos de paso, y
+  una sola sale en 35 de ellos. Eso es lo que la cola de triaje viene a mover.
+
+### Lo que este bloque destapó y no se arregló aquí
+
+La regla de veredictos de `rosa/solidez.py` no puede disparar hoy: a una
+hipótesis solo se le atan afirmaciones sostenidas o parciales
+(`evidencia.afirmaciones_nuevas`) y la réplica baja el veredicto sobre COPIAS
+(`corrida._preparar_copias_replica`, `dict(a, ...)`). O sea que si la réplica
+dice "esta afirmación no se sostiene al releerla", eso no llega nunca a la
+afirmación guardada. Está dicho en el docstring del módulo para que no parezca
+una protección que protege. Escribir de vuelta el veredicto de la réplica es una
+decisión aparte y no se tomó aquí.
