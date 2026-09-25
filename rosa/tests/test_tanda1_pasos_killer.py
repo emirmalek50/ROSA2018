@@ -492,13 +492,18 @@ def test_reformular_por_novedad_no_vuelve_a_juzgar_de_inmediato(monkeypatch):
 
 
 def _comparar(kwargs: dict[str, Any]) -> SimpleNamespace:
-    gana_a = kwargs["hipotesis_a"].startswith("Título: Primera")
+    # Por el ENUNCIADO: la tarjeta del torneo va a ciegas desde el 25 de septiembre
+    # de 2026 y no empieza por "Título:". Dos hipótesis que solo se diferencien en
+    # el título son indistinguibles para un juez ciego, y eso es lo correcto: ahí
+    # el partido tiene que quedar en tablas.
+    gana_a = "PRIMERA:" in kwargs["hipotesis_a"]
+    assert not kwargs["hipotesis_a"].startswith("Título:"), "la tarjeta del torneo no lleva título"
     return SimpleNamespace(comparacion=F.Comparacion(mejor="A" if gana_a else "B", eje="utilidad", resumen="La primera es más útil", relacion="distintas"))
 
 
 def test_torneo_no_rejuega_un_par_sin_evidencia_nueva_salvo_forzado(monkeypatch):
-    h1 = _hipotesis(titulo="Primera GENHEP")
-    h2 = _hipotesis(titulo="Segunda GENHEP")
+    h1 = _hipotesis(titulo="Primera GENHEP", enunciado="PRIMERA: GENHEP sube en astrocitos reactivos del hipocampo en la fase preclínica")
+    h2 = _hipotesis(titulo="Segunda GENHEP", enunciado="SEGUNDA: GENHEP sube en microglía activada en la fase preclínica")
     al, ctx = _preparar(monkeypatch, h1, h2)
     llamadas: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(Ctx, "llamar", _llamar({"comparar": _comparar}, llamadas))
@@ -520,17 +525,27 @@ def test_torneo_no_rejuega_un_par_sin_evidencia_nueva_salvo_forzado(monkeypatch)
     # Partidos antiguos sin huella: se juegan una vez más (no se dan por repetidos).
     viejo_a = {"id": "a", "estado": "propuesta", "elo": 1500, "partidos": [{"rivalId": "b", "resultado": "gano"}], "rivales": ["b"], "afirmaciones": [], "procedencia": {"fuentes": []}}
     viejo_b = {"id": "b", "estado": "propuesta", "elo": 1490, "partidos": [{"rivalId": "a", "resultado": "perdio"}], "rivales": ["a"], "afirmaciones": [], "procedencia": {"fuentes": []}}
-    pares, saltados, huellas = PASOS.pares_del_torneo([viejo_a, viejo_b], [], 1)
-    assert len(pares) == 1 and saltados == 0 and set(huellas) == {"a", "b"}
+    r = PASOS.pares_del_torneo([viejo_a, viejo_b], [], 1)
+    pares, saltados, huellas = r.pares, r.saltados, r.huellas
+    assert len(pares) == 1 and saltados == 0 and set(huellas) == {"a", "b"} and r.por_regla == [] and r.aplazados == 0
     viejo_a["partidos"][0].update(_huellaPropia=huellas["a"], _huellaRival=huellas["b"])
     viejo_b["partidos"][0].update(_huellaPropia=huellas["b"], _huellaRival=huellas["a"])
-    assert PASOS.pares_del_torneo([viejo_a, viejo_b], [], 1)[:2] == ([], 1)
-    # Los huecos de las revanchas saltadas se rellenan con pares nunca jugados de Elo cercano.
+    r2 = PASOS.pares_del_torneo([viejo_a, viejo_b], [], 1)
+    assert (r2.pares, r2.saltados) == ([], 1)
+    # Rejilla completa (Yoon y otros, 2026): lo estancado no se rejuega y lo nunca
+    # jugado se juega todo, no solo un par por hipótesis y por ronda.
     viejo_c = {"id": "c", "estado": "propuesta", "elo": 1480, "partidos": [], "rivales": [], "afirmaciones": [], "procedencia": {"fuentes": []}}
     viejo_d = {"id": "d", "estado": "propuesta", "elo": 1470, "partidos": [{"rivalId": "a", "resultado": "perdio"}], "rivales": ["a"], "afirmaciones": [], "procedencia": {"fuentes": []}}
-    pares, saltados, _ = PASOS.pares_del_torneo([viejo_a, viejo_b, viejo_c, viejo_d], [], 1)
-    assert saltados >= 0 and pares and all(y["id"] not in (x.get("rivales") or []) for x, y in pares), "no se rejuega lo estancado; se juega lo nunca jugado"
-    assert {frozenset((x["id"], y["id"])) for x, y in pares} <= {frozenset(("c", "a")), frozenset(("c", "b")), frozenset(("c", "d")), frozenset(("d", "b"))}
+    r3 = PASOS.pares_del_torneo([viejo_a, viejo_b, viejo_c, viejo_d], [], 1)
+    assert r3.saltados >= 0 and r3.pares and all(y["id"] not in (x.get("rivales") or []) for x, y in r3.pares), "no se rejuega lo estancado; se juega lo nunca jugado"
+    # Los seis pares posibles menos a-b, que ya se jugó con esta misma evidencia (las
+    # huellas se le acaban de escribir arriba). a-d se rejuega una vez porque su
+    # partido es antiguo y no guarda huella: no se puede saber si la evidencia cambió.
+    assert {frozenset((x["id"], y["id"])) for x, y in r3.pares} == {frozenset(("c", "a")), frozenset(("c", "b")), frozenset(("c", "d")), frozenset(("d", "b")), frozenset(("a", "d"))}
+    assert r3.saltados == 1
+    # Una hipótesis puede aparecer en varios pares de la misma ronda: antes "c" se
+    # gastaba en el primero y los otros tres pares no se jugaban nunca.
+    assert sum(1 for x, y in r3.pares if "c" in (x["id"], y["id"])) == 3
 
 
 def test_la_tarjeta_del_torneo_y_el_texto_del_killer_llevan_lo_acumulado_ordenado_por_relacion():
@@ -547,7 +562,13 @@ def test_la_tarjeta_del_torneo_y_el_texto_del_killer_llevan_lo_acumulado_ordenad
     assert "número 3" in lineas[8] and "sin_verificar" in lineas[8] and "indirecta" in lineas[9] and "SOCAVA" in lineas[-2]
     corto = PASOS.hipotesis_para_torneo(h, maximo=200)
     assert "más no se listan por tope de caracteres" in corto and corto.count("  - [") < 12
-    assert "Revisiones automáticas" in texto
+    # A ciegas (25 de septiembre de 2026): ni título, ni cluster, ni el bloque de
+    # revisiones automáticas, que llevaba dentro el veredicto del Killer y el
+    # resultado del último partido con el título del rival.
+    assert "Revisiones automáticas" not in texto and "Título:" not in texto and "Cluster:" not in texto
+    assert texto.startswith("Candidata (anónima)") and PASOS.hipotesis_para_torneo(h, etiqueta="Candidata B").startswith("Candidata B (anónima)")
+    # Lo que sí lleva: el enunciado, el mecanismo y la comprobación.
+    assert "GENHEP sube en astrocitos reactivos" in texto and "Mecanismo:" in texto and "biomarcador GENHEP" in texto
     killer = PASOS.texto_afirmaciones_killer(h)
     assert killer.count("- [") == 12 and killer.startswith("- [sostenida, dato, clase literatura] Afirmación número 4") and "EN CONTRA de la hipótesis] Afirmación número 0" in killer.split("\n")[-2]
     assert PASOS.texto_afirmaciones_killer({"afirmaciones": None}) == "Ninguna"

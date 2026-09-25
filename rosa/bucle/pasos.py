@@ -25,7 +25,7 @@ import math
 import re
 import traceback
 from dataclasses import dataclass
-from typing import Any, Awaitable
+from typing import Any, Awaitable, NamedTuple
 
 import dspy
 
@@ -44,6 +44,7 @@ from rosa import killer as K
 from rosa import hechos as H
 from rosa import metodos as METODOS
 from rosa import verificador as V
+from rosa import solidez as SOL
 from rosa import torneo
 from rosa import vigilante_modelos as VIG
 from rosa import vigencia as VIGENCIA
@@ -2609,16 +2610,35 @@ def texto_afirmaciones_killer(h: dict[str, Any], maximo: int = 14000) -> str:
     return recortar_lineas(lineas, maximo) if lineas else "Ninguna"
 
 
-def hipotesis_para_torneo(h: dict[str, Any], maximo: int = 6000) -> str:
-    """La tarjeta que el juez del torneo compara: hipótesis, evidencia acumulada
-    ordenada por relación y recortada por caracteres (antes solo las 8 primeras
-    afirmaciones, así que una hipótesis con 28 acumuladas se juzgaba con la
-    evidencia de su nacimiento), supuestos con su estado y revisiones automáticas."""
+def hipotesis_para_torneo(h: dict[str, Any], maximo: int = 6000, etiqueta: str = "Candidata") -> str:
+    """La tarjeta que el juez del torneo compara, A CIEGAS (25 de septiembre de
+    2026, arnés de Yoon y otros 2026: los nombres de fichero se anonimizan antes
+    de cada par): la hipótesis y su evidencia, y nada más.
+
+    Quedan fuera tres cosas. El título, porque el enunciado lo dice entero y más
+    despacio, y porque el título es la etiqueta con la que la hipótesis se nombra
+    en la interfaz y en los resúmenes de debate: es justo lo que la identifica.
+    El cluster, porque es una agrupación propia de ROSA2018 y dos del mismo
+    cluster son ramas hermanas: eso es linaje, no evidencia, y le dice al juez
+    cuál nació de cuál. Y el bloque "Revisiones automáticas", que llevaba dentro
+    el veredicto del Killer, el de la novedad y la frase "Partido en la iteración
+    N contra <título del rival>: ganó", que además filtraba la identidad de un
+    tercero. La caza de fallos del 23 de septiembre midió la consecuencia: el
+    orden de Bradley-Terry de inv-mu2sz2ns-3 seguía al veredicto del Killer, y
+    las tres últimas eran justo las tres con "descartar en contexto". Un juez que
+    ya sabe el veredicto no es una segunda opinión, es un repetidor.
+
+    Las afirmaciones van ordenadas por relación y recortadas por caracteres
+    (antes solo las 8 primeras, así que una hipótesis con 28 acumuladas se
+    juzgaba con la evidencia de su nacimiento). Quitar la cabecera y las
+    revisiones libera unos 2.600 caracteres por tarjeta, que ocupan afirmaciones
+    de verdad."""
     lineas = [f"  - [{a.get('veredicto', 'sin_verificar')}{_etiqueta_relacion(a).replace(', apoyo indirecto', ', indirecta')}] {a.get('texto', '')} {a.get('cita', '')}" for a in afirmaciones_ordenadas(h.get("afirmaciones"))]
     afs = recortar_lineas(lineas, maximo) if lineas else "  (ninguna)"
     sup = "\n".join(f"  - [{s.get('estado', 'sin_evidencia')}] {s.get('texto', '')}" for s in (h.get("supuestos") or [])[:8] if isinstance(s, dict))
-    revs = "; ".join(f"{r['tipo']}: {r['resumen']}" for r in (h.get("revisionesAutomaticas") or []) if isinstance(r, dict) and r.get("estado") != "pendiente")
-    return f"{T.hipotesis_texto(h)}\nAfirmaciones:\n{afs}\nSupuestos:\n{sup or '  (ninguno)'}\nRevisiones automáticas: {revs}"
+    c = h.get("comprobacion") or {}
+    cab = f"{etiqueta} (anónima)\nEnunciado: {h.get('enunciado', '')}\nMecanismo: {h.get('mecanismo', '')}\nComprobación: biomarcador {c.get('biomarcador', '')}; cohorte {c.get('cohorte', '')}; diseño {c.get('diseno', '')}"
+    return f"{cab}\nAfirmaciones:\n{afs}\nSupuestos:\n{sup or '  (ninguno)'}"
 
 
 def comprobaciones_con_contras_aparte(h: dict[str, Any], deterministas: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -3676,38 +3696,81 @@ def par_sin_evidencia_nueva(a: dict[str, Any], b: dict[str, Any], huellas: dict[
     return penultimo is not None and penultimo.get("resultado") == "tablas" and misma_evidencia(penultimo)
 
 
-def pares_del_torneo(propias: list[dict[str, Any]], forzados: list[tuple[str, str]], semilla: int | None, maximo: int = 6) -> tuple[list[tuple[dict[str, Any], dict[str, Any]]], int, dict[str, str]]:
-    """Los pares de esta ronda: los que propone `torneo.emparejar` menos los que
-    repetirían un partido sin evidencia nueva en ninguna de las dos (S-13), salvo
-    los forzados por redundancia, que se juegan siempre. Devuelve (pares, cuántos
-    se saltaron, huellas por id). El Elo de lo que no se juega no cambia."""
+class Ronda(NamedTuple):
+    """Lo que se juega esta iteración. `pares` van al juez (dos llamadas cada uno,
+    A contra B y B contra A). `por_regla` los decide `rosa.solidez` sin ninguna
+    llamada, con los motivos de cada lado, y no gastan del tope `maximo`."""
+
+    pares: list[tuple[dict[str, Any], dict[str, Any]]]
+    saltados: int
+    huellas: dict[str, str]
+    por_regla: list[tuple[dict[str, Any], dict[str, Any], list[str], list[str]]]
+    # Pares que el juez habría jugado y no caben en el tope de esta iteración. Se
+    # dicen en voz alta: un tope que recorta en silencio se lee como cobertura
+    # completa, y estos pares vuelven a estar disponibles en la iteración siguiente.
+    aplazados: int = 0
+
+
+def _ya_dirimido(a: dict[str, Any], idb: str) -> bool:
+    """El par forzado por redundancia ya tuvo su partido dirimente.
+
+    Lo marca `_dirimidoCon` (clave privada: no viaja al navegador), que escribe
+    `_torneo` al jugar un par forzado, y valen también las relaciones distintas de
+    "distintas" ya guardadas, que solo pudo escribir un dirimente anterior.
+
+    No sirve preguntar "¿algún partido de este par guarda una relación?", que era
+    la primera versión de esto: desde el 25 de septiembre de 2026 la relación se
+    guarda siempre, "distintas" incluida, así que un par que ya hubiera jugado
+    antes de que el Killer lo marcara redundante quedaría dirimido sin haberse
+    dirimido nunca. Y el fallo que hay que evitar es el contrario: mientras
+    "distintas" no se guardaba, el par se forzaba en cada iteración para siempre
+    (en inv-mu2sz2ns-3 hubo uno con 9 partidos)."""
+    if idb in (a.get("_dirimidoCon") or []):
+        return True
+    return any(isinstance(p_, dict) and p_.get("rivalId") == idb and p_.get("relacion") not in (None, "", "distintas") for p_ in (a.get("partidos") or []))
+
+
+def pares_del_torneo(propias: list[dict[str, Any]], forzados: list[tuple[str, str]], semilla: int | None, maximo: int = 6, e: dict[str, Any] | None = None) -> Ronda:
+    """Lo que se juega esta iteración, en REJILLA COMPLETA (Yoon y otros, 2026:
+    cada par una vez, 342 pares ordenados).
+
+    Se enumeran todos los pares posibles en el orden de `torneo.emparejar`; los
+    que repetirían un partido sin evidencia nueva en ninguna de las dos se saltan
+    (S-13), salvo los forzados por redundancia que no tengan ya su dirimente; los
+    que tienen una descalificada por `rosa.solidez` salen aparte y se resuelven
+    por regla, sin juez; y del resto se juegan hasta `maximo` con el juez.
+
+    Antes se pedía `maximo * 2` candidatos a `emparejar` y se rellenaban los
+    huecos a mano; eso sobra con la rejilla, porque `emparejar` ya devuelve todos
+    los pares nunca jugados ordenados por cercanía de Elo. Con 9 vivas devolvía 4
+    pares de los 36 posibles: 7 pares nunca se jugaron y uno se jugó 9 veces."""
     huellas = {h["id"]: _huella(h) for h in propias if isinstance(h, dict) and h.get("id")}
-    forzados_set = {frozenset(par) for par in (forzados or [])}
-    candidatos = torneo.emparejar(propias, maximo=max(maximo * 2, maximo), semilla=semilla, forzados=forzados)
+    por_id = {h["id"]: h for h in propias if isinstance(h, dict) and h.get("id")}
+    forzados_vivos = [(x, y) for x, y in (forzados or []) if x in por_id and y in por_id and not _ya_dirimido(por_id[x], y)]
+    forzados_set = {frozenset(par) for par in forzados_vivos}
+    candidatos = torneo.emparejar(propias, maximo=len(propias) * len(propias), semilla=semilla, forzados=forzados_vivos, una_vez_por_ronda=False)
     pares: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    por_regla: list[tuple[dict[str, Any], dict[str, Any], list[str], list[str]]] = []
     saltados = 0
+    aplazados = 0
+    fuera: dict[str, list[str]] = {}
     for a, b in candidatos:
         if frozenset((a["id"], b["id"])) not in forzados_set and par_sin_evidencia_nueva(a, b, huellas):
             saltados += 1
             continue
-        pares.append((a, b))
-    pares = pares[:maximo]
-    # Los huecos que dejan las revanchas saltadas se rellenan con pares que nunca
-    # se han enfrentado y tienen Elo cercano (los más cercanos primero): el
-    # torneo agota la información nueva antes de quedarse sin partidos.
-    usados = {i for par in pares for i in (par[0]["id"], par[1]["id"])}
-    libres = sorted((h for h in propias if isinstance(h, dict) and h.get("estado") in ("propuesta", "en_revision", "refinar", "aceptada") and h.get("id") not in usados), key=lambda h: -h.get("elo", 0))
-    import itertools
-
-    nunca = sorted(((a, b) for a, b in itertools.combinations(libres, 2) if b["id"] not in (a.get("rivales") or []) and a["id"] not in (b.get("rivales") or []) and abs(a.get("elo", 0) - b.get("elo", 0)) <= 150), key=lambda par: abs(par[0].get("elo", 0) - par[1].get("elo", 0)))
-    for a, b in nunca:
-        if len(pares) >= maximo:
-            break
-        if a["id"] in usados or b["id"] in usados:
-            continue
-        pares.append((a, b))
-        usados.update({a["id"], b["id"]})
-    return pares, saltados, huellas
+        if e is not None:
+            for h in (a, b):
+                if h["id"] not in fuera:
+                    fuera[h["id"]] = SOL.motivos(e, h)
+            ma, mb = fuera[a["id"]], fuera[b["id"]]
+            if ma or mb:
+                por_regla.append((a, b, ma, mb))
+                continue
+        if len(pares) < maximo:
+            pares.append((a, b))
+        else:
+            aplazados += 1
+    return Ronda(pares, saltados, huellas, por_regla, aplazados)
 
 
 async def _torneo(ctx: Ctx, pista: Pista) -> int:
@@ -3715,21 +3778,63 @@ async def _torneo(ctx: Ctx, pista: Pista) -> int:
     propias = [h for h in ctx.e["hipotesis"] if h["investigacionId"] == ctx.investigacion_id]
     # Pares forzados: las que el Killer marcó como redundantes juegan un partido
     # dirimente (fusión de ramas por torneo, rosa/torneo.py).
-    forzados = [(h["id"], r) for h in propias if h["estado"] != "descartada" for r in (h.get("redundanteCon") or []) if not any(p.get("rivalId") == r and p.get("relacion") for p in h.get("partidos", []))]
-    pares, saltados, huellas = pares_del_torneo(propias, forzados, ctx.numero)
-    if saltados:
-        pista.nota(f"{saltados} pares no se rejuegan: la evidencia de las dos hipótesis es la misma que en su último partido (el Elo no se mueve sin evidencia nueva)")
-    if not pares:
-        pista.nota("Sin torneo en esta iteración: todos los pares posibles ya se jugaron con esta misma evidencia" if saltados else "Menos de dos hipótesis vivas: no hay torneo")
+    forzados = [(h["id"], r) for h in propias if h["estado"] != "descartada" for r in (h.get("redundanteCon") or [])]
+    ronda = pares_del_torneo(propias, forzados, ctx.numero, maximo=politicas.MAX_PARTIDOS_CON_JUEZ_POR_ITERACION, e=ctx.e)
+    # Los pares que se juegan por redundancia declarada: su dirimente queda marcado al
+    # registrarse, para que no se fuercen en cada iteración (_ya_dirimido).
+    era_forzado = {frozenset(par) for par in forzados}
+    if ronda.saltados:
+        pista.nota(f"{ronda.saltados} pares no se rejuegan: la evidencia de las dos hipótesis es la misma que en su último partido (el Elo no se mueve sin evidencia nueva)")
+    if not ronda.pares and not ronda.por_regla:
+        pista.nota("Sin torneo en esta iteración: todos los pares posibles ya se jugaron con esta misma evidencia" if ronda.saltados else "Menos de dos hipótesis vivas: no hay torneo")
         return 0
-    texto_af, _ = T.afirmaciones_sostenidas(ctx.afirmaciones())
-    evidencia = (texto_af[:6000] + "\n\nModelo de mundo:\n" + await T.modelo_de_mundo_para(ctx.almacen, ctx.investigacion_id, _consulta_del_paso(ctx, inv), maximo=30))
     jugados = 0
     cambios: list[str] = []
-    for a, b in pares:
+    # 1. Los partidos que decide la regla de solidez (rosa/solidez.py): cero llamadas
+    #    al juez. Van PRIMERO, así que quedan registrados aunque el presupuesto se
+    #    agote en el primer partido con juez. Hoy, sin presupuesto, el torneo no hacía
+    #    absolutamente nada.
+    for a, b, ma, mb in ronda.por_regla:
+        gano_a_r: bool | None = None if (ma and mb) else (not ma)
+        if gano_a_r is None:
+            motivo_r = f"Tablas por la regla de solidez, sin llamar al juez: las dos pierden. A: {'; '.join(ma)[:200]}. B: {'; '.join(mb)[:200]}"
+        else:
+            motivo_r = f"Pierde por la regla de solidez, sin llamar al juez: {'; '.join(mb if gano_a_r else ma)[:300]}"
+
+        def aplicar_regla(e: dict[str, Any], a: dict[str, Any] = a, b: dict[str, Any] = b, gano: bool | None = gano_a_r, motivo: str = motivo_r) -> bool:
+            x = next((y for y in e["hipotesis"] if y["id"] == a["id"]), None)
+            y_ = next((y for y in e["hipotesis"] if y["id"] == b["id"]), None)
+            if x is None or y_ is None:
+                return False
+            torneo.registrar_partido(x, y_, gano, ctx.numero, motivo, "solidez", relacion="distintas", por_regla=True)
+            for h, propia, rival in ((x, a["id"], b["id"]), (y_, b["id"], a["id"])):
+                if h.get("partidos"):
+                    h["partidos"][-1]["_huellaPropia"], h["partidos"][-1]["_huellaRival"] = ronda.huellas.get(propia, ""), ronda.huellas.get(rival, "")
+                if frozenset((a["id"], b["id"])) in era_forzado and rival not in h.setdefault("_dirimidoCon", []):
+                    h["_dirimidoCon"].append(rival)
+            return True
+
+        ctx.mutar(aplicar_regla, "partido")
+        jugados += 1
+        pista.resultado(f"{a['titulo'][:50]} vs {b['titulo'][:50]}: {'tablas' if gano_a_r is None else ('gana A' if gano_a_r else 'gana B')} por la regla de solidez, sin juez")
+        cambios.append(f"{a['titulo'][:40]} vs {b['titulo'][:40]}: por regla")
+    if ronda.aplazados:
+        pista.nota(f"{ronda.aplazados} pares más se jugarán en las iteraciones siguientes: el tope es de {politicas.MAX_PARTIDOS_CON_JUEZ_POR_ITERACION} partidos con juez por iteración (dos llamadas cada uno). La rejilla no queda cubierta todavía")
+    if ronda.por_regla:
+        pista.nota(f"{len(ronda.por_regla)} partidos se decidieron por la regla de solidez (rosa/solidez.py) sin llamar al juez: una hipótesis cuya evidencia no la sostiene pierde sin debate")
+    if not ronda.pares:
+        if jugados:
+            ctx.evento("ranking_cambio", f"Torneo de la iteración {ctx.numero}: {jugados} partidos, todos por regla", f"#/investigaciones/{ctx.investigacion_id}/ranking")
+        return jugados
+    texto_af, _ = T.afirmaciones_sostenidas(ctx.afirmaciones())
+    evidencia = (texto_af[:6000] + "\n\nModelo de mundo:\n" + await T.modelo_de_mundo_para(ctx.almacen, ctx.investigacion_id, _consulta_del_paso(ctx, inv), maximo=30))
+    huellas = ronda.huellas
+    # 2. Los partidos con juez, a ciegas: la tarjeta va sin título, sin cluster y sin
+    #    el bloque de revisiones automáticas (hipotesis_para_torneo).
+    for a, b in ronda.pares:
         try:
-            p1 = await ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(a), hipotesis_b=hipotesis_para_torneo(b), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(a)}\nSobre B: {T.revisiones_humanas(b)}")
-            p2 = await ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(b), hipotesis_b=hipotesis_para_torneo(a), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(b)}\nSobre B: {T.revisiones_humanas(a)}")
+            p1 = await ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(a, etiqueta="Candidata A"), hipotesis_b=hipotesis_para_torneo(b, etiqueta="Candidata B"), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(a)}\nSobre B: {T.revisiones_humanas(b)}")
+            p2 = await ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(b, etiqueta="Candidata A"), hipotesis_b=hipotesis_para_torneo(a, etiqueta="Candidata B"), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(b)}\nSobre B: {T.revisiones_humanas(a)}")
         except PresupuestoAgotado:
             raise
         except VIG.ModeloSinRespuesta:
@@ -3753,6 +3858,10 @@ async def _torneo(ctx: Ctx, pista: Pista) -> int:
                 x["partidos"][-1]["_huellaPropia"], x["partidos"][-1]["_huellaRival"] = huellas.get(a["id"], ""), huellas.get(b["id"], "")
             if y_.get("partidos"):
                 y_["partidos"][-1]["_huellaPropia"], y_["partidos"][-1]["_huellaRival"] = huellas.get(b["id"], ""), huellas.get(a["id"], "")
+            if frozenset((a["id"], b["id"])) in era_forzado:
+                for h, rival in ((x, b["id"]), (y_, a["id"])):
+                    if rival not in h.setdefault("_dirimidoCon", []):
+                        h["_dirimidoCon"].append(rival)
             for r in x["revisionesAutomaticas"] + y_["revisionesAutomaticas"]:
                 if r["tipo"] == "torneo":
                     r["fecha"] = P.ahora_ms()

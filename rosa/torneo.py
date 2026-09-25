@@ -73,18 +73,28 @@ def _ya_jugaron(a: dict[str, Any], b: dict[str, Any]) -> bool:
     return b["id"] in (a.get("rivales") or []) or a["id"] in (b.get("rivales") or [])
 
 
-def emparejar(hipotesis: list[dict[str, Any]], maximo: int = 6, semilla: int | None = None, forzados: list[tuple[str, str]] | None = None, huellas: dict[str, str] | None = None) -> list[tuple[dict, dict]]:
+def emparejar(hipotesis: list[dict[str, Any]], maximo: int = 6, semilla: int | None = None, forzados: list[tuple[str, str]] | None = None, huellas: dict[str, str] | None = None, una_vez_por_ronda: bool = True) -> list[tuple[dict, dict]]:
     """Pares para esta ronda, en este orden:
 
     1. Los pares forzados (dos hipótesis que el Killer marcó como redundantes:
        el partido dirimente decide si se fusionan).
     2. Cada hipótesis sin partidos contra una del top, para situarla rápido.
-    3. Pares de Elo cercano (150 puntos) que NUNCA se han enfrentado: la
-       información nueva se agota antes de repetir nada.
+    3. Pares que NUNCA se han enfrentado: la información nueva se agota antes
+       de repetir nada.
     4. Revanchas, solo si `revancha_permitida` con las `huellas` dadas
        (evidencia nueva en alguna de las dos, o tablas). Sin `huellas` (quien
        llama no las tiene) rige la regla antigua: revancha solo con Elo a
        menos de 100 puntos.
+
+    `una_vez_por_ronda` (por omisión True, el comportamiento de siempre) gasta
+    cada hipótesis en un solo par por ronda. Eso acota la ronda pero impide
+    llegar a la rejilla completa: con 9 vivas devolvía 4 pares de los 36
+    posibles aunque `maximo` valiera 6, porque a la quinta ya no quedaba nadie
+    libre. Con False el guardia pasa a ser por par y no por hipótesis, y el
+    paso 3 enumera TODOS los pares nunca jugados ordenados por cercanía de Elo
+    (los más informativos primero) en vez de solo los que caen dentro de 150
+    puntos: es lo que hace falta para "cada par una vez" (Yoon y otros, 2026:
+    la rejilla completa, 342 pares ordenados).
     """
     vivas = [h for h in hipotesis if h["estado"] in ESTADOS_QUE_JUEGAN]
     if len(vivas) < 2:
@@ -93,38 +103,49 @@ def emparejar(hipotesis: list[dict[str, Any]], maximo: int = 6, semilla: int | N
     orden = sorted(vivas, key=lambda h: -h["elo"])
     pares: list[tuple[dict, dict]] = []
     usados: set[str] = set()
+    hechos: set[frozenset[str]] = set()
     por_id = {h["id"]: h for h in vivas}
+
+    def libre(a: dict[str, Any], b: dict[str, Any]) -> bool:
+        if frozenset((a["id"], b["id"])) in hechos:
+            return False
+        return not (una_vez_por_ronda and (a["id"] in usados or b["id"] in usados))
+
+    def anadir(a: dict[str, Any], b: dict[str, Any]) -> None:
+        pares.append((a, b))
+        hechos.add(frozenset((a["id"], b["id"])))
+        if una_vez_por_ronda:
+            usados.update({a["id"], b["id"]})
+
     for ida, idb in forzados or []:
         if len(pares) >= maximo:
             break
-        if ida == idb or ida in usados or idb in usados or ida not in por_id or idb not in por_id:
+        if ida == idb or ida not in por_id or idb not in por_id or not libre(por_id[ida], por_id[idb]):
             continue
-        pares.append((por_id[ida], por_id[idb]))
-        usados.update({ida, idb})
+        anadir(por_id[ida], por_id[idb])
     for h in vivas:
         if len(pares) >= maximo:
             break
-        if h.get("partidos") or h["id"] in usados:
+        if h.get("partidos") or (una_vez_por_ronda and h["id"] in usados):
             continue
-        rivales = [r for r in orden[:5] if r["id"] != h["id"] and r["id"] not in usados]
+        rivales = [r for r in orden[:5] if r["id"] != h["id"] and libre(h, r)]
         if rivales:
-            r = rng.choice(rivales)
-            pares.append((h, r))
-            usados.update({h["id"], r["id"]})
-    # 3. Nunca enfrentados, de Elo cercano.
-    for a, b in itertools.combinations(orden, 2):
+            anadir(h, rng.choice(rivales))
+    # 3. Nunca enfrentados. Con la rejilla completa, todos; si no, los de Elo cercano.
+    nunca = [(a, b) for a, b in itertools.combinations(orden, 2) if not _ya_jugaron(a, b)]
+    if not una_vez_por_ronda:
+        nunca.sort(key=lambda par: abs(par[0]["elo"] - par[1]["elo"]))
+    for a, b in nunca:
         if len(pares) >= maximo:
             break
-        if a["id"] in usados or b["id"] in usados or _ya_jugaron(a, b):
+        if not libre(a, b) or (una_vez_por_ronda and abs(a["elo"] - b["elo"]) > 150):
             continue
-        if abs(a["elo"] - b["elo"]) <= 150:
-            pares.append((a, b))
-            usados.update({a["id"], b["id"]})
+        anadir(a, b)
     # 4. Revanchas, solo las que aportan.
     for a, b in itertools.combinations(orden, 2):
         if len(pares) >= maximo:
             break
-        if a["id"] in usados or b["id"] in usados or not _ya_jugaron(a, b):
+        if not libre(a, b) or not _ya_jugaron(a, b):
             continue
         if abs(a["elo"] - b["elo"]) > 150:
             continue
@@ -133,8 +154,7 @@ def emparejar(hipotesis: list[dict[str, Any]], maximo: int = 6, semilla: int | N
                 continue
         elif not revancha_permitida(a, b, huellas):
             continue
-        pares.append((a, b))
-        usados.update({a["id"], b["id"]})
+        anadir(a, b)
     return pares
 
 
@@ -149,11 +169,21 @@ def relacion_acordada(rel_1: str | None, rel_2: str | None) -> str:
     return r1 if r1 == r2 and r1 != "distintas" else "distintas"
 
 
-def registrar_partido(a: dict[str, Any], b: dict[str, Any], gano_a: bool | None, iteracion: int, resumen: str, eje: str, relacion: str | None = None) -> None:
+def registrar_partido(a: dict[str, Any], b: dict[str, Any], gano_a: bool | None, iteracion: int, resumen: str, eje: str, relacion: str | None = None, por_regla: bool = False) -> None:
     """Aplica el resultado a las dos hipótesis (en sitio). `gano_a=None` son
-    tablas: se anota el debate pero el Elo no se mueve. `relacion` es lo que el
-    juez dijo que son una respecto a la otra (equivalentes, una subsume a la
-    otra, incompatibles); se guarda desde el punto de vista de cada una."""
+    tablas: se anota el debate pero el Elo no se mueve.
+
+    `relacion` es lo que son una respecto a la otra (equivalentes, una subsume a
+    la otra, incompatibles) y se guarda SIEMPRE desde el punto de vista de cada
+    una, "distintas" incluida. Antes solo se guardaba cuando no era "distintas",
+    y como `pasos._torneo` fuerza el par marcado como redundante mientras ningún
+    partido suyo tenga relación guardada, un juez que dijera "distintas" hacía
+    que el par se volviera a forzar en cada iteración para siempre: en
+    inv-mu2sz2ns-3 hubo un par con 9 partidos. Guardarla cierra el dirimente.
+
+    `por_regla` marca los partidos que decidió `rosa.solidez` sin llamar al juez:
+    unas tablas por regla no son un desacuerdo del juez al invertir A y B, y el
+    resumen del debate no debe decir que discrepó."""
     if gano_a is not None:
         a["elo"], b["elo"] = actualizar(a["elo"], b["elo"], gano_a)
     ahora = int(time.time() * 1000)
@@ -164,11 +194,16 @@ def registrar_partido(a: dict[str, Any], b: dict[str, Any], gano_a: bool | None,
         # `_t` (privada, no viaja al navegador) es el instante del partido: el número
         # de iteración se reinicia en cada corrida (M-20) y no sirve para saber cuál
         # de dos partidos del mismo par fue el último.
-        h["partidos"].append({"iteracion": iteracion, "rivalId": rival["id"], "resultado": "tablas" if gano is None else ("gano" if gano else "perdio"), "resumenDebate": resumen if gano is not None else f"Tablas (el juez discrepó al invertir el orden): {resumen}", "ejeDecisivo": eje, "_t": ahora, **({"relacion": rel} if rel and rel != "distintas" else {})})
+        detalle = resumen if (gano is not None or por_regla) else f"Tablas (el juez discrepó al invertir el orden): {resumen}"
+        h["partidos"].append({"iteracion": iteracion, "rivalId": rival["id"], "resultado": "tablas" if gano is None else ("gano" if gano else "perdio"), "resumenDebate": detalle, "ejeDecisivo": eje, "_t": ahora, **({"relacion": rel} if rel else {}), **({"porRegla": True} if por_regla else {})})
         for r in h["revisionesAutomaticas"]:
             if r["tipo"] == "torneo":
                 r["estado"] = "hecha" if r["estado"] == "pendiente" else "rehecha"
-                r["resumen"] = f"Partido en la iteración {iteracion} contra {rival['titulo'][:60]}: {'ganó' if gano else ('tablas' if gano is None else 'perdió')}."
+                # Sin el título del rival: este resumen viaja en la ficha completa de la
+                # hipótesis (`contexto.hipotesis_con_revisiones`) y filtraba la identidad
+                # de un tercero. La tabla de partidos de la interfaz sí lo enseña, que es
+                # donde la persona lo quiere.
+                r["resumen"] = f"Partido en la iteración {iteracion}: {'ganó' if gano else ('tablas' if gano is None else 'perdió')}{' (por la regla de solidez, sin juez)' if por_regla else ''}."
                 r["fecha"] = None
 
 

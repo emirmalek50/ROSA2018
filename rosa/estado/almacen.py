@@ -735,6 +735,36 @@ def _migrar(estado: dict[str, Any]) -> None:
     _migrar_progreso_por_ventana(estado)
     _migrar_vigilante_modelos(estado)
     _migrar_gasto_grande_automatico(estado)
+    _migrar_revisiones_de_modelo_como_humanas(estado)
+
+
+def _migrar_revisiones_de_modelo_como_humanas(estado: dict[str, Any]) -> None:
+    """25 de septiembre de 2026: hasta hoy, cualquier revisión firmada con algo
+    distinto de `config.QUIEN_ROSA` contaba como humana, y el Killer firma con el
+    id del modelo juez. En el estado guardado eso son 131 revisiones (127 de
+    `openai/anthropic/claude-opus-5`, 4 de `openai/openai/gpt-6-astra`) y CERO
+    revisiones humanas de verdad en las 28 hipótesis.
+
+    Esas revisiones llegaban al juez del torneo y al de la conclusión GRADE en el
+    campo `revisiones_humanas`, cuya descripción decía "Lo que dijeron las
+    personas" y cuyo docstring añadía que pesan más que las automáticas. Así que
+    las conclusiones ya escritas se contaron mal y hay que rehacerlas: se marcan
+    con `_reconcluirPorRevisiones` (clave privada) para que
+    `corrida.motivo_para_reconcluir` lo diga con esas palabras en vez de "la
+    evidencia contada cambió", que sería falso: la evidencia no cambió, cambió
+    quién se creía que la había revisado.
+
+    No se toca ninguna revisión ni ninguna conclusión: solo se marca. La marca la
+    quita `_concluir_hipotesis` al reescribir. Idempotente: una hipótesis ya
+    marcada, o sin conclusión previa (que se rehace igual), no se vuelve a tocar."""
+    from rosa.bucle.contexto import es_persona
+
+    for h in estado.get("hipotesis", []) or []:
+        if not isinstance(h, dict) or h.get("_reconcluirPorRevisiones") or not isinstance(h.get("conclusion"), dict):
+            continue
+        revisiones: list[Any] = h["revisiones"] if isinstance(h.get("revisiones"), list) else []
+        if any(isinstance(r, dict) and r.get("nota") and not es_persona(r.get("quien")) and str(r.get("quien") or "") != "Rosa" for r in revisiones):
+            h["_reconcluirPorRevisiones"] = True
 
 
 def _migrar_gasto_grande_automatico(estado: dict[str, Any]) -> None:

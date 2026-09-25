@@ -302,8 +302,18 @@ def _senalizacion(kw: dict[str, Any]) -> SimpleNamespace:
     return SimpleNamespace(respuestas=[SimpleNamespace(id=p["id"], respuesta="N" if p["riesgoSi"] else "Y", cita="Participants were enrolled consecutively and assessors were blinded.") for d in SESGO.INSTRUMENTOS[clave]["dominios"] for p in d["preguntas"]])
 
 
+ENUNCIADO_NUEVA = "En personas con amiloide positivo, el GFAP en plasma se altera antes que el NfL en cohortes independientes"
+
+
 def _comparar(kw: dict[str, Any]) -> SimpleNamespace:
-    a_es_nueva = TITULO_NUEVA[:40] in str(kw["hipotesis_a"])
+    # Por el ENUNCIADO, no por el título: desde el 25 de septiembre de 2026 la tarjeta
+    # del torneo va a ciegas y no lleva título ni cluster ni revisiones automáticas
+    # (pasos.hipotesis_para_torneo). Que el simulador siga sabiendo cuál es cuál con
+    # solo el enunciado es la prueba de que la tarjeta ciega todavía las distingue.
+    a_es_nueva = ENUNCIADO_NUEVA[:60] in str(kw["hipotesis_a"])
+    assert TITULO_NUEVA[:40] not in str(kw["hipotesis_a"]) + str(kw["hipotesis_b"]), "la tarjeta del torneo no debe llevar el título"
+    assert "Cluster:" not in str(kw["hipotesis_a"]), "la tarjeta del torneo no debe llevar el cluster"
+    assert "Revisiones automáticas" not in str(kw["hipotesis_a"]), "la tarjeta del torneo no debe llevar las revisiones automáticas"
     return SimpleNamespace(comparacion=SimpleNamespace(mejor="A" if a_es_nueva else "B", eje="utilidad", resumen="La nueva ordena los biomarcadores en varias cohortes; la otra se queda en una.", relacion="distintas"))
 
 

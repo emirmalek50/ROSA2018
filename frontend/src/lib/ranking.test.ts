@@ -57,7 +57,7 @@ describe('componentesDe sobre los datos de muestra', () => {
     }
   });
 
-  it('hip-1: sin conclusión, tres apoyos de origen, cuatro partidos, precedente parcial, sin Killer ni BT', () => {
+  it('hip-1: sin conclusión, tres apoyos de origen, cinco partidos (uno por la regla de solidez), precedente parcial, sin Killer ni BT', () => {
     const h = estado.hipotesis.find((x) => x.id === 'hip-1')!;
     const c = componentesDe(estado, h);
     expect(c.certeza).toBeNull();
@@ -65,7 +65,7 @@ describe('componentesDe sobre los datos de muestra', () => {
     expect(c.aFavor).toBe(3);
     expect(c.enContra).toBe(0);
     expect(c.socavan).toBe(0);
-    expect(c.partidos).toBe(4);
+    expect(c.partidos).toBe(5); // cuatro con juez y uno por la regla de solidez
     expect(c.novedad.estado).toBe('parcial');
     expect(c.killer).toBeNull();
     expect(c.bt).toBeNull();

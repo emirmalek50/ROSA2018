@@ -148,6 +148,10 @@ class HipotesisPropuesta(BaseModel):
 
 
 class Comparacion(BaseModel):
+    """Lo que el juez del torneo devuelve. No incluye "solidez": ese eje no lo emite
+    ningún modelo, lo decide `rosa/solidez.py` por regla sobre el registro y, cuando
+    dispara, el partido se resuelve SIN llamar al juez."""
+
     mejor: Literal["A", "B"]
     eje: Literal["correccion", "utilidad", "especificidad", "novedad", "deseabilidad"] = Field(description="El criterio que decidió")
     resumen: str = Field(description="Dos líneas de debate: que tiene una que no tiene la otra")
@@ -405,17 +409,22 @@ class RevisarArnes(dspy.Signature):
 
 
 class CompararHipotesis(dspy.Signature):
-    """Comparar dos hipótesis para el mismo objetivo y decidir cual es mejor, como en un
-    debate científico de tres turnos resumido: corrección frente a la evidencia, utilidad
-    para el objetivo, especificidad (falsable, con biomarcador y cohorte), novedad frente
-    al modelo de mundo y deseabilidad (que la investigadora quiera comprobarla). Se
-    indica el eje decisivo. Las revisiones humanas pesan más que las automáticas."""
+    """Comparar dos candidatas ANÓNIMAS para el mismo objetivo y decidir cual es mejor,
+    como en un debate científico de tres turnos resumido: corrección frente a la
+    evidencia, utilidad para el objetivo, especificidad (falsable, con biomarcador y
+    cohorte), novedad frente al modelo de mundo y deseabilidad (que la investigadora
+    quiera comprobarla). Se indica el eje decisivo.
+
+    La comparación es a ciegas: no se sabe cuál es cuál, ni qué dictaminó ninguna
+    revisión automática, ni quién ganó partidos anteriores. Juzgar la evidencia que se
+    muestra, no lo que otros dijeron de ella. No puntuar del 1 al 5 ni sumar pesos:
+    decidir cuál de las dos."""
 
     objetivo: str = dspy.InputField()
     hipotesis_a: str = dspy.InputField()
     hipotesis_b: str = dspy.InputField()
     evidencia: str = dspy.InputField(desc="Afirmaciones sostenidas y hechos relevantes")
-    revisiones_humanas: str = dspy.InputField(desc="Lo que dijeron las personas sobre A y B, si algo")
+    revisiones_humanas: str = dspy.InputField(desc="Lo que escribió una PERSONA sobre A o sobre B, si algo. Casi siempre 'Ninguna.'")
     comparacion: Comparacion = dspy.OutputField()
 
 

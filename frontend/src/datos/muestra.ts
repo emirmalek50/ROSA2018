@@ -713,6 +713,7 @@ const HIPOTESIS_BASE: HipotesisParcial[] = [
       { iteracion: 10, rivalId: 'hip-4', resultado: 'gano', resumenDebate: 'Ambas comprobables en FLENI; el cociente tiene más evidencia previa y un desenlace clínico más claro (conversión a MCI).', ejeDecisivo: 'correccion' },
       { iteracion: 12, rivalId: 'hip-3', resultado: 'gano', resumenDebate: 'La hipótesis de GLP-1 ya está en ensayo; el cociente en autosómico dominante no.', ejeDecisivo: 'novedad' },
       { iteracion: 13, rivalId: 'hip-2', resultado: 'perdio', resumenDebate: 'Las dos afirmaciones no sostenidas de NLRP3 pesaron, pero su utilidad terapéutica superó a la utilidad diagnóstica del cociente.', ejeDecisivo: 'utilidad' },
+      { iteracion: 14, rivalId: 'hip-3', resultado: 'gano', resumenDebate: 'Pierde por la regla de solidez, sin llamar al juez: 2 de sus 5 afirmaciones no se sostienen (1 que su fuente no sostiene, 1 cuya cita no resuelve al pasaje).', ejeDecisivo: 'solidez', relacion: 'distintas', porRegla: true },
     ],
     supuestos: [
       {

@@ -98,6 +98,13 @@ RELEVANCIA_MINIMA = 5
 # Torneo: factor K del Elo y Elo inicial.
 ELO_K = 32
 ELO_INICIAL = 1500
+# Cuántos partidos CON JUEZ se juegan por iteración. Los que decide la regla de
+# solidez (rosa/solidez.py) no cuentan contra este tope: no gastan ninguna
+# llamada. Cada partido con juez son dos llamadas (A contra B y B contra A),
+# unos 0,11 USD y 37 s. Con 9 hipótesis vivas la rejilla completa son 36 pares y
+# se cierra en tres iteraciones; hasta el 25 de septiembre de 2026 `emparejar`
+# solo llegaba a 4 por ronda porque gastaba cada hipótesis en un solo par.
+MAX_PARTIDOS_CON_JUEZ_POR_ITERACION = 6
 # Presupuesto de tokens de entrada por rol y llamada (politica de contexto):
 # por encima, el contexto se recorta antes de llamar y queda registrado.
 TOKENS_MAX_POR_ROL = {"cerebro": 120_000, "juez": 90_000, "volumen": 40_000, "replica": 90_000}
@@ -160,6 +167,7 @@ def resumen() -> dict[str, object]:
         "maxHipotesisEnContexto": MAX_HIPOTESIS_EN_CONTEXTO,
         "tokensMaxPorRol": dict(TOKENS_MAX_POR_ROL),
         "eloK": ELO_K,
+        "maxPartidosConJuezPorIteracion": MAX_PARTIDOS_CON_JUEZ_POR_ITERACION,
         "tarifaHoraRevisionUsd": TARIFA_HORA_REVISION_USD,
         "nivelAutonomiaDeclarado": NIVEL_AUTONOMIA_DECLARADO,
         "nivelesAutonomia": list(NIVELES_AUTONOMIA),

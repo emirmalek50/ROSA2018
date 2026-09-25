@@ -55,11 +55,11 @@ describe('FranjaRanking', () => {
     expect(c[5]).toBe('Killer: sin juzgar');
     expect(c).toContain('Sin experimento interpretable');
     expect(c).toContain('Sin BT');
-    expect(c).toContain('4 partidos');
+    expect(c).toContain('5 partidos');
     expect(c).toContain('Precedente parcial');
     // El orden relativo de lo que sigue a los bloqueos también es fijo.
     const iBT = c.indexOf('Sin BT');
-    expect(c.indexOf('4 partidos')).toBe(iBT + 1);
+    expect(c.indexOf('5 partidos')).toBe(iBT + 1);
     expect(c.indexOf('Precedente parcial')).toBe(iBT + 2);
     // No hay conflicto, pendiente ni fusión en la muestra.
     expect(nodo.textContent).not.toContain('Se contradice');

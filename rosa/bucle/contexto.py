@@ -321,18 +321,60 @@ def hipotesis_texto(h: dict[str, Any]) -> str:
     return f"Título: {h['titulo']}\nEnunciado: {h['enunciado']}\nMecanismo: {h['mecanismo']}\nComprobación: biomarcador {c['biomarcador']}; cohorte {c['cohorte']}; diseño {c['diseno']}\nCluster: {h['cluster']}"
 
 
-def hipotesis_para_torneo(h: dict[str, Any]) -> str:
+def hipotesis_con_revisiones(h: dict[str, Any]) -> str:
+    """La ficha COMPLETA de una hipótesis, con su título, su cluster y sus
+    revisiones automáticas. NO es la tarjeta del torneo (esa es
+    `pasos.hipotesis_para_torneo`, que va a ciegas desde el 25 de septiembre de
+    2026): alimenta a `todas_las_hipotesis`, que es el panorama que ve
+    MetaRevisar, y ahí el veredicto del Killer y el linaje SÍ hacen falta, porque
+    el meta-revisor razona sobre la cartera entera. Se renombró para que nadie
+    ciegue el meta-revisor por error ni desciegue el torneo."""
     afs = "\n".join(f"  - [{a['veredicto']}{', EN CONTRA' if a.get('relacion') == 'contradice' else (', indirecta' if a.get('relacion') == 'apoya_indirecta' else '')}] {a['texto']} {a['cita']}" for a in h["afirmaciones"][:8])
     sup = "\n".join(f"  - [{s['estado']}] {s['texto']}" for s in h["supuestos"][:6])
     return f"{hipotesis_texto(h)}\nAfirmaciones:\n{afs or '  (ninguna)'}\nSupuestos:\n{sup or '  (ninguno)'}\nRevisiones automáticas: " + "; ".join(f"{r['tipo']}: {r['resumen']}" for r in h["revisionesAutomaticas"] if r["estado"] != "pendiente")
 
 
+_NOMBRES_DE_MODELO = {n.split("/")[-1].lower() for n in ("openai/gpt-6-astra", "anthropic/claude-opus-5", "anthropic/claude-sonnet-5")} | {"rosa2018"}
+
+
+def es_persona(quien: Any) -> bool:
+    """Si esa firma es de una persona. ROSA2018 firma con `config.QUIEN_ROSA` y
+    sus modelos con el id del gateway, que siempre lleva barras
+    ("openai/anthropic/claude-opus-5", "openai/openai/gpt-6-astra"); los nombres
+    de persona no las llevan.
+
+    La caza de fallos del 23 de septiembre encontró el fallo que esto arregla: el
+    Killer firma sus revisiones con el id del modelo juez, y sus 131 revisiones
+    (127 de Opus, 4 de Astra) llegaban al torneo y a la conclusión GRADE por el
+    campo `revisiones_humanas`, cuya descripción decía "Lo que dijeron las
+    personas" y cuyo docstring añadía que pesan más que las automáticas. En las
+    28 hipótesis del estado hay CERO revisiones humanas de verdad: el 100 % de
+    ese campo era salida de modelo presentada como opinión de persona.
+
+    Límite conocido: una firma de persona que llevara una barra ("Ana/Luis") se
+    leería como modelo. Se acepta porque la interfaz firma con el nombre de quien
+    entró, no con texto libre, y porque el error cae del lado prudente: de más
+    dejaría pasar a un modelo como persona, de menos deja fuera una nota humana
+    que el juez habría visto."""
+    q = str(quien or "").strip()
+    if not q or q == config.QUIEN_ROSA:
+        return False
+    if "/" in q:
+        return False
+    # Los tres modelos de ROSA2018 por su nombre pelado, por si alguna firma llegó
+    # sin el prefijo del gateway: son los de `rosa/gateway.py` y ninguno es persona.
+    return q.lower() not in _NOMBRES_DE_MODELO
+
+
 def revisiones_humanas(h: dict[str, Any]) -> str:
+    """Lo que escribió una PERSONA sobre la hipótesis: el formulario estructurado
+    (`revisionesHumanas`), las revisiones firmadas por alguien que no es ROSA2018
+    ni un modelo, y el voto de relevancia humano. Casi siempre "Ninguna."."""
     partes = []
     for r in h["revisionesHumanas"]:
         partes.append(f"{r['quien']}: supuestos cuestionados: {r['supuestosCuestionados']}; literatura que falta: {r['literaturaQueFalta']}; problema experimental: {r['problemaExperimental']}")
     for r in h["revisiones"]:
-        if r["quien"] != config.QUIEN_ROSA and r["nota"]:
+        if es_persona(r.get("quien")) and r["nota"]:
             partes.append(f"{r['quien']} ({r['accion']}): {r['nota']}")
     if h["relevancia"].get("votoHumano"):
         partes.append(f"Voto de relevancia humano: {h['relevancia']['votoHumano']}")
@@ -344,7 +386,7 @@ def todas_las_hipotesis(hipotesis: list[dict[str, Any]], investigacion_id: str) 
     bloques = []
     for h in propias:
         revs = "; ".join(f"{r['quien']} {r['accion']}: {r['nota']}" for r in h["revisiones"][-4:])
-        bloques.append(f"## {h['id']} [{h['estado']}, elo {h['elo']}, origen {h['origen']}]\n{hipotesis_para_torneo(h)}\nRevisiones: {revs}")
+        bloques.append(f"## {h['id']} [{h['estado']}, elo {h['elo']}, origen {h['origen']}]\n{hipotesis_con_revisiones(h)}\nRevisiones: {revs}")
     return "\n\n".join(bloques) if bloques else "Ninguna."
 
 

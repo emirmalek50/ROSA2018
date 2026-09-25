@@ -65,7 +65,16 @@ def test_emparejar_pone_primero_los_pares_forzados_y_registra_la_relacion():
     torneo.registrar_partido(a, b, True, 1, "debate", "correccion", "a_subsume_b")
     assert a["partidos"][-1]["relacion"] == "a_subsume_b" and b["partidos"][-1]["relacion"] == "b_subsume_a"
     torneo.registrar_partido(a, c, None, 1, "debate", "novedad", "distintas")
-    assert "relacion" not in a["partidos"][-1]
+    # "distintas" SE GUARDA desde el 25 de septiembre de 2026. Antes no, y como
+    # `pasos._torneo` fuerza el par marcado como redundante mientras ningún partido
+    # suyo tenga relación, un juez que dijera "distintas" hacía que el par se
+    # volviera a forzar en cada iteración para siempre: en inv-mu2sz2ns-3 hubo un
+    # par con 9 partidos. Guardarla cierra el dirimente.
+    assert a["partidos"][-1]["relacion"] == "distintas" and c["partidos"][-1]["relacion"] == "distintas"
+    # Un partido por regla no dice que el juez discrepara: no lo llamó nadie.
+    torneo.registrar_partido(b, c, None, 2, "las dos pierden la solidez", "solidez", "distintas", por_regla=True)
+    assert b["partidos"][-1]["resumenDebate"] == "las dos pierden la solidez" and b["partidos"][-1]["porRegla"] is True
+    assert "el juez discrepó" in a["partidos"][-1]["resumenDebate"]  # el de a contra c, con juez
 
 
 def test_copiar_hechos_remapea_los_enlaces_entre_hechos():

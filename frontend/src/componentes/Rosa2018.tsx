@@ -1450,6 +1450,7 @@ export function Politicas({ politicas }: { politicas: EstadoRosa['politicas'] })
     { clave: 'maxCaracteresPorLlamadaExtractor', etiqueta: 'Caracteres por llamada al extractor', nota: 'Un fragmento más largo se lee en partes en vez de cortarse a secas.' },
     { clave: 'maxHipotesisEnContexto', etiqueta: 'Hipótesis que entran al prompt del Killer', nota: 'Política de contexto: las vivas por Elo, más las últimas descartadas.' },
     { clave: 'eloK', etiqueta: 'Factor K del Elo', nota: 'Cuánto mueve un partido el Elo.' },
+    { clave: 'maxPartidosConJuezPorIteracion', etiqueta: 'Partidos del torneo con juez por iteración', nota: 'Cada uno son dos llamadas al juez (A contra B y B contra A). Los que decide la regla de solidez no cuentan: no gastan ninguna llamada. Los pares que no caben se juegan en las iteraciones siguientes.' },
   ];
   return (
     <Seccion detalle titulo="Políticas" nota="Los límites del sistema viven en el código del servidor (rosa/políticas.py), no en este estado: ningún agente puede editarlos y cada cambio es un commit que queda en la versión de ROSA2018 de cada corrida. Aquí solo se leen.">

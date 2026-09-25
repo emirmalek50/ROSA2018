@@ -665,7 +665,10 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                     <td>
                       <Chip tono={p.resultado === 'gano' ? 'ok' : p.resultado === 'tablas' ? 'borde' : 'mal'}>{p.resultado === 'gano' ? 'Ganó' : p.resultado === 'tablas' ? 'Tablas' : 'Perdió'}</Chip>
                     </td>
-                    <td>{p.ejeDecisivo}</td>
+                    <td>
+                      {p.ejeDecisivo === 'solidez' ? 'Solidez' : p.ejeDecisivo}
+                      {p.porRegla && <span className="meta"> · por regla, sin juez</span>}
+                    </td>
                     <td className="meta">{p.resumenDebate}</td>
                   </tr>
                 );

@@ -1155,6 +1155,7 @@ class Supervisor:
             if not y:
                 return False
             y["_conclusionIntentada"] = ctx.numero
+            y.pop("_reconcluirPorRevisiones", None)
             if conclusion:
                 y["conclusion"] = conclusion
                 if conclusion.get("direccionDelJuez") and conclusion["direccionDelJuez"] != conclusion["direccion"]:
@@ -2910,6 +2911,13 @@ def motivo_para_reconcluir(h: dict[str, Any], con_evidencia: set[str] | None = N
         return "pendiente de revisar"
     if "_conclusionIntentada" not in h:
         return "resultado o evidencia nueva marcada"
+    if h.get("_reconcluirPorRevisiones"):
+        # Marca de la migración del 25 de septiembre de 2026. La conclusión se
+        # escribió con las revisiones de los modelos (127 de Opus, 4 de Astra)
+        # entrando como "lo que dijeron las personas", junto a la instrucción de
+        # que las humanas pesan más que las automáticas. No es que la evidencia
+        # haya cambiado: es que se leyó mal quién la había revisado.
+        return "se escribió contando revisiones de modelo como si fueran de personas"
     if conclusion.get("huella") != huella_de_conclusion(h):
         return "la evidencia contada cambió"
     return None

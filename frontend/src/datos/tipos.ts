@@ -1183,9 +1183,15 @@ export interface Partido {
   rivalId: Id;
   resultado: 'gano' | 'perdio' | 'tablas';
   resumenDebate: string;
-  ejeDecisivo: 'correccion' | 'utilidad' | 'especificidad' | 'novedad' | 'deseabilidad';
-  /** Qué son una respecto a la otra según el juez (fusión de ramas). */
+  /** 'solidez' es el único que no sale del juez: lo decide la regla de
+   *  rosa/solidez.py sobre el registro, sin llamar a ningún modelo. */
+  ejeDecisivo: 'correccion' | 'utilidad' | 'especificidad' | 'novedad' | 'deseabilidad' | 'solidez';
+  /** Qué son una respecto a la otra según el juez (fusión de ramas). Se guarda
+   *  siempre, 'distintas' incluida: es lo que cierra el partido dirimente de un
+   *  par que el Killer marcó como redundante. */
   relacion?: 'distintas' | 'equivalentes' | 'a_subsume_b' | 'b_subsume_a' | 'incompatibles';
+  /** El partido lo decidió una regla sobre el registro, no el juez. */
+  porRegla?: boolean;
 }
 
 export interface Replicacion {
