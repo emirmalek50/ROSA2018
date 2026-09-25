@@ -640,6 +640,25 @@ def crear_app(almacen: Almacen) -> FastAPI:
             raise HTTPException(404, "Afirmación desconocida")
         return JSONResponse(content=ficha, headers={"Cache-Control": "no-store"})
 
+    @app.get("/api/artefactos/{artefacto_id}/v/{n}.docx")
+    async def dossier_docx(artefacto_id: str, n: int) -> Response:
+        """Una versión de un dossier en Word con el diseño de la norma AP-DOC-002:
+        con su código si esa versión se emitió como documento controlado, como
+        borrador sin código si no."""
+        from rosa import documento_controlado as DC
+
+        r = DC.para_descargar(almacen.estado, artefacto_id, n, P.ahora_ms())
+        if r is None:
+            raise HTTPException(404, "Ese dossier o esa versión no existen")
+        contenido, id_doc, v = r
+        datos = await asyncio.to_thread(DC.docx, contenido, id_doc, v)
+        nombre = f"{id_doc}_{v['version']}.docx" if id_doc else f"Dossier_borrador_v{n}.docx"
+        return Response(
+            content=datos,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Cache-Control": "no-store", "Content-Disposition": f'attachment; filename="{nombre}"'},
+        )
+
     @app.get("/api/documentos/{hipotesis_id}/{version}.docx")
     async def documento_docx(hipotesis_id: str, version: str) -> Response:
         """El documento controlado de una hipótesis (norma AP-DOC-002) en Word,

@@ -426,6 +426,28 @@ function abrirEventos(): void {
  *  en estado de conexión o en aviso) para que un botón pueda quedarse "en
  *  vuelo" hasta que el servidor responda (lib/diferido.ts, useEnVuelo). En
  *  modo muestra resuelve en el acto. */
+/** Baja un Word del servidor con la sesión y lo guarda con el nombre que da
+ *  el servidor (o `porDefecto`). Devuelve el motivo si no se pudo. */
+async function bajarWord(url: string, porDefecto: string): Promise<string | null> {
+  if (modo !== 'servidor') return 'Descargar el documento requiere el servidor de ROSA2018.';
+  try {
+    const r = await fetch(url, { headers: cabeceras(false) });
+    if (!r.ok) return r.status === 404 ? 'Ese documento no está en el servidor.' : `El servidor no lo entregó (${r.status}).`;
+    const nombre = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') ?? '')?.[1] ?? porDefecto;
+    const enlace = URL.createObjectURL(await r.blob());
+    const a = document.createElement('a');
+    a.href = enlace;
+    a.download = nombre;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(enlace), 1000);
+    return null;
+  } catch {
+    return 'No pude comprobar la conexión con el servidor.';
+  }
+}
+
 function enviar(nombre: string, args: Record<string, unknown>): Promise<void> {
   if (modo !== 'servidor') return Promise.resolve();
   return fetch(`${API}/acciones/${nombre}`, { method: 'POST', headers: cabeceras(), body: JSON.stringify(args) })
@@ -1093,26 +1115,15 @@ export const acciones = {
   emitirDocumento: (hipotesisId: string, nombreCorto: string) => {
     return enviar('emitirDocumento', { hipotesis_id: hipotesisId, nombre_corto: nombreCorto, quien: QUIEN });
   },
-  /** El Word de una versión emitida, con la sesión de la persona: es confidencial
-   *  y la ruta no se abre sin ella. Devuelve el motivo si no se pudo. */
-  descargarDocumento: async (hipotesisId: string, version: string, nombreFichero: string): Promise<string | null> => {
-    if (modo !== 'servidor') return 'Descargar el documento requiere el servidor de ROSA2018.';
-    try {
-      const r = await fetch(`${API}/documentos/${encodeURIComponent(hipotesisId)}/${encodeURIComponent(version)}.docx`, { headers: cabeceras(false) });
-      if (!r.ok) return r.status === 404 ? 'Esa versión del documento no está en el servidor.' : `El servidor no lo entregó (${r.status}).`;
-      const url = URL.createObjectURL(await r.blob());
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = nombreFichero;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      return null;
-    } catch {
-      return 'No pude comprobar la conexión con el servidor.';
-    }
-  },
+  /** El Word de una versión emitida del documento controlado, con la sesión
+   *  de la persona: es confidencial y la ruta no se abre sin ella. Devuelve el
+   *  motivo si no se pudo. */
+  descargarDocumento: (hipotesisId: string, version: string, nombreFichero: string): Promise<string | null> =>
+    bajarWord(`${API}/documentos/${encodeURIComponent(hipotesisId)}/${encodeURIComponent(version)}.docx`, nombreFichero),
+  /** Una versión de un dossier en Word con el diseño del Alzheimer Project (norma
+   *  AP-DOC-002): con su código si esa versión se emitió, como borrador si no. */
+  descargarDossier: (artefactoId: string, n: number): Promise<string | null> =>
+    bajarWord(`${API}/artefactos/${encodeURIComponent(artefactoId)}/v/${n}.docx`, `Dossier_v${n}.docx`),
   /** El dossier se arma en el servidor con todo el estado; llega como artefacto por SSE. */
   generarDossier: (hipotesisId: string) => {
     return enviar('generarDossier', { hipotesis_id: hipotesisId, quien: QUIEN });

@@ -136,26 +136,49 @@ def test_la_accion_esta_registrada_para_el_servidor():
 # -- El Word ---------------------------------------------------------------------------------
 
 
-def test_el_word_lleva_la_cabecera_el_pie_con_campos_automaticos_y_el_cuerpo():
+def test_el_word_lleva_el_diseno_de_la_norma_la_cabecera_el_pie_con_campos_y_el_cuerpo():
     import docx
 
     e = _estado()
     v = DC.emitir(e, e["hipotesis"][0], "Brecha GFAP NfL", "E", AHORA)
     d = docx.Document(io.BytesIO(DC.docx(e["artefactos"][0]["versiones"][0]["contenido"], "AP-HYP-001", v)))
     s = d.sections[0]
-    cabecera = " ".join(c.text for t in s.header.tables for f in t.rows for c in f.cells)
-    assert v["cabecera"] in cabecera
+    # La cabecera de la plantilla de la norma: el logo y la línea de control.
+    assert v["cabecera"] in [p.text for p in s.header.paragraphs]
+    assert "graphicData" in s.header._element.xml  # el logo del Alzheimer Project
     pie = s.footer.paragraphs[0]
     assert pie.text.startswith(f"Confidential | Alzheimer Project | AI Robotix | Sep-17-2026 | {DC.INICIALES_RESPONSABLE} | Page ")
     xml = pie._p.xml
     # La numeración es un campo de Word, nunca un número escrito a mano.
-    assert "PAGE" in xml and "NUMPAGES" in xml and xml.count('w:fldCharType="begin"') == 2
+    assert "PAGE" in xml and "NUMPAGES" in xml
     textos = [p.text for p in d.paragraphs]
-    assert "Dossier 1" in textos and "1. Decisión" in textos and "Un punto" in textos
+    assert textos[0] == "Dossier 1" and "Document ID: AP-HYP-001" in textos and "Version: 01" in textos
+    assert "1. Decisión" in textos and "- Un punto" in textos
+    assert not any("{{" in t for t in textos)  # no queda ninguna muestra de la plantilla
+    # Los colores de la norma: el título en #3B145F, en negrita.
+    titulo = d.paragraphs[0].runs[0]
+    assert str(titulo.font.color.rgb) == "3B145F" and titulo.bold
     negritas = [r.text for p in d.paragraphs for r in p.runs if r.bold]
     assert "punto" in negritas
-    bloque = " ".join(c.text for t in d.tables for f in t.rows for c in f.cells)
-    assert "Document ID: AP-HYP-001" in bloque and "Version: 01" in bloque and "Owner Initials" in bloque
+    # Arial explícito en todo el cuerpo.
+    assert all(r.font.name == "Arial" for p in d.paragraphs for r in p.runs)
+
+
+def test_un_dossier_sin_emitir_se_descarga_como_borrador_sin_codigo():
+    import docx
+
+    e = _estado()
+    contenido, id_doc, v = DC.para_descargar(e, "art-1", 1, AHORA)
+    assert id_doc is None and v["emitido"] is False and "sin código: no emitido | borrador" in v["cabecera"]
+    d = docx.Document(io.BytesIO(DC.docx(contenido, id_doc, v)))
+    textos = [p.text for p in d.paragraphs]
+    assert "Document ID: sin asignar (se da al emitir)" in textos and any("no emitido" in t for t in textos)
+    # Emitido, la misma versión sale con su código; otra versión, borrador.
+    DC.emitir(e, e["hipotesis"][0], "Brecha", "E", AHORA)
+    assert DC.para_descargar(e, "art-1", 1, AHORA)[1] == "AP-HYP-001"
+    e["artefactos"][0]["versiones"].append({"n": 2, "contenido": "# Nuevo", "procedencia": {}})
+    assert DC.para_descargar(e, "art-1", 2, AHORA)[1] is None
+    assert DC.para_descargar(e, "art-1", 3, AHORA) is None and DC.para_descargar(e, "no", 1, AHORA) is None
 
 
 # -- La descarga -----------------------------------------------------------------------------
@@ -186,9 +209,14 @@ def test_la_descarga_sirve_la_version_emitida_y_no_otra(tmp_path, monkeypatch):
     assert 'filename="AP-HYP-001_v01.docx"' in r.headers["content-disposition"]
     assert c.get("/api/documentos/h1/v02.docx").status_code == 404
     assert c.get("/api/documentos/nadie/v01.docx").status_code == 404
+    r = c.get("/api/artefactos/art-1/v/1.docx")
+    assert r.status_code == 200 and 'filename="AP-HYP-001_v01.docx"' in r.headers["content-disposition"]
+    assert c.get("/api/artefactos/art-2/v/1.docx").headers["content-disposition"].endswith('Dossier_borrador_v1.docx"')
+    assert c.get("/api/artefactos/art-1/v/9.docx").status_code == 404
     # Sin sesión no se descarga: el documento es confidencial.
     anonimo = TestClient(app, base_url="http://127.0.0.1:8765")
     assert anonimo.get("/api/documentos/h1/v01.docx").status_code == 401
+    assert anonimo.get("/api/artefactos/art-1/v/1.docx").status_code == 401
 
 
 # -- El nombre corto que resume ROSA2018 -------------------------------------------------------

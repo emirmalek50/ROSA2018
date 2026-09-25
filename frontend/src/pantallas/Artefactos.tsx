@@ -84,7 +84,14 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
           </p>
         </div>
         <div className="acciones">
-          <BotonDescarga className="btn" etiqueta={`Descargar v${version.n}`} nombre={a.nombre} construir={() => version.contenido} />
+          {a.tipo === 'dossier' ? (
+            <>
+              <DescargarDossierWord a={a} n={version.n} muestra={estado.conexion === 'muestra'} />
+              <BotonDescarga className="btn btn-s" etiqueta="Texto (.md)" nombre={a.nombre} construir={() => version.contenido} />
+            </>
+          ) : (
+            <BotonDescarga className="btn" etiqueta={`Descargar v${version.n}`} nombre={a.nombre} construir={() => version.contenido} />
+          )}
           <button type="button" className={`btn ${a.destacado ? 'btn-primario' : ''}`} onClick={() => acciones.destacarArtefacto(a.id)}>
             <IconStar size={13} /> {a.destacado ? 'Destacado' : 'Destacar'}
           </button>
@@ -143,6 +150,29 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
         <ProcedenciaDeArtefacto p={version.procedencia} />
       </details>
     </div>
+  );
+}
+
+/** Descargar un dossier en Word con el diseño del Alzheimer Project (la
+ *  plantilla de la norma AP-DOC-002): con su código si esa versión se emitió
+ *  como documento controlado, como borrador si no. */
+function DescargarDossierWord({ a, n, muestra }: { a: Artefacto; n: number; muestra: boolean }) {
+  const [bajando, envolver] = useEnVuelo();
+  const [aviso, setAviso] = useState<string | null>(null);
+  const bajar = envolver(async () => {
+    setAviso(await acciones.descargarDossier(a.id, n));
+  });
+  return (
+    <>
+      <button type="button" className="btn btn-primario" disabled={muestra} title={muestra ? 'Con datos de muestra no hay servidor que lo arme' : 'Word con el diseño del Alzheimer Project'} {...atributosEnVuelo(bajando)} onClick={() => void bajar()}>
+        Descargar v{n} (Word)
+      </button>
+      {aviso && (
+        <span className="meta tono-aviso" role="status">
+          {aviso}
+        </span>
+      )}
+    </>
   );
 }
 

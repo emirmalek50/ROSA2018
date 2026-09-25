@@ -2041,3 +2041,27 @@ estado real había 35 afirmaciones así (17 rechazadas, más de la mitad de toda
 las rechazadas, y 5 aprobadas sin ver su respaldo): ahora el juez ve el pasaje
 en las 35. No se han vuelto a verificar: cuesta llamadas al juez y es decisión
 de Emir.
+
+### El dossier se descarga con el diseño del Alzheimer Project (25 de septiembre de 2026)
+
+Pedido de Emir: que "Descargar" de un dossier dé el Word con el diseño de la
+norma de Monica. El diseño es el suyo, no una imitación:
+`rosa/plantillas/documento_hipotesis.docx` se sacó de su Word original
+(AP_DOC_Hypothesis_Document_Control_SOP_v0.1_2026-09-17_MD.docx) quitándole el
+texto y dejando la cabecera (el árbol con "ALZHEIMER PROJECT" y la línea de
+control a la derecha), el pie (con PAGE y NUMPAGES) y un párrafo de muestra de
+cada tipo: título, subtítulo, línea de datos, sección, texto, recuadro y
+viñeta. `documento_controlado.docx` copia esas muestras con el texto del
+dossier, así que letra, colores (#3B145F, #613D8F, #1E2126), tamaños y
+espaciados son los de la norma. Se pone Arial explícito en cada trozo porque la
+vista previa de macOS no aplica la fuente por defecto del documento (al Word
+original de Monica le pasa igual).
+
+En Artefactos, al abrir un dossier, el botón es ahora "Descargar vN (Word)"
+(`/api/artefactos/{id}/v/{n}.docx`); el texto plano sigue en "Texto (.md)".
+Si esa versión del dossier se emitió como documento controlado, sale con su
+código AP-HYP; si no, sale como borrador, con "sin código: no emitido" en la
+cabecera y en el bloque de datos, para que nadie lo tome por uno controlado.
+Sin nombre corto todavía, el borrador usa el título cortado por palabra entera.
+Los dossiers generados antes del 14 de septiembre salen sin tildes: basta
+regenerarlos.

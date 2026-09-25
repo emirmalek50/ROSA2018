@@ -142,9 +142,19 @@ describe('el documento controlado de un dossier', () => {
     expect(nodo.querySelector('.doc-control')!.textContent).toContain('No cumple: Las iniciales del responsable están en el pie.');
   });
 
+  it('el botón de descargar un dossier da el Word con el diseño del Alzheimer Project, y el texto sigue a mano', async () => {
+    const { e, art } = conDossier();
+    await abrir(e, art);
+    await pulsar(boton('Descargar v1 (Word)')!);
+    expect(llamadas.get('descargarDossier')).toHaveBeenCalledWith(art.id, 1);
+    expect(boton('Texto (.md)')).toBeDefined();
+  });
+
   it('un artefacto que no es dossier no enseña el panel', async () => {
     const { e } = conDossier();
     await abrir(e, e.artefactos[0]!);
     expect(nodo.querySelector('.doc-control')).toBeNull();
+    // Ni el Word: los demás artefactos se descargan como siempre.
+    expect(boton('Descargar v1 (Word)')).toBeUndefined();
   });
 });

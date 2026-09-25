@@ -62,9 +62,6 @@ RE_PIE = re.compile(rf"^{CONFIDENCIALIDAD} \| {PROYECTO} \| {ORGANIZACION} \| ("
 
 MAX_NOMBRE = 80
 
-# El logo del Alzheimer Project, el árbol: es la marca de ROSA2018.
-LOGO = Path(__file__).resolve().parent.parent / "frontend" / "public" / "arbol-marca.png"
-
 
 def id_documento(n: int) -> str:
     return f"{PREFIJO}-{AREA}-{n:03d}"
@@ -187,159 +184,167 @@ def emitir(e: dict[str, Any], h: dict[str, Any], nombre_corto: Any, quien: str, 
     return v
 
 
+def para_descargar(e: dict[str, Any], art_id: str, n: int, ahora: int) -> tuple[str, str | None, dict[str, Any]] | None:
+    """Lo que hace falta para descargar la versión `n` de un dossier: su
+    contenido, el código y la versión emitida si esa versión del dossier se
+    emitió, o un borrador si no. None si no existe."""
+    art = next((a for a in e.get("artefactos", []) if isinstance(a, dict) and a.get("id") == art_id), None)
+    if not art or art.get("tipo") != "dossier" or not 1 <= n <= len(art.get("versiones") or []):
+        return None
+    contenido = str(art["versiones"][n - 1].get("contenido") or "")
+    h = next((x for x in e.get("hipotesis", []) if isinstance(x, dict) and x.get("dossierArtefactoId") == art_id), None) or {}
+    doc = h.get("documentoControlado") if isinstance(h.get("documentoControlado"), dict) else None
+    v = next((x for x in reversed((doc or {}).get("versiones") or []) if isinstance(x, dict) and x.get("artefactoId") == art_id and x.get("versionArtefacto") == n), None)
+    if v and doc:
+        return contenido, str(doc["id"]), dict(v)
+    return contenido, None, borrador(str((doc or {}).get("nombreCorto") or h.get("nombreCorto") or h.get("titulo") or ""), ahora)
+
+
 def version_emitida(h: dict[str, Any], version: str) -> dict[str, Any] | None:
     doc = h.get("documentoControlado") if isinstance(h.get("documentoControlado"), dict) else None
     return next((v for v in (doc or {}).get("versiones") or [] if isinstance(v, dict) and v.get("version") == version), None)
 
 
 # -- El Word ----------------------------------------------------------------------
+#
+# El diseño es el de la propia norma: la plantilla rosa/plantillas/
+# documento_hipotesis.docx se sacó del Word de Monica Duarte (25 de septiembre
+# de 2026) con su cabecera (el árbol del Alzheimer Project y la línea de control
+# a la derecha), su pie (con PAGE y NUMPAGES como campos de Word) y un párrafo de
+# muestra de cada tipo: título, subtítulo, línea de datos, sección, texto,
+# recuadro y viñeta. Cada párrafo del documento es una copia de su muestra con
+# otro texto, así que la letra, los colores, los tamaños, el sombreado lila y los
+# espaciados son los suyos, no una imitación.
 
-_MORADO = (0x4B, 0x1D, 0x80)
+PLANTILLA = Path(__file__).resolve().parent / "plantillas" / "documento_hipotesis.docx"
+MAX_NOMBRE_BORRADOR = 50
+MUESTRAS = ("titulo", "subtitulo", "vacio", "dato", "seccion", "texto", "recuadro", "vineta")
 
 
-def _campo(parrafo: Any, instruccion: str) -> None:
-    """Un campo automático de Word (PAGE, NUMPAGES): Google Docs los conserva al
-    abrir el fichero, y así la numeración nunca va escrita a mano."""
+def borrador(nombre: str, ahora: int) -> dict[str, Any]:
+    """La cabecera y el pie de un dossier que todavía no se ha emitido como
+    documento controlado: el mismo diseño, pero sin código AP-HYP, que solo lo
+    da la emisión, y dicho en la cabecera para que nadie lo tome por uno."""
+    fecha = fecha_documento(ahora)
+    nombre = limpiar_nombre(nombre) or "Dossier para el laboratorio"
+    # Si todavía no hay nombre corto llega el título entero: se corta por una
+    # palabra entera, para que la cabecera quepa en una línea.
+    if len(nombre) > MAX_NOMBRE_BORRADOR:
+        nombre = nombre[:MAX_NOMBRE_BORRADOR].rsplit(" ", 1)[0].rstrip(" ,;:-–") + "…"
+    return {"version": "borrador", "fecha": fecha, "iniciales": INICIALES_RESPONSABLE, "nombre": nombre, "cabecera": f"{nombre} | {TIPO} | sin código: no emitido | borrador", "pie": pie(fecha, INICIALES_RESPONSABLE), "emitido": False}
+
+
+def _con_texto(muestra: Any, texto: str) -> Any:
+    """Una copia del párrafo de muestra con otro texto. Las **negritas** del
+    Markdown del dossier se conservan como trozos en negrita con el mismo
+    formato de la muestra."""
+    import copy
+
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
 
-    def run_con(hijo: Any) -> None:
-        r = parrafo.add_run()
-        r._r.append(hijo)
-
-    inicio = OxmlElement("w:fldChar")
-    inicio.set(qn("w:fldCharType"), "begin")
-    run_con(inicio)
-    instr = OxmlElement("w:instrText")
-    instr.set(qn("xml:space"), "preserve")
-    instr.text = f" {instruccion} "
-    run_con(instr)
-    separa = OxmlElement("w:fldChar")
-    separa.set(qn("w:fldCharType"), "separate")
-    run_con(separa)
-    parrafo.add_run("1")
-    fin = OxmlElement("w:fldChar")
-    fin.set(qn("w:fldCharType"), "end")
-    run_con(fin)
-
-
-def _en_linea(parrafo: Any, texto: str, negrita: bool = False) -> None:
-    """Texto con **negritas** de Markdown, en trozos."""
+    nuevo = copy.deepcopy(muestra)
+    runs = nuevo.findall(qn("w:r"))
+    base = copy.deepcopy(runs[0]) if runs else None
+    for r in runs:
+        nuevo.remove(r)
+    if base is None:
+        return nuevo
+    for t in base.findall(qn("w:t")):
+        base.remove(t)
     for i, trozo in enumerate(re.split(r"\*\*", texto)):
-        if trozo:
-            r = parrafo.add_run(trozo)
-            r.bold = negrita or i % 2 == 1
-
-
-def docx(contenido: str, id_doc: str, v: dict[str, Any]) -> bytes:
-    """El documento controlado en Word, con la cabecera y el pie de la norma en
-    todas las páginas y el dossier que se emitió como cuerpo."""
-    from docx import Document
-    from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.oxml import OxmlElement
-    from docx.oxml.ns import qn
-    from docx.shared import Emu, Mm, Pt, RGBColor
-
-    d = Document()
-    estilo = d.styles["Normal"]
-    estilo.font.name = "Arial"
-    estilo.font.size = Pt(10.5)
-    for nombre, tam in (("Title", 22), ("Heading 1", 17), ("Heading 2", 13.5), ("Heading 3", 12)):
-        s = d.styles[nombre]
-        s.font.name = "Arial"
-        s.font.size = Pt(tam)
-        s.font.bold = True
-        s.font.color.rgb = RGBColor(*_MORADO)
-
-    sec = d.sections[0]
-    sec.page_width, sec.page_height = Mm(210), Mm(297)
-    sec.left_margin = sec.right_margin = Mm(22)
-    sec.top_margin, sec.bottom_margin = Mm(30), Mm(22)
-    sec.header_distance = Mm(10)
-    ancho = Emu(int(sec.page_width or 0) - int(sec.left_margin or 0) - int(sec.right_margin or 0))
-
-    # Cabecera: el árbol a la izquierda, la línea de la norma a la derecha, en
-    # una tabla de dos celdas sin bordes. Con un tabulador el texto caía debajo
-    # del logo en la vista previa de macOS y en Google Docs.
-    t_cab = sec.header.add_table(rows=1, cols=2, width=ancho)
-    izq, der = t_cab.rows[0].cells
-    t_cab.autofit = False
-    for col, w in zip(t_cab.columns, (Mm(30), Emu(ancho - Mm(30)))):
-        col.width = w
-        for c in col.cells:
-            c.width = w
-    if LOGO.exists():
-        izq.paragraphs[0].add_run().add_picture(str(LOGO), height=Mm(11))
-    der.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-    pd = der.paragraphs[0]
-    pd.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    r = pd.add_run(v["cabecera"])
-    r.bold = True
-    r.font.size = Pt(8.5)
-    r.font.color.rgb = RGBColor(*_MORADO)
-    # El párrafo vacío que Word pone en toda cabecera, sin altura: que no empuje.
-    vacio = sec.header.paragraphs[0]
-    vacio.paragraph_format.space_after = Pt(0)
-    vacio.paragraph_format.line_spacing = Pt(1)
-
-    # Pie: la línea de la norma con la página y el total como campos automáticos.
-    p = sec.footer.paragraphs[0]
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    def texto_pie(t: str) -> None:
-        rr = p.add_run(t)
-        rr.font.size = Pt(8.5)
-        rr.font.color.rgb = RGBColor(*_MORADO)
-
-    texto_pie(v["pie"].split("Page X of Y")[0] + "Page ")
-    _campo(p, "PAGE")
-    texto_pie(" of ")
-    _campo(p, "NUMPAGES")
-
-    # El bloque de control de la primera página, como el de la propia norma.
-    tabla = d.add_table(rows=1, cols=1)
-    tabla.alignment = WD_TABLE_ALIGNMENT.CENTER
-    celda = tabla.rows[0].cells[0]
-    sombra = OxmlElement("w:shd")
-    sombra.set(qn("w:val"), "clear")
-    sombra.set(qn("w:color"), "auto")
-    sombra.set(qn("w:fill"), "F1EAFB")
-    celda._tc.get_or_add_tcPr().append(sombra)
-    filas = [
-        ("Document Status", "Draft (generado por ROSA2018; ninguna persona lo ha revisado todavía)"),
-        ("Document ID", id_doc),
-        ("Version", v["version"][1:]),
-        ("Date", v["fecha"]),
-        ("Owner Initials", v["iniciales"]),
-        ("Controlled per", f"{SOP} (borrador)"),
-    ]
-    celda.paragraphs[0].text = ""
-    for i, (k, val) in enumerate(filas):
-        par = celda.paragraphs[0] if i == 0 else celda.add_paragraph()
-        a = par.add_run(f"{k}: ")
-        a.bold = True
-        a.font.size = Pt(9.5)
-        a.font.color.rgb = RGBColor(*_MORADO)
-        b = par.add_run(str(val))
-        b.font.size = Pt(9.5)
-    d.add_paragraph()
-
-    # El cuerpo: el Markdown del dossier emitido, línea a línea.
-    for linea in (contenido or "").splitlines():
-        t = linea.rstrip()
-        if not t.strip():
+        if not trozo:
             continue
-        if t.startswith("# "):
-            d.add_heading(t[2:].strip(), level=0)
-        elif t.startswith("## "):
-            d.add_heading(t[3:].strip(), level=1)
-        elif t.startswith("### "):
-            d.add_heading(t[4:].strip(), level=2)
-        elif re.match(r"^\s*[-*] ", t):
-            _en_linea(d.add_paragraph(style="List Bullet"), re.sub(r"^\s*[-*] ", "", t))
+        r = copy.deepcopy(base)
+        if i % 2 == 1:
+            rpr = r.find(qn("w:rPr"))
+            if rpr is None:
+                rpr = OxmlElement("w:rPr")
+                r.insert(0, rpr)
+            if rpr.find(qn("w:b")) is None:
+                rpr.append(OxmlElement("w:b"))
+        # Arial explícito, como el PDF de la norma: el Word lo trae como fuente por
+        # defecto del documento, y hay visores (la vista previa de macOS) que no la
+        # aplican y ponen Times.
+        rpr = r.find(qn("w:rPr"))
+        if rpr is None:
+            rpr = OxmlElement("w:rPr")
+            r.insert(0, rpr)
+        if rpr.find(qn("w:rFonts")) is None:
+            fuentes = OxmlElement("w:rFonts")
+            for k in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
+                fuentes.set(qn(k), "Arial")
+            rpr.insert(0, fuentes)
+        t = OxmlElement("w:t")
+        t.set(qn("xml:space"), "preserve")
+        t.text = trozo
+        r.append(t)
+        nuevo.append(r)
+    return nuevo
+
+
+def docx(contenido: str, id_doc: str | None, v: dict[str, Any]) -> bytes:
+    """El dossier en Word con el diseño de la norma AP-DOC-002. `v` es una
+    versión emitida (con su código `id_doc`) o un `borrador`."""
+    from docx import Document
+
+    d = Document(str(PLANTILLA))
+    sec = d.sections[0]
+    # Cabecera y pie: se cambia el texto y se conservan logo y campos.
+    cab = next(p for p in sec.header.paragraphs if "{{cabecera}}" in p.text)
+    cab.runs[0].text = v["cabecera"]
+    pie_p = sec.footer.paragraphs[0]
+    pie_p.runs[0].text = v["pie"].split("Page X of Y")[0] + "Page "
+    for r in (*cab.runs, *pie_p.runs):
+        r.font.name = "Arial"
+
+    cuerpo = d.element.body
+    muestras = {}
+    for p in list(d.paragraphs):
+        clave = p.text.strip().strip("{}")
+        if clave in MUESTRAS:
+            muestras[clave] = p._p
+            cuerpo.remove(p._p)
+    fin = cuerpo[-1] if len(cuerpo) and cuerpo[-1].tag.endswith("sectPr") else None
+
+    def poner(tipo: str, texto: str = "") -> None:
+        el = _con_texto(muestras[tipo], texto) if texto else _con_texto(muestras["vacio"], "")
+        if fin is not None:
+            fin.addprevious(el)
         else:
-            _en_linea(d.add_paragraph(), t)
+            cuerpo.append(el)
+
+    lineas = [x.rstrip() for x in (contenido or "").splitlines()]
+    titulo = next((x[2:].strip() for x in lineas if x.startswith("# ")), "Dossier para el laboratorio")
+    emitido = v.get("emitido", True)
+    poner("titulo", titulo)
+    poner("subtitulo", "Dossier para el laboratorio, generado por ROSA2018")
+    poner("vacio")
+    datos = [
+        f"Document Status: Draft{'' if emitido else ' (no emitido como documento controlado)'}",
+        f"Document ID: {id_doc if emitido and id_doc else 'sin asignar (se da al emitir)'}",
+        f"Version: {v['version'][1:] if emitido else 'borrador'}",
+        f"Date: {v['fecha']}",
+        f"Owner Initials: {v['iniciales']}",
+        f"Controlled per: {SOP} (borrador de la norma)",
+    ]
+    for x in datos:
+        poner("dato", x)
+    poner("vacio")
+    vio_titulo = False
+    for x in lineas:
+        if not x.strip():
+            continue
+        if x.startswith("# ") and not vio_titulo:
+            vio_titulo = True  # ya es el título del documento
+            continue
+        if x.startswith("#"):
+            poner("vacio")
+            poner("seccion", x.lstrip("#").strip())
+        elif re.match(r"^\s*[-*] ", x):
+            poner("vineta", "- " + re.sub(r"^\s*[-*] ", "", x))
+        else:
+            poner("texto", x)
 
     salida = io.BytesIO()
     d.save(salida)
