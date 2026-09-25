@@ -36,14 +36,40 @@ export function useSesion(): SesionActual | null {
 
 const DOMINIO = 'alzheimerproject.com';
 
+/** Cuánto se espera a ROSA2018 antes de decir que no respondió. Sin tope, un
+ *  enlace que no llega al servidor dejaba el botón en "Enviando…" para siempre
+ *  (25 de septiembre de 2026, el primer registro por el túnel de VS Code). */
+export const ESPERA_ACCESO_MS = 20000;
+
 async function api(ruta: string, datos?: object) {
-  const r = await fetch(`/api/acceso/${ruta}`, {
-    method: datos ? 'POST' : 'GET',
-    headers: cabeceras(),
-    cache: 'no-store',
-    ...(datos ? { body: JSON.stringify(datos) } : {}),
-  });
-  const json = await r.json();
+  const control = new AbortController();
+  const reloj = window.setTimeout(() => control.abort(), ESPERA_ACCESO_MS);
+  let r: Response;
+  try {
+    r = await fetch(`/api/acceso/${ruta}`, {
+      method: datos ? 'POST' : 'GET',
+      headers: cabeceras(),
+      cache: 'no-store',
+      signal: control.signal,
+      ...(datos ? { body: JSON.stringify(datos) } : {}),
+    });
+  } catch {
+    throw new Error(
+      control.signal.aborted
+        ? `ROSA2018 no respondió en ${ESPERA_ACCESO_MS / 1000} segundos. Recarga la página y vuelve a intentarlo; si sigue igual, puede que tu red bloquee este enlace.`
+        : 'No se pudo conectar con ROSA2018. Comprueba que el enlace es el correcto y que el equipo que lo comparte está encendido.',
+    );
+  } finally {
+    window.clearTimeout(reloj);
+  }
+  let json;
+  try {
+    json = await r.json();
+  } catch {
+    // Una página que no es de ROSA2018: el aviso de seguridad del túnel, un error
+    // del proxy o un enlace caducado. No se enseña el error técnico del navegador.
+    throw new Error('El enlace no devolvió una respuesta de ROSA2018. Recarga la página; si ves un aviso de seguridad del túnel, acéptalo y vuelve a intentarlo.');
+  }
   if (!r.ok) throw new Error(typeof json.detail === 'string' ? json.detail : 'No se pudo completar el acceso');
   return json;
 }

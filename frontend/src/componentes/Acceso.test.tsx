@@ -135,6 +135,40 @@ describe('acceso corporativo', () => {
     expect(nodo.textContent).toContain('Continúa tu investigación');
     expect(nodo.textContent).not.toContain('Investigaciones privadas');
   });
+  it('una respuesta que no es de ROSA2018 o una red caída dicen qué pasa en vez de quedarse enviando', async () => {
+    // El primer registro por el túnel de VS Code se quedó en "Enviando…" para siempre.
+    const rellenar = async () => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+      for (const [sel, valor] of [['#acceso-correo', 'ana@alzheimerproject.com'], ['#acceso-contrasena', 'una clave larga']] as const) {
+        const el = nodo.querySelector(sel) as HTMLInputElement;
+        await act(async () => {
+          setter.call(el, valor);
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+      }
+      await act(async () => {
+        nodo.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await new Promise((r) => setTimeout(r, 20));
+      });
+    };
+    // 1. Una página HTML (el aviso del túnel, un proxy) en vez de JSON.
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).endsWith('/entrar') ? { ok: true, json: async () => { throw new SyntaxError("Unexpected token '<'"); } } : { ok: true, json: async () => estado })));
+    await montar();
+    await rellenar();
+    expect(nodo.textContent).toContain('no devolvió una respuesta de ROSA2018');
+    expect(nodo.textContent).not.toContain('Unexpected token');
+    expect(nodo.textContent).not.toContain('Iniciando sesión…');
+    await act(async () => root.unmount());
+    root = createRoot(nodo);
+    // 2. La red falla: se dice que no hay conexión.
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (String(url).endsWith('/entrar')) throw new TypeError('Failed to fetch');
+      return { ok: true, json: async () => estado };
+    }));
+    await montar();
+    await rellenar();
+    expect(nodo.textContent).toContain('No se pudo conectar con ROSA2018');
+  });
   it('muestra un error de autenticación sin abrir ninguna puerta alternativa', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: !String(url).endsWith('/entrar'), json: async () => (String(url).endsWith('/entrar') ? { detail: 'Correo o contraseña incorrectos' } : estado) })));
     await montar();
