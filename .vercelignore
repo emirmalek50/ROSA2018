@@ -1,0 +1,36 @@
+# Lo que NUNCA debe subir a Vercel (25 de septiembre de 2026).
+#
+# El CLI de Vercel NO lee .gitignore. Su lista por defecto ignora .env.local y
+# .env.*.local, pero NO .env a secas: comprobado en el código del propio CLI
+# (dist/chunks/chunk-42C7M2DD.js). Sin este fichero, `vercel` desde esta carpeta
+# subía 1,6 GB incluyendo el .env con las claves vivas del gateway, de Convex,
+# de Exa y el hash de la contraseña de acceso.
+#
+# Un .vercelignore SE SUMA a la lista por defecto del CLI, no la sustituye, así
+# que aquí no hace falta repetir node_modules ni .venv.
+
+# Claves y credenciales
+.env
+.env.*
+!.env.example
+datos/_token_interno
+datos/_correo/
+
+# Las bases: el estado de la investigación y el registro de experimentos
+rosa.db
+rosa.db-*
+mlflow.db
+mlflow.db-*
+mlruns/
+
+# Datos de trabajo y fuentes con derechos de autor
+datos/
+pdfs/
+
+# Lo que no aporta nada a un despliegue
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
