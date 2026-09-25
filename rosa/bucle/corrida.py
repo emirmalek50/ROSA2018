@@ -37,6 +37,7 @@ import traceback
 from typing import Any, Awaitable, Callable
 
 from rosa import argumentacion as ARG
+from rosa import comprobaciones as COMP
 from rosa import cuestiones as CU
 from rosa import dependencias as DEP
 from rosa import sesgo as SESGO
@@ -1991,6 +1992,17 @@ class Supervisor:
         tarea de la corrida debe terminar limpia."""
         tipo = T.inferir_tipo_paso(paso)
         ctx = Ctx(self.almacen, self.programas, self.modelos, c["id"], c["investigacionId"], it["id"], it["numero"], de_paso=True)
+        # Comprobaciones de cierre por etapa (Yoon y otros, 2026), sin modelo y sin
+        # red: se mide el estado antes del paso, y la puerta de la cadena decide si la
+        # etapa se abre. Los resultados de las etapas ya cerradas en esta iteración
+        # salen del propio plan.
+        antes = COMP.medir(self.almacen.estado, c["id"], c["investigacionId"])
+        previos = {(p_.get("tipo") or T.inferir_tipo_paso(p_)): str((p_.get("comprobacion") or {}).get("resultado") or "") for p_ in it["plan"] if isinstance(p_, dict) and isinstance(p_.get("comprobacion"), dict)}
+        cerrada = COMP.puede_abrir(tipo, antes, previos)
+        if cerrada:
+            self.almacen.mutar(lambda e: _estado_paso(e, it["id"], paso["id"], "omitido", motivo=cerrada), "puerta_etapa")
+            self.almacen.mutar(lambda e: _fijar_comprobacion(e, it["id"], paso["id"], COMP.comprobar(tipo, antes, antes, {**paso, "motivoFallo": cerrada}, None, "omitido")), "comprobacion_etapa")
+            return False
         self.almacen.mutar(lambda e: _estado_paso(e, it["id"], paso["id"], "en_curso"), "paso")
         if tipo == "indicacion":
             # La indicacion humana entra como contexto de los pasos que siguen.
@@ -2075,6 +2087,17 @@ class Supervisor:
                 return True
 
             self.almacen.mutar(fallar_paso, "paso")
+        # La comprobación de cierre de la etapa, en un solo sitio para todos los
+        # finales: el estado ya escrito manda (sin_trabajo es sin_materia por
+        # definición, fallido es no_comprobable), y un paso que volvió a pendiente
+        # (presupuesto, parada, modelo que no responde) no cerró ninguna etapa y no se
+        # comprueba. Cuesta cero llamadas.
+        it_fin = next((x for x in self.almacen.estado["iteraciones"] if x["id"] == it["id"]), None)
+        paso_fin = next((p_ for p_ in (it_fin or {}).get("plan", []) if isinstance(p_, dict) and p_.get("id") == paso["id"]), None)
+        if paso_fin is not None:
+            comp = COMP.comprobar(tipo, antes, COMP.medir(self.almacen.estado, c["id"], c["investigacionId"]), paso_fin, paso_fin.get("detalle"), str(paso_fin.get("estado") or ""))
+            if comp:
+                self.almacen.mutar(lambda e: _fijar_comprobacion(e, it["id"], paso["id"], comp), "comprobacion_etapa")
         return False
 
     async def _revisar_registro(self, ctx: Ctx, inv: dict[str, Any], it: dict[str, Any], c: dict[str, Any], resumen: str, llano: dict[str, Any] | None) -> dict[str, Any]:
@@ -2294,6 +2317,14 @@ class Supervisor:
                 A.con_evento(e2, inv["id"], "aprendizaje", f"{nuevas_lecciones} {'lección nueva' if nuevas_lecciones == 1 else 'lecciones nuevas'} de la iteración {it['numero']}: lo que ROSA2018 no repetirá", f"#/investigaciones/{inv['id']}/investigacion", ahora)
             if revision["hallazgos"]:
                 A.con_evento(e2, inv["id"], "revision_registro", f"El revisor de registro encontró {len(revision['hallazgos'])} hallazgos en la iteración {it['numero']}: " + RR.resumen_revision(revision["hallazgos"])[:140], f"#/investigaciones/{inv['id']}/corrida", ahora)
+            # Comprobaciones de cierre por etapa: el recuento en la iteración y, solo en
+            # el caso extremo (ninguna etapa cumplió y al menos una falló), la pausa.
+            etapas = COMP.resumen_de_iteracion(it2)
+            it2["comprobacionEtapas"] = etapas
+            if etapas["fallan"] or etapas["noComprobables"]:
+                A.con_evento(e2, inv["id"], "etapa_incumplida", f"Iteración {it['numero']}: {etapas['resumen']}", f"#/investigaciones/{inv['id']}/corrida", ahora)
+            if etapas["vacia"]:
+                _pausar_por_etapas_en_vacio(e2, c["id"], f"ROSA2018 pausó la corrida ella misma: la iteración {it['numero']} cerró sin que ninguna etapa cumpliera y con al menos una fallando ({etapas['resumen']}). Seguir sería gastar en vacío. Mira el plan de la iteración, arregla lo que haga falta y reanuda.")
             # Bradley-Terry con intervalos sobre los partidos del torneo: es lo que
             # ordena a las candidatas; el Elo se queda como vista.
             bt = torneo.bradley_terry([x for x in e2["hipotesis"] if x["investigacionId"] == inv["id"]], semilla=it["numero"])
@@ -3457,6 +3488,28 @@ def motivo_de_pausa_por_presupuesto(e: dict[str, Any], c: dict[str, Any], tope: 
     return f"La corrida agotó su tope de {limite} llamadas ({gasto} gastadas): se pausó. Amplía el tope para seguir."
 
 
+def _pausar_por_etapas_en_vacio(e: dict[str, Any], corrida_id: str, motivo: str) -> bool:
+    """ROSA2018 se pausa a sí misma cuando una iteración cierra sin que NINGUNA
+    etapa haya cumplido y con al menos una fallando: seguir es gastar en vacío.
+
+    No bloquea el cierre, que es donde se escriben el resumen, las conclusiones y
+    el revisor: bloquearlo esconderría el fallo y dejaría la corrida clavada sin
+    registro. Bloquea lo siguiente que costaría dinero. En las 50 iteraciones
+    guardadas el caso ocurre exactamente una vez, la iteración en la que el cerebro
+    devolvió un error de facturación del gateway y las cinco etapas siguientes
+    giraron en vacío mientras la corrida seguía como si nada. Una pausa cada
+    cincuenta iteraciones no molesta a nadie y ahorra justo la corrida que no vale.
+
+    La reanuda una persona con el botón que ya existe."""
+    c = next((x for x in e["corridas"] if x["id"] == corrida_id), None)
+    if not c or c["estado"] != "en_marcha":
+        return False
+    c["estado"] = "pausada"
+    c["motivoPausaPropia"] = motivo
+    A.con_evento(e, c["investigacionId"], "etapa_incumplida", motivo, f"#/investigaciones/{c['investigacionId']}/corrida", P.ahora_ms())
+    return True
+
+
 def _pausar_por_presupuesto(e: dict[str, Any], corrida_id: str, tope: str | None = None, motivo: str | None = None, detalle: str | None = None) -> bool:
     """Pausa la corrida por presupuesto con el motivo real. Una corrida detenida o
     terminada no se toca: la evaluación de un criterio o una revisión pedida
@@ -3662,6 +3715,20 @@ def _salir_de_esperando_modelo_sin_registro(e: dict[str, Any], corrida_id: str, 
     c["esperandoModelo"] = None
     A.con_evento(e, c["investigacionId"], "corrida_estado", f"La corrida {c['numero']} esperaba a un modelo sin registro de cuál: retoma y reintenta el paso pendiente", _ruta_corrida(c), ahora)
     return True
+
+
+def _fijar_comprobacion(e: dict[str, Any], iteracion_id: str, paso_id: str, comprobacion: dict[str, Any] | None) -> bool:
+    """La comprobación de cierre de una etapa, escrita en su paso del plan. No
+    toca el estado del paso: lo que dice es si la etapa produjo lo suyo, no si
+    terminó. Idempotente: la reescribe."""
+    it = next((x for x in e["iteraciones"] if x["id"] == iteracion_id), None)
+    if not it or not comprobacion:
+        return False
+    for p in it["plan"]:
+        if p["id"] == paso_id:
+            p["comprobacion"] = comprobacion
+            return True
+    return False
 
 
 def _estado_paso(e: dict[str, Any], iteracion_id: str, paso_id: str, estado: str, detalle: str | None = None, motivo: str | None = None) -> bool:

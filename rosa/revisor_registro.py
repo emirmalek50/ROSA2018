@@ -50,11 +50,17 @@ from typing import Any, Iterator
 from rosa import ontologias as ONT
 from rosa import progreso as PROG
 
-CLASES = ("calculo_no_ejecutado", "contradiccion_con_registro", "cita_sin_soporte", "identificador_no_coincide", "paso_incompleto", "conclusion_no_sigue", "cifra_fuera_de_contexto", "cuenta_que_no_cuadra")
+CLASES = ("calculo_no_ejecutado", "contradiccion_con_registro", "cita_sin_soporte", "identificador_no_coincide", "paso_incompleto", "conclusion_no_sigue", "cifra_fuera_de_contexto", "cuenta_que_no_cuadra", "etapa_incumplida")
 # Las que el juez puede emitir: `cifra_fuera_de_contexto` y `cuenta_que_no_cuadra`
-# salen solo de reglas (anclas y aritmética), y no se le ofrecen al modelo para
-# que no las use de comodín.
+# salen solo de reglas (anclas y aritmética), y `etapa_incumplida` sale de la
+# comprobación de cierre de `rosa/comprobaciones.py`. No se le ofrecen al modelo
+# para que no las use de comodín.
 CLASES_JUEZ = CLASES[:6]
+# Clases que NO se arreglan reescribiendo el texto. `etapa_incumplida` dice que una
+# etapa del plan corrió y no produjo lo suyo: reescribir el resumen para que lo
+# mencione dejaría la etapa igual de rota y el registro limpio, que es blanqueo por
+# prosa. La levanta una persona, o la arregla la iteración siguiente.
+CLASES_NO_REPARABLES_POR_TEXTO = ("etapa_incumplida",)
 
 _NUM = re.compile(r"(?<![\w.])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d{2,}(?:[.,]\d+)?|\d[.,]\d+|[.,]\d+)(?![\w])")
 _DOI = re.compile(r"10\.\d{4,9}/[^\s\]\)>,;]+", re.I)
@@ -396,6 +402,13 @@ def comprobaciones_deterministas(texto: str, corpus: dict[str, Any], it: dict[st
         sin_terminar = [p for p in it.get("plan", []) if p.get("estado") not in ("hecho", "omitido", "sin_trabajo")]
         if sin_terminar and not _RESERVA.search(texto or ""):
             hallazgos.append({"clase": "paso_incompleto", "gravedad": "media", "detalle": f"{len(sin_terminar)} pasos del plan sin terminar ({'; '.join(p.get('titulo', '')[:40] for p in sin_terminar[:3])}) y el resumen no lo dice", "origen": "regla"})
+        # Etapas que terminaron en verde y no produjeron lo suyo (rosa/comprobaciones.py).
+        # Clase propia y no una variante de `paso_incompleto`: esta no se arregla
+        # reescribiendo el resumen, y el revisor no debe aceptar que se cierre así.
+        incumplidas = [p for p in it.get("plan", []) if isinstance((p or {}).get("comprobacion"), dict) and p["comprobacion"].get("resultado") == "falla" and p.get("estado") == "hecho"]
+        if incumplidas:
+            detalle = "; ".join(f"{(p['comprobacion'].get('etapa') or '?')}: {(p['comprobacion'].get('detalle') or '')[:110]}" for p in incumplidas[:3])
+            hallazgos.append({"clase": "etapa_incumplida", "gravedad": "alta", "detalle": f"{len(incumplidas)} etapas del plan terminaron en verde sin producir lo suyo. {detalle}", "origen": "regla", "reparablePorTexto": False})
     return hallazgos
 
 

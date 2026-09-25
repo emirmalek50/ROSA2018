@@ -121,6 +121,7 @@ export const ESTADO_PASO: Record<EstadoPaso, string> = {
   hecho: 'Hecho',
   fallido: 'Fallido',
   omitido: 'Omitido',
+  sin_trabajo: 'Sin trabajo',
 };
 
 export const TIPO_PISTA: Record<TipoPista, string> = {
@@ -646,6 +647,7 @@ export const TIPO_EVENTO: Record<TipoEvento, string> = {
   dependencias: 'Recálculo por cambio de fuente',
   modelo_sin_respuesta: 'Modelo sin respuesta',
   modelo_recuperado: 'Modelo recuperado',
+  etapa_incumplida: 'Una etapa no produjo lo suyo',
 };
 
 export const PASO_RUTA: Record<PasoRutaTerapeutica, { etiqueta: string; orden: number }> = {
@@ -746,6 +748,7 @@ export const CLASE_HALLAZGO_REGISTRO: Record<string, string> = {
   conclusion_no_sigue: 'La conclusión no se sigue del método',
   cifra_fuera_de_contexto: 'Cifra dicha de otra cosa',
   cuenta_que_no_cuadra: 'Una cuenta que no sale',
+  etapa_incumplida: 'Una etapa que no produjo lo suyo',
 };
 
 /** Juicios de riesgo de sesgo por instrumento (RoB 2 y familia). */

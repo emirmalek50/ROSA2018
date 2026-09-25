@@ -592,6 +592,10 @@ export interface Corrida {
   gasto: Gasto;
   /** Motivo por el que se detuvo o termino, si aplica. */
   motivoCierre: string | null;
+  /** Por qué ROSA2018 pausó la corrida ella misma (no una persona): la iteración
+   *  cerró sin que ninguna etapa cumpliera y con al menos una fallando, así que
+   *  seguir es gastar en vacío. La reanuda una persona con el botón. */
+  motivoPausaPropia?: string | null;
   presupuesto: PresupuestoGlobal;
   contexto: Contexto;
   busqueda: FlujoBusqueda;
@@ -654,7 +658,7 @@ export interface ProgresoIteracion {
   hipotesisVivas: number;
   hechosNuevos: number;
   hipotesisNuevas: number;
-  fallidos: { pasos: number; pistas: number; killer: number; afirmacionesBloqueadas: number };
+  fallidos: { pasos: number; pistas: number; killer: number; afirmacionesBloqueadas: number; sinTrabajo?: number };
   usdAcumulado: number;
   llamadasAcumuladas: number;
   arnes: string | null;
@@ -670,11 +674,14 @@ export interface MetricaCorrida {
   hipotesisEnBajaOMas: number;
   hechosNuevos: number;
   hipotesisNuevas: number;
-  fallidos: { pasos: number; pistas: number; killer: number; afirmacionesBloqueadas: number };
+  fallidos: { pasos: number; pistas: number; killer: number; afirmacionesBloqueadas: number; sinTrabajo?: number };
   banco: { objetivo: string; puntuacion: number | null; criterios: Record<string, number | null> } | null;
 }
 
-export type EstadoPaso = 'pendiente' | 'en_curso' | 'hecho' | 'fallido' | 'omitido';
+/** 'sin_trabajo' es un paso que corrió y no tenia nada sobre lo que trabajar
+ *  (sin fuentes nuevas, nada que verificar). No es un fallo: el backend lo
+ *  escribe desde M-23 y la interfaz no lo declaraba. */
+export type EstadoPaso = 'pendiente' | 'en_curso' | 'hecho' | 'fallido' | 'omitido' | 'sin_trabajo';
 
 /** Un paso del plan de la iteracion. Se marca segun avanza. Un paso
  *  fallido lleva su motivo, como la lista de control de Biomni. */
@@ -694,6 +701,27 @@ export interface PasoPlan {
   /** Predicción escrita antes de buscar y qué se concluye si no aparece (pasos de literatura y ensayos). */
   espera?: string;
   siNoAparece?: string;
+  /** Tipo de etapa (literatura, extraccion, verificacion...) tal como lo dedujo el
+   *  servidor para elegir la herramienta. */
+  tipo?: string;
+  /** La comprobación de cierre de la etapa (rosa/comprobaciones.py), por regla y
+   *  sin ningún modelo. El estado dice si el paso terminó; esto dice si sirvió. */
+  comprobacion?: ComprobacionEtapa;
+}
+
+/** Lo que dice una comprobación de cierre de etapa. `sinMateria` no es un fallo:
+ *  la etapa corrió y no tenía nada sobre lo que trabajar. `noComprobable` es la
+ *  regla de la casa: una fuente que no respondió es "no pude comprobar", nunca
+ *  "no hay". */
+export interface ComprobacionEtapa {
+  etapa: string;
+  resultado: 'pasa' | 'sin_materia' | 'falla' | 'no_comprobable';
+  detalle: string;
+  /** Solo lo que se movió en el estado con este paso. */
+  medida: Record<string, number>;
+  /** La etapa cumplió, pero algo merece mirarse (ninguna fuente nueva, la mitad
+   *  de lo verificado bloqueado, solo partidos recalentados). */
+  aviso?: string;
 }
 
 export type TipoPista = 'literatura' | 'ensayos' | 'grafo' | 'extraccion' | 'verificacion' | 'novedad' | 'modelo' | 'replicacion';
@@ -751,6 +779,20 @@ export interface Iteracion {
   resumenLlano?: ResumenLlano | null;
   /** El revisor de registro al cerrar la iteracion. */
   revisionRegistro?: RevisionRegistro | null;
+  /** Recuento de las comprobaciones de cierre por etapa (rosa/comprobaciones.py). */
+  comprobacionEtapas?: ResumenComprobaciones | null;
+}
+
+/** Cuántas etapas del plan cumplieron, cuántas no tenían nada que hacer y cuántas
+ *  fallaron. `vacia` es el caso extremo: ninguna cumplió y al menos una falló, y
+ *  entonces ROSA2018 pausa la corrida ella misma. */
+export interface ResumenComprobaciones {
+  pasan: number;
+  sinMateria: number;
+  fallan: number;
+  noComprobables: number;
+  resumen: string;
+  vacia: boolean;
 }
 
 /** Un termino tecnico con su explicacion en una frase. */
@@ -1949,7 +1991,7 @@ export interface ProcedenciaArtefacto {
  *  dijo con lo que el registro prueba. Las dos últimas salen solo de reglas,
  *  nunca del juez: `cifra_fuera_de_contexto` (una cifra dicha de otra cosa) y
  *  `cuenta_que_no_cuadra` (una cifra derivada que no sale de las del texto). */
-export type ClaseHallazgoRegistro = 'calculo_no_ejecutado' | 'contradiccion_con_registro' | 'cita_sin_soporte' | 'identificador_no_coincide' | 'paso_incompleto' | 'conclusion_no_sigue' | 'cifra_fuera_de_contexto' | 'cuenta_que_no_cuadra';
+export type ClaseHallazgoRegistro = 'calculo_no_ejecutado' | 'contradiccion_con_registro' | 'cita_sin_soporte' | 'identificador_no_coincide' | 'paso_incompleto' | 'conclusion_no_sigue' | 'cifra_fuera_de_contexto' | 'cuenta_que_no_cuadra' | 'etapa_incumplida';
 
 export interface HallazgoRegistro {
   id?: string;
@@ -1961,6 +2003,10 @@ export interface HallazgoRegistro {
   respuesta?: string;
   resueltoPor?: string;
   resueltoEn?: number;
+  /** false cuando el hallazgo no se arregla reescribiendo el texto: una etapa
+   *  del plan que corrió y no produjo lo suyo sigue rota por muy bien que se
+   *  cuente. Lo levanta una persona. */
+  reparablePorTexto?: boolean;
 }
 
 export interface RevisionRegistro {
@@ -2104,7 +2150,8 @@ export type TipoEvento =
   | 'revision_registro'
   | 'dependencias'
   | 'modelo_sin_respuesta'
-  | 'modelo_recuperado';
+  | 'modelo_recuperado'
+  | 'etapa_incumplida';
 
 export interface Evento {
   id: Id;

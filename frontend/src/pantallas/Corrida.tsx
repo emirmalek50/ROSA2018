@@ -306,9 +306,12 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                 <IconPause size={13} /> Pausar
               </button>
             ) : corrida.estado === 'pausada' ? (
-              <button type="button" className="btn btn-primario" disabled={corridaEnVuelo} {...atributosEnVuelo(corridaEnVuelo)} onClick={envolverCorrida(() => acciones.reanudarCorrida(corrida.id))}>
-                <IconPlay size={13} /> Reanudar
-              </button>
+              <>
+                <button type="button" className="btn btn-primario" disabled={corridaEnVuelo} {...atributosEnVuelo(corridaEnVuelo)} onClick={envolverCorrida(() => acciones.reanudarCorrida(corrida.id))}>
+                  <IconPlay size={13} /> Reanudar
+                </button>
+                {corrida.motivoPausaPropia && <p className="pausa-propia">{corrida.motivoPausaPropia}</p>}
+              </>
             ) : null}
             <Confirmar
               etiqueta="Detener"

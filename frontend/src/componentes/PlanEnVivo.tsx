@@ -23,7 +23,7 @@ function IconoPaso({ paso }: { paso: PasoPlan }) {
   if (paso.estado === 'hecho') return <IconCheck size={12} />;
   if (paso.estado === 'fallido') return <IconAlert size={12} />;
   if (paso.indicacionHumana) return <IconUser size={12} />;
-  if (paso.estado === 'omitido') return <IconMinus size={12} />;
+  if (paso.estado === 'omitido' || paso.estado === 'sin_trabajo') return <IconMinus size={12} />;
   return <span className="mono" style={{ fontSize: 10 }} />;
 }
 
@@ -216,10 +216,18 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
                 <span className={paso.estado === 'en_curso' ? 'shimmer-text' : ''}>{paso.titulo}</span>
                 {paso.indicacionHumana && <Chip tono="acento">Indicación tuya</Chip>}
                 {paso.estado === 'fallido' && <Chip tono="mal">Fallido</Chip>}
+                {paso.estado === 'sin_trabajo' && <Chip tono="borde">Sin trabajo</Chip>}
+                {paso.comprobacion && paso.comprobacion.resultado !== 'pasa' && (
+                  <Chip tono={paso.comprobacion.resultado === 'falla' ? 'mal' : 'aviso'}>
+                    {paso.comprobacion.resultado === 'falla' ? 'La etapa no produjo nada' : paso.comprobacion.resultado === 'no_comprobable' ? 'No se pudo comprobar' : 'Sin materia'}
+                  </Chip>
+                )}
                 {paso.presupuesto !== null && <span className="meta">hasta {paso.presupuesto} llamadas</span>}
               </div>
               {paso.detalle !== '' && <p className="paso-detalle">{paso.detalle}</p>}
               {paso.motivoFallo && <p className="paso-fallo">{paso.motivoFallo}</p>}
+              {paso.comprobacion && paso.comprobacion.resultado !== 'pasa' && <p className="paso-fallo">{paso.comprobacion.detalle}</p>}
+              {paso.comprobacion?.aviso && <p className="meta">{paso.comprobacion.aviso}</p>}
               {pistas.length > 0 && (
                 <div className="pistas">
                   {pistas.map((p) => (

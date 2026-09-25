@@ -78,6 +78,16 @@ def generar_al_cerrar(e: dict[str, Any], c: dict[str, Any], it: dict[str, Any], 
         if p_.get("estado") in ("fallido", "omitido"):
             racha = "; ya había fallado en la iteración anterior" if p_["titulo"] in fallidos_previos else ""
             add("plan", f"El paso «{p_['titulo'][:80]}» ({p_.get('tipo') or 'paso'}) quedó {p_['estado']}: {(p_.get('motivoFallo') or 'sin motivo registrado')[:200]}{racha}", f"paso:{p_.get('id')}")
+    # Etapas que corrieron, quedaron en verde y no produjeron lo suyo: la
+    # comprobación de cierre (rosa/comprobaciones.py) es lo único que lo ve. La
+    # lección entra en los prompts de consultas y de hipótesis de la iteración
+    # siguiente, así que el planificador aprende sin pagar ninguna llamada de más.
+    for p_ in it.get("plan", []):
+        comp = p_.get("comprobacion") if isinstance(p_, dict) else None
+        if not isinstance(comp, dict) or comp.get("resultado") not in ("falla", "no_comprobable") or p_.get("estado") not in ("hecho", "sin_trabajo"):
+            continue
+        que = "tenía materia y no produjo nada" if comp["resultado"] == "falla" else "no se pudo comprobar"
+        add("plan", f"La etapa de {comp.get('etapa')} del paso «{p_['titulo'][:70]}» terminó en verde pero {que}: {(comp.get('detalle') or '')[:200]}", f"etapa:{p_.get('id')}")
     for pi in it.get("pistas", []):
         if pi.get("estado") == "fallida":
             add("plan", f"La pista «{pi['titulo'][:80]}» ({pi.get('tipo')}, {pi.get('fuente')}) falló: {(pi.get('resumen') or '')[:200]}", f"pista:{pi.get('id')}")
@@ -104,7 +114,7 @@ def generar_al_cerrar(e: dict[str, Any], c: dict[str, Any], it: dict[str, Any], 
             fallan = [x.get("comprobacion") for x in d.get("comprobaciones", []) if x.get("resultado") == "falla"]
             add("hipotesis", f"«{titulos.get(d.get('hipotesisId'), d.get('hipotesisId'))[:80]}» cerrada por el Killer ({str(d.get('decision')).replace('_', ' ')}): fallaron {', '.join(str(x).replace('_', ' ') for x in fallan) or 'sin comprobaciones fallidas registradas'}. Haría falta: {(d.get('queHariaFalta') or 'no registrado')[:160]}", f"decision:{d.get('id')}")
     # Ideas retiradas del vivero.
-    inv = next((i for i in e.get("investigaciones", []) if i["id"] == inv_id), {})
+    inv: dict[str, Any] = next((i for i in e.get("investigaciones", []) if i["id"] == inv_id), {})
     for s in inv.get("viveroRetiradas") or []:
         if int(s.get("retiradaEn") or 0) >= desde:
             add("hipotesis", f"La idea «{s['titulo'][:80]}» salió del vivero sin nacer: {(s.get('motivo') or '')[:160]}", f"vivero:{s.get('id')}")

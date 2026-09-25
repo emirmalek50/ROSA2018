@@ -949,7 +949,8 @@ pre {
   color: var(--accent);
 }
 
-.paso-omitido .paso-icono {
+.paso-omitido .paso-icono,
+.paso-sin_trabajo .paso-icono {
   opacity: 0.5;
 }
 
@@ -2309,6 +2310,16 @@ pre {
   font-size: 12.5px;
   border-left: 2px solid var(--red);
   padding-left: 8px;
+}
+
+/* Por qué ROSA2018 se pausó a sí misma: ninguna etapa de la iteración cumplió. */
+.pausa-propia {
+  color: var(--amber);
+  font-size: 12.5px;
+  border-left: 2px solid var(--amber);
+  padding-left: 8px;
+  margin: 0;
+  max-width: 60ch;
 }
 
 .pista-detenida i {
