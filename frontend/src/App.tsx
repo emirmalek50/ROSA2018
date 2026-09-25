@@ -68,7 +68,6 @@ import { Artefactos } from './pantallas/Artefactos';
 import { Atlas, EsqueletoAtlas } from './pantallas/Atlas';
 import { Citas } from './pantallas/Citas';
 import { Mecanismos } from './pantallas/Mecanismos';
-import { Desbloqueo } from './pantallas/Desbloqueo';
 import { Calidad } from './pantallas/Calidad';
 import { Corrida } from './pantallas/Corrida';
 import { Hipotesis } from './pantallas/Hipotesis';
@@ -88,7 +87,6 @@ const TITULO_PANTALLA = {
   arbol: 'Árbol de la investigación',
   atlas: 'Atlas de la enfermedad',
   mecanismos: 'Mecanismos',
-  desbloqueo: 'Qué desbloquea más',
   citas: 'Citas',
   artefactos: 'Artefactos',
   calidad: 'Calidad',
@@ -237,8 +235,6 @@ export default function App() {
         case 'mecanismos':
           pantalla = <Mecanismos key={inv.id} inv={inv} estado={estado} />;
           break;
-        case 'desbloqueo':
-          pantalla = <Desbloqueo key={inv.id} inv={inv} estado={estado} />;
           break;
         case 'citas':
           pantalla = <Citas key={inv.id} inv={inv} estado={estado} />;

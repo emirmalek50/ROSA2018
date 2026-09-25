@@ -10,9 +10,9 @@
 //   #/investigaciones/<id>/artefactos/<artefactoId>
 //   #/ajustes
 
-export type Pantalla = 'corrida' | 'hipotesis' | 'ranking' | 'panorama' | 'mundo' | 'arbol' | 'atlas' | 'mecanismos' | 'desbloqueo' | 'citas' | 'artefactos' | 'calidad' | 'investigacion';
+export type Pantalla = 'corrida' | 'hipotesis' | 'ranking' | 'panorama' | 'mundo' | 'arbol' | 'atlas' | 'mecanismos' | 'citas' | 'artefactos' | 'calidad' | 'investigacion';
 
-export const PANTALLAS: Pantalla[] = ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'atlas', 'mecanismos', 'desbloqueo', 'citas', 'artefactos', 'calidad', 'investigacion'];
+export const PANTALLAS: Pantalla[] = ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'atlas', 'mecanismos', 'citas', 'artefactos', 'calidad', 'investigacion'];
 
 export type Ruta =
   | { tipo: 'inicio' }
@@ -38,7 +38,11 @@ export function parsearRuta(hash: string): Ruta {
   if (partes[0] === 'nueva') return { tipo: 'nueva' };
   if (partes[0] === 'ajustes') return { tipo: 'ajustes' };
   if (partes[0] === 'investigaciones' && partes[1]) {
-    const pantalla = partes[2] ?? 'corrida';
+    // "Qué desbloquea más" se retiró el 25 de septiembre de 2026 (a petición de
+    // Emir: ya hay bastantes apartados que dicen si una hipótesis es buena). Un
+    // enlace guardado a esa pantalla lleva a las hipótesis de la misma
+    // investigación en vez de a la página de inicio.
+    const pantalla = partes[2] === 'desbloqueo' ? 'hipotesis' : (partes[2] ?? 'corrida');
     if (!esPantalla(pantalla)) return { tipo: 'inicio' };
     return {
       tipo: 'investigacion',

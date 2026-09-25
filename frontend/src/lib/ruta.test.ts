@@ -50,3 +50,11 @@ describe('parsearRuta con URL rota', () => {
     expect(parsearRuta('#/investigaciones/%E0%A4%A/corrida')).toEqual({ tipo: 'inicio' });
   });
 });
+
+describe('pantallas retiradas', () => {
+  it('un enlace guardado a "Qué desbloquea más" lleva a las hipótesis de la misma investigación', () => {
+    // Se retiró el 25 de septiembre de 2026; los datos siguen en el estado.
+    expect(parsearRuta('#/investigaciones/inv-1/desbloqueo')).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'hipotesis', detalleId: null });
+    expect(parsearRuta('#/investigaciones/inv-1/desbloqueo/hip-3')).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'hipotesis', detalleId: 'hip-3' });
+  });
+});

@@ -46,8 +46,11 @@ Por eso cada evaluación deja un sello público en la hipótesis,
   marca real (`reconciliar`), así que no se queda colgada.
 - `noAtendida`: por qué no se pudo hacer (la corrida sin presupuesto).
 
-La pantalla "Qué desbloquea más" (frontend/src/lib/desbloqueo.ts) aplica la
-misma regla que `vigencia` en el navegador.
+`vigencia` en frontend/src/lib/desbloqueo.ts aplica la misma regla en el
+navegador. La pantalla "Qué desbloquea más" que la enseñaba se retiró el 25 de
+septiembre de 2026 (ya hay bastantes apartados que dicen si una hipótesis es
+buena); la regla y los datos siguen, porque los usan las acciones y la ficha de
+cada hipótesis.
 """
 
 from __future__ import annotations
