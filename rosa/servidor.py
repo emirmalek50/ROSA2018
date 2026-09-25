@@ -372,13 +372,19 @@ def crear_app(almacen: Almacen) -> FastAPI:
         cola = almacen.suscribir()
 
         async def generar():
-            # La versión que este cliente ya recibió: un aviso que no traiga
-            # versión nueva (un cambio de avisos, un despertar tardío) no vuelve
-            # a mandar los mismos 10 MB (S-17).
+            # El flujo solo AVISA de que hay una versión nueva; el estado se lo baja
+            # el navegador con GET /api/estado, que va comprimido (25 de septiembre de
+            # 2026). Antes cada evento llevaba el estado entero: 16 MB sin comprimir,
+            # porque la compresión no se aplica a text/event-stream. En el Mac no se
+            # notaba; por un túnel a 1 MB por segundo cada evento tardaba más que los
+            # 45 segundos del vigilante de la interfaz, que cerraba el flujo y abría
+            # otro, que volvía a empezar los 16 MB: la primera persona que entró desde
+            # fuera se quedó cargando para siempre. La versión que este cliente ya
+            # recibió sigue sin repetirse (S-17).
             ultima_enviada = -1
             try:
                 ultima_enviada = almacen.version
-                yield {"event": "estado", "id": str(ultima_enviada), "data": await estado_json_de(request), "retry": 2000}
+                yield {"event": "version", "id": str(ultima_enviada), "data": "", "retry": 2000}
                 while True:
                     if request.state.usuario and not app.state.acceso.usuario(request.cookies.get(COOKIE)):
                         break
@@ -401,7 +407,9 @@ def crear_app(almacen: Almacen) -> FastAPI:
                     if version == ultima_enviada and not forzar:
                         continue
                     ultima_enviada = version
-                    yield {"event": "estado", "id": str(version), "data": await estado_json_de(request)}
+                    # `forzar`: cambiaron los avisos de la persona, que no viven en el
+                    # estado; el navegador vuelve a pedirlo aunque la versión sea la misma.
+                    yield {"event": "version", "id": str(version), "data": "forzar" if forzar else ""}
             finally:
                 almacen.desuscribir(cola)
 

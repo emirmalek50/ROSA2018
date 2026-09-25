@@ -214,6 +214,10 @@ export function Acceso({ children }: { children: ReactNode }) {
   const [mensaje, setMensaje] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const conectado = useRef(false);
+  // La carga inicial en curso: la comprobación de sesión se repite cada 30
+  // segundos, y por un enlace lento la carga puede tardar más; sin esto se
+  // lanzaban dos descargas del estado a la vez.
+  const conectando = useRef<Promise<unknown> | null>(null);
   const reducido = useMovimientoReducido();
   useEffect(() => {
     // Los enlaces antiguos dejan de ser una vía de acceso y no quedan en URL.
@@ -228,7 +232,12 @@ export function Acceso({ children }: { children: ReactNode }) {
           return;
         }
         if (s.correo && !conectado.current) {
-          await conectar(false);
+          if (!conectando.current) {
+            conectando.current = conectar(false).finally(() => {
+              conectando.current = null;
+            });
+          }
+          await conectando.current;
           conectado.current = true;
         }
         if (vivo) setSesion(s);

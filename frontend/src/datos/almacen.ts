@@ -392,6 +392,46 @@ export async function reintentarConexion(): Promise<boolean> {
   }
 }
 
+/* El flujo en tiempo real solo avisa de que hay una versión nueva (25 de
+   septiembre de 2026); el estado se baja aparte con GET /api/estado, que va
+   comprimido: 4,3 MB en vez de los 16 MB sin comprimir que llevaba cada evento.
+   Por un túnel a 1 MB por segundo, un evento de 16 MB tardaba más que los 45
+   segundos del vigilante, que cerraba el flujo y abría otro que volvía a empezar:
+   la primera persona que entró desde fuera se quedó cargando para siempre. Nunca
+   hay dos descargas a la vez: si llega otro aviso mientras se baja una, se pide
+   una sola vez más al terminar, con una pausa para no encadenarlas sin respiro
+   durante una corrida, que cambia el estado cada pocos segundos. */
+let descargaEnCurso = false;
+let otraDescarga = false;
+const PAUSA_ENTRE_DESCARGAS_MS = 2000;
+
+function pedirEstado(): void {
+  if (descargaEnCurso) {
+    otraDescarga = true;
+    return;
+  }
+  descargaEnCurso = true;
+  void (async () => {
+    try {
+      const r = await fetch(conToken(`${API}/estado`), { cache: 'no-store', headers: cabeceras(false) });
+      if (r.ok) {
+        const cuerpo = (await r.json()) as EstadoRosa;
+        const version = versionDe(r.headers.get('X-Rosa-Version'));
+        if (version === null || version >= vivo.version) recibirRemoto(cuerpo, version);
+        if (vivo.estado.conexion !== 'en_linea') aplicar((e) => ({ ...e, conexion: 'en_linea' }));
+      }
+    } catch {
+      if (vivo.estado.conexion !== 'sin_conexion') aplicar((e) => ({ ...e, conexion: 'sin_conexion' }));
+    } finally {
+      descargaEnCurso = false;
+      if (otraDescarga) {
+        otraDescarga = false;
+        window.setTimeout(pedirEstado, PAUSA_ENTRE_DESCARGAS_MS);
+      }
+    }
+  })();
+}
+
 function abrirEventos(): void {
   if (retirado) return;
   if (fuenteEventos) fuenteEventos.close();
@@ -402,6 +442,15 @@ function abrirEventos(): void {
     ultimaSenal = Date.now();
     if (vivo.estado.conexion !== 'en_linea') aplicar((e) => ({ ...e, conexion: 'en_linea' }));
   });
+  es.addEventListener('version', (ev) => {
+    ultimaSenal = Date.now();
+    const m = ev as MessageEvent;
+    const version = versionDe(m.lastEventId);
+    // Solo se baja lo que no se tiene: la primera versión del flujo suele ser la que
+    // ya trajo la carga inicial. "forzar": cambiaron los avisos de la persona.
+    if (m.data === 'forzar' || version === null || version > vivo.version) pedirEstado();
+  });
+  // Un servidor anterior al 25 de septiembre de 2026 manda el estado dentro del evento.
   es.addEventListener('estado', (ev) => {
     ultimaSenal = Date.now();
     try {
