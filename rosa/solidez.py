@@ -40,7 +40,8 @@ from rosa import priorizacion
 # guardado, y conviene saber por qué antes de confiar en ella. A una hipótesis
 # solo se le atan afirmaciones sostenidas o parciales
 # (`evidencia.afirmaciones_nuevas`), y la réplica que baja un veredicto lo hace
-# sobre copias (`corrida._preparar_copias_replica`, línea 2727: `dict(a, ...)`),
+# sobre copias (`corrida._preparar_copias_replica`, la línea que hace `copias =
+# [dict(a, ...)]`; sin número, que los números de línea se pudren),
 # así que hoy nada degrada en el sitio el veredicto de una afirmación ya atada:
 # las 250 atadas están en "sostenida" o "parcial". La regla queda porque es la
 # que sostiene el caso cuando eso cambie (una escritura de vuelta de la réplica,
