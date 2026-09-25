@@ -34,6 +34,15 @@ class PasoPropuesto(BaseModel):
     si_no_aparece: str = Field(default="", description="Solo en pasos de literatura o ensayos: qué se concluye si no aparece (por ejemplo 'la hipótesis sigue en una sola cohorte, certeza baja'), escrito antes de buscar")
     tipo: Literal["literatura", "ensayos", "extraccion", "verificacion", "novedad", "modelo", "hipotesis", "analisis", "meta"] = Field(description="Qué herramienta de ROSA2018 ejecuta el paso. `análisis` solo si la investigación tiene datasets aprobados: ejecuta la predicción falsable de las hipótesis contra los datos en el sandbox")
     presupuesto: int = Field(description="Llamadas al modelo que se permite gastar", ge=1, le=80)
+    tarea_id: str = Field(default="", description="Si este paso ejecuta una tarea de la cola de triaje, su identificador tal como viene en la entrada. Vacío si el paso no viene de una tarea")
+
+
+class TareaNoProgramada(BaseModel):
+    """Una tarea de la cola que el plan deja fuera, con el motivo por escrito. Es lo
+    que impide enterrar la cola: dejarla fuera es una decisión que hay que defender."""
+
+    tarea_id: str = Field(description="El identificador de la tarea, tal como viene en la entrada")
+    motivo: str = Field(description="Por qué no entra en este plan, en una frase concreta (no 'no es prioritaria')")
 
 
 class Consulta(BaseModel):
@@ -207,7 +216,13 @@ class ProponerPlan(dspy.Signature):
     cohorte, datos reales, réplica) y el vivero trae ideas que aún no nacen y qué les
     falta: los pasos de literatura se justifican por el peldaño o la idea que atacan
     (por ejemplo, buscar en ADNI o A4 lo que BIOCARD ya mostró), y el paso de hipótesis
-    se pide para enlazar y madurar evidencia, no para multiplicar hipótesis."""
+    se pide para enlazar y madurar evidencia, no para multiplicar hipótesis.
+
+    La cola de triaje (`tareas_aceptadas`) es trabajo que ROSA2018 misma pidió abrir al
+    ver algo que el plan anterior no cubría. No es opcional decidir sobre ella: cada
+    tarea o entra como un paso, con su `tarea_id`, o sale en `tareas_no_programadas`
+    con un motivo concreto. Una tarea que nadie programa ni explica se queda en la cola
+    y caduca sola a las dos iteraciones, así que enterrarla solo retrasa el trabajo."""
 
     objetivo: str = dspy.InputField()
     relevancia: str = dspy.InputField(desc="Qué cuenta como relevante para la investigadora")
@@ -221,7 +236,9 @@ class ProponerPlan(dspy.Signature):
     hipotesis_vivas: str = dspy.InputField(desc="Las hipótesis en competencia con su certeza, dirección, lo más frágil y que las subiría o bajaría")
     datasets_disponibles: str = dspy.InputField(desc="Registro de datasets del programa que coinciden con la pregunta (accession, tipo, acceso, con qué términos coinciden); los de acceso controlado no se proponen para análisis, el proyecto no los pide. Un paso de análisis solo se propone sobre un dataset abierto de está lista o uno aprobado por la investigadora")
     numero_iteracion: int = dspy.InputField()
+    tareas_aceptadas: str = dspy.InputField(desc="La cola de triaje: trabajos que un paso, el revisor o la investigadora pidieron abrir, cada uno con su identificador, qué se vio, qué se haría y con qué herramienta. Hay que decidir sobre TODAS: o se programa un paso con su `tarea_id`, o se explica en `tareas_no_programadas` por qué no entra")
     plan: list[PasoPropuesto] = dspy.OutputField()
+    tareas_no_programadas: list[TareaNoProgramada] = dspy.OutputField(desc="Una por cada tarea de la cola que este plan NO programa, con el motivo escrito. Vacío solo si se programaron todas o la cola estaba vacía")
 
 
 class GenerarConsultas(dspy.Signature):
@@ -302,6 +319,25 @@ class JuzgarAfirmacion(dspy.Signature):
     veredicto: VeredictoJuez = dspy.OutputField()
 
 
+class TareaPropuesta(BaseModel):
+    """Trabajo que ROSA2018 pide abrir porque vio algo que no estaba en el plan.
+
+    Del arnés de Yoon y otros (2026): 98 de sus 119 tareas las abrieron los propios
+    agentes, y el descubrimiento que el artículo destaca salió de una tarea que un
+    worker abrió DESPUÉS de rechazar lo que investigaba. Aquí el sitio equivalente es
+    el generador de hipótesis: una propuesta que no cita afirmaciones sostenidas se
+    descarta en silencio y lo que se vio se pierde.
+
+    Una cola de triaje por regla la acepta o la rechaza, y el rechazo lleva siempre
+    motivo escrito. Una propuesta sin «qué haría» se rechaza sola, así que no vale
+    describir lo que se vio y dejar ahí la frase."""
+
+    que_vio: str = Field(description="La observación concreta, con la cifra, el identificador o la cita que la sostiene. Sin esto no se puede juzgar")
+    que_haria: str = Field(description="La acción que lo comprobaría, en una frase. Sin esto la propuesta se rechaza")
+    por_que: str = Field(description="Qué decisión de la investigación cambiaría según el resultado")
+    herramienta: Literal["literatura", "ensayos", "extraccion", "verificacion", "novedad", "modelo", "hipotesis", "analisis", "meta"] = Field(description="Con qué herramienta de ROSA2018 se haría")
+
+
 class ActualizarModeloDeMundo(dspy.Signature):
     """Actualizar el modelo de mundo con las afirmaciones sostenidas de la iteración.
     Proponer hechos nuevos (solo con respaldo en afirmaciones sostenidas, indicando cuales)
@@ -319,6 +355,7 @@ class ActualizarModeloDeMundo(dspy.Signature):
     hechos_existentes: str = dspy.InputField(desc="Hechos sabidos del modelo de mundo, numerados, a los que puede referirse `sustituye` y `contradice`")
     cuestiones_abiertas: str = dspy.InputField(desc="Cuestiones abiertas de la investigación, numeradas, con lo que las resolvería; a ellas se refiere `resuelve`")
     hechos: list[HechoPropuesto] = dspy.OutputField()
+    tareas: list[TareaPropuesta] = dspy.OutputField(desc="De 0 a 2 trabajos que haría falta abrir por algo que se vio al integrar y que el plan no cubría. Vacío es la respuesta normal")
 
 
 class GenerarHipotesis(dspy.Signature):
@@ -344,6 +381,7 @@ class GenerarHipotesis(dspy.Signature):
     lecciones: str = dspy.InputField(desc="Lo que la investigación aprendió a no repetir sobre hipótesis: qué cerró el Killer y por qué, qué ideas salieron del vivero")
     criterios_revision: str = dspy.InputField()
     hipotesis: list[HipotesisPropuesta] = dspy.OutputField()
+    tareas: list[TareaPropuesta] = dspy.OutputField(desc="De 0 a 2 trabajos que haría falta abrir por algo que se vio al generar, INCLUIDO lo que se vio en una propuesta que se acabó descartando. Vacío es la respuesta normal")
 
 
 class RevisarInicial(dspy.Signature):
@@ -1166,6 +1204,7 @@ class HallazgoRegistro(BaseModel):
 class RevisionRegistro(BaseModel):
     hallazgos: list[HallazgoRegistro] = Field(description="Vacío si todo lo que el texto afirma está en el registro")
     resumen: str = Field(description="Una frase: que se comprobó y que se encontró")
+    tareas: list[TareaPropuesta] = Field(default_factory=list, description="De 0 a 2 trabajos que haría falta abrir por algo que se vio revisando el registro y que no es un hallazgo (un hueco, una comprobación que nadie hizo). Vacío es lo normal")
 
 
 class RevisarRegistro(dspy.Signature):

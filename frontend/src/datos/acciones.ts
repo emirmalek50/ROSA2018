@@ -702,8 +702,21 @@ export function resolverHallazgoRegistro(estado: EstadoRosa, iteracionId: string
   const it = estado.iteraciones.find((i) => i.id === iteracionId);
   if (!it?.revisionRegistro || !it.revisionRegistro.hallazgos.some((h) => h.id === hallazgoId)) return estado;
   const hallazgos = it.revisionRegistro.hallazgos.map((h) => (h.id === hallazgoId ? { ...h, estado: nuevoEstado, respuesta: respuesta.trim().slice(0, 400), resueltoPor: quien.trim() || 'persona', resueltoEn: ahora } : h));
-  const revision = { ...it.revisionRegistro, hallazgos, estado: hallazgos.some((h) => (h.estado ?? 'abierto') === 'abierto') ? ('con_hallazgos' as const) : ('limpia' as const) };
+  // 'rebatido' cuenta como abierto: la rebatida la escribe quien escribió el texto.
+  const revision = { ...it.revisionRegistro, hallazgos, estado: hallazgos.some((h) => ['abierto', 'rebatido'].includes(h.estado ?? 'abierto')) ? ('con_hallazgos' as const) : ('limpia' as const) };
   return { ...estado, iteraciones: estado.iteraciones.map((i) => (i.id === iteracionId ? { ...i, revisionRegistro: revision } : i)) };
+}
+
+/** Misma regla que `decidir_tarea`: una persona acepta o rechaza una tarea de la
+ *  cola de triaje, y el rechazo pide motivo. */
+export function decidirTarea(estado: EstadoRosa, tareaId: string, nuevoEstado: 'aceptada' | 'rechazada', motivo: string, quien: string, ahora: number): EstadoRosa {
+  const t = (estado.tareas ?? []).find((x) => x.id === tareaId);
+  if (!t || t.estado === 'hecha' || t.estado === 'programada') return estado;
+  if (nuevoEstado === 'rechazada' && !motivo.trim()) return estado;
+  const firma = quien.trim() || 'persona';
+  const texto = motivo.trim() ? `${firma}: ${motivo.trim().slice(0, 280)}` : `${firma} la aceptó`;
+  const nueva = { ...t, estado: nuevoEstado, motivo: texto, quien: firma, historial: [...t.historial, { estado: nuevoEstado, motivo: texto, fecha: ahora }] };
+  return { ...estado, tareas: (estado.tareas ?? []).map((x) => (x.id === tareaId ? nueva : x)) };
 }
 
 export const NIVELES_PERMISO_CONECTOR: NivelPermisoConector[] = ['permitir', 'solo_persona', 'bloquear'];

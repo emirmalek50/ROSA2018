@@ -92,6 +92,10 @@ def estado_inicial() -> dict[str, Any]:
         "cuestiones": [],
         # Lecciones por regla: lo que la investigación aprendió a no repetir (rosa/lecciones.py).
         "lecciones": [],
+        # Cola de triaje (rosa/tareas.py): lo que un paso vio y pidió investigar, con
+        # el veredicto del triaje y su motivo escrito. Una cuestión dice qué no
+        # sabemos; una tarea dice qué se hace para saberlo.
+        "tareas": [],
         "evaluaciones": [],
         "conjuntoDorado": [],
         "entidadesCache": {},

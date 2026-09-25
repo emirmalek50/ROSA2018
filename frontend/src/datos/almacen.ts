@@ -948,6 +948,15 @@ export const acciones = {
     aplicar((e) => A.resolverHallazgoRegistro(e, iteracionId, hallazgoId, estado, respuesta, QUIEN, Date.now()));
     enviar('resolverHallazgoRegistro', { iteracion_id: iteracionId, hallazgo_id: hallazgoId, estado, respuesta, quien: QUIEN });
   },
+  /** Cola de triaje: aceptar o rechazar con motivo una tarea que ROSA2018 pidió abrir. */
+  decidirTarea: (tareaId: string, estado: 'aceptada' | 'rechazada', motivo: string) => {
+    aplicar((e) => A.decidirTarea(e, tareaId, estado, motivo, QUIEN, Date.now()));
+    enviar('decidirTarea', { tarea_id: tareaId, estado, motivo, quien: QUIEN });
+  },
+  /** Abrir una tarea a mano. Pasa por el mismo triaje por regla que las de ROSA2018. */
+  abrirTarea: (investigacionId: string, queVio: string, queHaria: string, porQue: string, herramienta: string) => {
+    enviar('abrirTarea', { investigacion_id: investigacionId, que_vio: queVio, que_haria: queHaria, por_que: porQue, herramienta, quien: QUIEN });
+  },
   /** Estado del espejo del estado en Convex (solo lectura). */
   estadoEspejo: async (): Promise<EstadoEspejo | null | SinRespuesta> => {
     if (modo !== 'servidor') return null;

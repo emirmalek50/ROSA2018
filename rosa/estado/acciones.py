@@ -586,7 +586,43 @@ def resolver_hallazgo_registro(e: Estado, iteracion_id: str, hallazgo_id: str, e
     hz["respuesta"] = respuesta.strip()[:400]
     hz["resueltoPor"] = quien.strip() or "persona"
     hz["resueltoEn"] = ahora
-    it["revisionRegistro"]["estado"] = "con_hallazgos" if any(x.get("estado", "abierto") == "abierto" for x in it["revisionRegistro"]["hallazgos"]) else "limpia"
+    # "rebatido" sigue contando como abierto: la rebatida la escribe quien escribió el
+    # texto, y solo una persona o el revisor la cierran (bucle de revisión, 25 de
+    # septiembre de 2026).
+    it["revisionRegistro"]["estado"] = "con_hallazgos" if any(x.get("estado", "abierto") in ("abierto", "rebatido") for x in it["revisionRegistro"]["hallazgos"]) else "limpia"
+    return True
+
+
+def decidir_tarea(e: Estado, tarea_id: str, estado: str, motivo: str, quien: str, ahora: int) -> bool:
+    """Una persona acepta o rechaza una tarea de la cola de triaje. El rechazo pide
+    motivo, igual que el del triaje por regla: es la mitad del valor de la cola."""
+    from rosa import tareas as TA
+
+    if estado not in ("aceptada", "rechazada"):
+        return False
+    t = next((x for x in (e.get("tareas") or []) if isinstance(x, dict) and x.get("id") == tarea_id), None)
+    if t is None or t.get("estado") in ("hecha", "programada"):
+        return False
+    if estado == "rechazada" and not (motivo or "").strip():
+        return False
+    firma = (quien or "").strip() or "persona"
+    if not TA.marcar(e, tarea_id, estado, f"{firma}: {(motivo or '').strip()[:280]}" if motivo.strip() else f"{firma} la aceptó", ahora):
+        return False
+    t["quien"] = firma
+    return True
+
+
+def abrir_tarea(e: Estado, investigacion_id: str, que_vio: str, que_haria: str, por_que: str, herramienta: str, quien: str, ahora: int) -> bool:
+    """Una persona abre una tarea a mano. Pasa por el mismo triaje por regla que las
+    de ROSA2018: si choca con una lección o repite una rechazada, se le dice por qué,
+    y luego ella puede aceptarla igual con `decidir_tarea`."""
+    from rosa import tareas as TA
+
+    if not (que_haria or "").strip() or not (que_vio or "").strip():
+        return False
+    firma = (quien or "").strip() or "persona"
+    t = TA.nueva(investigacion_id, que_vio, que_haria, por_que, herramienta, {"tipo": "persona", "iteracion": None, "detalle": f"la abrió {firma}"}, ahora, quien=firma)
+    TA.registrar_con_motivo(e, t, ahora)
     return True
 
 

@@ -45,6 +45,7 @@ from rosa import hechos as H
 from rosa import metodos as METODOS
 from rosa import verificador as V
 from rosa import solidez as SOL
+from rosa import tareas as TA
 from rosa import torneo
 from rosa import vigilante_modelos as VIG
 from rosa import vigencia as VIGENCIA
@@ -2419,6 +2420,11 @@ async def paso_modelo(ctx: Ctx, paso: dict[str, Any]) -> str:
     # Instantanea del modelo de mundo como artefacto.
     contenido = "# Modelo de mundo\n\n" + T.modelo_de_mundo(ctx.e["hechos"], ctx.investigacion_id, maximo=500, investigaciones=ctx.e["investigaciones"])
     ctx.mutar(lambda e2: A.guardar_artefacto(e2, ctx.investigacion_id, "Modelo de mundo", "modelo_mundo", contenido, f"Iteración {ctx.numero}: {anadidos} hechos y {preguntas} preguntas nuevas", ctx.numero, ahora), "artefacto")
+    # Tareas que el cerebro pidió abrir al integrar (arnés de Yoon 2026), de polizón
+    # en esta misma llamada: cero llamadas nuevas.
+    crudas_t = len(list(getattr(pred, "tareas", None) or []))
+    if crudas_t:
+        nota_de_tareas(pista, registrar_tareas_propuestas(ctx, pred, paso), crudas_t)
     pista.cerrar(f"{anadidos} hechos, {preguntas} preguntas" + (f", {sustituidos} sustituidos" if sustituidos else "") + (f", {resueltas} cuestiones resueltas" if resueltas else ""))
     return f"{anadidos} hechos y {preguntas} preguntas nuevas en el modelo de mundo" + (f"; {sustituidos} hechos sustituidos" if sustituidos else "") + (f"; {contradichos} contradichos" if contradichos else "") + (f"; {resueltas} cuestiones resueltas" if resueltas else "") + (f"; {fundidos} fundidos con hechos existentes" if fundidos else "")
 
@@ -3934,6 +3940,13 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
             lecciones_h = await LEC.para(ctx.almacen, ctx.investigacion_id, ("hipotesis",), texto_af[:1500])
             pred = await ctx.llamar("cerebro", ctx.programas.hipotesis, objetivo=inv["objetivo"], configuracion=T.configuracion(inv), modelo_de_mundo=mundo, afirmaciones_sostenidas=texto_af[:12000], hipotesis_existentes=T.hipotesis_existentes(e["hipotesis"], ctx.investigacion_id) + "\n\n" + T.vivero_texto(inv), lecciones=lecciones_h, criterios_revision="\n".join(e["criteriosRevision"]))
             propuestas = list(pred.hipotesis)[: politicas.MAX_PROPUESTAS_POR_ITERACION]
+            # Este es EL sitio del arnés de Yoon: su descubrimiento salió de una tarea
+            # que un worker abrió después de rechazar lo que investigaba. Aquí, una
+            # propuesta que no cita afirmaciones sostenidas se descarta en silencio más
+            # abajo y lo que vio se pierde; con esto, puede pedir que se compruebe.
+            crudas_t = len(list(getattr(pred, "tareas", None) or []))
+            if crudas_t:
+                nota_de_tareas(pista, registrar_tareas_propuestas(ctx, pred, paso), crudas_t)
         except PresupuestoAgotado:
             pista.cerrar("Presupuesto agotado antes de generar", "detenida")
             raise
@@ -4603,3 +4616,46 @@ EJECUTORES = {
     "meta": paso_meta,
     "analisis": paso_analisis,
 }
+
+
+def registrar_tareas_propuestas(ctx: Any, pred: Any, paso: dict[str, Any], motivo_paso: str = "") -> int:
+    """Las tareas que un paso propone (campo `tareas` de una llamada que ya se paga)
+    pasan por el triaje por regla y quedan escritas con su veredicto.
+
+    Del arnés de Yoon y otros (2026): un paso que ve algo raro puede pedir trabajo.
+    Cuesta cero llamadas nuevas: las propuestas viajan como campo de salida de
+    `ActualizarModeloDeMundo`, `GenerarHipotesis` y `RevisionRegistro`, y el triaje
+    (`rosa/tareas.py`) es regla pura. Devuelve cuántas se aceptaron."""
+    crudas = list(getattr(pred, "tareas", None) or [])[:politicas.MAX_TAREAS_PROPUESTAS_POR_PASO]
+    if not crudas:
+        return 0
+    ahora = P.ahora_ms()
+    aceptadas = 0
+    resultados: list[tuple[str, str, str]] = []
+
+    def fn(e: dict[str, Any]) -> bool:
+        nonlocal aceptadas
+        ya = sum(1 for x in (e.get("tareas") or []) if isinstance(x, dict) and x.get("investigacionId") == ctx.investigacion_id and (x.get("origen") or {}).get("iteracion") == ctx.numero and x.get("estado") in ("aceptada", "programada"))
+        for x in crudas:
+            t = TA.nueva(
+                ctx.investigacion_id,
+                str(getattr(x, "que_vio", "") or ""), str(getattr(x, "que_haria", "") or ""), str(getattr(x, "por_que", "") or ""), str(getattr(x, "herramienta", "") or ""),
+                {"tipo": "paso", "pasoId": paso.get("id"), "iteracion": ctx.numero, "detalle": motivo_paso or str(paso.get("titulo") or "")},
+                ahora,
+            )
+            estado, motivo = TA.registrar_con_motivo(e, t, ahora, aceptadas_ya=ya + aceptadas)
+            resultados.append((estado, motivo, t["queHaria"]))
+            if estado == "aceptada":
+                aceptadas += 1
+                ya += 0
+        return True
+
+    ctx.mutar(fn, "tareas")
+    return aceptadas
+
+
+def nota_de_tareas(pista: Any, resultados: int, crudas: int) -> None:
+    """Lo que la pista cuenta de las tareas propuestas, para que se vea sin abrir
+    la cola de triaje."""
+    if crudas:
+        pista.nota(f"{crudas} {'tarea propuesta' if crudas == 1 else 'tareas propuestas'} al ver algo que el plan no cubría; {resultados} pasaron el triaje (la cola de triaje dice el motivo de cada una)")

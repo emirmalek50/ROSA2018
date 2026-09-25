@@ -43,6 +43,7 @@ from rosa import dependencias as DEP
 from rosa import sesgo as SESGO
 from rosa import certeza as CERTEZA, config, lecciones as LEC, parada as PARADA, politicas, priorizacion as PR, progreso as PROG, torneo
 from rosa import revisor_registro as RR
+from rosa import tareas as TA
 from rosa import killer as KILLER
 # ROSA2018, 16 de septiembre de 2026: ruta terapéutica por regla, contrato del
 # experimento, mapa de la enfermedad, cifras de aprendizaje y perfil por diana.
@@ -1816,6 +1817,10 @@ class Supervisor:
             await self._formular_pregunta(ctx, c, inv)
         plan: list[dict[str, Any]] = []
         analisis_omitidos: list[str] = []
+        # Cola de triaje: (tareaId, título del paso) de las que este plan programa, y
+        # lo que el planificador explicó de las que deja fuera.
+        programadas: list[tuple[str, str]] = []
+        no_programadas: list[tuple[str, str]] = []
         try:
             pregunta = (c.get("pregunta") or {}).get("enunciado") or (next((x for x in self.almacen.estado["corridas"] if x["id"] == c["id"]), {}).get("pregunta") or {}).get("enunciado")
             mundo = await T.modelo_de_mundo_para(self.almacen, inv["id"], inv["objetivo"] + (f" {pregunta}" if pregunta else ""))
@@ -1842,6 +1847,10 @@ class Supervisor:
                 # datasets_disponibles" y el planificador no veía los datos disponibles.
                 datasets_disponibles=PASOS.datasets_para_plan(e, inv["id"], pregunta),
                 numero_iteracion=numero,
+                # La cola de triaje (rosa/tareas.py): trabajo que ROSA2018 misma pidió
+                # abrir al ver algo que el plan anterior no cubría. El planificador
+                # tiene que decidir sobre todas, programándolas o explicando por qué no.
+                tareas_aceptadas=TA.texto_para_plan(e, inv["id"]),
             )
             hay_datos = any(d["estado"] == "aprobado" and (d.get("procedencia") or {}).get("hash") for d in inv.get("datasets", []))
             for p in list(pred.plan)[:7]:
@@ -1856,11 +1865,19 @@ class Supervisor:
                     coste = int(round(coste * (1 + politicas.AMPLITUD.get(PASOS.amplitud_de(inv), 0.0))))
                 paso = P.nuevo_paso(p.titulo, p.detalle, coste, valor_decision=(p.valor_decision or "").strip(), espera=(getattr(p, "espera", "") or "").strip(), si_no_aparece=(getattr(p, "si_no_aparece", "") or "").strip())
                 paso["tipo"] = p.tipo
+                # `getattr` con valor por omisión: los arneses de test construyen
+                # `PasoPropuesto` a mano y sin `tarea_id`.
+                tarea_id = str(getattr(p, "tarea_id", "") or "").strip()
+                if tarea_id and any(x.get("id") == tarea_id for x in TA.aceptadas(e, inv["id"])):
+                    paso["tareaId"] = tarea_id
+                    programadas.append((tarea_id, (p.titulo or "")[:120]))
                 plan.append(paso)
             if hay_datos and not any(p.get("tipo") == "analisis" for p in plan) and (any(r["investigacionId"] == inv["id"] and r["estado"] == "pendiente" for r in e.get("reproducciones", [])) or any(h["investigacionId"] == inv["id"] and h.get("_analisisPedido") for h in e["hipotesis"])):
                 paso = P.nuevo_paso("Análisis in silico", "Reproducciones pendientes de la puerta y análisis pedidos, en el sandbox", COSTE_POR_TIPO["analisis"])
                 paso["tipo"] = "analisis"
                 plan.append(paso)
+            for x in list(getattr(pred, "tareas_no_programadas", None) or []):
+                no_programadas.append((str(getattr(x, "tarea_id", "") or "").strip(), str(getattr(x, "motivo", "") or "").strip()))
             plan = _ordenar_plan(plan, hay_novedad_pendiente=any(h["investigacionId"] == inv["id"] and h["novedad"]["precedente"]["detalle"].startswith("No comprobado") for h in e["hipotesis"]))
         except PresupuestoAgotado:
             self.almacen.mutar(lambda e2: _pausar_por_presupuesto(e2, c["id"]), "presupuesto")
@@ -1915,6 +1932,21 @@ class Supervisor:
             A.con_evento(e2, inv["id"], "corrida_estado", f"Plan de la iteración {numero} propuesto: {len(plan)} pasos. Espera tu aprobación.", f"#/investigaciones/{inv['id']}/corrida", ahora)
             for titulo in analisis_omitidos:
                 A.con_evento(e2, inv["id"], "corrida_estado", f"El planificador proponía «{titulo}» y se dejó fuera del plan de la iteración {numero}: no hay ningún dataset aprobado con fichero en la investigación. Registra o aprueba un dataset en Objetivo y datos para que ROSA2018 pueda analizar.", f"#/investigaciones/{inv['id']}/investigacion", ahora)
+            # Cola de triaje: las programadas pasan a "programada", las explicadas se
+            # quedan en cola con el motivo en su historial, y a las que el planificador
+            # ignoró se les escribe un motivo automático para que no quede hueco.
+            explicadas = {tid for tid, _ in no_programadas if tid}
+            for tid, titulo in programadas:
+                TA.marcar(e2, tid, "programada", f"entra en el plan de la iteración {numero} como «{titulo}»", ahora)
+            for tid, motivo in no_programadas:
+                if tid and not any(tid == x for x, _ in programadas):
+                    TA.marcar(e2, tid, "aceptada", f"el planificador no la programó en la iteración {numero}: {motivo or 'sin motivo escrito'}", ahora)
+            for x in TA.aceptadas(e2, inv["id"]):
+                if x["id"] not in explicadas and not any(x["id"] == tid for tid, _ in programadas):
+                    TA.marcar(e2, x["id"], "aceptada", f"el planificador no la programó en la iteración {numero} ni dijo por qué", ahora)
+            caducadas = TA.caducar_viejas(e2, inv["id"], numero, ahora)
+            if caducadas:
+                A.con_evento(e2, inv["id"], "aprendizaje", f"{caducadas} {'tarea' if caducadas == 1 else 'tareas'} de la cola de triaje caducaron sin que ningún plan las programara. Están en la cola, con su motivo.", f"#/investigaciones/{inv['id']}/investigacion", ahora)
             return True
 
         self.almacen.mutar(fn, "plan_propuesto")
@@ -2003,6 +2035,10 @@ class Supervisor:
         if cerrada:
             self.almacen.mutar(lambda e: _estado_paso(e, it["id"], paso["id"], "omitido", motivo=cerrada), "puerta_etapa")
             self.almacen.mutar(lambda e: _fijar_comprobacion(e, it["id"], paso["id"], COMP.comprobar(tipo, antes, antes, {**paso, "motivoFallo": cerrada}, None, "omitido")), "comprobacion_etapa")
+            # Si el paso ejecutaba una tarea de la cola, la tarea NO se pierde: vuelve a
+            # "aceptada" con el motivo, y la puede programar la iteración siguiente.
+            if paso.get("tareaId"):
+                self.almacen.mutar(lambda e: TA.marcar(e, str(paso["tareaId"]), "aceptada", f"su paso se omitió: {cerrada}", P.ahora_ms()), "tarea")
             return False
         self.almacen.mutar(lambda e: _estado_paso(e, it["id"], paso["id"], "en_curso"), "paso")
         if tipo == "indicacion":
@@ -2099,6 +2135,27 @@ class Supervisor:
             comp = COMP.comprobar(tipo, antes, COMP.medir(self.almacen.estado, c["id"], c["investigacionId"]), paso_fin, paso_fin.get("detalle"), str(paso_fin.get("estado") or ""))
             if comp:
                 self.almacen.mutar(lambda e: _fijar_comprobacion(e, it["id"], paso["id"], comp), "comprobacion_etapa")
+            # La misma comprobación, ya calculada, alimenta las tareas por regla: si
+            # ROSA2018 tuviera dos definiciones de "el paso no produjo nada" se
+            # contradeciría en la interfaz. Cero llamadas al modelo.
+            ahora_t = P.ahora_ms()
+            estado_fin = str(paso_fin.get("estado") or "")
+
+            def cerrar_tarea(e: dict[str, Any]) -> bool:
+                if paso.get("tareaId"):
+                    if estado_fin == "hecho":
+                        TA.marcar(e, str(paso["tareaId"]), "hecha", f"la hizo el paso «{str(paso.get('titulo') or '')[:90]}»: {str(paso_fin.get('detalle') or '')[:160]}", ahora_t)
+                    else:
+                        TA.marcar(e, str(paso["tareaId"]), "aceptada", f"su paso quedó {estado_fin}: {str(paso_fin.get('motivoFallo') or 'sin motivo registrado')[:160]}", ahora_t)
+                c2 = next((x for x in e["corridas"] if x["id"] == c["id"]), None) or {}
+                aceptadas_ya = sum(1 for x in (e.get("tareas") or []) if isinstance(x, dict) and x.get("investigacionId") == c["investigacionId"] and (x.get("origen") or {}).get("iteracion") == it["numero"] and x.get("estado") in ("aceptada", "programada"))
+                for t_ in TA.por_regla_al_terminar_paso(e, c2, paso_fin, comp, it["numero"], ahora_t):
+                    estado_t, _ = TA.registrar_con_motivo(e, t_, ahora_t, aceptadas_ya=aceptadas_ya)
+                    if estado_t == "aceptada":
+                        aceptadas_ya += 1
+                return True
+
+            self.almacen.mutar(cerrar_tarea, "tareas")
         return False
 
     async def _revisar_registro(self, ctx: Ctx, inv: dict[str, Any], it: dict[str, Any], c: dict[str, Any], resumen: str, llano: dict[str, Any] | None) -> dict[str, Any]:
@@ -2116,6 +2173,7 @@ class Supervisor:
         regla = RR.comprobaciones_deterministas(texto, corpus, it, runs_ok, hipotesis=de_la_iteracion)
         hallazgos = list(regla)
         juez = None
+        propuestas: list[dict[str, Any]] = []
         try:
             # Sus herramientas (calcular, leer_afirmacion, leer_ejecucion) leen este
             # registro y no otro, aunque cierren dos iteraciones a la vez.
@@ -2125,6 +2183,11 @@ class Supervisor:
             for hz in pred.revision.hallazgos:
                 hallazgos.append({"clase": hz.clase, "gravedad": hz.gravedad, "detalle": hz.detalle.strip()[:400], "origen": "juez"})
             resumen_j = pred.revision.resumen.strip()
+            # Las tareas que el juez propone al revisar se DEVUELVEN, no se escriben
+            # aquí: el bucle de reparación puede rechazar una vuelta y volver al texto
+            # anterior, y unas tareas ya escritas sobrevivirían a una vuelta rechazada.
+            # Las registra `_cerrar_iteracion` dentro de su propia mutación.
+            propuestas = [{"queVio": x.que_vio, "queHaria": x.que_haria, "porQue": x.por_que, "herramienta": x.herramienta} for x in (getattr(pred.revision, "tareas", None) or [])]
         except (PresupuestoAgotado, ModeloSinRespuesta):
             # El cierre pausa la corrida (o espera al juez): una iteración no se cierra
             # sin revisor por falta de presupuesto ni porque Opus no responda (se
@@ -2135,7 +2198,7 @@ class Supervisor:
         for i, hz in enumerate(hallazgos):
             hz["id"] = f"rr-{it['id']}-{i}"
             hz["estado"] = "abierto"
-        return {"hallazgos": hallazgos, "porRegla": len(regla), "juez": juez, "resumen": resumen_j, "fecha": P.ahora_ms(), "estado": "con_hallazgos" if hallazgos else "limpia"}
+        return {"hallazgos": hallazgos, "porRegla": len(regla), "juez": juez, "resumen": resumen_j, "fecha": P.ahora_ms(), "estado": "con_hallazgos" if hallazgos else "limpia", "_tareas": propuestas}
 
     async def _reparar_resumen(self, ctx: Ctx, inv: dict[str, Any], it: dict[str, Any], c: dict[str, Any], resumen: str, llano: dict[str, Any] | None, revision: dict[str, Any]) -> dict[str, Any] | None:
         """El bucle de revisión: el revisor devuelve el trabajo y quien lo escribió lo
@@ -2428,6 +2491,17 @@ class Supervisor:
             it2.pop("_cierre", None)
             if llano:
                 it2["resumenLlano"] = llano
+            # Las tareas que el juez propuso al revisar se registran AQUÍ, dentro de la
+            # mutación del cierre, y no en `_revisar_registro`: el bucle de reparación
+            # puede rechazar una vuelta y volver al texto anterior, y unas tareas ya
+            # escritas sobrevivirían a la vuelta rechazada.
+            crudas_rev = list(revision.pop("_tareas", None) or [])
+            aceptadas_rev = sum(1 for x in (e2.get("tareas") or []) if isinstance(x, dict) and x.get("investigacionId") == inv["id"] and (x.get("origen") or {}).get("iteracion") == it["numero"] and x.get("estado") in ("aceptada", "programada"))
+            for cruda in crudas_rev[:politicas.MAX_TAREAS_PROPUESTAS_POR_PASO]:
+                t_rev = TA.nueva(inv["id"], cruda.get("queVio", ""), cruda.get("queHaria", ""), cruda.get("porQue", ""), cruda.get("herramienta", ""), {"tipo": "revisor", "iteracion": it["numero"], "detalle": "el revisor de registro lo vio al cerrar"}, ahora)
+                estado_rev, _ = TA.registrar_con_motivo(e2, t_rev, ahora, aceptadas_ya=aceptadas_rev)
+                if estado_rev == "aceptada":
+                    aceptadas_rev += 1
             it2["revisionRegistro"] = revision
             # Conclusiones conservadas al día por regla (M-14): techo, escalera y
             # min(juez, techo) con los factores guardados; si una certeza baja, evento.

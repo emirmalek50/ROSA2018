@@ -736,6 +736,7 @@ def _migrar(estado: dict[str, Any]) -> None:
     _migrar_vigilante_modelos(estado)
     _migrar_gasto_grande_automatico(estado)
     _migrar_revisiones_de_modelo_como_humanas(estado)
+    estado.setdefault("tareas", [])  # cola de triaje (rosa/tareas.py), 25 de septiembre de 2026
 
 
 def _migrar_revisiones_de_modelo_como_humanas(estado: dict[str, Any]) -> None:
@@ -1339,6 +1340,8 @@ _TABLA: dict[str, Callable] = {
     "quitarConocimientoOperativo": A.quitar_conocimiento_operativo,
     "fijarPermisoConector": A.fijar_permiso_conector,
     "resolverHallazgoRegistro": A.resolver_hallazgo_registro,
+    "decidirTarea": A.decidir_tarea,
+    "abrirTarea": A.abrir_tarea,
     "anadirMemoria": A.anadir_memoria,
     "quitarMemoria": A.quitar_memoria,
     "registrarPreguntaBases": A.registrar_pregunta_bases,

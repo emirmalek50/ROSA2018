@@ -338,6 +338,38 @@ export interface Leccion {
   veces: number;
 }
 
+/** Una tarea de la cola de triaje: trabajo que ROSA2018 pidió abrir al ver algo
+ *  que el plan no cubría (rosa/tareas.py). Del arnés de Yoon y otros (2026),
+ *  donde 98 de 119 tareas las abrieron los propios agentes.
+ *
+ *  No es una cuestión: una cuestión dice qué no sabemos, una tarea dice qué se
+ *  hace para saberlo. El triaje la acepta o la rechaza por regla, y el rechazo
+ *  lleva SIEMPRE motivo escrito. */
+export interface Tarea {
+  id: Id;
+  investigacionId: Id;
+  /** La observación concreta, con la cifra o el identificador que la sostiene. */
+  queVio: string;
+  /** La acción que lo comprobaría. Sin esto el triaje la rechaza sola. */
+  queHaria: string;
+  /** Qué decisión de la investigación cambiaría según el resultado. */
+  porQue: string;
+  /** Con qué herramienta de ROSA2018 se haría. */
+  herramienta: string;
+  origen: { tipo: 'paso' | 'revisor' | 'regla' | 'persona'; pasoId?: Id | null; iteracion?: number | null; detalle?: string };
+  /** La cuestión que esta tarea ayudaría a cerrar, si apunta a alguna. */
+  cuestionId?: Id | null;
+  hipotesisId?: Id | null;
+  estado: 'propuesta' | 'aceptada' | 'programada' | 'hecha' | 'rechazada' | 'caducada';
+  /** El veredicto del triaje, o el motivo de la persona. Nunca vacío en un rechazo. */
+  motivo: string;
+  /** Cuántas veces se pidió lo mismo: dos pasos que ven lo mismo se funden. */
+  veces: number;
+  quien: string;
+  creadaEn: number;
+  historial: { estado: string; motivo: string; fecha: number }[];
+}
+
 /** Una idea en el vivero: la propuesta completa, lista para nacer sin volver
  *  a llamar al modelo, más lo que le falta. */
 export interface Semilla {
@@ -707,6 +739,8 @@ export interface PasoPlan {
   /** La comprobación de cierre de la etapa (rosa/comprobaciones.py), por regla y
    *  sin ningún modelo. El estado dice si el paso terminó; esto dice si sirvió. */
   comprobacion?: ComprobacionEtapa;
+  /** La tarea de la cola de triaje que este paso ejecuta, si viene de una. */
+  tareaId?: Id | null;
 }
 
 /** Lo que dice una comprobación de cierre de etapa. `sinMateria` no es un fallo:
@@ -2210,6 +2244,8 @@ export interface EstadoRosa {
   cuestiones?: Cuestion[];
   /** Lecciones por regla de cada investigación: lo que ROSA2018 aprendió a no repetir. */
   lecciones?: Leccion[];
+  /** Cola de triaje: lo que un paso, el revisor o la investigadora pidieron abrir. */
+  tareas?: Tarea[];
   /** Aristas tipadas del modelo de mundo: base curada del campo y la
    *  relacion X causa Y de cada hipotesis juzgada, con su tipo. */
   relaciones?: RelacionCausal[];

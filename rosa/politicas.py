@@ -30,6 +30,20 @@ MAX_PROPUESTAS_POR_ITERACION = 2
 MAX_VIVERO = 12
 ITERACIONES_MAX_EN_VIVERO = 6
 
+# Cola de triaje: lo que un paso vio y pidió investigar (rosa/tareas.py). Del
+# arnés de Yoon y otros (2026), donde 98 de 119 tareas las abrieron los propios
+# agentes. Una tarea acaba costando llamadas cuando el plan la programa, así que
+# la cola se acota por los dos lados. Las cifras salen de mirar lo que ROSA2018
+# hace hoy: 50 iteraciones con planes de 6 o 7 pasos y siempre los mismos seis
+# tipos, o sea que el planificador reproduce la plantilla. Tres tareas por
+# iteracion cambian el plan sin volarlo, y en Yoon la proporcion fue de 98
+# tareas de seguimiento sobre 119, algo menos de una por tarea.
+MAX_TAREAS_PROPUESTAS_POR_PASO = 2
+MAX_TAREAS_ACEPTADAS_POR_ITERACION = 3
+MAX_TAREAS_EN_COLA = 8
+ITERACIONES_MAX_EN_COLA = 2
+MAX_TAREAS_POR_INVESTIGACION = 120
+
 # Evaluaciones costosas (analisis in silico con datos) por mision y corrida.
 # Cada una gasta codigo, tiempo de maquina y una auditoria; el documento fija
 # cinco para la demostracion.
@@ -168,6 +182,10 @@ def resumen() -> dict[str, object]:
         "tokensMaxPorRol": dict(TOKENS_MAX_POR_ROL),
         "eloK": ELO_K,
         "maxPartidosConJuezPorIteracion": MAX_PARTIDOS_CON_JUEZ_POR_ITERACION,
+        "maxTareasPropuestasPorPaso": MAX_TAREAS_PROPUESTAS_POR_PASO,
+        "maxTareasAceptadasPorIteracion": MAX_TAREAS_ACEPTADAS_POR_ITERACION,
+        "maxTareasEnCola": MAX_TAREAS_EN_COLA,
+        "iteracionesMaxEnCola": ITERACIONES_MAX_EN_COLA,
         "tarifaHoraRevisionUsd": TARIFA_HORA_REVISION_USD,
         "nivelAutonomiaDeclarado": NIVEL_AUTONOMIA_DECLARADO,
         "nivelesAutonomia": list(NIVELES_AUTONOMIA),

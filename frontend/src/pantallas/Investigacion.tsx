@@ -514,6 +514,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         </div>
       </Seccion>
 
+      <ColaDeTriaje inv={inv} estado={estado} />
       <Cuestiones inv={inv} estado={estado} />
       {(() => {
         return lecciones.length > 0 ? (
@@ -589,6 +590,98 @@ const ORIGEN_CUESTION: Record<Cuestion['origen']['tipo'], string> = {
   laboratorio: 'laboratorio',
   escalera: 'peldaño de la escalera de certeza',
 };
+
+const ORIGEN_TAREA: Record<string, string> = {
+  paso: 'lo vio un paso de la corrida',
+  revisor: 'lo vio el revisor de registro al cerrar',
+  regla: 'lo detectó una regla',
+  persona: 'la abriste tú',
+};
+
+/** La cola de triaje: trabajo que ROSA2018 pidió abrir al ver algo que el plan no
+ *  cubría. Cada propuesta pasa por un triaje por regla que la acepta o la rechaza,
+ *  y el rechazo lleva siempre motivo escrito. */
+export function ColaDeTriaje({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
+  const [vio, setVio] = useState('');
+  const [haria, setHaria] = useState('');
+  const [herramienta, setHerramienta] = useState('literatura');
+  const [verCerradas, setVerCerradas] = useState(false);
+  const todas = (estado.tareas ?? []).filter((t) => t.investigacionId === inv.id);
+  const vivas = todas.filter((t) => ['propuesta', 'aceptada', 'programada'].includes(t.estado)).sort((a, b) => b.veces - a.veces || a.creadaEn - b.creadaEn);
+  const cerradas = todas.filter((t) => ['hecha', 'rechazada', 'caducada'].includes(t.estado)).sort((a, b) => b.creadaEn - a.creadaEn);
+  return (
+    <Seccion detalle titulo={`Cola de trabajo que ROSA2018 pidió abrir (${vivas.length})`} nota="Cuando un paso ve algo que el plan no cubría, lo pide aquí en vez de perderlo. Una regla decide si entra, y si no entra dice por qué. Lo que entra lo programa el plan de la iteración siguiente, que tiene que explicar por escrito cada tarea que deja fuera.">
+      {vivas.length === 0 && <p className="meta">Nada en la cola. Es lo normal: ROSA2018 solo pide abrir trabajo cuando ve algo concreto.</p>}
+      <ul className="lista-limpia cuestiones">
+        {vivas.slice(0, 20).map((t) => (
+          <li key={t.id} className="cuestion">
+            <div>
+              <Chip tono={t.estado === 'programada' ? 'ok' : t.estado === 'aceptada' ? 'acento' : 'borde'}>
+                {t.estado === 'programada' ? 'En el plan' : t.estado === 'aceptada' ? 'Esperando plan' : 'Propuesta'}
+              </Chip>{' '}
+              <span>{t.queHaria}</span>
+              <div className="meta">
+                Vio: {t.queVio}
+                {t.porQue ? ` · Importa porque: ${t.porQue}` : ''}
+              </div>
+              <div className="meta">
+                {t.herramienta} · {ORIGEN_TAREA[t.origen.tipo] ?? t.origen.tipo}
+                {t.origen.iteracion ? ` en la iteración ${t.origen.iteracion}` : ''}
+                {t.veces > 1 ? ` · pedida ${t.veces} veces` : ''}
+                {t.motivo ? ` · ${t.motivo}` : ''}
+              </div>
+            </div>
+            {t.estado !== 'programada' && (
+              <span className="acciones">
+                <Confirmar etiqueta="Rechazar" pregunta="La tarea sale de la cola y no se vuelve a proponer igual." pedirTexto={{ etiqueta: 'Motivo', marcador: 'Ya lo sabemos por el estudio X' }} onConfirmar={(m) => acciones.decidirTarea(t.id, 'rechazada', m)} />
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <form
+        className="acciones cuestion-nueva"
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          if (vio.trim() === '' || haria.trim() === '') return;
+          acciones.abrirTarea(inv.id, vio, haria, '', herramienta);
+          setVio('');
+          setHaria('');
+        }}
+      >
+        <input value={vio} onChange={(ev) => setVio(ev.target.value)} placeholder="Qué viste" aria-label="Qué viste" />
+        <input value={haria} onChange={(ev) => setHaria(ev.target.value)} placeholder="Qué habría que hacer" aria-label="Qué habría que hacer" />
+        <select value={herramienta} onChange={(ev) => setHerramienta(ev.target.value)} aria-label="Con qué herramienta">
+          {['literatura', 'ensayos', 'extraccion', 'verificacion', 'novedad', 'modelo', 'hipotesis', 'analisis', 'meta'].map((x) => (
+            <option key={x} value={x}>
+              {x}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className="btn btn-s" disabled={vio.trim() === '' || haria.trim() === ''}>
+          Pedir
+        </button>
+      </form>
+      {cerradas.length > 0 && (
+        <button type="button" className="btn btn-s" onClick={() => setVerCerradas((v) => !v)}>
+          {verCerradas ? 'Ocultar' : 'Ver'} {cerradas.length} {cerradas.length === 1 ? 'cerrada' : 'cerradas'}
+        </button>
+      )}
+      {verCerradas && (
+        <ul className="lista-limpia cuestiones">
+          {cerradas.slice(0, 40).map((t) => (
+            <li key={t.id} className="cuestion cuestion-cerrada">
+              <div>
+                <Chip tono={t.estado === 'hecha' ? 'ok' : 'borde'}>{t.estado === 'hecha' ? 'Hecha' : t.estado === 'caducada' ? 'Caducada' : 'Rechazada'}</Chip> <span>{t.queHaria}</span>
+                <div className="meta">{t.motivo || 'sin motivo registrado'}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Seccion>
+  );
+}
 
 /** Cuestiones persistentes (lo que rekursiv.ai llama Issues): qué está abierto, de
  *  dónde salió y qué lo resolvería. ROSA2018 las abre y las cierra; la persona también. */
