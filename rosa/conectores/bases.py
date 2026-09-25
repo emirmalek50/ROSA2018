@@ -203,17 +203,33 @@ async def reactome_rutas(uniprot: str) -> Resultado:
 
 @conector("gwas_asociaciones_gen", "GWAS Catalog REST v2", "Asociaciones GWAS de un gen, separando las de Alzheimer del resto", "Si la genética humana ya vincula el gen con la enfermedad, y con que p", _esq(simbolo="Símbolo HGNC"), "CC0 / terminos EMBL-EBI", "15 por segundo", "https://www.ebi.ac.uk/gwas/rest/api/v2/docs", grupo="genetica_humana")
 async def gwas_asociaciones_gen(simbolo: str) -> Resultado:
-    r = await pedir("GET", "https://www.ebi.ac.uk/gwas/rest/api/v2/associations", _lim["gwas"], params={"gene_name": simbolo, "size": 50})
-    d = r.json()
-    filas = (d.get("_embedded") or {}).get("associations", [])
-    total = (d.get("page") or {}).get("totalElements", len(filas))
+    """Dos consultas filtradas por gen: todas sus asociaciones y las de
+    Alzheimer (MONDO_0004975). Hasta el 25 de septiembre de 2026 se pedía con
+    `gene_name`, que la API v2 ignora: devolvía el catálogo entero (1.192.604
+    asociaciones), se miraban las 50 primeras (de cáncer de pulmón) y ROSA2018
+    escribía que APOE tiene 0 asociaciones con Alzheimer. Con `mapped_gene` son
+    138. Si la API vuelve a ignorar el filtro, se dice (FuenteNoDisponible) en
+    vez de contar un cero."""
+    sim = simbolo.strip().upper()
 
-    def es_ad(a: dict[str, Any]) -> bool:
-        return any((t.get("efo_id") in (ALZHEIMER_MONDO, ALZHEIMER_EFO)) or "alzheimer" in (t.get("efo_trait") or "").lower() for t in a.get("efo_traits", [])) or any("alzheimer" in (x or "").lower() for x in a.get("reported_trait", []))
+    async def consulta(**extra: Any) -> tuple[list[dict[str, Any]], int]:
+        r = await pedir("GET", "https://www.ebi.ac.uk/gwas/rest/api/v2/associations", _lim["gwas"], params={"mapped_gene": sim, "size": 20, "sort": "p_value", "direction": "asc", **extra})
+        d = r.json()
+        filas = (d.get("_embedded") or {}).get("associations", []) or []
+        # Cada fila tiene que ser del gen pedido: si no, la API ignoró el filtro.
+        ajenas = [a for a in filas if sim not in {str(g).upper() for g in (a.get("mapped_genes") or [])}]
+        if ajenas:
+            raise FuenteNoDisponible(f"GWAS Catalog ignoró el filtro por gen: {len(ajenas)} de {len(filas)} filas no son de {sim}")
+        return filas, int((d.get("page") or {}).get("totalElements", len(filas)) or 0)
 
-    ad = [a for a in filas if es_ad(a)]
-    datos = {"total_asociaciones": total, "en_esta_pagina": len(filas), "alzheimer": [{"estudio": a.get("accession_id"), "p": a.get("p_value"), "rasgo": "; ".join(a.get("reported_trait", [])[:2]), "efecto": a.get("beta") or a.get("or_value")} for a in ad[:10]], "n_alzheimer": len(ad)}
-    return Resultado(datos, total, [a.get("accession_id") for a in ad[:20] if a.get("accession_id")], None, (True, f"{len(ad)} de {len(filas)} asociaciones vistas son de Alzheimer"))
+    todas, total = await consulta()
+    ad, n_ad = await consulta(efo_id=ALZHEIMER_MONDO)
+    datos = {
+        "total_asociaciones": total,
+        "n_alzheimer": n_ad,
+        "alzheimer": [{"estudio": a.get("accession_id"), "p": a.get("p_value"), "rasgo": "; ".join((a.get("reported_trait") or [])[:2]), "efecto": a.get("beta") or a.get("or_value")} for a in ad[:10]],
+    }
+    return Resultado(datos, total, [str(a["accession_id"]) for a in ad[:20] if a.get("accession_id")], None, (True, f"{n_ad} asociaciones de {sim} con Alzheimer entre {total} del gen (filtro por gen comprobado fila a fila)"))
 
 
 @conector("chembl_diana", "ChEMBL REST", "La diana ChEMBL de una proteína (por accession UniProt) y los mecanismos de acción de fármacos que la tocan", "Si ya hay fármacos contra la diana, en que fase y con que acción: plausibilidad y reposicionamiento", _esq(uniprot="Accession UniProt"), "CC BY-SA 3.0 con atribucion de URL y version", "Sin cifra publicada; páginas de 20; 3 por segundo en ROSA2018", "https://www.ebi.ac.uk/chembl/api/data/docs", grupo="directorio")

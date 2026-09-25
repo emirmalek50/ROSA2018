@@ -730,6 +730,8 @@ def _migrar(estado: dict[str, Any]) -> None:
     _migrar_novedad_no_comprobada(estado)
     _migrar_contexto_xy(estado)
     _migrar_supuestos_evaluados(estado)
+    _migrar_relacion_laboratorio(estado)
+    _migrar_gwas_sin_filtro(estado)
     _migrar_progreso_por_ventana(estado)
     _migrar_vigilante_modelos(estado)
     _migrar_gasto_grande_automatico(estado)
@@ -837,6 +839,73 @@ def _migrar_contexto_xy(estado: dict[str, Any]) -> None:
     for r in relaciones if isinstance(relaciones, list) else []:
         if isinstance(r, dict) and r.get("hipotesisId") in rebajadas and r.get("tipo") == "inferencia_con_evidencia":
             r["tipo"] = "supuesto"
+
+
+# El total que devolvía GWAS Catalog cuando ignoraba el filtro por gen: el
+# catálogo entero. Una conclusión genética que lo cita salió de datos rotos.
+_GWAS_SIN_FILTRO = "1192604"
+_NOTA_GWAS = "Por comprobar otra vez: se sacó de GWAS Catalog cuando el conector no filtraba por gen (devolvía el catálogo entero y miraba 50 asociaciones de otras enfermedades); arreglado el 25 de septiembre de 2026."
+
+
+def _migrar_gwas_sin_filtro(estado: dict[str, Any]) -> None:
+    """Lo que ROSA2018 concluyó de GWAS Catalog con el conector roto (hasta el
+    25 de septiembre de 2026) vuelve a "por comprobar": la novedad genética de
+    la hipótesis pasa a no_comprobado (el paso de novedad la repite con el
+    conector arreglado, sin modelo) y la capa genética del perfil de diana a
+    no_pude_comprobar. Para GFAP el cero era cierto por casualidad; para APOE,
+    falso (138 asociaciones). Se reconoce por el total del catálogo entero en
+    el texto. Idempotente: el texto nuevo ya no lo lleva."""
+    for h in estado.get("hipotesis", []):
+        if not isinstance(h, dict):
+            continue
+        nov = h.get("novedad")
+        if isinstance(nov, dict):
+            g = nov.get("genetica")
+            if isinstance(g, dict) and _GWAS_SIN_FILTRO in str(g.get("detalle") or ""):
+                nov["genetica"] = {"estado": "no_comprobado", "detalle": _NOTA_GWAS}
+        perfil = h.get("perfilDiana")
+        for capa in (perfil.get("capas") or []) if isinstance(perfil, dict) else []:
+            if isinstance(capa, dict) and _GWAS_SIN_FILTRO in str(capa.get("detalle") or ""):
+                capa["estado"] = "no_pude_comprobar"
+                capa["direccion"] = None
+                capa["detalle"] = _NOTA_GWAS
+
+
+def _migrar_relacion_laboratorio(estado: dict[str, Any]) -> None:
+    """Las afirmaciones de laboratorio guardadas sin `relacion` (25 de
+    septiembre de 2026): certeza.py las contaba como apoyo "de origen" aunque
+    el laboratorio hubiera dado un negativo. Se les pone la relación por la
+    clasificación del resultado o, si no la hay, por su veredicto; lo que no es
+    apoyo ni negativo (inconcluso, corrección de contexto, sin veredicto) sale
+    de la evidencia y queda guardado en el resultado del experimento. Y se
+    marcan como sintéticas las que salieron de un fichero que lo dice en el
+    nombre: se guardaron antes de que ROSA2018 lo detectara (S-18).
+    Idempotente: solo toca las que no tienen relación."""
+    from rosa.bucle.corrida import RELACION_LABORATORIO, es_resultado_sintetico
+
+    for h in estado.get("hipotesis", []):
+        if not isinstance(h, dict) or not isinstance(h.get("afirmaciones"), list):
+            continue
+        x_ = h.get("experimento")
+        x: dict[str, Any] = x_ if isinstance(x_, dict) else {}
+        r_ = x.get("resultado")
+        r: dict[str, Any] = r_ if isinstance(r_, dict) else {}
+        quedan = []
+        for a in h["afirmaciones"]:
+            cita = str(a.get("cita") or "") if isinstance(a, dict) else ""
+            if not (cita.startswith("[Datos del laboratorio") or cita.startswith("[Datos de prueba")) or a.get("relacion"):
+                quedan.append(a)
+                continue
+            fichero = (a.get("trayectoria") or {}).get("id") if isinstance(a.get("trayectoria"), dict) else None
+            if es_resultado_sintetico(x, fichero or r.get("fichero"), ""):
+                a["sintetico"] = True
+            relacion = RELACION_LABORATORIO.get(str(r.get("clasificacion") or "")) or {"confirma": "apoya", "refuta": "contradice"}.get(str(r.get("veredicto") or ""))
+            if relacion:
+                a["relacion"] = relacion
+                quedan.append(a)
+            elif r:
+                r.setdefault("afirmacionRetirada", a)
+        h["afirmaciones"] = quedan
 
 
 def _migrar_supuestos_evaluados(estado: dict[str, Any]) -> None:

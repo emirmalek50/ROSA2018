@@ -1262,10 +1262,19 @@ class Supervisor:
             y["experimento"]["resultado"] = resultado
             y["_resultadoEvaluado"] = True
             fecha_txt = datetime.fromtimestamp(ahora / 1000).strftime("%d/%m/%Y")
+            af_lab: dict[str, Any] | None = None
             if clasificacion in ("apoyo_reproducido", "negativo_interpretable", "inconcluso", "correccion_contexto") and resultado["veredicto"] != "no_evaluable":
                 cita = f"[Datos de prueba, SINTÉTICOS: {resultado['fichero']}, {fecha_txt}]" if sintetico else f"[Datos del laboratorio: {resultado['fichero']}, {fecha_txt}]"
                 af_lab_id = P.nuevo_id("af")
-                y["afirmaciones"].append({"afirmacionId": af_lab_id, "texto": resultado["resultado"], "cita": cita, "veredicto": "sostenida", "motivo": f"Cifra calculada de los datos {'de prueba (sintéticos, no cuentan como evidencia)' if sintetico else 'del laboratorio'} contra el prerregistro: {resultado['veredicto']} ({clasificacion.replace('_', ' ')}).", "entidadDistinta": False, "tipo": "dato", "clase": "observacion_original", "sintetico": sintetico, "trayectoria": {"id": resultado["fichero"], "celda": 0}, "fragmento": resultado["motivo"]})
+                af_lab = {"afirmacionId": af_lab_id, "texto": resultado["resultado"], "cita": cita, "veredicto": "sostenida", "motivo": f"Cifra calculada de los datos {'de prueba (sintéticos, no cuentan como evidencia)' if sintetico else 'del laboratorio'} contra el prerregistro: {resultado['veredicto']} ({clasificacion.replace('_', ' ')}).", "entidadDistinta": False, "tipo": "dato", "clase": "observacion_original", "sintetico": sintetico, "trayectoria": {"id": resultado["fichero"], "celda": 0}, "fragmento": resultado["motivo"]}
+                # La relación con ESTA hipótesis sale de la clasificación (25 de septiembre
+                # de 2026). Sin ella, certeza.py la contaba como apoyo "de origen", y un
+                # negativo del laboratorio subía la certeza. Un inconcluso no es evidencia
+                # en ningún sentido, y una corrección de contexto apoya a la derivada, no a
+                # esta: los dos quedan en el resultado del experimento, no en la evidencia.
+                relacion = RELACION_LABORATORIO.get(clasificacion)
+                if relacion:
+                    y["afirmaciones"].append({**af_lab, "relacion": relacion})
                 y["evidenciaEstadistica"] = "no_aplica" if sintetico else ("fuerte" if clasificacion == "apoyo_reproducido" else ("moderada" if clasificacion == "negativo_interpretable" else "debil"))
                 # El resultado del laboratorio entra al modelo de mundo como hecho (la ficha lo
                 # prometía y el registro no lo cumplía): frena una hipótesis nueva con la misma predicción.
@@ -1293,7 +1302,7 @@ class Supervisor:
                 y["revisiones"].append({"fecha": ahora, "quien": quien, "accion": "suspendida", "nota": "Corrección de contexto: el efecto aparece en otro contexto; se crea una hipótesis derivada", "aCiegas": False})
                 if derivada_texto is not None:
                     d = derivada_texto
-                    nueva = P.nueva_hipotesis(y["investigacionId"], ctx.numero, ahora, titulo=d.titulo.strip(), enunciado=d.enunciado.strip(), mecanismo=d.mecanismo.strip(), comprobacion={"biomarcador": d.biomarcador, "cohorte": d.cohorte, "diseno": d.diseno}, cluster=y["cluster"], derivadaDe=y["id"], relevancia={"justificacion": f"Derivada de '{y['titulo'][:60]}' por corrección de contexto del laboratorio: {d.que_cambio}", "votoHumano": None}, afirmaciones=[a for a in y["afirmaciones"] if a.get("clase") == "observacion_original"][-1:])
+                    nueva = P.nueva_hipotesis(y["investigacionId"], ctx.numero, ahora, titulo=d.titulo.strip(), enunciado=d.enunciado.strip(), mecanismo=d.mecanismo.strip(), comprobacion={"biomarcador": d.biomarcador, "cohorte": d.cohorte, "diseno": d.diseno}, cluster=y["cluster"], derivadaDe=y["id"], relevancia={"justificacion": f"Derivada de '{y['titulo'][:60]}' por corrección de contexto del laboratorio: {d.que_cambio}", "votoHumano": None}, afirmaciones=[{**af_lab, "relacion": "apoya"}] if af_lab else [])
                     nueva["procedencia"] = P.procedencia_vacia(f"Hipótesis derivada por corrección de contexto tras el resultado del laboratorio del {fecha_txt}. {d.que_cambio}", ahora)
                     e["hipotesis"].append(nueva)
                     resultado["hipotesisDerivadaId"] = nueva["id"]
@@ -1980,7 +1989,7 @@ class Supervisor:
         responder a mitad (`ModeloSinRespuesta`): el paso volvió a pendiente y la
         tarea de la corrida debe terminar limpia."""
         tipo = T.inferir_tipo_paso(paso)
-        ctx = Ctx(self.almacen, self.programas, self.modelos, c["id"], c["investigacionId"], it["id"], it["numero"])
+        ctx = Ctx(self.almacen, self.programas, self.modelos, c["id"], c["investigacionId"], it["id"], it["numero"], de_paso=True)
         self.almacen.mutar(lambda e: _estado_paso(e, it["id"], paso["id"], "en_curso"), "paso")
         if tipo == "indicacion":
             # La indicacion humana entra como contexto de los pasos que siguen.
@@ -2008,6 +2017,23 @@ class Supervisor:
         except PresupuestoAgotado:
             self.almacen.mutar(lambda e: _estado_paso(e, it["id"], paso["id"], "pendiente"), "paso")
             self.almacen.mutar(lambda e: _pausar_por_presupuesto(e, c["id"]), "presupuesto")
+        except PASOS.CorridaParada as ex:
+            # La persona detuvo o pausó: el paso vuelve a pendiente (al reanudar se hace
+            # entero; lo ya pagado queda en el estado) y sus pistas en curso se cierran
+            # como "detenida" con el motivo. Ninguna llamada más.
+            estado = ex.estado
+
+            def parar(e: dict[str, Any]) -> bool:
+                _estado_paso(e, it["id"], paso["id"], "pendiente")
+                it2 = next((x for x in e["iteraciones"] if x["id"] == it["id"]), None)
+                for p_ in (it2 or {}).get("pistas", []):
+                    if p_.get("pasoId") == paso["id"] and p_.get("estado") == "en_curso":
+                        p_["estado"] = "detenida"
+                        p_["resumen"] = f"Interrumpida al quedar la corrida {estado.replace('_', ' ')}: no se hizo ninguna llamada más"
+                return True
+
+            self.almacen.mutar(parar, "corrida_parada")
+            return True
         except ModeloSinRespuesta as ex:
             # El cerebro o el juez no responden tras los reintentos del vigilante: el
             # paso vuelve a pendiente (se retoma entero cuando el modelo vuelva), sus
@@ -3669,6 +3695,10 @@ ESTADO_DE_ESPERA_EN_LLANO = {"pausada": "pausada por la persona", "pausada_por_p
 # corrida, no hay presupuesto, o el modelo al que se le pediría no responde
 # (`esperando_modelo`: pedirle rellenos a un modelo caído es pagar generaciones
 # que el vigilante corta a los 240 s y reabrir su incidencia desde otra tarea).
+# Cómo cuenta un resultado del laboratorio en la evidencia de la hipótesis que
+# se probó. Lo que no está aquí (inconcluso, corrección de contexto) no entra.
+RELACION_LABORATORIO = {"apoyo_reproducido": "apoya", "negativo_interpretable": "contradice"}
+
 ESTADOS_SIN_GASTO_DE_FONDO = ("detenida", "terminada", "pausada", "pausada_por_presupuesto", "esperando_modelo")
 
 

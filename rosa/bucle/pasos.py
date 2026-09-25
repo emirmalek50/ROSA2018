@@ -115,7 +115,26 @@ SEGUNDOS_MAX_LLAMADA = max(VIG.TIEMPO_AVISO_S.values())
 # afirmación, un artículo): sin presupuesto no se sigue gastando, y con el
 # cerebro o el juez caídos el paso se retoma cuando vuelvan (TRASPASO.md 7.4), no
 # se pasa al siguiente elemento para que haga otros cuatro intentos.
-EXCEPCIONES_QUE_CORTAN_EL_PASO: tuple[type[BaseException], ...] = (PresupuestoAgotado, VIG.ModeloSinRespuesta)
+class CorridaParada(BaseException):
+    """La persona detuvo o pausó la corrida mientras un paso corría. La lanza
+    `Ctx.llamar` antes de cada llamada, solo en el contexto que ejecuta los pasos
+    de la corrida (`de_paso`). Hasta el 25 de septiembre de 2026 el estado de la
+    corrida solo se miraba entre paso y paso: la corrida 15 hizo 146 de sus 148
+    llamadas después de que la detuvieran.
+
+    Hereda de BaseException, como la cancelación de asyncio, para que ningún
+    `except Exception` de dentro del paso se la trague y siga con el siguiente
+    elemento, que volvería a lanzarla y dejaría el paso "hecho" con basura."""
+
+    def __init__(self, estado: str) -> None:
+        super().__init__(f"La corrida está {estado}: el paso se interrumpe sin llamar al modelo")
+        self.estado = estado
+
+
+# Los estados en los que un paso de la corrida no puede seguir llamando.
+ESTADOS_QUE_PARAN_EL_PASO = ("detenida", "terminada", "pausada", "pausada_por_presupuesto")
+
+EXCEPCIONES_QUE_CORTAN_EL_PASO: tuple[type[BaseException], ...] = (PresupuestoAgotado, VIG.ModeloSinRespuesta, CorridaParada)
 
 
 async def _en_paralelo(*coros: Awaitable[Any], return_exceptions: bool = False) -> list[Any]:
@@ -338,6 +357,10 @@ class Ctx:
     investigacion_id: str
     iteracion_id: str
     numero: int
+    # Si este contexto ejecuta un paso de la corrida. Solo ese se corta al detener o
+    # pausar: el trabajo de fondo que pide la persona (una revisión, los datos del
+    # laboratorio) usa la última corrida aunque esté parada.
+    de_paso: bool = False
 
     # -- lecturas ---------------------------------------------------------
 
@@ -400,6 +423,11 @@ class Ctx:
         lm = {"cerebro": self.modelos.cerebro, "juez": self.modelos.juez, "volumen": self.modelos.volumen, "replica": getattr(self.modelos, "replica", None) or self.modelos.juez}[rol]
         if rollout_id is not None and hasattr(lm, "copy"):
             lm = lm.copy(rollout_id=int(rollout_id))
+        # Detener o pausar mandan sobre el paso en curso: se mira antes de cada llamada.
+        if self.de_paso:
+            estado = next((c.get("estado") for c in self.e["corridas"] if c["id"] == self.corrida_id), None)
+            if estado in ESTADOS_QUE_PARAN_EL_PASO:
+                raise CorridaParada(str(estado))
         # El corte de presupuesto de verdad: antes de llamar. (El callback de DSPy no
         # puede cortar: DSPy captura lo que lance y sigue.)
         if not presupuesto_ok(self.almacen, self.corrida_id, self.numero):
@@ -2004,6 +2032,36 @@ async def paso_extraccion(ctx: Ctx, paso: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
+# Lo que ve el juez de verificación del fragmento. El extractor lee hasta 18.000
+# caracteres y el determinista busca el pasaje en el fragmento entero; el juez
+# solo veía los primeros 6.000, y cuando el pasaje caía más abajo juzgaba sin él.
+# En el estado del 23 de septiembre de 2026 había 35 afirmaciones así: 17 se
+# rechazaron (más de la mitad de todas las rechazadas) y 5 se aprobaron sin ver
+# su respaldo.
+VENTANA_JUEZ = 6000
+
+
+def ventana_para_juez(texto: str, pasaje: str, maximo: int = VENTANA_JUEZ) -> str:
+    """El trozo del fragmento que ve el juez: entero si cabe; si no, una
+    ventana de `maximo` caracteres centrada en el pasaje que copió el extractor,
+    con una marca de lo que se omite a cada lado. Si el pasaje no se encuentra,
+    el principio, como antes, y el juez lo sabe por la marca."""
+    from rosa import citas as CI
+
+    texto = texto or ""
+    if len(texto) <= maximo:
+        return texto
+    tramos = CI.marcar_pasaje(texto, pasaje or "").get("tramos") or []
+    if not tramos:
+        return texto[:maximo] + f"\n[... {len(texto) - maximo} caracteres más del fragmento omitidos; el pasaje citado no se localizó en él ...]"
+    ini, fin = tramos[0]["inicio"], tramos[-1]["fin"]
+    margen = max(0, (maximo - (fin - ini)) // 2)
+    a = max(0, ini - margen)
+    b = min(len(texto), max(fin + margen, a + maximo))
+    a = max(0, min(a, b - maximo))
+    return ("[... " + str(a) + " caracteres anteriores omitidos ...]\n" if a else "") + texto[a:b] + ("\n[... " + str(len(texto) - b) + " caracteres posteriores omitidos ...]" if b < len(texto) else "")
+
+
 async def verificar_afirmaciones(ctx: Ctx, afirmaciones: list[dict[str, Any]], pista: Pista | None, pregunta: str, rol: str = "juez", rollout_id: int | None = None) -> dict[str, int]:
     """Deterministas primero, juez después. Cambia el veredicto en sitio (y en
     el almacén). Devuelve el recuento por veredicto. `rollout_id` distingue las
@@ -2041,7 +2099,7 @@ async def verificar_afirmaciones(ctx: Ctx, afirmaciones: list[dict[str, Any]], p
         frag = r.fragmento or _fragmento_propio(a)
         async with sem:
             try:
-                pred = await ctx.llamar(rol, ctx.programas.juzgar, rollout_id=rollout_id, pregunta=pregunta, afirmacion=a["texto"], fragmento=K.como_dato(f"Encabezado: {frag.encabezado if frag else a.get('encabezado', '')}\n\n{(frag.texto if frag else a.get('fragmento', ''))[:6000]}"), pistas=r.pistas)
+                pred = await ctx.llamar(rol, ctx.programas.juzgar, rollout_id=rollout_id, pregunta=pregunta, afirmacion=a["texto"], fragmento=K.como_dato(f"Encabezado: {frag.encabezado if frag else a.get('encabezado', '')}\n\n{ventana_para_juez(frag.texto if frag else a.get('fragmento', ''), a.get('fragmento', ''))}"), pistas=r.pistas)
                 v = pred.veredicto
                 a["veredicto"] = v.veredicto
                 a["motivo"] = v.motivo
@@ -3876,7 +3934,7 @@ async def _novedad_por_conectores(ctx: Ctx, h: dict[str, Any], genes: list[str],
         reg_g, gwas = await CON.consultar("gwas_asociaciones_gen", resumen=f"GWAS Catalog: {gen}", simbolo=gen)
         reg_c, clin = await CON.consultar("clinvar_gen", resumen=f"ClinVar: {gen}", simbolo=gen)
         regs += [reg_g, reg_c]
-        pista.accion(f"GWAS Catalog y ClinVar: {gen}", {"base": "GWAS Catalog v2, ClinVar", "parametros": f"gene_name={gen}", "resultados": f"{(gwas or {}).get('n_alzheimer', '?')} asociaciones AD; {(clin or {}).get('con_enfermedad', '?')} variantes ClinVar con Alzheimer"})
+        pista.accion(f"GWAS Catalog y ClinVar: {gen}", {"base": "GWAS Catalog v2, ClinVar", "parametros": f"mapped_gene={gen}, efo_id=MONDO_0004975", "resultados": f"{(gwas or {}).get('n_alzheimer', '?')} asociaciones AD; {(clin or {}).get('con_enfermedad', '?')} variantes ClinVar con Alzheimer"})
         fallos = [n for n, r_ in (("GWAS Catalog", reg_g), ("ClinVar", reg_c)) if r_.get("error")]
         n_ad = (gwas or {}).get("n_alzheimer", 0)
         n_cv = (clin or {}).get("con_enfermedad", 0)

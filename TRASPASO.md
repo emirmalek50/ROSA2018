@@ -1992,3 +1992,52 @@ Tres cosas que no están resueltas:
   Google Docs de verdad.
 - Las iniciales, el nombre corto y que "el documento de hipótesis" sea el
   dossier son lecturas nuestras de un borrador: hay que enseñárselo a Monica.
+
+## Cuatro fallos graves de la caza, arreglados (25 de septiembre de 2026)
+
+Del informe `INFORME-CAZA-FALLOS-2026-09-23.md`, los cuatro que Emir pidió
+primero.
+
+**Detener y pausar cortan el paso en curso.** El estado de la corrida solo se
+miraba entre paso y paso, y la corrida 15 hizo 146 de sus 148 llamadas después
+de que la detuvieran. Ahora `Ctx.llamar` lo mira antes de cada llamada y lanza
+`CorridaParada` si la corrida está detenida, terminada o pausada. Solo lo hace
+en el contexto que ejecuta pasos (`de_paso=True`, en `_ejecutar_paso`): el
+trabajo de fondo que pide la persona sobre una corrida parada sigue
+funcionando. `CorridaParada` hereda de `BaseException`, como la cancelación de
+asyncio, para que los `except Exception` de dentro de los pasos (que se tragan
+el fallo de cada elemento) no la absorban; está en
+`EXCEPCIONES_QUE_CORTAN_EL_PASO`, así que `_en_paralelo` cancela a las
+hermanas. El paso vuelve a pendiente y sus pistas en curso quedan "detenida".
+Comprobado: sin el arreglo, el test da 19 llamadas después de detener; con él,
+cero. Lo que no corta: el cierre de iteración, que si empezó termina sus pocas
+llamadas para no dejar la iteración sin resumen.
+
+**Un resultado negativo del laboratorio cuenta en contra.** La afirmación del
+laboratorio se guardaba sin `relacion`, y certeza.py lee "sin relación" como
+apoyo de origen: un negativo interpretable subía la certeza. Ahora
+`RELACION_LABORATORIO` da "apoya" al apoyo reproducido y "contradice" al
+negativo; el inconcluso no entra en la evidencia, y la corrección de contexto
+solo apoya a la hipótesis derivada. La migración `_migrar_relacion_laboratorio`
+arregló la única afirmación así del estado, la de hip-mtvulxbg-140, que además
+venía de `datos_gfap_nfl_sintetico.csv` sin marcar como sintética (se guardó
+antes de S-18): ahora es sintética y no cuenta como evidencia real.
+
+**GWAS Catalog filtra por gen.** La API v2 ignora `gene_name` y devolvía el
+catálogo entero (1.192.604 asociaciones); se miraban las 50 primeras, de cáncer
+de pulmón, y ROSA2018 escribía que APOE no tiene asociaciones con Alzheimer.
+Con `mapped_gene` y `efo_id=MONDO_0004975` son 138. El conector hace dos
+consultas filtradas y comprueba fila a fila que cada asociación es del gen; si
+la API vuelve a ignorar el filtro, lanza FuenteNoDisponible ("no pude
+comprobar") en vez de contar un cero. `_migrar_gwas_sin_filtro` devolvió a "por
+comprobar" lo que salió del conector roto: 12 novedades genéticas y 23 capas
+genéticas de perfiles de diana. Para GFAP el cero era cierto por casualidad.
+
+**El juez de verificación ve el pasaje.** Recibía los primeros 6.000
+caracteres del fragmento aunque el extractor lea 18.000; cuando el pasaje caía
+más abajo, juzgaba sin él. `ventana_para_juez` le da una ventana de 6.000
+centrada en el pasaje que copió el extractor, con marcas de lo omitido. En el
+estado real había 35 afirmaciones así (17 rechazadas, más de la mitad de todas
+las rechazadas, y 5 aprobadas sin ver su respaldo): ahora el juez ve el pasaje
+en las 35. No se han vuelto a verificar: cuesta llamadas al juez y es decisión
+de Emir.

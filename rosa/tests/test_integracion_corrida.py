@@ -256,6 +256,55 @@ def test_evaluar_resultado_da_veredicto_por_lectura_y_lee_el_negativo(monkeypatc
     assert "Lectura del negativo" in texto and "cuestiona el mecanismo" in texto
 
 
+@pytest.mark.parametrize(
+    "veredicto, clasificacion, relacion",
+    [("confirma", "apoyo_reproducido", "apoya"), ("refuta", "negativo_interpretable", "contradice"), ("inconcluso", "inconcluso", None)],
+)
+def test_el_resultado_del_laboratorio_cuenta_en_su_sentido_en_la_certeza(monkeypatch, tmp_path, veredicto, clasificacion, relacion):
+    """Hasta el 25 de septiembre de 2026 la afirmación del laboratorio se guardaba
+    sin relación y certeza.py la contaba como apoyo: un negativo subía la
+    certeza. Ahora el apoyo va a favor, el negativo en contra y el inconcluso no
+    entra en la evidencia (queda en el resultado del experimento)."""
+    from rosa import certeza as C
+
+    al, ids = _preparar()
+    _con_experimento_asignado(al, ids, tmp_path, monkeypatch)
+    respuestas = {"evaluar_resultado": _pred_resultado(veredicto, clasificacion, [("GFAP en plasma", "+2 %")]), "concluir": _pred_conclusion()}
+    sup, ctx, _ = _supervisor(al, ids, respuestas, monkeypatch)
+    asyncio.run(sup._evaluar_resultado(ctx, _hip(al, ids)))
+    h = _hip(al, ids)
+    lab = [a for a in h["afirmaciones"] if str(a.get("cita", "")).startswith("[Datos del laboratorio")]
+    if relacion is None:
+        assert lab == []
+    else:
+        assert [a["relacion"] for a in lab] == [relacion]
+        # Lo que cuenta la certeza, no solo la etiqueta: el negativo está en contras.
+        v = C._Vista(h)
+        i = h["afirmaciones"].index(lab[0])
+        assert (i in v.contras) is (relacion == "contradice") and (i in v.apoyos) is (relacion == "apoya")
+
+
+def test_la_migracion_da_relacion_a_lo_guardado_y_marca_lo_sintetico():
+    from rosa.estado.almacen import _migrar_relacion_laboratorio
+
+    af = lambda cita, fichero: {"texto": "x", "cita": cita, "veredicto": "sostenida", "trayectoria": {"id": fichero, "celda": 0}}  # noqa: E731
+    e = {"hipotesis": [
+        {"id": "a", "afirmaciones": [af("[Datos del laboratorio: datos_sintetico.csv, 11/09/2026]", "datos_sintetico.csv"), {"texto": "otra", "cita": "[Xie 2026]"}], "experimento": {"resultado": {"veredicto": "confirma"}}},
+        {"id": "b", "afirmaciones": [af("[Datos del laboratorio: real.csv, 1/09/2026]", "real.csv")], "experimento": {"resultado": {"veredicto": "refuta", "clasificacion": "negativo_interpretable"}}},
+        {"id": "c", "afirmaciones": [af("[Datos del laboratorio: real.csv, 1/09/2026]", "real.csv")], "experimento": {"resultado": {"veredicto": "inconcluso", "clasificacion": "inconcluso"}}},
+        {"id": "d", "afirmaciones": "roto"},
+        None,
+    ]}
+    _migrar_relacion_laboratorio(e)
+    a, b, c = e["hipotesis"][:3]
+    assert a["afirmaciones"][0]["relacion"] == "apoya" and a["afirmaciones"][0]["sintetico"] is True and "relacion" not in a["afirmaciones"][1]
+    assert b["afirmaciones"][0]["relacion"] == "contradice" and not b["afirmaciones"][0].get("sintetico")
+    assert c["afirmaciones"] == [] and c["experimento"]["resultado"]["afirmacionRetirada"]["cita"].startswith("[Datos del laboratorio")
+    antes = repr(e)
+    _migrar_relacion_laboratorio(e)
+    assert repr(e) == antes
+
+
 def test_fichero_ausente_deja_lista_vacia_y_rama_none(monkeypatch, tmp_path):
     al, ids = _preparar()
     _con_experimento_asignado(al, ids, tmp_path, monkeypatch, con_fichero=False)

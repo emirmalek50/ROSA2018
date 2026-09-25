@@ -143,7 +143,7 @@ def test_ausente_solo_cuando_todas_las_bases_respondieron_vacias():
     vacias = {"gwas_asociaciones_gen": {"total_asociaciones": 12, "en_esta_pagina": 12, "n_alzheimer": 0, "alzheimer": []}, "clinvar_gen": {"variantes_gen": 3, "con_enfermedad": 0, "ids": []}, "opentargets_graphql": ot(target=False)}
     g = capas(perfil({**RESPUESTAS_TREM2, **vacias})[0])["genetica_humana"]
     assert g["estado"] == "ausente" and g["direccion"] is None
-    assert "GWAS Catalog: 0 asociaciones con Alzheimer entre las 12 vistas de 12" in g["detalle"] and "la diana no está en la plataforma" in g["detalle"]
+    assert "GWAS Catalog: 0 asociaciones con Alzheimer entre 12 registradas del gen" in g["detalle"] and "la diana no está en la plataforma" in g["detalle"]
     # Una vacía y otra caída: no pude comprobar, nunca ausente.
     g2 = capas(perfil({**RESPUESTAS_TREM2, **vacias, "clinvar_gen": FALLO})[0])["genetica_humana"]
     assert g2["estado"] == "no_pude_comprobar" and "ClinVar: no pude comprobar" in g2["detalle"]

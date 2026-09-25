@@ -352,14 +352,15 @@ def _capa_genetica(simbolo: str, reg_gwas: dict[str, Any], gwas: Any, reg_clin: 
         g = gwas if isinstance(gwas, dict) else {}
         n_ad = _entero(g.get("n_alzheimer"))
         total = g.get("total_asociaciones")
-        vistas = g.get("en_esta_pagina")
         datos["gwasAlzheimer"] = n_ad
         if n_ad:
             ps = [p for p in (_num(a.get("p")) for a in g.get("alzheimer", []) if isinstance(a, dict)) if p is not None and p > 0]
             mejor = f" (mejor p {min(ps):.1e})" if ps else ""
             hallazgos.append(_hallazgo("GWAS Catalog", "con_datos", f"GWAS Catalog: {n_ad} asociaciones con Alzheimer de {total if total is not None else '?'} registradas del gen{mejor}"))
         else:
-            hallazgos.append(_hallazgo("GWAS Catalog", "vacio", f"GWAS Catalog: 0 asociaciones con Alzheimer entre las {vistas if vistas is not None else 0} vistas de {total if total is not None else 0} registradas del gen"))
+            # El conector filtra por gen y por Alzheimer en la propia consulta: el cero
+            # es de todo el catálogo, no de una página (antes eran las 50 primeras).
+            hallazgos.append(_hallazgo("GWAS Catalog", "vacio", f"GWAS Catalog: 0 asociaciones con Alzheimer entre {total if total is not None else 0} registradas del gen"))
     # ClinVar.
     if _fallo(reg_clin):
         hallazgos.append(_hallazgo_fallo("ClinVar", reg_clin))
