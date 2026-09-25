@@ -153,7 +153,7 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
   );
 }
 
-/** Descargar un dossier en Word con el diseño del Alzheimer Project (la
+/** Descargar un dossier en PDF con el diseño del Alzheimer Project (la
  *  plantilla de la norma AP-DOC-002): con su código si esa versión se emitió
  *  como documento controlado, como borrador si no. */
 function DescargarDossierWord({ a, n, muestra }: { a: Artefacto; n: number; muestra: boolean }) {
@@ -164,8 +164,8 @@ function DescargarDossierWord({ a, n, muestra }: { a: Artefacto; n: number; mues
   });
   return (
     <>
-      <button type="button" className="btn btn-primario" disabled={muestra} title={muestra ? 'Con datos de muestra no hay servidor que lo arme' : 'Word con el diseño del Alzheimer Project'} {...atributosEnVuelo(bajando)} onClick={() => void bajar()}>
-        Descargar v{n} (Word)
+      <button type="button" className="btn btn-primario" disabled={muestra} title={muestra ? 'Con datos de muestra no hay servidor que lo arme' : 'PDF con el diseño del Alzheimer Project'} {...atributosEnVuelo(bajando)} onClick={() => void bajar()}>
+        Descargar v{n} (PDF)
       </button>
       {aviso && (
         <span className="meta tono-aviso" role="status">
@@ -204,16 +204,13 @@ function DocumentoControladoPanel({ a, estado }: { a: Artefacto; estado: EstadoR
   });
   const bajar = (version: string) =>
     envolverBajada(async () => {
-      setAviso(await acciones.descargarDocumento(h.id, version, `${doc!.id}_${version}.docx`));
+      setAviso(await acciones.descargarDocumento(h.id, version, `${doc!.id}_${version}.pdf`));
     })();
   return (
     <section className="doc-control" aria-label="Documento controlado">
       <div className="doc-control-cab">
         <div>
           <h3>Documento controlado{doc ? ` · ${doc.id}` : ''}</h3>
-          <p className="meta">
-            Según la norma AP-DOC-002 de documentos de hipótesis (borrador): código propio, versión, cabecera y pie con su formato. Se descarga en Word.
-          </p>
         </div>
       </div>
       {versiones.length > 0 && (
@@ -229,7 +226,7 @@ function DocumentoControladoPanel({ a, estado }: { a: Artefacto; estado: EstadoR
                 </span>
                 <Chip tono={v.controlado ? 'ok' : 'aviso'}>{v.controlado ? '8 de 8 comprobaciones' : `${v.comprobaciones.filter((c) => c.ok).length} de 8 comprobaciones`}</Chip>
                 <button type="button" className="btn btn-s" disabled={muestra} {...atributosEnVuelo(bajando)} onClick={() => bajar(v.version)}>
-                  Descargar Word {v.version}
+                  Descargar PDF {v.version}
                 </button>
                 {!v.controlado && (
                   <span className="meta tono-aviso">No cumple: {v.comprobaciones.filter((c) => !c.ok).map((c) => c.texto).join('; ')}.</span>

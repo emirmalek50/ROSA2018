@@ -349,3 +349,117 @@ def docx(contenido: str, id_doc: str | None, v: dict[str, Any]) -> bytes:
     salida = io.BytesIO()
     d.save(salida)
     return salida.getvalue()
+
+
+# -- El PDF ---------------------------------------------------------------------------
+#
+# El formato que pidió Emir (25 de septiembre de 2026): el PDF, como el de la
+# norma de Monica. Las medidas salen de su propio PDF, leídas con PyMuPDF: A4,
+# márgenes de 72 puntos; logo en (73,5; 37,5) a (127,8; 72,2); cabecera en
+# negrita 8,5 pt #3B145F alineada a la derecha; título en negrita 20 pt
+# #3B145F; subtítulo 11 pt #613D8F; líneas de datos en negrita 9 pt #3B145F
+# sobre una franja #F3ECFB; secciones en negrita 13 pt #3B145F; cuerpo 10,5 pt
+# #1E2126; pie centrado 8 pt #613D8F. La fuente es la suya, Liberation Sans (la
+# versión libre de Arial, licencia SIL OFL, en rosa/plantillas/fuentes), y el
+# logo es la imagen que lleva su PDF.
+
+FUENTES = Path(__file__).resolve().parent / "plantillas" / "fuentes"
+LOGO_PDF = Path(__file__).resolve().parent / "plantillas" / "logo_alzheimer_project.jpg"
+_A4 = (595.3, 841.9)
+_MARGEN = 72.0
+_CSS = """
+@font-face { font-family: lib; src: url(LiberationSans-Regular.ttf); }
+@font-face { font-family: lib; src: url(LiberationSans-Bold.ttf); font-weight: bold; }
+body { font-family: lib; font-size: 10.5pt; color: #1E2126; }
+p { margin: 0 0 4pt 0; line-height: 1.35; }
+h1 { font-size: 20pt; font-weight: bold; color: #3B145F; margin: 0 0 6pt 0; line-height: 1.2; }
+p.sub { font-size: 11pt; color: #613D8F; margin: 0 0 18pt 0; }
+p.dato { font-size: 9pt; font-weight: bold; color: #3B145F; background-color: #F3ECFB; margin: 0; padding: 4pt 0 4pt 0; }
+h2 { font-size: 13pt; font-weight: bold; color: #3B145F; margin: 16pt 0 6pt 0; }
+p.vineta { margin: 0 0 3pt 0; }
+"""
+
+
+def _html_seguro(t: str) -> str:
+    import html
+
+    partes = re.split(r"\*\*", html.escape(t))
+    return "".join(f"<b>{x}</b>" if i % 2 else x for i, x in enumerate(partes))
+
+
+def html_del_dossier(contenido: str, id_doc: str | None, v: dict[str, Any]) -> str:
+    """El cuerpo del documento en HTML, con las mismas partes que el Word:
+    título, subtítulo, el bloque de datos de control y el dossier."""
+    lineas = [x.rstrip() for x in (contenido or "").splitlines()]
+    titulo = next((x[2:].strip() for x in lineas if x.startswith("# ")), "Dossier para el laboratorio")
+    emitido = v.get("emitido", True)
+    datos = [
+        f"Document Status: Draft{'' if emitido else ' (no emitido como documento controlado)'}",
+        f"Document ID: {id_doc if emitido and id_doc else 'sin asignar (se da al emitir)'}",
+        f"Version: {v['version'][1:] if emitido else 'borrador'}",
+        f"Date: {v['fecha']}",
+        f"Owner Initials: {v['iniciales']}",
+        f"Controlled per: {SOP} (borrador de la norma)",
+    ]
+    h = [f"<h1>{_html_seguro(titulo)}</h1>", '<p class="sub">Dossier para el laboratorio, generado por ROSA2018</p>']
+    h += [f'<p class="dato">{_html_seguro(x)}</p>' for x in datos]
+    h.append('<p style="margin-bottom:8pt"> </p>')
+    vio_titulo = False
+    for x in lineas:
+        if not x.strip():
+            continue
+        if x.startswith("# ") and not vio_titulo:
+            vio_titulo = True
+            continue
+        if x.startswith("#"):
+            h.append(f"<h2>{_html_seguro(x.lstrip('#').strip())}</h2>")
+        elif re.match(r"^\s*[-*] ", x):
+            h.append(f'<p class="vineta">- {_html_seguro(re.sub(r"^\s*[-*] ", "", x))}</p>')
+        else:
+            h.append(f"<p>{_html_seguro(x)}</p>")
+    return "<body>" + "\n".join(h) + "</body>"
+
+
+def pdf(contenido: str, id_doc: str | None, v: dict[str, Any]) -> bytes:
+    """El dossier en PDF con el diseño de la norma AP-DOC-002. `v` es una
+    versión emitida (con su código `id_doc`) o un `borrador`. El cuerpo se
+    maqueta con la Story de PyMuPDF y después se pintan en cada página el logo,
+    la cabecera y el pie, con "Page X of Y" ya contado."""
+    import pymupdf
+
+    ancho, alto = _A4
+    pagina = pymupdf.Rect(0, 0, ancho, alto)
+    donde = pymupdf.Rect(_MARGEN, 95, ancho - _MARGEN, alto - 75)
+    story = pymupdf.Story(html=html_del_dossier(contenido, id_doc, v), user_css=_CSS, archive=pymupdf.Archive(str(FUENTES)))
+    salida = io.BytesIO()
+    escritor = pymupdf.DocumentWriter(salida)
+    mas = True
+    while mas:
+        disp = escritor.begin_page(pagina)
+        mas, _ = story.place(donde)
+        story.draw(disp)
+        escritor.end_page()
+    escritor.close()
+
+    doc = pymupdf.open("pdf", salida.getvalue())
+    regular = pymupdf.Font(fontfile=str(FUENTES / "LiberationSans-Regular.ttf"))
+    negrita = pymupdf.Font(fontfile=str(FUENTES / "LiberationSans-Bold.ttf"))
+    morado, lila = (0x3B / 255, 0x14 / 255, 0x5F / 255), (0x61 / 255, 0x3D / 255, 0x8F / 255)
+    total = len(doc)
+    prefijo = v["pie"].split("Page X of Y")[0]
+    for i in range(total):
+        p = doc[i]
+        if LOGO_PDF.exists():
+            p.insert_image(pymupdf.Rect(73.5, 37.45, 127.85, 72.15), filename=str(LOGO_PDF))
+        cab = str(v["cabecera"])
+        w = negrita.text_length(cab, fontsize=8.5)
+        tw = pymupdf.TextWriter(pagina)
+        tw.append((ancho - _MARGEN - w, 64.5), cab, font=negrita, fontsize=8.5)
+        tw.write_text(p, color=morado)
+        texto_pie = f"{prefijo}Page {i + 1} of {total}"
+        w = regular.text_length(texto_pie, fontsize=8)
+        tw = pymupdf.TextWriter(pagina)
+        tw.append(((ancho - w) / 2, 787.5), texto_pie, font=regular, fontsize=8)
+        tw.write_text(p, color=lila)
+    doc.set_metadata({"title": str(v.get("nombre") or ""), "author": "Alzheimer Project", "subject": f"{id_doc or 'Borrador'} {v.get('version')}", "creator": "ROSA2018"})
+    return doc.tobytes(garbage=3, deflate=True)

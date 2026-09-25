@@ -640,9 +640,9 @@ def crear_app(almacen: Almacen) -> FastAPI:
             raise HTTPException(404, "Afirmación desconocida")
         return JSONResponse(content=ficha, headers={"Cache-Control": "no-store"})
 
-    @app.get("/api/artefactos/{artefacto_id}/v/{n}.docx")
-    async def dossier_docx(artefacto_id: str, n: int) -> Response:
-        """Una versión de un dossier en Word con el diseño de la norma AP-DOC-002:
+    @app.get("/api/artefactos/{artefacto_id}/v/{n}.pdf")
+    async def dossier_pdf(artefacto_id: str, n: int) -> Response:
+        """Una versión de un dossier en PDF con el diseño de la norma AP-DOC-002:
         con su código si esa versión se emitió como documento controlado, como
         borrador sin código si no."""
         from rosa import documento_controlado as DC
@@ -651,16 +651,16 @@ def crear_app(almacen: Almacen) -> FastAPI:
         if r is None:
             raise HTTPException(404, "Ese dossier o esa versión no existen")
         contenido, id_doc, v = r
-        datos = await asyncio.to_thread(DC.docx, contenido, id_doc, v)
-        nombre = f"{id_doc}_{v['version']}.docx" if id_doc else f"Dossier_borrador_v{n}.docx"
+        datos = await asyncio.to_thread(DC.pdf, contenido, id_doc, v)
+        nombre = f"{id_doc}_{v['version']}.pdf" if id_doc else f"Dossier_borrador_v{n}.pdf"
         return Response(
             content=datos,
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            media_type="application/pdf",
             headers={"Cache-Control": "no-store", "Content-Disposition": f'attachment; filename="{nombre}"'},
         )
 
-    @app.get("/api/documentos/{hipotesis_id}/{version}.docx")
-    async def documento_docx(hipotesis_id: str, version: str) -> Response:
+    @app.get("/api/documentos/{hipotesis_id}/{version}.pdf")
+    async def documento_pdf(hipotesis_id: str, version: str) -> Response:
         """El documento controlado de una hipótesis (norma AP-DOC-002) en Word,
         tal como se emitió esa versión: la cabecera y el pie de la norma en
         cada página, con la numeración como campo automático, y como cuerpo el
@@ -679,11 +679,11 @@ def crear_app(almacen: Almacen) -> FastAPI:
             raise HTTPException(404, "El dossier que se emitió ya no está en el estado")
         # Una copia de lo que se lee, y el Word fuera del bucle: son décimas de CPU.
         id_doc, meta, contenido = str(h["documentoControlado"]["id"]), dict(v), str(art["versiones"][n - 1].get("contenido") or "")
-        datos = await asyncio.to_thread(DC.docx, contenido, id_doc, meta)
+        datos = await asyncio.to_thread(DC.pdf, contenido, id_doc, meta)
         return Response(
             content=datos,
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Cache-Control": "no-store", "Content-Disposition": f'attachment; filename="{id_doc}_{meta["version"]}.docx"'},
+            media_type="application/pdf",
+            headers={"Cache-Control": "no-store", "Content-Disposition": f'attachment; filename="{id_doc}_{meta["version"]}.pdf"'},
         )
 
     @app.get("/api/corridas/{corrida_id}/citas/{afirmacion_id}/pdf")

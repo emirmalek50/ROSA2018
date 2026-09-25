@@ -426,9 +426,9 @@ function abrirEventos(): void {
  *  en estado de conexión o en aviso) para que un botón pueda quedarse "en
  *  vuelo" hasta que el servidor responda (lib/diferido.ts, useEnVuelo). En
  *  modo muestra resuelve en el acto. */
-/** Baja un Word del servidor con la sesión y lo guarda con el nombre que da
+/** Baja un fichero (el PDF de un dossier) del servidor con la sesión y lo guarda con el nombre que da
  *  el servidor (o `porDefecto`). Devuelve el motivo si no se pudo. */
-async function bajarWord(url: string, porDefecto: string): Promise<string | null> {
+async function bajarFichero(url: string, porDefecto: string): Promise<string | null> {
   if (modo !== 'servidor') return 'Descargar el documento requiere el servidor de ROSA2018.';
   try {
     const r = await fetch(url, { headers: cabeceras(false) });
@@ -1115,15 +1115,15 @@ export const acciones = {
   emitirDocumento: (hipotesisId: string, nombreCorto: string) => {
     return enviar('emitirDocumento', { hipotesis_id: hipotesisId, nombre_corto: nombreCorto, quien: QUIEN });
   },
-  /** El Word de una versión emitida del documento controlado, con la sesión
+  /** El PDF de una versión emitida del documento controlado, con la sesión
    *  de la persona: es confidencial y la ruta no se abre sin ella. Devuelve el
    *  motivo si no se pudo. */
   descargarDocumento: (hipotesisId: string, version: string, nombreFichero: string): Promise<string | null> =>
-    bajarWord(`${API}/documentos/${encodeURIComponent(hipotesisId)}/${encodeURIComponent(version)}.docx`, nombreFichero),
-  /** Una versión de un dossier en Word con el diseño del Alzheimer Project (norma
+    bajarFichero(`${API}/documentos/${encodeURIComponent(hipotesisId)}/${encodeURIComponent(version)}.pdf`, nombreFichero),
+  /** Una versión de un dossier en PDF con el diseño del Alzheimer Project (norma
    *  AP-DOC-002): con su código si esa versión se emitió, como borrador si no. */
   descargarDossier: (artefactoId: string, n: number): Promise<string | null> =>
-    bajarWord(`${API}/artefactos/${encodeURIComponent(artefactoId)}/v/${n}.docx`, `Dossier_v${n}.docx`),
+    bajarFichero(`${API}/artefactos/${encodeURIComponent(artefactoId)}/v/${n}.pdf`, `Dossier_v${n}.pdf`),
   /** El dossier se arma en el servidor con todo el estado; llega como artefacto por SSE. */
   generarDossier: (hipotesisId: string) => {
     return enviar('generarDossier', { hipotesis_id: hipotesisId, quien: QUIEN });

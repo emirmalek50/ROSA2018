@@ -99,7 +99,8 @@ describe('el documento controlado de un dossier', () => {
     const { e, art } = conDossier({ nombreCorto: 'Brecha GFAP NfL en APOE4' });
     await abrir(e, art);
     const panel = nodo.querySelector('.doc-control')!;
-    expect(panel.textContent).toContain('norma AP-DOC-002');
+    // El texto técnico de la norma no se enseña: parecía código interno (Emir, 25 de septiembre).
+    expect(panel.textContent).not.toContain('AP-DOC-002');
     const entrada = panel.querySelector<HTMLInputElement>('input')!;
     expect(entrada.value).toBe('Brecha GFAP NfL en APOE4');
     expect(panel.textContent).toContain('Resumen del título propuesto por ROSA2018');
@@ -131,8 +132,8 @@ describe('el documento controlado de un dossier', () => {
     expect(panel.textContent).toContain('8 de 8 comprobaciones');
     expect(panel.textContent).toContain('ya está emitida como v01');
     expect(boton('Emitir')).toBeUndefined();
-    await pulsar(boton('Descargar Word v01')!);
-    expect(llamadas.get('descargarDocumento')).toHaveBeenCalledWith(expect.any(String), 'v01', 'AP-HYP-001_v01.docx');
+    await pulsar(boton('Descargar PDF v01')!);
+    expect(llamadas.get('descargarDocumento')).toHaveBeenCalledWith(expect.any(String), 'v01', 'AP-HYP-001_v01.pdf');
   });
 
   it('con el dossier regenerado ofrece la v02, y dice qué no cumple una versión que falla', async () => {
@@ -145,7 +146,7 @@ describe('el documento controlado de un dossier', () => {
   it('el botón de descargar un dossier da el Word con el diseño del Alzheimer Project, y el texto sigue a mano', async () => {
     const { e, art } = conDossier();
     await abrir(e, art);
-    await pulsar(boton('Descargar v1 (Word)')!);
+    await pulsar(boton('Descargar v1 (PDF)')!);
     expect(llamadas.get('descargarDossier')).toHaveBeenCalledWith(art.id, 1);
     expect(boton('Texto (.md)')).toBeDefined();
   });
@@ -155,6 +156,6 @@ describe('el documento controlado de un dossier', () => {
     await abrir(e, e.artefactos[0]!);
     expect(nodo.querySelector('.doc-control')).toBeNull();
     // Ni el Word: los demás artefactos se descargan como siempre.
-    expect(boton('Descargar v1 (Word)')).toBeUndefined();
+    expect(boton('Descargar v1 (PDF)')).toBeUndefined();
   });
 });

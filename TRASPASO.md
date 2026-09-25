@@ -2065,3 +2065,21 @@ cabecera y en el bloque de datos, para que nadie lo tome por uno controlado.
 Sin nombre corto todavía, el borrador usa el título cortado por palabra entera.
 Los dossiers generados antes del 14 de septiembre salen sin tildes: basta
 regenerarlos.
+
+### Corrección: el dossier se descarga en PDF, no en Word (25 de septiembre de 2026)
+
+Emir: "era en pdf, no en word". Los dos botones de Artefactos ("Descargar vN
+(PDF)" del dossier y "Descargar PDF vNN" de cada versión emitida) dan ahora un
+PDF (`/api/artefactos/{id}/v/{n}.pdf` y `/api/documentos/{hipótesis}/{vNN}.pdf`),
+hecho con `documento_controlado.pdf` sobre PyMuPDF, sin Word ni LibreOffice.
+Las medidas se leyeron del PDF de la norma de Monica: A4, márgenes de 72 pt,
+logo en su sitio, cabecera 8,5 pt a la derecha, título 20 pt, subtítulo 11 pt,
+franja lila #F3ECFB en las líneas de datos, secciones 13 pt, cuerpo 10,5 pt y
+pie 8 pt con "Page X of Y" contado. La fuente es la de su PDF, Liberation Sans
+(SIL OFL, `rosa/plantillas/fuentes` con su licencia), que tiene griego (ε, Δ), y
+el logo es la imagen de su PDF (`rosa/plantillas/logo_alzheimer_project.jpg`).
+El Word (`documento_controlado.docx` y su plantilla) se queda en el código,
+sin botón, por si hace falta editable.
+
+Y el panel "Documento controlado" ya no enseña la frase sobre la norma
+AP-DOC-002: a Emir le parecía código interno.

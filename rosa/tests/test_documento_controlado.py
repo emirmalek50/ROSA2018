@@ -203,20 +203,20 @@ def test_la_descarga_sirve_la_version_emitida_y_no_otra(tmp_path, monkeypatch):
     app = S.crear_app(al)
     app.state.acceso = SimpleNamespace(usuario=lambda token: "emir@alzheimerproject.com" if token == "sesion-test" else None, es_admin=lambda email: False, salir=lambda token: None)
     c = TestClient(app, base_url="http://127.0.0.1:8765", cookies={"rosa_sesion": "sesion-test"})
-    r = c.get("/api/documentos/h1/v01.docx")
+    r = c.get("/api/documentos/h1/v01.pdf")
     assert r.status_code == 200
-    assert r.headers["content-type"].startswith("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-    assert 'filename="AP-HYP-001_v01.docx"' in r.headers["content-disposition"]
-    assert c.get("/api/documentos/h1/v02.docx").status_code == 404
-    assert c.get("/api/documentos/nadie/v01.docx").status_code == 404
-    r = c.get("/api/artefactos/art-1/v/1.docx")
-    assert r.status_code == 200 and 'filename="AP-HYP-001_v01.docx"' in r.headers["content-disposition"]
-    assert c.get("/api/artefactos/art-2/v/1.docx").headers["content-disposition"].endswith('Dossier_borrador_v1.docx"')
-    assert c.get("/api/artefactos/art-1/v/9.docx").status_code == 404
+    assert r.headers["content-type"].startswith("application/pdf")
+    assert 'filename="AP-HYP-001_v01.pdf"' in r.headers["content-disposition"]
+    assert c.get("/api/documentos/h1/v02.pdf").status_code == 404
+    assert c.get("/api/documentos/nadie/v01.pdf").status_code == 404
+    r = c.get("/api/artefactos/art-1/v/1.pdf")
+    assert r.status_code == 200 and 'filename="AP-HYP-001_v01.pdf"' in r.headers["content-disposition"]
+    assert c.get("/api/artefactos/art-2/v/1.pdf").headers["content-disposition"].endswith('Dossier_borrador_v1.pdf"')
+    assert c.get("/api/artefactos/art-1/v/9.pdf").status_code == 404
     # Sin sesión no se descarga: el documento es confidencial.
     anonimo = TestClient(app, base_url="http://127.0.0.1:8765")
-    assert anonimo.get("/api/documentos/h1/v01.docx").status_code == 401
-    assert anonimo.get("/api/artefactos/art-1/v/1.docx").status_code == 401
+    assert anonimo.get("/api/documentos/h1/v01.pdf").status_code == 401
+    assert anonimo.get("/api/artefactos/art-1/v/1.pdf").status_code == 401
 
 
 # -- El nombre corto que resume ROSA2018 -------------------------------------------------------
@@ -268,3 +268,39 @@ def test_un_nombre_demasiado_largo_o_sin_presupuesto_queda_para_la_persona():
     sup, ctx = _supervisor(e, sin)
     asyncio.run(sup._nombre_corto(ctx, e["hipotesis"][0]))
     assert e["hipotesis"][0]["nombreCorto"] is None and e["hipotesis"][0]["_nombreCortoIntentado"] is True
+
+
+# -- El PDF, el formato que se descarga ------------------------------------------------
+
+
+def test_el_pdf_lleva_el_diseno_de_la_norma_en_cada_pagina():
+    import pymupdf
+
+    e = _estado()
+    largo = "# Dossier 1\n\n" + "\n".join(f"## {i}. Sección\n" + "Texto con Δ y ε y tildes: señal, está. " * 30 for i in range(1, 9))
+    e["artefactos"][0]["versiones"][0]["contenido"] = largo
+    v = DC.emitir(e, e["hipotesis"][0], "Brecha GFAP NfL", "E", AHORA)
+    d = pymupdf.open("pdf", DC.pdf(largo, "AP-HYP-001", v))
+    assert len(d) >= 2
+    for i, p in enumerate(d):
+        texto = p.get_text()
+        assert "Brecha GFAP NfL | DOC | AP-HYP-001 | v01" in texto
+        assert f"Confidential | Alzheimer Project | AI Robotix | Sep-17-2026 | {DC.INICIALES_RESPONSABLE} | Page {i + 1} of {len(d)}" in texto
+        assert p.get_images(), "falta el logo del Alzheimer Project"
+    primera = d[0].get_text("dict")["blocks"]
+    spans = [s for b in primera for l in b.get("lines", []) for s in l["spans"]]
+    titulo = next(s for s in spans if s["text"].startswith("Dossier 1"))
+    assert round(titulo["size"]) == 20 and titulo["color"] == 0x3B145F and "Bold" in titulo["font"]
+    assert all("LiberationSans" in s["font"] for s in spans)
+    todo = "".join(p.get_text() for p in d)
+    assert "Δ" in todo and "ε" in todo and "señal" in todo and "Document ID: AP-HYP-001" in todo
+    assert d.metadata["author"] == "Alzheimer Project"
+
+
+def test_el_pdf_de_un_borrador_lo_dice_y_no_da_codigo():
+    import pymupdf
+
+    e = _estado()
+    contenido, id_doc, v = DC.para_descargar(e, "art-1", 1, AHORA)
+    texto = pymupdf.open("pdf", DC.pdf(contenido, id_doc, v))[0].get_text()
+    assert "sin código: no emitido | borrador" in texto and "Document ID: sin asignar" in texto and "AP-HYP-" not in texto
