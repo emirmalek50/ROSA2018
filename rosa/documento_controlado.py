@@ -314,7 +314,7 @@ def docx(contenido: str, id_doc: str | None, v: dict[str, Any]) -> bytes:
         else:
             cuerpo.append(el)
 
-    lineas = [x.rstrip() for x in (contenido or "").splitlines()]
+    lineas = [x.rstrip() for x in para_lector(contenido).splitlines()]
     titulo = next((x[2:].strip() for x in lineas if x.startswith("# ")), "Dossier para el laboratorio")
     emitido = v.get("emitido", True)
     poner("titulo", titulo)
@@ -326,7 +326,6 @@ def docx(contenido: str, id_doc: str | None, v: dict[str, Any]) -> bytes:
         f"Version: {v['version'][1:] if emitido else 'borrador'}",
         f"Date: {v['fecha']}",
         f"Owner Initials: {v['iniciales']}",
-        f"Controlled per: {SOP} (borrador de la norma)",
     ]
     for x in datos:
         poner("dato", x)
@@ -349,6 +348,102 @@ def docx(contenido: str, id_doc: str | None, v: dict[str, Any]) -> bytes:
     salida = io.BytesIO()
     d.save(salida)
     return salida.getvalue()
+
+
+# -- Lo que el lector no necesita ------------------------------------------------------
+#
+# El dossier guardado lleva todo lo que hace falta para auditarlo: ids internos,
+# el commit, el Elo, las comprobaciones una a una del auditor, los resultados en
+# bruto del análisis, la tabla de conectores. Emir (25 de septiembre de 2026):
+# "esos datos crudos no deberían verse en el pdf". El documento que se descarga
+# es para quien lo lee en el laboratorio; el artefacto guardado no se toca.
+
+_SECCIONES_FUERA = ("qué dicen las bases de la diana", "que dicen las bases de la diana", "revisión del registro", "revision del registro")
+_LINEAS_FUERA = re.compile(
+    r"^\s*(ROSA2018: commit|Nivel de autonom[ií]a|Novedad:|Resultados:|Baseline:|Auditor[ií]a\b|Perfil de evidencia por diana|Capa \| Estado)"
+    r"|^\s*-\s*[a-z]+(?:_[a-z0-9]+)*:\s*(pasa|falla|no_aplica|no_comprobable|no aplica)\b"
+    r"|:\s*(no declarad[oa]s?|sin criterio)\s*\.?$"
+    r"|\|.*\|.*\|"
+    r"|^\s*LM Response|^\s*[{}\[\]]|^\s*\"[a-z_]+\"\s*:"
+    r"|El juez no respondi[oó]",
+    re.IGNORECASE,
+)
+_BLOQUEO_LEGIBLE = {
+    "revision_registro_abierta": "La revisión del registro tiene hallazgos graves sin atender",
+    "dependencia_pendiente": "Algo de lo que depende cambió y está pendiente de revisar",
+    "trazabilidad_insuficiente": "Trazabilidad insuficiente: no hay afirmaciones sostenidas o alguna está bloqueada",
+    "sin_experimento_interpretable": "Sin experimento interpretable: faltan los criterios de confirmación o refutación",
+    "descartada_por_killer": "Descartada en este contexto",
+    "fuente_retractada": "Depende de una fuente retractada",
+    "datos_no_autorizados": "Datos no autorizados para su uso con IA",
+    "analisis_invalido": "Análisis inválido según el auditor",
+}
+_ESTADO_SUPUESTO = {"sin_evidencia": "sin evidencia", "respaldado": "respaldado", "plausible": "plausible", "contradicho": "contradicho"}
+
+
+def _limpiar_linea(x: str) -> str:
+    t = x
+    # Ids internos y huellas.
+    t = re.sub(r"Hip[oó]tesis\s+hip-[\w-]+,\s*versi[oó]n\s+(\d+)\.", r"Versión \1 de la hipótesis.", t)
+    t = re.sub(r"\s*\((?:artefacto|plan|datos)\s+[\w-]+\)", "", t)
+    t = re.sub(r"\[An[aá]lisis in silico[^\]]*\]", "[Análisis in silico]", t)
+    t = re.sub(r"\[(Datos (?:del laboratorio|de prueba, SINT[EÉ]TICOS)):\s*[^,\]]+,\s*", r"[\1, ", t)
+    t = re.sub(r"\b(?:hip|art|run|cor|inv|af|it|plan|ev)-[a-z0-9]+(?:-[a-z0-9]+)*\b", "", t)
+    t = re.sub(r"\b(?:datos\s+)?sha256\s+[0-9a-f]+\b|\b[0-9a-f]{12,64}\b", "", t)
+    # Lo interno del torneo y del Killer.
+    t = re.sub(r"\s*Elo\s+\d+\s+tras\s+\d+\s+partidos\.", "", t)
+    t = re.sub(r"Decisi[oó]n del Killer sobre esta versi[oó]n", "Revisión crítica de esta versión", t)
+    t = re.sub(r"\s*·\s*killer_\d+", "", t)
+    t = re.sub(r"\s*·\s*(?:openai|anthropic|google)/[\w./-]+", "", t)
+    t = re.sub(r"(?:\s*·\s*){2,}", " · ", t)
+    t = re.sub(r"\((?:Killer II,\s*)?(?:openai|anthropic)/[\w./-]+\)", "", t)
+    t = t.replace("Killer", "revisión crítica")
+    # Etiquetas de afirmaciones y de supuestos.
+    m = re.match(r"^(\s*)-\s*\[([^\]]*)\]\s*(.*)$", t)
+    if m:
+        dentro = m.group(2).lower()
+        if dentro in _ESTADO_SUPUESTO:
+            # La nota del evaluador va entre paréntesis al final: es su razonamiento.
+            texto = re.sub(r"\s*\((?:[^()]|\([^()]*\))*\)\s*$", "", m.group(3)) if m.group(3).rstrip().endswith(")") else m.group(3)
+            t = f"{m.group(1)}- {texto} ({_ESTADO_SUPUESTO[dentro]})"
+        elif "," in dentro or dentro in ("sostenida", "parcial"):
+            t = f"{m.group(1)}- " + ("(datos sintéticos) " if "sintetico" in dentro or "sintético" in dentro else "") + m.group(3)
+    t = re.sub(r"^\s*-\s*([a-z]+(?:_[a-z]+)+)\s*$", lambda g: "- " + _BLOQUEO_LEGIBLE.get(g.group(1), g.group(1).replace("_", " ")), t)
+    # Claves en snake_case sueltas: entre paréntesis sobran; en el texto, con espacios.
+    t = re.sub(r"\s*\((?:[a-z]+_)+[a-z]+\)", "", t)
+    t = re.sub(r"\b([a-z]+(?:_[a-z0-9]+)+)\b", lambda g: g.group(1).replace("_", " "), t)
+    return re.sub(r"\s{2,}", " ", t).rstrip(" ,;")
+
+
+def para_lector(contenido: str) -> str:
+    """El dossier sin lo que solo sirve para auditarlo."""
+    salida: list[str] = []
+    fuera_hasta: int | None = None
+    for x in (contenido or "").splitlines():
+        cab = re.match(r"^(#+)\s+(.*)$", x)
+        if cab:
+            nivel = len(cab.group(1))
+            if fuera_hasta is not None and nivel <= fuera_hasta:
+                fuera_hasta = None
+            if any(cab.group(2).lower().startswith(f) for f in _SECCIONES_FUERA):
+                fuera_hasta = nivel
+                continue
+            if cab.group(2).lower().startswith("riesgo de sesgo por instrumento"):
+                x = f"{cab.group(1)} Riesgo de sesgo de las fuentes"
+        if fuera_hasta is not None or _LINEAS_FUERA.search(x):
+            continue
+        # El "pasaje" de un análisis es su salida en bruto (clave=valor): la cifra que
+        # importa ya va en la afirmación.
+        if re.match(r"^\s*Pasaje literal:", x) and x.count("=") >= 3:
+            continue
+        # Las comprobaciones una a una de una decisión: su motivo ya va en la línea.
+        if re.match(r"^\s{2,}-\s", x):
+            continue
+        limpia = _limpiar_linea(x)
+        if limpia.strip() in ("-", ""):
+            continue
+        salida.append(limpia)
+    return "\n".join(salida)
 
 
 # -- El PDF ---------------------------------------------------------------------------
@@ -374,7 +469,7 @@ body { font-family: lib; font-size: 10.5pt; color: #1E2126; }
 p { margin: 0 0 4pt 0; line-height: 1.35; }
 h1 { font-size: 20pt; font-weight: bold; color: #3B145F; margin: 0 0 6pt 0; line-height: 1.2; }
 p.sub { font-size: 11pt; color: #613D8F; margin: 0 0 18pt 0; }
-p.dato { font-size: 9pt; font-weight: bold; color: #3B145F; background-color: #F3ECFB; margin: 0; padding: 4pt 0 4pt 0; }
+p.dato { font-size: 9pt; font-weight: bold; color: #3B145F; margin: 0; padding: 4pt 0 4pt 4pt; }
 h2 { font-size: 13pt; font-weight: bold; color: #3B145F; margin: 16pt 0 6pt 0; }
 p.vineta { margin: 0 0 3pt 0; }
 """
@@ -390,7 +485,7 @@ def _html_seguro(t: str) -> str:
 def html_del_dossier(contenido: str, id_doc: str | None, v: dict[str, Any]) -> str:
     """El cuerpo del documento en HTML, con las mismas partes que el Word:
     título, subtítulo, el bloque de datos de control y el dossier."""
-    lineas = [x.rstrip() for x in (contenido or "").splitlines()]
+    lineas = [x.rstrip() for x in para_lector(contenido).splitlines()]
     titulo = next((x[2:].strip() for x in lineas if x.startswith("# ")), "Dossier para el laboratorio")
     emitido = v.get("emitido", True)
     datos = [
@@ -399,7 +494,6 @@ def html_del_dossier(contenido: str, id_doc: str | None, v: dict[str, Any]) -> s
         f"Version: {v['version'][1:] if emitido else 'borrador'}",
         f"Date: {v['fecha']}",
         f"Owner Initials: {v['iniciales']}",
-        f"Controlled per: {SOP} (borrador de la norma)",
     ]
     h = [f"<h1>{_html_seguro(titulo)}</h1>", '<p class="sub">Dossier para el laboratorio, generado por ROSA2018</p>']
     h += [f'<p class="dato">{_html_seguro(x)}</p>' for x in datos]
@@ -447,6 +541,17 @@ def pdf(contenido: str, id_doc: str | None, v: dict[str, Any]) -> bytes:
     morado, lila = (0x3B / 255, 0x14 / 255, 0x5F / 255), (0x61 / 255, 0x3D / 255, 0x8F / 255)
     total = len(doc)
     prefijo = v["pie"].split("Page X of Y")[0]
+    # La franja lila del bloque de datos, solo en la primera página y por debajo
+    # del texto. Con el fondo en el CSS, la Story lo volvía a pintar arriba de
+    # todas las páginas siguientes.
+    if total:
+        p0 = doc[0]
+        for linea in html_del_dossier(contenido, id_doc, v).split("\n"):
+            m = re.match(r'<p class="dato">([^<:]+:)', linea)
+            if not m:
+                continue
+            for r in p0.search_for(m.group(1))[:1]:
+                p0.draw_rect(pymupdf.Rect(_MARGEN, r.y0 - 5, ancho - _MARGEN, r.y1 + 5.2), color=None, fill=(0xF3 / 255, 0xEC / 255, 0xFB / 255), overlay=False)
     for i in range(total):
         p = doc[i]
         if LOGO_PDF.exists():

@@ -2083,3 +2083,25 @@ sin botón, por si hace falta editable.
 
 Y el panel "Documento controlado" ya no enseña la frase sobre la norma
 AP-DOC-002: a Emir le parecía código interno.
+
+### El PDF, sin datos crudos (25 de septiembre de 2026)
+
+Emir: "esos datos crudos no deberían verse en el pdf". `para_lector` en
+rosa/documento_controlado.py limpia el dossier antes de maquetar el PDF (y el
+Word); el artefacto guardado no se toca, sigue entero para auditoría. Fuera:
+"Controlled per" del bloque de datos, la línea del commit y el nivel de
+autonomía, los ids internos (hip-, art-, run-, huellas), el Elo, la línea de
+novedad con puntuaciones, la tabla "Qué dicen las bases de la diana" (con
+nombres de conectores), los resultados y la línea base del análisis en
+clave=valor y su "pasaje", las comprobaciones una a una del auditor y de cada
+decisión, el nombre del modelo y "killer_1", los volcados en bruto de la
+respuesta del modelo, las decisiones técnicas ("El juez no respondió"), los
+campos vacíos ("no declarados", "sin criterio"), la revisión del registro por
+regla, los nombres de fichero y la nota del evaluador tras cada supuesto. Se
+traducen las etiquetas ([sostenida, dato, clase literatura], muy_baja,
+revision_registro_abierta, Killer) a texto normal. Un test lista todo lo que
+no debe llegar.
+
+Y la franja lila de los datos ya no se repite arriba de cada página: la Story
+de PyMuPDF volvía a pintar el fondo CSS en las páginas siguientes; ahora se
+pinta a mano solo en la primera, por debajo del texto.

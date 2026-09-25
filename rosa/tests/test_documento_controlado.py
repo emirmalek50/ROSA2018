@@ -304,3 +304,88 @@ def test_el_pdf_de_un_borrador_lo_dice_y_no_da_codigo():
     contenido, id_doc, v = DC.para_descargar(e, "art-1", 1, AHORA)
     texto = pymupdf.open("pdf", DC.pdf(contenido, id_doc, v))[0].get_text()
     assert "sin código: no emitido | borrador" in texto and "Document ID: sin asignar" in texto and "AP-HYP-" not in texto
+
+
+# -- Lo que el lector no necesita ---------------------------------------------------------
+
+
+CRUDO = """# Dossier para el laboratorio: Brecha
+Generado el 25/09/2026 08:36. Hipótesis hip-mu2zz5y8-2440, versión 1. Investigación: GFAP.
+ROSA2018: commit 5385cb5, firmas abc, programas optimizados ninguno.
+Nivel de autonomía con el que se produjo este dossier: preguntar.
+## 1. Decisión de priorización
+NO es candidata al laboratorio. Bloqueos no compensables:
+- revision_registro_abierta
+Estado: propuesta. Elo 1644 tras 13 partidos. Decisión del Killer sobre esta versión: suspender.
+Conclusión de ROSA2018: certeza muy_baja, dirección apoya.
+Intervención: ninguna (sin_intervencion)
+### Qué dicen las bases de la diana
+Perfil de evidencia por diana: MAPT (Ensembl ENSG00000186868).
+Capa | Estado | Dirección | Detalle | Conectores
+Genética | presente | sin dirección | GWAS 1192604 | gwas_asociaciones_gen
+## 3. Evidencia con procedencia
+- [sostenida, dato, clase literatura] GFAP sube antes que NfL. [Xie et al., 2026, sección Results]
+    Pasaje literal: "GFAP diverged earliest"
+- [sostenida, dato, clase derivado, SINTETICO] Diferencia de 43.30 pg/mL. [Analisis in silico run-mtx3n2p8-21, plan fe16422eeba569a1, datos 82af4a38d7a7]
+    Pasaje literal: "n_registros=120; n_portadores=60; n_no_portadores=60; media=180.38"
+- [sin_evidencia] Los umbrales son transportables. (ninguna de las afirmaciones sostenidas menciona el umbral)
+Novedad: openTargets evidencia_previa: GFAP: asociacion 0.124 (literature 0.991)
+## 4. Análisis in silico
+Resultados: n_registros_iniciales=120; media_portadores_pg_ml=180.38
+Baseline: media_global_pg_ml=158.732
+Interpretación: efecto_detectado. La diferencia es positiva.
+Auditoría (Killer II, openai/anthropic/claude-opus-5): válido.
+- semilla: pasa. El código fija la semilla
+- fuga_de_datos: no_aplica. No hay partición
+## 5. Decisiones registradas
+- 15/09/2026 14:23 · killer_1 · v1 · suspender · openai/anthropic/claude-opus-5: Hace falta más evidencia.
+    - independencia_cohortes: falla. Una sola fuente
+- 18/09/2026 06:03 · killer_1 · v1 · suspender · openai/anthropic/claude-opus-5: El juez no respondió 3 veces (motivo técnico).
+LM Response: {
+  "comprobaciones": [
+## 6. Experimento propuesto y prerregistro
+Controles: no declarados
+La CONFIRMA si: sin criterio
+Prerregistrado el 11/09/2026 08:39 (artefacto art-mtwy0hto-1). Asignado a: Otro lab.
+Resultado recibido: confirma. [Datos del laboratorio: datos_gfap_nfl_sintetico.csv, 11/09/2026]
+## Revisión del registro (por regla)
+- [media] contradiccion con registro: Recuentos del texto que no cuadran
+"""
+
+
+def test_el_pdf_no_lleva_lo_que_solo_sirve_para_auditar():
+    t = DC.para_lector(CRUDO)
+    for crudo in ("hip-", "art-", "run-", "fe16422eeba569a1", "commit", "Nivel de autonomía", "Elo", "Killer", "killer_1", "openai", "anthropic",
+                  "Qué dicen las bases", "Capa | Estado", "1192604", "Novedad:", "Resultados:", "Baseline:", "semilla: pasa", "fuga", "independencia_cohortes",
+                  "El juez no respondió", "LM Response", '"comprobaciones"', "no declarados", "sin criterio", "Revisión del registro", "contradiccion con registro",
+                  "datos_gfap_nfl_sintetico.csv", "n_portadores", "_", "[sostenida", "ninguna de las afirmaciones"):
+        assert crudo not in t, f"se cuela «{crudo}»"
+    # Y lo que sí sirve se queda, en castellano legible.
+    for bueno in ("Versión 1 de la hipótesis.", "La revisión del registro tiene hallazgos graves sin atender", "Revisión crítica de esta versión: suspender",
+                  "certeza muy baja", "Intervención: ninguna", "- GFAP sube antes que NfL. [Xie et al., 2026, sección Results]", 'Pasaje literal: "GFAP diverged earliest"',
+                  "- (datos sintéticos) Diferencia de 43.30 pg/mL. [Análisis in silico]", "- Los umbrales son transportables. (sin evidencia)",
+                  "Interpretación: efecto detectado. La diferencia es positiva.", "- 15/09/2026 14:23 · v1 · suspender: Hace falta más evidencia.",
+                  "Prerregistrado el 11/09/2026 08:39. Asignado a: Otro lab.", "[Datos del laboratorio, 11/09/2026]"):
+        assert bueno in t, f"falta «{bueno}»"
+
+
+def test_el_bloque_de_datos_no_lleva_la_referencia_a_la_norma():
+    import pymupdf
+
+    e = _estado()
+    v = DC.emitir(e, e["hipotesis"][0], "Brecha", "E", AHORA)
+    texto = pymupdf.open("pdf", DC.pdf(CRUDO, "AP-HYP-001", v))[0].get_text()
+    assert "Controlled per" not in texto and "AP-DOC-002" not in texto and "Document ID: AP-HYP-001" in texto
+
+
+def test_la_franja_lila_solo_va_en_la_primera_pagina():
+    import pymupdf
+
+    e = _estado()
+    largo = "# Dossier 1\n" + "\n".join(f"## {i}. Sección\n" + "Texto largo. " * 120 for i in range(1, 8))
+    v = DC.emitir(e, e["hipotesis"][0], "Brecha", "E", AHORA)
+    d = pymupdf.open("pdf", DC.pdf(largo, "AP-HYP-001", v))
+    assert len(d) >= 2
+    assert [x for x in d[0].get_drawings() if x.get("fill")]
+    for n in range(1, len(d)):
+        assert not [x for x in d[n].get_drawings() if x.get("fill")], f"fondo de más en la página {n + 1}"
