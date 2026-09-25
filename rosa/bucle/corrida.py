@@ -59,6 +59,7 @@ from rosa.fuentes.base import FuenteNoDisponible
 from rosa import gateway as GW
 from rosa.gateway import Modelos
 from rosa.modulos.contador import ContextoLlamada, PresupuestoAgotado, contexto_actual, tope_agotado_en
+from rosa.modulos import firmas as F
 from rosa.modulos.firmas import Programas
 
 # Vigilante de modelos (18 de septiembre de 2026, TRASPASO.md 7.4). Cuando el
@@ -2102,7 +2103,13 @@ class Supervisor:
 
     async def _revisar_registro(self, ctx: Ctx, inv: dict[str, Any], it: dict[str, Any], c: dict[str, Any], resumen: str, llano: dict[str, Any] | None) -> dict[str, Any]:
         e = self.almacen.estado
-        texto = resumen + ("\n\n" + " ".join(str(v) for v in (llano or {}).values() if isinstance(v, str)) if llano else "")
+        # El texto revisable entero, con las listas del llano incluidas: antes se unían
+        # solo los campos de texto y quedaban fuera `mensajesClave`, `queEncontro`,
+        # `cambios` y `quePropone`, que es lo primero que lee la médica (caza del 23 de
+        # septiembre). Medido sobre las 33 revisiones guardadas: la mediana pasa de
+        # 2.419 a 4.173 caracteres y el máximo de 3.756 a 6.517, así que el corte sube
+        # de 6.000 a 12.000 y ninguna se recorta. Son unos 440 tokens de entrada más.
+        texto = RR.texto_revisable(resumen, llano)
         corpus = RR.corpus_del_registro(e, inv["id"], it, c)
         runs_ok = sum(1 for r in e.get("ejecuciones", []) if r.get("estado") == "completado" and r.get("investigacionId") == inv["id"])
         de_la_iteracion = PROG.hipotesis_nacidas_en(e, inv["id"], it, ahora=P.ahora_ms())
@@ -2113,7 +2120,7 @@ class Supervisor:
             # Sus herramientas (calcular, leer_afirmacion, leer_ejecucion) leen este
             # registro y no otro, aunque cierren dos iteraciones a la vez.
             with RR.en_revision(e, inv["id"], it, c):
-                pred = await ctx.llamar("juez", self.programas.revisar_registro, texto=texto[:6000], registro=RR.texto_registro(e, inv["id"], it, c), hallazgos_por_regla="\n".join(f"- {h['clase']}: {h['detalle']}" for h in regla) or "Ninguno")
+                pred = await ctx.llamar("juez", self.programas.revisar_registro, texto=texto[:CORTE_TEXTO_REVISABLE], registro=RR.texto_registro(e, inv["id"], it, c), hallazgos_por_regla="\n".join(f"- {h['clase']}: {h['detalle']}" for h in regla) or "Ninguno")
             juez = ctx.modelos.juez.model
             for hz in pred.revision.hallazgos:
                 hallazgos.append({"clase": hz.clase, "gravedad": hz.gravedad, "detalle": hz.detalle.strip()[:400], "origen": "juez"})
@@ -2129,6 +2136,152 @@ class Supervisor:
             hz["id"] = f"rr-{it['id']}-{i}"
             hz["estado"] = "abierto"
         return {"hallazgos": hallazgos, "porRegla": len(regla), "juez": juez, "resumen": resumen_j, "fecha": P.ahora_ms(), "estado": "con_hallazgos" if hallazgos else "limpia"}
+
+    async def _reparar_resumen(self, ctx: Ctx, inv: dict[str, Any], it: dict[str, Any], c: dict[str, Any], resumen: str, llano: dict[str, Any] | None, revision: dict[str, Any]) -> dict[str, Any] | None:
+        """El bucle de revisión: el revisor devuelve el trabajo y quien lo escribió lo
+        rehace o lo rebate, y el revisor comprueba el arreglo.
+
+        Hasta el 25 de septiembre de 2026 los hallazgos se escribían y ahí se quedaban:
+        170 hallazgos en 33 iteraciones, los 170 abiertos, ninguno atendido nunca. En
+        Yoon y otros (2026) el supervisor devuelve el trabajo al worker y 49 de 119
+        tareas se revisaron al menos una vez; medida sobre el estado real, la puerta de
+        entrada de aquí dispara en 15 de 33 iteraciones (45 %), casi la misma tasa.
+
+        Quién hace qué. Rehace el CEREBRO (GPT-6 Astra), que es quien escribió el
+        resumen y el llano; comprueba el JUEZ (Opus 5) con sus tres herramientas de
+        solo lectura. Si el juez reescribiera, corregiría su propia nota. Sonnet no
+        entra en ninguno de los dos papeles (TRASPASO.md 7.4).
+
+        Devuelve {"resumen", "llano", "revision", "vueltas"} o None si no hubo vuelta.
+        Es lo único del cierre que NO pausa la corrida cuando falta presupuesto o el
+        modelo no responde: los hallazgos abiertos ya retienen la publicación, así que
+        nada se cuela, y pausar una corrida entera después de haberlo pagado todo para
+        pulir un resumen sale peor. No se cambia de modelo: no hacer una pasada
+        opcional no es degradar el rol."""
+        graves = [h for h in revision["hallazgos"] if h.get("gravedad") == "alta" and h.get("estado") == "abierto" and h.get("reparablePorTexto") is not False]
+        if not graves:
+            return None
+        registro = RR.texto_registro(self.almacen.estado, inv["id"], it, c)
+        corpus = RR.corpus_del_registro(self.almacen.estado, inv["id"], it, c)
+        runs_ok = sum(1 for r in self.almacen.estado.get("ejecuciones", []) if r.get("estado") == "completado" and r.get("investigacionId") == inv["id"])
+        pendientes = list(revision["hallazgos"])
+        texto_actual, resumen_actual, llano_actual = RR.texto_revisable(resumen, llano), resumen, llano
+        # La base del tercer candado: las reglas corridas sobre el texto ACTUAL, con la
+        # misma función que se correrá sobre el rehecho. No vale el peso de los
+        # hallazgos de regla de la revisión: esos vienen filtrados y, si todos los
+        # hallazgos eran del juez, la base sería cero y cualquier vuelta se rechazaría.
+        def _peso_de(texto: str) -> int:
+            return RR.peso_hallazgos(RR.comprobaciones_deterministas(texto, corpus, it, runs_ok, hipotesis=PROG.hipotesis_nacidas_en(self.almacen.estado, inv["id"], it, ahora=P.ahora_ms())))
+
+        peso_reglas = _peso_de(texto_actual)
+        vueltas: list[dict[str, Any]] = []
+        for vuelta in range(1, F.MAX_VUELTAS_REPARACION + 1):
+            abiertos = [h for h in pendientes if h.get("estado") in ("abierto", "rebatido") and h.get("reparablePorTexto") is not False]
+            if not any(h.get("gravedad") == "alta" for h in abiertos):
+                break
+            try:
+                rehecho = await ctx.llamar(
+                    "cerebro", self.programas.rehacer_resumen,
+                    hallazgos="\n".join(f"- [{h['id']}] {h['clase']} ({h['gravedad']}, {h.get('origen')}): {h['detalle']}" for h in abiertos),
+                    resumen=resumen_actual, llano=RR.texto_revisable("", llano_actual) or "Ninguno", registro=registro,
+                )
+            except (PresupuestoAgotado, ModeloSinRespuesta) as ex:
+                vueltas.append({"vuelta": vuelta, "estado": "no_hecha", "motivo": f"No se pudo rehacer el resumen: {type(ex).__name__}. Los hallazgos siguen abiertos y retienen la publicación"})
+                break
+            except Exception as ex:  # noqa: BLE001
+                traceback.print_exc()
+                vueltas.append({"vuelta": vuelta, "estado": "no_hecha", "motivo": f"El cerebro no rehizo el resumen: {str(ex)[:140]}"})
+                break
+            nuevo_resumen = str(getattr(rehecho.rehecho, "resumen", "") or "").strip() or resumen_actual
+            nuevo_llano = _llano_rehecho(getattr(rehecho.rehecho, "llano", None), llano_actual)
+            nuevo_texto = RR.texto_revisable(nuevo_resumen, nuevo_llano)
+            # CANDADO 3, y es gratis: el arreglo no puede empeorar. Las reglas se
+            # vuelven a correr enteras sobre el texto nuevo; si pesan más que sobre el
+            # viejo, la vuelta se rechaza y se vuelve al texto anterior.
+            reglas_nuevas = RR.comprobaciones_deterministas(nuevo_texto, corpus, it, runs_ok, hipotesis=PROG.hipotesis_nacidas_en(self.almacen.estado, inv["id"], it, ahora=P.ahora_ms()))
+            peso_nuevo = RR.peso_hallazgos(reglas_nuevas)
+            # El sitio donde se corren las reglas es el mismo para los dos textos, así
+            # que la comparación es de peras con peras.
+            if peso_nuevo > peso_reglas:
+                vueltas.append({"vuelta": vuelta, "estado": "rechazada", "motivo": f"La vuelta empeoró el texto: las comprobaciones por regla pesaban {peso_reglas} y pasaron a {peso_nuevo}. Se vuelve al resumen anterior"})
+                break
+            decisiones = {str(getattr(d, "id", "")): d for d in (getattr(rehecho.rehecho, "decisiones", None) or [])}
+            # CANDADO 1: un hallazgo de regla que ya no salta está arreglado, y punto.
+            # Es determinista y cubre los hallazgos por regla sin gastar nada.
+            claves_nuevas = {(str(h.get("clase")), str(h.get("detalle"))) for h in reglas_nuevas}
+            juez_vio: dict[str, Any] = {}
+            resumen_juez = ""
+            del_juez = [h for h in abiertos if h.get("origen") == "juez"]
+            if del_juez:
+                try:
+                    with RR.en_revision(self.almacen.estado, inv["id"], it, c):
+                        comprobado = await ctx.llamar(
+                            "juez", self.programas.revisar_reparacion,
+                            hallazgos_previos="\n".join(f"- [{h['id']}] {h['clase']} ({h['gravedad']}): {h['detalle']}\n  Se dijo: {(decisiones.get(h['id']) and getattr(decisiones[h['id']], 'decision', '')) or 'nada'} — {(decisiones.get(h['id']) and getattr(decisiones[h['id']], 'explicacion', '')) or 'sin explicación'}" for h in del_juez),
+                            texto=nuevo_texto[:CORTE_TEXTO_REVISABLE], registro=registro,
+                        )
+                    juez_vio = {str(getattr(v, "id", "")): bool(getattr(v, "sigue", True)) for v in (getattr(comprobado.revision, "veredictos", None) or [])}
+                    resumen_juez = str(getattr(comprobado.revision, "resumen", "") or "").strip()
+                    for hz in (getattr(comprobado.revision, "hallazgos", None) or []):
+                        pendientes.append({"id": f"rr-{it['id']}-v{vuelta}-{len(pendientes)}", "clase": hz.clase, "gravedad": hz.gravedad, "detalle": str(hz.detalle).strip()[:400], "origen": "juez", "estado": "abierto", "nacidoEnVuelta": vuelta})
+                except (PresupuestoAgotado, ModeloSinRespuesta) as ex:
+                    # El juez no pudo mirar: sus hallazgos quedan abiertos y marcados,
+                    # y el resumen lo dice. Nunca "está limpio".
+                    for h in del_juez:
+                        h["comprobacion"] = "no_comprobada"
+                    vueltas.append({"vuelta": vuelta, "estado": "sin_comprobar", "motivo": f"El texto se rehizo pero el juez no pudo comprobarlo ({type(ex).__name__}): los hallazgos del juez siguen abiertos"})
+                    resumen_actual, llano_actual, texto_actual = nuevo_resumen, nuevo_llano, nuevo_texto
+                    break
+                except Exception as ex:  # noqa: BLE001
+                    traceback.print_exc()
+                    for h in del_juez:
+                        h["comprobacion"] = "no_comprobada"
+                    resumen_juez = f"El juez no comprobó el arreglo: {str(ex)[:120]}"
+            for h in abiertos:
+                d = decisiones.get(str(h.get("id")))
+                dicho = str(getattr(d, "decision", "") or "")
+                linea = str(getattr(d, "explicacion", "") or "").strip()[:300]
+                if h.get("origen") == "regla":
+                    if (str(h.get("clase")), str(h.get("detalle"))) not in claves_nuevas:
+                        h.update(estado="atendido", respuesta=linea or "La comprobación por regla ya no salta sobre el texto nuevo", vuelta=vuelta, comprobacion="regla")
+                    elif dicho:
+                        h.update(estado="rebatido" if dicho == "rebatido" else "abierto", respuesta=linea, vuelta=vuelta, comprobacion="regla_sigue")
+                    continue
+                sigue = juez_vio.get(str(h.get("id")), True)
+                # CANDADO 2: el juez dice que no sigue, pero ¿se tocó el texto donde el
+                # hallazgo señalaba? Es el fallo de Yoon (dar por resuelto lo que no se
+                # tocó) y aquí lo caza el código, no otro modelo.
+                movido = RR.toco_el_texto(h, texto_actual, nuevo_texto)
+                if not sigue and movido is False:
+                    h.update(estado="abierto", respuesta=linea, vuelta=vuelta, arregloFalso=True, comprobacion="el juez lo dio por resuelto y el texto no cambió donde el hallazgo señalaba")
+                elif not sigue:
+                    h.update(estado="atendido", respuesta=linea, vuelta=vuelta, comprobacion="juez")
+                elif dicho == "rebatido":
+                    h.update(estado="rebatido", respuesta=linea, vuelta=vuelta, comprobacion="juez_no_acepta")
+                else:
+                    h.update(estado="abierto", respuesta=linea, vuelta=vuelta, comprobacion="juez")
+            resumen_actual, llano_actual, texto_actual = nuevo_resumen, nuevo_llano, nuevo_texto
+            peso_reglas = peso_nuevo
+            atendidos = sum(1 for h in pendientes if h.get("estado") == "atendido")
+            rebatidos = sum(1 for h in pendientes if h.get("estado") == "rebatido")
+            falsos = sum(1 for h in pendientes if h.get("arregloFalso"))
+            partes = [f"{atendidos} {'hallazgo atendido y comprobado' if atendidos == 1 else 'hallazgos atendidos y comprobados'}"]
+            if rebatidos:
+                partes.append(f"{rebatidos} {'rebatido' if rebatidos == 1 else 'rebatidos'}, que siguen reteniendo la publicación hasta que una persona los descarte")
+            if falsos:
+                partes.append(f"{falsos} se dieron por arreglados sin que el texto cambiara donde el hallazgo señalaba, así que siguen abiertos")
+            vueltas.append({"vuelta": vuelta, "estado": "hecha", "motivo": "; ".join(partes) + (f". {resumen_juez}" if resumen_juez else "")})
+        if not vueltas:
+            return None
+        graves_abiertos = [h for h in pendientes if h.get("gravedad") == "alta" and h.get("estado") in ("abierto", "rebatido")]
+        sin_comprobar = any(h.get("comprobacion") == "no_comprobada" for h in pendientes)
+        revision_final = dict(revision)
+        revision_final["hallazgos"] = pendientes
+        revision_final["vueltas"] = vueltas
+        revision_final["estado"] = "con_hallazgos" if any(h.get("estado") in ("abierto", "rebatido") for h in pendientes) else "limpia"
+        cola = " No pude comprobar todos los arreglos: el juez no respondió." if sin_comprobar else ""
+        revision_final["resumen"] = f"{revision['resumen']} Después de {len(vueltas)} {'vuelta' if len(vueltas) == 1 else 'vueltas'} de reparación quedan {len(graves_abiertos)} hallazgos graves sin cerrar.{cola}".strip()
+        return {"resumen": resumen_actual, "llano": llano_actual, "revision": revision_final, "vueltas": len(vueltas)}
 
     async def _cerrar_iteracion(self, c: dict[str, Any], it: dict[str, Any]) -> None:
         e = self.almacen.estado
@@ -2258,6 +2411,14 @@ class Supervisor:
         # Revisor de registro: lo que el resumen y el resumen en llano dicen, contra
         # lo que el registro prueba. Por regla y después con el juez.
         revision = await self._revisar_registro(ctx, inv, it, c, resumen, llano)
+        # El bucle de revisión: si queda un hallazgo grave abierto, el revisor devuelve
+        # el trabajo a quien lo escribió. Lo ya hecho se guarda en `it["_cierre"]`
+        # (clave privada) para no repagarlo si el cierre se corta y se retoma.
+        if not (parcial.get("reparacion") or {}).get("hecha"):
+            reparado = await self._reparar_resumen(ctx, inv, it, c, resumen, llano, revision)
+            if reparado:
+                resumen, llano, revision = reparado["resumen"], reparado["llano"], reparado["revision"]
+                self.almacen.mutar(lambda e2: _guardar_cierre_parcial(e2, it["id"], resumen=resumen, llano=llano, reparacion={"hecha": True, "vueltas": reparado["vueltas"]}), "cierre_parcial")
         terminar = _condicion_de_parada(inv["condicionParada"], it["numero"], self._con_reloj(c), mision=inv.get("mision"))
 
         def fn(e2: dict[str, Any]) -> bool:
@@ -2509,6 +2670,10 @@ def coste_estimado_del_cierre(e: dict[str, Any], c: dict[str, Any], it: dict[str
 # una por hipótesis viva (59 llamadas con 28 hipótesis) inflaba el tope y la
 # solicitud de gasto grande saltaba por un cierre que no iba a costar eso.
 RESERVA_CONCLUSIONES_EXTRA = 3
+# Cuántos caracteres del texto revisable ve el juez del revisor de registro. Con el
+# llano entero (listas incluidas) la mediana real es de 4.173 caracteres y el máximo
+# de 6.517 sobre las 33 revisiones guardadas: 12.000 no recorta ninguna.
+CORTE_TEXTO_REVISABLE = 12_000
 
 
 def desglose_previsto_del_cierre(e: dict[str, Any], investigacion_id: str) -> dict[str, int]:
@@ -2536,6 +2701,12 @@ def desglose_previsto_del_cierre(e: dict[str, Any], investigacion_id: str) -> di
         "evidencia": min(len(vivas), EV.MAX_HIPOTESIS_POR_CIERRE) + len(inv.get("vivero") or []),
         "conclusiones": min(len(vivas), con_motivo + RESERVA_CONCLUSIONES_EXTRA),
         "revisor": 1,
+        # El bucle de revisión: una vuelta son dos llamadas (el cerebro rehace, el juez
+        # comprueba) y el tope es de una vuelta. Va en la RESERVA, no solo en el
+        # estimado: `reserva_cierre` se calcula con esta función, y sin la partida el
+        # tope de la iteración no reservaría nada y el cierre pausaría la corrida justo
+        # en las iteraciones con hallazgos graves. Es el fallo S-14 otra vez.
+        "reparacion": 2 * F.MAX_VUELTAS_REPARACION,
     }
 
 
@@ -3715,6 +3886,31 @@ def _salir_de_esperando_modelo_sin_registro(e: dict[str, Any], corrida_id: str, 
     c["esperandoModelo"] = None
     A.con_evento(e, c["investigacionId"], "corrida_estado", f"La corrida {c['numero']} esperaba a un modelo sin registro de cuál: retoma y reintenta el paso pendiente", _ruta_corrida(c), ahora)
     return True
+
+
+def _llano_rehecho(salida: Any, anterior: dict[str, Any] | None) -> dict[str, Any] | None:
+    """El resumen en llano que devolvió el cerebro, con las claves del estado. Si no
+    había llano antes, se descarta lo que venga: el bucle de reparación arregla lo
+    que hay, no inventa una sección nueva. Y si el modelo devolvió algo que no
+    cuadra, se conserva el anterior: nunca se pierde un llano bueno."""
+    if anterior is None or salida is None:
+        return anterior
+    try:
+        campos = salida.model_dump() if hasattr(salida, "model_dump") else dict(salida)
+    except Exception:  # noqa: BLE001
+        return anterior
+    if not isinstance(campos, dict) or not campos:
+        return anterior
+    salida_final = dict(anterior)
+    for clave, valor in campos.items():
+        camel = re.sub(r"_(\w)", lambda m: m.group(1).upper(), str(clave))
+        destino = camel if camel in anterior else (clave if clave in anterior else None)
+        if destino is None or valor in (None, "", []):
+            continue
+        if type(valor) is not type(anterior[destino]) and not (isinstance(valor, list) and isinstance(anterior[destino], list)):
+            continue
+        salida_final[destino] = valor
+    return salida_final
 
 
 def _fijar_comprobacion(e: dict[str, Any], iteracion_id: str, paso_id: str, comprobacion: dict[str, Any] | None) -> bool:

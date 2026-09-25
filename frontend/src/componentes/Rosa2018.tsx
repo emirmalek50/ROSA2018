@@ -2609,19 +2609,44 @@ export function RevisionDeRegistro({ r, compacto = false, iteracionId }: { r: Re
           {r.porRegla} por regla{r.juez ? `, ${r.hallazgos.length - r.porRegla} del juez` : ', sin juez'}
         </span>
       </div>
+      {r.vueltas && r.vueltas.length > 0 && (
+        <div className="vueltas-reparacion">
+          <p className="meta">
+            El revisor devolvió el trabajo a ROSA2018 y ella rehizo el resumen. Un hallazgo rebatido no queda cerrado: sigue reteniendo la publicación hasta que tú lo descartes.
+          </p>
+          <ul className="lista-plana">
+            {r.vueltas.map((v) => (
+              <li key={v.vuelta} className="meta">
+                <Chip tono={v.estado === 'hecha' ? 'ok' : v.estado === 'rechazada' ? 'mal' : 'aviso'}>
+                  {v.estado === 'hecha' ? `Vuelta ${v.vuelta}` : v.estado === 'rechazada' ? `Vuelta ${v.vuelta} rechazada` : v.estado === 'sin_comprobar' ? `Vuelta ${v.vuelta} sin comprobar` : `Vuelta ${v.vuelta} no hecha`}
+                </Chip>{' '}
+                {v.motivo}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <ul className="lista-plana">
         {r.hallazgos.slice(0, compacto ? 3 : 20).map((h, i) => (
           <li key={h.id ?? i} className={`tarjeta hallazgo-registro gravedad-${h.gravedad}`}>
             <strong style={{ fontSize: 13 }}>{CLASE_HALLAZGO_REGISTRO[h.clase] ?? h.clase}</strong> <Chip tono={h.gravedad === 'alta' ? 'mal' : h.gravedad === 'media' ? 'aviso' : 'borde'}>{h.gravedad}</Chip> <span className="meta">({h.origen})</span>
             {h.estado && h.estado !== 'abierto' && (
-              <Chip tono={h.estado === 'atendido' ? 'ok' : 'borde'}>
-                {h.estado === 'atendido' ? 'Atendido' : 'Descartado'}
+              <Chip tono={h.estado === 'atendido' ? 'ok' : h.estado === 'rebatido' ? 'aviso' : 'borde'}>
+                {h.estado === 'atendido' ? 'Atendido' : h.estado === 'rebatido' ? 'ROSA2018 lo rebate' : 'Descartado'}
                 {h.resueltoPor ? ` por ${h.resueltoPor}` : ''}
               </Chip>
             )}
+            {h.arregloFalso && <Chip tono="mal">Se dijo arreglado y el texto no cambió</Chip>}
+            {h.comprobacion === 'no_comprobada' && <Chip tono="aviso">No pude comprobar el arreglo</Chip>}
+            {h.nacidoEnVuelta && <Chip tono="borde">Lo trajo el arreglo</Chip>}
             <p className="meta">{h.detalle}</p>
-            {h.respuesta && <p className="meta">Respuesta: {h.respuesta}</p>}
-            {iteracionId && h.id && (h.estado ?? 'abierto') === 'abierto' && !compacto && (
+            {h.respuesta && (
+              <p className="meta">
+                {h.estado === 'rebatido' ? 'ROSA2018 lo rebate: ' : 'Respuesta: '}
+                {h.respuesta}
+              </p>
+            )}
+            {iteracionId && h.id && ((h.estado ?? 'abierto') === 'abierto' || h.estado === 'rebatido') && !compacto && (
               <div className="acciones">
                 <Confirmar etiqueta="Atendido" pregunta="¿Qué se hizo con este hallazgo?" pedirTexto={{ etiqueta: 'Respuesta', marcador: 'Se corrigió el resumen; la cifra venía de la pista 3' }} onConfirmar={(t) => acciones.resolverHallazgoRegistro(iteracionId, h.id!, 'atendido', t)} />
                 <Confirmar etiqueta="Descartar" pregunta="¿Por qué no aplica este hallazgo?" pedirTexto={{ etiqueta: 'Motivo', marcador: 'El revisor confundió hipótesis en cola con hipótesis nuevas' }} onConfirmar={(t) => acciones.resolverHallazgoRegistro(iteracionId, h.id!, 'descartado', t)} />

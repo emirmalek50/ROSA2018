@@ -278,7 +278,12 @@ def test_el_tope_de_una_iteracion_nueva_reserva_el_coste_del_cierre(monkeypatch)
 
     al.mutar(preparar, "preparar")
     reserva = CO.coste_previsto_del_cierre(al.estado, ids["inv"])
-    assert reserva == 5  # resumen, llano y revisor (3) más evidencia y conclusión de la única hipótesis viva
+    # resumen, llano y revisor (3), más evidencia y conclusión de la única hipótesis
+    # viva (2), más la vuelta del bucle de revisión (2: el cerebro rehace, el juez
+    # comprueba). La partida de reparación va en la RESERVA y no solo en el estimado:
+    # si no, el tope de la iteración no la reserva y el cierre pausa la corrida justo
+    # en las iteraciones con hallazgos graves (S-14 otra vez).
+    assert reserva == 7
     asyncio.run(sup._proponer_plan(_corrida(al, ids), None))
     it = [i for i in al.estado["iteraciones"] if i["corridaId"] == ids["cor"]][-1]
     assert it["presupuesto"]["limite"] == max(sum(p["presupuesto"] for p in it["plan"]), 20) + reserva

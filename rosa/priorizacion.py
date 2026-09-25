@@ -80,10 +80,17 @@ def revision_registro_abierta(e: dict[str, Any], h: dict[str, Any]) -> bool:
     su investigación tienen hallazgos del revisor de registro abiertos y de
     gravedad alta (un DOI que no está en el registro, una ejecución afirmada y
     no completada, un recuento que no cuadra). Misma regla en
-    frontend/src/lib/priorizacion.ts."""
+    frontend/src/lib/priorizacion.ts.
+
+    "Rebatido" cuenta igual que "abierto", y es la decisión que sostiene el bucle
+    de revisión (25 de septiembre de 2026): la rebatida la escribe quien escribió
+    el texto, y eso no es una absolución. Solo cierran un hallazgo dos cosas: el
+    revisor, poniéndolo en "atendido" porque el arreglo se comprobó, o una
+    persona, poniéndolo en "descartado" con los botones que ya existen."""
+    abiertos = ("abierto", "rebatido")
 
     def grave_abierto(hallazgos: list[dict[str, Any]] | None) -> bool:
-        return any(x.get("estado") == "abierto" and x.get("gravedad") == "alta" for x in (hallazgos or []))
+        return any(x.get("estado") in abiertos and x.get("gravedad") == "alta" for x in (hallazgos or []))
 
     if h.get("dossierArtefactoId"):
         art = next((a for a in e.get("artefactos", []) if a["id"] == h["dossierArtefactoId"]), None)

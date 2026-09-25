@@ -836,3 +836,81 @@ def resumen_revision(hallazgos: list[dict[str, Any]]) -> str:
     for h in hallazgos:
         por[h["clase"]] = por.get(h["clase"], 0) + 1
     return f"{len(hallazgos)} hallazgos: " + ", ".join(f"{k.replace('_', ' ')} ({v})" for k, v in por.items())
+
+
+# ---------------------------------------------------------------------------
+# El bucle de reparación: los candados deterministas (25 de septiembre de 2026)
+# ---------------------------------------------------------------------------
+#
+# El revisor de registro ya existía; lo que faltaba era el bucle, porque nadie
+# devolvía el trabajo. Medido sobre el estado guardado: 33 iteraciones revisadas,
+# 170 hallazgos, los 170 abiertos, ninguno atendido nunca, y 22 graves repartidos
+# en 15 de las 33 iteraciones (45 %, casi la tasa de Yoon y otros 2026, que
+# revisaron 49 de 119 tareas).
+#
+# Lo que sigue son los tres candados que no cuestan ni una llamada, y son la
+# razón de que el bucle no pueda absolverse a sí mismo: quien rehace el texto es
+# el mismo que lo escribió.
+
+PESO_GRAVEDAD = {"alta": 3, "media": 2, "baja": 1}
+
+# Lo que el hallazgo entrecomilla con comillas angulares: es lo que señala.
+_ENTRECOMILLADO = re.compile(r"«([^»]{2,})»")
+
+
+def peso_hallazgos(hallazgos: Any) -> int:
+    """Cuánto pesa una lista de hallazgos (alta 3, media 2, baja 1). Sirve para el
+    tercer candado: una vuelta que sube el peso de lo que las reglas encuentran es
+    una vuelta que empeoró el texto, y se rechaza."""
+    return sum(PESO_GRAVEDAD.get(str((h or {}).get("gravedad")), 1) for h in (hallazgos if isinstance(hallazgos, list) else []) if isinstance(h, dict))
+
+
+def _senales(detalle: str) -> list[str]:
+    """Lo que un hallazgo señala en el texto: lo que entrecomilla con comillas
+    angulares y, si no entrecomilla nada, las cifras y los identificadores que
+    nombra. Es lo que tiene que haber cambiado para que el arreglo sea real."""
+    citado = [s.strip() for s in _ENTRECOMILLADO.findall(detalle or "") if s.strip()]
+    if citado:
+        return citado
+    sueltas = [m.group(1) for m in _NUM.finditer(detalle or "")]
+    ids = _DOI.findall(detalle or "") + _NCT.findall(detalle or "") + _GSE.findall(detalle or "")
+    return [str(x) for x in (ids + sueltas)]
+
+
+def toco_el_texto(hallazgo: dict[str, Any], antes: str, despues: str) -> bool | None:
+    """Si el texto cambió DONDE el hallazgo señalaba. None cuando no se puede
+    saber (el hallazgo no señala nada concreto, o lo que señala no estaba en el
+    texto de antes): entonces no se afirma nada, que es la regla de la casa.
+
+    Este es el candado que caza el fallo de Yoon: dar un hallazgo por resuelto sin
+    haber tocado el texto. Un hallazgo del juez se cierra como atendido solo si el
+    juez dice que ya no sigue Y esta función dice que el texto se movió donde
+    señalaba. Lo caza el código, no otro modelo."""
+    senales = _senales(str(hallazgo.get("detalle") or ""))
+    presentes = [s for s in senales if s in (antes or "")]
+    if not presentes:
+        return None
+    return any(s not in (despues or "") for s in presentes)
+
+
+def texto_revisable(resumen: Any, llano: Any) -> str:
+    """El texto que se revisa: el resumen técnico y TODO el resumen en llano.
+
+    Antes se unían solo los campos de texto del llano con `" ".join(... if
+    isinstance(v, str))`, así que quedaban fuera `mensajesClave`, `queEncontro`,
+    `cambios` y `quePropone`, que son listas y son lo primero que lee la médica
+    (caza de fallos del 23 de septiembre: "el revisor no lee la mitad del resumen
+    en llano"). El resumen va PRIMERO y las listas después: si algo se pierde por
+    el tope de caracteres de la llamada, que sea lo menos denso."""
+    partes = [str(resumen or "")]
+    if isinstance(llano, dict):
+        for clave, valor in llano.items():
+            if str(clave).startswith("_"):
+                continue
+            if isinstance(valor, str) and valor.strip():
+                partes.append(f"{clave}: {valor}")
+            elif isinstance(valor, list):
+                textos = [str(x) for x in valor if isinstance(x, str) and x.strip()]
+                if textos:
+                    partes.append(f"{clave}: " + " | ".join(textos))
+    return "\n\n".join(p for p in partes if p.strip())

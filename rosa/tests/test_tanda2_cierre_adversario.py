@@ -187,7 +187,7 @@ def test_llamadas_restantes_y_coste_toleran_registros_antiguos_sin_presupuesto_n
     assert CO.llamadas_restantes({}, c, {}) == 0
     e = {"hipotesis": [], "investigaciones": []}
     assert CO.coste_estimado_del_cierre(e, c, {"numero": 1}) == {"total": 0, "desglose": {}} or CO.coste_estimado_del_cierre(e, c, {"numero": 1})["total"] >= 0
-    assert CO.coste_previsto_del_cierre(e, "inv") == 3
+    assert CO.coste_previsto_del_cierre(e, "inv") == 5  # resumen, llano, revisor y la vuelta de reparación (2)
 
 
 def test_el_retroceso_no_se_reinicia_mientras_la_tarea_muera_al_poco_de_relanzarse():

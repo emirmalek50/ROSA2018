@@ -3211,6 +3211,15 @@ mark.fuerte {
 .hallazgo-registro.gravedad-media {
   border-left-color: var(--amber);
 }
+
+/* Las vueltas del bucle de revisión: el revisor devolvió el trabajo y ROSA2018
+   rehizo el resumen. Se leen como una nota al pie de la revisión, no como su
+   protagonista. */
+.vueltas-reparacion {
+  margin-top: 8px;
+  padding-left: 10px;
+  border-left: 2px solid var(--borde);
+}
 .pestanas {
   display: flex;
   gap: 4px;

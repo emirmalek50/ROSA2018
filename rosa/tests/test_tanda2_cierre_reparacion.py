@@ -261,7 +261,7 @@ def test_la_reserva_del_cierre_no_cuenta_una_conclusion_por_hipotesis_viva():
         e["hipotesis"].append(h)
     next(i for i in e["investigaciones"] if i["id"] == inv)["vivero"] = [{"id": f"sem-{k}"} for k in range(7)]
     d = CO.desglose_previsto_del_cierre(e, inv)
-    assert d == {"resumen": 1, "meta": 1, "llano": 1, "evidencia": EV.MAX_HIPOTESIS_POR_CIERRE + 7, "conclusiones": CO.RESERVA_CONCLUSIONES_EXTRA, "revisor": 1}
+    assert d == {"resumen": 1, "meta": 1, "llano": 1, "evidencia": EV.MAX_HIPOTESIS_POR_CIERRE + 7, "conclusiones": CO.RESERVA_CONCLUSIONES_EXTRA, "revisor": 1, "reparacion": 2}
     assert CO.coste_previsto_del_cierre(e, inv) == sum(d.values()) < 59, "antes: 3 + 1 + 20 + 28 + 7 = 59"
     # Las que ya tienen motivo para reconcluir (sin conclusión, evidencia marcada) se suman a la reserva, sin pasar de las vivas.
     for h in e["hipotesis"][:2]:
@@ -271,7 +271,7 @@ def test_la_reserva_del_cierre_no_cuenta_una_conclusion_por_hipotesis_viva():
         h.pop("conclusion", None)
         h["estado"] = "descartada" if e["hipotesis"].index(h) >= 2 else h["estado"]
     assert CO.desglose_previsto_del_cierre(e, inv)["conclusiones"] == 2 and CO.desglose_previsto_del_cierre(e, inv)["evidencia"] == 2 + 7
-    assert CO.coste_previsto_del_cierre({"hipotesis": [None, "texto"], "investigaciones": []}, inv) == 3
+    assert CO.coste_previsto_del_cierre({"hipotesis": [None, "texto"], "investigaciones": []}, inv) == 5  # resumen, llano, revisor y la vuelta de reparación (2)
 
 
 def test_el_plan_guarda_la_reserva_del_cierre_aparte_y_la_solicitud_de_gasto_grande_la_separa(monkeypatch):

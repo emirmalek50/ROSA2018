@@ -74,9 +74,14 @@ export function bloqueosDe(estado: Estado, h: Hipotesis): Bloqueo[] {
 
 /** Puerta de publicación: un hallazgo grave y abierto del revisor de registro,
  *  en el dossier de la hipótesis o en la última iteración cerrada de su
- *  investigación, retiene la candidatura. Misma regla que rosa/priorizacion.py. */
+ *  investigación, retiene la candidatura. Misma regla que rosa/priorizacion.py.
+ *
+ *  'rebatido' cuenta igual que 'abierto': la rebatida la escribe quien escribió el
+ *  texto, y eso no es una absolución. Solo cierran un hallazgo el revisor
+ *  ('atendido', porque comprobó el arreglo) o una persona ('descartado'). */
 export function revisionRegistroAbierta(estado: Estado, h: Hipotesis): boolean {
-  const graveAbierto = (hallazgos: { estado?: string; gravedad?: string }[] | undefined | null) => (hallazgos ?? []).some((x) => x.estado === 'abierto' && x.gravedad === 'alta');
+  const graveAbierto = (hallazgos: { estado?: string; gravedad?: string }[] | undefined | null) =>
+    (hallazgos ?? []).some((x) => (x.estado === 'abierto' || x.estado === 'rebatido') && x.gravedad === 'alta');
   if (h.dossierArtefactoId) {
     const art = (estado.artefactos ?? []).find((a) => a.id === h.dossierArtefactoId);
     const revision = art?.versiones[art.versiones.length - 1]?.procedencia?.revision;

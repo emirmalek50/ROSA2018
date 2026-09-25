@@ -1999,7 +1999,13 @@ export interface HallazgoRegistro {
   gravedad: 'alta' | 'media' | 'baja';
   detalle: string;
   origen: 'regla' | 'juez';
-  estado?: 'abierto' | 'atendido' | 'descartado';
+  /** 'rebatido': quien escribió el texto sostiene que el hallazgo se equivoca.
+   *  NO lo cierra: sigue reteniendo la publicación igual que 'abierto', porque la
+   *  rebatida la escribe la misma parte que escribió el texto. Lo cierran el
+   *  revisor ('atendido', comprobado el arreglo) o una persona ('descartado'). */
+  estado?: 'abierto' | 'atendido' | 'descartado' | 'rebatido';
+  /** Lo que ROSA2018 contestó al hallazgo en la vuelta de reparación: qué cambió,
+   *  o con qué parte del registro lo rebate. */
   respuesta?: string;
   resueltoPor?: string;
   resueltoEn?: number;
@@ -2007,6 +2013,24 @@ export interface HallazgoRegistro {
    *  del plan que corrió y no produjo lo suyo sigue rota por muy bien que se
    *  cuente. Lo levanta una persona. */
   reparablePorTexto?: boolean;
+  /** En qué vuelta del bucle de reparación se trató. */
+  vuelta?: number;
+  /** Cómo se comprobó el arreglo: 'regla' (la comprobación determinista ya no
+   *  salta), 'juez' (el juez lo miró), 'no_comprobada' (el juez no pudo). */
+  comprobacion?: string;
+  /** true cuando el juez dio el hallazgo por resuelto y el texto NO cambió donde
+   *  el hallazgo señalaba. Lo caza una regla (RR.toco_el_texto), no un modelo, y
+   *  el hallazgo se queda abierto. */
+  arregloFalso?: boolean;
+  /** La vuelta en la que nació, si lo introdujo un arreglo. */
+  nacidoEnVuelta?: number;
+}
+
+/** Una vuelta del bucle de reparación del resumen. */
+export interface VueltaReparacion {
+  vuelta: number;
+  estado: 'hecha' | 'rechazada' | 'no_hecha' | 'sin_comprobar';
+  motivo: string;
 }
 
 export interface RevisionRegistro {
@@ -2016,6 +2040,10 @@ export interface RevisionRegistro {
   resumen: string;
   fecha?: number;
   estado?: 'limpia' | 'con_hallazgos';
+  /** Las vueltas del bucle de reparación, si hubo alguna: el revisor devolvió el
+   *  trabajo a quien escribió el resumen. Falta en iteraciones anteriores al 25 de
+   *  septiembre de 2026 y cuando ningún hallazgo grave abrió vuelta. */
+  vueltas?: VueltaReparacion[];
 }
 
 export interface Artefacto {

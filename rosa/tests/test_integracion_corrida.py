@@ -86,7 +86,11 @@ def _supervisor(al, ids, respuestas, monkeypatch):
         return await llamadas(self, rol, programa, **kw)
 
     monkeypatch.setattr(Ctx, "llamar", llamar)  # simulación local; el módulo real llama por el gateway
-    programas = SimpleNamespace(concluir="concluir", experimento="experimento", evaluar_resultado="evaluar_resultado", derivar="derivar", resumir="resumir", en_llano="en_llano", revisar_registro="revisar_registro", asignar_evidencia="asignar_evidencia", meta="meta", killer="killer", hipotesis_en_llano="hipotesis_en_llano")
+    # `rehacer_resumen` y `revisar_reparacion` son el bucle de revisión (25 de
+    # septiembre de 2026): el cerebro rehace el resumen con los hallazgos y el juez
+    # comprueba el arreglo. Tienen que estar aunque un test no los use, o el primer
+    # cierre con un hallazgo grave reventaría con AttributeError.
+    programas = SimpleNamespace(concluir="concluir", experimento="experimento", evaluar_resultado="evaluar_resultado", derivar="derivar", resumir="resumir", en_llano="en_llano", revisar_registro="revisar_registro", rehacer_resumen="rehacer_resumen", revisar_reparacion="revisar_reparacion", asignar_evidencia="asignar_evidencia", meta="meta", killer="killer", hipotesis_en_llano="hipotesis_en_llano")
     modelos = SimpleNamespace(cerebro=SimpleNamespace(model="sim-cerebro"), juez=SimpleNamespace(model="sim-juez"), volumen=SimpleNamespace(model="sim-volumen"))
     sup = CO.Supervisor(al, programas, modelos)
     ctx = Ctx(al, programas, modelos, ids["cor"], ids["inv"], ids["it"], 1)
