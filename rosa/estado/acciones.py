@@ -1139,6 +1139,27 @@ def generar_dossier(e: Estado, hipotesis_id: str, quien: str, ahora: int) -> str
     return art_id
 
 
+def emitir_documento(e: Estado, hipotesis_id: str, nombre_corto: str | None, quien: str, ahora: int) -> bool:
+    """Emite la última versión del dossier como documento controlado según la
+    norma AP-DOC-002 (rosa/documento_controlado.py): código AP-HYP propio la
+    primera vez, versión nueva las siguientes, cabecera, pie y las ocho
+    comprobaciones guardadas con la versión. Solo en el servidor: el código no
+    se asigna nunca en el navegador, para que dos pestañas no den el mismo."""
+    from rosa import documento_controlado as DC
+
+    h = _buscar(e["hipotesis"], hipotesis_id)
+    if not h:
+        return False
+    v = DC.emitir(e, h, nombre_corto, quien, ahora)
+    if isinstance(v, str):
+        return False
+    doc = h["documentoControlado"]
+    h.setdefault("procedencia", {}).setdefault("registro", []).append(f"{datetime.fromtimestamp(ahora / 1000, tz=timezone.utc).isoformat()} documento controlado {doc['id']} {v['version']} emitido por {quien}")
+    art = v["artefactoId"]
+    con_evento(e, h["investigacionId"], "hipotesis_decidida", f"Documento controlado {doc['id']} {v['version']} emitido: {v['nombre']}" + ("" if v["controlado"] else " (no pasa todas las comprobaciones de la norma)"), f"#/investigaciones/{h['investigacionId']}/artefactos/{art}", ahora)
+    return True
+
+
 def aclarar_hipotesis(e: Estado, hipotesis_id: str, aclaracion: str, ahora: int) -> bool:
     h = _buscar(e["hipotesis"], hipotesis_id)
     if not h or h["estado"] != "aclarando":

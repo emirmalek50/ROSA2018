@@ -1936,3 +1936,59 @@ como respaldo para lo que las reglas no reconocen, midiendo antes si acierta.
 Y una corrección de un texto mío de la mañana: el test de la clasificación
 decía que las etiquetas se las "puso una persona leyéndolo". Las puso Claude;
 ninguna persona del equipo las ha revisado todavía. Ya lo dice así.
+
+## Documentos de hipótesis controlados, según la norma de la abogada (25 de septiembre de 2026)
+
+Monica Duarte mandó la norma AP-DOC-002 v01, "Hypothesis Document Control"
+(borrador del 17 de septiembre de 2026, pendiente de revisión de la
+dirección). Pide que cada documento de hipótesis lleve un código AP-HYP-NNN
+correlativo, tipo DOC, versión v01, v02..., esta cabecera y este pie:
+
+    [nombre corto] | DOC | AP-HYP-001 | v01
+    Confidential | Alzheimer Project | AI Robotix | Sep-17-2026 | [iniciales] | Page X of Y
+
+con la numeración de página como campo automático, y ocho comprobaciones antes
+de darlo por controlado.
+
+En ROSA2018 el documento de hipótesis es el dossier para el laboratorio. En
+Artefactos, al abrir un dossier, sale el panel "Documento controlado":
+nombre corto, botón de emitir, las versiones emitidas con sus comprobaciones y
+"Descargar Word vNN". Lo hace rosa/documento_controlado.py:
+
+- **Emitir es un acto aparte y lo hace el servidor** (acción `emitirDocumento`,
+  sin reductor en el navegador): el código AP-HYP se asigna la primera vez y
+  queda para siempre; nunca se calcula en el navegador, para que dos pestañas
+  no den el mismo. El contador guarda el último asignado y además mira el
+  mayor que haya en las hipótesis, así que un código no se reutiliza aunque se
+  pierda el contador o desaparezca la hipótesis.
+- **Cada versión guarda lo que llevaba** (nombre, fecha, iniciales, cabecera,
+  pie, qué versión del dossier, las ocho comprobaciones): la v01 se descarga
+  igual aunque luego cambie el nombre o las iniciales. La misma versión del
+  dossier no se emite dos veces; para una v02 se regenera el dossier.
+- **El Word** se construye al descargarlo (`/api/documentos/{hipótesis}/{vNN}.docx`,
+  con python-docx): el árbol del Alzheimer Project y la cabecera arriba, el pie
+  con PAGE y NUMPAGES como campos de Word, un bloque de control como el de la
+  propia norma ("Document Status: Draft", código, versión, fecha, iniciales) y
+  el dossier emitido como cuerpo. Exige sesión, como el resto del servidor: es
+  confidencial.
+
+Dos decisiones de Emir, a confirmar con Monica:
+- **Las iniciales del pie son "AP"** (Alzheimer Project) en todos, no las de
+  una persona. La norma pide las del dueño y su ejemplo es MD. Si cambia, es
+  `INICIALES_RESPONSABLE`, y las versiones ya emitidas conservan las suyas.
+- **El nombre corto es un resumen del título** que hace ROSA2018 con el modelo
+  de volumen (`NombreCortoHipotesis`, de tres a ocho palabras) cuando la
+  hipótesis tiene dossier. Se pide en `_atender_peticiones`, como lo que deja
+  marcado la persona, porque generar el dossier lo es y las corridas de esas
+  hipótesis suelen estar paradas. Si el modelo devuelve más de diez palabras o
+  no hay presupuesto, la casilla sale vacía y lo escribe quien emite: nunca se
+  recorta el título a ciegas. Siempre se puede cambiar antes de emitir.
+
+Tres cosas que no están resueltas:
+- Los dossiers viejos (los dos que hay, del 11 de septiembre) salen sin tildes,
+  porque se generaron con código anterior. Regenerados, salen con tildes.
+- La vista previa de macOS pone el texto de la cabecera pegado al logo en vez
+  de a la derecha: no respeta los anchos de columna. Falta abrirlo en Word y en
+  Google Docs de verdad.
+- Las iniciales, el nombre corto y que "el documento de hipótesis" sea el
+  dossier son lecturas nuestras de un borrador: hay que enseñárselo a Monica.

@@ -1087,6 +1087,32 @@ export const acciones = {
     aplicar((e) => A.actualizarProcedenciaDataset(e, investigacionId, datasetId, procedencia));
     enviar('actualizarProcedenciaDataset', { investigacion_id: investigacionId, dataset_id: datasetId, procedencia });
   },
+  /** Emite la última versión del dossier como documento controlado (norma
+   *  AP-DOC-002). Solo en el servidor: el código AP-HYP no se asigna nunca en el
+   *  navegador, para que dos pestañas no den el mismo. Llega por SSE. */
+  emitirDocumento: (hipotesisId: string, nombreCorto: string) => {
+    return enviar('emitirDocumento', { hipotesis_id: hipotesisId, nombre_corto: nombreCorto, quien: QUIEN });
+  },
+  /** El Word de una versión emitida, con la sesión de la persona: es confidencial
+   *  y la ruta no se abre sin ella. Devuelve el motivo si no se pudo. */
+  descargarDocumento: async (hipotesisId: string, version: string, nombreFichero: string): Promise<string | null> => {
+    if (modo !== 'servidor') return 'Descargar el documento requiere el servidor de ROSA2018.';
+    try {
+      const r = await fetch(`${API}/documentos/${encodeURIComponent(hipotesisId)}/${encodeURIComponent(version)}.docx`, { headers: cabeceras(false) });
+      if (!r.ok) return r.status === 404 ? 'Esa versión del documento no está en el servidor.' : `El servidor no lo entregó (${r.status}).`;
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nombreFichero;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return null;
+    } catch {
+      return 'No pude comprobar la conexión con el servidor.';
+    }
+  },
   /** El dossier se arma en el servidor con todo el estado; llega como artefacto por SSE. */
   generarDossier: (hipotesisId: string) => {
     return enviar('generarDossier', { hipotesis_id: hipotesisId, quien: QUIEN });

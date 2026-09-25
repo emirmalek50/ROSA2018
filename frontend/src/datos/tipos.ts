@@ -1064,6 +1064,32 @@ export type AlcanceSupuesto = 'resuelto' | 'tocado_sin_respuesta' | 'no_tocado' 
 /** Dónde estaría la respuesta a un supuesto, la haya o no. */
 export type DondeSeResponde = 'literatura' | 'catalogo_de_cohorte' | 'registro_de_ensayos' | 'analisis_de_datos' | 'experimento_nuevo';
 
+/** Una versión emitida de un documento de hipótesis controlado (norma
+ *  AP-DOC-002, rosa/documento_controlado.py). Guarda lo que llevaba al emitirse:
+ *  la v01 se descarga igual aunque luego cambie el nombre o las iniciales. */
+export interface VersionDocumento {
+  version: string;
+  emitidaEn: number;
+  fecha: string;
+  iniciales: string;
+  nombre: string;
+  cabecera: string;
+  pie: string;
+  artefactoId: Id;
+  versionArtefacto: number;
+  quien: string;
+  norma: string;
+  comprobaciones: { n: number; norma: string; texto: string; ok: boolean }[];
+  controlado: boolean;
+}
+
+export interface DocumentoControlado {
+  /** AP-HYP-001, AP-HYP-002...: correlativo, asignado por el servidor, no se reutiliza. */
+  id: string;
+  nombreCorto: string;
+  versiones: VersionDocumento[];
+}
+
 export interface Supuesto {
   id: Id;
   texto: string;
@@ -1554,6 +1580,12 @@ export interface Hipotesis {
   candidata?: boolean;
   /** Artefacto con el dossier para el laboratorio, si se genero. */
   dossierArtefactoId?: Id | null;
+  /** El nombre corto para la cabecera del documento controlado, resumido del
+   *  título por ROSA2018; null si no se pudo y lo escribe la persona. */
+  nombreCorto?: string | null;
+  /** El documento controlado de la hipótesis (norma AP-DOC-002): su código y
+   *  las versiones emitidas. Solo lo escribe el servidor. */
+  documentoControlado?: DocumentoControlado | null;
   /** Ids de las ejecuciones in silico sobre esta hipotesis. */
   ejecuciones?: Id[];
   /** Registro de consultas a bases publicas: herramienta, argumentos, fecha,

@@ -1224,6 +1224,7 @@ _TABLA: dict[str, Callable] = {
     "reabrirCuestion": A.reabrir_cuestion,
     "atenderPendiente": A.atender_pendiente,
     "generarDossier": A.generar_dossier,
+    "emitirDocumento": A.emitir_documento,
     "actualizarProcedenciaDataset": A.actualizar_procedencia_dataset,
     "evaluarAprendizaje": A.evaluar_aprendizaje,
     "actualizarPregunta": A.actualizar_pregunta,

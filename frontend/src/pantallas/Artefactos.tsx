@@ -59,7 +59,7 @@ function BotonDescarga({ etiqueta, nombre, tipo, construir, disabled, className 
   );
 }
 
-function DetalleArtefacto({ a, inv, ahora }: { a: Artefacto; inv: Investigacion; ahora: number }) {
+function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Investigacion; ahora: number; estado: EstadoRosa }) {
   const ultima = a.versiones[a.versiones.length - 1]!;
   const [n, setN] = useState(ultima.n);
   const [contra, setContra] = useState<number | null>(null);
@@ -137,11 +137,105 @@ function DetalleArtefacto({ a, inv, ahora }: { a: Artefacto; inv: Investigacion;
       ) : (
         <pre className="contenido-artefacto">{version.contenido}</pre>
       )}
+      {a.tipo === 'dossier' && <DocumentoControladoPanel a={a} estado={estado} />}
       <details className="versiones">
         <summary>Procedencia de la versión {version.n}: mensajes, código, registro de ejecución, entorno y revisión</summary>
         <ProcedenciaDeArtefacto p={version.procedencia} />
       </details>
     </div>
+  );
+}
+
+/** El documento controlado de la hipótesis de este dossier, según la norma
+ *  AP-DOC-002 (Hypothesis Document Control, borrador del 17 de septiembre de
+ *  2026): código AP-HYP propio, versiones v01, v02..., cabecera y pie con su
+ *  formato y las ocho comprobaciones. Emitir es deliberado y lo hace el
+ *  servidor; cada versión emitida se descarga en Word tal como se emitió. */
+function DocumentoControladoPanel({ a, estado }: { a: Artefacto; estado: EstadoRosa }) {
+  const h = estado.hipotesis.find((x) => x.dossierArtefactoId === a.id) ?? null;
+  const doc = h?.documentoControlado ?? null;
+  const versiones = doc?.versiones ?? [];
+  const ultima = versiones[versiones.length - 1] ?? null;
+  const [nombre, setNombre] = useState<string | null>(null);
+  const propuesto = doc?.nombreCorto ?? h?.nombreCorto ?? '';
+  const valor = nombre ?? propuesto;
+  const [enviando, envolverEnvio] = useEnVuelo();
+  const [bajando, envolverBajada] = useEnVuelo();
+  const [aviso, setAviso] = useState<string | null>(null);
+  if (!h) return null;
+  // Emitida ya la última versión del dossier: se vuelve a emitir al regenerarlo.
+  const yaEmitida = ultima !== null && ultima.artefactoId === a.id && ultima.versionArtefacto === a.versiones.length;
+  const muestra = estado.conexion === 'muestra';
+  const limpio = valor.replace(/\|/g, ' ').replace(/\s+/g, ' ').trim();
+  const emitir = envolverEnvio(async () => {
+    if (!limpio || yaEmitida) return;
+    setAviso(null);
+    await acciones.emitirDocumento(h.id, limpio);
+  });
+  const bajar = (version: string) =>
+    envolverBajada(async () => {
+      setAviso(await acciones.descargarDocumento(h.id, version, `${doc!.id}_${version}.docx`));
+    })();
+  return (
+    <section className="doc-control" aria-label="Documento controlado">
+      <div className="doc-control-cab">
+        <div>
+          <h3>Documento controlado{doc ? ` · ${doc.id}` : ''}</h3>
+          <p className="meta">
+            Según la norma AP-DOC-002 de documentos de hipótesis (borrador): código propio, versión, cabecera y pie con su formato. Se descarga en Word.
+          </p>
+        </div>
+      </div>
+      {versiones.length > 0 && (
+        <ul className="doc-control-versiones">
+          {versiones
+            .slice()
+            .reverse()
+            .map((v) => (
+              <li key={v.version}>
+                <span className="mono">{v.cabecera}</span>
+                <span className="meta">
+                  {v.fecha} · {v.iniciales} · dossier v{v.versionArtefacto}
+                </span>
+                <Chip tono={v.controlado ? 'ok' : 'aviso'}>{v.controlado ? '8 de 8 comprobaciones' : `${v.comprobaciones.filter((c) => c.ok).length} de 8 comprobaciones`}</Chip>
+                <button type="button" className="btn btn-s" disabled={muestra} {...atributosEnVuelo(bajando)} onClick={() => bajar(v.version)}>
+                  Descargar Word {v.version}
+                </button>
+                {!v.controlado && (
+                  <span className="meta tono-aviso">No cumple: {v.comprobaciones.filter((c) => !c.ok).map((c) => c.texto).join('; ')}.</span>
+                )}
+              </li>
+            ))}
+        </ul>
+      )}
+      {yaEmitida ? (
+        <p className="meta">La última versión del dossier ya está emitida como {ultima!.version}. Para una versión nueva del documento, regenera el dossier.</p>
+      ) : (
+        <div className="acciones">
+          <label className="meta" htmlFor={`nombre-corto-${a.id}`}>
+            Nombre corto de la cabecera
+          </label>
+          <input
+            id={`nombre-corto-${a.id}`}
+            className="entrada entrada-s"
+            style={{ width: 340, maxWidth: '100%' }}
+            maxLength={80}
+            value={valor}
+            placeholder={h.nombreCorto === undefined ? 'ROSA2018 está resumiendo el título...' : 'Escríbelo: un resumen del título'}
+            onChange={(e) => setNombre(e.target.value)}
+          />
+          <button type="button" className="btn btn-s btn-primario" disabled={!limpio || muestra} title={muestra ? 'Con datos de muestra no hay servidor que lo emita' : 'El servidor le da su código AP-HYP (la primera vez) y la versión siguiente'} {...atributosEnVuelo(enviando)} onClick={() => void emitir()}>
+            {doc ? `Emitir ${`v${String(versiones.length + 1).padStart(2, '0')}`}` : 'Emitir documento controlado'}
+          </button>
+          {propuesto && nombre === null && <span className="meta">Resumen del título propuesto por ROSA2018; puedes cambiarlo.</span>}
+        </div>
+      )}
+      {aviso && (
+        <p className="meta tono-aviso" role="status">
+          {aviso}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -279,7 +373,7 @@ export function Artefactos({ inv, estado, ahora, detalleId }: { inv: Investigaci
   }
   const { propios, hipotesis, fuentes } = base;
   const seleccionado = propios.find((a) => a.id === detalleId);
-  if (seleccionado) return <DetalleArtefacto key={seleccionado.id} a={seleccionado} inv={inv} ahora={ahora} />;
+  if (seleccionado) return <DetalleArtefacto key={seleccionado.id} a={seleccionado} inv={inv} ahora={ahora} estado={estado} />;
   const q = busqueda.trim().toLowerCase();
   const visibles = propios.filter((a) => q === '' || a.nombre.toLowerCase().includes(q) || TIPO_ARTEFACTO[a.tipo].toLowerCase().includes(q)).sort((a, b) => Number(b.destacado) - Number(a.destacado));
   const fecha = new Date(ahora).toISOString().slice(0, 10);

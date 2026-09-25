@@ -640,6 +640,33 @@ def crear_app(almacen: Almacen) -> FastAPI:
             raise HTTPException(404, "Afirmación desconocida")
         return JSONResponse(content=ficha, headers={"Cache-Control": "no-store"})
 
+    @app.get("/api/documentos/{hipotesis_id}/{version}.docx")
+    async def documento_docx(hipotesis_id: str, version: str) -> Response:
+        """El documento controlado de una hipótesis (norma AP-DOC-002) en Word,
+        tal como se emitió esa versión: la cabecera y el pie de la norma en
+        cada página, con la numeración como campo automático, y como cuerpo el
+        dossier que se emitió, no el de hoy."""
+        from rosa import documento_controlado as DC
+
+        h = next((x for x in almacen.estado["hipotesis"] if x.get("id") == hipotesis_id), None)
+        if not h:
+            raise HTTPException(404, "Hipótesis desconocida")
+        v = DC.version_emitida(h, version)
+        if not v:
+            raise HTTPException(404, "Esa versión del documento no está emitida")
+        art = next((a for a in almacen.estado.get("artefactos", []) if a.get("id") == v.get("artefactoId")), None)
+        n = int(v.get("versionArtefacto") or 0)
+        if not art or not 1 <= n <= len(art.get("versiones") or []):
+            raise HTTPException(404, "El dossier que se emitió ya no está en el estado")
+        # Una copia de lo que se lee, y el Word fuera del bucle: son décimas de CPU.
+        id_doc, meta, contenido = str(h["documentoControlado"]["id"]), dict(v), str(art["versiones"][n - 1].get("contenido") or "")
+        datos = await asyncio.to_thread(DC.docx, contenido, id_doc, meta)
+        return Response(
+            content=datos,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Cache-Control": "no-store", "Content-Disposition": f'attachment; filename="{id_doc}_{meta["version"]}.docx"'},
+        )
+
     @app.get("/api/corridas/{corrida_id}/citas/{afirmacion_id}/pdf")
     async def cita_pdf(corrida_id: str, afirmacion_id: str) -> FileResponse:
         """El PDF del que salió esa página. Solo se sirve si está dentro del

@@ -591,6 +591,10 @@ class Supervisor:
                 await self._replicar_paso(ctx, h)
             if h.get("_reformularPedida") is not None and h["estado"] == "refinar":
                 await self._reformular_por_persona(ctx, h)
+            if h.get("dossierArtefactoId") and h.get("nombreCorto") is None and not h.get("_nombreCortoIntentado"):
+                # Generar el dossier es una petición de la persona: el nombre corto
+                # del documento controlado se pide aunque la corrida esté parada.
+                await self._nombre_corto(ctx, h)
             if h.get("_revisionPedida") and (corrida["estado"] in ("detenida", "terminada", "esperando_plan") or A.iteracion_actual_de(e, corrida) is None):
                 # Una revisión pedida con la corrida parada no espera al siguiente paso
                 # de hipótesis: revisión inicial, supuestos y Killer ahora.
@@ -978,6 +982,39 @@ class Supervisor:
             return True
 
         self.almacen.mutar(fn, "en_llano")
+
+    async def _nombre_corto(self, ctx: Ctx, h: dict[str, Any]) -> None:
+        """El nombre corto de la cabecera del documento controlado (norma
+        AP-DOC-002), resumido del título. Solo para las hipótesis con dossier,
+        que son las que se pueden emitir. Si el modelo falla o devuelve algo
+        vacío o demasiado largo, queda sin nombre y lo escribe la persona al
+        emitir: nunca se inventa uno recortando el título a ciegas."""
+        from rosa import documento_controlado as DC
+
+        try:
+            pred = await ctx.llamar("volumen", self.programas.nombre_corto, titulo=h["titulo"])
+            # Las palabras se cuentan antes de limpiar: la limpieza recorta a
+            # MAX_NOMBRE caracteres y un nombre larguísimo saldría partido.
+            nombre = DC.limpiar_nombre(pred.nombre) if len(str(pred.nombre or "").split()) <= 10 else ""
+        except PresupuestoAgotado:
+            # Sin presupuesto no se reintenta en cada tic: queda para que la persona
+            # lo escriba al emitir.
+            nombre = ""
+        except ModeloSinRespuesta:
+            raise  # el modelo volverá: se pide entonces
+        except Exception:  # noqa: BLE001
+            nombre = ""
+            traceback.print_exc()
+
+        def fn(e: dict[str, Any]) -> bool:
+            x = next((y for y in e["hipotesis"] if y["id"] == h["id"]), None)
+            if not x:
+                return False
+            x["nombreCorto"] = nombre or None
+            x["_nombreCortoIntentado"] = True
+            return True
+
+        self.almacen.mutar(fn, "nombre_corto")
 
     async def _proponer_experimento(self, ctx: Ctx, h: dict[str, Any]) -> None:
         """El experimento o análisis que comprobaría la hipótesis. Queda como

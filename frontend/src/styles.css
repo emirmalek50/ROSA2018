@@ -5607,3 +5607,40 @@ details.versiones > :not(summary) {
     height: 26px;
   }
 }
+
+/* El documento controlado de un dossier (Artefactos, norma AP-DOC-002). */
+.doc-control {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--accent-border);
+  border-radius: 12px;
+  background: var(--accent-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.doc-control h3 {
+  margin: 0 0 2px;
+  font-size: 14px;
+}
+
+.doc-control-cab p {
+  margin: 0;
+}
+
+.doc-control-versiones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doc-control-versiones li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}

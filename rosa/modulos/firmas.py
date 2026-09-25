@@ -536,6 +536,18 @@ class HipotesisEnLlano(dspy.Signature):
     explicacion: str = dspy.OutputField()
 
 
+class NombreCortoHipotesis(dspy.Signature):
+    """Resumir el título de una hipótesis en un nombre corto para la cabecera de su
+    documento controlado (norma AP-DOC-002: "short official hypothesis document
+    name"). Entre tres y ocho palabras, en castellano, con los marcadores, genes y
+    poblaciones por su nombre (GFAP, NfL, APOE ε4) porque son lo que la distingue de
+    las demás. Sin verbos que afirmen nada, sin barras verticales, sin comillas y sin
+    punto final. No añadir nada que no esté en el título."""
+
+    titulo: str = dspy.InputField()
+    nombre: str = dspy.OutputField(desc="De tres a ocho palabras")
+
+
 class ExperimentoPropuesto(ContratoPropuesto):
     """Lo que el modelo devuelve al diseñar el experimento. Hereda de
     `rosa.experimento.ContratoPropuesto` las lecturas separadas (`lecturas`), el
@@ -1231,6 +1243,7 @@ class Programas:
         self.resumir = dspy.Predict(ResumirIteracion)
         self.en_llano = dspy.Predict(ExplicarEnLlano)
         self.hipotesis_en_llano = dspy.Predict(HipotesisEnLlano)
+        self.nombre_corto = dspy.Predict(NombreCortoHipotesis)
         self.experimento = dspy.ChainOfThought(ProponerExperimento)
         self.concluir = dspy.ChainOfThought(ConcluirHipotesis)
         self.asignar_evidencia = dspy.Predict(AsignarEvidencia)
