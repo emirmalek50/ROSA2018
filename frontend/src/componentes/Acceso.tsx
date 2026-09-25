@@ -19,10 +19,15 @@ type Sesion = {
   correoConfigurado: boolean;
   instalacionLocal: boolean;
   avisoInstalacion?: string | null;
+  /** Cuántas cuentas del equipo esperan aprobación (solo para la administradora). */
+  solicitudesPendientes?: number;
 };
+
+/** Una cuenta del equipo tal como la ve la administradora. */
+type CuentaEquipo = { correo: string; estado: 'pendiente' | 'activa' | 'rechazada'; creada: number; aprobadaPor: string | null; aprobadaEn: number | null };
 /** Lo que la interfaz sabe de la persona que ha entrado: su correo y si
  *  administra esta instalación. Lo lee la sección "Sesión" de Ajustes. */
-export type SesionActual = { correo: string; administrador: boolean };
+export type SesionActual = { correo: string; administrador: boolean; solicitudesPendientes: number };
 const Cuenta = createContext<SesionActual | null>(null);
 
 export function useSesion(): SesionActual | null {
@@ -46,6 +51,88 @@ async function api(ruta: string, datos?: object) {
 /** El bloque de sesión: el correo, si la cuenta administra la instalación y
  *  el botón de salir. Vive en la sección "Sesión" de Ajustes. Salir llama a
  *  /api/acceso/salir y recarga en la raíz, que vuelve a la puerta de acceso. */
+/** Las cuentas del equipo que piden acceso, con los botones de aprobar y rechazar.
+ *  Solo lo ve la cuenta administradora. Aprobar sin preguntar a la persona
+ *  deja entrar a quien haya escrito su correo antes que ella. */
+export function CuentasDelEquipo() {
+  const sesion = useSesion();
+  const [cuentas, setCuentas] = useState<CuentaEquipo[] | null>(null);
+  const [error, setError] = useState('');
+  const [ocupada, setOcupada] = useState<string | null>(null);
+  useEffect(() => {
+    if (!sesion?.administrador) return;
+    let vivo = true;
+    api('solicitudes')
+      .then((r: { cuentas: CuentaEquipo[] }) => vivo && setCuentas(r.cuentas))
+      .catch((e: unknown) => vivo && setError(e instanceof Error ? e.message : 'No se pudieron leer las cuentas'));
+    return () => {
+      vivo = false;
+    };
+  }, [sesion?.administrador]);
+  if (!sesion?.administrador) return null;
+  async function decidir(correo: string, estado: 'activa' | 'rechazada') {
+    setOcupada(correo);
+    setError('');
+    try {
+      const r: { cuentas: CuentaEquipo[] } = await api('decidir', { correo, estado });
+      setCuentas(r.cuentas);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo guardar');
+    } finally {
+      setOcupada(null);
+    }
+  }
+  const pendientes = (cuentas ?? []).filter((c) => c.estado === 'pendiente');
+  const resto = (cuentas ?? []).filter((c) => c.estado !== 'pendiente');
+  return (
+    <div className="cuentas-equipo">
+      <h4>Cuentas del equipo</h4>
+      <p className="meta">Cualquier persona con correo @{DOMINIO} puede pedir cuenta desde la pantalla de acceso. Aprueba solo si sabes que esa persona la pidió: si no, entraría quien haya escrito su correo.</p>
+      {cuentas === null && !error && <p className="meta">Cargando…</p>}
+      {cuentas !== null && pendientes.length === 0 && <p className="meta">Ninguna solicitud pendiente.</p>}
+      {pendientes.length > 0 && (
+        <ul className="cuentas-lista">
+          {pendientes.map((c) => (
+            <li key={c.correo}>
+              <span>
+                <strong>{c.correo}</strong> <small>pidió acceso el {new Date(c.creada).toLocaleString('es-DO')}</small>
+              </span>
+              <span className="acciones">
+                <button type="button" className="btn btn-s" disabled={ocupada === c.correo} onClick={() => void decidir(c.correo, 'activa')}>
+                  Aprobar
+                </button>
+                <button type="button" className="btn btn-fantasma btn-s" disabled={ocupada === c.correo} onClick={() => void decidir(c.correo, 'rechazada')}>
+                  Rechazar
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {resto.length > 0 && (
+        <details>
+          <summary>{resto.length} {resto.length === 1 ? 'cuenta decidida' : 'cuentas decididas'}</summary>
+          <ul className="cuentas-lista">
+            {resto.map((c) => (
+              <li key={c.correo}>
+                <span>
+                  <strong>{c.correo}</strong> <small>{c.estado === 'activa' ? 'con acceso' : 'rechazada'}{c.aprobadaPor ? ` por ${c.aprobadaPor}` : ''}</small>
+                </span>
+                {c.estado === 'activa' && (
+                  <button type="button" className="btn btn-fantasma btn-s" disabled={ocupada === c.correo} onClick={() => void decidir(c.correo, 'rechazada')}>
+                    Quitar acceso
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {error && <p role="alert">{error}</p>}
+    </div>
+  );
+}
+
 export function CuentaActual() {
   const sesion = useSesion();
   const [error, setError] = useState('');
@@ -95,6 +182,9 @@ export function Acceso({ children }: { children: ReactNode }) {
   const [sesion, setSesion] = useState<Sesion | null>(null);
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
+  const [repetida, setRepetida] = useState('');
+  const [modo, setModo] = useState<'entrar' | 'registrar'>('entrar');
+  const [aviso, setAviso] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const conectado = useRef(false);
@@ -131,6 +221,7 @@ export function Acceso({ children }: { children: ReactNode }) {
   async function entrar() {
     setOcupado(true);
     setMensaje('');
+    setAviso('');
     try {
       await api('entrar', { correo, contrasena });
       window.location.assign('/');
@@ -140,7 +231,29 @@ export function Acceso({ children }: { children: ReactNode }) {
       setOcupado(false);
     }
   }
-  if (sesion?.correo) return <Cuenta.Provider value={{ correo: sesion.correo, administrador: Boolean(sesion.administrador) }}>{children}</Cuenta.Provider>;
+
+  async function registrar() {
+    setMensaje('');
+    setAviso('');
+    if (contrasena !== repetida) {
+      setMensaje('Las dos contraseñas no coinciden.');
+      return;
+    }
+    setOcupado(true);
+    try {
+      const r: { mensaje: string } = await api('registrar', { correo, contrasena });
+      setAviso(r.mensaje);
+      setModo('entrar');
+      setContrasena('');
+      setRepetida('');
+    } catch (e) {
+      setMensaje(e instanceof Error ? e.message : 'No se pudo enviar la solicitud');
+    } finally {
+      setOcupado(false);
+    }
+  }
+  const registrando = modo === 'registrar';
+  if (sesion?.correo) return <Cuenta.Provider value={{ correo: sesion.correo, administrador: Boolean(sesion.administrador), solicitudesPendientes: sesion.solicitudesPendientes ?? 0 }}>{children}</Cuenta.Provider>;
   // Una sesión todavía desconocida no equivale a haber cerrado sesión.
   // No montar el formulario ni datos privados mientras se valida el acceso.
   if (!sesion) {
@@ -187,12 +300,12 @@ export function Acceso({ children }: { children: ReactNode }) {
           </div>
 
           <motion.div key="formulario" initial={entrada} animate={{ opacity: 1, y: 0 }} transition={transicion}>
-            <h2>Continúa tu investigación</h2>
-            <p>Inicia sesión con tu cuenta de Alzheimer Project.</p>
+            <h2>{registrando ? 'Pide tu cuenta' : 'Continúa tu investigación'}</h2>
+            <p>{registrando ? 'Con tu correo de Alzheimer Project. Quien administra ROSA2018 la aprobará.' : 'Inicia sesión con tu cuenta de Alzheimer Project.'}</p>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                void entrar();
+                void (registrando ? registrar() : entrar());
               }}
             >
               <label htmlFor="acceso-correo">Correo de Alzheimer Project</label>
@@ -213,22 +326,39 @@ export function Acceso({ children }: { children: ReactNode }) {
                   onChange={(e) => setCorreo(e.target.value)}
                 />
               </div>
-              <label htmlFor="acceso-contrasena">Contraseña</label>
+              <label htmlFor="acceso-contrasena">{registrando ? 'Elige una contraseña (al menos 10 caracteres)' : 'Contraseña'}</label>
               <input
                 id="acceso-contrasena"
                 type="password"
-                autoComplete="current-password"
+                autoComplete={registrando ? 'new-password' : 'current-password'}
                 required
-                minLength={1}
+                minLength={registrando ? 10 : 1}
                 maxLength={256}
                 value={contrasena}
                 onChange={(e) => setContrasena(e.target.value)}
               />
+              {registrando && (
+                <>
+                  <label htmlFor="acceso-repetida">Repítela</label>
+                  <input id="acceso-repetida" type="password" autoComplete="new-password" required minLength={10} maxLength={256} value={repetida} onChange={(e) => setRepetida(e.target.value)} />
+                </>
+              )}
               <button className="btn acceso-continuar" disabled={ocupado}>
-                {ocupado ? 'Iniciando sesión…' : 'Iniciar sesión'}
+                {ocupado ? (registrando ? 'Enviando…' : 'Iniciando sesión…') : registrando ? 'Pedir cuenta' : 'Iniciar sesión'}
                 {!ocupado && <IconoFlecha />}
               </button>
             </form>
+            <button
+              type="button"
+              className="acceso-cambiar-modo"
+              onClick={() => {
+                setModo(registrando ? 'entrar' : 'registrar');
+                setMensaje('');
+                setAviso('');
+              }}
+            >
+              {registrando ? 'Ya tengo cuenta: iniciar sesión' : '¿No tienes cuenta? Pídela con tu correo del proyecto'}
+            </button>
             <p className="acceso-privacidad">
               Acceso exclusivo para <span className="acceso-dominio">@{DOMINIO}</span>. Los avisos de tus corridas llegarán a esta misma cuenta.
             </p>
@@ -237,6 +367,11 @@ export function Acceso({ children }: { children: ReactNode }) {
           <p role="status" className={`acceso-mensaje ${mensaje ? 'acceso-mensaje-error' : 'acceso-mensaje-vacio'}`}>
             {mensaje}
           </p>
+          {aviso && (
+            <p role="status" className="acceso-mensaje acceso-mensaje-aviso">
+              {aviso}
+            </p>
+          )}
           {sesion?.avisoInstalacion && (
             <p role="status" className="acceso-mensaje acceso-mensaje-aviso">
               {sesion.avisoInstalacion}

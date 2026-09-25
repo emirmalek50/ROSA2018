@@ -42,6 +42,9 @@ describe('acceso corporativo', () => {
     expect(nodo.textContent).toContain('Contraseña');
     expect(nodo.textContent).not.toContain('ROSA2018 aún no está conectado');
     expect(nodo.textContent).not.toContain('Entrar sin verificación');
+    // Desde el 25 de septiembre de 2026 se puede pedir cuenta, pero no hay una
+    // puerta que entre sin contraseña ni sin aprobación: "Registrarse" a secas
+    // era la entrada sin verificar que se cerró el 18.
     expect(nodo.textContent).not.toContain('Registrarse');
   });
   it('solo carga las investigaciones cuando existe una sesión verificada', async () => {
@@ -90,6 +93,47 @@ describe('acceso corporativo', () => {
     expect(fetch.mock.calls.some((c) => String(c[0]).endsWith('/api/acceso/entrar'))).toBe(true);
     expect(fetch.mock.calls.some((c) => String(c[0]).endsWith('/api/acceso/entrar_sin_verificar'))).toBe(false);
     expect(asignar).toHaveBeenCalledWith('/');
+  });
+  it('pide cuenta con correo y contraseña repetida, y dice que queda pendiente de aprobación', async () => {
+    const fetch = vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => (String(url).endsWith('/registrar') ? { ok: true, estado: 'pendiente', mensaje: 'Solicitud enviada. Quien administra ROSA2018 tiene que aprobarla; después podrás entrar con tu contraseña.' } : estado),
+    }));
+    vi.stubGlobal('fetch', fetch);
+    await montar();
+    const cambiar = nodo.querySelector('.acceso-cambiar-modo') as HTMLButtonElement;
+    await act(async () => cambiar.click());
+    expect(nodo.textContent).toContain('Pide tu cuenta');
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    const escribir = async (sel: string, valor: string) => {
+      const el = nodo.querySelector(sel) as HTMLInputElement;
+      await act(async () => {
+        setter.call(el, valor);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    };
+    await escribir('#acceso-correo', 'ana@alzheimerproject.com');
+    await escribir('#acceso-contrasena', 'una clave larga');
+    await escribir('#acceso-repetida', 'otra clave distinta');
+    await act(async () => {
+      nodo.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    // Si no coinciden, no se manda nada.
+    expect(nodo.textContent).toContain('Las dos contraseñas no coinciden');
+    expect(fetch.mock.calls.some((c) => String(c[0]).endsWith('/registrar'))).toBe(false);
+    await escribir('#acceso-repetida', 'una clave larga');
+    await act(async () => {
+      nodo.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    const llamada = fetch.mock.calls.find((c) => String(c[0]).endsWith('/api/acceso/registrar'));
+    expect(llamada).toBeDefined();
+    expect(JSON.parse(String((llamada as unknown as [string, { body: string }])[1].body))).toEqual({ correo: 'ana@alzheimerproject.com', contrasena: 'una clave larga' });
+    // Queda pendiente: vuelve al inicio de sesión con el aviso, y no entra sola.
+    expect(nodo.textContent).toContain('tiene que aprobarla');
+    expect(nodo.textContent).toContain('Continúa tu investigación');
+    expect(nodo.textContent).not.toContain('Investigaciones privadas');
   });
   it('muestra un error de autenticación sin abrir ninguna puerta alternativa', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: !String(url).endsWith('/entrar'), json: async () => (String(url).endsWith('/entrar') ? { detail: 'Correo o contraseña incorrectos' } : estado) })));

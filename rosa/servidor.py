@@ -63,7 +63,7 @@ HOSTS_LOCALES = ("127.0.0.1", "localhost", "::1")
 # La puerta sin verificar sigue siendo pública aunque esté cerrada: así quien la
 # llame sin sesión (una interfaz antigua) recibe el 410 con la explicación y no
 # un 401 que le pida iniciar sesión sin decirle cómo.
-RUTAS_PUBLICAS = ('/api/acceso/estado', '/api/acceso/entrar', '/api/acceso/salir', '/api/acceso/configuracion', '/api/acceso/entrar_sin_verificar')
+RUTAS_PUBLICAS = ('/api/acceso/estado', '/api/acceso/entrar', '/api/acceso/registrar', '/api/acceso/salir', '/api/acceso/configuracion', '/api/acceso/entrar_sin_verificar')
 
 
 async def leer_json_acotado(request: Request, maximo: int) -> Any:
@@ -233,9 +233,11 @@ def crear_app(almacen: Almacen) -> FastAPI:
         acceso_configurado = not diagnostico_credenciales()
         if not acceso_configurado:
             aviso = MENSAJE_SIN_CONFIGURAR
-        return {'correo': request.state.usuario, 'administrador': es_admin(request.state.usuario),
+        administrador = es_admin(request.state.usuario)
+        pendientes = sum(1 for x in app.state.acceso.solicitudes() if x['estado'] == 'pendiente') if administrador else 0
+        return {'correo': request.state.usuario, 'administrador': administrador,
                 'correoConfigurado': c['configurado'], 'accesoConfigurado': acceso_configurado,
-                'instalacionLocal': local, 'avisoInstalacion': aviso}
+                'instalacionLocal': local, 'avisoInstalacion': aviso, 'solicitudesPendientes': pendientes}
 
     async def objeto_pequeno(request):
         obj = await leer_json_acotado(request, MAX_CUERPO_PEQUENO)
@@ -274,6 +276,45 @@ def crear_app(almacen: Almacen) -> FastAPI:
         seguro = urlsplit(app.state.correo._config()['url']).scheme == 'https'
         respuesta.set_cookie(COOKIE, token, max_age=DURACION, httponly=True, secure=seguro, samesite='strict', path='/')
         return respuesta
+
+    @app.post('/api/acceso/registrar')
+    async def acceso_registrar(request: Request):
+        # Cualquier correo @alzheimerproject.com pide cuenta; queda pendiente hasta
+        # que la cuenta administradora la aprueba (rosa/acceso.py, 25 de septiembre
+        # de 2026). No abre sesión: eso lo hace entrar, una vez aprobada.
+        obj = await objeto_pequeno(request)
+        email = obj.get('correo')
+        contrasena = obj.get('contrasena')
+        if not isinstance(email, str) or not isinstance(contrasena, str):
+            raise HTTPException(400, 'Indica el correo y la contraseña')
+        try:
+            estado = app.state.acceso.registrar(email, contrasena, request.client.host if request.client else 'desconocida')
+        except ValueError as ex:
+            raise HTTPException(400, str(ex)) from None
+        return {'ok': True, 'estado': estado, 'mensaje': 'Solicitud enviada. Quien administra ROSA2018 tiene que aprobarla; después podrás entrar con tu contraseña.'}
+
+    def solo_admin(request: Request) -> str:
+        if not es_admin(request.state.usuario):
+            raise HTTPException(403, 'Solo la cuenta administradora puede gestionar las cuentas del equipo')
+        return str(request.state.usuario)
+
+    @app.get('/api/acceso/solicitudes')
+    async def acceso_solicitudes(request: Request):
+        solo_admin(request)
+        return {'cuentas': app.state.acceso.solicitudes()}
+
+    @app.post('/api/acceso/decidir')
+    async def acceso_decidir(request: Request):
+        quien = solo_admin(request)
+        obj = await objeto_pequeno(request)
+        email, estado = obj.get('correo'), obj.get('estado')
+        if not isinstance(email, str) or estado not in ('activa', 'rechazada'):
+            raise HTTPException(400, 'Indica el correo y si se aprueba o se rechaza')
+        try:
+            app.state.acceso.decidir_cuenta(email, estado, quien)
+        except ValueError as ex:
+            raise HTTPException(400, str(ex)) from None
+        return {'ok': True, 'cuentas': app.state.acceso.solicitudes()}
 
     @app.post('/api/acceso/entrar_sin_verificar')
     async def acceso_sin_verificar(request: Request):

@@ -845,3 +845,52 @@
     margin-bottom: 22px;
   }
 }
+
+/* Pedir cuenta desde la pantalla de acceso (25 de septiembre de 2026). */
+.acceso-cambiar-modo {
+  margin-top: 14px;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.acceso-cambiar-modo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* Las cuentas del equipo, en Ajustes, para la administradora. */
+.cuentas-equipo {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+.cuentas-equipo h4 {
+  margin: 0;
+}
+.cuentas-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.cuentas-lista li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--borde);
+  border-radius: 6px;
+}
+.cuentas-lista small {
+  color: var(--text-3);
+}

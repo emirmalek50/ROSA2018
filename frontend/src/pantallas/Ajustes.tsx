@@ -15,7 +15,7 @@ import { digest, digestComoTexto } from '../lib/digest';
 import { ACCION_ESPERA, ALCANCE, CLASE_ACCION, NIVEL_AUTONOMIA, TIPO_PERMISO } from '../lib/etiquetas';
 import { useTema, type Tema } from '../lib/theme';
 import { Correo } from '../componentes/Correo';
-import { CuentaActual, useSesion } from '../componentes/Acceso';
+import { CuentaActual, CuentasDelEquipo, useSesion } from '../componentes/Acceso';
 
 const CRITERIOS_INTEGRADOS = [
   'Toda afirmación lleva una cita que resuelve a la página exacta del dato.',
@@ -103,6 +103,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
           <div className="tarjeta">
             <CuentaActual />
           </div>
+          <CuentasDelEquipo />
         </Seccion>
       )}
 

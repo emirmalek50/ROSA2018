@@ -1,7 +1,21 @@
 """Acceso corporativo con contraseña y sesión revocable.
 
-Solo se persisten hashes de las sesiones. La contraseña se compara con una
-huella scrypt configurada fuera del repositorio, en ``.env``::
+Dos clases de cuenta, las dos del dominio @alzheimerproject.com:
+
+- La cuenta administradora, fijada en ``.env`` (abajo). Entra siempre y es la
+  que aprueba a las demás.
+- Las del equipo (25 de septiembre de 2026, a petición de Emir): cualquiera con
+  un correo @alzheimerproject.com se registra con su contraseña, y la cuenta queda
+  PENDIENTE hasta que la cuenta administradora la aprueba con un botón. Sin esa
+  aprobación, cualquiera que llegara a la pantalla podría registrarse con el
+  correo de otra persona del equipo, que es justo el agujero que se cerró el 18
+  de septiembre al retirar la entrada sin verificar. Cuando esta instalación tenga
+  el correo conectado, la aprobación se podrá sustituir por un enlace al buzón
+  (`solicitar` y `confirmar` siguen aquí para eso).
+
+Solo se persisten hashes de las sesiones. La contraseña de la cuenta
+administradora se compara con una huella scrypt configurada fuera del
+repositorio, en ``.env``::
 
     ROSA_LOGIN_EMAIL=persona@alzheimerproject.com
     ROSA_LOGIN_PASSWORD_HASH=<64 caracteres hexadecimales>
@@ -41,8 +55,37 @@ MENSAJE_SIN_CONFIGURAR = (
 )
 
 
+# Contraseñas de las cuentas del equipo: más largas que la de la cuenta
+# administradora, porque se eligen desde una pantalla abierta.
+MIN_CONTRASENA_EQUIPO = 10
+ESTADOS_CUENTA = ("pendiente", "activa", "rechazada")
+MENSAJE_PENDIENTE = "Tu cuenta está pendiente de aprobación. Avisa a quien administra ROSA2018 para que la apruebe."
+MENSAJE_RECHAZADA = "Esta solicitud de acceso fue rechazada. Habla con quien administra ROSA2018."
+
+
 def huella(token):
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def huella_equipo(contrasena, sal=None):
+    """La huella de la contraseña de una cuenta del equipo: scrypt con sal propia
+    por cuenta, guardada como `scrypt$<sal>$<huella>`. Cadena vacía si la
+    contraseña no es válida."""
+    if not isinstance(contrasena, str) or not 1 <= len(contrasena) <= 256:
+        return ""
+    sal = sal if sal is not None else secrets.token_bytes(16)
+    return "scrypt$" + sal.hex() + "$" + hashlib.scrypt(contrasena.encode("utf-8"), salt=sal, n=2**14, r=8, p=1, dklen=32).hex()
+
+
+def _coincide_equipo(contrasena, guardada):
+    """Si la contraseña coincide con la huella guardada, en tiempo constante."""
+    try:
+        _, sal_hex, _ = str(guardada or "").split("$", 2)
+        sal = bytes.fromhex(sal_hex)
+    except ValueError:
+        return False
+    calculada = huella_equipo(contrasena, sal)
+    return bool(calculada) and secrets.compare_digest(calculada.encode("ascii"), str(guardada).encode("ascii"))
 
 
 def correo_admin():
@@ -134,6 +177,13 @@ class Acceso:
         if "verificada" not in columnas:
             with self.db:
                 self.db.execute("ALTER TABLE cuentas ADD COLUMN verificada REAL")
+        # Las cuentas del equipo (25 de septiembre de 2026): su contraseña, su estado
+        # y quién la aprobó. Las filas antiguas quedan con estado NULL: no son del
+        # registro, así que no entran por él.
+        for columna, tipo in (("contrasena", "TEXT"), ("estado", "TEXT"), ("aprobadaPor", "TEXT"), ("aprobadaEn", "REAL")):
+            if columna not in columnas:
+                with self.db:
+                    self.db.execute(f"ALTER TABLE cuentas ADD COLUMN {columna} {tipo}")
 
     def _dominio_corporativo(self, email):
         email = direccion(email.strip().lower())
@@ -174,6 +224,66 @@ class Acceso:
                 + c["url"].rstrip("/") + "/#acceso=" + token + "\n\n"
                 "Si no lo has solicitado, no abras el enlace. Nadie puede entrar sin confirmar tu correo.", ahora)
 
+    def registrar(self, email, contrasena, ip="desconocida"):
+        """Una persona con correo @alzheimerproject.com pide una cuenta. Queda
+        pendiente hasta que la cuenta administradora la aprueba; hasta entonces no
+        entra. Devuelve el estado.
+
+        No se puede pisar una solicitud pendiente con otra contraseña: si alguien
+        se adelantara a la persona real, la administradora vería la solicitud y no
+        la aprobaría sin preguntar, pero si se pudiera sobrescribir, el que llegara
+        el último decidiría la contraseña de una cuenta que otro pidió."""
+        email = self._dominio_corporativo(email)
+        if not isinstance(contrasena, str) or not MIN_CONTRASENA_EQUIPO <= len(contrasena) <= 256:
+            raise ValueError(f"La contraseña debe tener al menos {MIN_CONTRASENA_EQUIPO} caracteres")
+        configurado, _ = _credenciales_configuradas()
+        if configurado and email == configurado:
+            raise ValueError("Esa cuenta ya existe: entra con tu contraseña")
+        ahora = time.time()
+        # El intento se confirma en su propia transacción, como al entrar: si
+        # compartiera la del error de abajo, el rollback lo borraría y el tope no
+        # frenaría a quien prueba correos en bucle.
+        with self.db:
+            self._limitar_y_purgar(email, ip, ahora)
+        fila = self.db.execute("SELECT estado, contrasena FROM cuentas WHERE correo=?", (email,)).fetchone()
+        if fila and fila[0] == "activa":
+            raise ValueError("Ese correo ya tiene cuenta: entra con tu contraseña")
+        if fila and fila[0] == "pendiente":
+            raise ValueError("Ya hay una solicitud pendiente para ese correo. Espera a que la aprueben")
+        if fila and fila[0] == "rechazada":
+            raise ValueError(MENSAJE_RECHAZADA)
+        guardada = huella_equipo(contrasena)
+        with self.db:
+            self.db.execute("INSERT OR IGNORE INTO cuentas(correo, creada) VALUES (?,?)", (email, ahora))
+            self.db.execute("UPDATE cuentas SET contrasena=?, estado='pendiente', creada=? WHERE correo=?", (guardada, ahora, email))
+            # Registrarse bien no es un intento sospechoso, como acertar al entrar: si
+            # contara, quien se registra y luego se equivoca una vez al teclear se
+            # quedaría fuera quince minutos.
+            self.db.execute("DELETE FROM limites_acceso WHERE correo=?", (email,))
+        return "pendiente"
+
+    def solicitudes(self):
+        """Las cuentas del equipo, para la pantalla de la administradora: las
+        pendientes primero, y de cada una solo el correo, cuándo se pidió y quién la
+        aprobó. Nunca la huella de la contraseña."""
+        filas = self.db.execute("SELECT correo, estado, creada, aprobadaPor, aprobadaEn FROM cuentas WHERE estado IS NOT NULL ORDER BY CASE estado WHEN 'pendiente' THEN 0 WHEN 'activa' THEN 1 ELSE 2 END, creada").fetchall()
+        return [{"correo": c, "estado": e, "creada": int(cr * 1000), "aprobadaPor": ap, "aprobadaEn": int(ae * 1000) if ae else None} for c, e, cr, ap, ae in filas]
+
+    def decidir_cuenta(self, email, estado, quien):
+        """La administradora aprueba o rechaza una cuenta del equipo. Rechazar una
+        cuenta activa la deja sin acceso y cierra sus sesiones abiertas."""
+        if estado not in ("activa", "rechazada"):
+            raise ValueError("Solo se puede aprobar o rechazar")
+        email = str(email or "").strip().lower()
+        with self.db:
+            fila = self.db.execute("SELECT estado FROM cuentas WHERE correo=? AND estado IS NOT NULL", (email,)).fetchone()
+            if not fila:
+                raise ValueError("No hay ninguna solicitud con ese correo")
+            self.db.execute("UPDATE cuentas SET estado=?, aprobadaPor=?, aprobadaEn=? WHERE correo=?", (estado, str(quien or "")[:200], time.time(), email))
+            if estado == "rechazada":
+                self.db.execute("DELETE FROM sesiones WHERE correo=?", (email,))
+        return estado
+
     def entrar_con_contrasena(self, email, contrasena, ip="desconocida"):
         """Crea una sesión solo si coincide la cuenta corporativa configurada.
 
@@ -188,18 +298,35 @@ class Acceso:
         """
         email = self._dominio_corporativo(email)
         configurado, esperada = _credenciales_configuradas()
-        if not configurado:
+        fila = self.db.execute("SELECT contrasena, estado FROM cuentas WHERE correo=? AND contrasena IS NOT NULL", (email,)).fetchone()
+        if not configurado and not fila:
             raise ValueError(MENSAJE_SIN_CONFIGURAR)
         ahora = time.time()
         with self.db:
             self._limitar_y_purgar(email, ip, ahora)
-        recibida = _huella_contrasena(contrasena)
-        # Se comparan bytes: `compare_digest` sobre str lanza TypeError si algún
-        # carácter no es ASCII. Las dos comparaciones se hacen siempre.
-        mismo_correo = secrets.compare_digest(email.encode("utf-8"), configurado.encode("utf-8"))
-        misma_huella = bool(recibida) and secrets.compare_digest(recibida.encode("ascii"), esperada.encode("ascii"))
-        if not (mismo_correo and misma_huella):
+        if configurado and secrets.compare_digest(email.encode("utf-8"), configurado.encode("utf-8")):
+            # La cuenta administradora, con la huella de .env.
+            recibida = _huella_contrasena(contrasena)
+            # Se comparan bytes: `compare_digest` sobre str lanza TypeError si algún
+            # carácter no es ASCII.
+            acierta = bool(recibida) and secrets.compare_digest(recibida.encode("ascii"), esperada.encode("ascii"))
+            estado = "activa"
+        elif fila:
+            # Una cuenta del equipo. El estado solo se revela a quien acierta la
+            # contraseña: a los demás, el mismo mensaje que a un correo sin cuenta.
+            acierta = _coincide_equipo(contrasena, fila[0])
+            estado = fila[1]
+        else:
+            # Sin cuenta: se calcula una huella igual para no revelar por el tiempo
+            # de respuesta qué correos tienen cuenta.
+            huella_equipo(contrasena if isinstance(contrasena, str) and contrasena else "x")
+            acierta, estado = False, None
+        if not acierta:
             raise ValueError("Correo o contraseña incorrectos")
+        if estado == "pendiente":
+            raise ValueError(MENSAJE_PENDIENTE)
+        if estado != "activa":
+            raise ValueError(MENSAJE_RECHAZADA)
         with self.db:
             self.db.execute("DELETE FROM limites_acceso WHERE correo=?", (email,))
             self.db.execute("INSERT OR IGNORE INTO cuentas(correo, creada) VALUES (?,?)", (email, ahora))
