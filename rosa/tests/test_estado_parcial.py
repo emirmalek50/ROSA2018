@@ -294,12 +294,17 @@ def test_la_version_devuelta_es_la_del_contenido_aunque_el_bucle_escriba_a_la_ve
             enteras[al.version] = json.loads(al.instantanea_json())
         parar.set()
 
-    enteras[al.version] = json.loads(al.instantanea_json())
+    # La base se fija ANTES de arrancar el escritor: leer `al.version` después es
+    # una carrera del propio test (bajo carga el hilo ya pasó de esa versión y
+    # `enteras` aún no la tiene). Falló así una vez de cada cuatro suites
+    # completas el 28 de septiembre de 2026; el protocolo parcial no tenía nada
+    # que ver (420.754 lecturas concurrentes contra él, cero desajustes).
+    base_version = al.version
+    enteras[base_version] = json.loads(al.instantanea_json())
+    base = enteras[base_version]
+    fundidas: list[tuple[int, dict]] = []
     hilo = threading.Thread(target=escritor)
     hilo.start()
-    fundidas: list[tuple[int, dict]] = []
-    base_version = al.version
-    base = enteras[base_version]
     while not parar.is_set():
         version, cuerpo, parcial = al.instantanea_desde(base_version)
         base = _fundir(base, json.loads(cuerpo)) if parcial else json.loads(cuerpo)
