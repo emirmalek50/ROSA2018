@@ -255,9 +255,19 @@ def _afirmaciones(h: Any) -> list[dict[str, Any]]:
 
 def _nombre_cohorte(f: dict[str, Any]) -> str:
     """El nombre de la cohorte de una fuente como texto limpio; vacío si no
-    consta o no es texto."""
+    consta, no es texto o no identifica ninguna cohorte (un cuantificador
+    plural, o una bolsa de tres o más sistemas en la misma cadena; la regla
+    está en `rosa/metodos.py`). Vacío quiere decir «esta fuente no aporta
+    cohorte independiente», y el motivo del techo lo cuenta aparte."""
+    from rosa import metodos as METODOS  # import local: metodos no puede importar certeza
+
     nombre = f.get("cohorte")
-    return str(nombre).strip() if isinstance(nombre, str) else ""
+    if not isinstance(nombre, str) or not nombre.strip():
+        return ""
+    try:
+        return METODOS._nombre_identificado(nombre.strip())
+    except Exception:  # noqa: BLE001  un nombre raro no tumba el techo
+        return nombre.strip()
 
 
 def claves_de_fuente(f: Any) -> set[str]:

@@ -718,6 +718,33 @@ export function fuentesQueCuentan(h: unknown): Registro[] {
  *  misma cohorte son una sola evidencia, no dos. Acepta una hipótesis (con
  *  afirmaciones, que deciden qué fuentes cuentan), un objeto con `fuentes` o
  *  una lista suelta de fuentes (entonces cuentan todas). */
+/** Mínimo de sistemas enumerados en una cadena para que deje de ser el nombre
+ *  de una cohorte y pase a ser una bolsa (rosa/metodos.py `_es_bolsa`, 28 de
+ *  septiembre de 2026). Dos no bastan: "control y AD" describe una cohorte con
+ *  dos brazos. Tres sí: "iPS-derived neurons, CNS cell lines, mouse brain
+ *  slice" son tres plataformas en un campo, y contarla como cohorte
+ *  independiente subió a «baja» la certeza de la hipótesis de SULF2. */
+const TROZOS_QUE_HACEN_BOLSA = 3;
+const SEPARADOR_DE_LISTA = /\s*(?:,|;|\/|\||\by\b|\band\b)\s*/i;
+
+/** Si la cadena enumera tres o más sistemas y ninguno resuelve al catálogo.
+ *  Un trozo del catálogo salva la cadena entera ("AMARANTH, DAYBREAK-ALZ").
+ *  Los paréntesis se quitan antes: son aclaraciones, no listas. */
+export function esBolsaDeCohortes(nombre: string): boolean {
+  const trozos = nombre.replace(/\([^)]*\)?/g, ' ').split(SEPARADOR_DE_LISTA).map((t) => t.trim()).filter(Boolean);
+  if (trozos.length < TROZOS_QUE_HACEN_BOLSA) return false;
+  return !trozos.some((t) => canonizarCohorte(t));
+}
+
+/** El nombre si identifica una cohorte, o '' si no (rosa/metodos.py
+ *  `_nombre_identificado`). Lo que devuelve '' no cuenta como cohorte
+ *  independiente, igual que una fuente sin cohorte. */
+export function nombreIdentificado(nombre: string): string {
+  const t = (nombre ?? '').trim();
+  if (!t || canonizarCohorte(t)) return t;
+  return esBolsaDeCohortes(t) ? '' : t;
+}
+
 export function cohortesDe(h: Pick<Hipotesis, 'procedencia'> | { fuentes?: unknown } | unknown[]): string[] {
   if (h && typeof h === 'object' && !Array.isArray(h) && 'procedencia' in h) {
     // Como en certeza.py: solo fuentes con la cohorte como texto, renumeradas
@@ -730,6 +757,7 @@ export function cohortesDe(h: Pick<Hipotesis, 'procedencia'> | { fuentes?: unkno
     // puede enseñar una cohorte más que el techo si el mismo artículo entró
     // dos veces con nombres distintos.
     const fuentes = fuentesQueCuentan(h)
+      .map((f) => (typeof f.cohorte === 'string' ? { ...f, cohorte: nombreIdentificado(f.cohorte) } : f))
       .filter((f) => typeof f.cohorte === 'string' && f.cohorte.trim() !== '')
       .map((f, i) => ({ ...f, id: `c${i}` }));
     return agruparCohortes(fuentes).map((g) => g.etiqueta);

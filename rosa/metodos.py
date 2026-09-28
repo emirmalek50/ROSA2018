@@ -365,17 +365,53 @@ _GENERICOS_COHORTE = {"cohorte", "cohortes", "cohort", "cohorts", "study", "estu
 _CUANTIFICADORES_VARIAS = {"multiple", "múltiples", "multiples", "varios", "varias", "several", "various", "numerous", "diversos", "diversas", "distintos", "distintas", "many", "muchos", "muchas", "other", "otros", "otras"}
 
 
+# Mínimo de sistemas enumerados en una misma cadena para que deje de ser el
+# nombre de una cohorte y pase a ser una bolsa (28 de septiembre de 2026). Dos
+# no bastan: "control y AD" o "P301L y AAV-hTau-N368" son maneras normales de
+# describir una sola cohorte con dos brazos.
+_TROZOS_QUE_HACEN_BOLSA = 3
+_SEPARADOR_DE_LISTA = re.compile(r"\s*(?:,|;|/|\||\by\b|\band\b)\s*", re.IGNORECASE)
+
+
+def _es_bolsa(nombre: str) -> bool:
+    """Si la cadena enumera tres o más sistemas distintos en vez de nombrar una
+    cohorte. "iPS-derived neurons, CNS cell lines, mouse brain slice" no es una
+    cohorte: son tres plataformas metidas en un campo, y contarla como una
+    cohorte independiente subió a «baja» la certeza de la hipótesis de SULF2
+    (corrida `cor-mulntlr0-42`), que solo tenía una cohorte de verdad.
+
+    Un trozo que resuelve al catálogo salva la cadena entera: "AMARANTH,
+    DAYBREAK-ALZ" son dos ensayos conocidos, y el problema ahí es que se
+    cuenten como uno, no que no identifiquen nada. Los paréntesis se quitan
+    antes: "Belder et al. (cohorte longitudinal ADAD, familias con mutación)"
+    es un nombre con una aclaración, no una lista."""
+    sin_parentesis = re.sub(r"\([^)]*\)?", " ", nombre)
+    trozos = [t.strip() for t in _SEPARADOR_DE_LISTA.split(sin_parentesis) if t.strip()]
+    if len(trozos) < _TROZOS_QUE_HACEN_BOLSA:
+        return False
+    return not any(canonizar_cohorte(t) for t in trozos)
+
+
 def _nombre_identificado(nombre: str) -> str:
-    """El nombre tal cual si identifica una cohorte, o "" si solo dice
-    "varias": empieza por un cuantificador plural ("multiple population-based
-    cohorts", "múltiples ensayos de terapias dirigidas al amiloide") y no
-    resuelve al catálogo ni a un NCT. "Multiple sclerosis" es una enfermedad,
-    no "varias", y no se descarta."""
+    """El nombre tal cual si identifica una cohorte, o "" si no identifica
+    ninguna:
+
+    - solo dice "varias": empieza por un cuantificador plural ("multiple
+      population-based cohorts", "múltiples ensayos de terapias dirigidas al
+      amiloide") y no resuelve al catálogo ni a un NCT. "Multiple sclerosis" es
+      una enfermedad, no "varias", y no se descarta;
+    - es una bolsa: enumera tres o más sistemas distintos en una cadena y
+      ninguno resuelve al catálogo (ver `_es_bolsa`).
+
+    Lo que devuelve "" no cuenta como cohorte independiente, igual que una
+    fuente sin cohorte; el motivo del techo lo dice."""
     t = (nombre or "").strip()
     if not t or canonizar_cohorte(t):
         return t
     primera = re.split(r"[\s,;:(]+", t.lower(), 1)[0]
     if primera in _CUANTIFICADORES_VARIAS and not re.match(r"(?i)(?:multiple|múltiple)\s+(?:sclerosis|esclerosis)", t):
+        return ""
+    if _es_bolsa(t):
         return ""
     return t
 
