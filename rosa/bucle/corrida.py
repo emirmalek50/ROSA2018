@@ -3347,8 +3347,14 @@ def direccion_por_regla(h: dict[str, Any], direccion_juez: str) -> tuple[str, bo
     """La dirección por regla del grupo B1 (`T.direccion_por_regla(afirmaciones,
     propuesta, experimento)`, rosa/bucle/contexto.py) si existe; si no, la local
     con la misma regla. Devuelve (dirección, supuesto_contradicho): lo segundo es
-    True cuando el juez apoyaba su "mixta" o "en contra" en un supuesto
-    contradicho y la regla la dejó en "apoya"; la frase plantilla lo dice."""
+    True siempre que la dirección quede en "apoya" o "sin evidencia directa" y
+    haya algún supuesto contradicho; la frase plantilla lo dice.
+
+    Hasta el 28 de septiembre de 2026 exigía además que el juez hubiera dicho
+    "mixta" o "en contra". Si el juez decía "apoya" (lo normal, porque no mira
+    los supuestos con esa regla), el aviso no salía: la hipótesis de SULF2 de la
+    corrida `cor-mulntlr0-42` llegó a un dossier con un supuesto contradicho y
+    sin una palabra sobre él en la conclusión."""
     direccion = None
     fn = getattr(T, "direccion_por_regla", None)
     if callable(fn):
@@ -3362,10 +3368,10 @@ def direccion_por_regla(h: dict[str, Any], direccion_juez: str) -> tuple[str, bo
         direccion, _ = _direccion_por_regla_local(h, direccion_juez)
     supuestos = h.get("supuestos") if isinstance(h.get("supuestos"), list) else []
     hay_supuesto_contradicho = any(isinstance(s_, dict) and s_.get("estado") == "contradicho" for s_ in supuestos)
-    # El juez vio contradicción donde solo había un supuesto contradicho (ninguna
-    # afirmación en contra): la regla deja la dirección en "apoya" o en "sin
-    # evidencia directa" y la frase dice lo del supuesto, que es lo que pasa.
-    return direccion, bool(direccion in ("apoya", "sin_evidencia_directa") and hay_supuesto_contradicho and direccion_juez in ("mixta", "en_contra"))
+    # La dirección queda en "apoya" (o "sin evidencia directa") y hay un supuesto
+    # contradicho: la frase lo dice. No depende de lo que dijera el juez, porque
+    # el juez puede no haberlo mirado.
+    return direccion, bool(direccion in ("apoya", "sin_evidencia_directa") and hay_supuesto_contradicho)
 
 
 ESTADOS_EN_COLA = ("propuesta", "en_revision")

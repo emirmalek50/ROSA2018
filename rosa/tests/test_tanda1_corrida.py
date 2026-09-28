@@ -559,14 +559,28 @@ def test_direccion_por_regla_no_dice_contradictoria_sin_afirmaciones_en_contra(m
     h = {"afirmaciones": [apoyo] * 14, "supuestos": [{"texto": "NfL es específico", "estado": "contradicho"}], "experimento": None}
     # La misma regla por los dos caminos: la de contexto.py (grupo B1) y la local de respaldo.
     for fn in (CO.direccion_por_regla, CO._direccion_por_regla_local):
-        assert fn(h, "mixta")[0] == "apoya" and fn(h, "apoya") == ("apoya", False), fn
+        # La DIRECCIÓN es la misma por los dos caminos (el aviso del supuesto solo
+        # lo calcula `direccion_por_regla`; la local devuelve siempre False).
+        assert fn(h, "mixta")[0] == "apoya" and fn(h, "apoya")[0] == "apoya", fn
         assert fn({**h, "afirmaciones": [apoyo, contra]}, "apoya") == ("mixta", False)
         assert fn({**h, "afirmaciones": [contra]}, "apoya") == ("en_contra", False)
-        assert fn({**h, "afirmaciones": []}, "apoya") == ("sin_evidencia_directa", False)
+        assert fn({**h, "afirmaciones": []}, "apoya")[0] == "sin_evidencia_directa"
         assert fn({**h, "experimento": {"resultado": {"veredicto": "refuta"}}}, "apoya") == ("en_contra", False)
-        assert fn({**h, "afirmaciones": [{**contra, "sintetico": True}]}, "apoya") == ("sin_evidencia_directa", False)
+        assert fn({**h, "afirmaciones": [{**contra, "sintetico": True}]}, "apoya")[0] == "sin_evidencia_directa"
+    # El aviso del supuesto contradicho sale diga lo que diga el juez (28 de
+    # septiembre de 2026): antes hacía falta que el juez ya hubiera dicho
+    # "mixta" o "en contra", así que con un juez que decía "apoya" (lo normal,
+    # porque con esa regla no mira los supuestos) la conclusión salía sin
+    # mencionarlo. Así llegó la hipótesis de SULF2 a un dossier.
     assert CO.direccion_por_regla(h, "mixta") == ("apoya", True)
+    assert CO.direccion_por_regla(h, "apoya") == ("apoya", True)
+    assert CO.direccion_por_regla({**h, "afirmaciones": []}, "apoya") == ("sin_evidencia_directa", True)
+    # Sin supuesto contradicho no hay aviso, y con una dirección que ya cuenta
+    # la contradicción por sí sola (mixta, en contra) tampoco.
     assert CO.direccion_por_regla({**h, "supuestos": []}, "mixta") == ("apoya", False)
+    assert CO.direccion_por_regla({**h, "supuestos": []}, "apoya") == ("apoya", False)
+    assert CO.direccion_por_regla({**h, "afirmaciones": [apoyo, contra]}, "apoya") == ("mixta", False)
+    assert CO.direccion_por_regla({**h, "afirmaciones": [contra]}, "apoya") == ("en_contra", False)
     assert "aunque un supuesto del que depende está contradicho" in CO.frase_plantilla("apoya", "baja", "GFAP sube antes", supuesto_contradicho=True)
     assert CO.frase_plantilla("apoya", "baja", "GFAP sube antes").startswith("La evidencia sugiere, con limitaciones, que")
     # Camino real: el juez dice "mixta" con 0 en contra y un supuesto contradicho.

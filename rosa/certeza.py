@@ -599,6 +599,18 @@ def peso_afirmacion(a: dict[str, Any], fuente: dict[str, Any] | None = None) -> 
     return {"peso": round(peso, 4) + 0.0, "factores": factores}
 
 
+def _supuestos_contradichos(h: Any) -> list[str]:
+    """Los textos de los supuestos que una evaluación dejó en `contradicho`.
+    Un registro raro (sin lista, con entradas que no son diccionarios) da lista
+    vacía: un supuesto mal formado no debe tumbar una hipótesis por accidente."""
+    if not isinstance(h, dict):
+        return []
+    fuera = h.get("supuestos")
+    if not isinstance(fuera, list):
+        return []
+    return [str(s.get("texto") or "").strip() for s in fuera if isinstance(s, dict) and s.get("estado") == "contradicho"]
+
+
 class _Vista:
     """Una sola pasada sobre la hipótesis: afirmaciones, fuentes, con qué
     fuente empareja cada afirmación y cuánto pesa. Todo lo que calcula el
@@ -616,6 +628,13 @@ class _Vista:
         # Apoyos que son frases de introducción: pesan 0,25 y no dan cohorte a su fuente.
         self.apoyos_de_fondo: set[int] = {i for i in self.apoyos if de_fondo(self.afs[i])}
         self.contras: list[int] = [i for i in reales if _relacion(self.afs[i]) == "contradice"]
+        # Los supuestos contradichos: el techo los mira (28 de septiembre de 2026).
+        # Hasta hoy este módulo no leía `supuestos` en ningún punto, así que una
+        # hipótesis cuyo supuesto central ROSA2018 había probado falso salía con
+        # certeza «baja / apoya» y así llegó a un dossier (SULF2, corrida
+        # `cor-mulntlr0-42`). La regla ya existía en el Killer ("solo un supuesto
+        # contradicho tumba"); aquí no estaba.
+        self.supuestos_contradichos: list[str] = _supuestos_contradichos(h)
         self.socavadas = sum(1 for i in reales if socavada(self.afs[i]))
         self.socavan = sum(1 for i in reales if _relacion(self.afs[i]) == "socava")
 
@@ -877,6 +896,12 @@ def _techo_estructura(v: _Vista, factores: list[Any] | None) -> tuple[str, str]:
 
 
 def _techo(v: _Vista, factores: list[Any] | None) -> tuple[str, str]:
+    if v.supuestos_contradichos:
+        cuantos = len(v.supuestos_contradichos)
+        cual = v.supuestos_contradichos[0]
+        cual = cual[:160] + "..." if len(cual) > 160 else cual
+        resto = f" (y {cuantos - 1} más)" if cuantos > 1 else ""
+        return "muy_baja", f"un supuesto del que depende está contradicho por la propia evidencia reunida{resto}: «{cual}»"
     balance = v.balance()
     a_favor, en_contra = balance["aFavor"], balance["enContra"]
     if not v.apoyos:

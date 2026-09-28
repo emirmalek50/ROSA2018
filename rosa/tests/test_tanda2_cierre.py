@@ -382,7 +382,10 @@ def test_correr_corrida_mira_la_parada_antes_de_pedir_permiso_de_gasto(monkeypat
 def test_sin_evidencia_directa_con_supuesto_contradicho_lo_dice_en_la_frase():
     h = {"afirmaciones": [], "supuestos": [{"texto": "NfL es específico", "estado": "contradicho"}], "experimento": None}
     assert CO.direccion_por_regla(h, "mixta") == ("sin_evidencia_directa", True)
-    assert CO.direccion_por_regla(h, "apoya") == ("sin_evidencia_directa", False)
+    # Y también con el juez diciendo "apoya", que es lo normal cuando no mira
+    # los supuestos (28 de septiembre de 2026).
+    assert CO.direccion_por_regla(h, "apoya") == ("sin_evidencia_directa", True)
+    assert CO.direccion_por_regla({**h, "supuestos": []}, "apoya") == ("sin_evidencia_directa", False)
     assert CO.direccion_por_regla({**h, "supuestos": None}, "mixta") == ("sin_evidencia_directa", False)
     assert CO.direccion_por_regla({**h, "supuestos": "texto raro"}, "en_contra") == ("sin_evidencia_directa", False)
     frase = CO.frase_plantilla("sin_evidencia_directa", "muy_baja", "GFAP sube antes", supuesto_contradicho=True)
