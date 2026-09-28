@@ -2295,3 +2295,39 @@ dice "esta afirmación no se sostiene al releerla", eso no llega nunca a la
 afirmación guardada. Está dicho en el docstring del módulo para que no parezca
 una protección que protege. Escribir de vuelta el veredicto de la réplica es una
 decisión aparte y no se tomó aquí.
+
+## Prueba de humo: ROSA2018 sobre Vercel Workflows (26 de septiembre de 2026)
+
+El jefe de Emir propuso Vercel Workflows en vez de un VPS. Antes de migrar nada se
+desplegó una prueba mínima en el equipo AI Robotix de Vercel (plan Pro), en un
+proyecto aparte, `rosa-workflow-prueba`, protegido con una llave para que nadie de
+fuera pueda gastar llamadas. El código vive fuera de este repositorio, en
+`~/rosa-workflow-prueba`: un workflow de Python con dos pasos y una siesta.
+
+Lo que había que saber, y lo que salió:
+
+- **Python, DSPy y un modelo por el AI Gateway: funciona.** `vercel-workflow`
+  0.11.0 (Python en beta) con `dspy` 3.3.1. Sonnet respondió; 8,5 s la primera
+  llamada (arranque en frío, con la importación de DSPy) y 1,4 s en caliente. La
+  función se autentica en el gateway con el token OIDC que Vercel le da, sin subir
+  ninguna clave: el gasto va a la cuenta de Vercel de AI Robotix.
+- **Dormir y seguir: funciona.** La ejecución durmió 240 s sin consumir y siguió
+  donde iba, con unos 3 s de desfase.
+- **Sobrevivir a un despliegue: funciona, y con una propiedad que importa.** Se
+  redesplegó a mitad de la siesta y la ejecución terminó bien, pero en el
+  despliegue con el que había empezado: Vercel fija cada ejecución a su despliegue
+  (Skew Protection). Para ROSA2018 eso quiere decir que un push no corta una
+  corrida y que el código nuevo solo lo usan las corridas nuevas. Es lo que hoy
+  hace a mano `scripts/parar_servidor.py`, sin tener que esperar.
+- **El tamaño cabe.** La página de límites de funciones de Vercel da 500 MB sin
+  comprimir para Python (5 GB con Large Functions, en beta). ROSA2018 instalada
+  sin mlflow son 277 MB medidos; mlflow y lo que arrastra (pyarrow, matplotlib,
+  scikit-learn, sqlalchemy) son unos 250 MB más y solo lo usan los dos módulos de
+  GEPA, que no tienen por qué correr en la nube. La prueba ya llevaba DSPy y
+  litellm, que es lo más pesado del resto.
+
+Lo que la prueba NO resuelve, y sigue en pie del diseño revisado por el escéptico:
+el estado tiene que salir de SQLite a Convex (1 MiB por documento en Convex contra
+30 MB de estado, así que partido); cada paso sigue limitado a 800 s; y el botón
+Detener y el tope de gasto tienen que leer la corrida en Convex antes de cada
+llamada al modelo, porque en Vercel ya no comparten memoria con la interfaz.
