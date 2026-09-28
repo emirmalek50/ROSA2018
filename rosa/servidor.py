@@ -48,7 +48,7 @@ from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 
 from rosa import config
 from rosa.estado import plantilla as P
-from rosa.estado.almacen import ACCIONES, Almacen, EscritorObsoleto, componer_json_con_avisos
+from rosa.estado.almacen import ACCIONES, Almacen, EscritorObsoleto, componer_bytes_con_avisos
 from rosa.acceso import Acceso, COOKIE, DURACION, MENSAJE_PUERTA_CERRADA, MENSAJE_SIN_CONFIGURAR, diagnostico_credenciales
 from urllib.parse import urlsplit
 
@@ -171,16 +171,18 @@ def crear_app(almacen: Almacen) -> FastAPI:
         juez = getattr(getattr(app.state, 'acceso', None), 'es_admin', None)
         return bool(email and juez is not None and juez(email))
 
-    async def estado_json_de(request) -> str:
-        """El JSON de la instantánea para esta persona: la parte compartida sale
-        de la caché por versión del almacén (serializada en un hilo aparte, fuera
-        del bucle de eventos) y solo se añaden sus avisos. Las preferencias se
-        leen aquí, en el hilo del bucle: la conexión SQLite del correo no admite
-        otros hilos."""
+    async def estado_json_de(request, desde: int | None = None) -> tuple[int, bytes, bool]:
+        """`(versión, JSON, parcial)` de la instantánea para esta persona: la parte
+        compartida sale de la caché por clave del almacén (en un hilo aparte, fuera
+        del bucle de eventos), entera o solo lo cambiado desde `desde`, y se le
+        añaden sus avisos (siempre, también en la parcial: son pocos bytes). Las
+        preferencias se leen aquí, en el hilo del bucle: la conexión SQLite del
+        correo no admite otros hilos."""
         if request.state.usuario:
             avisos = json.dumps(app.state.correo.preferencias(request.state.usuario), ensure_ascii=False, separators=(",", ":"))
-            return componer_json_con_avisos(await asyncio.to_thread(almacen.instantanea_json, True), avisos)
-        return await asyncio.to_thread(almacen.instantanea_json)
+            version, cuerpo, parcial = await asyncio.to_thread(almacen.instantanea_desde, desde, True)
+            return version, componer_bytes_con_avisos(cuerpo, avisos), parcial
+        return await asyncio.to_thread(almacen.instantanea_desde, desde, False)
 
     # Solo se aceptan peticiones dirigidas al nombre con el que se sirve ROSA2018:
     # frena el "DNS rebinding" (una web ajena que resuelve a 127.0.0.1).
@@ -333,10 +335,19 @@ def crear_app(almacen: Almacen) -> FastAPI:
 
     @app.get("/api/estado")
     async def estado(request: Request) -> Response:
-        # La serialización (decenas de ms sobre 10 MB) se hace una vez por versión
-        # en el almacén y fuera del hilo del bucle de eventos.
-        texto = await estado_json_de(request)
-        return Response(content=texto, media_type="application/json", headers={"Cache-Control": "no-store", "X-Rosa-Version": str(almacen.version)})
+        # La serialización se hace una vez por cambio de cada clave, en el almacén y
+        # fuera del hilo del bucle de eventos. Con `?desde=N` (la versión que el
+        # navegador ya tiene) solo viajan las claves que cambiaron después, con la
+        # cabecera X-Rosa-Parcial; sin él, o si no se puede, el estado entero. La
+        # versión de la cabecera es la del contenido, no la que haya al terminar.
+        crudo = request.query_params.get("desde")
+        desde = int(crudo) if crudo is not None and crudo.isdigit() else None
+        version, cuerpo, parcial = await estado_json_de(request, desde)
+        cabeceras = {"Cache-Control": "no-store", "X-Rosa-Version": str(version)}
+        if parcial:
+            cabeceras["X-Rosa-Parcial"] = "1"
+            cabeceras["X-Rosa-Desde"] = str(desde)
+        return Response(content=cuerpo, media_type="application/json", headers=cabeceras)
 
     @app.get("/api/correo")
     async def correo_estado(request: Request):

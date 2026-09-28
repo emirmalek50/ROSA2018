@@ -2453,3 +2453,72 @@ programa se encienden con `ROSA_MLFLOW_TRAZAS=1` (solo un "1" explícito).
 No se borró nada: `mlflow.db` conserva lo que tiene. Las trazas del 10 al 16 de
 septiembre solo están ahí, porque `trazas.db` empezó el 16. Borrarlo o
 compactarlo lo decide Emir.
+
+### Cada mutación, de 359 ms a 80: orjson y el WAL que no se vuelca siempre
+
+Medido sobre una copia de la base real (copia de seguridad en línea de SQLite):
+una mutación típica costaba 359 ms de mediana. El análisis de hoy decía que la
+culpa era el tamaño del estado y proponía sacar los datos privados pesados a su
+propia tabla. Al medir antes de rediseñar salió otra cosa: el proyecto ya trae
+`orjson` (viene con DSPy), y sobre el estado real serializa en 15 ms en vez de
+149, con ida y vuelta idéntica y ningún valor incompatible. Eso daba más que
+partir la base y no toca el modelo de datos. `volcar_json` (almacen.py) hace el
+mismo JSON que `json.dumps(ensure_ascii=False)`: claves no textuales
+convertidas como antes, y fechas y dataclasses siguen siendo un error. La única
+diferencia es NaN, que ahora se escribe null: antes salía `NaN`, que el
+navegador no sabe leer. Se guarda como TEXTO con `CAST`, sin decodificar en
+Python, y la columna sigue siendo texto para cualquier lector.
+
+Con eso, lo caro pasó a ser SQLite. Cada escritura son 7.500 páginas, y con el
+umbral por defecto (1.000 páginas) el WAL se volcaba al fichero principal en
+todas las mutaciones: 53 ms de cada commit. Con `wal_autocheckpoint` a 64 MB se
+vuelca cada dos o tres escrituras, y la durabilidad no cambia. Resultado,
+misma copia y misma mutación: 359 ms antes, 127 con orjson, 80 con el WAL.
+
+Lo que no se hizo, y por qué: repartir el estado en filas (una por corrida)
+bajaría la escritura de 31 MB a unos 5 y quitaría casi todo lo que queda. Pero
+cambia el formato de `rosa.db`. Una ROSA2018 anterior (volver a un commit viejo)
+leería ahí un estado incompleto y lo escribiría encima: pérdida de datos. Eso lo
+decide Emir.
+
+### El navegador baja solo lo que cambió
+
+Cada versión nueva obligaba al navegador a bajar y parsear el estado entero:
+15,9 MB (3,4 comprimidos) aunque solo hubiera cambiado una línea de una pista.
+Midiendo las 8.988 mutaciones del bucle con claves registradas, la mediana
+cambia 4,5 MB (29 %), casi siempre `corridas` e `iteraciones`.
+
+Ahora el almacén sabe en qué versión cambió cada clave de primer nivel
+(`_cambio_en`, que sale del `cambiaron` que ya se calculaba). `GET
+/api/estado?desde=N` contesta solo las claves que cambiaron después de N, con
+`X-Rosa-Parcial: 1`. La instantánea se limpia y serializa por clave, una vez por
+cambio (`_cliente`): de 167 ms por versión a 54 tras un cambio pequeño. Prueba
+de punta a punta con un servidor aparte sobre una copia de la base: tras añadir
+un criterio viajan 355 bytes en vez de 16,1 MB, y lo fundido es idéntico al
+estado entero del servidor.
+
+Tres cosas que no se pueden romper, cada una con su test:
+
+- **La versión de la cabecera es la del contenido.** Se leía después de
+  componer la respuesta, así que un cambio llegado entre medias daba una
+  cabecera más nueva que el JSON. Con envíos enteros casi no se notaba; con
+  parciales, el navegador daría por recibido para siempre algo que nunca le
+  llegó. Ahora la versión se toma bajo el mismo cerrojo que el contenido
+  (`instantanea_desde`).
+- **La parcial se funde sobre la última copia pura del servidor**
+  (`vivo.base` en frontend/src/datos/almacen.ts), no sobre lo que se ve, que
+  lleva encima las decisiones aún sin enviar. El primer test que escribí para
+  esto pasaba también con el código roto a propósito, porque "Deshacer" ya pide
+  el estado entero. El caso que de verdad lo rompe es una decisión cuyo envío
+  falla con un 500: no se recarga nada, y fundiendo sobre lo que se ve la
+  aceptación optimista se quedaba dentro para siempre. Ese test sí falla con el
+  código roto.
+- **Cuándo se manda entero.** Se manda el estado entero, en vez de la parcial,
+  si `desde` no es posterior al arranque o a la última recarga desde disco
+  (`_minimo_parcial`), porque un navegador pudo recibir de un proceso anterior
+  cambios en memoria que nunca llegaron al disco. También si alguna clave
+  desapareció (fundir no la borraría), si cambió todo, o si el `desde` es raro.
+  Y el navegador pide el entero cuando una parcial no encaja.
+
+Un servidor anterior, que ignora `desde`, sigue funcionando: contesta entero y
+el navegador lo sustituye.

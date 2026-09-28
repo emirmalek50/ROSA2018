@@ -73,9 +73,15 @@ function estadoInicial(): EstadoRosa {
 // Solo memoria de esta pestaña: no guardar investigaciones en almacenamiento
 // persistente ni recuperar una sesión sin verificarla tras recargar la página.
 import.meta.hot?.data?.retirarAlmacen?.();
-const vivo: { estado: EstadoRosa; oyentes: Set<() => void>; version: number } = import.meta.hot?.data?.almacenVivo ?? {
-  estado: estadoInicial(), oyentes: new Set<() => void>(), version: -1,
+// `base` es la última copia pura del servidor, tal como llegó: sin las decisiones
+// que todavía no se han enviado (que van encima, en `estado`). Sobre ella se funde
+// una respuesta parcial (28 de septiembre de 2026); fundirla sobre `estado` dejaría
+// pegada en pantalla una decisión que la persona deshizo.
+const vivo: { estado: EstadoRosa; oyentes: Set<() => void>; version: number; base: EstadoRosa | null } = import.meta.hot?.data?.almacenVivo ?? {
+  estado: estadoInicial(), oyentes: new Set<() => void>(), version: -1, base: null,
 };
+// Un almacén heredado por la recarga en caliente de antes de este cambio no la tiene.
+if (!('base' in vivo)) (vivo as { base: EstadoRosa | null }).base = null;
 const oyentes = vivo.oyentes;
 let modo: 'muestra' | 'servidor' = import.meta.hot?.data?.modoRosa ?? 'muestra';
 let retirado = false;
@@ -124,6 +130,7 @@ export function modoActual(): 'muestra' | 'servidor' {
 function recibirRemoto(remoto: EstadoRosa, version: number | null = null): void {
   if (retirado) return;
   if (version !== null && version < vivo.version) return;
+  vivo.base = remoto;
   const visita = leerVisita();
   let siguiente: EstadoRosa = { ...remoto, conexion: 'en_linea', ultimaVisita: visita ?? remoto.ultimaVisita };
   // Las decisiones diferidas (aceptar, descartar, refinar) todavía no han
@@ -144,6 +151,22 @@ function recibirRemoto(remoto: EstadoRosa, version: number | null = null): void 
   vivo.estado = siguiente;
   if (version !== null) vivo.version = version;
   notificar();
+}
+
+/** Una respuesta parcial del servidor (cabecera X-Rosa-Parcial): solo las claves
+ *  de primer nivel que cambiaron después de `desde`. Se funde sobre la última
+ *  copia pura del servidor (`vivo.base`), nunca sobre lo que se ve, y después se
+ *  reaplican las decisiones pendientes como con un estado entero. Vale si esa
+ *  copia es de una versión entre `desde` y la de la respuesta: lo que cambió en
+ *  medio viene en la parcial y lo demás es igual en las dos. Devuelve false si
+ *  no se puede fundir (no hay copia, o es anterior a `desde`): hay que pedir el
+ *  estado entero. */
+function recibirParcial(parcial: Partial<EstadoRosa>, version: number, desde: number): boolean {
+  if (retirado) return true;
+  if (version < vivo.version) return true; // ya hay algo más nuevo: la respuesta llegó tarde
+  if (!vivo.base || vivo.version < desde) return false;
+  recibirRemoto({ ...vivo.base, ...parcial } as EstadoRosa, version);
+  return true;
 }
 
 function versionDe(texto: string | null | undefined): number | null {
@@ -403,21 +426,39 @@ export async function reintentarConexion(): Promise<boolean> {
    durante una corrida, que cambia el estado cada pocos segundos. */
 let descargaEnCurso = false;
 let otraDescarga = false;
+let siguienteEntera = false;
 const PAUSA_ENTRE_DESCARGAS_MS = 2000;
 
+/* Con la versión que ya tiene, el navegador pide solo lo que cambió después
+   (`?desde=N`, 28 de septiembre de 2026): durante una corrida suele ser
+   `corridas` e `iteraciones`, un 29 % del estado, en vez de bajar y volver a
+   parsear los 15,9 MB enteros con cada cambio. El servidor contesta entero
+   cuando no puede hacerlo en parcial, y aquí se pide entero si la parcial no
+   se puede fundir. */
 function pedirEstado(): void {
   if (descargaEnCurso) {
     otraDescarga = true;
     return;
   }
   descargaEnCurso = true;
+  const desde = !siguienteEntera && vivo.base !== null && vivo.version >= 0 ? vivo.version : null;
+  siguienteEntera = false;
   void (async () => {
     try {
-      const r = await fetch(conToken(`${API}/estado`), { cache: 'no-store', headers: cabeceras(false) });
+      const r = await fetch(conToken(`${API}/estado${desde !== null ? `?desde=${desde}` : ''}`), { cache: 'no-store', headers: cabeceras(false) });
       if (r.ok) {
         const cuerpo = (await r.json()) as EstadoRosa;
         const version = versionDe(r.headers.get('X-Rosa-Version'));
-        if (version === null || version >= vivo.version) recibirRemoto(cuerpo, version);
+        if (r.headers.get('X-Rosa-Parcial') === '1') {
+          const desdeServidor = versionDe(r.headers.get('X-Rosa-Desde'));
+          const encaja = version !== null && desde !== null && (desdeServidor === null || desdeServidor === desde);
+          if (!encaja || !recibirParcial(cuerpo, version, desde)) {
+            siguienteEntera = true;
+            otraDescarga = true;
+          }
+        } else if (version === null || version >= vivo.version) {
+          recibirRemoto(cuerpo, version);
+        }
         if (vivo.estado.conexion !== 'en_linea') aplicar((e) => ({ ...e, conexion: 'en_linea' }));
       }
     } catch {

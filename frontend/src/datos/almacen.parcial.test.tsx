@@ -1,0 +1,250 @@
+// @vitest-environment jsdom
+// El navegador baja solo lo que cambió (28 de septiembre de 2026): con la versión
+// que ya tiene pide `/api/estado?desde=N` y el servidor contesta con las claves
+// de primer nivel que cambiaron después, marcadas con X-Rosa-Parcial. Lo que no
+// se puede romper: que lo fundido sea el estado del servidor, que una decisión
+// que la persona deshizo no se quede pegada (la parcial se funde sobre la última
+// copia pura del servidor, no sobre lo que se ve), y que una parcial que no
+// encaja lleve a pedir el estado entero en vez de pintar un estado mezclado.
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { estadoDeMuestra } from './muestra';
+import type { AccionPendiente } from './almacen';
+import type { EstadoRosa } from './tipos';
+
+type Oyente = (ev: unknown) => void;
+class EventSourceFalso {
+  static instancias: EventSourceFalso[] = [];
+  oyentes = new Map<string, Oyente[]>();
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  constructor(public url: string) {
+    EventSourceFalso.instancias.push(this);
+  }
+  addEventListener(tipo: string, fn: Oyente) {
+    this.oyentes.set(tipo, [...(this.oyentes.get(tipo) ?? []), fn]);
+  }
+  close() {}
+  /** Lo que manda el servidor de hoy: solo la versión nueva. */
+  avisar(version: number) {
+    for (const fn of this.oyentes.get('version') ?? []) fn({ data: '', lastEventId: String(version) });
+  }
+}
+
+/** Un servidor de juguete con la misma regla que rosa/estado/almacen.py
+ *  `instantanea_desde`: parcial con lo cambiado después de `desde`. */
+const servidor = {
+  estado: null as unknown as EstadoRosa,
+  version: 0,
+  cambios: new Map<number, string[]>(),
+  parcial: true,
+  /** Para forzar respuestas raras en un test. */
+  trucar: null as null | ((desde: number | null) => Response | null),
+};
+const pedidas: string[] = [];
+// El almacén es un singleton del módulo: cada test sube la versión por encima del anterior.
+let base = 1000;
+
+function cambiar(claves: (keyof EstadoRosa)[], fn: (e: EstadoRosa) => EstadoRosa) {
+  servidor.estado = fn(servidor.estado);
+  servidor.version += 1;
+  servidor.cambios.set(servidor.version, claves as string[]);
+}
+
+function responder(url: string): Response {
+  const u = new URL(url, 'http://localhost');
+  const crudo = u.searchParams.get('desde');
+  const desde = crudo !== null && /^\d+$/.test(crudo) ? Number(crudo) : null;
+  const trucada = servidor.trucar?.(desde);
+  if (trucada) return trucada;
+  const cabeceras: Record<string, string> = { 'Content-Type': 'application/json', 'X-Rosa-Version': String(servidor.version) };
+  if (servidor.parcial && desde !== null && desde <= servidor.version) {
+    const claves = new Set<string>();
+    for (const [v, ks] of servidor.cambios) if (v > desde) ks.forEach((k) => claves.add(k));
+    const cuerpo: Record<string, unknown> = { conexion: 'en_linea' };
+    for (const k of claves) cuerpo[k] = (servidor.estado as unknown as Record<string, unknown>)[k];
+    return new Response(JSON.stringify(cuerpo), { status: 200, headers: { ...cabeceras, 'X-Rosa-Parcial': '1', 'X-Rosa-Desde': String(desde) } });
+  }
+  return new Response(JSON.stringify(servidor.estado), { status: 200, headers: cabeceras });
+}
+
+beforeAll(() => {
+  (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  if (!window.matchMedia) {
+    window.matchMedia = (q: string) => ({ matches: false, media: q, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false }) as MediaQueryList;
+  }
+});
+
+beforeEach(() => {
+  pedidas.length = 0;
+  EventSourceFalso.instancias.length = 0;
+  base += 1000;
+  servidor.estado = { ...estadoDeMuestra(), conexion: 'en_linea' };
+  servidor.version = base;
+  servidor.cambios = new Map();
+  servidor.parcial = true;
+  servidor.trucar = null;
+  vi.stubGlobal('EventSource', EventSourceFalso);
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      if (String(url).startsWith('/api/estado')) {
+        pedidas.push(String(url));
+        return responder(String(url));
+      }
+      if (String(url).startsWith('/api/acciones/')) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      throw new Error(`fetch inesperado: ${url}`);
+    }),
+  );
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  document.body.innerHTML = '';
+});
+
+async function esperar() {
+  for (let i = 0; i < 5; i += 1) await Promise.resolve();
+  await new Promise((r) => setTimeout(r, 0));
+  for (let i = 0; i < 5; i += 1) await Promise.resolve();
+}
+
+async function montar() {
+  const A = await import('./almacen');
+  let pendientes: AccionPendiente[] = [];
+  function Cuenta() {
+    pendientes = A.useAccionesPendientes();
+    return null;
+  }
+  await act(async () => createRoot(document.body.appendChild(document.createElement('div'))).render(<Cuenta />));
+  A.vaciarPendientes();
+  expect(await A.conectar(false)).toBe('servidor');
+  const actual = (): EstadoRosa => {
+    let e: EstadoRosa | null = null;
+    A.aplicar((x) => {
+      e = x;
+      return x;
+    });
+    return e!;
+  };
+  return { A, actual, pendientes: () => pendientes, es: EventSourceFalso.instancias.at(-1)! };
+}
+
+const sinLocales = (e: EstadoRosa) => {
+  const { conexion: _c, ultimaVisita: _u, ...resto } = e as EstadoRosa & { ultimaVisita?: unknown };
+  return resto;
+};
+
+describe('el navegador baja solo lo que cambió', () => {
+  it('pide desde su versión, funde la parcial y conserva el resto', async () => {
+    const { actual, es } = await montar();
+    const v0 = servidor.version;
+    cambiar(['criteriosRevision'], (e) => ({ ...e, criteriosRevision: [...e.criteriosRevision, 'criterio nuevo'] }));
+    await act(async () => {
+      es.avisar(servidor.version);
+      await esperar();
+    });
+    expect(pedidas.at(-1)).toContain(`desde=${v0}`);
+    expect(actual().criteriosRevision.at(-1)).toBe('criterio nuevo');
+    expect(sinLocales(actual())).toEqual(sinLocales(servidor.estado));
+  });
+
+  it('tras varias parciales seguidas lo que se ve es el estado del servidor', async () => {
+    const { actual, es } = await montar();
+    for (let i = 0; i < 6; i += 1) {
+      if (i % 2 === 0) cambiar(['criteriosRevision'], (e) => ({ ...e, criteriosRevision: [...e.criteriosRevision, `c${i}`] }));
+      else cambiar(['hipotesis'], (e) => ({ ...e, hipotesis: e.hipotesis.map((h, j) => (j === 0 ? { ...h, titulo: `título ${i}` } : h)) }));
+      await act(async () => {
+        es.avisar(servidor.version);
+        await esperar();
+      });
+      expect(sinLocales(actual())).toEqual(sinLocales(servidor.estado));
+    }
+    expect(pedidas.slice(1).every((u) => u.includes('desde='))).toBe(true);
+  });
+
+  it('una decisión que la persona deshizo no se queda pegada aunque la parcial no traiga hipótesis', async () => {
+    const { A, actual, pendientes, es } = await montar();
+    const id = servidor.estado.hipotesis.find((h) => h.estado === 'propuesta')!.id;
+    await act(async () => {
+      A.acciones.revisarHipotesis(id, 'aceptar', '', false, null, 1, 4);
+    });
+    expect(actual().hipotesis.find((h) => h.id === id)!.estado).toBe('aceptada');
+    // Llega una parcial que solo trae otra clave: la decisión pendiente se reaplica encima.
+    cambiar(['criteriosRevision'], (e) => ({ ...e, criteriosRevision: [...e.criteriosRevision, 'otro'] }));
+    await act(async () => {
+      es.avisar(servidor.version);
+      await esperar();
+    });
+    expect(actual().hipotesis.find((h) => h.id === id)!.estado).toBe('aceptada');
+    expect(actual().criteriosRevision.at(-1)).toBe('otro');
+    // La persona deshace: vuelve a lo que dice el servidor, que nunca la aceptó.
+    await act(async () => {
+      pendientes().find((p) => p.clave.includes(id))!.deshacer();
+      await esperar();
+    });
+    expect(actual().hipotesis.find((h) => h.id === id)!.estado).toBe('propuesta');
+    expect(sinLocales(actual())).toEqual(sinLocales(servidor.estado));
+  });
+
+  it('una decisión cuyo envío falló (500) no se queda pegada cuando llega una parcial sin hipótesis', async () => {
+    // Un 500 no recarga el estado (solo marca la conexión): la decisión deja de
+    // reaplicarse y lo que manda es el servidor, que nunca la aplicó. Si la
+    // parcial se fundiera sobre lo que se ve, la aceptación optimista quedaría
+    // dentro para siempre.
+    vi.useFakeTimers();
+    const { A, actual, es } = await montar();
+    const id = servidor.estado.hipotesis.find((h) => h.estado === 'propuesta')!.id;
+    const fetchReal = globalThis.fetch as unknown as (url: string, init?: RequestInit) => Promise<Response>;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => (String(url).startsWith('/api/acciones/') ? new Response('fallo', { status: 500 }) : fetchReal(url, init))),
+    );
+    await act(async () => {
+      A.acciones.revisarHipotesis(id, 'aceptar', '', false, null, 1, 4);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(7000); // vence el margen: sale el POST y falla
+    });
+    cambiar(['criteriosRevision'], (e) => ({ ...e, criteriosRevision: [...e.criteriosRevision, 'tras el fallo'] }));
+    await act(async () => {
+      es.avisar(servidor.version);
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    expect(pedidas.at(-1)).toContain('desde=');
+    expect(actual().criteriosRevision.at(-1)).toBe('tras el fallo');
+    expect(actual().hipotesis.find((h) => h.id === id)!.estado).toBe('propuesta');
+  });
+
+  it('una parcial que no encaja lleva a pedir el estado entero', async () => {
+    const { actual, es } = await montar();
+    cambiar(['criteriosRevision'], (e) => ({ ...e, criteriosRevision: [...e.criteriosRevision, 'x'] }));
+    // El servidor dice que la parcial es desde otra versión: fundirla mezclaría estados.
+    servidor.trucar = (desde) => (desde === null ? null : new Response(JSON.stringify({ conexion: 'en_linea', criteriosRevision: ['mezclado'] }), { status: 200, headers: { 'Content-Type': 'application/json', 'X-Rosa-Version': String(servidor.version), 'X-Rosa-Parcial': '1', 'X-Rosa-Desde': String(desde + 1) } }));
+    vi.useFakeTimers();
+    await act(async () => {
+      es.avisar(servidor.version);
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    expect(actual().criteriosRevision).not.toContain('mezclado');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2500);
+    });
+    expect(pedidas.at(-1)).not.toContain('desde=');
+    expect(sinLocales(actual())).toEqual(sinLocales(servidor.estado));
+  });
+
+  it('con un servidor anterior, que ignora `desde` y manda el entero, sigue funcionando', async () => {
+    const { actual, es } = await montar();
+    servidor.parcial = false;
+    cambiar(['hipotesis'], (e) => ({ ...e, hipotesis: e.hipotesis.slice(1) }));
+    await act(async () => {
+      es.avisar(servidor.version);
+      await esperar();
+    });
+    expect(sinLocales(actual())).toEqual(sinLocales(servidor.estado));
+  });
+});

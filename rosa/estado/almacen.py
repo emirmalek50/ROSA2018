@@ -56,6 +56,8 @@ import unicodedata
 from pathlib import Path
 from typing import Any, Callable
 
+import orjson
+
 from rosa import config
 from rosa.estado import acciones as A
 from rosa.estado import plantilla as P
@@ -95,6 +97,8 @@ CREATE INDEX IF NOT EXISTS ix_llamadas_corrida ON llamadas(corrida_id, seq);
 
 
 NOMBRE_REANCLAJE = "reanclaje_registro"
+# Páginas de WAL (de 4 KB) antes de volcarlo al fichero principal: 64 MB. Ver Almacen.__init__.
+WAL_AUTOCHECKPOINT_PAGINAS = 16_384
 
 
 class AlmacenOcupado(RuntimeError):
@@ -192,6 +196,25 @@ def _soltar_cerrojo(ruta: Path) -> None:
             os.close(fd)
 
 
+# orjson escribe el mismo JSON que json.dumps(ensure_ascii=False) salvo el espacio
+# tras las comas, y lo hace unas diez veces más rápido: sobre el estado real del 28
+# de septiembre de 2026 (31 MB), 15 ms frente a 149 por cada mutación, con ida y
+# vuelta idéntica. Claves no textuales, como las convertía json.dumps. Fechas y
+# dataclasses NO se convierten solas (sí lo haría orjson por defecto): igual que
+# con json.dumps, meterlas en el estado es un error y tiene que verse. La única
+# diferencia es NaN/Infinito, que orjson escribe como null: json.dumps escribía
+# NaN, que el navegador no sabe leer (JSON.parse lanza).
+_OPCIONES_JSON = orjson.OPT_NON_STR_KEYS | orjson.OPT_PASSTHROUGH_DATETIME | orjson.OPT_PASSTHROUGH_DATACLASS
+
+
+def volcar_json(valor: Any) -> bytes:
+    """El JSON compacto (UTF-8, sin escapar tildes) de un valor del estado."""
+    return orjson.dumps(valor, option=_OPCIONES_JSON)
+
+
+_CONEXION_EN_LINEA = b'"en_linea"'
+
+
 def _limpiar_para_cliente(valor: Any) -> Any:
     """Quita las claves privadas (empiezan por `_`) antes de mandar el estado
     al navegador. Son banderas internas del bucle."""
@@ -227,6 +250,15 @@ class Almacen:
                 self._con = sqlite3.connect(str(self.ruta), timeout=30.0, check_same_thread=False, isolation_level=None)
                 self._con.execute("PRAGMA journal_mode=WAL")
                 self._con.execute("PRAGMA synchronous=NORMAL")
+                # Cada escritura del estado son unos 31 MB (7.500 páginas), así que con
+                # el umbral por defecto (1.000 páginas, 4 MB) SQLite pasaba el WAL al
+                # fichero principal en TODAS las mutaciones: 53 ms de cada commit sobre
+                # la base real (28 de septiembre de 2026). Con 64 MB el volcado ocurre
+                # cada dos o tres escrituras y copia cada página una sola vez, la más
+                # reciente. La durabilidad no cambia: lo confirmado ya está en el WAL.
+                # El WAL que queda tras volcar se recorta a ese mismo tamaño.
+                self._con.execute(f"PRAGMA wal_autocheckpoint={WAL_AUTOCHECKPOINT_PAGINAS}")
+                self._con.execute(f"PRAGMA journal_size_limit={WAL_AUTOCHECKPOINT_PAGINAS * 4096}")
             self._con.execute("PRAGMA busy_timeout=30000")
             if not self.solo_lectura:
                 self._con.executescript(ESQUEMA)
@@ -246,15 +278,29 @@ class Almacen:
                 _soltar_cerrojo(self.ruta)
                 self._cerrojo_tomado = False
             raise
-        self._partes: dict[str, str] = {}
+        self._partes: dict[str, bytes] = {}
         self._serializar()  # línea base para saber qué claves toca cada mutación
+        # En qué versión cambió por última vez cada clave de primer nivel (28 de
+        # septiembre de 2026). Con esto el navegador baja solo lo que cambió desde
+        # la versión que ya tiene (`instantanea_desde`). Al arrancar no se sabe qué
+        # cambió antes, así que todas cuentan como cambiadas en la versión actual y
+        # solo se contesta en parcial a quien tenga una versión POSTERIOR a esta
+        # (`_minimo_parcial`): un navegador que diga tener justo esta versión pudo
+        # recibirla de un proceso anterior con cambios en memoria que nunca
+        # llegaron al disco, y recibe el estado entero una vez.
+        self._cambio_en: dict[str, int] = {k: self.version for k in self.estado}
+        self._minimo_parcial = self.version
         self._suscriptores: set[asyncio.Queue] = set()
         self._bucle_asyncio: asyncio.AbstractEventLoop | None = None
-        # Caché de la instantánea pública por versión (S-17): una sola limpieza y
-        # una sola serialización por versión, compartidas por todos los clientes
-        # SSE y por GET /api/estado. Se invalida sola porque va etiquetada con la
-        # versión. Tiene su propio cerrojo para no retener el del bucle mientras
-        # se serializa.
+        # Caché de la instantánea pública (S-17), ahora por clave: cada clave de
+        # primer nivel se limpia y se serializa una sola vez por cambio, y la
+        # instantánea entera o la parcial se componen con esos trozos. Antes se
+        # limpiaba y serializaba todo el estado (167 ms) en cada versión aunque
+        # solo cambiara una línea de una pista. `_cliente[clave]` es (versión con la
+        # que se calculó, JSON); vale mientras la clave no cambie después.
+        # `_cache_json` guarda la composición entera por versión, para que todos
+        # los clientes de una misma versión compartan el mismo objeto.
+        self._cliente: dict[str, tuple[int, bytes]] = {}
         self._cache_json: dict[str, Any] = {"version": -1}
         self._lock_cache = threading.Lock()
         self._al_quedar_obsoleto: list[Callable[[], Any]] = []
@@ -278,22 +324,25 @@ class Almacen:
             _migrar(estado)
         return estado
 
-    def _serializar(self) -> tuple[str, list[str]]:
+    def _serializar(self) -> tuple[bytes, list[str]]:
         """El JSON del estado y las claves de primer nivel que cambiaron desde
         la última escritura. Se serializa por clave (mismo coste que entero) para
-        poder decir en el registro que toco cada mutación del bucle."""
-        partes = {k: json.dumps(v, ensure_ascii=False) for k, v in self.estado.items()}
+        poder decir en el registro que toco cada mutación del bucle y para que el
+        navegador baje solo esas (`_cambio_en`). Con orjson (`volcar_json`)."""
+        partes = {k: volcar_json(v) for k, v in self.estado.items()}
         anteriores = getattr(self, "_partes", {})
         cambiaron = [k for k, v in partes.items() if anteriores.get(k) != v] + [k for k in anteriores if k not in partes]
         self._partes = partes
-        return "{" + ",".join(json.dumps(k, ensure_ascii=False) + ":" + v for k, v in partes.items()) + "}", cambiaron
+        return b"{" + b",".join(volcar_json(k) + b":" + v for k, v in partes.items()) + b"}", cambiaron
 
-    def _guardar(self, texto: str, version_anterior: int) -> None:
+    def _guardar(self, texto: bytes, version_anterior: int) -> None:
         """Escribe el estado solo si la versión en disco sigue siendo la que este
         proceso conocía. Si otro proceso escribió entre medias, la fila no casa,
         no se toca nada y se lanza `EscritorObsoleto` (S-01): antes se pisaba en
-        silencio y la decisión del otro proceso desaparecía."""
-        cur = self._con.execute("UPDATE estado SET version=?, json=?, actualizado_en=? WHERE clave='rosa' AND version=?", (self.version, texto, P.ahora_ms(), version_anterior))
+        silencio y la decisión del otro proceso desaparecía. El JSON llega en
+        bytes UTF-8 (orjson) y se guarda como TEXTO con `CAST`, sin decodificarlo
+        en Python: la columna sigue siendo texto para cualquier lector."""
+        cur = self._con.execute("UPDATE estado SET version=?, json=CAST(? AS TEXT), actualizado_en=? WHERE clave='rosa' AND version=?", (self.version, texto, P.ahora_ms(), version_anterior))
         if cur.rowcount != 1:
             en_disco = self._con.execute("SELECT version FROM estado WHERE clave='rosa'").fetchone()
             raise EscritorObsoleto(
@@ -311,23 +360,85 @@ class Almacen:
             return e
 
     def instantanea_json(self, request_filtrada: bool = False) -> str:
-        """El JSON de la instantánea pública, serializado una sola vez por versión
+        """El JSON de la instantánea pública, compuesto una sola vez por versión
         y compartido por todos los clientes (S-17). Con `request_filtrada=True`
         devuelve el JSON sin la clave `avisos`, para que el servidor añada la
         de la persona que pregunta sin volver a serializar 10 MB; con False,
         el JSON completo con los avisos del estado. Para la misma versión
         devuelve el mismo objeto `str`."""
         with self._lock_cache:
-            if self._cache_json.get("version") != self.version or "sin_avisos" not in self._cache_json:
-                with self._lock:
-                    version = self.version
-                    e = _limpiar_para_cliente(self.estado)
-                e["conexion"] = "en_linea"
-                avisos = e.pop("avisos", None)
-                sin_avisos = json.dumps(e, ensure_ascii=False, separators=(",", ":"))
-                avisos_json = json.dumps(avisos, ensure_ascii=False, separators=(",", ":"))
-                self._cache_json = {"version": version, "sin_avisos": sin_avisos, "avisos": avisos_json, "completo": componer_json_con_avisos(sin_avisos, avisos_json)}
+            self._componer_entera()
             return self._cache_json["sin_avisos"] if request_filtrada else self._cache_json["completo"]
+
+    def instantanea_desde(self, desde: int | None, request_filtrada: bool = False) -> tuple[int, bytes, bool]:
+        """Lo que le falta a un navegador que ya tiene la versión `desde`:
+        `(versión, JSON, parcial)`. Si `parcial`, el JSON trae solo las claves de
+        primer nivel que cambiaron después de `desde` (más `conexion`), y el
+        navegador las funde sobre la última copia del servidor que tenía; si no,
+        es la instantánea entera y la sustituye.
+
+        La versión es la del contenido, tomada bajo el mismo cerrojo con el que se
+        eligieron las claves: si se leyera después, un cambio llegado entre medias
+        daría una cabecera más nueva que el JSON, y el navegador creería tener
+        algo que nunca recibió (con envíos parciales, para siempre, hasta que esa
+        clave volviera a cambiar).
+
+        Entera en vez de parcial cuando: no hay `desde`, `desde` es de otra línea
+        de versiones (mayor que la actual), no es posterior al arranque o a la
+        última recarga desde disco (`_minimo_parcial`), faltan en el estado claves
+        que cambiaron (una clave quitada: fundir no la borraría), o cambió todo."""
+        with self._lock_cache:
+            with self._lock:
+                version = self.version
+                publicas = [k for k in self.estado if not (isinstance(k, str) and k.startswith("_"))]
+                if request_filtrada:
+                    publicas = [k for k in publicas if k != "avisos"]
+                cambiadas: list[str] | None = None
+                if isinstance(desde, int) and not isinstance(desde, bool) and self._minimo_parcial < desde <= version:
+                    tras = [k for k, v in self._cambio_en.items() if v > desde]
+                    if all(k in self.estado for k in tras):
+                        cambiadas = [k for k in publicas if k in tras]
+                if cambiadas is None or len(cambiadas) == len(publicas):
+                    cambiadas = None
+                else:
+                    trozos = self._trozos_cliente(cambiadas, version)
+            if cambiadas is None:
+                self._componer_entera()
+                entera = self._cache_json["sin_avisos"] if request_filtrada else self._cache_json["completo"]
+                return self._cache_json["version"], entera.encode("utf-8"), False
+            partes = [volcar_json(k) + b":" + trozos[k] for k in cambiadas if k != "conexion"]
+            partes.append(b'"conexion":' + _CONEXION_EN_LINEA)
+            return version, b"{" + b",".join(partes) + b"}", True
+
+    def _trozos_cliente(self, claves: list[str], version: int) -> dict[str, bytes]:
+        """El JSON limpio (sin claves privadas) de cada clave pedida, de la caché
+        por clave o calculado ahora. Se llama con `_lock` tomado: la limpieza lee
+        el estado y tiene que ver una sola versión."""
+        trozos: dict[str, bytes] = {}
+        for k in claves:
+            guardado = self._cliente.get(k)
+            if guardado is not None and self._cambio_en.get(k, version + 1) <= guardado[0]:
+                trozos[k] = guardado[1]
+                continue
+            trozos[k] = volcar_json(_limpiar_para_cliente(self.estado[k]))
+            self._cliente[k] = (version, trozos[k])
+        for k in [k for k in self._cliente if k not in self.estado]:
+            del self._cliente[k]
+        return trozos
+
+    def _componer_entera(self) -> None:
+        """Compone (una vez por versión) la instantánea entera, con y sin la clave
+        `avisos`, a partir de los trozos por clave. Con `_lock_cache` tomado."""
+        if self._cache_json.get("version") == self.version and "sin_avisos" in self._cache_json:
+            return
+        with self._lock:
+            version = self.version
+            publicas = [k for k in self.estado if not (isinstance(k, str) and k.startswith("_")) and k not in ("avisos", "conexion")]
+            trozos = self._trozos_cliente(publicas + (["avisos"] if "avisos" in self.estado else []), version)
+        cuerpo = b",".join(volcar_json(k) + b":" + trozos[k] for k in publicas)
+        sin_avisos = ("{" + (cuerpo.decode("utf-8") + "," if cuerpo else "") + '"conexion":"en_linea"}')
+        avisos_json = trozos["avisos"].decode("utf-8") if "avisos" in trozos else "null"
+        self._cache_json = {"version": version, "sin_avisos": sin_avisos, "avisos": avisos_json, "completo": componer_json_con_avisos(sin_avisos, avisos_json)}
 
     # -- escritura ---------------------------------------------------------
 
@@ -373,6 +484,11 @@ class Almacen:
             except Exception as ex:
                 self._con.execute("ROLLBACK")
                 self.version = version_nueva - 1
+                # La línea base ya describe un estado que no llegó al disco: la
+                # próxima escritura tiene que contar como cambiadas todas las claves,
+                # o lo que tocó esta mutación no se volvería a marcar para el
+                # navegador ni para el registro.
+                self._partes = {}
                 if isinstance(ex, EscritorObsoleto):
                     # Fallo ruidoso y definitivo: este almacén no vuelve a escribir. La
                     # memoria vuelve a lo que hay en disco (lo que escribió el otro
@@ -395,6 +511,8 @@ class Almacen:
                             print(f"Un aviso de almacén obsoleto falló: {ex2!r}", file=sys.stderr, flush=True)
                 raise
             self._ultimo_hash = h
+            for k in cambiaron:
+                self._cambio_en[k] = version_nueva
             self._avisar()
             return resultado
 
@@ -415,6 +533,10 @@ class Almacen:
         self.estado.clear()
         self.estado.update(recargado)
         self._serializar()
+        # Lo que tenía el navegador puede ser de un estado que ya no existe.
+        self._cambio_en = {k: self.version for k in self.estado}
+        self._minimo_parcial = self.version
+        self._cliente = {}
 
     def al_quedar_obsoleto(self, fn: Callable[[], Any]) -> None:
         """Apunta una función que se llama (una vez, desde el hilo que detectó
@@ -706,6 +828,15 @@ def componer_json_con_avisos(sin_avisos: str, avisos_json: str) -> str:
     if sin_avisos.strip() == "{}":
         return '{"avisos":' + avisos_json + "}"
     return sin_avisos[:-1] + ',"avisos":' + avisos_json + "}"
+
+
+def componer_bytes_con_avisos(sin_avisos: bytes, avisos_json: str) -> bytes:
+    """Lo mismo que `componer_json_con_avisos` para el JSON en bytes que sale de
+    `instantanea_desde`, entera o parcial."""
+    avisos = avisos_json.encode("utf-8")
+    if sin_avisos.strip() == b"{}":
+        return b'{"avisos":' + avisos + b"}"
+    return sin_avisos[:-1] + b',"avisos":' + avisos + b"}"
 
 
 def _migrar(estado: dict[str, Any]) -> None:
