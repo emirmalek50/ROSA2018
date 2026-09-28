@@ -55,6 +55,76 @@ Lo que falta, por orden de lo que más desbloquea:
    hecho medido. Es cierto en ambos caminos, pero es un dato declarado, no
    observado.
 
+## Lo que destapó el dossier de SULF2 (28 de septiembre de 2026)
+
+Emir mandó a Codex el dossier de «SULF2 neuronal como barrera a la entrada de
+tau en un entorno microglial GPC4 alto» (`hip-mult...`, corrida
+`cor-mulntlr0-42`), la única hipótesis de la corrida que subió a certeza
+`baja`. La crítica principal de Codex («falta el supuesto que carga con todo el
+peso: que la entrada neuronal y la degradación microglial de tau dependan
+distinto de la sulfatación 6-O») **es falsa**: ROSA2018 tiene ese supuesto,
+`sup-multxk0a-25447`, y lo marcó **`contradicho`** citando las afirmaciones 8,
+9, 10 y 13. El dossier imprime los 12 supuestos con su estado
+(`rosa/dossier.py:175-177`), sin recorte.
+
+Pero al comprobarlo salieron cinco fallos reales, y el primero es peor que lo
+que decía Codex:
+
+1. **Un supuesto contradicho no baja la certeza ni aparece entre los factores
+   GRADE.** La conclusión de esta hipótesis es `baja / apoya` con tres factores
+   (`evidencia_indirecta` baja, `imprecision` baja, `efecto_grande` sube) y
+   **ninguno menciona el supuesto contradicho**. O sea: ROSA2018 demostró que el
+   supuesto central de su propia hipótesis es falso y después lo ignoró al
+   concluir. La regla de que «solo un supuesto contradicho tumba» vive en el
+   Killer, no en la escalera de certeza.
+2. **El Killer nunca la juzgó** (`decisionKiller: None`): nació en la iteración
+   2 y la corrida terminó. Es decir, la única pieza que habría actuado sobre el
+   supuesto contradicho no llegó a correr. El dossier lo dice
+   (`rosa/dossier.py:125`, «Decisión del Killer sobre esta versión: pendiente»)
+   pero lo entierra en una línea de estado, mientras la conclusión GRADE va
+   arriba y con su sello. Decidir si una hipótesis sin juzgar por el Killer
+   puede presentarse con certeza por encima de `muy_baja`.
+3. **`cohortesDistintas` cuenta una bolsa como una cohorte, y eso sube el
+   techo.** El valor guardado es `["cerebro humano con enfermedad de
+   Alzheimer", "iPS-derived neurons, CNS cell lines, mouse brain slice"]`: la
+   segunda son tres plataformas metidas en una cadena. Con ellas el techo por
+   regla pasó de `muy_baja` a `baja` («2 cohortes distintas»). No son réplicas
+   independientes del mismo efecto: son eslabones distintos medidos en sistemas
+   distintos. Codex acertó aquí.
+4. **`sin_evidencia` cuando en realidad fue `no_evaluado`.** Dos de los doce
+   supuestos llevan `estado: sin_evidencia` con `evidencia: "No se pudo
+   evaluar: el modelo no respondió (AdapterParseError)"` y `alcance:
+   no_evaluado`; `supuestosEvaluados.fallidos` es 2. El dossier imprime
+   `[sin_evidencia]`, que un lector entiende como «se miró y no hay». Va contra
+   la regla de la casa: una fuente que no responde es «no pude comprobar»,
+   nunca «no hay». El estado mostrado debe reflejar `alcance`.
+5. **El verificador dio `sostenida` a una afirmación que dice más que su
+   pasaje.** La afirmación 13 dice «...mientras que la condroitín sulfato y la
+   heparina 6-O-desulfatada **no lo hicieron**», y el pasaje literal citado
+   (Rauch 2018, pág. 4) es solo «incubation with heparin, heparan sulfate, or
+   2-O-desulfated heparin reduced uptake of tau...». La mitad negativa, que es
+   justo la que sostiene la especificidad 6-O, no está en el pasaje. Es el
+   mismo fallo que el panel del Killer ya midió («cifra alterada frente al
+   pasaje: 0 de 5 detectados»), pero en su versión por extensión: la afirmación
+   añade un brazo que la cita no cubre. Y esa afirmación es una de las cuatro
+   que sostienen el supuesto contradicho del punto 1.
+
+De regalo, un ejemplo de rúbrica que se satisface por presencia y no por
+sustancia (Codex lo señaló con otro nombre): la capa `farmacologia` del perfil
+de diana figura como **`presente`** con este detalle: «ChEMBL: sin diana
+registrada para esa proteína; DGIdb: 1 interacciones fármaco-gen, 1 con
+fármacos aprobados (VINCRISTINE)». Vincristina es un alcaloide de la vinca; que
+aparezca en una fila de DGIdb no hace que SULF2 tenga farmacología.
+
+Lo que Codex aportó y vale la pena conservar, aunque sea de biología y no de
+código: reformular la hipótesis un nivel hacia arriba (¿el código de sulfatación
+del heparán sulfato discrimina la entrada neuronal de tau de su eliminación
+microglial?), el brazo de control que falta (SULF2 expresada en microglía, que
+es la acción en trans), la distinción entre GPC4 de membrana y GPC4 liberado, y
+un experimento previo de 2.000 a 5.000 euros (microglía en monocultivo, con y
+sin condiciones 6-O-desulfatadas) que puede cerrar la vía antes del factorial.
+Ese orden, matar primero y barato, es el del propio Killer.
+
 ## Acordado el 28 de septiembre y aún sin hacer
 
 - **Que el equipo de hipótesis no tire lo que no entra.** Medido en la corrida
