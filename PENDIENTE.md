@@ -1,7 +1,83 @@
 # Pendiente para la siguiente sesion
 
-Actualizado el 14 de septiembre de 2026. El plan completo por etapas esta en
+Actualizado el 28 de septiembre de 2026. El plan completo por etapas esta en
 `PLAN-ROSA2018.md`; esto es la lista corta de lo inmediato.
+
+## El sandbox existe y funciona: lo que le falta (auditoria del 28 de septiembre de 2026)
+
+Emir preguntó si convenía darle un sandbox a ROSA2018. Ya lo tiene, y con
+kilometraje real: `rosa/ejecucion.py` (445 líneas) y `rosa/bucle/analisis.py`
+(636) llevan 12 ejecuciones en la base de producción, 11 en Docker, y las tres
+reproducciones que abrieron la puerta salieron de ahí. Las garantías que promete
+están implementadas, no solo escritas: contenedor nuevo por ejecución con
+`--network none`, 2 GB, 2 CPU, `--cap-drop ALL`, `--security-opt
+no-new-privileges`, `--pids-limit 256`, sin swap, datos montados en solo
+lectura, trabajo efímero, salida a ficheros fuera del volumen, y al contenedor
+solo entran `ROSA_SEMILLA` y `ROSA_DATOS` (ninguna clave). Sin Docker y con
+datos reales no cae a ejecutar sin aislamiento: queda en `no_ejecutado` con el
+motivo.
+
+Lo que falta, por orden de lo que más desbloquea:
+
+1. **Que ROSA2018 pueda traerse un dataset sola.** Es la causa real de que el
+   sandbox lleve parado desde el 14 de septiembre y de que, de sus 12
+   ejecuciones, **once fueran reproducciones para abrir la puerta y solo una
+   produjera evidencia nueva** para una hipótesis. Hoy los datasets solo entran
+   subidos a mano, así que el paso de análisis casi nunca tiene sobre qué
+   trabajar. Mientras esto siga así, endurecer o ampliar el sandbox no cambia
+   nada medible.
+2. **El camino Docker no tiene ni un test.** El único test que ejecuta código de
+   verdad (`rosa/tests/test_rosa2018.py:781`) prueba el aislamiento blando
+   local, y el que dice cubrir el sandbox (`rosa/tests/test_rosa2018.py:206`) se
+   salta siempre que hay Docker, o sea siempre en CI. Sin cobertura:
+   `_asegurar_imagen`, el `docker run` de `rosa/ejecucion.py:312-328`,
+   `versiones_imagen` y el `docker rm -f` por tiempo agotado.
+3. **Límites por entorno.** 180 s y 2 GB son globales
+   (`rosa/politicas.py:72-73`) y no dan para célula única: los h5ad de SEA-AD
+   van de 4,2 a 50,8 GB. La imagen `rosa-sandbox-celula:1` está construida
+   (1,28 GB) y **nunca se ha estrenado**: las 12 ejecuciones son tabulares.
+4. **Contradicción abierta**: `rosa/skills/pseudobulk-por-donante/SKILL.md`
+   cuenta con pydeseq2 y `rosa/sandbox/Dockerfile.celula:6` no lo instala.
+5. **M-26 sigue abierto** (`REVISION-BUGS-2026-09-17.md:526`): el apagado de
+   `rosa/main.py:80-92` no aborta los contenedores en vuelo, y un hilo del
+   sandbox puede sobrevivir al cierre y escribir en un almacén cerrado. No
+   existe ningún `abortar_todo()` de contenedores.
+6. **`--cpus 2` está clavado** en `rosa/ejecucion.py:319`, fuera de
+   `politicas.py`, a diferencia del tiempo y la memoria.
+7. **El camino de Apple `container` nunca se ha ejercitado** y recibe banderas
+   de Docker (`--memory-swap`, `--pids-limit`, `--cap-drop`, `--security-opt`)
+   sin comprobar que las acepte.
+8. **`TRASPASO.md` no documenta el sandbox.** La documentación viva de esta
+   pieza está repartida en `PLAN-ROSA2018.md:36-39`, `README.md:378-380` y
+   `ESTADO-ROSA-2026-09-11.md:405-407`.
+9. El campo `"red": "deshabilitada"` del RunRecord está fijo en la plantilla
+   (`rosa/estado/plantilla.py:622`) y la interfaz lo enseña como si fuera un
+   hecho medido. Es cierto en ambos caminos, pero es un dato declarado, no
+   observado.
+
+## Acordado el 28 de septiembre y aún sin hacer
+
+- **Que el equipo de hipótesis no tire lo que no entra.** Medido en la corrida
+  `cor-mulntlr0-42`: 23 propuestas, 6 entraron, 17 se perdieron, y 11 de las 12
+  perdedoras anotadas cumplían todos los criterios. Lo decidido con Emir: que
+  entre **una sola por iteración** (`EQ.MAX_QUE_ENTRAN` de 2 a 1), la mejor
+  estructurada, y que las demás se guarden en el vivero marcadas `esperaTurno`
+  (para que `acumular_vivero` no las haga nacer solas) y **compitan en el paso
+  de hipótesis de la iteración siguiente**. Guardar en la hipótesis nacida su
+  procedencia: `enfoque`, `ronda` y `puntos`. Cita de Emir: "tampoco es que
+  quería 11 hipótesis, quería la mejor estructurada de esas 11".
+- **Que ROSA2018 escriba sus propias preguntas abiertas al empezar una
+  investigación nueva.** Hoy hereda el conocimiento de las demás (que es lo que
+  debe hacer), pero al no tener preguntas propias las heredadas pasan a ser el
+  100 % del criterio de búsqueda. Lo decidido: un paso al arranque donde
+  ROSA2018 escribe sus preguntas abiertas a partir del objetivo, usando lo
+  heredado como punto de partida y no como destino; las propias ordenan primero
+  y las heredadas quedan de contexto; las búsquedas por nombre salen solo del
+  objetivo y de las preguntas propias; y un freno para las palabras comunes (un
+  nombre que devuelve más de un millón de resultados con cero relevantes no se
+  vuelve a buscar por nombre). Cita de Emir: "un ser humano solo por saber
+  información sobre algo no significa que no pensará en las cosas que apoyarían
+  la investigación de algo nuevo que no sabe".
 
 ## Hecho el 14 de septiembre (tarde): segunda auditoria y los quince huecos
 
