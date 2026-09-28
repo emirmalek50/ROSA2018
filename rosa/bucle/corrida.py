@@ -108,7 +108,11 @@ NOMBRE_POR_ROL = {"cerebro": "GPT-6 Astra", "juez": "Claude Opus 5", "volumen": 
 # es una llamada por artículo, la extracción una por fragmento, el juez una
 # por afirmación. El modelo que propone el plan no conoce este coste, así que
 # su cifra se sustituye por esta.
-COSTE_POR_TIPO = {"literatura": 70, "ensayos": 4, "extraccion": 60, "verificacion": 80, "novedad": 25, "modelo": 4, "hipotesis": 90, "analisis": 14, "meta": 4, "indicacion": 0}
+COSTE_POR_TIPO = {"literatura": 70, "ensayos": 4, "extraccion": 60, "verificacion": 80, "novedad": 25, "modelo": 4, "hipotesis": 97, "analisis": 14, "meta": 4, "indicacion": 0}
+# El paso de hipótesis sube de 90 a 97 el 27 de septiembre de 2026: el equipo de
+# generación (rosa/equipo.py) son cuatro enfoques en dos rondas, ocho llamadas al
+# cerebro en vez de una. El resto del paso (revisión, supuestos, Killer, torneo) no
+# cambia.
 
 PLAN_POR_DEFECTO = [
     ("Buscar literatura", "PubMed, Europe PMC y preprints sobre las preguntas abiertas", "literatura", 30),

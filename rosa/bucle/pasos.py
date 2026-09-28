@@ -45,6 +45,7 @@ from rosa import hechos as H
 from rosa import metodos as METODOS
 from rosa import verificador as V
 from rosa import solidez as SOL
+from rosa import equipo as EQ
 from rosa import tareas as TA
 from rosa import viabilidad as VIA
 from rosa import torneo
@@ -3934,6 +3935,63 @@ def hechos_que_motivan(hechos: Any, investigacion_id: str, respaldo: Any, maximo
     return salida
 
 
+async def _equipo_de_hipotesis(ctx: Ctx, paso: dict[str, Any], pista: Pista, inv: dict[str, Any], mundo: str, texto_af: str, validas: list[dict[str, Any]], lecciones_h: str) -> list[Any]:
+    """Las propuestas del equipo de generación (rosa/equipo.py): varios miembros con
+    enfoques distintos, en rondas, compartiendo un tablón con la puntuación por
+    regla de cada propuesta y por qué, y elegidas al final por esa puntuación y sin
+    repetir enfoque. Devuelve las propuestas que siguen el camino de siempre.
+
+    Cada llamada es al cerebro. Una llamada que falla no tumba el equipo: se anota
+    y siguen los demás; solo el presupuesto, un modelo caído o una corrida parada
+    lo cortan, como a cualquier paso."""
+    e = ctx.e
+    existentes_txt = [f"{x.get('titulo', '')} {x.get('enunciado', '')} {x.get('mecanismo', '')}" for x in e["hipotesis"] if x.get("investigacionId") == ctx.investigacion_id]
+    domina = EQ.dominantes(e["hipotesis"], ctx.investigacion_id)
+    fuentes = ctx.fuentes()
+    base = {"objetivo": inv["objetivo"], "configuracion": T.configuracion(inv), "modelo_de_mundo": mundo, "hipotesis_existentes": T.hipotesis_existentes(e["hipotesis"], ctx.investigacion_id) + "\n\n" + T.vivero_texto(inv), "lecciones": lecciones_h, "criterios_revision": "\n".join(e["criteriosRevision"])}
+    # Cada miembro, su trozo de evidencia: lo más reciente primero, una fuente distinta
+    # por afirmación, sin solaparse (EQ.reparto_de_evidencia). Antes el generador veía
+    # siempre las 54 primeras de 1.149, todas de la primera iteración.
+    reparto = EQ.reparto_de_evidencia(validas, len(EQ.MIEMBROS))
+    evidencia_de = {enfoque: EQ.texto_de_indices(validas, reparto[k]) for k, enfoque in enumerate(EQ.MIEMBROS)}
+    tablon: list[dict[str, Any]] = []
+    fallos = 0
+    for ronda in range(1, EQ.RONDAS + 1):
+        texto_del_tablon = EQ.texto_tablon(tablon)
+
+        async def miembro(enfoque: str, ronda: int = ronda, texto_del_tablon: str = texto_del_tablon) -> tuple[str, Any]:
+            try:
+                return enfoque, await ctx.llamar("cerebro", ctx.programas.hipotesis, **base, afirmaciones_sostenidas=evidencia_de[enfoque], enfoque=f"{enfoque}: {EQ.ENFOQUES[enfoque]}\n\n{EQ.MANDATO}", tablon=texto_del_tablon)
+            except VIG.ModeloSinRespuesta:
+                raise
+            except EXCEPCIONES_QUE_CORTAN_EL_PASO:
+                raise  # presupuesto agotado o corrida parada
+            except Exception as ex:  # noqa: BLE001  un miembro que falla no tumba al equipo
+                return enfoque, ex
+
+        resultados = await _en_paralelo(*(miembro(x) for x in EQ.MIEMBROS))
+        for enfoque, pred in resultados:
+            if isinstance(pred, BaseException):
+                fallos += 1
+                pista.nota(f"El miembro «{enfoque}» del equipo no respondió en la ronda {ronda}: {str(pred)[:100]}")
+                continue
+            # Tareas que el miembro pidió abrir al ver algo raro (cola de triaje).
+            crudas_t = len(list(getattr(pred, "tareas", None) or []))
+            if crudas_t:
+                nota_de_tareas(pista, registrar_tareas_propuestas(ctx, pred, paso), crudas_t)
+            for hp in list(getattr(pred, "hipotesis", None) or [])[: politicas.MAX_PROPUESTAS_POR_ITERACION]:
+                tablon.append(EQ.entrada(hp, enfoque, ronda, EQ.puntuar(hp, validas, fuentes, existentes_txt, domina)))
+    elegidas = EQ.elegir(tablon)
+    descartadas = [x for x in tablon if x not in elegidas]
+    vistas_en_total = len({i for r in reparto for i in r})
+    pista.nota(f"Equipo de {len(EQ.MIEMBROS)} enfoques en {EQ.RONDAS} rondas: {len(tablon)} propuestas, entran {len(elegidas)}. Entre todos vieron {vistas_en_total} de {len(validas)} afirmaciones sostenidas" + (f"; {fallos} llamadas sin respuesta" if fallos else ""))
+    for x in elegidas:
+        pista.nota(f"Entra por el enfoque «{x['enfoque']}» (ronda {x['ronda']}, {x['puntos']} puntos): {x['titulo'][:90]}")
+    for x in sorted(descartadas, key=lambda y: -y["puntos"])[:4]:
+        pista.nota(f"Se queda fuera «{x['titulo'][:70]}» ({x['enfoque']}, {x['puntos']} puntos): {'; '.join(x['motivos'])[:160]}")
+    return [x["hp"] for x in elegidas]
+
+
 async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
     inv = ctx.inv()
     e = ctx.e
@@ -3949,15 +4007,7 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
         try:
             mundo = await T.modelo_de_mundo_para(ctx.almacen, ctx.investigacion_id, _consulta_del_paso(ctx, inv, texto_af[:1500]))
             lecciones_h = await LEC.para(ctx.almacen, ctx.investigacion_id, ("hipotesis",), texto_af[:1500])
-            pred = await ctx.llamar("cerebro", ctx.programas.hipotesis, objetivo=inv["objetivo"], configuracion=T.configuracion(inv), modelo_de_mundo=mundo, afirmaciones_sostenidas=texto_af[:12000], hipotesis_existentes=T.hipotesis_existentes(e["hipotesis"], ctx.investigacion_id) + "\n\n" + T.vivero_texto(inv), lecciones=lecciones_h, criterios_revision="\n".join(e["criteriosRevision"]))
-            propuestas = list(pred.hipotesis)[: politicas.MAX_PROPUESTAS_POR_ITERACION]
-            # Este es EL sitio del arnés de Yoon: su descubrimiento salió de una tarea
-            # que un worker abrió después de rechazar lo que investigaba. Aquí, una
-            # propuesta que no cita afirmaciones sostenidas se descarta en silencio más
-            # abajo y lo que vio se pierde; con esto, puede pedir que se compruebe.
-            crudas_t = len(list(getattr(pred, "tareas", None) or []))
-            if crudas_t:
-                nota_de_tareas(pista, registrar_tareas_propuestas(ctx, pred, paso), crudas_t)
+            propuestas = await _equipo_de_hipotesis(ctx, paso, pista, inv, mundo, texto_af, validas, lecciones_h)
         except PresupuestoAgotado:
             pista.cerrar("Presupuesto agotado antes de generar", "detenida")
             raise

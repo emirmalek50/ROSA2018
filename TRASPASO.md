@@ -2331,3 +2331,66 @@ el estado tiene que salir de SQLite a Convex (1 MiB por documento en Convex cont
 30 MB de estado, así que partido); cada paso sigue limitado a 800 s; y el botón
 Detener y el tope de gasto tienen que leer la corrida en Convex antes de cada
 llamada al modelo, porque en Vercel ya no comparten memoria con la interfaz.
+
+## El equipo de generación de hipótesis (27 de septiembre de 2026)
+
+Emir pasó dos artículos y un blog. De Park y otros ("Scaling Discovery through
+Test-Time Communication", arXiv 2609.21032): varios agentes que comparten un
+tablón rinden mucho más que los mismos aislados (en ARC-AGI-3, 5 agentes que se
+comunican rinden como 33 independientes), con dos condiciones: un marcador fiable
+que puedan consultar mientras trabajan y reglas contra el rebaño. De Shen,
+Druckmann y Zou ("Unlocking LLM Creativity in Science through Analogical
+Reasoning", arXiv 2605.11258): los modelos colapsan hacia las mismas soluciones
+(1,6 % de novedad con Claude pidiendo soluciones a secas) y una analogía estructural
+con otro campo lo sube al 50-69 %. El blog de Wenhao Chai sobre enjambres es una
+simulación sin código y se usó solo como apoyo.
+
+Yo había propuesto no montar el equipo todavía por el coste: la historia entera de
+ROSA2018 son 7,4 millones de tokens de salida y un experimento de Park son 24
+millones. Emir decidió que sí, y tenía razón por una regla de la casa: el coste por
+token no es criterio.
+
+`rosa/equipo.py` y `pasos._equipo_de_hipotesis`. Cuatro miembros, cada uno una
+llamada al cerebro con un enfoque distinto (analogía entre campos, contradicción,
+mecanismo opuesto, otra escala), en dos rondas. El marcador es POR REGLA, sin
+ningún modelo: las mismas reglas con las que ROSA2018 ya decide si una propuesta
+vale (cita afirmaciones sostenidas, nace con dos cohortes, es falsable, no repite,
+no vuelve a los marcadores que dominan). En la segunda ronda cada miembro lee el
+tablón con la puntuación de cada propuesta y por qué, las que fallaron incluidas.
+Al final entran dos, las de más puntos, sin repetir enfoque ni idea. El equipo
+cambia la calidad y no la cantidad: sigue entrando el mismo tope de propuestas, y
+lo que entra sigue el camino de siempre (vivero, revisión, supuestos, Killer).
+
+Probarlo con los modelos de verdad destapó dos fallos que ninguna prueba sin red
+habría visto, y el primero era anterior al equipo:
+
+1. **El generador solo veía el 4 % de la evidencia, y siempre la misma.** Recibía
+   el texto de las afirmaciones sostenidas cortado a 12.000 caracteres en orden de
+   extracción: de las 1.149 de la corrida viva veía 54, todas de la primera
+   iteración y de 4 fuentes. Las 712 de las iteraciones 2 y 3 no las vio nunca
+   ningún generador. Es una causa directa de las hipótesis repetidas. Ahora cada
+   miembro recibe un trozo distinto, con lo más reciente primero y una fuente
+   distinta por afirmación: entre los cuatro ven 195, de 47 fuentes cada uno.
+2. **Los miembros se autocensuraban.** Con la instrucción del generador único
+   ("devolver la lista vacía es una respuesta válida y frecuente"), los ocho
+   devolvieron cero propuestas: veían ideas nuevas y las descartaban ellos mismos
+   porque "no constituyen validación en dos cohortes clínicas". Pero esa regla la
+   aplica `destino_de_propuesta` después. El mandato del equipo les dice que su
+   trabajo es proponer y no filtrar, sin inventar: cada propuesta cita
+   afirmaciones sostenidas por su número.
+
+Con los dos arreglos, el equipo produjo 7 propuestas y entraron 2. Ninguna de las
+9 hipótesis vivas de esa investigación trataba esos temas, y las dos se apoyan en
+afirmaciones sostenidas que ya estaban en el registro:
+- **Por analogía con la identificación de sistemas en ingeniería** (separar una
+  respuesta transitoria de una deriva del proceso): la pérdida cortical tardía,
+  separada del cambio de volumen inicial, predice mejor la respuesta clínica que el
+  cambio total de resonancia. Se apoya en que el grosor cortical puede estar
+  confundido por pseudoatrofia en los ensayos anti-amiloide (Biel 2025, pág. 2) y
+  en los cambios de volumen con bapineuzumab y verubecestat.
+- **Por contradicción**: el descenso de neurogranina acompañado de preservación
+  de NPTX2 distingue menos lesión de pérdida de señal sináptica. Se apoya en lo
+  que gantenerumab hizo a esos marcadores (Bittner 2025).
+
+Coste: ocho llamadas al cerebro en vez de una en el paso de hipótesis. La reserva
+del paso sube de 90 a 97 llamadas.

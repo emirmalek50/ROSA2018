@@ -380,6 +380,8 @@ class GenerarHipotesis(dspy.Signature):
     hipotesis_existentes: str = dspy.InputField(desc="Con id, estado y motivo de descarte o nota de refinar; incluye los descartes que el Killer propone y esperan a la persona")
     lecciones: str = dspy.InputField(desc="Lo que la investigación aprendió a no repetir sobre hipótesis: qué cerró el Killer y por qué, qué ideas salieron del vivero")
     criterios_revision: str = dspy.InputField()
+    enfoque: str = dspy.InputField(desc="El enfoque que te toca dentro del equipo de generación (rosa/equipo.py). Síguelo: otros miembros cubren los demás, y dos miembros persiguiendo lo mismo es tiempo perdido. 'Libre' si no hay equipo")
+    tablon: str = dspy.InputField(desc="Lo que el equipo ya propuso en esta iteración, cada propuesta con su enfoque, su puntuación POR REGLA y por qué puntuó así, las que fallaron incluidas. Aprende de lo que falló. Puedes adoptar la idea de otro miembro solo si puntuó más que la tuya, y entonces conserva una variación propia. 'Vacío' en la primera ronda")
     hipotesis: list[HipotesisPropuesta] = dspy.OutputField()
     tareas: list[TareaPropuesta] = dspy.OutputField(desc="De 0 a 2 trabajos que haría falta abrir por algo que se vio al generar, INCLUIDO lo que se vio en una propuesta que se acabó descartando. Vacío es la respuesta normal")
 
