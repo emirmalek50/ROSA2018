@@ -462,6 +462,84 @@ def identificadores_de(texto: str) -> set[str]:
     return {re.sub(r"\s+", "", m.group(1).upper().replace("PMID:", "PMID")) for m in PATRON_IDENTIFICADORES.finditer(texto)}
 
 
+# Términos técnicos que sobreviven a la traducción: la afirmación la escribe
+# ROSA2018 en castellano y el pasaje suele estar en inglés, así que comparar
+# palabras no sirve ("condroitín sulfato" contra "chondroitin sulfate"). Lo que
+# se puede comparar es lo que no se traduce: 6-O, 2-O, P301L, AT8, APOE4, Aβ42,
+# IC95, rs429358. Alfanuméricos con al menos una cifra y una letra, o siglas en
+# mayúsculas de dos o más caracteres.
+_TERMINO_TECNICO = re.compile(r"\b(?=[^\s]*\d)(?=[^\s]*[A-Za-zΑ-Ωα-ω])[A-Za-zΑ-Ωα-ω0-9]+(?:-[A-Za-zΑ-Ωα-ω0-9]+)*\b|\b[A-Z]{2,}[0-9]*\b")
+# Una segunda parte que NIEGA: es la que añade un brazo que el pasaje puede no
+# cubrir ("...mientras que la condroitín sulfato y la heparina 6-O-desulfatada
+# no lo hicieron").
+_NIEGA = re.compile(r"\bno\s+(?:lo\s+|la\s+|se\s+|los\s+|las\s+|le\s+)?[a-záéíóúñ]+|\bsin\s+efecto|\bninguna?\b|\btampoco\b", re.IGNORECASE)
+
+
+def _nucleo(termino: str) -> str:
+    """El trozo del término anclado en la cifra, que es lo que no se traduce.
+    "6-O-DESULFATADA" y "6-O-DESULFATED" son distintos; sus núcleos, los dos
+    "6-O". Se recortan los segmentos largos sin cifra, que son la parte que sí
+    cambia de idioma. "P301L", "AT8" o "IC95" se quedan enteros."""
+    trozos = termino.split("-")
+    fin = 0
+    for i, t in enumerate(trozos):
+        if any(c.isdigit() for c in t) or len(t) <= 2:
+            fin = i + 1
+        else:
+            break
+    return "-".join(trozos[:fin]) if fin else termino
+
+
+def terminos_tecnicos(texto: str) -> set[str]:
+    """Los términos que se pueden comparar entre una afirmación en castellano y
+    un pasaje en inglés, ya reducidos a su núcleo. Los años sueltos no cuentan:
+    aparecen en cualquier cita."""
+    fuera = {"COVID", "ADN", "ARN", "DNA", "RNA"}
+    salida: set[str] = set()
+    for m in _TERMINO_TECNICO.finditer(texto or ""):
+        t = m.group(0).upper()
+        if t in fuera or (t.isdigit() and 1900 <= int(t) <= 2099):
+            continue
+        salida.add(_nucleo(t))
+    return salida
+
+
+def tramo_no_cubierto_por_el_pasaje(texto: str, pasaje: str) -> str | None:
+    """Cuando una afirmación añade un brazo, una negación o un contraste que su
+    pasaje guardado no contiene (28 de septiembre de 2026).
+
+    El caso real: «...la incubación con heparina, HS o heparina 2-O-desulfatada
+    redujo la captación, mientras que la condroitín sulfato y la heparina
+    6-O-desulfatada NO lo hicieron», con este pasaje: "incubation with heparin,
+    heparan sulfate, or 2-O-desulfated heparin reduced uptake of tau...". La
+    mitad negativa, que es justo la que sostenía la especificidad 6-O, no está
+    en el pasaje, y el veredicto guardado fue `sostenida`.
+
+    Pasa porque el juez no ve el pasaje: ve una ventana de 6.000 caracteres de
+    la página (`ventana_para_juez`), donde la otra mitad suele estar. Vota
+    `sostenida` con razón y lo que se guarda y se enseña como respaldo es medio
+    pasaje. Ninguna comprobación lo miraba: `cifras_fuera_del_pasaje` (el Killer)
+    solo compara números y se abstiene si el pasaje no trae ninguno.
+
+    Devuelve el motivo si falta cobertura, o None. Es deliberadamente estrecha:
+    solo mira afirmaciones con una segunda parte que niega, y solo compara
+    términos técnicos, que son los que no cambian al traducir. Prefiere callar
+    a equivocarse: sin términos técnicos en esa segunda parte, no dice nada."""
+    if not texto or not pasaje:
+        return None
+    corte = SEGUNDA_CLAUSULA.search(texto)
+    if not corte:
+        return None
+    segunda = texto[corte.end():]
+    if not _NIEGA.search(segunda):
+        return None
+    del_pasaje = terminos_tecnicos(pasaje)
+    faltan = sorted(t for t in terminos_tecnicos(segunda) if not any(t in q or q in t for q in del_pasaje))
+    if not faltan:
+        return None
+    return f"El pasaje guardado no cubre la segunda parte de la afirmación, que niega: no aparece en él {', '.join(faltan[:4])}. La afirmación dice más de lo que su cita sostiene."
+
+
 def es_ausencia_pura(texto: str) -> bool:
     """Casa con una fórmula de abstención y no afirma nada de su cosecha."""
     if not any(p.search(texto) for p in FORMULAS_ABSTENCION):

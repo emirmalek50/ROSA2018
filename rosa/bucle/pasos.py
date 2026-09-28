@@ -2112,6 +2112,15 @@ async def verificar_afirmaciones(ctx: Ctx, afirmaciones: list[dict[str, Any]], p
                 a["veredicto"] = v.veredicto
                 a["motivo"] = v.motivo
                 a["entidadDistinta"] = bool(v.entidad_distinta) and v.veredicto == "no_sostenida"
+                # El juez ve una ventana de 6.000 caracteres de la página, no el
+                # pasaje que se guarda: puede votar "sostenida" con razón y dejar
+                # guardada como respaldo una cita que solo cubre media afirmación
+                # (28 de septiembre de 2026). La regla mira lo que se guarda.
+                if a["veredicto"] == "sostenida":
+                    falta = V.tramo_no_cubierto_por_el_pasaje(a["texto"], str(a.get("fragmento") or ""))
+                    if falta:
+                        a["veredicto"] = "parcial"
+                        a["motivo"] = f"{v.motivo} | Rebajado a parcial por regla: {falta}"
             except PresupuestoAgotado:
                 raise
             except VIG.ModeloSinRespuesta:
