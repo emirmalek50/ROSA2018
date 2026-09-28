@@ -55,7 +55,7 @@ Lo que falta, por orden de lo que más desbloquea:
    hecho medido. Es cierto en ambos caminos, pero es un dato declarado, no
    observado.
 
-## Lo que destapó el dossier de SULF2 (28 de septiembre de 2026)
+## Hecho: los cinco fallos que destapó el dossier de SULF2 (28 de septiembre de 2026)
 
 Emir mandó a Codex el dossier de «SULF2 neuronal como barrera a la entrada de
 tau en un entorno microglial GPC4 alto» (`hip-mult...`, corrida
@@ -115,6 +115,38 @@ de diana figura como **`presente`** con este detalle: «ChEMBL: sin diana
 registrada para esa proteína; DGIdb: 1 interacciones fármaco-gen, 1 con
 fármacos aprobados (VINCRISTINE)». Vincristina es un alcaloide de la vinca; que
 aparezca en una fila de DGIdb no hace que SULF2 tenga farmacología.
+
+**Los cinco están arreglados y empujados** (ver `TRASPASO.md`, "Los cinco
+fallos del dossier de SULF2"). Sobre la base real, con las reglas nuevas cambia
+exactamente una hipótesis de las 34: SULF2 pasa de `baja` a `muy_baja` por el
+supuesto contradicho. Dos hipótesis vivas que el Killer nunca juzgó quedan con
+la revisión pedida y con el aviso en su dossier.
+
+Lo que NO se hizo y queda pendiente:
+
+- **Juzgar en el cierre las hipótesis que nacen del vivero.** Lo arreglado es
+  que dejen de ser invisibles (se les pide revisión, el abandono por
+  presupuesto deja el motivo escrito, el dossier lo avisa arriba); lo que sigue
+  sin pasar es que el Killer las juzgue antes de que la corrida termine. El
+  punto natural es `_cerrar_iteracion` justo después de `EV.acumular_vivero`,
+  que ya tiene los ids en `vivero_res["nacidas"]`. Cuesta de 6 a 15 llamadas
+  por hipótesis (revisión inicial, un evaluador por supuesto, sesgo por fuente
+  primaria y el juez del Killer) y hace falta una partida `"killer"` en
+  `coste_estimado_del_cierre` y en `desglose_previsto_del_cierre`, o el cierre
+  pausará la corrida (el fallo S-14).
+- **La capa `farmacologia` del perfil de diana dice `presente` por presencia de
+  una fila, no de un fármaco.** `_estado_capa` (`rosa/dianas.py:266`) devuelve
+  `presente` si alguna fuente trae datos; para SULF2 eso fue «ChEMBL: sin diana
+  registrada; DGIdb: 1 interacción con fármacos aprobados (VINCRISTINE)».
+  Vincristina es quimioterapia. Arreglarlo bien pide un cuarto estado (algo
+  como `parcial`) y toca `ESTADOS`, `ETIQUETAS_ESTADO`, `tipos.ts`,
+  `etiquetas.ts` y el resumen de `dianas.py:691-699`. Es el hallazgo más débil
+  de los seis y el que más ramifica, así que se deja apuntado.
+- **No hay panel de evaluación del verificador de citas ni del juez
+  `JuzgarAfirmacion`**, con fallos plantados, como el que sí existe para el
+  Killer (`rosa/evaluacion/panel_killer.py`). La comprobación nueva de
+  sobreafirmación se prueba con el caso real y con casos construidos, pero no
+  hay medida de cuántos se le escapan.
 
 Lo que Codex aportó y vale la pena conservar, aunque sea de biología y no de
 código: reformular la hipótesis un nivel hacia arriba (¿el código de sulfatación

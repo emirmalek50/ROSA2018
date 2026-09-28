@@ -2395,6 +2395,122 @@ afirmaciones sostenidas que ya estaban en el registro:
 Coste: ocho llamadas al cerebro en vez de una en el paso de hipótesis. La reserva
 del paso sube de 90 a 97 llamadas.
 
+## Los cinco fallos del dossier de SULF2 (28 de septiembre de 2026)
+
+Emir mandó a Codex el dossier de la única hipótesis de la corrida
+`cor-mulntlr0-42` que subió a certeza `baja` («SULF2 neuronal como barrera a la
+entrada de tau en un entorno microglial GPC4 alto»). La crítica principal de
+Codex era que faltaba el supuesto que carga con todo el peso. **Era falsa**:
+ROSA2018 lo tenía (`sup-multxk0a-25447`) y lo había marcado `contradicho`
+citando cuatro afirmaciones suyas, y el dossier imprime los doce supuestos con
+su estado. Codex leyó solo los cinco primeros.
+
+Pero comprobarlo destapó cinco fallos reales, y el primero es peor que la
+crítica. Reacción de Emir: "me sorprendió que ROSA2018 aun sabiendo que lo
+estaba haciendo mal lo puso en el informe todavía; por eso uno nunca sabe
+cuántos bugs hay que están matando nuestro trabajo". El patrón común de los
+cinco es ese: ROSA2018 **sabía** y lo tenía escrito, y la regla que decide no
+leía lo que otra parte ya había probado.
+
+### 1. Un supuesto contradicho no bajaba la certeza
+
+`rosa/certeza.py` no leía `supuestos` en ningún punto. El techo miraba
+cohortes, peso y evidencia directa; la regla «solo un supuesto contradicho
+tumba» vivía solo en el Killer. Los tres factores GRADE de esta hipótesis eran
+`evidencia_indirecta`, `imprecision` y `efecto_grande`, y ninguno lo mencionaba.
+
+Ahora un supuesto contradicho es techo absoluto en `muy_baja`
+(`_Vista.supuestos_contradichos` y la primera rama de `_techo`), con el motivo
+nombrando cuál, y `reacotar_conclusion` baja sola la conclusión ya guardada. El
+aviso de la frase (`direccion_por_regla`) exigía además que el juez hubiera
+dicho «mixta» o «en contra»; como el juez había dicho «apoya», la conclusión
+salió sin una palabra del supuesto. Ahora sale siempre que la dirección apoye.
+
+### 2. Una bolsa de plataformas contaba como cohorte independiente
+
+El techo sube a `baja` con dos cohortes distintas. Las dos de esta hipótesis
+eran «cerebro humano con enfermedad de Alzheimer» y «iPS-derived neurons, CNS
+cell lines, mouse brain slice»: tres plataformas en un campo.
+
+Contar comas no vale como regla, y se comprobó sobre los nombres reales de la
+base: «tejido postmortem de corteza prefrontal (PFC), control y AD» es una
+cohorte con dos brazos, y «AMARANTH, DAYBREAK-ALZ» son dos ensayos del catálogo
+(ahí ROSA2018 *infra*cuenta). La regla (`metodos._es_bolsa`) pide tres o más
+trozos y que ninguno resuelva al catálogo, apoyándose en el precedente que ya
+existía para los cuantificadores plurales. Espejada en
+`frontend/src/lib/priorizacion.ts`.
+
+### 3. «No pude comprobar» se decía como «no hay»
+
+Cuando la evaluación de un supuesto fallaba, se guardaba `estado:
+sin_evidencia` con la verdad en `alcance: no_evaluado`. De los 24 sitios que
+leen un supuesto, **uno solo** miraba el alcance. Dos de los doce supuestos de
+esta hipótesis eran de estos, y el dossier los presentó como «sin evidencia».
+
+`no_evaluado` es ahora un estado, que el modelo no puede escribir (no se
+declara a sí mismo sin respuesta). El Killer deja su comprobación en
+`no_comprobable`, que suspende, en vez de afirmar que ningún supuesto está
+contradicho sin saberlo.
+
+### 4. Una afirmación que dice más que su pasaje quedaba «sostenida»
+
+La afirmación 13 decía «...mientras que la condroitín sulfato y la heparina
+6-O-desulfatada **no lo hicieron**» y su pasaje solo cubría la mitad positiva.
+Era una de las cuatro que sostenían el supuesto contradicho del punto 1.
+
+El agravante es estructural: **el juez no ve el pasaje que se guarda**, ve una
+ventana de 6.000 caracteres de la página (`ventana_para_juez`), donde la otra
+mitad suele estar. Vota «sostenida» con razón y lo que queda como respaldo
+sostiene media frase. Nada lo miraba: `cifras_fuera_del_pasaje` solo compara
+números y se abstiene si el pasaje no trae ninguno.
+
+`verificador.tramo_no_cubierto_por_el_pasaje` compara núcleos anclados en la
+cifra (6-O, P301L, AT8, IC95), que son los que no cambian al traducir: la
+afirmación está en castellano y el pasaje en inglés, así que comparar palabras
+no sirve («condroitín sulfato» contra «chondroitin sulfate»). Es estrecha a
+propósito (solo segundas partes que niegan) porque un falso positivo tumba una
+afirmación buena. Y el prompt del juez definía `parcial` solo al revés
+(«matices que la afirmación omite»); ahora dice que añadir un brazo que el
+fragmento no contiene es parcial aunque sea cierto y aunque aparezca en otra
+parte del artículo.
+
+### 5. Una hipótesis que el Killer nunca juzgó era indistinguible de una aprobada
+
+El Killer solo corre dentro del paso de hipótesis. El cierre hace nacer
+hipótesis del vivero y las marca «para que el siguiente paso de hipótesis las
+revise»; en la última iteración ese paso no llega. Encima
+`pedir_revision_por_huella` las saltaba a propósito (`if d is None: continue`)
+y la red de fondo les quitaba la marca sin dejar rastro al quedarse sin
+presupuesto. Quedaban `propuesta` con `decisionKiller: None`, igual que una que
+el Killer dejó avanzar: competían en el torneo, acumulaban Elo y salían en un
+dossier con su certeza, y solo se frenaban al elegir candidatas, en silencio.
+Cuatro de las seis hipótesis de la corrida nacieron así.
+
+Ahora se les pide revisión, el abandono por presupuesto deja el motivo en
+`killerPendiente`, y el dossier lo avisa arriba con todas las letras en vez de
+en una línea de estado.
+
+### Efecto medido
+
+Sobre la base real, con las reglas nuevas cambia **una** hipótesis de las 34:
+SULF2, de `baja` a `muy_baja`, por el supuesto contradicho. Dos hipótesis vivas
+que el Killer nunca juzgó quedan con revisión pedida y con el aviso en su
+dossier. Las conclusiones se recalculan por regla al arrancar el servidor y al
+cerrar cada iteración, así que no hace falta tocar nada a mano.
+
+Tests, todos fallando contra el código anterior:
+`rosa/tests/test_supuesto_contradicho.py`,
+`rosa/tests/test_supuesto_no_evaluado.py`,
+`rosa/tests/test_sobreafirmacion.py`, `rosa/tests/test_killer_sin_juzgar.py`,
+`rosa/tests/test_cohorte_bolsa.py` y
+`frontend/src/lib/cohorteBolsa.test.ts`.
+
+Lo que se dejó apuntado y no se hizo está en `PENDIENTE.md`: juzgar en el
+cierre las nacidas del vivero (cuesta de 6 a 15 llamadas por hipótesis y pide
+una partida en el presupuesto del cierre), la capa `farmacologia` que dice
+`presente` por una fila de DGIdb con vincristina, y que no hay panel de
+evaluación del verificador de citas con fallos plantados.
+
 ## El reparto por iteración se amplía solo: ROSA2018 no espera a nadie (28 de septiembre de 2026)
 
 La corrida 1 del 28 de septiembre se paró a las 17:00 con el estado
