@@ -918,12 +918,13 @@ minutos. La división correcta:
   correo, porque es la que viaja en los enlaces de acceso.
 
 Vercel además bloquea un despliegue si el correo del autor del commit no
-pertenece a la cuenta de GitHub conectada (`EmirMaleckFrias`). Ojo:
-`emir.malek@alzheimerproject.com` está asociado a otra cuenta de GitHub
-(`emirmalek50`), así que en este repositorio el autor se fija con
-`git config user.email EmirMaleckFrias@users.noreply.github.com`, la
-dirección sin correo real que GitHub reconoce siempre como propia de la
-cuenta.
+pertenece a la cuenta de GitHub conectada. Desde el 27 de septiembre de 2026 el
+repositorio vive en la cuenta `emirmalek50` (`emirmalek50/ROSA2018`; antes
+`EmirMaleckFrias/ROSA-MVP`), así que el autor se fija con
+`git config user.email 327970878+emirmalek50@users.noreply.github.com`, la
+dirección sin correo real que GitHub reconoce siempre como propia de la cuenta.
+Un proyecto de Vercel conectado al repositorio antiguo hay que reconectarlo al
+nuevo desde su panel.
 
 ## Como se investiga
 
