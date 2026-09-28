@@ -679,6 +679,35 @@ def registrar_pregunta_bases(e: Estado, investigacion_id: str, pregunta: dict, a
     return True
 
 
+def pedir_recuperacion_citas(e: Estado, investigacion_id: str, ahora: int, corrida_id: str | None = None, quien: str = "") -> bool:
+    """Pide que ROSA2018 recupere las afirmaciones bloqueadas por reglas que ya
+    no valen: vuelve a juzgarlas, enlaza las que salen sostenidas a las
+    hipótesis y al vivero, y rehace las conclusiones que cambian
+    (rosa/recuperacion_citas.py). Con `corrida_id`, solo las de esa corrida. El
+    supervisor la atiende en segundo plano; mientras hay una pedida o en curso
+    en la investigación no se abre otra. La anterior se guarda en
+    `recuperacionesAnteriores`. Misma regla que `pedirRecuperacionCitas` en
+    frontend/src/datos/acciones.ts."""
+    from rosa import recuperacion_citas as RC
+
+    inv = _buscar(e["investigaciones"], investigacion_id)
+    if not inv:
+        return False
+    if corrida_id and not any(c.get("id") == corrida_id and c.get("investigacionId") == investigacion_id for c in e.get("corridas", [])):
+        return False
+    actual = inv.get("recuperacionCitas")
+    if isinstance(actual, dict) and actual.get("estado") in RC.ESTADOS_PENDIENTES:
+        return False
+    anteriores = [x for x in (inv.get("recuperacionesAnteriores") or []) if isinstance(x, dict)]
+    if isinstance(actual, dict):
+        anteriores = [actual, *anteriores][: RC.MAX_ANTERIORES]
+    inv["recuperacionCitas"] = RC.registro_nuevo(corrida_id or None, (quien or "").strip() or "persona", ahora)
+    inv["recuperacionesAnteriores"] = anteriores
+    alcance = "de esta corrida" if corrida_id else "de todas las corridas de la investigación"
+    con_evento(e, investigacion_id, "revision_automatica", f"Recuperación de citas pedida: ROSA2018 vuelve a juzgar las afirmaciones bloqueadas {alcance} con reglas que ya no valen, enlaza a las hipótesis las que salgan sostenidas y rehace sus conclusiones.", f"#/investigaciones/{investigacion_id}/citas", ahora)
+    return True
+
+
 def registrar_evaluacion(e: Estado, evaluacion: dict, quien: str, ahora: int) -> bool:
     """Un panel de evaluación del sistema (por ahora, el panel del Killer con
     fallos plantados) entra al estado como registro con fecha: resumen,

@@ -6,14 +6,16 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import type { ComprobacionDeHoy, FichaCita, ListaCitas } from '../lib/citas';
+import type { EstadoRosa, Investigacion, RecuperacionCitas } from '../datos/tipos';
+import type { CitasRecuperables, ComprobacionDeHoy, FichaCita, ListaCitas } from '../lib/citas';
 import { Citas } from './Citas';
 
 const respuestas = vi.hoisted(() => ({
   lista: null as ListaCitas | null | 'sin_respuesta',
   ficha: null as FichaCita | null | 'sin_respuesta',
   pedidas: [] as string[],
+  recuperables: null as CitasRecuperables | null | 'sin_respuesta',
+  recuperaciones: [] as [string, string | null][],
 }));
 vi.mock('../datos/almacen', async (original) => ({
   ...(await original<typeof import('../datos/almacen')>()),
@@ -22,6 +24,10 @@ vi.mock('../datos/almacen', async (original) => ({
     citaDe: vi.fn(async (_c: string, id: string) => {
       respuestas.pedidas.push(id);
       return respuestas.ficha;
+    }),
+    citasRecuperables: vi.fn(async () => respuestas.recuperables),
+    pedirRecuperacionCitas: vi.fn(async (i: string, c: string | null) => {
+      respuestas.recuperaciones.push([i, c]);
     }),
     pdfDeCita: (c: string, a: string) => `/api/corridas/${c}/citas/${a}/pdf`,
     paginaDeCita: (c: string, a: string) => `/api/corridas/${c}/citas/${a}/pagina.png`,
@@ -82,6 +88,8 @@ beforeEach(() => {
   respuestas.lista = LISTA;
   respuestas.ficha = FICHA;
   respuestas.pedidas = [];
+  respuestas.recuperables = null;
+  respuestas.recuperaciones = [];
   nodo = document.createElement('div');
   document.body.appendChild(nodo);
   root = createRoot(nodo);
@@ -91,8 +99,8 @@ afterEach(async () => {
   nodo.remove();
 });
 
-const montar = async () => {
-  await act(async () => root.render(<Citas inv={inv} estado={estado} />));
+const montar = async (investigacion: Investigacion = inv) => {
+  await act(async () => root.render(<Citas inv={investigacion} estado={estado} />));
   await act(async () => {
     await new Promise((r) => setTimeout(r, 20));
   });
@@ -307,5 +315,79 @@ describe('la cuenta de los bloqueos que ya no se sostienen', () => {
     const cabecera = nodo.querySelector('.pantalla-cabecera')!.textContent ?? '';
     expect(cabecera).toContain('151 afirmaciones quedaron bloqueadas');
     expect(cabecera).toContain('Otras 2 tienen la cita en orden pero siguen bloqueadas por otra comprobación');
+  });
+
+  it('el botón de una corrida pide la recuperación completa de esa corrida, en segundo plano', async () => {
+    await montar();
+    const b = boton('Recuperar las 1 de esta corrida');
+    expect(b).toBeTruthy();
+    await pulsar(b);
+    expect(respuestas.recuperaciones).toEqual([['inv-1', 'cor-1']]);
+    expect(texto()).toContain('Pedida: se hace en segundo plano');
+  });
+});
+
+const RECUPERABLES: CitasRecuperables = {
+  investigacionId: 'inv-1',
+  bloqueosViejos: 1751,
+  sinJuez: 33,
+  porEnlazar: 0,
+  corridasVivas: 0,
+  porCorrida: [{ corridaId: 'cor-1', numero: 13, estado: 'terminada', viva: false, bloqueosViejos: 1751, sinJuez: 33, porEnlazar: 0 }],
+};
+
+const REGISTRO: RecuperacionCitas = {
+  estado: 'en_curso', pedidaEn: Date.UTC(2026, 8, 28, 15), quien: 'emir@alzheimerproject.com', corridaId: null, empezadaEn: 1, terminadaEn: null, fase: 'juez',
+  total: 1784, revisadas: 120, recuento: { sostenida: 98, parcial: 5, no_sostenida: 12, cita_no_resuelve: 5 }, desbloqueadas: 103, enlazadas: 0, hipotesisConEvidencia: [], nacidas: [], reconcluidas: [], llamadas: 118, notas: [], motivo: null,
+};
+
+describe('la recuperación de citas de toda la investigación', () => {
+  it('dice cuántas hay, qué hará y qué cuesta, y el botón la pide para toda la investigación', async () => {
+    respuestas.recuperables = RECUPERABLES;
+    await montar();
+    const panel = nodo.querySelector('.citas-recuperar-panel')!.textContent ?? '';
+    expect(panel).toContain('1.751 afirmaciones de esta investigación siguen bloqueadas por reglas del verificador que ya no valen, y 33 se quedaron sin juez');
+    expect(panel).toContain('Cuesta una llamada al juez por afirmación');
+    await pulsar(boton('Recuperar las 1.784'));
+    expect(respuestas.recuperaciones).toEqual([['inv-1', null]]);
+  });
+
+  it('mientras va, enseña el avance y no deja pedir otra, ni por corrida', async () => {
+    respuestas.recuperables = RECUPERABLES;
+    await montar({ ...inv, recuperacionCitas: REGISTRO });
+    const panel = nodo.querySelector('.citas-recuperar-panel')!;
+    expect(panel.textContent).toContain('Volviendo a juzgar con el verificador de hoy: 120 de 1.784 (98 sostenidas, 5 parciales, 12 no sostenidas, 5 siguen bloqueadas por otra regla)');
+    expect(panel.querySelector('progress')?.getAttribute('value')).toBe('120');
+    expect([...nodo.querySelectorAll('button')].some((b) => (b.textContent ?? '').startsWith('Recuperar'))).toBe(false);
+  });
+
+  it('al terminar deja el informe con los cambios de certeza, en llano', async () => {
+    const terminada: RecuperacionCitas = {
+      ...REGISTRO, estado: 'terminada', fase: null, terminadaEn: 2, revisadas: 1784, enlazadas: 240, hipotesisConEvidencia: ['h-1', 'h-2'], nacidas: ['h-9'],
+      reconcluidas: [{ hipotesisId: 'h-1', titulo: 'GFAP antes que NfL', antes: 'muy_baja', despues: 'baja' }, { hipotesisId: 'h-2', titulo: 'Otra', antes: 'baja', despues: 'baja' }],
+      llamadas: 1830, notas: ['Corrida 12: se agotó su tope de llamadas; 3 afirmaciones quedan sin volver a juzgar.'],
+    };
+    respuestas.recuperables = { ...RECUPERABLES, bloqueosViejos: 0, sinJuez: 0, porCorrida: [] };
+    await montar({ ...inv, recuperacionCitas: terminada });
+    const informe = nodo.querySelector('.citas-recuperar-informe')!.textContent ?? '';
+    expect(informe).toContain('pedida el');
+    expect(informe).toContain('240 afirmaciones enlazadas a 2 hipótesis');
+    expect(informe).toContain('1 idea del vivero nació como hipótesis');
+    expect(informe).toContain('2 conclusiones rehechas, 1 cambió de certeza');
+    expect(informe).toContain('«GFAP antes que NfL»: de certeza muy baja a certeza baja');
+    expect(informe).toContain('se agotó su tope');
+    expect(informe).toContain('Costó 1.830 llamadas a modelos');
+  });
+
+  it('si el servidor no responde al contar, lo dice y no finge que no haya nada', async () => {
+    respuestas.recuperables = 'sin_respuesta';
+    await montar();
+    expect(nodo.querySelector('.citas-recuperar-panel')?.textContent).toContain('No pude contar las afirmaciones por recuperar');
+  });
+
+  it('sin nada que recuperar y sin recuperaciones, el panel no aparece', async () => {
+    respuestas.recuperables = { ...RECUPERABLES, bloqueosViejos: 0, sinJuez: 0 };
+    await montar();
+    expect(nodo.querySelector('.citas-recuperar-panel')).toBeNull();
   });
 });

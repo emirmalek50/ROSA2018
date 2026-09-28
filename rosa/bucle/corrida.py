@@ -95,6 +95,9 @@ TOPE_FONDO_S = 600
 # decisión cuesta más que esperar. Antes se esperaba dentro del bucle del tic,
 # por la misma puerta que congeló los tics con la vigilancia de literatura.
 TOPE_PETICIONES_S = 2 * 3600
+# Tope de una vuelta de la recuperación de citas (rosa/recuperacion_citas.py). Si
+# se pasa, lo juzgado ya está guardado por tandas y el siguiente tic sigue.
+TOPE_RECUPERACION_S = 3 * 3600
 # Tope del sondeo del supervisor a una corrida en `esperando_modelo`: el doble
 # del tiempo del sondeo del gateway (rosa/gateway.py SEGUNDOS_SONDEO). Pasado,
 # es "no pude comprobar" y el siguiente sondeo queda a INTERVALO_SONDEO_S.
@@ -241,6 +244,8 @@ class Supervisor:
                 # bucle; una revisión pedida al juez caído (hasta 22 minutos por
                 # llamada con el vigilante) los congelaba igual desde las peticiones.
                 self._lanzar_fondo("peticiones", self._atender_peticiones, tope=TOPE_PETICIONES_S)
+                if self._hay_recuperacion_de_citas():
+                    self._lanzar_fondo("recuperacion_citas", self._recuperar_citas, tope=TOPE_RECUPERACION_S)
                 await self._vigilar_si_toca()
                 await self._indexar_si_toca()
             except Exception:  # noqa: BLE001
@@ -598,6 +603,24 @@ class Supervisor:
         reg["relanzadaEn"] = ahora
         reg["tarea"] = None
         return True
+
+    def _hay_recuperacion_de_citas(self) -> bool:
+        from rosa import recuperacion_citas as RC
+
+        return any(isinstance(i.get("recuperacionCitas"), dict) and i["recuperacionCitas"].get("estado") in RC.ESTADOS_PENDIENTES for i in self.almacen.estado.get("investigaciones", []))
+
+    async def _recuperar_citas(self) -> None:
+        """La recuperación de citas que una persona pidió (rosa/recuperacion_citas.py),
+        una investigación detrás de otra. Lo hecho se guarda por tandas: si se corta
+        (tope, reinicio, modelo caído), el siguiente tic la retoma donde iba."""
+        from rosa import recuperacion_citas as RC
+
+        for inv in list(self.almacen.estado.get("investigaciones", [])):
+            if self._cerrando():
+                return
+            reg = inv.get("recuperacionCitas")
+            if isinstance(reg, dict) and reg.get("estado") in RC.ESTADOS_PENDIENTES:
+                await RC.recuperar(self, inv["id"])
 
     async def _atender_peticiones(self) -> None:
         """Lo que la investigadora dejó marcado y no requiere corrida en marcha."""

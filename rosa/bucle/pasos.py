@@ -365,6 +365,10 @@ class Ctx:
     # pausar: el trabajo de fondo que pide la persona (una revisión, los datos del
     # laboratorio) usa la última corrida aunque esté parada.
     de_paso: bool = False
+    # Trabajo que no pertenece a ninguna iteración (la recuperación de citas de
+    # corridas ya cerradas): se carga al tope de la corrida, no al de su última
+    # iteración, que suele estar gastado porque así se cerró.
+    sin_tope_de_iteracion: bool = False
 
     # -- lecturas ---------------------------------------------------------
 
@@ -434,8 +438,8 @@ class Ctx:
                 raise CorridaParada(str(estado))
         # El corte de presupuesto de verdad: antes de llamar. (El callback de DSPy no
         # puede cortar: DSPy captura lo que lance y sigue.)
-        if not presupuesto_ok(self.almacen, self.corrida_id, self.numero):
-            raise PresupuestoAgotado(f"Presupuesto de la corrida {self.corrida_id} (o de su iteración {self.numero}) agotado")
+        if not presupuesto_ok(self.almacen, self.corrida_id, None if self.sin_tope_de_iteracion else self.numero):
+            raise PresupuestoAgotado(f"Presupuesto de la corrida {self.corrida_id}" + ("" if self.sin_tope_de_iteracion else f" (o de su iteración {self.numero})") + " agotado")
         kwargs = self._acotar_contexto(rol, kwargs)
 
         async def ejecutar(modelo):

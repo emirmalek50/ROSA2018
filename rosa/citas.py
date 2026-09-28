@@ -192,6 +192,28 @@ def comprobacion_de_hoy(afirmacion: dict[str, Any], fragmentos: list[Any]) -> di
     return {"resuelve": True, "motivoResuelve": "", "literal": False, "falta": falta, "localizadorAdmitido": admitido}
 
 
+# El único `no_sostenida` que decide el verificador sin modelo: un identificador
+# (NCT, DOI, rs, PMID) que no está en el fragmento citado.
+_MOTIVO_NO_SOSTENIDA_POR_REGLA = "Identificadores que no aparecen"
+
+
+def es_bloqueo_viejo(afirmacion: dict[str, Any], veredicto_hoy: dict[str, Any]) -> bool:
+    """Si la afirmación está bloqueada por una regla que hoy ya no la bloquearía.
+
+    Un `no_sostenida` que dictó el juez NO lo es, aunque `bloquea_hoy` diga que
+    no bloquea: la comprobación de hoy es solo la parte sin modelo y ante esa
+    afirmación contesta "pendiente del juez", no "está bien". Contarlo como
+    bloqueo viejo inflaba el "Ya no bloquearían" de la pantalla, y en la
+    recuperación de citas lo volvía a mandar al juez sin fin (28 de septiembre
+    de 2026). Solo cuenta el `no_sostenida` por regla (identificadores)."""
+    veredicto = afirmacion.get("veredicto")
+    if veredicto not in V.BLOQUEAN or veredicto_hoy.get("bloquea"):
+        return False
+    if veredicto == "no_sostenida" and not str(afirmacion.get("motivo") or "").startswith(_MOTIVO_NO_SOSTENIDA_POR_REGLA):
+        return False
+    return True
+
+
 def bloquea_hoy(afirmacion: dict[str, Any], fragmentos: list[Any]) -> dict[str, Any]:
     """Si el verificador de HOY seguiría bloqueando esta afirmación, con todas
     sus comprobaciones deterministas, no solo las dos de la cita.
@@ -286,7 +308,7 @@ def lista(corrida: dict[str, Any]) -> list[dict[str, Any]]:
                 # El veredicto guardado bloquea y el verificador de hoy ya no:
                 # el bloqueo es de una versión anterior. No basta con que la
                 # cita resuelva, porque puede seguir cayendo por otra regla.
-                "bloqueoViejo": bool(a.get("veredicto") in V.BLOQUEAN and not veredicto_hoy["bloquea"]),
+                "bloqueoViejo": es_bloqueo_viejo(a, veredicto_hoy),
             }
         )
     return salida
@@ -322,7 +344,7 @@ def ficha(corrida: dict[str, Any], afirmacion_id: str) -> dict[str, Any] | None:
     return {
         "hoy": hoy,
         "veredictoDeHoy": veredicto_hoy,
-        "bloqueoViejo": bool(afirmacion.get("veredicto") in V.BLOQUEAN and not veredicto_hoy["bloquea"]),
+        "bloqueoViejo": es_bloqueo_viejo(afirmacion, veredicto_hoy),
         "afirmacion": {
             "id": afirmacion.get("id"),
             "texto": afirmacion.get("texto"),
@@ -549,7 +571,7 @@ def a_reverificar(corrida: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         a
         for a in corrida.get("_afirmaciones", []) or []
-        if isinstance(a, dict) and a.get("veredicto") in V.BLOQUEAN and not bloquea_hoy(a, fragmentos)["bloquea"]
+        if isinstance(a, dict) and a.get("veredicto") in V.BLOQUEAN and es_bloqueo_viejo(a, bloquea_hoy(a, fragmentos))
     ]
 
 
@@ -557,6 +579,11 @@ async def reverificar(almacen: Any, programas: Any, modelos: Any, corrida_id: st
     """Vuelve a verificar las afirmaciones que hoy ya no estarían bloqueadas:
     primero las comprobaciones deterministas y, para las que las pasan, el
     juez. Escribe el veredicto nuevo en el estado.
+
+    Desde el 28 de septiembre de 2026 el servidor ya no la usa: el botón pide
+    la recuperación completa (rosa/recuperacion_citas.py), que además enlaza lo
+    sostenido a las hipótesis y rehace sus conclusiones. Esta se queda como la
+    pieza mínima, con sus tests.
 
     Se hace con el mismo camino que usa el bucle (`verificar_afirmaciones`), no
     con una copia: el veredicto que sale de aquí es el mismo que saldría de una

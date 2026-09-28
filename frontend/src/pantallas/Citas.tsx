@@ -24,13 +24,14 @@
 // El texto de la página no se vuelve a sacar del PDF: es el mismo que leyó el
 // verificador, guardado al leerlo, así que lo que se ve es lo que se juzgó.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { acciones } from '../datos/almacen';
+import { acciones, type SinRespuesta } from '../datos/almacen';
+import { RECUPERACION_PENDIENTE } from '../datos/acciones';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import { enLlanoElVeredicto, enLlanoLaClase, enlaceAlPasaje, senalesDe, trozosDeTexto, type AfirmacionCitada, type ComprobacionDeHoy, type FichaCita, type ListaCitas } from '../lib/citas';
+import { avanceDeRecuperacion, enLlanoElVeredicto, enLlanoLaClase, enlaceAlPasaje, informeDeRecuperacion, senalesDe, trozosDeTexto, type AfirmacionCitada, type CitasRecuperables, type ComprobacionDeHoy, type FichaCita, type ListaCitas } from '../lib/citas';
 import { Esqueleto } from '../componentes/Esqueleto';
 import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
 import { AvisoMuestra } from '../componentes/piezas';
-import { plural } from '../lib/formato';
+import { fechaCorta, formatearEntero, plural } from '../lib/formato';
 import '../citas.css';
 
 const AYUDA =
@@ -51,6 +52,79 @@ function corridasDe(estado: EstadoRosa, inv: Investigacion) {
 function Veredicto({ veredicto }: { veredicto: string }) {
   const { texto, tono } = enLlanoElVeredicto(veredicto);
   return <span className={`citas-veredicto citas-${tono}`}>{texto}</span>;
+}
+
+/** La recuperación de las afirmaciones bloqueadas por reglas que ya no valen,
+ *  para toda la investigación (rosa/recuperacion_citas.py): cuántas hay, el
+ *  botón que la pide, el avance mientras el supervisor la hace en segundo
+ *  plano, y el informe de lo que cambió. El número sale del servidor sin
+ *  modelo; si no responde, se dice que no se pudo contar, no que no haya. */
+export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
+  const reg = inv.recuperacionCitas ?? null;
+  const pendiente = reg !== null && RECUPERACION_PENDIENTE.has(reg.estado);
+  const [cuenta, setCuenta] = useState<CitasRecuperables | null | SinRespuesta>(null);
+  const [enVuelo, envolver] = useEnVuelo();
+  // Se vuelve a contar al cambiar de investigación y cada vez que una recuperación termina.
+  const clave = `${inv.id}|${reg?.estado ?? ''}|${reg?.terminadaEn ?? ''}`;
+  useEffect(() => {
+    let vivo = true;
+    void acciones.citasRecuperables(inv.id).then((r) => {
+      if (vivo) setCuenta(r);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [clave, inv.id]);
+  const datos = cuenta && cuenta !== 'sin_respuesta' ? cuenta : null;
+  const n = datos ? datos.bloqueosViejos + datos.sinJuez : 0;
+  const terminada = reg !== null && (reg.estado === 'terminada' || reg.estado === 'fallida');
+  if (!pendiente && !terminada && !n && cuenta !== 'sin_respuesta') return null;
+  const pedir = envolver(async () => {
+    await acciones.pedirRecuperacionCitas(inv.id, null);
+  });
+  return (
+    <section className="citas-recuperar-panel" aria-label="Recuperación de citas">
+      <h3>Recuperación de citas</h3>
+      {pendiente && reg ? (
+        <>
+          <p role="status">{avanceDeRecuperacion(reg)}</p>
+          {reg.fase === 'juez' && reg.total > 0 && <progress value={reg.revisadas} max={reg.total} aria-label="Afirmaciones vueltas a juzgar" />}
+        </>
+      ) : cuenta === 'sin_respuesta' ? (
+        <p className="nota" role="status">
+          No pude contar las afirmaciones por recuperar: el servidor no respondió. No quiere decir que no las haya.
+        </p>
+      ) : n > 0 && datos ? (
+        <>
+          <p>
+            {plural(datos.bloqueosViejos, 'afirmación de esta investigación sigue bloqueada', 'afirmaciones de esta investigación siguen bloqueadas')} por reglas del verificador que ya no valen
+            {datos.sinJuez ? `, y ${plural(datos.sinJuez, 'se quedó sin juez', 'se quedaron sin juez')}` : ''}. Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.
+            {datos.corridasVivas ? ' Hay una corrida trabajando en esta investigación: empezará cuando pare.' : ''}
+          </p>
+          <button type="button" className="btn btn-s btn-primario" onClick={() => void pedir()} {...atributosEnVuelo(enVuelo)}>
+            {enVuelo ? 'Pidiendo...' : `Recuperar las ${formatearEntero(n)}`}
+          </button>
+        </>
+      ) : null}
+      {terminada && reg && (
+        <div className="citas-recuperar-informe">
+          <p className="meta">
+            Última recuperación, pedida el {fechaCorta(reg.pedidaEn)} por {reg.quien}
+            {reg.corridaId ? ' (una sola corrida)' : ''}:
+          </p>
+          {reg.estado === 'fallida' ? (
+            <p>{avanceDeRecuperacion(reg)}</p>
+          ) : (
+            <ul>
+              {informeDeRecuperacion(reg).map((linea, i) => (
+                <li key={i}>{linea}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
+  );
 }
 
 export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
@@ -95,7 +169,8 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
     return () => {
       vivo = false;
     };
-  }, [corridaId]);
+    // `terminadaEn`: al terminar una recuperación los veredictos cambiaron y la lista se vuelve a pedir.
+  }, [corridaId, inv.recuperacionCitas?.terminadaEn]);
 
   useEffect(() => {
     let vivo = true;
@@ -114,30 +189,14 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
     };
   }, [corridaId, elegida]);
 
+  // Recuperar las de esta corrida: la misma recuperación completa que la de toda la
+  // investigación (juez, enlazar a las hipótesis y rehacer conclusiones), en segundo
+  // plano. Antes esperaba aquí la pasada entera del juez y se quedaba en el veredicto.
+  const recuperacionPendiente = Boolean(inv.recuperacionCitas && RECUPERACION_PENDIENTE.has(inv.recuperacionCitas.estado));
   const recuperar = envolver(async () => {
     setRecuperacion(null);
-    const r = await acciones.reverificarCitas(corridaId);
-    if (!r || r === 'sin_respuesta') {
-      setRecuperacion('No pude reverificarlas: el servidor no respondió.');
-      return;
-    }
-    if (!r.ok) {
-      setRecuperacion(r.motivo ?? 'No se pudieron reverificar.');
-      return;
-    }
-    const partes = Object.entries(r.recuento ?? {}).map(([k, n]) => `${n} ${enLlanoElVeredicto(k).texto}`);
-    setRecuperacion(
-      r.revisadas
-        ? `${plural(r.revisadas, 'afirmación revisada', 'afirmaciones revisadas')}: ${partes.join(', ')}.`
-        : (r.motivo ?? 'No había ninguna que recuperar.'),
-    );
-    // Los veredictos han cambiado: se vuelve a pedir la lista y la ficha.
-    const lista2 = await acciones.citasDe(corridaId);
-    if (lista2 && lista2 !== 'sin_respuesta') setLista(lista2);
-    if (elegida) {
-      const f2 = await acciones.citaDe(corridaId, elegida);
-      if (f2 && f2 !== 'sin_respuesta') setFicha(f2);
-    }
+    await acciones.pedirRecuperacionCitas(inv.id, corridaId);
+    setRecuperacion('Pedida: se hace en segundo plano. El avance se ve arriba, en «Recuperación de citas», y la lista se recarga sola al terminar.');
   });
 
   const afirmaciones = useMemo(() => {
@@ -193,6 +252,8 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
         )}
       </div>
 
+      <RecuperacionDeCitas inv={inv} />
+
       {fase === 'sin_servidor' && (
         <p className="nota" role="status">
           Las citas se leen del servidor de ROSA2018 y ahora mismo estás viendo los datos de muestra.
@@ -227,9 +288,9 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 <button type="button" className="atlas-chip" aria-pressed={filtro === 'pagina'} onClick={() => setFiltro('pagina')}>
                   Con página <span className="atlas-cifra">{resumen?.conPagina ?? 0}</span>
                 </button>
-                {(resumen?.bloqueosViejos ?? 0) > 0 && (
-                  <button type="button" className="btn btn-s btn-primario citas-recuperar" onClick={() => void recuperar()} {...atributosEnVuelo(enVuelo)}>
-                    {enVuelo ? 'Reverificando...' : `Reverificar ${resumen?.bloqueosViejos ?? 0}`}
+                {(resumen?.bloqueosViejos ?? 0) > 0 && !recuperacionPendiente && (
+                  <button type="button" className="btn btn-s btn-primario citas-recuperar" onClick={() => void recuperar()} {...atributosEnVuelo(enVuelo)} title="Vuelve a juzgarlas, enlaza a las hipótesis las que salgan sostenidas y rehace sus conclusiones">
+                    {enVuelo ? 'Pidiendo...' : `Recuperar las ${resumen?.bloqueosViejos ?? 0} de esta corrida`}
                   </button>
                 )}
                 {(resumen?.bloqueosViejos ?? 0) > 0 && (

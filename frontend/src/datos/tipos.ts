@@ -279,6 +279,40 @@ export interface PuertaReproduccion {
   fecha: number | null;
 }
 
+/** La recuperación de las afirmaciones bloqueadas por reglas que ya no valen
+ *  (rosa/recuperacion_citas.py): vuelve a juzgarlas, enlaza a las hipótesis las
+ *  que salen sostenidas y rehace sus conclusiones. La pide una persona y la hace
+ *  el supervisor en segundo plano; este registro es su avance y, al terminar, el
+ *  informe de lo que cambió. */
+export interface RecuperacionCitas {
+  estado: 'pedida' | 'en_curso' | 'en_espera' | 'terminada' | 'fallida';
+  pedidaEn: number;
+  quien: string;
+  /** Solo las de esta corrida; null, las de toda la investigación. */
+  corridaId: Id | null;
+  empezadaEn: number | null;
+  terminadaEn: number | null;
+  fase: 'juez' | 'enlazar' | 'conclusiones' | null;
+  /** Cuántas iba a volver a juzgar al empezar. */
+  total: number;
+  revisadas: number;
+  /** Lo que dijo el juez, por veredicto. */
+  recuento: Record<string, number>;
+  /** Las que dejaron de estar bloqueadas. */
+  desbloqueadas: number;
+  /** Afirmaciones enlazadas a hipótesis. */
+  enlazadas: number;
+  hipotesisConEvidencia: Id[];
+  /** Ideas del vivero que nacieron como hipótesis. */
+  nacidas: Id[];
+  /** Conclusiones rehechas, con la certeza de antes y la de después. */
+  reconcluidas: { hipotesisId: Id; titulo: string; antes: CertezaEvidencia | null; despues: CertezaEvidencia | null }[];
+  /** Llamadas a modelos que ha costado hasta ahora. */
+  llamadas: number;
+  notas: string[];
+  motivo: string | null;
+}
+
 export interface Investigacion {
   id: Id;
   titulo: string;
@@ -308,6 +342,10 @@ export interface Investigacion {
   conocimientoOperativo?: ConocimientoOperativo[];
   /** Preguntas con herramientas hechas desde la interfaz, con sus consultas. */
   preguntasABases?: PreguntaABases[];
+  /** La recuperación de citas pedida o la última hecha (rosa/recuperacion_citas.py). */
+  recuperacionCitas?: RecuperacionCitas | null;
+  /** Las recuperaciones anteriores, la más reciente primero (hasta cinco). */
+  recuperacionesAnteriores?: RecuperacionCitas[];
   puertaReproduccion?: PuertaReproduccion;
   /** Vivero de ideas: propuestas de ROSA2018 que todavía no tienen evidencia para
    *  nacer como hipótesis (certeza baja por regla: dos cohortes distintas).

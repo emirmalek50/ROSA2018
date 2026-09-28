@@ -22,6 +22,7 @@ import { esViva, vigencia } from '../lib/desbloqueo';
 import type {
   Afirmacion,
   AlcancePermiso,
+  RecuperacionCitas,
   SelloSupuestos,
   Cuestion,
   Amplitud,
@@ -576,6 +577,30 @@ export function reevaluarSupuestos(estado: EstadoRosa, investigacionId: string |
     siguiente = conEvento(siguiente, inv, 'revision_automatica', `Reevaluación de supuestos pedida para ${n} hipótesis cuyos supuestos no estaban al día.`, null, ahora);
   }
   return siguiente;
+}
+
+/** Estados de una recuperación de citas en los que el supervisor aún tiene
+ *  trabajo (rosa/recuperacion_citas.py ESTADOS_PENDIENTES). */
+export const RECUPERACION_PENDIENTE: ReadonlySet<RecuperacionCitas['estado']> = new Set(['pedida', 'en_curso', 'en_espera']);
+
+/** Pide la recuperación de las afirmaciones bloqueadas por reglas que ya no
+ *  valen, de toda la investigación o de una corrida. No abre otra si hay una
+ *  pendiente; la anterior se guarda. Misma regla que `pedir_recuperacion_citas`
+ *  en rosa/estado/acciones.py. */
+export function pedirRecuperacionCitas(estado: EstadoRosa, investigacionId: string, corridaId: string | null, quien: string, ahora: number): EstadoRosa {
+  const inv = estado.investigaciones.find((i) => i.id === investigacionId);
+  if (!inv) return estado;
+  if (corridaId && !estado.corridas.some((c) => c.id === corridaId && c.investigacionId === investigacionId)) return estado;
+  const actual = inv.recuperacionCitas;
+  if (actual && RECUPERACION_PENDIENTE.has(actual.estado)) return estado;
+  const anteriores = [...(actual ? [actual] : []), ...(inv.recuperacionesAnteriores ?? [])].slice(0, 5);
+  const registro: RecuperacionCitas = {
+    estado: 'pedida', pedidaEn: ahora, quien: quien.trim() || 'persona', corridaId: corridaId || null, empezadaEn: null, terminadaEn: null, fase: null,
+    total: 0, revisadas: 0, recuento: {}, desbloqueadas: 0, enlazadas: 0, hipotesisConEvidencia: [], nacidas: [], reconcluidas: [], llamadas: 0, notas: [], motivo: null,
+  };
+  const investigaciones = estado.investigaciones.map((i) => (i.id === investigacionId ? { ...i, recuperacionCitas: registro, recuperacionesAnteriores: anteriores } : i));
+  const alcance = corridaId ? 'de esta corrida' : 'de todas las corridas de la investigación';
+  return conEvento({ ...estado, investigaciones }, investigacionId, 'revision_automatica', `Recuperación de citas pedida: ROSA2018 vuelve a juzgar las afirmaciones bloqueadas ${alcance} con reglas que ya no valen, enlaza a las hipótesis las que salgan sostenidas y rehace sus conclusiones.`, `#/investigaciones/${investigacionId}/citas`, ahora);
 }
 
 /** Replicar la hipotesis con N trayectorias independientes. Gasta presupuesto;

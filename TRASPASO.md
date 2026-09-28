@@ -2522,3 +2522,62 @@ Tres cosas que no se pueden romper, cada una con su test:
 
 Un servidor anterior, que ignora `desde`, sigue funcionando: contesta entero y
 el navegador lo sustituye.
+
+### La recuperación de citas, de punta a punta
+
+La primera cifra del análisis (1.417 de 1.447 bloqueadas en las corridas
+terminadas ya pasarían) venía de `scripts/diagnostico_citas.py`. Con todas las
+corridas cerradas (también las detenidas) y todos los bloqueos por regla hay
+**1.922 bloqueos viejos y 33 afirmaciones sin juez**. 1.751 son de "Qué
+distingue a un biomarcador que predice beneficio clínico".
+
+El análisis decía que faltaba la pasada que las reverificara, y eso era medio
+falso. Ya había un botón "Reverificar" por corrida en Citas (`citas.reverificar`),
+pero se quedaba a medias:
+
+- Cambiaba el veredicto y ahí paraba. La afirmación quedaba sostenida en su
+  corrida sin enlazarse a ninguna hipótesis, así que no movía ninguna certeza.
+- El navegador esperaba dentro de la petición la pasada entera del juez, cientos
+  de llamadas.
+- Cargaba cada llamada al tope de la última iteración de la corrida, que suele
+  estar gastado porque así se cerró.
+
+`rosa/recuperacion_citas.py` hace el camino entero, con piezas que ya existían:
+
+1. **Juez.** Usa `pasos.verificar_afirmaciones`, el mismo camino del bucle. Va en
+   tandas de 40 que se guardan una a una: un reinicio a mitad no vuelve a pagar lo
+   juzgado. Las llamadas se cargan al tope de la corrida, no al de su iteración
+   (`Ctx.sin_tope_de_iteracion`).
+2. **Enlazar.** Lo que sale sostenido o parcial pasa por `evidencia.acumular` y
+   `acumular_vivero`, que ahora aceptan una lista explícita. Se agrupa por la
+   corrida y la iteración de origen: es lo que habría enlazado aquel cierre. Una
+   idea del vivero que llega a certeza baja nace, y ninguna se retira por esta
+   pasada, que no es una iteración más.
+3. **Conclusiones.** Las hipótesis que ganaron evidencia rehacen la suya con el
+   juez (`_concluir_hipotesis`) y todo se reacota por regla. Hace falta el juez
+   porque la certeza es el mínimo entre el techo por regla y lo que dijo el juez:
+   enlazar evidencia solo sube el techo.
+
+La pide una persona desde Citas: un panel para toda la investigación y el botón
+de cada corrida, que ahora pide lo mismo para esa corrida. La acción
+`pedirRecuperacionCitas` tiene la misma regla en los dos lados. El supervisor la
+atiende como trabajo de fondo, con tope de 3 horas por vuelta. Como la petición
+vive en el estado (`investigacion.recuperacionCitas`), sobrevive a un reinicio y
+sigue donde iba. No arranca mientras una corrida de esa investigación trabaja
+(queda `en_espera`). El registro es el avance y, al terminar, el informe de
+diferencias: lo que dijo el juez, lo enlazado, las ideas nacidas, cada cambio de
+certeza, las notas de topes agotados y las llamadas que costó.
+
+**Un fallo que habría costado dinero, cazado por el test antes de llegar a
+producción.** Un `no_sostenida` que dicta el juez no lo puede reproducir la
+comprobación sin modelo, que ante esa afirmación dice "pendiente del juez".
+`bloquea_hoy` lo contaba como "ya no bloquearía", y la primera versión de la pasada
+lo volvía a mandar al juez sin fin: el test se colgó. Se arregló en el origen,
+`citas.es_bloqueo_viejo`: solo cuenta el `no_sostenida` por regla (identificadores).
+Ese mismo error inflaba el "Ya no bloquearían" de la pantalla. La pasada, además,
+no vuelve a juzgar nada ya intentado en ella misma y tiene tope de vueltas.
+
+Coste previsto de la pasada completa: unas 1.955 llamadas al juez, más una
+asignación de evidencia por hipótesis y grupo, y una conclusión por hipótesis que
+cambie. Todo va al tope de cada corrida. Ninguna de las corridas con bloqueos lo
+tiene gastado: la que más, la 12, lleva 833 de 1.500 y tiene 425 por recuperar.

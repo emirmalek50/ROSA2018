@@ -1476,6 +1476,7 @@ _TABLA: dict[str, Callable] = {
     "anadirMemoria": A.anadir_memoria,
     "quitarMemoria": A.quitar_memoria,
     "registrarPreguntaBases": A.registrar_pregunta_bases,
+    "pedirRecuperacionCitas": A.pedir_recuperacion_citas,
 }
 
 ACCIONES: dict[str, tuple[Callable, bool]] = {n: (f, _con_ahora(f)) for n, f in _TABLA.items()}

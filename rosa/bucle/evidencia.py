@@ -60,14 +60,18 @@ def _texto_a(a: dict[str, Any]) -> str:
     return f"{a.get('texto', '')} {a.get('fragmento', '')[:300] if a.get('fragmento') else ''}".strip()
 
 
+def puede_ser_evidencia(a: dict[str, Any]) -> bool:
+    """Si una afirmación puede enlazarse a una hipótesis: sostenida o parcial,
+    con fuente, de la entidad correcta, sin sospecha de inyección y no sintética."""
+    return (
+        isinstance(a, dict) and a.get("veredicto") in ("sostenida", "parcial") and bool(a.get("fuenteId"))
+        and not a.get("entidadDistinta") and not a.get("sospechosoInyeccion") and not a.get("sintetico") and bool((a.get("texto") or "").strip())
+    )
+
+
 def afirmaciones_nuevas(corrida: dict[str, Any], iteracion: int) -> list[dict[str, Any]]:
-    """Las afirmaciones de esta iteración que pueden ser evidencia: sostenidas
-    o parciales, con fuente, de la entidad correcta y sin sospecha de inyección."""
-    return [
-        a for a in corrida.get("_afirmaciones", [])
-        if a.get("iteracion") == iteracion and a.get("veredicto") in ("sostenida", "parcial") and a.get("fuenteId")
-        and not a.get("entidadDistinta") and not a.get("sospechosoInyeccion") and not a.get("sintetico") and (a.get("texto") or "").strip()
-    ]
+    """Las afirmaciones de esta iteración que pueden ser evidencia (`puede_ser_evidencia`)."""
+    return [a for a in corrida.get("_afirmaciones", []) if a.get("iteracion") == iteracion and puede_ser_evidencia(a)]
 
 
 def apoyos_existentes(h: dict[str, Any]) -> list[dict[str, Any]]:
@@ -283,15 +287,21 @@ def _entrada(a: dict[str, Any], relacion: str, motivo: str, iteracion: int, soca
     }
 
 
-async def acumular(ctx: Any, iteracion: int, pista: Any = None) -> dict[str, Any]:
+async def acumular(ctx: Any, iteracion: int, pista: Any = None, afirmaciones: list[dict[str, Any]] | None = None, etiqueta: str | None = None) -> dict[str, Any]:
     """Una pasada al cerrar la iteración. Devuelve {hipotesis, candidatas,
-    anadidas, enContra, ids} con los ids de las hipótesis que ganaron evidencia."""
+    anadidas, enContra, ids} con los ids de las hipótesis que ganaron evidencia.
+
+    Con `afirmaciones`, en vez de las de esta iteración se usan esas (las que
+    sirvan como evidencia): es lo que hace la recuperación de citas con las que
+    dejaron de estar bloqueadas. `etiqueta` sustituye a "Iteración N" en la
+    línea del registro de procedencia de cada hipótesis."""
     from rosa.bucle.pasos import PresupuestoAgotado, _fuente_publica
 
     resumen: dict[str, Any] = {"hipotesis": 0, "candidatas": 0, "anadidas": 0, "enContra": 0, "ids": []}
     e = ctx.e
     corrida = ctx.corrida()
-    afs = afirmaciones_nuevas(corrida, iteracion)
+    afs = [a for a in afirmaciones if puede_ser_evidencia(a)] if afirmaciones is not None else afirmaciones_nuevas(corrida, iteracion)
+    rotulo = etiqueta or f"Iteración {iteracion}"
     vivas = sorted([h for h in e["hipotesis"] if h["investigacionId"] == ctx.investigacion_id and h["estado"] not in ("descartada",)], key=lambda h: -h.get("elo", 0))[:MAX_HIPOTESIS_POR_CIERRE]
     if not afs or not vivas:
         if pista:
@@ -371,7 +381,7 @@ async def acumular(ctx: Any, iteracion: int, pista: Any = None) -> dict[str, Any
             socavan = sum(1 for _, r, _, _ in aceptadas if r == "socava")
             # Cuántas llegaron por la búsqueda en amplitud: son los "diamantes de al lado".
             de_amplitud = sum(1 for a, _, _, _ in aceptadas if (fuentes.get(a["fuenteId"]) or {}).get("modo") == "amplitud")
-            y["procedencia"]["registro"].append(f"Iteración {iteracion}: {len(aceptadas)} afirmaciones nuevas enlazadas ({len(aceptadas) - en_contra - indirectas - socavan} a favor, {indirectas} indirectas, {en_contra} en contra, {socavan} que socavan un apoyo), {nuevas_fuentes} fuentes nuevas" + (f", {de_amplitud} de búsqueda en amplitud" if de_amplitud else "") + (f", {equivalentes} de una fuente que ya estaba con otro id (misma obra, no cuenta como cohorte nueva)" if equivalentes else ""))
+            y["procedencia"]["registro"].append(f"{rotulo}: {len(aceptadas)} afirmaciones nuevas enlazadas ({len(aceptadas) - en_contra - indirectas - socavan} a favor, {indirectas} indirectas, {en_contra} en contra, {socavan} que socavan un apoyo), {nuevas_fuentes} fuentes nuevas" + (f", {de_amplitud} de búsqueda en amplitud" if de_amplitud else "") + (f", {equivalentes} de una fuente que ya estaba con otro id (misma obra, no cuenta como cohorte nueva)" if equivalentes else ""))
             y["_evidenciaNueva"] = iteracion
             y.pop("_conclusionIntentada", None)
             # Evidencia nueva que cambia lo que el Killer juzgó (una fuente nueva o
@@ -405,10 +415,14 @@ def _texto_semilla(s: dict[str, Any]) -> str:
     return f"Título: {s['titulo']}\nEnunciado: {s['enunciado']}\nMecanismo: {s.get('mecanismo', '')}\nComprobación: biomarcador {c.get('biomarcador', '')}; cohorte {c.get('cohorte', '')}; diseño {c.get('diseno', '')}"
 
 
-async def acumular_vivero(ctx: Any, iteracion: int, pista: Any = None) -> dict[str, Any]:
+async def acumular_vivero(ctx: Any, iteracion: int, pista: Any = None, afirmaciones: list[dict[str, Any]] | None = None, etiqueta: str | None = None, retirar: bool = True) -> dict[str, Any]:
     """La misma acumulación sobre las ideas del vivero: las que llegan al
     listón (certeza baja por regla) nacen como hipótesis; las que llevan
-    demasiadas iteraciones sin ganar nada se retiran con su motivo."""
+    demasiadas iteraciones sin ganar nada se retiran con su motivo.
+
+    `afirmaciones` y `etiqueta` como en `acumular`. Con `retirar=False` no se
+    retira ninguna idea: una pasada que no es una iteración (la recuperación de
+    citas) no cuenta como una iteración más sin evidencia."""
     from rosa.bucle import vivero as VIVERO
     from rosa.bucle.pasos import PresupuestoAgotado, _fuente_publica
 
@@ -417,7 +431,8 @@ async def acumular_vivero(ctx: Any, iteracion: int, pista: Any = None) -> dict[s
     if not semillas:
         return resumen
     resumen["semillas"] = len(semillas)
-    afs = afirmaciones_nuevas(ctx.corrida(), iteracion)
+    afs = [a for a in afirmaciones if puede_ser_evidencia(a)] if afirmaciones is not None else afirmaciones_nuevas(ctx.corrida(), iteracion)
+    rotulo = etiqueta or f"Iteración {iteracion}"
     pseudo = [VIVERO.como_hipotesis(x) for x in semillas]
     candidatas = await elegir_candidatas(pseudo, afs, pista) if afs else {}
     fuentes = ctx.fuentes()
@@ -457,13 +472,13 @@ async def acumular_vivero(ctx: Any, iteracion: int, pista: Any = None) -> dict[s
                     x["fuentes"].append(_fuente_publica(f, a))
             if aceptadas:
                 x["actualizadaEn"] = ahora
-                x["historial"].append(f"Iteración {iteracion}: {len(aceptadas)} afirmaciones nuevas ({sum(1 for _, r, _ in aceptadas if r == 'contradice')} en contra)")
+                x["historial"].append(f"{rotulo}: {len(aceptadas)} afirmaciones nuevas ({sum(1 for _, r, _ in aceptadas if r == 'contradice')} en contra)")
             x["falta"] = VIVERO.falta_de(x)
             nivel, _ = CERTEZA.techo(VIVERO.como_hipotesis(x))
             if CERTEZA.NIVELES.index(nivel) >= 1:
                 h = VIVERO.nacer(e2, x, iteracion, ahora, ctx.corrida_id)
                 resumen["nacidas"].append(h["id"])
-            elif not aceptadas and iteracion - int(x.get("iteracion", iteracion)) >= politicas.ITERACIONES_MAX_EN_VIVERO:
+            elif retirar and not aceptadas and iteracion - int(x.get("iteracion", iteracion)) >= politicas.ITERACIONES_MAX_EN_VIVERO:
                 VIVERO.retirar(e2, x, f"{politicas.ITERACIONES_MAX_EN_VIVERO} iteraciones sin evidencia nueva; le seguía faltando: {x['falta'][:120]}", ahora)
                 resumen["retiradas"].append(x["titulo"])
             return True

@@ -8,6 +8,10 @@
 // aparte y probado porque un corte mal hecho desplazaría el resaltado, y un
 // resaltado que señala la frase de al lado es peor que no resaltar nada.
 
+import type { RecuperacionCitas } from '../datos/tipos';
+import { certezaDe } from './etiquetas';
+import { formatearEntero, plural } from './formato';
+
 export type ClaseCita = 'pagina' | 'seccion' | 'resumen' | 'web' | 'otro';
 
 export interface TramoCita {
@@ -305,4 +309,75 @@ export function enLlanoElVeredicto(veredicto: string): { texto: string; tono: 'b
     default:
       return { texto: veredicto || 'sin veredicto', tono: 'medio' };
   }
+}
+
+/** Lo que hay por recuperar en una investigación (GET
+ *  /api/investigaciones/{id}/citas/recuperables, rosa/recuperacion_citas.py). */
+export interface CitasRecuperables {
+  investigacionId: string;
+  /** Bloqueadas por una regla que hoy ya no las bloquearía. */
+  bloqueosViejos: number;
+  /** Se quedaron sin juez (el juez no dictaminó). */
+  sinJuez: number;
+  /** Recuperadas que aún no se ofrecieron a las hipótesis. */
+  porEnlazar: number;
+  /** Corridas trabajando ahora: no se cuentan ni se tocan. */
+  corridasVivas: number;
+  porCorrida: { corridaId: string; numero: number | null; estado: string; viva: boolean; bloqueosViejos: number | null; sinJuez: number | null; porEnlazar: number | null }[];
+}
+
+function cuenta(rec: Record<string, number>, clave: string): number {
+  const n = Number(rec?.[clave] ?? 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Lo que el juez dijo en una recuperación, en una frase. Las que siguen
+ *  bloqueadas por otra regla (la cita no resuelve, sin cita, ausencia
+ *  refutada) se cuentan aparte de las que el juez no sostuvo. */
+export function recuentoDeRecuperacion(reg: Pick<RecuperacionCitas, 'recuento'>): string {
+  const rec = reg.recuento ?? {};
+  const siguen = cuenta(rec, 'cita_no_resuelve') + cuenta(rec, 'sin_cita') + cuenta(rec, 'ausencia_refutada');
+  const partes = [
+    `${formatearEntero(cuenta(rec, 'sostenida'))} sostenidas`,
+    `${formatearEntero(cuenta(rec, 'parcial'))} parciales`,
+    `${formatearEntero(cuenta(rec, 'no_sostenida'))} no sostenidas`,
+  ];
+  if (siguen) partes.push(`${formatearEntero(siguen)} siguen bloqueadas por otra regla`);
+  if (cuenta(rec, 'sin_verificar')) partes.push(`${formatearEntero(cuenta(rec, 'sin_verificar'))} sin juez`);
+  return partes.join(', ');
+}
+
+/** Una línea de avance de la recuperación mientras está pendiente. */
+export function avanceDeRecuperacion(reg: RecuperacionCitas): string {
+  switch (reg.estado) {
+    case 'pedida':
+      return 'Pedida. Empieza en unos segundos y va en segundo plano: puedes seguir usando ROSA2018.';
+    case 'en_espera':
+      return reg.motivo || 'Esperando a que pare la corrida que está trabajando en esta investigación.';
+    case 'en_curso':
+      if (reg.fase === 'enlazar') return `Enlazando a las hipótesis lo que salió sostenido: ${plural(reg.enlazadas, 'afirmación', 'afirmaciones')} a ${plural(reg.hipotesisConEvidencia.length, 'hipótesis', 'hipótesis')} por ahora.`;
+      if (reg.fase === 'conclusiones') return `Rehaciendo las conclusiones de ${plural(reg.hipotesisConEvidencia.length, 'hipótesis', 'hipótesis')} que ganaron evidencia: ${formatearEntero(reg.reconcluidas.length)} hechas.`;
+      return `Volviendo a juzgar con el verificador de hoy: ${formatearEntero(reg.revisadas)} de ${formatearEntero(reg.total)} (${recuentoDeRecuperacion(reg)}). ${plural(reg.llamadas, 'llamada', 'llamadas')} a modelos hasta ahora.`;
+    case 'fallida':
+      return `No terminó: ${reg.motivo || 'motivo desconocido'}. Lo ya juzgado se conserva; se puede pedir otra vez y sigue donde quedó.`;
+    default:
+      return '';
+  }
+}
+
+/** El informe de una recuperación terminada, frase a frase. */
+export function informeDeRecuperacion(reg: RecuperacionCitas): string[] {
+  const lineas = [`${plural(reg.revisadas, 'afirmación vuelta a juzgar', 'afirmaciones vueltas a juzgar')}: ${recuentoDeRecuperacion(reg)}.`];
+  lineas.push(`${plural(reg.enlazadas, 'afirmación enlazada', 'afirmaciones enlazadas')} a ${plural(reg.hipotesisConEvidencia.length, 'hipótesis', 'hipótesis')}.`);
+  if (reg.nacidas.length) lineas.push(`${plural(reg.nacidas.length, 'idea del vivero nació', 'ideas del vivero nacieron')} como hipótesis al llegar a certeza baja.`);
+  const cambios = reg.reconcluidas.filter((x) => x.antes !== x.despues);
+  lineas.push(`${plural(reg.reconcluidas.length, 'conclusión rehecha', 'conclusiones rehechas')}${cambios.length ? `, ${plural(cambios.length, 'cambió', 'cambiaron')} de certeza:` : ', ninguna cambió de certeza.'}`);
+  for (const x of cambios) {
+    const antes = x.antes ? certezaDe(x.antes).etiqueta.toLowerCase() : 'sin conclusión';
+    const despues = x.despues ? certezaDe(x.despues).etiqueta.toLowerCase() : 'sin conclusión';
+    lineas.push(`«${x.titulo}»: de ${antes} a ${despues}.`);
+  }
+  for (const n of reg.notas) lineas.push(n);
+  lineas.push(`Costó ${plural(reg.llamadas, 'llamada', 'llamadas')} a modelos.`);
+  return lineas;
 }

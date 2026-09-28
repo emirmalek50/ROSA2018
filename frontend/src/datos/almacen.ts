@@ -20,7 +20,7 @@ import { estadoDeMuestra } from './muestra';
 import { iniciarSimulacion } from './simulacion';
 import type { AlcancePermiso, Amplitud, AnclaComentario, Avisos, CampoEnmendable, CampoLecturaEnmendable, ClaseAccion, ClasificacionDatos, ConocimientoOperativo, Dataset, EstadoArea, EstadoEspejo, EstadoRosa, Investigacion, MetodoRegistrado, NivelAutonomia, NivelPermisoConector, ParadaCorrida, PasoPlan, PoliticaEsperas, PreguntaCampana, ProcedenciaDataset, RevisionHumana, TipoArtefacto } from './tipos';
 import { senalDeTope } from '../lib/diferido';
-import type { FichaCita, ListaCitas } from '../lib/citas';
+import type { CitasRecuperables, FichaCita, ListaCitas } from '../lib/citas';
 
 const CLAVE_VISITA = 'rosa-ultima-visita';
 const API = '/api';
@@ -1166,14 +1166,22 @@ export const acciones = {
       return 'sin_respuesta';
     }
   },
-  /** Vuelve a verificar las afirmaciones que hoy ya no estarían bloqueadas:
-   *  deterministas y, cuando hacen falta, el juez. Gasta del presupuesto de la
-   *  corrida, como cualquier verificación del bucle. */
-  reverificarCitas: async (corridaId: string): Promise<{ ok: boolean; revisadas?: number; desbloqueadas?: number; recuento?: Record<string, number>; motivo?: string } | null | SinRespuesta> => {
+  /** Pide la recuperación de las afirmaciones bloqueadas por reglas que ya no
+   *  valen (rosa/recuperacion_citas.py): de toda la investigación o, con
+   *  `corridaId`, de una corrida. La hace el supervisor en segundo plano; su
+   *  avance llega con el estado, en `investigacion.recuperacionCitas`. */
+  pedirRecuperacionCitas: (investigacionId: string, corridaId: string | null = null) => {
+    aplicar((e) => A.pedirRecuperacionCitas(e, investigacionId, corridaId, QUIEN, Date.now()));
+    return enviar('pedirRecuperacionCitas', { investigacion_id: investigacionId, corrida_id: corridaId });
+  },
+  /** Sin modelo: cuántas afirmaciones de la investigación están bloqueadas por
+   *  reglas que ya no valen, cuántas se quedaron sin juez y cuántas recuperadas
+   *  faltan por enlazar, por corrida. */
+  citasRecuperables: async (investigacionId: string): Promise<CitasRecuperables | null | SinRespuesta> => {
     if (modo !== 'servidor') return null;
     try {
-      const r = await fetch(`${API}/corridas/${encodeURIComponent(corridaId)}/citas/reverificar`, { method: 'POST', headers: cabeceras() });
-      return r.ok ? await r.json() : 'sin_respuesta';
+      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/citas/recuperables`, { cache: 'no-store', headers: cabeceras(false), ...senalDeTope() });
+      return r.ok ? ((await r.json()) as CitasRecuperables) : 'sin_respuesta';
     } catch {
       return 'sin_respuesta';
     }

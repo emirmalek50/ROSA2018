@@ -798,21 +798,38 @@ def crear_app(almacen: Almacen) -> FastAPI:
         )
 
     @app.post("/api/corridas/{corrida_id}/citas/reverificar")
-    async def reverificar_citas(corrida_id: str) -> dict[str, Any]:
-        """Vuelve a verificar las afirmaciones que hoy ya no estarían
-        bloqueadas: deterministas y, cuando hacen falta, el juez. Lo hace por
-        el mismo camino que el bucle, así que gasta del presupuesto de la
-        corrida y queda en el registro de llamadas."""
-        from rosa import citas as CI
+    async def reverificar_citas(corrida_id: str, request: Request) -> dict[str, Any]:
+        """Lo que hacía el botón "Reverificar" de una corrida, ahora completo y
+        en segundo plano (28 de septiembre de 2026): pide la recuperación de
+        citas de esa corrida (rosa/recuperacion_citas.py), que además de volver
+        a juzgar enlaza a las hipótesis lo que sale sostenido y rehace sus
+        conclusiones. Antes esperaba la pasada entera del juez dentro de la
+        petición y se quedaba en el veredicto. El avance vive en el estado."""
+        corrida = next((c for c in almacen.estado["corridas"] if c["id"] == corrida_id), None)
+        if corrida is None:
+            raise HTTPException(404, "Corrida desconocida")
+        pedida = await asyncio.to_thread(almacen.aplicar, "pedirRecuperacionCitas", {"investigacion_id": corrida["investigacionId"], "corrida_id": corrida_id}, actor=request.state.usuario)
+        if pedida is False:
+            return {"ok": False, "motivo": "Ya hay una recuperación de citas pedida o en curso en esta investigación: el avance se ve en la pantalla de Citas."}
+        return {"ok": True, "pedida": True, "revisadas": 0, "recuento": {}, "desbloqueadas": 0, "motivo": "Pedida: se hace en segundo plano y el avance se ve en la pantalla de Citas."}
 
-        supervisor = getattr(app.state, "supervisor", None)
-        if supervisor is None:
-            raise HTTPException(503, "El bucle todavía no está listo: inténtalo en unos segundos.")
-        try:
-            return await CI.reverificar(almacen, supervisor.programas, supervisor.modelos, corrida_id)
-        except Exception as ex:  # noqa: BLE001  el fallo se cuenta, no tumba el servidor
-            print(f"reverificar citas falló: {type(ex).__name__}: {str(ex)[:300]}", file=sys.stderr)
-            return {"ok": False, "motivo": f"{type(ex).__name__}: {str(ex)[:200]}"}
+    @app.get("/api/investigaciones/{investigacion_id}/citas/recuperables")
+    async def citas_recuperables(investigacion_id: str) -> dict[str, Any]:
+        """Sin modelo: cuántas afirmaciones bloqueadas de la investigación ya no
+        lo estarían hoy, cuántas se quedaron sin juez y cuántas recuperadas
+        faltan por enlazar, por corrida (rosa/recuperacion_citas.py)."""
+        from rosa import recuperacion_citas as RC
+
+        if not any(i.get("id") == investigacion_id for i in almacen.estado["investigaciones"]):
+            raise HTTPException(404, "Investigación desconocida")
+        for intento in range(3):
+            try:
+                return await asyncio.to_thread(RC.recuperables, almacen.estado, investigacion_id)
+            except RuntimeError:
+                # El bucle añadió algo a una lista mientras se leía: se vuelve a contar.
+                if intento == 2:
+                    raise HTTPException(503, "El estado cambiaba mientras se contaba: inténtalo otra vez.") from None
+        raise HTTPException(503, "No se pudo contar")
 
     @app.post("/api/hipotesis/{hipotesis_id}/datos")
     async def subir_datos(hipotesis_id: str, fichero: UploadFile = File(...), analisis: str = Form(""), sintetico: str = Form("no")) -> dict[str, Any]:
