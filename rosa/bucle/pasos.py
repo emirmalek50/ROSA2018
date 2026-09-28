@@ -2746,7 +2746,9 @@ def validar_supuesto_evaluado(estado: Any, evidencia: Any, indices: Any, afirmac
     y la nota de por qué. Ausencia no es negación. Devuelve (estado, evidencia,
     ids de las afirmaciones que lo niegan)."""
     estado = str(estado or "sin_evidencia").strip()
-    if estado not in ("respaldado", "plausible", "sin_evidencia", "contradicho"):
+    if estado not in VIGENCIA.ESTADOS_SUPUESTO_DEL_MODELO:
+        # `no_evaluado` tampoco: ese lo pone ROSA2018 cuando la llamada falla,
+        # nunca el modelo, que no puede declararse a sí mismo sin respuesta.
         estado = "sin_evidencia"
     evidencia = str(evidencia or "").strip()
     validos: list[int] = []
@@ -3644,8 +3646,9 @@ async def _revisar_hipotesis(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: st
             except VIG.ModeloSinRespuesta:
                 raise
             except Exception as ex:  # noqa: BLE001
-                # "No pude comprobar", nunca "no hay": el alcance lo dice aparte del estado.
-                evaluados[i] = {**s, "estado": "sin_evidencia", "evidencia": f"No se pudo evaluar: el modelo no respondió ({type(ex).__name__})", "niegaAfirmaciones": [], "alcance": "no_evaluado", "tocaAfirmaciones": [], "dondeSeResponde": None, "cota": ""}
+                # "No pude comprobar", nunca "no hay": el estado lo dice, no solo el
+                # alcance (28 de septiembre de 2026, ver rosa/vigencia.py).
+                evaluados[i] = {**s, "estado": VIGENCIA.ESTADO_NO_EVALUADO, "evidencia": f"{VIGENCIA.NO_SE_PUDO}: el modelo no respondió ({type(ex).__name__})", "niegaAfirmaciones": [], "alcance": "no_evaluado", "tocaAfirmaciones": [], "dondeSeResponde": None, "cota": ""}
 
     await _en_paralelo(*(evaluar(i, s) for i, s in enumerate(supuestos)))
     finales = [s for s in evaluados if s is not None]
@@ -3656,7 +3659,7 @@ async def _revisar_hipotesis(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: st
         if not x:
             return False
         x["supuestos"] = finales
-        x["supuestosEvaluados"] = VIGENCIA.sello(afirmaciones_vistas, ahora, sum(1 for s in finales if str(s.get("evidencia") or "").startswith(VIGENCIA.NO_SE_PUDO)))
+        x["supuestosEvaluados"] = VIGENCIA.sello(afirmaciones_vistas, ahora, sum(1 for s in finales if VIGENCIA.no_se_pudo_evaluar(s)))
         for r in x["revisionesAutomaticas"]:
             if r["tipo"] == "inicial" and rev is not None:
                 r.update(estado="hecha" if r["estado"] == "pendiente" else "rehecha", resumen=("Pasa: " if rev.pasa else "NO pasa: ") + rev.resumen, fecha=ahora)

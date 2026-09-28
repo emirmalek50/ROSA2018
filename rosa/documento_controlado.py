@@ -378,7 +378,7 @@ _BLOQUEO_LEGIBLE = {
     "datos_no_autorizados": "Datos no autorizados para su uso con IA",
     "analisis_invalido": "Análisis inválido según el auditor",
 }
-_ESTADO_SUPUESTO = {"sin_evidencia": "sin evidencia", "respaldado": "respaldado", "plausible": "plausible", "contradicho": "contradicho"}
+_ESTADO_SUPUESTO = {"sin_evidencia": "sin evidencia", "respaldado": "respaldado", "plausible": "plausible", "contradicho": "contradicho", "no_evaluado": "no se pudo comprobar"}
 
 
 def _limpiar_linea(x: str) -> str:

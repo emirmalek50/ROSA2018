@@ -1162,7 +1162,12 @@ export interface RevisionAutomatica {
   fecha: number | null;
 }
 
-export type EstadoSupuesto = 'respaldado' | 'plausible' | 'sin_evidencia' | 'contradicho';
+/** El estado de un supuesto. `no_evaluado` no lo escribe el modelo: lo pone
+ *  ROSA2018 cuando la evaluación no llegó a hacerse (28 de septiembre de 2026).
+ *  Antes ese caso se guardaba como `sin_evidencia` y solo el `alcance` llevaba
+ *  la verdad, así que el dossier, el Killer y el modelo de mundo decían "sin
+ *  evidencia" donde lo cierto era "no pude comprobar". */
+export type EstadoSupuesto = 'respaldado' | 'plausible' | 'sin_evidencia' | 'contradicho' | 'no_evaluado';
 
 /** Un supuesto de la hipotesis, descompuesto e independiente de las citas
  *  (la "verificacion profunda" de Co-Scientist). */

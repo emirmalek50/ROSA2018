@@ -29,6 +29,7 @@ import json
 import re
 from typing import Any
 
+from rosa import vigencia as VIGENCIA
 from rosa import politicas
 from rosa import dianas as DI
 from rosa import metodos as METODOS
@@ -127,11 +128,16 @@ def comprobaciones_deterministas(h: dict[str, Any], e: dict[str, Any]) -> list[d
     # Registros antiguos o de prueba: un supuesto puede venir como texto o None.
     sups = [x for x in (h.get("supuestos") or []) if isinstance(x, dict)]
     contradichos = [x for x in sups if x.get("estado") == "contradicho"]
-    sin_ev = [x for x in sups if x.get("estado") == "sin_evidencia"]
+    # Un supuesto que no se pudo evaluar no es un supuesto sin evidencia: es uno
+    # sin comprobar, y eso no se da por bueno (28 de septiembre de 2026).
+    no_evaluados = [x for x in sups if VIGENCIA.no_se_pudo_evaluar(x)]
+    sin_ev = [x for x in sups if x.get("estado") == "sin_evidencia" and x not in no_evaluados]
     if contradichos:
         c.append({"comprobacion": "supuestos", "resultado": "falla", "detalle": f"{len(contradichos)} supuestos contradichos por la evidencia: " + "; ".join(f"{x['texto'][:90]} ({x.get('evidencia', '')[:80]})" for x in contradichos[:2])})
     elif not sups:
         c.append({"comprobacion": "supuestos", "resultado": "pasa", "detalle": "Sin supuestos declarados"})
+    elif no_evaluados:
+        c.append({"comprobacion": "supuestos", "resultado": "no_comprobable", "detalle": f"{len(no_evaluados)} supuestos que no se pudieron evaluar (el modelo no respondió), así que no se sabe si alguno está contradicho: " + "; ".join(x.get("texto", "")[:70] for x in no_evaluados[:3])})
     else:
         c.append({"comprobacion": "supuestos", "resultado": "pasa", "detalle": f"Ningún supuesto contradicho; {len(sin_ev)} sin evidencia todavía" + (": " + "; ".join(x["texto"][:70] for x in sin_ev[:3]) if sin_ev else "")})
     # 4. Independencia de cohortes: por nombre de cohorte y, cuando no lo hay,

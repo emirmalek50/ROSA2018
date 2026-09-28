@@ -330,6 +330,7 @@ export const ESTADO_SUPUESTO: Record<EstadoSupuesto, { etiqueta: string; tono: '
   plausible: { etiqueta: 'Plausible', tono: 'aviso' },
   sin_evidencia: { etiqueta: 'Sin evidencia', tono: 'neutro' },
   contradicho: { etiqueta: 'Contradicho', tono: 'mal' },
+  no_evaluado: { etiqueta: 'No se pudo comprobar', tono: 'aviso' },
 };
 
 /** Qué quiere decir el estado de un supuesto (regla 3). Lo que va aquí es lo

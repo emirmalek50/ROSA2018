@@ -439,14 +439,17 @@ export interface RecuentoSupuestos {
   plausible: number;
   sin_evidencia: number;
   contradicho: number;
-  /** Los que no sostienen nada: sin evidencia más contradichos. */
+  /** Los que no se llegaron a evaluar: "no pude comprobar", nunca "no hay". */
+  no_evaluado: number;
+  /** Los que no sostienen nada: sin evidencia más contradichos. No incluye los
+   *  que no se pudieron comprobar, que no dicen nada en ninguna dirección. */
   flojos: number;
 }
 
 type SupuestoArbol = { estado?: string; hijos?: SupuestoArbol[] };
 
 export function supuestosDeLaFicha(hipotesis: Hipotesis | null | undefined): RecuentoSupuestos {
-  const r: RecuentoSupuestos = { total: 0, respaldado: 0, plausible: 0, sin_evidencia: 0, contradicho: 0, flojos: 0 };
+  const r: RecuentoSupuestos = { total: 0, respaldado: 0, plausible: 0, sin_evidencia: 0, contradicho: 0, no_evaluado: 0, flojos: 0 };
   const andar = (lista: SupuestoArbol[] | undefined, profundidad: number) => {
     // Un árbol roto o con un ciclo no puede colgar la pantalla.
     if (!Array.isArray(lista) || profundidad > 12) return;
@@ -457,10 +460,13 @@ export function supuestosDeLaFicha(hipotesis: Hipotesis | null | undefined): Rec
       else if (s.estado === 'plausible') r.plausible += 1;
       else if (s.estado === 'sin_evidencia') r.sin_evidencia += 1;
       else if (s.estado === 'contradicho') r.contradicho += 1;
+      else if (s.estado === 'no_evaluado') r.no_evaluado += 1;
       andar(s.hijos, profundidad + 1);
     }
   };
   andar((hipotesis as { supuestos?: SupuestoArbol[] } | null | undefined)?.supuestos, 0);
+  // Los flojos son los que la evidencia no sostiene. Los que no se pudieron
+  // comprobar se cuentan aparte: no saber no es lo mismo que saber que no.
   r.flojos = r.sin_evidencia + r.contradicho;
   return r;
 }

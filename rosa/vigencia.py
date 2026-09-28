@@ -72,6 +72,26 @@ REEVALUAR_AL_CARGAR_HASTA_REGLA = 1
 
 NO_SE_PUDO = "No se pudo evaluar"
 
+# Los estados de un supuesto. `no_evaluado` no lo escribe el modelo: lo pone
+# ROSA2018 cuando la evaluación no llegó a hacerse (28 de septiembre de 2026).
+# Hasta hoy ese caso se guardaba como `sin_evidencia` y el `alcance` llevaba la
+# verdad aparte, pero de los 24 sitios que leen un supuesto solo uno miraba el
+# alcance: el dossier, el Killer, el documento controlado y el modelo de mundo
+# decían "sin evidencia" donde lo cierto era "no pude comprobar". Va contra la
+# regla de la casa y engañó a un revisor externo con la hipótesis de SULF2.
+ESTADO_NO_EVALUADO = "no_evaluado"
+ESTADOS_SUPUESTO_DEL_MODELO = ("respaldado", "plausible", "sin_evidencia", "contradicho")
+ESTADOS_SUPUESTO = (*ESTADOS_SUPUESTO_DEL_MODELO, ESTADO_NO_EVALUADO)
+
+
+def no_se_pudo_evaluar(s: Any) -> bool:
+    """Si un supuesto quedó sin comprobar. Mira el estado de hoy, el alcance que
+    ya se guardaba antes y, para los registros más viejos, el texto de la
+    evidencia, que era la única señal que había."""
+    if not isinstance(s, dict):
+        return False
+    return s.get("estado") == ESTADO_NO_EVALUADO or s.get("alcance") == ESTADO_NO_EVALUADO or str(s.get("evidencia") or "").startswith(NO_SE_PUDO)
+
 _EVIDENCIA_NUEVA = re.compile(r"^Evidencia nueva para «.*?»: (\d+) afirmaci")
 
 
@@ -118,7 +138,7 @@ def reconstruir_sello(h: dict[str, Any], eventos: Any) -> dict[str, Any] | None:
         m = _EVIDENCIA_NUEVA.match(str(ev.get("texto") or ""))
         if m:
             llegadas += int(m.group(1))
-    fallidos = sum(1 for s in _andar(h.get("supuestos")) if str(s.get("evidencia") or "").startswith(NO_SE_PUDO))
+    fallidos = sum(1 for s in _andar(h.get("supuestos")) if no_se_pudo_evaluar(s))
     return {"en": int(en), "regla": 2 if en >= INICIO_REGLA_2 else 1, "afirmaciones": max(0, n_afirmaciones(h) - llegadas), "fallidos": fallidos, "pedidaEn": None, "noAtendida": None, "reconstruido": True}
 
 

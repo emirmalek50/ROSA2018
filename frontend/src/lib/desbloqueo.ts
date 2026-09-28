@@ -347,7 +347,7 @@ export interface SupuestoFlojo {
   id: string;
   hipotesisId: string;
   texto: string;
-  estado: 'sin_evidencia' | 'contradicho';
+  estado: 'sin_evidencia' | 'contradicho' | 'no_evaluado';
   ingrediente: IdIngrediente | null;
   motivo: string | null;
   posicion: number | null;
@@ -364,7 +364,9 @@ export function supuestosFlojos(h: Hipotesis): SupuestoFlojo[] {
     if (!Array.isArray(lista) || profundidad > 12) return;
     for (const s of lista) {
       if (!s || typeof s !== 'object') continue;
-      if ((s.estado === 'sin_evidencia' || s.estado === 'contradicho') && typeof s.texto === 'string') {
+      // `no_evaluado` también pide trabajo, pero por otro motivo: no se llegó a
+      // comprobar. La etiqueta lo dice (ESTADO_SUPUESTO), no se mezcla con "no hay".
+      if ((s.estado === 'sin_evidencia' || s.estado === 'contradicho' || s.estado === 'no_evaluado') && typeof s.texto === 'string') {
         const c = clasificar(s.texto);
         salida.push({ id: s.id ?? `${h.id}-${salida.length}`, hipotesisId: h.id, texto: s.texto.normalize('NFC'), estado: s.estado, ...c });
       }
