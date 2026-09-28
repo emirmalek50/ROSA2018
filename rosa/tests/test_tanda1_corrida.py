@@ -166,6 +166,15 @@ def test_el_revisor_atrapa_por_regla_un_recuento_de_cola_falso():
 # ---------------------------------------------------------------------------
 
 
+def _agotar_corrida_y_iteracion(e, ids, it_limite: int = 40):
+    """El tope de la CORRIDA gastado (el que sí pausa) y el de la iteración
+    también: así el corte es el real y no el reparto del plan, que se amplía solo."""
+    c = next(x for x in e["corridas"] if x["id"] == ids["cor"])
+    c["gasto"]["llamadas"] = c["presupuesto"]["limiteLlamadas"]
+    next(i for i in e["iteraciones"] if i["id"] == ids["it"])["presupuesto"].update({"limite": it_limite, "usado": it_limite})
+    return True
+
+
 def test_presupuesto_agotado_en_el_cierre_pausa_y_el_cierre_se_retoma_sin_repagar(monkeypatch):
     al, ids = _preparar()
 
@@ -174,18 +183,27 @@ def test_presupuesto_agotado_en_el_cierre_pausa_y_el_cierre_se_retoma_sin_repaga
 
     respuestas = {**_respuestas_cierre(), "concluir": sin_presupuesto}
     sup, ctx, llamadas = _supervisor(al, ids, respuestas, monkeypatch)
-    al.mutar(lambda e: next(i for i in e["iteraciones"] if i["id"] == ids["it"])["presupuesto"].update({"limite": 40, "usado": 40}) or True, "tope")
+    # El tope que se agota es el de la CORRIDA: el de la iteración se amplía solo
+    # mientras la corrida tenga (28 de septiembre de 2026).
+    al.mutar(lambda e: _agotar_corrida_y_iteracion(e, ids), "tope")
     asyncio.run(sup._cerrar_con_presupuesto(_corrida(al, ids), _it(al, ids)))
     c, it = _corrida(al, ids), _it(al, ids)
     assert c["estado"] == "pausada_por_presupuesto" and it["terminadaEn"] is None
-    assert c["presupuesto"]["motivoPausa"].startswith(f"La iteración 1 gastó las 40 llamadas que le tocaban (la corrida lleva 0 de {c['presupuesto']['limiteLlamadas']})")
+    assert c["presupuesto"]["motivoPausa"].startswith(f"La corrida agotó su tope de {c['presupuesto']['limiteLlamadas']} llamadas")
     ev = [x for x in al.estado["eventos"] if x["tipo"] == "presupuesto"]
     assert len(ev) == 1 and ev[0]["texto"] == c["presupuesto"]["motivoPausa"]
     assert it["_cierre"]["resumen"] == "Resumen técnico de la iteración." and it["_cierre"]["llano"]["titulo"] == "Qué pasó"
     assert [p for p in it["pistas"] if p["titulo"].startswith("Evidencia nueva")][-1]["estado"] != "en_curso"  # ninguna pista huérfana
     # La persona amplía: el cierre se retoma con el resumen y el llano ya calculados.
     respuestas["concluir"] = _pred_conclusion()
-    al.mutar(lambda e: next(x for x in e["corridas"] if x["id"] == ids["cor"]).__setitem__("estado", "en_marcha") or True, "ampliar")
+
+    def ampliar(e):
+        c2 = next(x for x in e["corridas"] if x["id"] == ids["cor"])
+        c2["estado"] = "en_marcha"
+        c2["presupuesto"]["limiteLlamadas"] = c2["gasto"]["llamadas"] + 500
+        return True
+
+    al.mutar(ampliar, "ampliar")
     asyncio.run(sup._cerrar_con_presupuesto(_corrida(al, ids), _it(al, ids)))
     it = _it(al, ids)
     assert it["terminadaEn"] is not None and "_cierre" not in it and it["resumen"] == "Resumen técnico de la iteración."
@@ -253,12 +271,19 @@ def test_el_corte_dice_que_tope_salto_y_un_limite_cero_corta():
     it["presupuesto"] = {"limite": 447, "usado": 447}
     assert CT.tope_agotado(al, ids["cor"], 1) == "iteracion" and CT.presupuesto_ok(al, ids["cor"], 1) is False
     assert CT.tope_agotado(al, ids["cor"]) is None  # sin iteración solo mira la corrida
+    # Con el reparto de la iteración agotado y la corrida con tope de sobra NO se
+    # pausa: se amplía sola (28 de septiembre de 2026, rosa/tests/test_presupuesto_iteracion.py).
     al.mutar(lambda e2: CO._pausar_por_presupuesto(e2, ids["cor"]), "pausa")
     c = _corrida(al, ids)
-    assert c["estado"] == "pausada_por_presupuesto"
+    assert c["estado"] == "en_marcha"
     limite = c["presupuesto"]["limiteLlamadas"]
-    assert c["presupuesto"]["motivoPausa"] == f"La iteración 1 gastó las 447 llamadas que le tocaban (la corrida lleva 0 de {limite}): la corrida se pausó. Amplía el tope para seguir."
+    assert _it(al, ids)["presupuesto"]["limite"] == 447 + limite  # 447 usadas más todo lo que le queda a la corrida
+    assert "se amplió sola" in al.estado["eventos"][-1]["texto"]
     assert "global" not in al.estado["eventos"][-1]["texto"]
+    # El motivo del tope de la iteración sigue existiendo para cuando sí toque pausar
+    # (autonomía en «preguntar», o un permiso denegado).
+    it["presupuesto"] = {"limite": 447, "usado": 447}
+    assert CO.motivo_de_pausa_por_presupuesto(al.estado, c, "iteracion") == f"La iteración 1 gastó las 447 llamadas que le tocaban (la corrida lleva 0 de {limite}): la corrida se pausó. Amplía el tope para seguir."
     # Denegación con la iteración recién abierta: límite 0 tiene que cortar.
     it["presupuesto"] = {"limite": 0, "usado": 0}
     assert CT.tope_agotado(al, ids["cor"], 1) == "iteracion"

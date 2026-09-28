@@ -3827,6 +3827,56 @@ def _pausar_por_etapas_en_vacio(e: dict[str, Any], corrida_id: str, motivo: str)
     return True
 
 
+def ampliar_iteracion_si_queda_corrida(e: dict[str, Any], c: dict[str, Any]) -> str | None:
+    """El reparto por iteración se amplía solo mientras a la corrida le quede
+    tope (28 de septiembre de 2026). Devuelve el aviso si amplió, o None.
+
+    El tope de una iteración no lo pone nadie: lo ESTIMA el planificador sumando
+    lo que cree que costará cada paso más la reserva del cierre. Cuando la
+    estimación se queda corta, lo que se agota es una previsión, no un límite.
+    Hasta hoy eso paraba la corrida y pedía a una persona que ampliara el tope:
+    la corrida 1 del 28 de septiembre se paró a las 17:00 con 1.535 llamadas aún
+    disponibles en su propio tope y esperó dos minutos a que Emir la reanudara.
+    Va contra la regla de la casa (18 de septiembre de 2026): dentro de una
+    corrida que ya tiene tope, el gasto no se consulta; el tope de la corrida es
+    el freno y lo demás es un aviso. Y contra lo que ROSA2018 es: un agente que
+    tiene que poder investigar un minuto o una semana sin que nadie la vigile.
+
+    Lo que SÍ sigue parando la corrida, porque son límites de verdad:
+    - que se acabe el tope de la corrida (`limiteLlamadas`), que es el que se fija
+      al crearla y el que una persona amplía a sabiendas;
+    - que una persona haya denegado un permiso de gasto, que recorta la iteración
+      a lo ya usado y deja `_presupuestoDenegado`: es una decisión humana y manda;
+    - que la autonomía `gastar_grande` esté en "preguntar": quien la pone ahí
+      quiere que se le pregunte, y eso también es una decisión humana.
+    """
+    if (e.get("autonomia") or {}).get("gastar_grande") != "actuar":
+        return None
+    limite_corrida = int((c.get("presupuesto") or {}).get("limiteLlamadas") or 0)
+    restante = limite_corrida - int((c.get("gasto") or {}).get("llamadas") or 0)
+    if restante <= 0:
+        return None
+    it = A.iteracion_actual_de(e, c)
+    if it is None or it.get("terminadaEn") is not None or it.get("_presupuestoDenegado"):
+        return None
+    pres = it.get("presupuesto") if isinstance(it.get("presupuesto"), dict) else None
+    limite = (pres or {}).get("limite")
+    if pres is None or not isinstance(limite, (int, float)) or isinstance(limite, bool):
+        return None
+    usado = int(pres.get("usado") or 0)
+    if usado < int(limite):
+        return None  # el trozo de la iteración no es el que se agotó
+    pres["limite"] = usado + restante
+    pres["ampliadoSolo"] = int(pres.get("ampliadoSolo") or 0) + 1
+    texto = (
+        f"La iteración {it.get('numero')} agotó su reparto de {int(limite)} llamadas y se amplió sola a {pres['limite']}: "
+        f"a la corrida le quedan {restante} de {limite_corrida} y el freno es el tope de la corrida, no el reparto del plan. "
+        "ROSA2018 sigue sin esperar a nadie."
+    )
+    A.con_evento(e, c["investigacionId"], "presupuesto", texto, f"#/investigaciones/{c['investigacionId']}/corrida", P.ahora_ms())
+    return texto
+
+
 def _pausar_por_presupuesto(e: dict[str, Any], corrida_id: str, tope: str | None = None, motivo: str | None = None, detalle: str | None = None) -> bool:
     """Pausa la corrida por presupuesto con el motivo real. Una corrida detenida o
     terminada no se toca: la evaluación de un criterio o una revisión pedida
@@ -3838,6 +3888,14 @@ def _pausar_por_presupuesto(e: dict[str, Any], corrida_id: str, tope: str | None
     c = next((x for x in e["corridas"] if x["id"] == corrida_id), None)
     if not c or c["estado"] in ("pausada_por_presupuesto", "detenida", "terminada"):
         return False
+    # Antes de pausar: si lo que se agotó es el reparto de la iteración y a la
+    # corrida le queda tope, se amplía sola y no se pausa (ver la función). Con
+    # `motivo` escrito no se amplía: quien lo pasa es la pre-pausa del cierre
+    # (S-14), que ya midió lo que le queda a la CORRIDA y decidió no empezar un
+    # cierre que no cabe. Ampliar el reparto ahí no añade ni una llamada y solo
+    # dejaría que el cierre se comiera el resto del tope a medias.
+    if motivo is None and ampliar_iteracion_si_queda_corrida(e, c):
+        return True
     pendientes = any(s["corridaId"] == corrida_id and s["estado"] == "pendiente" for s in e["solicitudes"]) or any(i["corridaId"] == corrida_id and i["estado"] == "pendiente" and i["tipo"] not in INCIDENCIAS_QUE_NO_BLOQUEAN for i in e["incidencias"])
     c["estado"] = "esperando_aprobacion" if pendientes else "pausada_por_presupuesto"
     motivo = motivo or motivo_de_pausa_por_presupuesto(e, c, tope)

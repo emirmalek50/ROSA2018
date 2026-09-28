@@ -2395,6 +2395,64 @@ afirmaciones sostenidas que ya estaban en el registro:
 Coste: ocho llamadas al cerebro en vez de una en el paso de hipótesis. La reserva
 del paso sube de 90 a 97 llamadas.
 
+## El reparto por iteración se amplía solo: ROSA2018 no espera a nadie (28 de septiembre de 2026)
+
+La corrida 1 del 28 de septiembre se paró a las 17:00 con el estado
+"pausada por presupuesto" y este motivo: "La iteración 2 gastó las 447 llamadas
+que le tocaban (la corrida lleva 1.430 de 2.965)". Tenía **1.535 llamadas
+todavía disponibles en su propio tope** y se quedó quieta esperando a que
+alguien pulsara un botón. Emir: "ROSA2018 nunca puede terminar en error y
+quedarse esperando que alguien toque un botón, se supone que es un agente
+autónomo que debería poder investigar por un minuto o por una semana sin
+interrupciones, ese es el punto de ROSA2018, no que alguien esté revisando a
+cada rato si ROSA2018 va bien o no".
+
+El fallo es de categoría, no de cuentas. Hay dos topes con el mismo nombre y
+distinta naturaleza:
+
+- **El tope de la corrida** (`presupuesto.limiteLlamadas`) lo fija una persona
+  al crearla. Es un límite de verdad: dice cuánto dinero está autorizado.
+- **El reparto de la iteración** (`iteracion.presupuesto.limite`) no lo fija
+  nadie: lo **estima** el planificador sumando lo que cree que costará cada paso
+  más la reserva del cierre. Es una previsión.
+
+Hasta hoy, que la previsión se quedara corta paraba la corrida igual que si se
+hubiera acabado el dinero. Va contra la regla de la casa del 18 de septiembre
+("dentro de una corrida que ya tiene tope, el gasto no se consulta; el tope de
+la corrida es el freno y lo demás es un aviso") y contra lo que ROSA2018 es.
+
+`ampliar_iteracion_si_queda_corrida` (rosa/bucle/corrida.py) corre dentro de
+`_pausar_por_presupuesto`, antes de pausar: si el trozo agotado es el de la
+iteración y a la corrida le queda tope, el reparto sube a `usado + restante`, se
+anota `ampliadoSolo`, se deja el evento en el registro y la corrida sigue en
+marcha. El tick relanza el paso que se quedó a medias; si lo que se quedó a
+medias fue el cierre, se retoma leyendo `it._cierre` sin repagar lo ya
+calculado.
+
+**Lo que sigue parando la corrida**, porque sí son decisiones o límites de
+verdad:
+
+1. Que se acabe el tope de la corrida. La ampliación nunca lo supera: sube el
+   reparto hasta donde llega la corrida y ni una llamada más, así que la segunda
+   vez que se agote ya no hay holgura y para de verdad.
+2. Que una persona haya denegado un permiso de gasto (`_presupuestoDenegado`).
+3. Que la autonomía `gastar_grande` esté en "preguntar": quien la pone ahí
+   quiere que se le pregunte.
+4. La pre-pausa del cierre (S-14), que llega con su propio `motivo` escrito. Esa
+   ya midió lo que le queda a la **corrida** y decidió no empezar un cierre que
+   no cabe; ampliar el reparto ahí no añadiría ni una llamada y solo dejaría que
+   el cierre se comiera el resto del tope a medias. Con `motivo` no se amplía.
+
+El punto 4 salió de intentar romper el propio cambio: la primera versión se
+tragaba esa pre-pausa. `test_la_pre_pausa_del_cierre_manda_y_no_se_amplia_por_encima`
+falla contra ella.
+
+Diez tests en `rosa/tests/test_presupuesto_iteracion.py`. Tres tests viejos de
+las tandas 1 y 2 afirmaban la pausa con el tope de la corrida intacto (a cero
+gastado): se reescribieron para que lo que se agote sea el tope real, con lo que
+siguen sujetando lo valioso que protegían (el cierre parcial guardado, que al
+reanudar no se repague, y el texto del aviso).
+
 ## Las cinco ineficiencias medidas, arregladas (28 de septiembre de 2026)
 
 Emir pidió analizar las ineficiencias más grandes de ROSA2018 y después

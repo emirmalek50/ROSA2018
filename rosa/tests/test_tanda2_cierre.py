@@ -246,12 +246,20 @@ def test_si_el_tope_salta_dentro_del_cierre_el_aviso_dice_cuanto_le_faltaba(monk
         raise PresupuestoAgotado("tope de la iteración")
 
     sup, ctx, llamadas = _supervisor(al, ids, {**_respuestas_cierre(), "concluir": sin_presupuesto}, monkeypatch)
-    al.mutar(lambda e: next(i for i in e["iteraciones"] if i["id"] == ids["it"])["presupuesto"].update({"limite": 40, "usado": 40}) or True, "tope")
+    # El tope que corta es el de la CORRIDA: el reparto de la iteración se amplía
+    # solo mientras a la corrida le quede (28 de septiembre de 2026).
+    def agotar(e):
+        c2 = next(x for x in e["corridas"] if x["id"] == ids["cor"])
+        c2["gasto"]["llamadas"] = c2["presupuesto"]["limiteLlamadas"]
+        next(i for i in e["iteraciones"] if i["id"] == ids["it"])["presupuesto"].update({"limite": 40, "usado": 40})
+        return True
+
+    al.mutar(agotar, "tope")
     asyncio.run(sup._cerrar_con_presupuesto(_corrida(al, ids), _it(al, ids)))
     c, it = _corrida(al, ids), _it(al, ids)
     assert c["estado"] == "pausada_por_presupuesto" and it["terminadaEn"] is None
     motivo = c["presupuesto"]["motivoPausa"]
-    assert motivo.startswith("La iteración 1 gastó las 40 llamadas que le tocaban"), "el aviso del tope (S-15) sigue delante"
+    assert motivo.startswith("La corrida agotó su tope"), "el aviso del tope (S-15) sigue delante"
     assert "El tope saltó dentro del cierre de la iteración 1: le faltan unas 2 llamadas (1 conclusión; revisor de registro); lo ya calculado se conserva" in motivo
     assert it["_cierre"]["resumen"] == "Resumen técnico de la iteración."
     al.cerrar()
