@@ -735,7 +735,12 @@ def test_la_evidencia_que_cambio_desde_la_decision_del_killer_pide_revision(corr
     # La novedad cambió después de que el Killer decidiera: la huella difiere y la revisión queda pedida.
     assert nueva["_huellaKiller"] != CO.huella_evidencia(nueva)
     assert nueva.get("_revisionPedida") is True
-    assert previa.get("_revisionPedida") is None
+    # La previa también queda pedida si el Killer nunca la juzgó (28 de
+    # septiembre de 2026); si la juzgó y su huella no cambió, no se pide.
+    if previa.get("decisionKiller"):
+        assert previa.get("_revisionPedida") is None
+    else:
+        assert previa.get("_revisionPedida") is True, "nunca juzgada: no puede quedarse así en silencio"
 
 
 # ---------------------------------------------------------------------------

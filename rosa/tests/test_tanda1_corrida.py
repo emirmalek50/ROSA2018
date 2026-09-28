@@ -700,18 +700,27 @@ def test_pedir_revision_por_huella_marca_una_vez_lo_que_cambio():
         ],
         "eventos": [{"tipo": "revision_automatica", "t": 200, "texto": "Evidencia nueva para «Hipótesis vieja»: 3 afirmaciones", "ruta": "#/investigaciones/inv/hipotesis/vieja"}, {"tipo": "revision_automatica", "t": 50, "texto": "Evidencia nueva para «Hipótesis quieta»", "ruta": "#/investigaciones/inv/hipotesis/quieta"}],
     }
-    assert CO.pedir_revision_por_huella(e, 1000) == 2
+    # 3: las dos con evidencia nueva y la que nunca se juzgó (28 de septiembre
+    # de 2026: antes se saltaba dando por hecho que la juzgaría el siguiente
+    # paso de hipótesis, y una nacida en el cierre de la última iteración no
+    # tiene siguiente paso).
+    assert CO.pedir_revision_por_huella(e, 1000) == 3
     assert distinta["_revisionPedida"] is True and vieja["_revisionPedida"] is True
-    assert all("_revisionPedida" not in h for h in (igual, quieta, nunca, agotada))
+    assert nunca["_revisionPedida"] is True, "nunca juzgada: hay que juzgarla"
+    assert all("_revisionPedida" not in h for h in (igual, quieta))
+    assert "_revisionPedida" not in agotada, "agotó los intentos con el juez: no se insiste"
     assert vieja["procedencia"]["registro"][-1].endswith("revisión pedida: la evidencia cambió desde la última decisión del Killer")
     # Segunda pasada: la misma huella no se vuelve a pedir, ni aunque la marca se haya quitado.
     distinta.pop("_revisionPedida")
     assert CO.pedir_revision_por_huella(e, 2000) == 0
+    assert nunca["_revisionPedida"] is True, "la suya sigue pedida, no se pide dos veces"
     # Evidencia nueva otra vez: huella distinta, se pide de nuevo.
     distinta["afirmaciones"].append(_af("más evidencia"))
     assert CO.pedir_revision_por_huella(e, 3000) == 1 and distinta["_revisionPedida"] is True
     # Filtrar por investigación y aguantar registros rotos.
     assert CO.pedir_revision_por_huella(e, 4000, "otra-inv") == 0
+    # Registros rotos: no revientan y tampoco generan peticiones (sin id no hay
+    # a quién pedírsela, aunque no tengan decisión del Killer).
     assert CO.pedir_revision_por_huella({"hipotesis": [None, "x", {"estado": "propuesta"}], "decisiones": [], "eventos": []}, 1) == 0
 
 

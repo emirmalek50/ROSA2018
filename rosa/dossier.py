@@ -122,7 +122,14 @@ def texto_dossier(e: dict[str, Any], h: dict[str, Any], inv: dict[str, Any] | No
         L.append(f"Candidata al laboratorio en este ciclo (máximo {politicas.MAX_CANDIDATOS_LABORATORIO} por ciclo, con diversidad entre clusters).")
     else:
         L.append("Sin bloqueos, pero hoy no está entre las candidatas (otras puntuan más o el Killer no la dejo avanzar todavía).")
-    L.append(f"Estado: {h['estado']}. Elo {h['elo']} tras {len(h.get('partidos', []))} partidos. Decisión del Killer sobre esta versión: {h.get('decisionKiller') or 'pendiente'}.")
+    if not h.get("decisionKiller"):
+        # Una hipótesis sin juzgar por el Killer es indistinguible por su estado
+        # de una que el Killer dejó avanzar: las dos ponen "propuesta". Y trae
+        # conclusión, certeza y Elo como cualquier otra. Se dice arriba y con
+        # todas las letras (28 de septiembre de 2026).
+        pendiente = (h.get("killerPendiente") or {}).get("motivo") if isinstance(h.get("killerPendiente"), dict) else None
+        L.append("AVISO: el Killer NO ha juzgado esta hipótesis" + (f" ({pendiente})" if pendiente else "") + ". No ha pasado las comprobaciones de citas, fidelidad, supuestos, falsabilidad ni novedad, así que lo que sigue no está filtrado por ellas y la hipótesis no puede ser candidata al laboratorio.")
+    L.append(f"Estado: {h['estado']}. Elo {h['elo']} tras {len(h.get('partidos', []))} partidos. Decisión del Killer sobre esta versión: {h.get('decisionKiller') or 'PENDIENTE (nunca juzgada)'}.")
     if k:
         L.append(f"Conclusión de ROSA2018: certeza {k.get('certeza')}, dirección {k.get('direccion')}. {k.get('enunciado', '')}")
 

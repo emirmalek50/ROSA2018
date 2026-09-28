@@ -3175,9 +3175,17 @@ def _abandonar_peticion_sin_presupuesto(e: dict[str, Any], hipotesis_id: str, co
     h = next((x for x in e["hipotesis"] if x["id"] == hipotesis_id), None)
     if h is None:
         return False
+    nunca_juzgada = not h.get("decisionKiller")
     h.pop("_revisionPedida", None)
     h.pop("_killerIntentos", None)
     h.pop("killerPendiente", None)
+    if nunca_juzgada:
+        # Sin esto la hipótesis quedaba idéntica a una que el Killer dejó
+        # avanzar: mismo estado "propuesta", `decisionKiller` en None y ni una
+        # marca (28 de septiembre de 2026). Competía en el torneo y salía en un
+        # dossier con su certeza, y solo se frenaba al elegir candidatas, en
+        # silencio. `killerPendiente` lo deja a la vista.
+        h["killerPendiente"] = {"intentos": 0, "maximo": MAX_INTENTOS_KILLER, "motivo": f"el Killer no llegó a juzgarla: la corrida {corrida.get('numero')} se quedó sin presupuesto"}
     nota = f"revisión pedida no atendida: la corrida {corrida.get('numero')} ({str(corrida.get('estado', '')).replace('_', ' ')}) no tiene presupuesto; amplíalo o abre otra corrida y vuelve a pedirla"
     VIGENCIA.no_atendida(h, f"La corrida {corrida.get('numero')} no tiene presupuesto: amplíalo o abre otra corrida y vuelve a pedirla.")
     registro = (h.get("procedencia") or {}).get("registro")
@@ -3304,7 +3312,15 @@ def pedir_revision_por_huella(e: dict[str, Any], ahora: int, investigacion_id: s
             continue
         d = _ultima_decision_killer(e, h)
         if d is None:
-            continue  # nunca juzgada: la juzga el paso de hipótesis como nueva
+            # Nunca juzgada. Antes se saltaba dando por hecho que la juzgaría el
+            # siguiente paso de hipótesis; una que nace en el cierre de la última
+            # iteración no tiene siguiente paso y se quedaba sin juzgar para
+            # siempre, compitiendo en el torneo y con una certeza publicada
+            # (28 de septiembre de 2026).
+            if h.get("id") and not h.get("_revisionPedida") and int(h.get("_killerIntentos") or 0) < MAX_INTENTOS_KILLER:
+                h["_revisionPedida"] = True
+                n += 1
+            continue
         if int(h.get("_killerIntentos") or 0) >= MAX_INTENTOS_KILLER:
             continue
         actual = huella_evidencia(h)
