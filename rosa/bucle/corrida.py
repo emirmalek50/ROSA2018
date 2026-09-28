@@ -486,8 +486,22 @@ class Supervisor:
     def _reloj_en_memoria(self, e: dict[str, Any], ahora: int) -> set[str]:
         """Acumula en `self._reloj` la espera humana, las pausas y los segundos de
         trabajo de cada corrida viva, y devuelve los ids cuyo reloj toca volcar al
-        estado: han pasado RELOJ_VOLCADO_MS desde el último volcado, la corrida
-        cambió de estado, o acaba de terminar (para que su balance sea exacto)."""
+        estado: la corrida cambió de estado, acaba de terminar (para que su balance
+        sea exacto), espera y aún no tiene ancla (`_relojEn`), o trabaja y han
+        pasado RELOJ_VOLCADO_MS desde el último volcado (que le deja el ancla).
+
+        Una corrida que espera (a una persona, o a un modelo que no responde) no
+        se vuelca por tiempo: su tiempo de trabajo no se mueve y la pantalla
+        enseña el guardado, así que escribir la espera cada 30 s solo reescribía
+        el estado entero y llenaba el registro de auditoría (la corrida
+        pausada por presupuesto del 25 de septiembre dejó 504 tics en un día sin
+        nada en marcha, 28 de septiembre de 2026). Lo que protegía ese volcado
+        periódico, que un reinicio no convierta la espera en trabajo, lo hace
+        ahora el ancla: cada volcado guarda en `_relojEn` el instante hasta el
+        que los contadores son exactos, y al arrancar el reloj parte de ahí, así
+        que el hueco hasta el primer tic se reparte con las mismas reglas de
+        `contabilizar_tiempo` (espera si la corrida esperaba; pausa del proceso
+        si trabajaba y el hueco pasa de UMBRAL_SUSPENSION_MS)."""
         volcar: set[str] = set()
         vivos = {c["id"] for c in e["corridas"]}
         for cid in list(self._reloj):
@@ -501,12 +515,15 @@ class Supervisor:
                 if r is not None:
                     volcar.add(cid)
                 continue
+            ancla = ancla_de_reloj(c, ahora)
+            con_ancla = ancla is not None
             if r is None:
-                r = self._reloj[cid] = {"estado": c["estado"], "esperaHumanaMs": int(c.get("esperaHumanaMs") or 0), "pausaMs": int(c.get("pausaMs") or 0), "_ultimoTic": None, "volcadoEn": ahora, "estadoVolcado": c["estado"]}
+                r = self._reloj[cid] = {"estado": c["estado"], "esperaHumanaMs": int(c.get("esperaHumanaMs") or 0), "pausaMs": int(c.get("pausaMs") or 0), "_ultimoTic": ancla, "volcadoEn": ahora, "estadoVolcado": c["estado"]}
             r["estado"] = c["estado"]
             contabilizar_tiempo(r, ahora)
             r["segundos"] = round(tiempo_trabajo_ms({**c, "esperaHumanaMs": r["esperaHumanaMs"], "pausaMs": r["pausaMs"]}, ahora) / 1000)
-            if ahora - int(r.get("volcadoEn") or 0) >= RELOJ_VOLCADO_MS or c["estado"] != r.get("estadoVolcado"):
+            espera = c["estado"] in ESTADOS_DE_ESPERA_HUMANA or c["estado"] in ESTADOS_DE_PAUSA_DEL_PROCESO
+            if c["estado"] != r.get("estadoVolcado") or (espera and not con_ancla) or (not espera and ahora - int(r.get("volcadoEn") or 0) >= RELOJ_VOLCADO_MS):
                 volcar.add(cid)
         return volcar
 
@@ -516,6 +533,12 @@ class Supervisor:
         if r is None:
             return False
         cambiado = False
+        # El ancla va en la misma escritura que los contadores: juntos dicen "exactos
+        # hasta este instante". Si solo se moviera el ancla (los contadores no
+        # cambiaron), no hace falta escribir: el par guardado sigue siendo exacto.
+        if ancla_de_reloj(c, ahora) is None:
+            cambiado = True
+        c["_relojEn"] = int(ahora)
         for clave in ("esperaHumanaMs", "pausaMs"):
             if int(c.get(clave) or 0) != int(r.get(clave) or 0):
                 c[clave] = int(r.get(clave) or 0)
@@ -2647,8 +2670,9 @@ class Supervisor:
 # Ayudantes puros
 # ---------------------------------------------------------------------------
 
-# Cada cuánto se escribe el reloj de una corrida viva al estado (S-17). El resto
-# del tiempo vive en memoria del supervisor y el tope en horas lo lee de ahí.
+# Cada cuánto se escribe el reloj de una corrida que trabaja al estado (S-17). El
+# resto del tiempo vive en memoria del supervisor y el tope en horas lo lee de
+# ahí. Una corrida que espera no se vuelca por tiempo: ver `_reloj_en_memoria`.
 RELOJ_VOLCADO_MS = 30_000
 # Espera antes de relanzar una tarea de corrida que murió con excepción: 30 s la
 # primera vez, 60 s la segunda, 5 minutos la tercera; a partir de ahí se dobla
@@ -4070,6 +4094,18 @@ ESTADO_DE_ESPERA_EN_LLANO = {"pausada": "pausada por la persona", "pausada_por_p
 RELACION_LABORATORIO = {"apoyo_reproducido": "apoya", "negativo_interpretable": "contradice"}
 
 ESTADOS_SIN_GASTO_DE_FONDO = ("detenida", "terminada", "pausada", "pausada_por_presupuesto", "esperando_modelo")
+
+
+def ancla_de_reloj(c: dict[str, Any], ahora: int) -> int | None:
+    """El instante guardado hasta el que la espera y las pausas de la corrida son
+    exactas (`_relojEn`), o None si no hay uno válido: falta (estado de antes del
+    28 de septiembre de 2026), no es un número, o cae fuera de (0, ahora]. Un
+    ancla en el futuro repartiría un hueco negativo; una en el pasado remoto
+    inventada, días de espera que nadie esperó: las dos se ignoran."""
+    v = c.get("_relojEn")
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None
+    return int(v) if 0 < v <= ahora else None
 
 
 def tiempo_trabajo_ms(c: dict[str, Any], ahora: int) -> int:

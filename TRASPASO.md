@@ -2394,3 +2394,62 @@ afirmaciones sostenidas que ya estaban en el registro:
 
 Coste: ocho llamadas al cerebro en vez de una en el paso de hipótesis. La reserva
 del paso sube de 90 a 97 llamadas.
+
+## Las cinco ineficiencias medidas, arregladas (28 de septiembre de 2026)
+
+Emir pidió analizar las ineficiencias más grandes de ROSA2018 y después
+"arregla esas cosas". Todo lo que sigue se midió sobre la `rosa.db` real en
+solo lectura antes de tocar nada. Las cinco, por orden de impacto: 1.417
+afirmaciones ya pagadas bloqueadas por reglas que ya no valen; cada mutación
+reserializaba un estado de 31 MB (210 ms); el navegador volvía a bajar el estado
+entero con cada cambio; una corrida en pausa escribía su reloj para siempre; y
+`mlflow.db` crecía 40 MB al día con trazas que nadie leía.
+
+### El reloj de una corrida que espera ya no se escribe por tiempo
+
+La corrida `cor-mucppi81-3411`, pausada por presupuesto desde el 25, volcó su
+espera 504 veces en un día sin nada en marcha. El 36 % del registro de
+auditoría (11.079 de 31.061 filas) eran tics. Cada volcado reescribía el estado
+entero para cambiar un contador que la pantalla ni enseña: mientras una corrida
+espera, `segundosDeTrabajo` (Corrida.tsx) muestra el tiempo guardado, que no se
+mueve.
+
+Pero el volcado periódico protegía algo real, y quitarlo a secas habría abierto
+un fallo: sin él, los días en pausa contarían como trabajo tras un reinicio y el
+tope en horas saltaría al reanudar. Ese fallo ya existía con el proceso apagado:
+el hueco entre el último volcado y el primer tic tras arrancar se contaba como
+trabajo, porque el reloj en memoria arrancaba sin referencia (`_ultimoTic`
+vacío).
+
+Ahora cada volcado guarda `_relojEn`, el instante hasta el que la espera y las
+pausas guardadas son exactas, en la misma escritura que los contadores. Al
+arrancar, el reloj parte de ese instante y el hueco se reparte con las reglas de
+siempre (`contabilizar_tiempo`): espera, si la corrida esperaba; pausa del
+proceso, si trabajaba y el hueco pasa de dos minutos. Una corrida que espera se
+vuelca solo al cambiar de estado, al terminar, o una vez si aún no tiene ancla.
+Una que trabaja sigue volcándose cada 30 s, y ese volcado le deja el ancla. Un
+ancla que no es un instante válido (texto, booleano, negativa, futura) se ignora
+y se sustituye (`ancla_de_reloj`). Tests en `rosa/tests/test_reloj_ancla.py`,
+que fallan contra el código anterior, incluido "los tres días en pausa se
+contaron como trabajo".
+
+### MLflow registra las optimizaciones, no cada llamada
+
+`mlflow.db` ocupaba 740 MB en 18 días, 668 de ellos en spans de 9.525 trazas, y
+tenía 3 evaluaciones registradas en toda su vida. Nada del código lo lee: el
+`enlaceMlflow` de GEPA siempre va vacío. La regla de TRASPASO 7 ("todo se
+registra porque esas trazas son el conjunto de entrenamiento del futuro") se
+cumple desde el 16 de septiembre en `datos/_gepa/<base>/trazas.db`: 12.832
+trazas con prompts, respuestas y herramientas, con claves y correos redactados y
+permisos privados, y es de ahí de donde GEPA saca sus casos. `mlflow.db` era una
+segunda copia sin redactar.
+
+Y hacía justo lo contrario de lo que pedía GUIA-ROSA 5.3: trazaba cada llamada
+(`log_traces=True`) y no registraba las compilaciones, porque `log_compiles`
+estaba en su valor por defecto, apagado. Ahora es al revés: `log_compiles` y
+`log_evals` encendidos y las trazas por llamada apagadas. Para depurar un
+programa se encienden con `ROSA_MLFLOW_TRAZAS=1` (solo un "1" explícito).
+
+No se borró nada: `mlflow.db` conserva lo que tiene. Las trazas del 10 al 16 de
+septiembre solo están ahí, porque `trazas.db` empezó el 16. Borrarlo o
+compactarlo lo decide Emir.

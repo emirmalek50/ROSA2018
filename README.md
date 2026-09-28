@@ -962,7 +962,7 @@ rosa/                 backend (ver INVESTIGACION-BACKEND.md, seccion 7)
   tests/              pytest
 frontend/             interfaz (ver frontend/README.md)
 rosa.db               estado (SQLite, ignorado por git)
-mlflow.db, mlruns/    trazas de cada llamada y corridas de GEPA
+mlflow.db, mlruns/    corridas de GEPA (las trazas de cada llamada, en datos/_gepa)
 ```
 
 ## Comprobar que todo funciona
@@ -971,7 +971,7 @@ mlflow.db, mlruns/    trazas de cada llamada y corridas de GEPA
 uv run python -m pytest rosa/tests -q      # reglas del dominio y verificador
 cd frontend && npm run typecheck && npm test
 uv run python rosa/prueba_gateway.py       # los tres modelos responden
-uv run mlflow ui --backend-store-uri sqlite:///mlflow.db   # trazas en :5000
+uv run mlflow ui --backend-store-uri sqlite:///mlflow.db   # optimizaciones en :5000
 ```
 
 En `frontend/`, además de `npm test` y `npm run build`, `npm run lint` corre la

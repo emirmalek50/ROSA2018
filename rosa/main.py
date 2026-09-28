@@ -38,14 +38,28 @@ TOPE_APAGADO_S = 300.0
 
 
 def configurar_mlflow() -> None:
+    """MLflow registra las optimizaciones, no cada llamada (28 de septiembre de
+    2026). Cada compilación de GEPA queda como corrida con sus evaluaciones, que
+    es lo que GUIA-ROSA 5.3 pedía de MLflow y que hasta hoy no se registraba
+    (`log_compiles` estaba en su valor por defecto, apagado).
+
+    Las trazas de cada llamada ya no van a `mlflow.db`: el conjunto de
+    entrenamiento del futuro (TRASPASO 7) lo guarda desde el 16 de septiembre
+    `datos/_gepa/<base>/trazas.db`, con los prompts, las respuestas y las
+    herramientas, con claves y correos redactados y permisos privados, y es de
+    ahí de donde GEPA saca sus casos. `mlflow.db` era una segunda copia sin
+    redactar que nadie leía: 740 MB en 18 días, 668 de ellos en spans, y 3
+    evaluaciones registradas en total. Para depurar un programa concreto se
+    pueden volver a encender con ROSA_MLFLOW_TRAZAS=1 (config.MLFLOW_TRAZAS)."""
     try:
         import mlflow
 
         mlflow.set_tracking_uri(config.MLFLOW_URI)
         mlflow.set_experiment("rosa")
-        mlflow.dspy.autolog(log_traces=True, silent=True)
+        trazas = config.MLFLOW_TRAZAS
+        mlflow.dspy.autolog(log_traces=trazas, log_traces_from_eval=trazas, log_traces_from_compile=False, log_compiles=True, log_evals=True, silent=True)
     except Exception as ex:  # noqa: BLE001
-        print(f"MLflow no disponible ({ex}); ROSA2018 sigue sin trazas.", file=sys.stderr)
+        print(f"MLflow no disponible ({ex}); ROSA2018 sigue sin registrar las optimizaciones en MLflow (las trazas de entrenamiento van aparte, a datos/_gepa).", file=sys.stderr)
 
 
 async def correr_con_tope(servidor: Any, supervisor: Any, tope_s: float = TOPE_APAGADO_S) -> None:

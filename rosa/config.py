@@ -26,6 +26,9 @@ HOST = os.environ.get("ROSA_HOST", "127.0.0.1")
 HOSTS_PERMITIDOS = tuple(h.strip() for h in os.environ.get("ROSA_HOSTS", "").split(",") if h.strip())
 MLFLOW_URI = os.environ.get("ROSA_MLFLOW_URI", f"sqlite:///{RAIZ / 'mlflow.db'}")
 MLFLOW_UI = os.environ.get("ROSA_MLFLOW_UI", "http://127.0.0.1:5000")
+# Trazas de cada llamada en MLflow: apagadas salvo para depurar (ROSA_MLFLOW_TRAZAS=1).
+# Las de entrenamiento se guardan aparte, redactadas, en datos/_gepa (ver main.configurar_mlflow).
+MLFLOW_TRAZAS = os.environ.get("ROSA_MLFLOW_TRAZAS", "").strip() == "1"
 FRONTEND_DIST = RAIZ / "frontend" / "dist"
 
 # Contacto que se manda a Crossref, Unpaywall y OpenAlex. Es público por
