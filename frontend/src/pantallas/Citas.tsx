@@ -331,7 +331,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 <div className="citas-leidos">
                   <span className="meta">Se leyeron</span>
                   {ficha.leidos.map((l) => (
-                    <span key={l.localizador} className={`citas-pagina${l.actual ? ' actual' : ''}`}>
+                    <span key={l.localizador} className={`citas-leido${l.actual ? ' actual' : ''}`}>
                       {l.pagina ?? l.localizador}
                     </span>
                   ))}

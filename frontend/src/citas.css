@@ -36,6 +36,30 @@
 }
 .citas-filtros { display: flex; flex-wrap: wrap; gap: 6px; }
 .citas-lista { max-height: 720px; overflow-y: auto; }
+/* Con dos columnas, la de afirmaciones se queda al lado de la página mientras se
+   lee (bajo la cabecera fija) y su lista se desplaza por dentro. Tenía un tope
+   fijo de 720 px y la página de la derecha es mucho más larga, así que quedaba
+   un hueco grande bajo la lista. La de la derecha se estira al alto de la fila:
+   si la página es corta, su tarjeta llega igual hasta abajo. */
+@media (min-width: 1001px) {
+  .citas-cuerpo > .citas-col:first-child {
+    position: sticky;
+    top: 72px;
+    align-self: start;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 88px);
+  }
+  .citas-cuerpo > .citas-col:first-child .citas-lista {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overscroll-behavior: contain;
+  }
+  .citas-cuerpo > .citas-col:last-child {
+    align-self: stretch;
+  }
+}
 .citas-fila { padding: 13px 16px; border-bottom: 1px solid var(--linea, rgba(244, 239, 228, 0.14)); }
 .citas-esqueleto .citas-fila { display: flex; flex-direction: column; gap: 7px; }
 /* Cada afirmación es un botón: se elige con el ratón y con el teclado. */
@@ -67,14 +91,19 @@ button.citas-af:focus-visible { outline: 2px solid var(--accent, #f0a030); outli
 .citas-loc { white-space: nowrap; }
 .citas-retraccion { color: #d1352b; font-size: 12.5px; margin-top: 4px; }
 .citas-leidos { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-.citas-pagina {
+/* Las fichas de "Se leyeron". Se llamaban `citas-pagina`, igual que la imagen del
+   PDF de más abajo, y la regla de la imagen (display: block; width: 100%) se las
+   comía: cada ficha salía como una barra a todo el ancho, en columna, y el
+   rótulo "Fuente" quedaba en medio de un bloque enorme (Emir, 29 de septiembre
+   de 2026: "la sección de fuentes está mal distribuida"). */
+.citas-leido {
   border: 1px solid var(--linea, rgba(244, 239, 228, 0.14));
   border-radius: 6px;
   padding: 1px 8px;
   font-size: 11.5px;
   color: var(--texto-tenue, rgba(244, 239, 228, 0.62));
 }
-.citas-pagina.actual { background: rgba(240, 160, 48, 0.16); border-color: rgba(240, 160, 48, 0.55); color: var(--texto, #f4efe4); }
+.citas-leido.actual { background: rgba(240, 160, 48, 0.16); border-color: rgba(240, 160, 48, 0.55); color: var(--texto, #f4efe4); }
 
 /* La hoja: papel claro en los dos temas, con serif y medida de lectura. */
 .citas-hoja {
@@ -191,4 +220,4 @@ button.citas-af:focus-visible { outline: 2px solid var(--accent, #f0a030); outli
 .citas-vistas button:focus-visible { outline: 2px solid #f0a030; outline-offset: 2px; }
 
 .citas-hoja-pdf { padding: 0; line-height: 0; background: #efece4; }
-.citas-pagina { display: block; width: 100%; height: auto; }
+.citas-hoja-pdf .citas-pagina { display: block; width: 100%; height: auto; }

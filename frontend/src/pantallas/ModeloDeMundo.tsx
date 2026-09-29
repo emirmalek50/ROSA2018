@@ -41,7 +41,7 @@ function CitasDelHecho({ h }: { h: HechoMundo }) {
         <IconChevronDown size={11} style={{ transform: abierto ? 'rotate(180deg)' : 'none' }} />
       </button>
       {abierto && (
-        <ul className="citas-lista">
+        <ul className="mundo-citas-lista">
           {h.citas.map((c, i) => (
             <li key={i} className={`cita-${c.clasificacion}`}>
               <div className="acciones" style={{ gap: 6 }}>

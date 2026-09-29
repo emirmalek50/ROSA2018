@@ -2534,7 +2534,9 @@ mark.fuerte {
   padding: 2px 0;
 }
 
-.citas-lista {
+/* Era `.citas-lista`, el mismo nombre que la lista de la pantalla de Citas: le
+   ponía a aquella una raya y una sangría a la izquierda que no eran suyas. */
+.mundo-citas-lista {
   display: flex;
   flex-direction: column;
   gap: 8px;
