@@ -500,3 +500,48 @@ dueño no es una decisión de un agente.
 
 Ver la sección de arriba: quedan los pares nombre/verbo (termino/término/
 terminó, numero/número/numeró) que el diccionario resuelve siempre al nombre.
+
+## 29 de septiembre de 2026: lo que propone la revisión de papers (sin decidir)
+
+Detalle, cifras y fuentes en `INVESTIGACION-PAPERS-AI-SCIENTIST-2026-09-29.md`.
+Nada de esto está decidido ni empezado; va ordenado por lo que más desbloquea o
+por el riesgo que cierra.
+
+1. **GEPA optimiza contra el mismo juez que decide la promoción, y le lee las
+   razones.** La métrica pasa el `feedback` de Opus al paso reflexivo
+   (`rosa/gepa_continuo.py:583-602`) y el examen final lo corrige el mismo juez
+   (`rosa/gepa_continuo.py:754`). Es la condición que en Huang y otros
+   (arXiv:2609.28614) duplicó la evasión del revisor (40,5 % frente a 20,3 %).
+   Propuesta: juez A para optimizar, juez B sellado más reglas más conjunto
+   dorado humano para promover, y alarma si la distancia entre A y B crece. Lo
+   mismo en pequeño con la `reformulacion_sugerida` del Killer
+   (`rosa/bucle/pasos.py:3335`).
+2. **Prueba de evidencia barajada** (Gupta y otros, EMNLP 2025): barajar las
+   filas de evidencia entre hipótesis y ver si cambian las decisiones del bucle.
+   Si no cambian, la acumulación es decorativa. Cuesta una corrida corta.
+3. **Verificación por afirmación contra conectores dentro del Killer**
+   (GeneAgent, Nat Methods 2025): cuando una comprobación queda "no
+   comprobable", partir la hipótesis en afirmaciones y consultar la base que
+   toca por tabla fija; nunca contra la fuente de la que salió. Ataca las 27
+   suspendidas y los 71 conectores ociosos.
+4. **Regla de ensayo nulo**: si un ensayo de fase 3 del mismo mecanismo salió
+   nulo, la certeza queda topada y el dossier debe decir qué diferencia
+   comprobable lo explica. Hoy ClinicalTrials.gov solo se usa para factibilidad
+   (`rosa/viabilidad.py`) y como fuente (`rosa/comprobaciones.py:159`).
+5. **Batería axiomática para `paso_novedad`** (`rosa/bucle/pasos.py:4470`;
+   Liu y Zhai, arXiv:2604.15145) y el grafo causal como primer filtro de
+   novedad por combinación.
+6. **Skill de inversión de firma por tipo celular** sobre SEA-AD (Cell 2025,
+   Li y Sirota). El conector LINCS está inerte por cuenta
+   (`rosa/conectores/bases2.py:442`), pero L1000 está en GEO (GSE92742,
+   GSE70138).
+7. **Controles de ruido para el análisis**: correr el paso que escribe el plan
+   sobre unas 20 copias barajadas del dataset antes de congelar (arXiv:2604.11003)
+   y exigir al menos 3 implementaciones independientes que coincidan en signo
+   (arXiv:2607.26587).
+8. **Cambiar la prueba retrospectiva con fecha de corte por predicciones
+   prospectivas selladas** con `rosa/sello.py`: Astra y Opus ya leyeron lo
+   posterior a cualquier corte histórico. Si se hace retrospectiva, con cuatro
+   líneas base obligatorias y THBKG (arXiv:2608.05982) como conjunto externo.
+9. **Presentar el Elo como opinión del juez, no como calidad** (Si y otros,
+   arXiv:2506.20803: tras ejecutar las ideas, el ranking se da la vuelta).
