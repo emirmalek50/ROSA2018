@@ -279,9 +279,18 @@ def hechos_numerados(hechos: list[dict[str, Any]], investigacion_id: str, maximo
 
 def afirmaciones_sostenidas(afirmaciones: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
     """Texto numerado de las afirmaciones sostenidas o parciales, y la lista
-    en ese mismo orden para resolver índices."""
-    validas = [a for a in afirmaciones if a["veredicto"] in ("sostenida", "parcial")]
-    lineas = [f"{i + 1}. ({a['tipo']}{', parcial' if a['veredicto'] == 'parcial' else ''}) {a['texto']} {a['cita']}" for i, a in enumerate(validas)]
+    en ese mismo orden para resolver índices.
+
+    Mismo filtro que `evidencia.puede_ser_evidencia`: fuera las sintéticas, las
+    de otra entidad y las sospechosas de inyección. Eran dos criterios
+    distintos para la misma afirmación (28 de septiembre de 2026): una marcada
+    `sospechosoInyeccion` no podía sumarse como evidencia a una hipótesis viva,
+    pero SÍ podía entrar al modelo de mundo y fundar una hipótesis nueva, que
+    nacía con ella contando en su balance de peso GRADE."""
+    validas = [a for a in afirmaciones if isinstance(a, dict) and a.get("veredicto") in ("sostenida", "parcial") and not a.get("sintetico") and not a.get("entidadDistinta") and not a.get("sospechosoInyeccion")]
+    # Con `.get`: un registro migrado o escrito a mano sin `tipo` o sin `cita`
+    # tumbaba la lista entera, y con ella el paso.
+    lineas = [f"{i + 1}. ({a.get('tipo') or 'dato'}{', parcial' if a.get('veredicto') == 'parcial' else ''}) {a.get('texto') or ''} {a.get('cita') or ''}".rstrip() for i, a in enumerate(validas)]
     return ("\n".join(lineas) if lineas else "Ninguna afirmación sostenida todavía."), validas
 
 

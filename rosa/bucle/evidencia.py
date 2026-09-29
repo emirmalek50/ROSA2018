@@ -331,10 +331,21 @@ async def acumular(ctx: Any, iteracion: int, pista: Any = None, afirmaciones: li
             continue
         # (afirmación, relación, motivo, apoyo socavado o None)
         aceptadas: list[tuple[dict[str, Any], str, str, dict[str, Any] | None]] = []
+        # Un índice repetido por el modelo añadía la MISMA afirmación dos veces
+        # a la misma hipótesis, y `certeza._Vista.balance` suma el peso de cada
+        # entrada sin agrupar por id: dos copias de un apoyo pesan 2,0. La
+        # firma pide "una entrada por candidata" y nada lo comprobaba, así que
+        # una repetición podía subir el techo GRADE un peldaño y decirle a la
+        # médica que hay una afirmación de respaldo más de las que hay
+        # (28 de septiembre de 2026).
+        vistos: set[int] = set()
         for r in list(getattr(pred, "relaciones", []) or []):
             indice, relacion, motivo = getattr(r, "indice", 0), getattr(r, "relacion", ""), getattr(r, "motivo", "") or ""
             if not (1 <= int(indice) <= len(cands)) or relacion not in RELACIONES_QUE_CUENTAN:
                 continue
+            if int(indice) in vistos:
+                continue
+            vistos.add(int(indice))
             objetivo = None
             if relacion == "socava":
                 sa = getattr(r, "socava_a", None)
@@ -443,9 +454,14 @@ async def acumular_vivero(ctx: Any, iteracion: int, pista: Any = None, afirmacio
             lista = "\n".join(f"{i + 1}. [{a['veredicto']}, {a.get('tipo', 'dato')}{', cohorte ' + a['cohorte'] if a.get('cohorte') else ''}] {a['texto']} {a['cita']}" for i, (a, _) in enumerate(cands))
             try:
                 pred = await ctx.llamar("volumen", ctx.programas.asignar_evidencia, hipotesis=_texto_semilla(s_), afirmaciones=K.como_dato(lista), afirmaciones_existentes="Ninguna")
+                # Mismo cuidado que en `acumular`: un índice repetido añadía
+                # la misma afirmación dos veces, y en el vivero una cohorte de
+                # más es lo que hace nacer una idea.
+                vistos_v: set[int] = set()
                 for r in list(getattr(pred, "relaciones", []) or []):
                     indice, relacion, motivo = getattr(r, "indice", 0), getattr(r, "relacion", ""), getattr(r, "motivo", "") or ""
-                    if 1 <= int(indice) <= len(cands) and relacion in RELACIONES_QUE_CUENTAN:
+                    if 1 <= int(indice) <= len(cands) and relacion in RELACIONES_QUE_CUENTAN and int(indice) not in vistos_v:
+                        vistos_v.add(int(indice))
                         aceptadas.append((cands[int(indice) - 1][0], relacion, motivo))
             except PresupuestoAgotado:
                 raise
