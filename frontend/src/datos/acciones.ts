@@ -231,16 +231,34 @@ export function editarPlan(estado: EstadoRosa, iteracionId: string, plan: PasoPl
   return { ...estado, iteraciones: reemplazar(estado.iteraciones, iteracionId, (i) => ({ ...i, plan: limpio })) };
 }
 
-export function aprobarPlan(estado: EstadoRosa, iteracionId: string, ahora: number): EstadoRosa {
+export function aprobarPlan(estado: EstadoRosa, iteracionId: string, ahora: number, quien = 'Investigadora'): EstadoRosa {
   const it = estado.iteraciones.find((i) => i.id === iteracionId);
   if (!it || it.planAprobado) return estado;
   const corrida = corridaDe(estado, it.corridaId);
-  const siguiente: EstadoRosa = {
+  let siguiente: EstadoRosa = {
     ...estado,
     iteraciones: reemplazar(estado.iteraciones, iteracionId, (i) => ({ ...i, planAprobado: true, empezadaEn: ahora })),
     corridas: reemplazar(estado.corridas, it.corridaId, (c) => (c.estado === 'esperando_plan' ? { ...c, estado: 'en_marcha' } : c)),
   };
-  return corrida ? conEvento(siguiente, corrida.investigacionId, 'corrida_estado', `Plan de la iteración ${it.numero} aprobado`, null, ahora) : siguiente;
+  if (!corrida) return siguiente;
+  // Aprobar el primer plan aprueba también la misión tal como está en pantalla:
+  // la persona la vio encima del plan. Y la pregunta de la campaña, si ROSA2018
+  // la formuló, queda aprobada con el plan. Las dos cosas las hace
+  // `aprobar_plan` en rosa/estado/acciones.py y hasta el 29 de septiembre de
+  // 2026 este lado no, así que la misión se quedaba sin aprobar para siempre y
+  // la pantalla seguía pidiéndolo.
+  const inv = estado.investigaciones.find((x) => x.id === corrida.investigacionId);
+  if (inv?.mision && !inv.mision.aprobadaEn) {
+    siguiente = {
+      ...siguiente,
+      investigaciones: reemplazar(siguiente.investigaciones, inv.id, (x) => (x.mision ? { ...x, mision: { ...x.mision, aprobadaEn: ahora, aprobadaPor: quien } } : x)),
+    };
+    siguiente = conEvento(siguiente, inv.id, 'mision', 'Misión aprobada junto con el primer plan', `#/investigaciones/${inv.id}/investigacion`, ahora);
+  }
+  if (corrida.pregunta && !corrida.pregunta.aprobadaEn) {
+    siguiente = { ...siguiente, corridas: reemplazar(siguiente.corridas, corrida.id, (c) => (c.pregunta ? { ...c, pregunta: { ...c.pregunta, aprobadaEn: ahora } } : c)) };
+  }
+  return conEvento(siguiente, corrida.investigacionId, 'corrida_estado', `Plan de la iteración ${it.numero} aprobado`, null, ahora);
 }
 
 export function fijarAutoaprobacionPlan(estado: EstadoRosa, corridaId: string, segundos: number | null): EstadoRosa {
@@ -315,7 +333,34 @@ export function volverAIteracion(estado: EstadoRosa, iteracionId: string, que: '
     const limite = origen.terminadaEn;
     hechos = estado.hechos.filter((h) => !(h.investigacionId === corrida.investigacionId && h.actualizadoEn > limite && h.historial.every((m) => m.quien === 'Rosa')));
     // Misma regla para las cuestiones que ROSA2018 abrió después del punto (rosa/cuestiones.py podar_desde).
-    cuestiones = cuestiones.filter((c) => !(c.investigacionId === corrida.investigacionId && c.creadaEn > limite && c.historial.every((m) => m.quien === 'Rosa')));
+    const deRosa = (m: { quien?: string }) => (m.quien ?? 'Rosa') === 'Rosa';
+    cuestiones = cuestiones
+      .filter((c) => !(c.investigacionId === corrida.investigacionId && c.creadaEn > limite && c.historial.every(deRosa)))
+      // Segunda mitad de `podar_desde`, que hasta el 29 de septiembre de 2026 no
+      // estaba en este lado: en las cuestiones creadas ANTES del límite se
+      // deshacen los movimientos posteriores hechos solo por ROSA2018. Una que
+      // ROSA2018 dio por resuelta con un hecho que esta misma poda acaba de
+      // borrar tiene que volver a abierta; si no, la pantalla enseña una
+      // pregunta contestada con evidencia que ya no existe.
+      .map((c) => {
+        if (c.investigacionId !== corrida.investigacionId) return c;
+        const posteriores = c.historial.filter((m) => m.fecha > limite);
+        if (posteriores.length === 0 || !posteriores.every(deRosa)) return c;
+        const historial = c.historial.filter((m) => m.fecha <= limite);
+        const vuelta = posteriores[0]!.de;
+        const estadoPrevio: Cuestion['estado'] = vuelta === 'abierta' || vuelta === 'resuelta' || vuelta === 'descartada' ? vuelta : 'abierta';
+        if (estadoPrevio !== 'resuelta') return { ...c, historial, estado: estadoPrevio, resueltaEn: null, resolucion: null, actualizadaEn: limite };
+        // Vuelve a la resolución que tenía en el límite, no a la posterior.
+        const ultimo = [...historial].reverse().find((m) => m.a === 'resuelta');
+        return {
+          ...c,
+          historial,
+          estado: estadoPrevio,
+          resueltaEn: ultimo ? ultimo.fecha : limite,
+          resolucion: ultimo ? { por: ultimo.por ?? ultimo.quien ?? 'Rosa', motivo: ultimo.motivo || 'Resuelta' } : c.resolucion,
+          actualizadaEn: limite,
+        };
+      });
   }
   const siguiente: EstadoRosa = {
     ...estado,
@@ -2367,8 +2412,15 @@ export function actualizarAvisos(estado: EstadoRosa, avisos: Avisos): EstadoRosa
 }
 
 export function actualizarPoliticaEsperas(estado: EstadoRosa, politica: PoliticaEsperas): EstadoRosa {
-  if (!Number.isFinite(politica.horas) || politica.horas <= 0) return estado;
-  return { ...estado, politicaEsperas: { ...politica, escalarA: politica.escalarA.trim() } };
+  // Mismos límites que `actualizar_politica_esperas` en rosa/estado/acciones.py:
+  // un año como tope (una espera de cien años no es una política, es un
+  // descuido) y la acción dentro de las cuatro que el bucle sabe hacer. Hasta el
+  // 29 de septiembre de 2026 este lado solo comprobaba que las horas fueran
+  // positivas, así que la interfaz aceptaba lo que el servidor luego rechazaba
+  // sin decir por qué.
+  if (!Number.isFinite(politica.horas) || politica.horas <= 0 || politica.horas > 24 * 365) return estado;
+  if (!['recordar', 'escalar', 'detener', 'continuar'].includes(politica.accion)) return estado;
+  return { ...estado, politicaEsperas: { ...politica, escalarA: politica.escalarA.trim().slice(0, 200) } };
 }
 
 export function borrarPlanGuardado(estado: EstadoRosa, id: string): EstadoRosa {

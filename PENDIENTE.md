@@ -390,3 +390,30 @@ PubTator 3, banco de objetivos (ver README). Queda, por orden de valor:
   14 de septiembre (y la anterior), y poner la nueva en `.env`. Despues,
   decidir si la interfaz lee del espejo cuando el servidor no responde.
 - Las corridas anteriores a septiembre no tienen `arnes` ni `pregunta`.
+
+## 29 de septiembre de 2026: el guion de tildes ya no corrompe, pero le queda un hueco
+
+`scripts/acentuar_py.py` y `frontend/scripts/acentuar.py` decidían mal en cinco
+clases de sitio (claves de diccionario, valores de clave de identificador, SQL en
+minúsculas, inglés sin `the/of/and`, y cadenas que un test compara con `==`), y
+además "corregían" el imperfecto de subjuntivo de los verbos en -ar al futuro.
+Las 20 apariciones de ese último caso en el árbol eran TODAS subjuntivo correcto:
+"que hoy dejara de estarlo", "si el NfL cambiara antes que el GFAP", "aunque solo
+cambiara una línea". Arreglado: los dos guiones pasaron de 40 hallazgos falsos a
+0, y `python3 frontend/scripts/acentuar.py --a-mano` lista las que decide una
+persona.
+
+Lo que queda sin resolver: los pares nombre/verbo. El diccionario mapea
+`termino -> término`, `numero -> número`, `titulo -> título`, `calculo -> cálculo`
+y una docena más, siempre al nombre. Cuando el texto quiere el verbo ("la corrida
+termino", "se calculo el peso", "el juez numero las páginas") el guion escribe el
+nombre. Hoy no hay ninguna apariencia sin tilde en el árbol, así que el fallo es
+prospectivo: aparecerá la próxima vez que alguien escriba una de esas frases.
+
+Se probó un detector por determinante delante (el/la/del/de/su... => nombre
+seguro): 705 seguras y 245 a mirar, y de las 245 casi todas eran nombres en una
+enumeración ("id, título, longitud del fragmento"). Precisión demasiado baja para
+que alguien lea ese informe, así que no se metió. Lo que sí serviría: mirar la
+palabra ANTERIOR y la SIGUIENTE con una tabla de sujetos del proyecto (corrida,
+iteración, juez, ROSA2018, paso) delante del verbo, o etiquetar por categoría
+gramatical con una librería, que es dependencia nueva para un guion de apoyo.

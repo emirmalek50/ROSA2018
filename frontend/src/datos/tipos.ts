@@ -2061,7 +2061,9 @@ export interface Cuestion {
   resueltaEn: number | null;
   resolucion: { por: string; motivo: string } | null;
   veces: number;
-  historial: { fecha: number; de: string | null; a: string; quien: string; motivo: string }[];
+  // `por` es quién o qué hecho la resolvió; lo escribe `_mover` en rosa/cuestiones.py
+  // y lo necesita la poda para restaurar la resolución que había en el límite.
+  historial: { fecha: number; de: string | null; a: string; quien: string; motivo: string; por?: string }[];
 }
 
 /* ---------------------------------------------------------------------

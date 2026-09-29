@@ -13,6 +13,13 @@ import sys
 from pathlib import Path
 
 PALABRAS = {
+    # Séptima tanda (29 de septiembre de 2026): huecos que salieron al auditar el
+    # diccionario contra el vocabulario del proyecto. "métrica" estaba y "métrico"
+    # no, y "deriva analítica entre lotes" (el artefacto que más sale en el grafo
+    # causal de la muestra) se quedaba sin tilde en las dos palabras.
+    "irian": "irían", "iria": "iría", "irias": "irías", "analitica": "analítica", "analiticas": "analíticas", "analitico": "analítico", "analiticos": "analíticos",
+    "metrico": "métrico", "metricos": "métricos", "serologico": "serológico", "serologica": "serológica",
+    "topologico": "topológico", "topologica": "topológica", "toxicologico": "toxicológico", "toxicologica": "toxicológica",
     "busquedas": "búsquedas", "consulto": "consultó", "retomo": "retomó",
     # Cuarta tanda: verbos de los eventos del backend
     "alcanzo": "alcanzó", "altero": "alteró", "devolvio": "devolvió", "reintento": "reintentó", "reparo": "reparó", "congelo": "congeló", "comprobo": "comprobó", "autorizo": "autorizó", "denego": "denegó",
@@ -217,7 +224,17 @@ PALABRAS = {
     "marques": "marqués", "despues": "después", "entremes": "entremés", "reves": "revés", "ademas": "además",
     "vesícula": "vesícula", "invalido": "inválido", "invalida": "inválida", "invalidos": "inválidos", "invalidas": "inválidas",
 }
-AMBIGUAS_EXCLUIDAS = {"reintento", "esta", "estas", "esto", "publica", "mientras", "memoria", "biomarcador", "cerebro", "cranial", "examen", "imagen", "volumen", "margen", "orden", "joven", "origen", "caracteres", "porcentaje", "molecular", "autopsia", "alergia", "sinergia", "estrategia", "construido", "incluido", "continuo", "prohibido", "intereses", "aleatorio", "amiloide", "cognitivo", "determinista", "estable", "propuso", "vesícula", "neuron"}
+# El imperfecto de subjuntivo de los verbos en -ar es IDÉNTICO al futuro sin la
+# tilde: "no hay ninguna afirmación que hoy dejara de estarlo" (subjuntivo, con
+# antecedente negado) frente a "dejará"; "si el NfL cambiara antes que el GFAP, la
+# hipótesis quedaría refutada" (condicional) frente a "cambiará". Las dos formas
+# son correctas y significan cosas distintas, así que el guion NO las decide: las
+# saca del diccionario y las lista con `--a-mano` para que las mire una persona.
+# Es la regla de CLAUDE.md ("las palabras que cambian de sentido con la tilde se
+# deciden a mano por contexto") escrita en el código que la incumplía.
+SUBJUNTIVO_O_FUTURO = {"arrancara", "arrancaras", "arrancaran", "cambiara", "cambiaras", "cambiaran", "dejara", "dejaras", "dejaran", "empezara", "empezaras", "empezaran", "esperara", "esperaras", "esperaran", "llegara", "llegaras", "llegaran", "parara", "pararas", "pararan", "quedara", "quedaras", "quedaran", "reanudara", "reanudaran", "encontraras", "encontrara", "encontraran", "tomara", "tomaran", "usara", "usaran", "pasara", "pasaran", "bajara", "bajaran", "subiera", "mirara", "miraran", "acabara", "acabaran"}
+
+AMBIGUAS_EXCLUIDAS = SUBJUNTIVO_O_FUTURO | {"reintento", "esta", "estas", "esto", "publica", "mientras", "memoria", "biomarcador", "cerebro", "cranial", "examen", "imagen", "volumen", "margen", "orden", "joven", "origen", "caracteres", "porcentaje", "molecular", "autopsia", "alergia", "sinergia", "estrategia", "construido", "incluido", "continuo", "prohibido", "intereses", "aleatorio", "amiloide", "cognitivo", "determinista", "estable", "propuso", "vesícula", "neuron"}
 for k in AMBIGUAS_EXCLUIDAS:
     PALABRAS.pop(k, None)
 
@@ -269,7 +286,7 @@ _ESTA = re.compile(
 
 
 _CION = re.compile(r"\b([A-Za-z]{2,})cion\b")
-_INGLES = re.compile(r"\b(the|of|and|with|for|from|into|between|among|versus)\b")
+_INGLES = re.compile(r"\b(the|of|and|with|for|from|into|between|among|versus|is|are|was|were|does|it)\b")
 _CASTELLANO = re.compile(r"\b(el|la|los|las|de|del|que|y|en|con|para|por|una|un|se|es|al|lo|sin|como)\b")
 
 
@@ -299,6 +316,21 @@ def partir_llaves(texto: str) -> list[str]:
             actual += c
     partes.append(actual)
     return partes
+
+
+# Claves cuyo valor es un IDENTIFICADOR, no un texto que alguien lee: se compara
+# con el servidor o se usa para buscar en un diccionario. CLAUDE.md lo dice:
+# "los identificadores (variables, claves, clases CSS, rutas, valores que se
+# comparan con el servidor) se quedan sin acento". Sin esta lista, el nodo
+# 'B:funcion renal' del grafo causal salia acentuado en el id y sin acentuar en
+# las aristas que lo nombran, y el grafo se partia en dos.
+CLAVES_DE_IDENTIFICADOR = ("id", "de", "a", "clave", "capa", "rol", "tipo", "estado", "origen", "pasoId", "corridaId", "investigacionId", "hipotesisId", "fuenteId", "afirmacionId", "key", "slug", "ruta", "href")
+
+
+def _es_valor_de_identificador(codigo: str, inicio: int) -> bool:
+    """La cadena que empieza en `inicio` es el valor de una clave de identificador."""
+    antes = codigo[max(0, inicio - 40) : inicio]
+    return bool(re.search(r"(?<![.\w])\b(" + "|".join(CLAVES_DE_IDENTIFICADOR) + r")\s*:\s*$", antes))
 
 
 def acentuar_tsx(codigo: str) -> str:
@@ -352,12 +384,22 @@ def acentuar_tsx(codigo: str) -> str:
     codigo = re.sub(r"\b(" + "|".join(ATRIBUTOS) + r')="([^"\n]*)"', attr, codigo)
     # 3. Atributos de texto con comillas simples dentro de objetos: etiqueta: '...', nota: '...'
     def prop(m: re.Match) -> str:
-        return f"{m.group(1)}: '{acentuar_texto(m.group(2))}'"
+        # `m.group(2)` es el espaciado original alrededor de los dos puntos: hay que
+        # devolverlo tal cual. Escribiendo ": " a pelo, un ternario
+        # `x ? cifras.texto : \'\'` salia como `cifras.texto: \'\'`.
+        return f"{m.group(1)}{m.group(2)}'{acentuar_texto(m.group(3))}'"
 
-    codigo = re.sub(r"\b(" + "|".join(ATRIBUTOS) + r"|nombre|corto|frase)\s*:\s*'((?:[^'\\\n]|\\.)*)'", prop, codigo)
+    # `(?<![.\w])` delante: `texto` es una clave de objeto, no el final de
+    # `cifras.texto`. Sin esto, un acceso a propiedad se trataba como clave.
+    codigo = re.sub(r"(?<![.\w])\b(" + "|".join(ATRIBUTOS) + r"|nombre|corto|frase)(\s*:\s*)'((?:[^'\\\n]|\\.)*)'", prop, codigo)
     # 4. Cadenas de texto largas (con espacio) entre comillas simples dentro de JSX o ternarios: solo si tienen al menos dos palabras y empiezan por mayuscula o por articulo.
     def cadena(m: re.Match) -> str:
         t = m.group(1)
+        # Un identificador con prefijo de espacio de nombres ('B:funcion renal', el
+        # nodo del grafo causal) cumple las tres condiciones de abajo y NO es texto:
+        # acentuarlo parte el grafo, porque las aristas lo nombran desde otro sitio.
+        if re.match(r"^[A-Za-z][\w-]{0,14}:\S", t) or _es_valor_de_identificador(codigo, m.start()):
+            return m.group(0)
         if " " in t and not t.startswith(("#", "/", "http")) and re.match(r"^[A-ZÁÉÍÓÚÑ¿¡]", t):
             return "'" + acentuar_texto(t) + "'"
         return m.group(0)
@@ -395,6 +437,9 @@ def acentuar_valores_ts(codigo: str) -> str:
         # Con pinta de codigo (claves, rutas, plantillas, llamadas): no se toca.
         if re.search(r"[_={}$/\\<>]|\w\.\w", v):
             return m.group(0)
+        # La posicion de la COMILLA, no la del match: este empieza en los dos puntos.
+        if _es_valor_de_identificador(codigo, m.start(2) - 1):
+            return m.group(0)
         return f"{m.group(1)}'{acentuar_texto(v)}'"
 
     return re.sub(r"(:\s*)'((?:[^'\\\n]|\\.)*)'", valor, codigo)
@@ -408,6 +453,12 @@ def acentuar_cadenas_ts(codigo: str) -> str:
     def cadena(m: re.Match) -> str:
         v = m.group(1)
         if " " not in v or re.search(r"[_={}$/\\<>]|\w\.\w", v):
+            return m.group(0)
+        # Una cadena seguida de dos puntos es una CLAVE de objeto ('funcion renal':
+        # 'factores'), y una clave no se acentua: el diccionario se busca por ella.
+        if re.match(r"\s*:", codigo[m.end() :]):
+            return m.group(0)
+        if _es_valor_de_identificador(codigo, m.start()):
             return m.group(0)
         return f"'{acentuar_texto(v)}'"
 
@@ -459,9 +510,35 @@ def main(escribir: bool = True) -> None:
     print(f"{cambiados} ficheros con tildes nuevas" + ("" if escribir else " (sin escribir nada)"))
 
 
+def a_mano(raices: list[Path]) -> int:
+    """Lista dónde aparecen las palabras que el guion NO decide (el imperfecto de
+    subjuntivo de los verbos en -ar, que sin tilde es idéntico al futuro). Cada
+    una la tiene que mirar una persona con el contexto delante: "que hoy dejara
+    de estarlo" lleva subjuntivo y "el plan dejará de valer" lleva futuro."""
+    patron = re.compile(r"\b(" + "|".join(sorted(SUBJUNTIVO_O_FUTURO)) + r")\b")
+    total = 0
+    for raiz in raices:
+        for f in sorted(raiz.rglob("*")):
+            if f.suffix not in (".ts", ".tsx", ".py") or not f.is_file():
+                continue
+            try:
+                lineas = f.read_text().split("\n")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for n_linea, linea in enumerate(lineas, 1):
+                for m in patron.finditer(linea):
+                    total += 1
+                    print(f"  {f}:{n_linea}: {m.group(1)} -> ¿{m.group(1)[:-1]}á{m.group(1)[len(m.group(1)) - 1:] if m.group(1)[-1] in 'sn' else ''}? | {linea.strip()[:110]}")
+    print(f"{total} palabras que decide una persona (subjuntivo o futuro, no lo decide el guion)")
+    return total
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--probar":
         print(acentuar_texto(sys.stdin.read()))
+    elif len(sys.argv) > 1 and sys.argv[1] == "--a-mano":
+        raiz = Path(__file__).resolve().parents[2]
+        sys.exit(0 if a_mano([raiz / "frontend" / "src", raiz / "rosa"]) == 0 else 0)
     elif len(sys.argv) > 1 and sys.argv[1] == "--comprobar":
         main(escribir=False)
     else:

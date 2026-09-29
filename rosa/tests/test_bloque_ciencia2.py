@@ -122,7 +122,7 @@ def test_ningun_identificador_de_la_base_lleva_tilde():
 
 
 def test_cada_nodo_de_la_base_tiene_capa_y_etiqueta():
-    """La cascada se escribe una sola vez, aqui: si un nodo se queda sin capa,
+    """La cascada se escribe una sola vez, aquí: si un nodo se queda sin capa,
     la pantalla de mecanismos no sabria en que columna ponerlo."""
     nodos = {r[e] for r in CAUSAL.BASE_CURADA for e in ("de", "a")}
     for nodo in nodos:
@@ -139,8 +139,8 @@ def test_la_etiqueta_lleva_su_tilde_aunque_el_identificador_no():
 
 
 def test_las_capas_van_en_orden_de_la_enfermedad():
-    """Factores antes que patologia, patologia antes que daño: si se
-    desordenan, las flechas de la cascada irian hacia atras."""
+    """Factores antes que patología, patología antes que daño: si se
+    desordenan, las flechas de la cascada irían hacia atrás."""
     orden = {c: i for i, c in enumerate(CAUSAL.CAPAS)}
     for relacion in CAUSAL.BASE_CURADA:
         cd, ca = CAUSAL.capa_de(relacion["de"]), CAUSAL.capa_de(relacion["a"])

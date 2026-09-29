@@ -40,7 +40,7 @@ contexto_actual: contextvars.ContextVar[ContextoLlamada | None] = contextvars.Co
 
 def tope_agotado_en(e: dict[str, Any], corrida_id: str, iteracion: int | None = None) -> str | None:
     """Qué tope cortó, sobre un estado ya cargado: None si hay presupuesto,
-    "corrida" si el gasto de la corrida llegó a `limiteLlamadas`, "iteracion" si
+    "corrida" si el gasto de la corrida llegó a `limiteLlamadas`, "iteración" si
     la iteración dada gastó su `limite`. La corrida se mira primero porque es
     el tope que la persona amplía; el de la iteración es el que se recorta al
     denegar un permiso. Un límite de iteración de 0 (lo que deja una
