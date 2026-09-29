@@ -6,6 +6,7 @@ import { Limite } from './componentes/Limite';
 import { Acceso } from './componentes/Acceso';
 import { observarSistema } from './lib/theme';
 import './styles.css';
+import './vivo.css';
 
 // El tema ya lo aplico el script inline de index.html. Esto solo engancha los
 // cambios del sistema para que la opcion 'sistema' siga al SO en vivo.

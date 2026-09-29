@@ -33,6 +33,7 @@ import { rutaDe } from '../lib/ruta';
 import { atributosEnVuelo, useCalculoDiferido, useEnVuelo } from '../lib/diferido';
 import { BORRADOR_VACIO, NIVELES_OBJETIVO, borradorDe, normalizarParada, resumenParada, type ParadaBorrador } from '../lib/parada';
 import { GraficaProgreso } from '../componentes/GraficaProgreso';
+import { ActividadEnVivo } from '../componentes/ActividadEnVivo';
 import { resumenMetrica } from '../lib/progreso';
 
 type PropsCorrida = { inv: Investigacion; estado: EstadoRosa; ahora: number; irA: (hash: string) => void };
@@ -227,7 +228,6 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
   const incidenciasPendientes = incidencias.filter((i) => i.estado === 'pendiente' && i.tipo !== 'modelo_sin_respuesta');
   const incidenciasAutomaticas = incidencias.filter((i) => i.estado === 'pendiente' && i.tipo === 'modelo_sin_respuesta');
   const esperandoModelo = pausaDelProceso(corrida.estado);
-  const tono = corrida.estado === 'en_marcha' ? 'acento' : corrida.estado === 'detenida' || corrida.estado === 'terminada' ? undefined : 'aviso';
   const alcancesComunes = useMemo(() => {
     const sel = pendientes.filter((s) => seleccion.has(s.id));
     if (sel.length === 0) return [] as AlcancePermiso[];
@@ -255,80 +255,93 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
   if (pintada === null) return <EsqueletoCorrida corrida={corrida} />;
 
   return (
-    <div className="contenido">
+    // `pantalla-vivo` acota la capa de diseño nueva (src/vivo.css) a esta
+    // pantalla mientras se prueba: el resto de ROSA2018 sigue con la base.
+    <div className="contenido pantalla-vivo">
       <AvisoMuestra conexion={estado.conexion} />
       <VigilanteModelos salud={estado.saludModelos} incidencias={incidenciasAutomaticas} estadoCorrida={corrida.estado} espera={corrida.esperandoModelo ?? null} ahora={ahora} onReintentar={envolverCorrida(() => acciones.reanudarCorrida(corrida.id))} />
-      <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
-        <div>
-          <h2>Corrida {corrida.numero}</h2>
-          <div className="corrida-estado">
-            <Chip tono={tono}>{etiquetaCorrida(corrida, iteracion)}</Chip>
-            <span className="meta">Iteración {corrida.iteracionActual}</span>
-            <span className="meta">
-              Empezó <Momento t={corrida.empezadaEn} ahora={ahora} />
-            </span>
-            {corrida.terminadaEn !== null && (
-              <span className="meta">
-                Terminó <Momento t={corrida.terminadaEn} ahora={ahora} />
-              </span>
-            )}
-            <span className="meta" title="Tiempo de trabajo: el reloj de pared menos lo que la corrida pasó esperando a una persona (plan sin aprobar, permiso, pausa) y menos las pausas del proceso. Es lo que se compara con el tope en horas.">
-              {formatearDuracion(segundosDeCorrida * 1000) || '0 s'} de trabajo{viva && enEspera ? ' · en espera de una persona: el reloj no corre' : viva && esperandoModelo ? ' · esperando al modelo: el reloj no corre' : ''}
-            </span>
-            {(corrida.gasto.usdReal !== undefined && corrida.gasto.usdReal !== null) || (corrida.gasto.usd ?? 0) > 0 ? (
-              <span className="meta" title={textoCoste(corrida.gasto).title}>
-                {textoCoste(corrida.gasto).corto}
-              </span>
-            ) : null}
-            {corrida.motivoCierre && <span className="meta">{corrida.motivoCierre}</span>}
-            {corrida.metrica && resumenMetrica(corrida.metrica) && (
-              <span className="meta" title="Balance de la corrida: peldaños de certeza GRADE subidos por las hipótesis, netos de los bajados, y por dólar gastado">
-                Balance: {resumenMetrica(corrida.metrica)}
-              </span>
-            )}
-            {corrida.parada && resumenParada(corrida.parada) && (
-              <span className="meta" title="Parada fijada al crear esta corrida; además sigue valiendo la condición de parada de la investigación">
-                Se detiene con {resumenParada(corrida.parada)}
-              </span>
-            )}
-            {corrida.arnes && (
-              <span className="meta" title={`Firmas ${corrida.arnes.firmas} · programas optimizados: ${corrida.arnes.optimizados}`}>
-                ROSA2018 {corrida.arnes.commit}
-              </span>
-            )}
-          </div>
-        </div>
-        {!viva && estado.conexion !== 'muestra' && <NuevaCorrida inv={inv} anterior={corrida.parada ?? null} />}
-        {viva && (
-          <div className="acciones">
-            {corrida.estado === 'en_marcha' ? (
-              <button type="button" className="btn" disabled={corridaEnVuelo} {...atributosEnVuelo(corridaEnVuelo)} onClick={envolverCorrida(() => acciones.pausarCorrida(corrida.id))}>
-                <IconPause size={13} /> Pausar
+      <div className="pantalla-cabecera vivo-cabecera-pantalla">
+        <h2 className="vivo-titulo-pantalla">Corrida {corrida.numero}</h2>
+      </div>
+
+      {/* La tarjeta viva contesta lo primero: qué hace ROSA2018 ahora mismo,
+          por dónde va y cuánto lleva gastado (28 de septiembre de 2026).
+          Antes eso había que deducirlo de ocho notas grises en una línea y
+          de bajar hasta el plan a buscar el icono que giraba. */}
+      <ActividadEnVivo
+        corrida={corrida}
+        iteracion={iteracion}
+        segundosDeTrabajo={segundosDeCorrida}
+        reclaman={pendientes.length + incidenciasPendientes.length}
+        usd={costeDeLaCorrida(corrida.gasto)}
+        etiqueta={etiquetaCorrida(corrida, iteracion)}
+        relojParado={viva && enEspera ? 'en espera de una persona' : viva && esperandoModelo ? 'esperando al modelo' : null}
+        acciones={
+          <>
+            {!viva && estado.conexion !== 'muestra' && <NuevaCorrida inv={inv} anterior={corrida.parada ?? null} />}
+            {viva && corrida.estado === 'en_marcha' && (
+              <button type="button" className="btn-vivo" disabled={corridaEnVuelo} {...atributosEnVuelo(corridaEnVuelo)} onClick={envolverCorrida(() => acciones.pausarCorrida(corrida.id))}>
+                <IconPause size={12} /> Pausar
               </button>
-            ) : corrida.estado === 'pausada' ? (
-              <>
-                <button type="button" className="btn btn-primario" disabled={corridaEnVuelo} {...atributosEnVuelo(corridaEnVuelo)} onClick={envolverCorrida(() => acciones.reanudarCorrida(corrida.id))}>
-                  <IconPlay size={13} /> Reanudar
-                </button>
-                {corrida.motivoPausaPropia && <p className="pausa-propia">{corrida.motivoPausaPropia}</p>}
-              </>
-            ) : null}
-            <Confirmar
-              etiqueta="Detener"
-              peligro
-              disabled={corridaEnVuelo}
-              pregunta="La corrida se detiene y no se reanuda: lo que hay en el modelo de mundo y en la cola se conserva. Para seguir habría que arrancar una corrida nueva."
-              pedirTexto={{ etiqueta: 'Por qué se detiene', marcador: 'Hay que revisar la cola antes de seguir gastando' }}
-              extra={
-                <label className="interruptor">
-                  <input type="checkbox" checked={vigilar} onChange={(e) => setVigilar(e.target.checked)} />
-                  Vigilar la literatura 30 días: ROSA2018 avisa de artículos nuevos que toquen una hipótesis aceptada
-                </label>
-              }
-              onConfirmar={envolverCorrida((motivo: string) => acciones.detenerCorrida(corrida.id, motivo, vigilar ? 30 : null))}
-            />
-          </div>
+            )}
+            {viva && corrida.estado === 'pausada' && (
+              <button type="button" className="btn-vivo btn-vivo-primario" disabled={corridaEnVuelo} {...atributosEnVuelo(corridaEnVuelo)} onClick={envolverCorrida(() => acciones.reanudarCorrida(corrida.id))}>
+                <IconPlay size={12} /> Reanudar
+              </button>
+            )}
+            {viva && (
+              <Confirmar
+                etiqueta="Detener"
+                peligro
+                clase="btn-vivo"
+                disabled={corridaEnVuelo}
+                pregunta="La corrida se detiene y no se reanuda: lo que hay en el modelo de mundo y en la cola se conserva. Para seguir habría que arrancar una corrida nueva."
+                pedirTexto={{ etiqueta: 'Por qué se detiene', marcador: 'Hay que revisar la cola antes de seguir gastando' }}
+                extra={
+                  <label className="interruptor">
+                    <input type="checkbox" checked={vigilar} onChange={(e) => setVigilar(e.target.checked)} />
+                    Vigilar la literatura 30 días: ROSA2018 avisa de artículos nuevos que toquen una hipótesis aceptada
+                  </label>
+                }
+                onConfirmar={envolverCorrida((motivo: string) => acciones.detenerCorrida(corrida.id, motivo, vigilar ? 30 : null))}
+              />
+            )}
+          </>
+        }
+      />
+
+      {/* La ficha de la corrida: lo que antes iba suelto en la cabecera y no
+          hace falta de un vistazo, pero se sigue pudiendo leer. */}
+      <div className="corrida-ficha">
+        <span className="meta">
+          Empezó <Momento t={corrida.empezadaEn} ahora={ahora} />
+        </span>
+        {corrida.terminadaEn !== null && (
+          <span className="meta">
+            Terminó <Momento t={corrida.terminadaEn} ahora={ahora} />
+          </span>
         )}
+        {textoCoste(corrida.gasto).corto && (
+          <span className="meta" title={textoCoste(corrida.gasto).title}>
+            {textoCoste(corrida.gasto).corto}
+          </span>
+        )}
+        {corrida.metrica && resumenMetrica(corrida.metrica) && (
+          <span className="meta" title="Balance de la corrida: peldaños de certeza GRADE subidos por las hipótesis, netos de los bajados, y por dólar gastado">
+            Balance: {resumenMetrica(corrida.metrica)}
+          </span>
+        )}
+        {corrida.parada && resumenParada(corrida.parada) && (
+          <span className="meta" title="Parada fijada al crear esta corrida; además sigue valiendo la condición de parada de la investigación">
+            Se detiene con {resumenParada(corrida.parada)}
+          </span>
+        )}
+        {corrida.arnes && (
+          <span className="meta" title={`Firmas ${corrida.arnes.firmas} · programas optimizados: ${corrida.arnes.optimizados}`}>
+            ROSA2018 {corrida.arnes.commit}
+          </span>
+        )}
+        {viva && corrida.estado === 'pausada' && corrida.motivoPausaPropia && <p className="pausa-propia">{corrida.motivoPausaPropia}</p>}
       </div>
 
       {(() => {
@@ -841,6 +854,16 @@ export function textoCoste(g: Pick<CorridaTipo['gasto'], 'usd' | 'usdReal' | 'us
     return { corto: `${usd(estimado)} estimados por tokens`, principal: usd(estimado), etiqueta: 'estimados por tokens (el servidor no guardó la factura del gateway)', title: 'Estimación con la tabla de precios de ROSA2018 a partir de los tokens; la factura real la da el AI Gateway y esta corrida no la trae guardada.' };
   }
   return { corto: '', principal: '', etiqueta: '', title: '' };
+}
+
+/** El número que enseña la tarjeta viva como "gastados": el facturado por el
+ *  gateway si el servidor lo guardó y, si no, el estimado por tokens. `null`
+ *  cuando no hay ninguna cifra (una corrida que aún no ha gastado). */
+export function costeDeLaCorrida(g: Pick<CorridaTipo['gasto'], 'usd' | 'usdReal'>): number | null {
+  const real = typeof g.usdReal === 'number' && Number.isFinite(g.usdReal) ? g.usdReal : null;
+  if (real !== null) return real;
+  const estimado = typeof g.usd === 'number' && Number.isFinite(g.usd) ? g.usd : null;
+  return estimado !== null && estimado > 0 ? estimado : null;
 }
 
 /** Segundos de trabajo, actualizados cada segundo mientras la corrida trabaja

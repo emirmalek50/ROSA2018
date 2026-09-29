@@ -1,0 +1,574 @@
+/* ==========================================================================
+   ROSA2018: la capa "viva" (28 de septiembre de 2026)
+   --------------------------------------------------------------------------
+   El encargo de Emir: que se sienta como una app de Apple (macOS/iOS), con
+   movimiento que dé gusto, y que la corrida en vivo por fin parezca viva.
+   Empieza en la pantalla de corrida; si convence, sube al resto.
+
+   Lo que hace distinto a styles.css, que se queda como base:
+
+   - Tipografía del sistema primero (-apple-system): en el Mac de Emir esto es
+     SF Pro de verdad, no una imitación. Inter queda de respaldo.
+   - Una escala tipográfica corta y con jerarquía de verdad, en vez de todo a
+     13-14 px. Lo importante es grande; lo demás se aparta.
+   - Esquinas continuas (squircle) aproximadas con radios generosos, como las
+     tarjetas de iOS, en vez de los 8 px de todo.
+   - Material translúcido (backdrop-filter) SOLO en la tarjeta viva. El error
+     típico al imitar a Apple es poner cristal en todo: entonces no destaca
+     nada y se come el rendimiento.
+   - Cifras con `tabular-nums` para que no bailen mientras corren.
+   - Sombras en capas y muy suaves, nunca una sombra dura.
+
+   Índice:
+     1. Tokens propios de esta capa
+     2. La tarjeta de actividad en vivo
+     3. Constantes vitales (las cifras grandes)
+     4. El plan como línea de tiempo
+     5. Lo que necesita a una persona
+     6. Movimiento reducido
+   ========================================================================== */
+
+/* ---------------------------------------------------------------------- 1 */
+
+:root {
+  /* SF Pro en macOS e iOS; Inter (que se diseñó cerca de SF) en lo demás. */
+  --font-sistema:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+    'Inter Variable', Inter, system-ui, 'Segoe UI', sans-serif;
+
+  /* Escala tipográfica corta, con los nombres de las HIG de Apple. Solo lo
+     que esta capa necesita: si hiciera falta un tamaño más, es que la
+     jerarquía está mal pensada. */
+  --t-titulo-grande: 30px;
+  --t-titulo: 21px;
+  --t-cabecera: 16px;
+  --t-cuerpo: 14px;
+  --t-llamada: 13px;
+  --t-pie: 12px;
+  --t-leyenda: 11px;
+
+  /* Radios continuos: cuanto más grande la caja, más radio, como en iOS. */
+  --r-vivo: 20px;
+  --r-tarjeta: 14px;
+  --r-pieza: 10px;
+  --r-pastilla: 999px;
+
+  /* El material: translúcido sobre el fondo, con saturación subida, que es
+     lo que hace que el vibrancy de Apple se vea vivo y no gris. */
+  --material: rgba(255, 255, 255, 0.72);
+  --material-borde: rgba(255, 255, 255, 0.5);
+  --material-filtro: saturate(180%) blur(20px);
+
+  /* Sombras en capas: el contacto, la elevación y la difusión. */
+  --sombra-vivo:
+    0 0 0 0.5px rgba(0, 0, 0, 0.06),
+    0 1px 2px rgba(28, 25, 23, 0.04),
+    0 8px 24px -8px rgba(28, 25, 23, 0.1),
+    0 24px 48px -24px rgba(28, 25, 23, 0.14);
+
+  /* El acento de ROSA2018 (el morado del árbol) y el verde de "está vivo". */
+  --vivo: #30d158;
+  --vivo-halo: rgba(48, 209, 88, 0.22);
+  --espera: #ff9f0a;
+  --espera-halo: rgba(255, 159, 10, 0.22);
+  --quieto: #8e8e93;
+  --quieto-halo: rgba(142, 142, 147, 0.2);
+}
+
+:root[data-theme='dark'] {
+  --material: rgba(30, 30, 32, 0.68);
+  --material-borde: rgba(255, 255, 255, 0.1);
+  --sombra-vivo:
+    0 0 0 0.5px rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 8px 24px -8px rgba(0, 0, 0, 0.55),
+    0 24px 48px -24px rgba(0, 0, 0, 0.6);
+  --vivo: #32d74b;
+  --espera: #ffd60a;
+  --espera-halo: rgba(255, 214, 10, 0.2);
+  --quieto: #8e8e93;
+}
+
+/* ---------------------------------------------------------------------- 2 */
+
+/* La tarjeta que contesta de un vistazo "qué está haciendo ROSA2018 ahora y
+   cómo va". Es lo único con material translúcido de toda la pantalla: eso es
+   lo que la hace destacar sin gritar. */
+.vivo {
+  position: relative;
+  font-family: var(--font-sistema);
+  background: var(--material);
+  -webkit-backdrop-filter: var(--material-filtro);
+  backdrop-filter: var(--material-filtro);
+  border: 0.5px solid var(--material-borde);
+  border-radius: var(--r-vivo);
+  box-shadow: var(--sombra-vivo);
+  padding: 20px 22px 18px;
+  overflow: hidden;
+}
+
+/* El resplandor que tiñe la tarjeta según el estado, sin usar color plano.
+   Va como capa del propio fondo, encima del material: con un ::before detrás
+   el material translúcido se lo comía y no se veía nada. */
+.vivo {
+  background-image: radial-gradient(70% 120% at 18% -10%, var(--halo, transparent), transparent 62%);
+  background-repeat: no-repeat;
+  --halo: var(--quieto-halo);
+}
+
+.vivo-marcha { --halo: var(--vivo-halo); }
+.vivo-espera { --halo: var(--espera-halo); }
+.vivo-quieto { --halo: var(--quieto-halo); }
+
+/* La fila de arriba: el estado a la izquierda, el reloj a la derecha. */
+.vivo-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.vivo-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-llamada);
+  font-weight: 590;
+  letter-spacing: -0.08px;
+  color: var(--text);
+}
+
+.vivo-estado em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+/* El punto de estado. Late solo cuando de verdad hay algo pasando. */
+.vivo-punto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--quieto);
+  flex: none;
+}
+
+.vivo-marcha .vivo-punto {
+  background: var(--vivo);
+  box-shadow: 0 0 0 0 var(--vivo-halo);
+  animation: vivo-latido 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.vivo-espera .vivo-punto {
+  background: var(--espera);
+}
+
+@keyframes vivo-latido {
+  0% { box-shadow: 0 0 0 0 var(--vivo-halo); }
+  70% { box-shadow: 0 0 0 7px rgba(48, 209, 88, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(48, 209, 88, 0); }
+}
+
+.vivo-reloj {
+  font-size: var(--t-llamada);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.vivo-reloj b {
+  color: var(--text);
+  font-weight: 590;
+}
+
+/* Lo que está haciendo ahora mismo: la línea grande, lo primero que se lee. */
+.vivo-haciendo {
+  margin: 14px 0 0;
+  font-size: var(--t-titulo);
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  line-height: 1.24;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+.vivo-detalle {
+  margin: 5px 0 0;
+  font-size: var(--t-llamada);
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+/* El progreso de la iteración, un paso por segmento, como los indicadores
+   segmentados de iOS. Dice en qué punto va sin leer un número. */
+.vivo-pasos {
+  display: flex;
+  gap: 3px;
+  margin-top: 14px;
+}
+
+.vivo-paso {
+  height: 4px;
+  flex: 1;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  overflow: hidden;
+  position: relative;
+}
+
+.vivo-paso-hecho { background: var(--accent); }
+.vivo-paso-fallido { background: var(--red); }
+.vivo-paso-sin_trabajo,
+.vivo-paso-omitido { background: color-mix(in srgb, var(--text) 22%, transparent); }
+
+/* El paso en curso: una luz que lo recorre, como la barra indeterminada de
+   macOS. Es el detalle que más dice "esto está pasando ahora". */
+.vivo-paso-en_curso {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.vivo-paso-en_curso::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: vivo-recorre 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes vivo-recorre {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(340%); }
+}
+
+/* ---------------------------------------------------------------------- 3 */
+
+/* Las constantes vitales: pocas, grandes y con las cifras alineadas. Cuatro
+   como mucho; si hicieran falta más, es que no todas son vitales. */
+.vivo-vitales {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 0.5px solid var(--border);
+}
+
+.vivo-vital {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.vivo-vital-cifra {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--text);
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.vivo-vital-cifra small {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  letter-spacing: -0.2px;
+}
+
+.vivo-vital-nombre {
+  font-size: var(--t-leyenda);
+  color: var(--text-2);
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* El aro del tope: dice cuánto queda sin leer una cifra. */
+.vivo-aro {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 7px;
+  translate: 0 1px;
+}
+
+.vivo-aro svg {
+  flex: none;
+  transform: rotate(-90deg);
+}
+
+.vivo-aro circle {
+  fill: none;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.vivo-aro .vivo-aro-fondo {
+  stroke: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.vivo-aro .vivo-aro-frente {
+  stroke: var(--accent);
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.vivo-aro-aviso .vivo-aro-frente { stroke: var(--espera); }
+
+/* ---------------------------------------------------------------------- 4 */
+
+/* La fila de acciones dentro de la tarjeta viva: botones estilo iOS, con
+   pastilla y material, no los botones cuadrados de la base. */
+.vivo-acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-vivo {
+  font-family: var(--font-sistema);
+  font-size: var(--t-llamada);
+  font-weight: 510;
+  letter-spacing: -0.08px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--r-pastilla);
+  border: 0.5px solid var(--border-strong);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), background 0.14s ease, border-color 0.14s ease;
+}
+
+.btn-vivo:hover {
+  background: var(--surface);
+  border-color: var(--text-3);
+}
+
+/* El rebote al pulsar: es lo que hace que un botón "se sienta". */
+.btn-vivo:active {
+  transform: scale(0.96);
+}
+
+.btn-vivo-primario {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-contrast);
+}
+
+.btn-vivo-primario:hover {
+  background: var(--accent-strong);
+  border-color: transparent;
+}
+
+.btn-vivo:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+
+/* ---------------------------------------------------------------------- 5 */
+
+/* Lo que necesita a una persona: se separa del resto con color y sitio, no
+   con otro título gris más. */
+.vivo-reclamo {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--r-tarjeta);
+  background: color-mix(in srgb, var(--espera) 12%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--espera) 34%, transparent);
+  font-size: var(--t-llamada);
+  line-height: 1.45;
+}
+
+.vivo-reclamo-icono {
+  color: var(--espera);
+  flex: none;
+  margin-top: 1px;
+}
+
+.vivo-reclamo strong {
+  font-weight: 590;
+}
+
+/* ---------------------------------------------------------------------- 6 */
+
+@media (prefers-reduced-motion: reduce) {
+  .vivo-marcha .vivo-punto,
+  .vivo-paso-en_curso::after {
+    animation: none;
+  }
+  .vivo-paso-en_curso::after {
+    transform: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+  .btn-vivo:active {
+    transform: none;
+  }
+}
+
+/* Sin soporte de backdrop-filter, fondo sólido: nunca texto sobre nada. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .vivo {
+    background: var(--surface);
+  }
+}
+
+@media (max-width: 700px) {
+  .vivo {
+    padding: 16px 16px 14px;
+    border-radius: var(--r-tarjeta);
+  }
+  .vivo-haciendo {
+    font-size: 18px;
+  }
+  .vivo-vitales {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 2px;
+  }
+}
+
+/* ==========================================================================
+   La pantalla que usa esta capa. Acotado a `.pantalla-vivo` mientras se
+   prueba en la corrida; si convence, sube a `.contenido` y vale para todas.
+   ========================================================================== */
+
+.pantalla-vivo {
+  font-family: var(--font-sistema);
+  letter-spacing: -0.01em;
+}
+
+.vivo-titulo-pantalla {
+  font-size: var(--t-titulo-grande);
+  font-weight: 640;
+  letter-spacing: -0.9px;
+  line-height: 1.12;
+  margin: 18px 0 14px;
+}
+
+/* La ficha: lo que antes competía con el título en ocho notas grises. Ahora
+   va debajo de la tarjeta viva, en pequeño, y no estorba. */
+.corrida-ficha {
+  display: flex;
+  align-items: center;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  margin: 12px 2px 0;
+  font-size: var(--t-pie);
+}
+
+.corrida-ficha .meta {
+  font-size: var(--t-pie);
+  color: var(--text-3);
+}
+
+/* Secciones: un título que se lee como título, y aire entre bloques. El
+   problema de la pantalla vieja no era el color, era que todo medía 14 px. */
+.pantalla-vivo .seccion + .seccion {
+  margin-top: 36px;
+}
+
+.pantalla-vivo .seccion-titulo h3 {
+  font-size: var(--t-cabecera);
+  font-weight: 620;
+  letter-spacing: -0.35px;
+}
+
+.pantalla-vivo .seccion-titulo p,
+.pantalla-vivo .nota {
+  font-size: var(--t-pie);
+  color: var(--text-2);
+  max-width: 76ch;
+}
+
+/* Tarjetas: esquina continua, borde de medio píxel y sombra de contacto, como
+   una tarjeta de iOS. El borde gris de 1 px en todo es la marca de un
+   dashboard genérico. */
+.pantalla-vivo .tarjeta {
+  border-radius: var(--r-tarjeta);
+  border: 0.5px solid var(--border);
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.035);
+  padding: 18px 20px;
+}
+
+:root[data-theme='dark'] .pantalla-vivo .tarjeta {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Las cifras del gasto: alineadas, sin caja cada una. Siete cajas iguales con
+   borde eran siete cosas gritando lo mismo. */
+.pantalla-vivo .gasto {
+  gap: 0;
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-tarjeta);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.pantalla-vivo .gasto-item {
+  border: 0;
+  border-radius: 0;
+  box-shadow: inset -0.5px 0 0 var(--border), inset 0 -0.5px 0 var(--border);
+  padding: 14px 16px;
+}
+
+.pantalla-vivo .gasto-item strong {
+  font-size: 19px;
+  letter-spacing: -0.5px;
+}
+
+.pantalla-vivo .gasto-item span {
+  font-size: var(--t-leyenda);
+}
+
+/* Botones de la pantalla: pastilla y rebote al pulsar, como en iOS. */
+.pantalla-vivo .btn {
+  border-radius: var(--r-pastilla);
+  font-family: var(--font-sistema);
+  font-weight: 510;
+  letter-spacing: -0.08px;
+  transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), background 0.14s ease, border-color 0.14s ease;
+}
+
+.pantalla-vivo .btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.pantalla-vivo .chip {
+  border-radius: var(--r-pastilla);
+  font-weight: 510;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pantalla-vivo .btn:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .vivo-titulo-pantalla {
+    font-size: 24px;
+    letter-spacing: -0.6px;
+  }
+}
+
+/* El título de la pantalla conserva la clase `pantalla-cabecera` como ancla
+   estructural (hay tests que la usan para comprobar el orden de la página),
+   pero sin el margen ni la fila de notas de la versión antigua. */
+.vivo-cabecera-pantalla {
+  display: block;
+  margin-bottom: 0;
+}
