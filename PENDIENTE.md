@@ -545,3 +545,21 @@ por el riesgo que cierra.
    líneas base obligatorias y THBKG (arXiv:2608.05982) como conjunto externo.
 9. **Presentar el Elo como opinión del juez, no como calidad** (Si y otros,
    arXiv:2506.20803: tras ejecutar las ideas, el ranking se da la vuelta).
+
+## 29 de septiembre de 2026: siglas clínicas resueltas como genes
+
+Medido sobre el estado (solo lectura), al contar qué entidades reúne todo el
+conocimiento de ROSA2018 para la sección molecular. Entre las quince más
+frecuentes hay dos genes falsos, con 22 hechos cada uno:
+
+- "ARIA" (anomalías de imagen asociadas al amiloide, el efecto adverso de
+  lecanemab) se resolvió como el gen ECSCR (HGNC:35454), que tiene ARIA de alias.
+- "ADAS" (la escala ADAS-Cog) se resolvió como el gen AGPS (HGNC:327).
+
+La causa está en `gen_hgnc` (`rosa/ontologias.py:99`): acepta `alias_symbol` y
+`prev_symbol` de HGNC sin una lista de siglas clínicas del dominio que no son
+genes (ARIA, ADAS, CDR, MMSE, MCI, PET...). Arreglo propuesto: esa lista de
+exclusión y, cuando el gen se resuelve por alias y no por símbolo aprobado,
+exigir contexto de gen o proteína en el fragmento. Después, volver a normalizar
+las entidades de los hechos afectados. Importa para la sección molecular y para
+las pistas de redundancia entre hipótesis, que se calculan con estas entidades.
