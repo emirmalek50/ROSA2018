@@ -54,4 +54,81 @@ para lo que lo agranda o lo encarece, 1 para lo que no sale de la base de ROSA20
 
 ## 2. Resultados
 
-(Se rellena después de calcular, sin tocar la sección 1.)
+Calculado a las 09:20 sobre la base real (34 hipótesis, 6 investigaciones), con el
+mapa de la enfermedad recalculado en el momento y no el guardado.
+
+| Clave | Medido | Puntuación |
+|---|---|---|
+| B1 concentración | 0,76 de las vivas en las dos celdas más pobladas | 1,00 |
+| B2 nichos listos | 6,5 por investigación (celdas con 2 o más cohortes y ninguna hipótesis) | 1,00 |
+| B3 redundancia | 0 de 34 con un título casi igual | 0,00 |
+| B4 respaldo externo | fijo | 1,00 |
+| H1 bloqueo por tope | 0 de 6 investigaciones con 10 vivas | 0,00 |
+| H2 nichos de una cohorte | 109 de 148 celdas vacías | 0,74 |
+| H3 coste | 2 llamadas sobre una mediana de 147 por iteración (1,4 %) | 0,14 |
+| H4 deriva | 0,12 de las celdas candidatas fuera de la misión | 0,12 |
+
+Beneficio ponderado 7,00; daño ponderado 2,61. **P = 0,729. Supera el 0,60: se
+construye.**
+
+### Comprobación de robustez (no prerregistrada, informativa)
+
+Una hipótesis puede estar en varias celdas a la vez, así que una celda genérica
+("plasma, sin fase, sin tipo celular") podría inflar la concentración. No pasa:
+cada hipótesis viva ocupa de media 1,6 celdas (mediana 1). Quitando las celdas con
+dos o más ejes vacíos, P = 0,717. La decisión no depende de eso.
+
+### Lo que dicen los datos, en concreto
+
+- En "GFAP y NfL en portadores de APOE4" las 7 hipótesis vivas están en la MISMA
+  celda: fase preclínica × plasma × astrocito. La celda "prodrómica o DCL × plasma
+  × astrocito" tiene 7 hechos de 2 cohortes y ninguna hipótesis.
+- En "reducir amiloide y tau en neuronas", "plasma × neurona" tiene 86 hechos de
+  26 cohortes y ninguna hipótesis, y "LCR × neurona", 43 hechos de 19 cohortes.
+- El generador no repite títulos (B3 = 0): el problema no es que proponga lo mismo
+  dos veces, es que propone siempre en el mismo rincón de la enfermedad.
+
+## 3. Predicción
+
+**Lo que ganaría.** El equipo recibiría, además de su enfoque, un nicho concreto con
+los hechos que ya lo pueblan, y el marcador por regla premiaría caer en un nicho
+vacío con evidencia de dos cohortes. Con 2 entradas por iteración y 4,5 a 6,5
+nichos listos por investigación, en 3 o 4 iteraciones las investigaciones
+tendrían hipótesis repartidas por la enfermedad en vez de amontonadas en una
+celda. Y como los nichos listos tienen dos cohortes, lo que naciera ahí nacería
+directamente, sin pasar por el vivero.
+
+**Lo que podría romper, y cómo se evita.**
+
+1. El 74 % de las celdas vacías solo tiene evidencia de una cohorte. Si el equipo
+   apuntara ahí, lo que propusiera iría al vivero y se retiraría a las seis
+   iteraciones: trabajo tirado. Se evita apuntando SOLO a nichos con dos o más
+   cohortes.
+2. Forzar un nicho puede empujar al modelo a inventar para encajar. Se evita con
+   un mandato explícito: si las afirmaciones no dan para el nicho, no forzarlo, y
+   un miembro del equipo queda siempre libre, sin nicho asignado.
+3. MAP-Elites no arregla el embudo del Killer (27 de 34 suspendidas). Da más
+   variedad a lo que entra, no más supervivencia a lo que ya está. Lo que suspende
+   (novedad sin comprobar, sesgo de la evidencia) sigue igual.
+4. Coste: cero llamadas extra si se guía a los miembros que ya existen en vez de
+   añadir uno. Es lo que se hará.
+
+**Cómo se comprobará que funcionó.** El tablero del método gana un indicador de
+nichos: cuántas celdas ocupan las vivas y cuántos nichos listos siguen vacíos, y
+cada hipótesis guarda su nicho. Si tras tres iteraciones las nuevas siguen cayendo
+en la celda de siempre, la predicción falló y se dice.
+
+## 4. Plan
+
+1. `rosa/nichos.py`: el archivo por nichos, por regla, desde el mapa de la
+   enfermedad guardado. Celdas ocupadas con su élite (la mejor hipótesis de cada
+   una por Elo), nichos listos (hechos de dos o más cohortes, ninguna hipótesis,
+   al menos dos ejes con valor), el reparto de nichos entre los miembros del equipo
+   (uno queda libre, rotando por iteración) y el nicho de una propuesta.
+2. `GenerarHipotesis` recibe su nicho con los hechos que lo pueblan y la regla:
+   si las afirmaciones no dan para él, no forzarlo.
+3. El marcador del equipo (`equipo.puntuar`), por regla: +2 si la propuesta cae en
+   un nicho listo; −2 si solo cae en la celda más poblada con tres o más vivas.
+4. La hipótesis que nace guarda su nicho (y la semilla del vivero también).
+5. El tablero del método gana el indicador de nichos (versión 3 de sus reglas).
+6. Tests, prueba sobre la base real, commit y reinicio.
