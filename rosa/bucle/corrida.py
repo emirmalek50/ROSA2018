@@ -1261,8 +1261,21 @@ class Supervisor:
         if ruta is None or not ruta.exists():
             resultado = {"veredicto": "no_evaluable", "clasificacion": "fallo_tecnico", "resultado": "No se encontró el fichero de datos en el servidor.", "motivo": f"Se registro el nombre '{x.get('ficheroDatos')}' pero el fichero no se subio. Sube el fichero desde la ficha.", "limitaciones": "", "cifras": [], "exploratorio": "", "fecha": ahora, "fichero": x.get("ficheroDatos")}
         cabecera = ""
+        ilegible: str | None = None
         if ruta is not None and ruta.exists():
-            resumen, muestra = await asyncio.to_thread(D.resumir, ruta)
+            try:
+                resumen, muestra = await asyncio.to_thread(D.resumir, ruta)
+            except Exception as ex:  # PDF corrupto, celda mayor que el limite de csv, fichero truncado
+                # Un fichero que no se puede leer es "no pude comprobar", y hay que
+                # DEJARLO DICHO: si la excepcion sube, `_resultadoEvaluado` no se
+                # marca, el siguiente tick vuelve a esta misma hipotesis y hace
+                # `return` antes de llegar a ninguna otra, asi que un solo fichero
+                # ilegible congela el relleno de fondo entero (viabilidad,
+                # conclusiones, resumen en llano, experimentos) para siempre.
+                ilegible = f"{type(ex).__name__}: {ex}"[:300]
+        if ilegible is not None:
+            resultado = {"veredicto": "no_evaluable", "clasificacion": "fallo_tecnico", "resultado": "No se pudo leer el fichero de datos.", "motivo": f"El fichero '{x.get('ficheroDatos')}' está en el servidor pero no se pudo abrir ({ilegible}). Vuelve a exportarlo desde el instrumento y súbelo otra vez; si es un PDF, comprueba que abre en un lector.", "limitaciones": "", "cifras": [], "exploratorio": "", "fecha": ahora, "fichero": x.get("ficheroDatos")}
+        elif ruta is not None and ruta.exists():
             cabecera = muestra.splitlines()[0] if muestra else ""
             # Los datos del laboratorio no salen al modelo fila a fila: el juez recibe el
             # resumen agregado y solo la cabecera de la muestra.

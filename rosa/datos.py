@@ -261,7 +261,18 @@ def resumir(ruta: Path, filas_muestra: int = 40) -> tuple[str, str]:
             dialecto = csv.Sniffer().sniff(texto[:5000], delimiters=",;\t|")
         except csv.Error:
             dialecto = csv.excel
-        lector = list(csv.reader(io.StringIO(texto), dialecto))
+        # Una celda mas ancha que el limite de campo de csv (131072 por defecto) es
+        # dato legitimo, no un fichero roto: una nota de laboratorio larga, una
+        # secuencia pegada. Se sube el limite para este fichero y, si aun asi falla,
+        # se cae al resumen de texto en vez de dejar sin evaluar los datos.
+        limite = csv.field_size_limit()
+        try:
+            csv.field_size_limit(min(2**31 - 1, max(limite, len(texto) + 1)))
+            lector = list(csv.reader(io.StringIO(texto), dialecto))
+        except (csv.Error, OverflowError):
+            lector = []
+        finally:
+            csv.field_size_limit(limite)
         lector = [f for f in lector if any(c.strip() for c in f)]
         if len(lector) >= 2:
             cabecera, filas = lector[0], lector[1:]

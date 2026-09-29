@@ -892,3 +892,30 @@ def test_detener_la_corrida_mientras_se_propone_el_plan_no_la_resucita(monkeypat
     c2 = next(x for x in al.estado["corridas"] if x["id"] == ids["cor"])
     assert c2["estado"] == "detenida"
     assert len(al.estado["iteraciones"]) == n_antes
+
+
+def test_un_fichero_ilegible_no_atasca_el_relleno_de_fondo(monkeypatch, tmp_path):
+    """Hasta el 29 de septiembre de 2026, `D.resumir` se llamaba fuera del try. Un
+    PDF corrupto o un CSV truncado lanzaba, la excepción subía sin marcar
+    `_resultadoEvaluado`, y como la rama de datos_recibidos es la PRIMERA del
+    bucle de relleno y hace `return`, el siguiente tick volvía a la misma
+    hipótesis: un solo fichero ilegible congelaba para siempre la viabilidad, las
+    conclusiones, el resumen en llano y los experimentos de TODAS las hipótesis.
+    Ahora es un fallo técnico con el motivo escrito, y el bucle sigue."""
+    from rosa import datos as D
+
+    al, ids = _preparar()
+    _con_experimento_asignado(al, ids, tmp_path, monkeypatch)
+    # El fichero existe y no se puede leer: lo que llega de un instrumento a medio exportar.
+    D.ruta_de(ids["hip"], "datos.csv").write_bytes(b"%PDF-1.4 truncado\x00\x00")
+    monkeypatch.setattr(D, "resumir", lambda *a, **k: (_ for _ in ()).throw(ValueError("Failed to open file")))
+    sup, ctx, _ = _supervisor(al, ids, {"concluir": _pred_conclusion()}, monkeypatch)
+    asyncio.run(sup._evaluar_resultado(ctx, _hip(al, ids)))
+
+    h = _hip(al, ids)
+    r = h["experimento"]["resultado"]
+    assert r["veredicto"] == "no_evaluable" and r["clasificacion"] == "fallo_tecnico"
+    # El motivo dice qué hacer, no solo que falló.
+    assert "no se pudo abrir" in r["motivo"] and "súbelo otra vez" in r["motivo"]
+    # Y, lo que importa: queda marcado, así que el bucle de relleno pasa de largo.
+    assert h["_resultadoEvaluado"] is True

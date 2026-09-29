@@ -40,3 +40,43 @@ def test_normalizacion_y_fidelidad():
     assert V.fidelidad(["sostenida", "parcial", "sin_cita", "sostenida"]) == 2 / 3
     assert V.fidelidad(["sin_cita"]) is None
     assert V.bloquea("ausencia_refutada") and not V.bloquea("parcial")
+
+
+def test_un_identificador_parecido_no_cuenta_como_el_mismo():
+    """Hasta el 29 de septiembre de 2026 los identificadores se comparaban por
+    subcadena en los dos sentidos, así que rs429358 "aparecía" en un pasaje que
+    hablaba de rs4293588 (otra variante) y 10.1038/nature123 en uno que citaba
+    10.1038/nature1234 (otro artículo). Sobre las 22 coincidencias reales de la
+    base no había ni una que la regla laxa salvase: solo dejaba pasar el
+    identificador equivocado, que es el fallo que el verificador existe para
+    atrapar."""
+    frags = [
+        F("f1", "Genética, 2025", "pág. 4", "El alelo rs4293588 se asoció al riesgo (10.1038/nature1234).", "Resultados"),
+    ]
+
+    def d(texto):
+        return V.comprobar_determinista(texto, "[Genética, 2025, pág. 4]", None, frags, frags)
+
+    # Un SNP que se parece al del pasaje pero no es el del pasaje.
+    r = d("El alelo rs429358 se asoció al riesgo.")
+    assert r.veredicto == "no_sostenida" and "rs429358".upper() in r.motivo.upper()
+    # Un DOI que es prefijo del del pasaje es OTRO artículo.
+    assert d("Lo describe 10.1038/nature123.").veredicto == "no_sostenida"
+    # El mismo sí pasa (no se ha roto la comprobación).
+    assert d("El alelo rs4293588 se asoció al riesgo.").veredicto != "no_sostenida"
+
+
+def test_el_doi_de_un_suplemento_del_mismo_trabajo_sigue_contando():
+    """La única holgura que se mantiene: si el pasaje nombra 10.1234/abc.s001 y
+    la afirmación cita 10.1234/abc, el pasaje nombra un componente del mismo
+    trabajo. Al revés no, porque entonces la afirmación habla de un objeto que
+    el pasaje no nombra."""
+    frags = [F("f1", "Suplemento, 2025", "pág. 2", "Los datos están en 10.1234/abc.s001 junto al método.", "")]
+
+    def d(texto):
+        return V.comprobar_determinista(texto, "[Suplemento, 2025, pág. 2]", None, frags, frags)
+
+    assert d("El método está en 10.1234/abc.").veredicto != "no_sostenida"
+    frags2 = [F("f1", "Artículo, 2025", "pág. 2", "El artículo es 10.1234/abc.", "")]
+    r = V.comprobar_determinista("Los datos crudos están en 10.1234/abc.s001.", "[Artículo, 2025, pág. 2]", None, frags2, frags2)
+    assert r.veredicto == "no_sostenida"

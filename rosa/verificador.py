@@ -700,6 +700,30 @@ def motivo_cita_no_resuelta(cita: str, fragmentos: list[Fragmento], fuente_id: s
     return f"La fuente {de_la_fuente[0].referencia} no tiene el localizador de la cita {cita} (tiene: {muestra})."
 
 
+def _identificador_presente(ident: str, ids_fragmento: set[str]) -> bool:
+    """Un identificador de la afirmación aparece en el pasaje.
+
+    Hasta el 29 de septiembre de 2026 esto comparaba por subcadena en los dos
+    sentidos (`i in j or j in i`), y eso NO es una coincidencia: rs429358 y
+    rs4293588 son dos variantes distintas, 10.1038/nature123 y
+    10.1038/nature1234 son dos artículos distintos, y el laxo los daba por
+    iguales. Sobre las 22 coincidencias reales de la base entera, la regla laxa
+    no aprobaba ni una que la estricta rechace: no servía para nada y dejaba
+    pasar el identificador equivocado, que es justo el fallo que el verificador
+    existe para atrapar.
+
+    La única holgura que se mantiene es la del DOI en un sentido: si la
+    afirmación cita 10.1234/abc y el pasaje nombra 10.1234/abc.s001, el pasaje
+    está nombrando un componente del MISMO trabajo (suplemento, figura) y eso
+    cuenta. Al revés no: si la afirmación cita el suplemento y el pasaje solo
+    nombra el artículo, la afirmación habla de algo que el pasaje no nombra."""
+    if ident in ids_fragmento:
+        return True
+    if ident.startswith("10."):
+        return any(j.startswith(ident) and j[len(ident)] in "./-" for j in ids_fragmento if len(j) > len(ident))
+    return False
+
+
 def comprobar_determinista(texto: str, cita: str, fragmento_citado: str | None, fragmentos: list[Fragmento], alcance: list[Fragmento], excluir: set[str] | None = None, fuente_id: str | None = None) -> Resultado:
     """Las comprobaciones sin modelo. Si devuelve `necesita_juez`, la
     afirmación va al juez con las pistas. `fuente_id` es el de la afirmación
@@ -726,7 +750,7 @@ def comprobar_determinista(texto: str, cita: str, fragmento_citado: str | None, 
 
     ids_afirmacion = identificadores_de(texto)
     ids_fragmento = identificadores_de(frag.texto + " " + frag.encabezado)
-    faltan = {i for i in ids_afirmacion if not any(i in j or j in i for j in ids_fragmento)}
+    faltan = {i for i in ids_afirmacion if not _identificador_presente(i, ids_fragmento)}
     if faltan:
         return Resultado("no_sostenida", f"Identificadores que no aparecen en el fragmento citado: {', '.join(sorted(faltan))}.", fragmento=frag)
 

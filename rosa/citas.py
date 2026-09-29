@@ -617,11 +617,17 @@ async def reverificar(almacen: Any, programas: Any, modelos: Any, corrida_id: st
     return {"ok": True, "revisadas": len(afirmaciones), "recuento": recuento, "desbloqueadas": desbloqueadas}
 
 
-def resumen(corrida: dict[str, Any]) -> dict[str, Any]:
+def resumen(corrida: dict[str, Any], filas: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Cuántas afirmaciones hay por veredicto y cuántas resuelven a página
     exacta. Es la cifra honesta de la pantalla: la mayoría de las fuentes no
-    tienen PDF, y eso se dice en vez de disimularlo."""
-    filas = lista(corrida)
+    tienen PDF, y eso se dice en vez de disimularlo.
+
+    `filas` es el resultado de `lista` cuando quien llama ya lo tiene: recorrer
+    1.431 afirmaciones cuesta 600 ms (medido el 29 de septiembre de 2026 sobre
+    cor-mucppi81-3411) y la ruta que sirve la pantalla pedía las dos cosas, así
+    que lo pagaba dos veces."""
+    if filas is None:
+        filas = lista(corrida)
     por_veredicto: dict[str, int] = {}
     por_clase: dict[str, int] = {}
     for f in filas:

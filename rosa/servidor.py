@@ -34,6 +34,7 @@ from __future__ import annotations
 import asyncio
 import json
 import contextlib
+import copy
 import time
 import sys
 import secrets
@@ -684,7 +685,20 @@ def crear_app(almacen: Almacen) -> FastAPI:
         c = next((x for x in almacen.estado["corridas"] if x["id"] == corrida_id), None)
         if not c:
             raise HTTPException(404, "Corrida desconocida")
-        return JSONResponse(content={"corridaId": corrida_id, "resumen": CI.resumen(c), "afirmaciones": CI.lista(c)}, headers={"Cache-Control": "no-store"})
+
+        # Recorrer las afirmaciones de una corrida grande cuesta 1,2 s de CPU (1.431
+        # afirmaciones, medido el 29 de septiembre de 2026): en el bucle de eventos
+        # eso congela el SSE, la corrida y el resto del servidor. Va a un hilo, y lo
+        # que el hilo lee es una COPIA hecha aquí sin ceder el control: ningún
+        # reducer puede correr entre estas dos líneas, así que la copia sale
+        # coherente y el hilo no lee una lista que la corrida está modificando.
+        instante = {"_afirmaciones": copy.deepcopy(c.get("_afirmaciones") or []), "_fuentes": copy.deepcopy(c.get("_fuentes") or [])}
+
+        def _calcular() -> dict[str, Any]:
+            filas = CI.lista(instante)
+            return {"corridaId": corrida_id, "resumen": CI.resumen(instante, filas), "afirmaciones": filas}
+
+        return JSONResponse(content=await asyncio.to_thread(_calcular), headers={"Cache-Control": "no-store"})
 
     @app.get("/api/corridas/{corrida_id}/citas/{afirmacion_id}")
     async def cita(corrida_id: str, afirmacion_id: str) -> JSONResponse:
