@@ -1581,6 +1581,16 @@ def _anotar_coste_exa(ctx: Ctx, usd: float) -> None:
 
 
 def _contar_fallo_fuente(ctx: Ctx, base: str, error: str) -> None:
+    """Un fallo más de esta base en esta corrida. A los tres, incidencia.
+
+    El contador es acumulativo y el texto lo dice así. Antes decía "lleva 3
+    fallos SEGUIDOS" y nada lo bajaba nunca (28 de septiembre de 2026): PubMed
+    fallaba tres veces en la iteración 1, funcionaba perfectamente en las cinco
+    siguientes, y la incidencia seguía diciendo "3 fallos seguidos" mientras el
+    traspaso la listaba entre las bases que no respondieron y la cola de tareas
+    proponía buscar en otra. Se elige contar acumulado y decirlo, que es lo que
+    ya esperan `lecciones.py` y `tareas.py` ("en esta corrida")."""
+
     def fn(e: dict[str, Any]) -> bool:
         c = next(x for x in e["corridas"] if x["id"] == ctx.corrida_id)
         fallos = c.setdefault("_fallosFuente", {})
@@ -1588,8 +1598,9 @@ def _contar_fallo_fuente(ctx: Ctx, base: str, error: str) -> None:
         return True
 
     ctx.mutar(fn, "fallo_fuente")
-    if ctx.corrida().get("_fallosFuente", {}).get(base, 0) >= 3:
-        ctx.incidencia("fuente_sin_respuesta", f"{base} lleva 3 fallos seguidos", error[:400], base, "Comprobar la conexión o esperar; ROSA2018 sigue con las demás fuentes.")
+    cuantos = ctx.corrida().get("_fallosFuente", {}).get(base, 0)
+    if cuantos >= 3:
+        ctx.incidencia("fuente_sin_respuesta", f"{base} lleva {cuantos} fallos en esta corrida", error[:400], base, "Comprobar la conexión o esperar; ROSA2018 sigue con las demás fuentes.")
 
 
 async def paso_literatura(ctx: Ctx, paso: dict[str, Any]) -> str:
@@ -4023,7 +4034,8 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
     pista = ctx.pista(paso["id"], "modelo", "Generar y revisar hipótesis", "GPT-6 Astra + Opus 5")
     nuevas_ids: list[str] = []
     vivas = sum(1 for x in e["hipotesis"] if x["investigacionId"] == ctx.investigacion_id and x["estado"] not in ("descartada",))
-    if vivas >= politicas.MAX_HIPOTESIS_VIVAS_POR_MISION:
+    tope_de_vivas = vivas >= politicas.MAX_HIPOTESIS_VIVAS_POR_MISION
+    if tope_de_vivas:
         pista.nota(f"Hay {vivas} hipótesis vivas: la política fija {politicas.MAX_HIPOTESIS_VIVAS_POR_MISION} por misión, así que no se generan nuevas hasta que se decidan algunas")
         validas = []
     if validas:
@@ -4096,7 +4108,13 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
             existentes_titulos.add(V.normalizar(h["titulo"]))
             pista.resultado(f"Nueva: {h['titulo'][:90]}")
     else:
-        pista.nota("Sin afirmaciones sostenidas: no se generan hipótesis nuevas en esta iteración")
+        # Solo cuando el motivo ES ese. Al llegar al tope de hipótesis vivas se
+        # vaciaba `validas` y se caía aquí, así que la pista decía "Sin
+        # afirmaciones sostenidas" justo debajo de "hay 10 hipótesis vivas",
+        # con 400 afirmaciones sostenidas en la corrida (28 de septiembre de
+        # 2026). La segunda contradice a la primera y es la que se lee.
+        if not tope_de_vivas:
+            pista.nota("Sin afirmaciones sostenidas: no se generan hipótesis nuevas en esta iteración")
 
     # Revision de las nuevas y de las humanas sin revisar.
     a_revisar = [h for h in ctx.e["hipotesis"] if h["investigacionId"] == ctx.investigacion_id and (h["id"] in nuevas_ids or (h["origen"] == "humana" and h["ultimaRevisionAutomatica"] is None) or h.get("_revisionPedida"))]

@@ -259,6 +259,18 @@ def texto_dossier(e: dict[str, Any], h: dict[str, Any], inv: dict[str, Any] | No
         L += ["", "### Conocimiento operativo del laboratorio (no publicado; clase conocimiento_operativo)"]
         L += [f"- [{x['tipo']}] {x['texto']} ({x['quien']}, {_fecha(x['fecha'])})" for x in operativo[:15]]
     L += ["", "## 7. Riesgos, alternativas y que se aprende con cada resultado"]
+    # Las explicaciones rivales con la observación que las separaría: es el
+    # experimento crucial de Platt, y estaba calculado en 27 de las 34
+    # hipótesis de la base sin salir nunca por la puerta (28 de septiembre de
+    # 2026). La sección se llamaba "alternativas" y no imprimía ninguna.
+    alternativas = [x for x in (h.get("alternativas") or []) if isinstance(x, dict) and (x.get("texto") or "").strip()]
+    if alternativas:
+        L += ["", "### Explicaciones rivales y qué observación las separaría", "Lo que tendría que ser falso para que el efecto sea del actor que propone la hipótesis y no de otra cosa. Una prueba que no distinga entre estas columnas no decide nada."]
+        for x in alternativas:
+            clase = str(x.get("clase") or "alternativa").replace("_", " ")
+            L.append(f"- **[{clase}]** {x['texto']}")
+            distingue = (x.get("queLaDistinguiria") or "").strip()
+            L.append(f"    - Qué la distinguiría: {distingue}" if distingue else "    - Qué la distinguiría: SIN DEFINIR. Mientras no lo esté, ningún resultado descarta esta explicación.")
     if isinstance(tarjeta.get("riesgos"), list) and tarjeta["riesgos"]:
         L += [f"- Riesgo: {r}" for r in tarjeta["riesgos"]]
     if k:
