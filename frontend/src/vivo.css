@@ -572,3 +572,123 @@
   display: block;
   margin-bottom: 0;
 }
+
+/* ==========================================================================
+   El informe en llano: la jerarquía, del revés
+   --------------------------------------------------------------------------
+   Emir, 28 de septiembre de 2026: "dejaste los textos o subtítulos, que son
+   los que más deberían verse, pareciéndose a la explicación".
+
+   Tenía razón y estaba medido en el CSS: `.llano h4` iba a 12 px, gris
+   (--text-2) y en versalitas, y `.llano p` a 15 px a todo contraste. O sea
+   que el encabezado pesaba MENOS que el texto que encabeza. Con seis bloques
+   seguidos ("qué quería averiguar", "qué hizo", "qué encontró", "hasta dónde
+   fiarse"...) el ojo no encontraba dónde empezaba cada uno y todo se leía
+   como un muro.
+
+   La escalera correcta, de mayor a menor: título de pantalla, título de
+   sección, la pregunta de la iteración, el rótulo del bloque, y el cuerpo en
+   color secundario. El cuerpo es lo que se aparta, no el rótulo.
+   ========================================================================== */
+
+.pantalla-vivo .llano {
+  gap: 24px;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+/* El rótulo del bloque: un encabezado de verdad. Sin versalitas, que a 12 px
+   se leen peor y se confunden con una etiqueta de formulario. */
+.pantalla-vivo .llano h4 {
+  margin: 0 0 6px;
+  font-size: 15.5px;
+  font-weight: 620;
+  letter-spacing: -0.3px;
+  text-transform: none;
+  color: var(--text);
+}
+
+/* El cuerpo se aparta: es la explicación, no el titular. */
+.pantalla-vivo .llano p,
+.pantalla-vivo .llano li {
+  color: var(--text-2);
+}
+
+/* Una línea fina delante de cada bloque: el ojo encuentra el principio sin
+   leer. Más barato que una caja por bloque, que serían seis cajas iguales. */
+.pantalla-vivo .llano > .llano-bloque {
+  padding-left: 14px;
+  border-left: 2px solid var(--border);
+}
+
+.pantalla-vivo .llano > .llano-bloque:hover {
+  border-left-color: var(--accent-border);
+}
+
+/* La pregunta que la iteración intentó contestar: manda sobre los bloques. */
+.pantalla-vivo .llano-pregunta {
+  font-size: 18px;
+  font-weight: 620;
+  letter-spacing: -0.45px;
+  line-height: 1.32;
+  color: var(--text);
+  text-wrap: balance;
+  margin: 0;
+}
+
+/* Los mensajes clave: lo que hay que leer si solo se lee una cosa. Caja con
+   material suave, no un borde gris más. */
+.pantalla-vivo .llano-clave {
+  padding: 16px 18px;
+  border-radius: var(--r-tarjeta);
+  border: 0.5px solid var(--border);
+  background: var(--inset);
+  border-left: 2px solid var(--accent);
+}
+
+.pantalla-vivo .llano-clave li {
+  color: var(--text);
+}
+
+/* Lo que te toca a ti: con el acento, porque es lo único accionable. */
+.pantalla-vivo .llano-accion {
+  border-radius: var(--r-tarjeta);
+  border: 0.5px solid var(--accent-border);
+  border-left: 2px solid var(--accent);
+  padding: 14px 16px;
+}
+
+.pantalla-vivo .llano-accion h4 {
+  color: var(--accent-strong);
+}
+
+.pantalla-vivo .llano-accion p {
+  color: var(--text);
+}
+
+/* Las viñetas, sin el punto gordo por defecto y con sangría menor. */
+.pantalla-vivo .llano ul {
+  padding-left: 18px;
+}
+
+.pantalla-vivo .llano li::marker {
+  color: var(--text-3);
+}
+
+/* El título de sección manda sobre el rótulo del bloque. */
+.pantalla-vivo .seccion-titulo h3 {
+  font-size: 19px;
+  font-weight: 640;
+  letter-spacing: -0.5px;
+}
+
+.pantalla-vivo .llano-glosario summary {
+  font-size: var(--t-llamada);
+  font-weight: 510;
+}
+
+@media (max-width: 700px) {
+  .pantalla-vivo .llano-pregunta { font-size: 16.5px; }
+  .pantalla-vivo .seccion-titulo h3 { font-size: 17px; }
+  .pantalla-vivo .llano > .llano-bloque { padding-left: 11px; }
+}
