@@ -152,6 +152,8 @@ def nacer(e: dict[str, Any], semilla: dict[str, Any], iteracion: int, ahora: int
     h["_corridaOrigen"] = corrida_id or semilla.get("corridaOrigen")
     if semilla.get("enfoque"):
         h["enfoque"] = semilla["enfoque"]  # de qué enfoque del equipo salió (rosa/metodo.py)
+    if isinstance(semilla.get("nicho"), dict):
+        h["nicho"] = semilla["nicho"]  # en qué celda de la enfermedad cayó (rosa/nichos.py)
     h["_revisionPedida"] = True
     e["hipotesis"].append(h)
     inv = next((i for i in e["investigaciones"] if i["id"] == semilla["investigacionId"]), None)

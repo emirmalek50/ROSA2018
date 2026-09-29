@@ -738,46 +738,92 @@ class Supervisor:
                 return
             if cambio.get("_promover"):
                 self._promover_programa(cambio)
-        self._tableros_que_faltan()
+        await self._tableros_que_faltan()
         await self._completar_en_llano()
 
-    def _tableros_que_faltan(self) -> None:
-        """El tablero del método de las investigaciones que todavía no lo tienen
-        (las anteriores al 29 de septiembre de 2026, o una nueva antes de su primer
-        cierre). Por regla y sin llamadas, con el registro de la última corrida. No
-        dispara eventos: un aviso que ya estaba no es noticia, y de golpe serían
-        veinte. Los avisos nuevos se anuncian a partir del siguiente cierre."""
+    async def _tableros_que_faltan(self) -> None:
+        """Las vistas de programa que se quedaron viejas, rehechas por regla y sin
+        llamadas: el tablero del método de las investigaciones que no lo tienen o lo
+        tienen de reglas anteriores, y el mapa de la enfermedad cuando es más viejo
+        que la última hipótesis o hecho de la investigación.
+
+        Lo del mapa se destapó el 29 de septiembre de 2026 al poner los nichos: el
+        mapa guardado de "GFAP y NfL en portadores de APOE4" era del 17 de
+        septiembre (1 celda con dos cohortes; recalculado, 4), tres investigaciones
+        no tenían ninguno, y el tablero decía "0 rincones vacíos" justo en la
+        investigación con las 7 hipótesis amontonadas en una celda. La tarjeta del
+        mapa que se ve en pantalla era esa misma, vieja.
+
+        El mapa se calcula en un hilo (hasta 0,9 s cada uno). Aquí no se abren
+        cuestiones por sus huecos ni se disparan eventos: eso es trabajo del cierre
+        de iteración, y de golpe serían veinte avisos que ya estaban."""
         e = self.almacen.estado
-        # Las que no lo tienen y las que lo tienen de reglas anteriores (un tablero
-        # guardado con otro umbral u otra frase no es el de hoy).
-        faltan = [i for i in e.get("investigaciones") or [] if isinstance(i, dict) and not METODO.vigente(i.get("metodo"))]
-        if not faltan:
-            return
         ahora = P.ahora_ms()
-        tableros: dict[str, dict[str, Any]] = {}
-        for inv in faltan:
+
+        def ultima_novedad(inv_id: str) -> int:
+            hs = [int(h.get("creadaEn") or 0) for h in e.get("hipotesis") or [] if isinstance(h, dict) and h.get("investigacionId") == inv_id]
+            hechos = [int(h.get("actualizadoEn") or 0) for h in e.get("hechos") or [] if isinstance(h, dict) and h.get("investigacionId") == inv_id]
+            return max(hs + hechos, default=0)
+
+        pendientes = []
+        for inv in e.get("investigaciones") or []:
+            if not isinstance(inv, dict):
+                continue
+            guardado = inv.get("mapaEnfermedad") if isinstance(inv.get("mapaEnfermedad"), dict) else None
+            mapa_viejo = guardado is None or int(guardado.get("fecha") or 0) < ultima_novedad(inv["id"])
+            if mapa_viejo or not METODO.vigente(inv.get("metodo")):
+                pendientes.append((inv, guardado, mapa_viejo))
+        if not pendientes:
+            return
+        rehechos: dict[str, tuple[dict[str, Any] | None, dict[str, Any]]] = {}
+        # Un mapa que no se deja calcular no se reintenta en cada tick (cada 10 s):
+        # espera 10 minutos. Vive en el proceso: al reiniciar se prueba otra vez.
+        fallidos: dict[str, int] = self.__dict__.setdefault("_mapas_fallidos", {})
+        for inv, guardado, mapa_viejo in pendientes:
+            fresco = None
+            if mapa_viejo and ahora - fallidos.get(inv["id"], 0) >= 10 * 60_000:
+                try:
+                    fresco = await asyncio.to_thread(MAPA.mapa, e, inv["id"])
+                    fallidos.pop(inv["id"], None)
+                except Exception:  # noqa: BLE001  choca con una escritura o un registro raro: se queda el guardado
+                    traceback.print_exc()
+                    fallidos[inv["id"]] = ahora
+            elif mapa_viejo and METODO.vigente(inv.get("metodo")):
+                continue  # el mapa espera su reintento y el tablero ya está al día: nada que escribir
+            # Con su fecha: el indicador de nichos no lee un mapa sin fecha (lo trata
+            # como no calculado), y la fecha se le pone al guardarlo, más abajo.
+            mapa = {**fresco, "fecha": ahora} if fresco else guardado
             try:
                 c = METODO.ultima_corrida(e, inv["id"])
                 intervalos = self.almacen.intervalos_de_llamadas(c["id"]) if c else None
                 instantes = self.almacen.instantes_de_actividad(int(c.get("empezadaEn") or 0), int(c.get("terminadaEn") or ahora)) if c else None
-                tableros[inv["id"]] = METODO.tablero(e, inv["id"], ahora, corrida=c, intervalos_modelo=intervalos, instantes_actividad=instantes)
+                tablero = METODO.tablero(e, inv["id"], ahora, corrida=c, intervalos_modelo=intervalos, instantes_actividad=instantes, mapa=mapa)
             except Exception:  # noqa: BLE001  una investigación rara no deja a las demás sin tablero
                 traceback.print_exc()
                 # Sin el registro, el tiempo queda en "sin datos" pero lo demás sale. Si
                 # tampoco así, se le guarda un tablero vacío: sin él, esta función la
                 # volvería a intentar en cada tick (cada 10 s) para siempre.
                 try:
-                    tableros[inv["id"]] = METODO.tablero(e, inv["id"], ahora)
+                    tablero = METODO.tablero(e, inv["id"], ahora, mapa=mapa)
                 except Exception:  # noqa: BLE001
-                    tableros[inv["id"]] = {"fecha": ahora, "iteracion": None, "corridaId": None, "reglas": METODO.VERSION_REGLAS, "indicadores": [], "avisos": []}
+                    tablero = {"fecha": ahora, "iteracion": None, "corridaId": None, "reglas": METODO.VERSION_REGLAS, "indicadores": [], "avisos": []}
+            rehechos[inv["id"]] = (fresco, tablero)
 
         def fn(e2: dict[str, Any]) -> bool:
-            for inv_id, t in tableros.items():
-                METODO.fijar(e2, inv_id, t)
-            return bool(tableros)
+            for inv_id, (fresco, tablero) in rehechos.items():
+                inv2 = next((i for i in e2.get("investigaciones") or [] if isinstance(i, dict) and i.get("id") == inv_id), None)
+                if inv2 is None:
+                    continue
+                if fresco is not None:
+                    guardado_antes = inv2.get("mapaEnfermedad")
+                    anterior: dict[str, Any] = guardado_antes if isinstance(guardado_antes, dict) else {}
+                    # Misma forma que escribe el cierre (`_vistas_de_programa_al_cerrar`).
+                    inv2["mapaEnfermedad"] = {**fresco, "fecha": ahora, "iteracion": anterior.get("iteracion"), "etiquetas": copy.deepcopy(MAPA.ETIQUETAS), "definiciones": {"estadio": dict(MAPA.DEFINICIONES_ESTADIO), "nivel": dict(MAPA.DEFINICIONES_NIVEL)}}
+                METODO.fijar(e2, inv_id, tablero)
+            return bool(rehechos)
 
-        if tableros:
-            self.almacen.mutar(fn, "tablero_metodo")
+        if rehechos:
+            self.almacen.mutar(fn, "vistas_al_dia")
 
     async def _revisar_arnes(self, c: dict[str, Any]) -> None:
         """Meta-campaña (lo que rekursiv.ai llama auto-autoresearch, aquí con

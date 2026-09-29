@@ -11,6 +11,7 @@ muertos sino 5 (los otros eran el relleno de fondo de después y un reinicio).
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 
 from rosa import metodo as M
@@ -204,7 +205,7 @@ def test_la_union_de_intervalos():
 
 def test_el_tablero_entero_con_estado_vacio_no_rompe_y_un_indicador_roto_no_tumba_los_demas(monkeypatch):
     t = M.tablero({}, INV, 1000)
-    assert len(t["indicadores"]) == 7 and t["avisos"] == []
+    assert len(t["indicadores"]) == 8 and t["avisos"] == []
     monkeypatch.setattr(M, "embudo", lambda e, i: 1 / 0)
     t2 = M.tablero(_e(), INV, 1000)
     rotos = [i for i in t2["indicadores"] if i["clave"] == "embudo"]
@@ -276,21 +277,21 @@ def test_el_bucle_calcula_el_tablero_que_falta_sin_eventos_y_una_sola_vez(tmp_pa
         al.mutar(lambda e: (e["investigaciones"].append({"id": "inv-x", "titulo": "T", "objetivo": "O"}), e["hipotesis"].extend(_h(i, apoyos=25) | {"investigacionId": "inv-x"} for i in range(1)), True)[-1], "test")
         eventos_antes = len(al.estado["eventos"])
         sup = SimpleNamespace(almacen=al)
-        CO.Supervisor._tableros_que_faltan(sup)
+        asyncio.run(CO.Supervisor._tableros_que_faltan(sup))
         inv = next(i for i in al.estado["investigaciones"] if i["id"] == "inv-x")
         assert inv["metodo"]["avisos"] == ["balanza"]
         assert len(al.estado["eventos"]) == eventos_antes
         # Ya lo tiene: el siguiente tick no escribe nada.
         version = al.version
-        CO.Supervisor._tableros_que_faltan(sup)
+        asyncio.run(CO.Supervisor._tableros_que_faltan(sup))
         assert al.version == version
 
         # Con el registro roto, igual sale (sin el tiempo) y no se queda pendiente.
         al.mutar(lambda e: (e["investigaciones"].append({"id": "inv-y", "titulo": "T", "objetivo": "O"}), e["corridas"].append({"id": "c-y", "investigacionId": "inv-y", "empezadaEn": 1}), True)[-1], "test")
         monkeypatch.setattr(al, "intervalos_de_llamadas", lambda cid: 1 / 0)
-        CO.Supervisor._tableros_que_faltan(sup)
+        asyncio.run(CO.Supervisor._tableros_que_faltan(sup))
         inv_y = next(i for i in al.estado["investigaciones"] if i["id"] == "inv-y")
-        assert isinstance(inv_y["metodo"], dict) and len(inv_y["metodo"]["indicadores"]) == 7
+        assert isinstance(inv_y["metodo"], dict) and len(inv_y["metodo"]["indicadores"]) == 8
     finally:
         al.cerrar()
 
@@ -307,9 +308,126 @@ def test_un_tablero_de_reglas_viejas_se_rehace(tmp_path):
     try:
         viejo = {"fecha": 1, "iteracion": 3, "corridaId": None, "reglas": M.VERSION_REGLAS - 1, "indicadores": [], "avisos": []}
         al.mutar(lambda e: (e["investigaciones"].append({"id": "inv-v", "titulo": "T", "objetivo": "O", "metodo": viejo}), True)[-1], "test")
-        CO.Supervisor._tableros_que_faltan(SimpleNamespace(almacen=al))
+        asyncio.run(CO.Supervisor._tableros_que_faltan(SimpleNamespace(almacen=al)))
         t = next(i for i in al.estado["investigaciones"] if i["id"] == "inv-v")["metodo"]
-        assert M.vigente(t) and len(t["indicadores"]) == 7
+        assert M.vigente(t) and len(t["indicadores"]) == 8
         assert not M.vigente(viejo) and not M.vigente(None)
+    finally:
+        al.cerrar()
+
+
+# --- nichos (MAP-Elites) -----------------------------------------------------
+
+
+def _mapa(*celdas):
+    return {"fecha": 1, "celdas": list(celdas)}
+
+
+def _celda(estadio, region, celula, hipotesis=(), hechos=(), cohortes=()):
+    return {"estadio": estadio, "region": region, "tipoCelular": celula, "hipotesis": list(hipotesis), "hechos": list(hechos), "cohortes": list(cohortes)}
+
+
+def test_el_indicador_de_nichos_avisa_del_rincon_lleno_con_rincones_listos():
+    hs = [_h(i) for i in range(4)]
+    mapa = _mapa(_celda("preclinica", "plasma", "astrocito", hipotesis=[h["id"] for h in hs]), _celda("prodromica_dcl", "plasma", "astrocito", hechos=["he1", "he2"], cohortes=["ADNI", "BIOCARD"]))
+    i = M.nichos(_e(hs), INV, mapa)
+    assert i["estado"] == "aviso" and "4 hipótesis vivas en la misma celda" in i["texto"]
+    assert "fase prodrómica o DCL" in i["texto"] and i["datos"]["listos"] == 1
+
+
+def test_el_indicador_de_nichos_cuenta_las_nacidas_en_un_rincon_vacio():
+    """Es la comprobación de la predicción: de las que guardan su nicho, cuántas
+    cayeron en uno vacío."""
+    hs = [_h(1, nicho={"celdas": ["x"], "enNichoListo": True}), _h(2, nicho={"celdas": ["y"], "enNichoListo": False}), _h(3)]
+    mapa = _mapa(_celda("preclinica", "plasma", "astrocito", hipotesis=["h1"]))
+    i = M.nichos(_e(hs), INV, mapa)
+    assert "De las 2 que nacieron desde que se guarda el nicho, 1 cayó en un rincón vacío." in i["texto"]
+    solo = M.nichos(_e([_h(1, nicho={"celdas": ["x"], "enNichoListo": False})]), INV, mapa)
+    assert "La única que nació desde que se guarda el nicho no cayó en un rincón vacío." in solo["texto"]
+    assert i["datos"]["conNicho"] == 2 and i["datos"]["enNichoListo"] == 1
+
+
+def test_sin_mapa_calculado_lo_dice_y_no_finge():
+    assert "no se ha calculado todavía" in M.nichos(_e(), INV, None)["texto"]
+    assert "no se ha calculado todavía" in M.nichos(_e(), INV, {"celdas": []})["texto"]
+
+
+
+def test_un_mapa_viejo_se_rehace_y_el_tablero_lo_usa(tmp_path):
+    """El mapa guardado de APOE4 era del 17 de septiembre y el tablero decía "0
+    rincones vacíos" justo donde estaban las 7 hipótesis amontonadas. Un mapa más
+    viejo que la última hipótesis de la investigación se rehace, sin eventos."""
+    from types import SimpleNamespace
+
+    from rosa.bucle import corrida as CO
+    from rosa.estado.almacen import Almacen
+
+    al = Almacen(tmp_path / "mv.db")
+    try:
+        def fn(e):
+            e["investigaciones"].append({"id": "inv-m", "titulo": "T", "objetivo": "O", "mapaEnfermedad": {"fecha": 5, "celdas": [], "iteracion": 2}})
+            e["hipotesis"].append(_h(1) | {"investigacionId": "inv-m", "creadaEn": 50})
+            return True
+
+        al.mutar(fn, "test")
+        eventos = len(al.estado["eventos"])
+        asyncio.run(CO.Supervisor._tableros_que_faltan(SimpleNamespace(almacen=al)))
+        inv = next(i for i in al.estado["investigaciones"] if i["id"] == "inv-m")
+        assert inv["mapaEnfermedad"]["fecha"] > 50 and inv["mapaEnfermedad"]["iteracion"] == 2
+        assert "etiquetas" in inv["mapaEnfermedad"] and M.vigente(inv["metodo"])
+        assert len(al.estado["eventos"]) == eventos
+        # Al día: el siguiente tick no escribe nada.
+        version = al.version
+        asyncio.run(CO.Supervisor._tableros_que_faltan(SimpleNamespace(almacen=al)))
+        assert al.version == version
+    finally:
+        al.cerrar()
+
+
+def test_un_mapa_que_no_se_deja_calcular_no_se_reintenta_en_cada_tick(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from rosa import mapa_enfermedad as MAPA
+    from rosa.bucle import corrida as CO
+    from rosa.estado.almacen import Almacen
+
+    al = Almacen(tmp_path / "mf.db")
+    llamadas = []
+
+    def roto(e, inv_id):
+        llamadas.append(inv_id)
+        raise RuntimeError("dictionary changed size during iteration")
+
+    monkeypatch.setattr(MAPA, "mapa", roto)
+    try:
+        al.mutar(lambda e: (e["investigaciones"].append({"id": "inv-f", "titulo": "T", "objetivo": "O"}), True)[-1], "test")
+        sup = SimpleNamespace(almacen=al)
+        asyncio.run(CO.Supervisor._tableros_que_faltan(sup))
+        inv = next(i for i in al.estado["investigaciones"] if i["id"] == "inv-f")
+        assert M.vigente(inv["metodo"])  # el tablero sale igual, sin el mapa
+        version = al.version
+        for _ in range(5):
+            asyncio.run(CO.Supervisor._tableros_que_faltan(sup))
+        assert llamadas == ["inv-f"] and al.version == version
+    finally:
+        al.cerrar()
+
+
+def test_el_tablero_rehecho_con_un_mapa_fresco_lee_sus_nichos(tmp_path):
+    """El fallo de la primera versión: el mapa recién calculado se le pasaba al
+    tablero sin fecha, y el indicador de nichos decía "sin mapa" en las cuatro
+    investigaciones cuyo mapa se acababa de rehacer."""
+    from types import SimpleNamespace
+
+    from rosa.bucle import corrida as CO
+    from rosa.estado.almacen import Almacen
+
+    al = Almacen(tmp_path / "mn.db")
+    try:
+        al.mutar(lambda e: (e["investigaciones"].append({"id": "inv-n", "titulo": "T", "objetivo": "O"}), True)[-1], "test")
+        asyncio.run(CO.Supervisor._tableros_que_faltan(SimpleNamespace(almacen=al)))
+        inv = next(i for i in al.estado["investigaciones"] if i["id"] == "inv-n")
+        nichos = next(x for x in inv["metodo"]["indicadores"] if x["clave"] == "nichos")
+        assert "no se ha calculado todavía" not in nichos["texto"]
     finally:
         al.cerrar()

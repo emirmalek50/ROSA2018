@@ -117,7 +117,7 @@ def _texto(hp: Any) -> str:
     return " ".join(str(getattr(hp, k, "") or "") for k in ("titulo", "enunciado", "mecanismo"))
 
 
-def puntuar(hp: Any, validas: list[dict[str, Any]], fuentes: dict[str, Any], existentes: list[str], dominantes: set[str]) -> dict[str, Any]:
+def puntuar(hp: Any, validas: list[dict[str, Any]], fuentes: dict[str, Any], existentes: list[str], dominantes: set[str], nichos: dict[str, Any] | None = None, inv: dict[str, Any] | None = None) -> dict[str, Any]:
     """La puntuación de una propuesta y por qué, SOLO con reglas.
 
     Es el verificador denso que pide Park y otros, y no es nuevo: son las reglas que
@@ -156,9 +156,21 @@ def puntuar(hp: Any, validas: list[dict[str, Any]], fuentes: dict[str, Any], exi
         puntos += 2
     elif marcadores:
         motivos.append(f"vuelve a los marcadores que ya dominan ({', '.join(sorted(marcadores))})")
+    # MAP-Elites (rosa/nichos.py): caer en un rincón vacío de la enfermedad con
+    # evidencia de dos cohortes suma; caer SOLO en la celda que ya está llena resta.
+    # Es lo que empuja al equipo fuera del rincón de siempre sin prohibir nada.
+    en_nicho = False
+    if nichos:
+        from rosa import nichos as NI
+
+        extra, motivo_nicho = NI.puntos_por_nicho(NI.celdas_de_propuesta(hp, inv), nichos)
+        puntos += extra
+        en_nicho = extra > 0
+        if motivo_nicho and extra < 0:
+            motivos.append(motivo_nicho)
     if not motivos:
-        motivos.append("cita afirmaciones sostenidas, nace con dos cohortes, es falsable y no repite nada")
-    return {"puntos": puntos, "nace": nace, "motivos": motivos, "respaldo": len(respaldo)}
+        motivos.append("cita afirmaciones sostenidas, nace con dos cohortes, es falsable y no repite nada" + ("; y cae en un nicho vacío de la enfermedad" if en_nicho else ""))
+    return {"puntos": puntos, "nace": nace, "motivos": motivos, "respaldo": len(respaldo), "enNicho": en_nicho}
 
 
 def dominantes(hipotesis: list[dict[str, Any]], investigacion_id: str, umbral: float = 0.5) -> set[str]:

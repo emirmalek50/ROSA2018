@@ -101,7 +101,7 @@ FASES = ("busqueda", "cribado", "killer", "equipo", "conectores", "bucle")
 # indicador o una frase: un tablero guardado con reglas anteriores no se lee como
 # vigente y el bucle lo rehace (`Supervisor._tableros_que_faltan`), igual que las
 # conclusiones se reacotan cuando cambia rosa/certeza.py.
-VERSION_REGLAS = 2
+VERSION_REGLAS = 4
 
 
 def _indicador(clave: str, titulo: str, estado: str, cifra: str, texto: str, fase: str, que_haria_falta: str = "", **datos: Any) -> dict[str, Any]:
@@ -355,6 +355,44 @@ def concentracion(e: dict[str, Any], inv_id: str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# 5 bis. Los nichos (MAP-Elites, rosa/nichos.py)
+# ---------------------------------------------------------------------------
+
+
+def nichos(e: dict[str, Any], inv_id: str, mapa: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Si las hipótesis vivas se amontonan en un rincón de la enfermedad mientras
+    hay rincones con evidencia de dos cohortes y ninguna hipótesis. Y, de las que
+    nacen desde el 29 de septiembre de 2026 (las que guardan su nicho), cuántas
+    cayeron en uno vacío: es la comprobación de la predicción de
+    ANALISIS-MAP-ELITES-2026-09-29.md."""
+    from rosa import nichos as NI
+
+    titulo = "¿Explora la enfermedad o se queda en un rincón?"
+    if not isinstance(mapa, dict) or not mapa.get("fecha"):
+        return _indicador("nichos", titulo, "sin_datos", "sin mapa", "El mapa de la enfermedad no se ha calculado todavía para esta investigación: se calcula al cerrar la próxima iteración.", "equipo")
+    arch = NI.archivo(e, inv_id, mapa=mapa)
+    ocupados, listos = arch.get("ocupados") or [], arch.get("listos") or []
+    vivas = _vivas(_de_la_investigacion(e, inv_id))
+    con_nicho = [h for h in vivas if isinstance(h.get("nicho"), dict)]
+    en_listo = sum(1 for h in con_nicho if h["nicho"].get("enNichoListo"))
+    cifra = f"{len(ocupados)} {'celda ocupada' if len(ocupados) == 1 else 'celdas ocupadas'}, {len(listos)} {'vacía' if len(listos) == 1 else 'vacías'} con evidencia"
+    if not con_nicho:
+        seguimiento = ""
+    elif len(con_nicho) == 1:
+        seguimiento = " La única que nació desde que se guarda el nicho " + ("cayó en un rincón vacío." if en_listo else "no cayó en un rincón vacío.")
+    else:
+        seguimiento = f" De las {len(con_nicho)} que nacieron desde que se guarda el nicho, " + ("ninguna cayó" if en_listo == 0 else "1 cayó" if en_listo == 1 else f"{en_listo} cayeron") + " en un rincón vacío."
+    datos: dict[str, Any] = {"ocupadas": len(ocupados), "listos": len(listos), "saturada": NI.etiqueta(arch["saturada"]) if arch.get("saturada") else None, "conNicho": len(con_nicho), "enNichoListo": en_listo, "ejemplos": [x["etiqueta"] for x in listos[:3]]}
+    if not ocupados and not listos:
+        return _indicador("nichos", titulo, "sin_datos", cifra, "El mapa de la enfermedad no sitúa todavía ninguna hipótesis ni ningún hecho.", "equipo", **datos)
+    saturada = next((o for o in ocupados if arch.get("saturada") and o["clave"] == tuple(arch["saturada"])), None)
+    if saturada and listos:
+        ejemplos = "; ".join(x["etiqueta"] for x in listos[:2])
+        return _indicador("nichos", titulo, "aviso", cifra, f"{saturada['vivas']} hipótesis vivas en la misma celda ({saturada['etiqueta']}) mientras {len(listos)} {'rincón' if len(listos) == 1 else 'rincones'} con evidencia de dos cohortes o más no {'tiene' if len(listos) == 1 else 'tienen'} ninguna, por ejemplo: {ejemplos}.{seguimiento}", "equipo", "Que el equipo explore esos rincones (cada miembro, menos uno, recibe uno desde el 29 de septiembre de 2026) y comprobar en las próximas iteraciones que las nuevas caen fuera de la celda llena.", **datos)
+    return _indicador("nichos", titulo, "bien", cifra, f"Ninguna celda acumula {NI.VIVAS_PARA_SATURAR} o más vivas con rincones listos sin explorar.{seguimiento}", "equipo", **datos)
+
+
+# ---------------------------------------------------------------------------
 # 6. Los conectores
 # ---------------------------------------------------------------------------
 
@@ -482,16 +520,22 @@ def ultima_corrida(e: dict[str, Any], inv_id: str) -> dict[str, Any] | None:
     return max(cs, key=lambda c: int(c.get("empezadaEn") or 0)) if cs else None
 
 
-def tablero(e: dict[str, Any], inv_id: str, ahora: int, corrida: dict[str, Any] | None = None, intervalos_modelo: list[tuple[int, int]] | None = None, iteracion: int | None = None, instantes_actividad: list[int] | None = None) -> dict[str, Any]:
+def tablero(e: dict[str, Any], inv_id: str, ahora: int, corrida: dict[str, Any] | None = None, intervalos_modelo: list[tuple[int, int]] | None = None, iteracion: int | None = None, instantes_actividad: list[int] | None = None, mapa: dict[str, Any] | None = None) -> dict[str, Any]:
     """Los siete indicadores de una investigación. Cada uno en su try: un registro
     raro deja ese indicador en "sin datos" con el motivo, no tumba el tablero."""
     corrida = corrida if corrida is not None else ultima_corrida(e, inv_id)
+    if mapa is None:
+        # El guardado en la investigación: al cerrar la iteración se acaba de
+        # recalcular. Calcularlo aquí (hasta 0,9 s) bloquearía el bucle.
+        inv = next((i for i in (e.get("investigaciones") or []) if isinstance(i, dict) and i.get("id") == inv_id), {})
+        mapa = inv.get("mapaEnfermedad") if isinstance(inv.get("mapaEnfermedad"), dict) else {"celdas": []}
     calculos = (
         ("balanza", lambda: balanza(e, inv_id)),
         ("cuestiones", lambda: cuestiones(e, inv_id)),
         ("embudo", lambda: embudo(e, inv_id)),
         ("enfoques", lambda: eficacia_por_enfoque(e, inv_id)),
         ("concentracion", lambda: concentracion(e, inv_id)),
+        ("nichos", lambda: nichos(e, inv_id, mapa)),
         ("conectores", lambda: conectores(e, inv_id, corrida)),
         ("tiempo", lambda: tiempo(corrida, intervalos_modelo, ahora, instantes_actividad)),
     )
@@ -541,4 +585,4 @@ def fijar(e: dict[str, Any], inv_id: str, t: dict[str, Any]) -> list[dict[str, A
     return nuevos
 
 
-__all__ = ["APOYOS_SIN_CONTRA_QUE_PREOCUPAN", "FASES", "avisos_nuevos", "balanza", "concentracion", "conectores", "cuestiones", "eficacia_por_enfoque", "embudo", "enfoques_desde_la_traza", "fijar", "tablero", "texto", "tiempo", "tramos_sin_servidor", "ultima_corrida", "union_de_intervalos", "vigente", "VERSION_REGLAS"]
+__all__ = ["APOYOS_SIN_CONTRA_QUE_PREOCUPAN", "FASES", "avisos_nuevos", "balanza", "concentracion", "conectores", "cuestiones", "eficacia_por_enfoque", "embudo", "enfoques_desde_la_traza", "fijar", "nichos", "tablero", "texto", "tiempo", "tramos_sin_servidor", "ultima_corrida", "union_de_intervalos", "vigente", "VERSION_REGLAS"]

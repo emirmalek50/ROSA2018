@@ -39,6 +39,7 @@ from rosa import causal as CAUSAL
 from rosa import conectores as CON
 from rosa import datasets_programa as DP
 from rosa import dianas as DI
+from rosa import nichos as NI
 from rosa import ruta as RUTA
 from rosa import killer as K
 from rosa import hechos as H
@@ -4003,7 +4004,7 @@ def hechos_que_motivan(hechos: Any, investigacion_id: str, respaldo: Any, maximo
     return salida
 
 
-async def _equipo_de_hipotesis(ctx: Ctx, paso: dict[str, Any], pista: Pista, inv: dict[str, Any], mundo: str, texto_af: str, validas: list[dict[str, Any]], lecciones_h: str) -> list[tuple[Any, str]]:
+async def _equipo_de_hipotesis(ctx: Ctx, paso: dict[str, Any], pista: Pista, inv: dict[str, Any], mundo: str, texto_af: str, validas: list[dict[str, Any]], lecciones_h: str, archivo_nichos: dict[str, Any] | None = None) -> list[tuple[Any, str]]:
     """Las propuestas del equipo de generación (rosa/equipo.py): varios miembros con
     enfoques distintos, en rondas, compartiendo un tablón con la puntuación por
     regla de cada propuesta y por qué, y elegidas al final por esa puntuación y sin
@@ -4022,6 +4023,16 @@ async def _equipo_de_hipotesis(ctx: Ctx, paso: dict[str, Any], pista: Pista, inv
     # siempre las 54 primeras de 1.149, todas de la primera iteración.
     reparto = EQ.reparto_de_evidencia(validas, len(EQ.MIEMBROS))
     evidencia_de = {enfoque: EQ.texto_de_indices(validas, reparto[k]) for k, enfoque in enumerate(EQ.MIEMBROS)}
+    # MAP-Elites (rosa/nichos.py): a cada miembro, menos uno que queda libre, un
+    # rincón vacío de la enfermedad con evidencia de dos cohortes.
+    if archivo_nichos is None:
+        archivo_nichos = await _archivo_de_nichos(ctx, inv)
+    nicho_de = NI.reparto(archivo_nichos.get("listos") or [], EQ.MIEMBROS, ctx.numero)
+    texto_nicho = {m: NI.texto_para_miembro(nicho_de.get(m), archivo_nichos, ctx.e) for m in EQ.MIEMBROS}
+    if archivo_nichos.get("listos"):
+        pista.nota(f"Nichos de la enfermedad: {len(archivo_nichos['ocupados'])} celdas ocupadas, {len(archivo_nichos['listos'])} vacías con evidencia de dos cohortes o más. " + "; ".join(f"«{m}» explora {x['etiqueta']}" if x else f"«{m}» va libre" for m, x in nicho_de.items()))
+    elif archivo_nichos.get("ocupados"):
+        pista.nota(f"Nichos de la enfermedad: {len(archivo_nichos['ocupados'])} celdas ocupadas y ninguna vacía con evidencia de dos cohortes; el equipo va sin nicho asignado")
     tablon: list[dict[str, Any]] = []
     fallos = 0
     for ronda in range(1, EQ.RONDAS + 1):
@@ -4029,7 +4040,7 @@ async def _equipo_de_hipotesis(ctx: Ctx, paso: dict[str, Any], pista: Pista, inv
 
         async def miembro(enfoque: str, ronda: int = ronda, texto_del_tablon: str = texto_del_tablon) -> tuple[str, Any]:
             try:
-                return enfoque, await ctx.llamar("cerebro", ctx.programas.hipotesis, **base, afirmaciones_sostenidas=evidencia_de[enfoque], enfoque=f"{enfoque}: {EQ.ENFOQUES[enfoque]}\n\n{EQ.MANDATO}", tablon=texto_del_tablon)
+                return enfoque, await ctx.llamar("cerebro", ctx.programas.hipotesis, **base, afirmaciones_sostenidas=evidencia_de[enfoque], enfoque=f"{enfoque}: {EQ.ENFOQUES[enfoque]}\n\n{EQ.MANDATO}", tablon=texto_del_tablon, nicho=texto_nicho[enfoque])
             except VIG.ModeloSinRespuesta:
                 raise
             except EXCEPCIONES_QUE_CORTAN_EL_PASO:
@@ -4048,7 +4059,7 @@ async def _equipo_de_hipotesis(ctx: Ctx, paso: dict[str, Any], pista: Pista, inv
             if crudas_t:
                 nota_de_tareas(pista, registrar_tareas_propuestas(ctx, pred, paso), crudas_t)
             for hp in list(getattr(pred, "hipotesis", None) or [])[: politicas.MAX_PROPUESTAS_POR_ITERACION]:
-                tablon.append(EQ.entrada(hp, enfoque, ronda, EQ.puntuar(hp, validas, fuentes, existentes_txt, domina)))
+                tablon.append(EQ.entrada(hp, enfoque, ronda, EQ.puntuar(hp, validas, fuentes, existentes_txt, domina, nichos=archivo_nichos, inv=inv)))
     elegidas = EQ.elegir(tablon)
     descartadas = [x for x in tablon if x not in elegidas]
     vistas_en_total = len({i for r in reparto for i in r})
@@ -4062,6 +4073,23 @@ async def _equipo_de_hipotesis(ctx: Ctx, paso: dict[str, Any], pista: Pista, inv
     # Co-Scientist usa para repartir el trabajo). Hasta el 29 de septiembre de 2026
     # solo quedaba en una nota de la pista.
     return [(x["hp"], x["enfoque"]) for x in elegidas]
+
+
+async def _archivo_de_nichos(ctx: Ctx, inv: dict[str, Any]) -> dict[str, Any]:
+    """El archivo de nichos para el paso de hipótesis. El mapa guardado sirve si se
+    calculó dentro de esta corrida (se rehace en cada cierre); si es de antes (hubo
+    uno del 17 de septiembre) o no hay, se calcula en un hilo: tarda hasta 0,9 s y el
+    bucle de eventos no se para por esto. Si el cálculo choca con una escritura
+    concurrente, el equipo trabaja esa vez sin nichos, que es como trabajaba antes."""
+    vacio: dict[str, Any] = {"ocupados": [], "listos": [], "saturada": None, "sinFruto": 0}
+    try:
+        guardado = inv.get("mapaEnfermedad") if isinstance(inv.get("mapaEnfermedad"), dict) else None
+        corrida = ctx.corrida() or {}
+        if guardado and int(guardado.get("fecha") or 0) >= int(corrida.get("empezadaEn") or 0):
+            return NI.archivo(ctx.e, ctx.investigacion_id, mapa=guardado)
+        return await asyncio.to_thread(NI.archivo, ctx.e, ctx.investigacion_id)
+    except Exception:  # noqa: BLE001  los nichos nunca tumban al equipo: sin ellos, trabaja como antes
+        return vacio
 
 
 async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
@@ -4080,7 +4108,8 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
         try:
             mundo = await T.modelo_de_mundo_para(ctx.almacen, ctx.investigacion_id, _consulta_del_paso(ctx, inv, texto_af[:1500]))
             lecciones_h = await LEC.para(ctx.almacen, ctx.investigacion_id, ("hipotesis",), texto_af[:1500])
-            propuestas = await _equipo_de_hipotesis(ctx, paso, pista, inv, mundo, texto_af, validas, lecciones_h)
+            archivo_nichos = await _archivo_de_nichos(ctx, inv)
+            propuestas = await _equipo_de_hipotesis(ctx, paso, pista, inv, mundo, texto_af, validas, lecciones_h, archivo_nichos=archivo_nichos)
         except PresupuestoAgotado:
             pista.cerrar("Presupuesto agotado antes de generar", "detenida")
             raise
@@ -4107,6 +4136,7 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
             if destino == "vivero":
                 semilla = VIVERO.nueva_semilla(ctx.investigacion_id, ctx.numero, ahora, hp, afirmaciones, fuentes_h, motivo_nace, ctx.corrida_id)
                 semilla["enfoque"] = enfoque
+                semilla["nicho"] = NI.nicho_de_hipotesis(hp, inv, archivo_nichos)
                 ctx.mutar(lambda e2, s=semilla: VIVERO.anadir(e2, ctx.investigacion_id, s, ahora), "vivero")
                 existentes_titulos.add(V.normalizar(hp.titulo))
                 pista.nota(f"Al vivero, no nace todavía: '{hp.titulo[:60]}' ({motivo_nace}). Le falta: {semilla['falta'][:120]}")
@@ -4142,6 +4172,7 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
             h["_entidades"] = list(hp.entidades_novedad)[:6]
             h["_corridaOrigen"] = ctx.corrida_id
             h["enfoque"] = enfoque
+            h["nicho"] = NI.nicho_de_hipotesis(hp, inv, archivo_nichos)
             ctx.mutar(lambda e2, h=h: (e2["hipotesis"].append(h), A.con_evento(e2, ctx.investigacion_id, "hipotesis_nueva", f"Hipótesis nueva en la cola: {h['titulo']}", f"#/investigaciones/{ctx.investigacion_id}/hipotesis/{h['id']}", ahora)) and True, "hipotesis_nueva")
             nuevas_ids.append(h["id"])
             existentes_titulos.add(V.normalizar(h["titulo"]))
