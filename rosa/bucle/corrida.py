@@ -1794,6 +1794,12 @@ class Supervisor:
             it_actual = next((x for x in self.almacen.estado["iteraciones"] if x["id"] == it["id"]), it)
             faltan = coste_estimado_del_cierre(self.almacen.estado, c, it_actual)
             self.almacen.mutar(lambda e2: _pausar_por_presupuesto(e2, c["id"], detalle=detalle_del_cierre(it, faltan)), "presupuesto")
+        except PASOS.CorridaParada:
+            # La persona detuvo o pausó a mitad del cierre. Lo ya calculado está
+            # en `it._cierre` y se retoma sin repagar si se reanuda; la
+            # iteración queda abierta, que es lo que la interfaz enseña. No se
+            # pausa ni se cambia el estado: lo puso la persona y manda.
+            return
 
     async def _proponer_mision(self, ctx: Ctx, inv: dict[str, Any]) -> None:
         """La misión estructurada (etapa 0 de ROSA2018) a partir del objetivo.
@@ -2433,7 +2439,14 @@ class Supervisor:
 
             self.almacen.mutar(vacio, "iteracion_vacia")
             return
-        ctx = Ctx(self.almacen, self.programas, self.modelos, c["id"], inv["id"], it["id"], it["numero"])
+        # `de_paso=True`: detener o pausar cortan también el cierre. Era el
+        # único tramo caro que no obedecía a la persona, y es el más caro de la
+        # iteración: resumen, meta, llano, evidencia por hipótesis y por idea
+        # del vivero, conclusiones, revisor y reparación, del orden de 40
+        # llamadas con Opus. Quien pulsaba "Detener" en el minuto uno pagaba
+        # las 39 restantes (28 de septiembre de 2026). Cortar aquí es seguro
+        # porque `it._cierre` guarda lo ya calculado y se retoma sin repagar.
+        ctx = Ctx(self.almacen, self.programas, self.modelos, c["id"], inv["id"], it["id"], it["numero"], de_paso=True)
         # Lo ya calculado en un cierre anterior que se cortó por presupuesto (S-14):
         # el resumen, la meta-revisión y el resumen en llano no se pagan dos veces.
         parcial = dict(it.get("_cierre") or {}) if isinstance(it.get("_cierre"), dict) else {}
@@ -2674,7 +2687,11 @@ class Supervisor:
             with contextlib.suppress(Exception):
                 pedir_revision_por_huella(e2, ahora, inv["id"])
             c2 = next(x for x in e2["corridas"] if x["id"] == c["id"])
-            if terminar:
+            # Una corrida que una persona detuvo no pasa a "terminada" por la
+            # condición de parada: se perdía el registro de que la paró alguien
+            # y su motivo, que es justo lo que hay que conservar. `_terminar_corrida`
+            # ya hacía esta comprobación; aquí faltaba.
+            if terminar and c2["estado"] not in ("detenida", "terminada"):
                 c2["estado"] = "terminada"
                 c2["terminadaEn"] = ahora
                 c2["motivoCierre"] = terminar

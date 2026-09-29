@@ -208,7 +208,11 @@ def test_terminar_la_corrida_resuelve_sus_incidencias_de_modelo_y_solo_esas():
 
 def test_el_cierre_de_iteracion_que_termina_la_corrida_usa_la_misma_regla():
     fuente = inspect.getsource(CO.Supervisor._cerrar_iteracion)
-    bloque = fuente.split("if terminar:", 1)[1]
+    # La guarda lleva desde el 28 de septiembre de 2026 la comprobación del
+    # estado: una corrida que una persona detuvo no pasa a "terminada" por la
+    # condición de parada, que borraba el motivo escrito por esa persona.
+    assert "if terminar and c2[\"estado\"] not in (\"detenida\", \"terminada\"):" in fuente
+    bloque = fuente.split("if terminar and", 1)[1]
     assert "_resolver_incidencias_de_modelo_al_cerrar(e2, c2[\"id\"], ahora)" in bloque.split("return True", 1)[0]
     e = {"corridas": [], "incidencias": [_incidencia("c1", "modelo_sin_respuesta", "a"), _incidencia("c1", "modelo_sin_respuesta", "b"), _incidencia("c2", "modelo_sin_respuesta", "c")]}
     assert CO._resolver_incidencias_de_modelo_al_cerrar(e, "c1", 5) == 2

@@ -4436,12 +4436,25 @@ async def paso_novedad(ctx: Ctx, paso: dict[str, Any]) -> str:
                 detalles.append(f"{g}: Open Targets no respondió ({str(ex)[:60]}); no se afirma ausencia")
         if genes:
             def _punt(d: str) -> float:
-                m_ = re.search(r"asociacion ([0-9]+(?:\.[0-9]+)?)", d)
+                # Con tilde y sin ella: el texto de arriba se escribe
+                # "asociación" y este regex buscaba "asociacion", así que NUNCA
+                # casaba y `con_asociacion` era siempre falso. Es una regresión
+                # de la regla de acentos del 14 de septiembre de 2026: el texto
+                # se acentuó y el patrón se quedó atrás. Resultado: ROSA2018
+                # decía "sin evidencia previa" de una diana con asociación
+                # documentada, con el detalle debajo diciendo lo contrario.
+                m_ = re.search(r"asociaci[oó]n ([0-9]+(?:\.[0-9]+)?)", d)
                 return float(m_.group(1)) if m_ else 0.0
 
             con_asociacion = any(_punt(d) >= 0.3 for d in detalles)
-            if detalles and all("no respondió" in d.lower() or "no pude" in d.lower() for d in detalles):
-                novedad["openTargets"] = {"estado": "no_comprobado", "detalle": "No comprobado: Open Targets no respondió para " + "; ".join(detalles)[:200]}
+            # Basta con que UN gen no haya respondido para no afirmar ausencia.
+            # Con `all` hacía falta que fallaran todos: con dos caídos de tres,
+            # el estado quedaba en "sin evidencia previa", que es afirmar una
+            # ausencia que no se comprobó. Regla de la casa: una fuente que no
+            # responde es "no pude comprobar", nunca "no hay".
+            sin_respuesta = [d for d in detalles if "no respondió" in d.lower() or "no pude" in d.lower()]
+            if detalles and sin_respuesta:
+                novedad["openTargets"] = {"estado": "no_comprobado", "detalle": f"No comprobado: Open Targets no respondió para {len(sin_respuesta)} de {len(detalles)} " + ("gen" if len(detalles) == 1 else "genes") + ". " + "; ".join(detalles)[:220]}
                 detalles = None
             if detalles is not None:
                 novedad["openTargets"] = {"estado": "evidencia_previa" if con_asociacion else "sin_evidencia", "detalle": "; ".join(detalles)}
