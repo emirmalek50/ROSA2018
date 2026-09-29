@@ -616,6 +616,14 @@ class Resultado:
     pistas: str = ""
     necesita_juez: bool = False
     fragmento: Fragmento | None = None
+    #: La afirmación no afirma nada del mundo: declara que no se pudo comprobar
+    #: algo, o que no se encontró dentro de lo leído. El veredicto sigue siendo
+    #: `sostenida` (la frase es honesta y no es un fallo de la cita), pero NO
+    #: puede contar como evidencia a favor. Sin esta marca, tres frases que
+    #: dicen "no pude comprobar" sumaban 3,0 de peso y subían el techo GRADE a
+    #: `baja` (28 de septiembre de 2026): ROSA2018 podía escribir "la evidencia
+    #: sugiere que..." apoyándose en declaraciones de ignorancia.
+    abstencion: bool = False
 
 
 def _clave_localizador(loc: str | None) -> str:
@@ -749,12 +757,14 @@ def _ausencia(texto: str, alcance: list[Fragmento], excluir: set[str] | None = N
     los términos del dominio (la enfermedad, la cohorte del objetivo) no
     cuentan como identificadores."""
     if FORMULA_NO_COMPROBADO.search(texto):
-        return Resultado("sostenida", "Declaración honesta de comprobación no hecha; no se juzga contra las fuentes.")
+        return Resultado("sostenida", "Declaración honesta de comprobación no hecha; no se juzga contra las fuentes ni cuenta como evidencia.", abstencion=True)
     for expr in expresiones_identificadoras(texto, excluir):
         for f in alcance:
             if frase_contigua_en(expr, f.texto):
                 return Resultado("ausencia_refutada", f"Declara ausente '{expr}', que aparece en {f.referencia} ({f.localizador}). La búsqueda no llegó.", fragmento=f)
-    return Resultado("sostenida", "Declaración de ausencia sin contradicción en el alcance.")
+    # Una ausencia no refutada tampoco es un hecho: es "no lo encontré en lo
+    # que leí". Se acepta (no es un fallo de la cita) y no cuenta como apoyo.
+    return Resultado("sostenida", "Declaración de ausencia sin contradicción en lo leído; no cuenta como evidencia a favor.", abstencion=True)
 
 
 def fidelidad(veredictos: list[str]) -> float | None:

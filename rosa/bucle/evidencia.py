@@ -65,7 +65,8 @@ def puede_ser_evidencia(a: dict[str, Any]) -> bool:
     con fuente, de la entidad correcta, sin sospecha de inyección y no sintética."""
     return (
         isinstance(a, dict) and a.get("veredicto") in ("sostenida", "parcial") and bool(a.get("fuenteId"))
-        and not a.get("entidadDistinta") and not a.get("sospechosoInyeccion") and not a.get("sintetico") and bool((a.get("texto") or "").strip())
+        and not a.get("entidadDistinta") and not a.get("sospechosoInyeccion") and not a.get("sintetico")
+        and not CERTEZA.es_abstencion(a) and bool((a.get("texto") or "").strip())
     )
 
 

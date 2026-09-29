@@ -287,7 +287,7 @@ def afirmaciones_sostenidas(afirmaciones: list[dict[str, Any]]) -> tuple[str, li
     `sospechosoInyeccion` no podía sumarse como evidencia a una hipótesis viva,
     pero SÍ podía entrar al modelo de mundo y fundar una hipótesis nueva, que
     nacía con ella contando en su balance de peso GRADE."""
-    validas = [a for a in afirmaciones if isinstance(a, dict) and a.get("veredicto") in ("sostenida", "parcial") and not a.get("sintetico") and not a.get("entidadDistinta") and not a.get("sospechosoInyeccion")]
+    validas = [a for a in afirmaciones if isinstance(a, dict) and a.get("veredicto") in ("sostenida", "parcial") and not a.get("sintetico") and not a.get("entidadDistinta") and not a.get("sospechosoInyeccion") and not CERTEZA.es_abstencion(a)]
     # Con `.get`: un registro migrado o escrito a mano sin `tipo` o sin `cita`
     # tumbaba la lista entera, y con ella el paso.
     lineas = [f"{i + 1}. ({a.get('tipo') or 'dato'}{', parcial' if a.get('veredicto') == 'parcial' else ''}) {a.get('texto') or ''} {a.get('cita') or ''}".rstrip() for i, a in enumerate(validas)]

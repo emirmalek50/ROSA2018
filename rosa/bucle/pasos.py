@@ -2099,6 +2099,9 @@ async def verificar_afirmaciones(ctx: Ctx, afirmaciones: list[dict[str, Any]], p
             al_juez.append((a, r))
         else:
             a["veredicto"], a["motivo"] = r.veredicto, r.motivo
+            # Una abstención se acepta y no cuenta como evidencia (V.Resultado).
+            if r.abstencion:
+                a["abstencion"] = True
             recuento[r.veredicto] = recuento.get(r.veredicto, 0) + 1
     if pista:
         pista.resultado(f"Deterministas: {sum(recuento.values())} resueltas sin juez ({', '.join(f'{k} {v}' for k, v in recuento.items()) or 'ninguna'}); {len(al_juez)} van al juez")

@@ -352,6 +352,27 @@ def socavada(a: dict[str, Any]) -> bool:
     return bool(_socavadores(a))
 
 
+def es_abstencion(a: dict[str, Any]) -> bool:
+    """La afirmación declara que algo no se pudo comprobar, o que no se
+    encontró dentro de lo leído. Es honesta y su veredicto es `sostenida`,
+    porque su cita no falla; pero no afirma nada del mundo y no puede contar
+    como evidencia a favor.
+
+    Sin esto (28 de septiembre de 2026), tres frases que dicen "no pude
+    comprobar" sumaban 3,0 de peso, que es el umbral de `alta`, y el techo
+    subía a `baja` por tener tres cohortes distintas. ROSA2018 podía escribir
+    "la evidencia sugiere que..." apoyándose en declaraciones de ignorancia.
+
+    Los registros anteriores a la marca se reconocen por el motivo que escribió
+    el verificador, que es la única señal que tenían."""
+    if not isinstance(a, dict):
+        return False
+    if a.get("abstencion"):
+        return True
+    motivo = str(a.get("motivo") or "")
+    return motivo.startswith("Declaración honesta de comprobación no hecha") or motivo.startswith("Declaración de ausencia sin contradicción")
+
+
 def es_sintetica(a: dict[str, Any]) -> bool:
     """La afirmación es de un ensayo en seco y no cuenta como evidencia: lleva
     `sintetico` verdadero, o es un dato directo (laboratorio o análisis) cuyo
@@ -544,6 +565,8 @@ def _factor_relacion(a: dict[str, Any]) -> tuple[float, str]:
     rel = _relacion(a)
     if es_sintetica(a):
         return 0.0, "sintética (ensayo en seco o fichero de prueba): no cuenta como evidencia"
+    if es_abstencion(a):
+        return 0.0, "declara que no se pudo comprobar algo, o que no se encontró en lo leído: no afirma nada del mundo"
     if a.get("veredicto") not in VEREDICTOS_QUE_CUENTAN:
         return 0.0, f"veredicto {a.get('veredicto') or 'sin veredicto'}: solo cuentan las sostenidas o parciales"
     if socavada(a):
@@ -633,7 +656,7 @@ class _Vista:
         self.indice = _Indice(self.fuentes)
         self.emparejadas: list[list[int]] = [self.indice.resolver(a) for a in self.afs]
         self.pesos: list[dict[str, Any]] = [peso_afirmacion(a, self.fuente_principal(i)) for i, a in enumerate(self.afs)]
-        reales = [i for i, a in enumerate(self.afs) if a.get("veredicto") in VEREDICTOS_QUE_CUENTAN and not es_sintetica(a)]
+        reales = [i for i, a in enumerate(self.afs) if a.get("veredicto") in VEREDICTOS_QUE_CUENTAN and not es_sintetica(a) and not es_abstencion(a)]
         self.apoyos: list[int] = [i for i in reales if _relacion(self.afs[i]) in RELACIONES_APOYO and not socavada(self.afs[i])]
         # Apoyos que son frases de introducción: pesan 0,25 y no dan cohorte a su fuente.
         self.apoyos_de_fondo: set[int] = {i for i in self.apoyos if de_fondo(self.afs[i])}
@@ -919,6 +942,12 @@ def _techo(v: _Vista, factores: list[Any] | None) -> tuple[str, str]:
             return "muy_baja", f"la evidencia en contra pesa tanto o más que la a favor (a favor {a_favor:g}, en contra {en_contra:g}): no queda ningún apoyo sostenido"
         if v.socavadas:
             return "muy_baja", f"no hay ninguna afirmación sostenida que no sea sintética y siga en pie: {v.socavadas} {'apoyo socavado' if v.socavadas == 1 else 'apoyos socavados'}"
+        # El motivo dice cuál de las tres razones es: sin nada, todo sintético,
+        # o todo abstenciones. Decir "sintética" de tres frases que dicen "no
+        # pude comprobar" manda a buscar el fallo donde no está.
+        abstenciones = sum(1 for a in v.afs if a.get("veredicto") in VEREDICTOS_QUE_CUENTAN and es_abstencion(a))
+        if abstenciones:
+            return "muy_baja", f"no hay ninguna afirmación que afirme algo del mundo: {abstenciones} {'declara' if abstenciones == 1 else 'declaran'} que no se pudo comprobar o que no se encontró en lo leído"
         return "muy_baja", "no hay ninguna afirmación sostenida que no sea sintética"
     if en_contra > 0 and en_contra >= a_favor:
         return "muy_baja", f"la evidencia en contra pesa tanto o más que la a favor (a favor {a_favor:g}, en contra {en_contra:g})"
