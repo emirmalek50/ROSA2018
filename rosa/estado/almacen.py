@@ -547,6 +547,17 @@ class Almacen:
         self.estado.clear()
         self.estado.update(recargado)
         self._serializar()
+        # PERMISOS (rosa/conectores/base.py) es una CACHÉ del estado, y el reducer
+        # `fijar_permiso_conector` la escribe dentro del reducer. Si la transacción
+        # se deshace, el estado vuelve atrás y la caché se quedaba con el valor
+        # nuevo: el proceso llamaba a un conector que una persona acababa de
+        # bloquear (o dejaba de llamar a uno permitido) mientras la pantalla decía
+        # lo contrario. Al recargar desde disco se vuelve a sincronizar, que es el
+        # único sitio por el que pasan todos los caminos de deshacer.
+        from rosa.conectores.base import PERMISOS
+
+        PERMISOS.clear()
+        PERMISOS.update(self.estado.get("permisosConectores") or {})
         # Lo que tenía el navegador puede ser de un estado que ya no existe.
         self._cambio_en = {k: self.version for k in self.estado}
         self._minimo_parcial = self.version

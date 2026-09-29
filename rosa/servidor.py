@@ -131,6 +131,10 @@ def igual_secreto(dado: Any, esperado: Any) -> bool:
 
 
 def crear_app(almacen: Almacen) -> FastAPI:
+    # Las tareas de sellado en vuelo. Una tarea de asyncio que nadie referencia la
+    # puede recoger el recolector a medias: se guardan aqui y se sueltan al acabar.
+    _sellos_en_vuelo: set[asyncio.Task[Any]] = set()
+
     @contextlib.asynccontextmanager
     async def _vida(_app: FastAPI):
         # Arranque: el almacen conoce el bucle de eventos para despertar a los
@@ -471,13 +475,26 @@ def crear_app(almacen: Almacen) -> FastAPI:
             # El almacen ya deshizo la mutacion a medias; el cliente recibe un 400 con el motivo.
             raise HTTPException(400, f"Argumentos inválidos para {nombre}: {type(ex).__name__}: {str(ex)[:200]}")
         if nombre == "asignarExperimento" and resultado is not False and isinstance(args.get("hipotesis_id"), str):
-            # El prerregistro recien congelado se sella con un tercero, fuera de la peticion.
-            asyncio.get_running_loop().create_task(_sellar_prerregistro(args["hipotesis_id"]))
+            # El prerregistro recien congelado se sella con un tercero, fuera de la
+            # peticion. La tarea se GUARDA: una tarea de asyncio que nadie referencia
+            # puede recogerla el recolector a medias, y si lanza, su excepcion se
+            # pierde con un "Task exception was never retrieved" en stderr y nadie se
+            # entera de que el prerregistro se quedo sin sellar.
+            t = asyncio.get_running_loop().create_task(_sellar_prerregistro(args["hipotesis_id"]), name=f"sello-{args['hipotesis_id']}")
+            _sellos_en_vuelo.add(t)
+            t.add_done_callback(_sellos_en_vuelo.discard)
         return {"ok": resultado is not False, "resultado": resultado, "version": almacen.version}
 
     async def _sellar_prerregistro(hipotesis_id: str) -> dict[str, Any]:
         """Sella el artefacto de prerregistro (RFC 3161, dos o tres autoridades)
-        y lo registra en la hipótesis. Nunca lanza: el fallo queda en el estado."""
+        y lo registra en la hipótesis.
+
+        No lanza, y hasta el 29 de septiembre de 2026 eso no era verdad: `S.sellar`
+        no lanza, pero `almacen.aplicar` sí (EscritorObsoleto si otro proceso se
+        quedó con la base), y como la llamada de `asignarExperimento` es a fuego y
+        olvido, la excepción moría en un "Task exception was never retrieved" y el
+        prerregistro se quedaba sin sello sin que nada lo dijera. Ahora el fallo se
+        apunta como un sello que no salió, que es lo que la pantalla sabe leer."""
         from rosa import sello as S
 
         h = next((x for x in almacen.estado["hipotesis"] if x["id"] == hipotesis_id), None)
@@ -486,8 +503,15 @@ def crear_app(almacen: Almacen) -> FastAPI:
         if not h or not art:
             return {"ok": False, "error": "sin prerregistro que sellar"}
         contenido = (art.get("versiones") or [{}])[-1].get("contenido") or ""
-        resultado = await asyncio.to_thread(S.sellar, contenido)
-        almacen.aplicar("registrarSelloExterno", {"hipotesis_id": hipotesis_id, "sello": resultado})
+        try:
+            resultado = await asyncio.to_thread(S.sellar, contenido)
+        except Exception as ex:  # noqa: BLE001
+            resultado = {"algoritmo": "sha256", "hash": S.hash_canonico(contenido), "pedidoEn": P.ahora_ms(), "sellos": [], "ok": False, "testigos": [], "primeraHora": None, "error": f"No se pudo pedir el sello: {type(ex).__name__}: {str(ex)[:200]}"}
+        try:
+            almacen.aplicar("registrarSelloExterno", {"hipotesis_id": hipotesis_id, "sello": resultado})
+        except Exception as ex:  # noqa: BLE001
+            print(f"El sello del prerregistro de {hipotesis_id} no se pudo guardar ({type(ex).__name__}: {str(ex)[:160]}); queda sin sellar y el botón \"Sellar con un tercero\" lo repite.", file=sys.stderr, flush=True)
+            return {"ok": False, "error": f"{type(ex).__name__}: {str(ex)[:200]}"}
         return resultado
 
     @app.post("/api/hipotesis/{hipotesis_id}/sellar")

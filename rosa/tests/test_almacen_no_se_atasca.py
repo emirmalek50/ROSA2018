@@ -145,3 +145,43 @@ def test_el_registro_de_llamadas_no_tumba_la_llamada_ni_mezcla_dos_procesos():
         assert cuantas(solo) == 1
     finally:
         solo.cerrar()
+
+
+def test_un_permiso_de_conector_que_no_se_guarda_no_se_queda_en_el_proceso():
+    """`fijar_permiso_conector` escribe la caché del proceso (PERMISOS, la que
+    lee la capa de conectores en cada llamada) DENTRO del reducer. Hasta el 29 de
+    septiembre de 2026, si la transacción se deshacía, el estado volvía atrás y
+    la caché se quedaba con el valor nuevo: el proceso llamaba a un conector que
+    una persona acababa de bloquear mientras la pantalla decía lo contrario, o
+    dejaba de llamar a uno permitido sin que nada lo explicase."""
+    import tempfile
+    from pathlib import Path
+
+    from rosa.conectores.base import PERMISOS
+    from rosa.estado.almacen import Almacen
+
+    al = Almacen(Path(tempfile.mkdtemp()) / "perm.db")
+    try:
+        from rosa.conectores import REGISTRO
+
+        nombre = next(iter(REGISTRO))
+        assert PERMISOS.get(nombre, "permitir") == "permitir"
+
+        # Un reducer que bloquea el conector y luego revienta antes de guardar.
+        def fn(e):
+            from rosa.estado import acciones as A
+
+            A.fijar_permiso_conector(e, nombre, "bloquear", "emir@ai-robotix.com", 1000)
+            assert PERMISOS[nombre] == "bloquear"  # la caché ya está escrita
+            raise RuntimeError("la escritura no llega al disco")
+
+        try:
+            al.mutar(fn, "test")
+        except RuntimeError:
+            pass
+        # El estado volvió atrás; la caché tiene que haber vuelto con él.
+        assert al.estado["permisosConectores"].get(nombre, "permitir") == "permitir"
+        assert PERMISOS.get(nombre, "permitir") == "permitir"
+    finally:
+        PERMISOS.clear()
+        al.cerrar()
