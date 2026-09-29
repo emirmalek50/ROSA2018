@@ -1304,12 +1304,30 @@ def _migrar_rosa2018(estado: dict[str, Any]) -> None:
 
         estado["relaciones"] = relaciones_iniciales()
     # El catalogo de conectores vive en el codigo, como las politicas.
-    from rosa.conectores import catalogo
+    from rosa.conectores import REGISTRO, catalogo
     from rosa.conectores.base import PERMISOS
 
     estado.setdefault("permisosConectores", {})
     PERMISOS.clear()
     PERMISOS.update(estado["permisosConectores"])
+    # Los contadores de uso VIVEN EN EL PROCESO (`Conector.usos`, `.errores`,
+    # `.ultimo_uso`) y el catálogo del código los sobreescribía con cero en cada
+    # arranque. Resultado, medido el 29 de septiembre de 2026: el estado guarda
+    # 1.099 consultas a conectores hechas de verdad y la pantalla de Conectores
+    # decía que los 87 tienen 0 usos y 0 errores, que es justo lo que esa pantalla
+    # existe para enseñar (cuál responde y cuál lleva fallando). Se siembran desde
+    # lo guardado antes de rehacer el catálogo, así que siguen sumando.
+    for guardado in estado.get("conectores") or []:
+        if not isinstance(guardado, dict):
+            continue
+        c = REGISTRO.get(str(guardado.get("nombre") or ""))
+        if c is None:
+            continue
+        c.usos = max(int(c.usos or 0), int(guardado.get("usos") or 0))
+        c.errores = max(int(c.errores or 0), int(guardado.get("errores") or 0))
+        ultimo = guardado.get("ultimoUso")
+        if isinstance(ultimo, int) and (c.ultimo_uso is None or ultimo > c.ultimo_uso):
+            c.ultimo_uso = ultimo
     estado["conectores"] = catalogo()
     from rosa import skills as SK
 

@@ -4442,6 +4442,14 @@ def novedad_pendiente(h: dict[str, Any]) -> bool:
         return True
     if prec.get("estado") == "sin_precedente" and re.search(r"\bentre 0 obras\b", detalle):
         return True
+    # Nota del 29 de septiembre de 2026: esto mira DOS de las siete claves que
+    # comprueba `paso_novedad`, así que una hipótesis con el precedente y la
+    # genética resueltos y las patentes en "No comprobado todavía" no volvería a
+    # pasar por aquí, y la novedad es crítica para el Killer. Se probó a mirar las
+    # siete y se revirtió: en la base no hay ninguna hipótesis así (el hueco es
+    # latente) y el coste sí es inmediato, porque el paso recalcula las siete
+    # claves para cada hipótesis que recoge, incluida la búsqueda de precedentes
+    # en OpenAlex. Arreglarlo bien es que el paso rellene solo lo que falta.
     return (n.get("genetica") or {}).get("estado") == "no_comprobado"
 
 
