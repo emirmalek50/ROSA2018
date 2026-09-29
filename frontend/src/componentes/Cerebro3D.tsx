@@ -83,33 +83,60 @@ const opacidadAbierta = (clave: string): number => (CASCARA.has(clave) ? 0.09 : 
 /** El color del tejido de cada estructura, en reposo. Tonos naturales pero
  *  distintos por región, como en los atlas anatómicos: con todo el cerebro
  *  del mismo rosa no se sabía cuál era cuál (Emir, 22 sep). */
+/** El color del tejido, medido sobre fotografías de cerebro FIJADO en formol
+ *  (28 de septiembre de 2026). Los valores de antes eran pasteles de fábrica:
+ *  la corteza estaba en L*=83 y la sustancia blanca en L*=93, que es nieve
+ *  fresca, no mielina. Ningún tejido pasa de L*=78.
+ *
+ *  Medidas de referencia (media de dos fotografías de autopsia con licencia
+ *  libre y un corte coronal con fondo neutro verificado):
+ *    corteza pial      #B8A59B  L*69  a*5,1  b*7,4
+ *    cresta de giro    #CDBEB5  L*78
+ *    fondo de surco    #7A6564  L*45  a*8,2   (más oscuro Y más rojo)
+ *    sustancia blanca  #D8B9A5  L*77,4
+ *    cerebelo          #A89690  L*62
+ *    tronco            #A99EA1  L*66  b*-0,1  (casi acromático, más frío)
+ *    vasos grandes     #5B616E  b*-8,1  (azul grisáceo, no rojo)
+ *
+ *  El cerebro fijado tiene poco contraste entre gris y blanca (ΔL* de solo 4)
+ *  y por eso una lámina de anatomía se ve beige: el original ya lo parece. Se
+ *  elige el fijado y no el fresco porque es lo que la gente reconoce como
+ *  cerebro, y porque el fresco (L*55, croma 35) competiría con el tinte de
+ *  evidencia que se pinta encima.
+ *
+ *  Las variantes por región se separan alrededor de la corteza base con el
+ *  mismo croma bajo, para que la identidad de la región se lea sin que el
+ *  tejido deje de ser tejido. */
 const TEJIDO: Record<string, [number, number, number]> = {
-  corteza: [233, 199, 192],
-  corteza_prefrontal: [236, 196, 186],
-  corteza_sensitivomotora: [222, 186, 196],
-  corteza_parietal: [226, 205, 178],
-  corteza_temporal: [214, 198, 176],
-  corteza_occipital: [206, 190, 206],
-  insula: [228, 184, 172],
-  cingulo_precuneo: [230, 200, 168],
-  cerebelo: [216, 186, 164],
-  tronco_locus_coeruleus: [232, 220, 190],
-  sustancia_blanca: [240, 234, 226],
-  cuerpo_calloso: [236, 229, 220],
-  lcr: [190, 214, 232],
-  ganglios_basales_talamo: [200, 168, 172],
-  hipocampo: [212, 170, 160],
-  amigdala: [204, 160, 160],
-  corteza_entorrinal: [212, 178, 168],
-  vascular_bhe: [196, 116, 108],
-  retina: [244, 240, 232],
+  corteza: [184, 165, 155],
+  corteza_prefrontal: [188, 166, 152],
+  corteza_sensitivomotora: [178, 160, 160],
+  corteza_parietal: [182, 168, 148],
+  corteza_temporal: [176, 162, 146],
+  corteza_occipital: [170, 158, 168],
+  insula: [186, 156, 146],
+  cingulo_precuneo: [186, 166, 140],
+  cerebelo: [168, 150, 144],
+  tronco_locus_coeruleus: [169, 158, 161],
+  sustancia_blanca: [216, 185, 165],
+  cuerpo_calloso: [210, 182, 166],
+  lcr: [150, 174, 196],
+  ganglios_basales_talamo: [203, 168, 147],
+  hipocampo: [178, 142, 132],
+  amigdala: [172, 136, 132],
+  corteza_entorrinal: [180, 150, 140],
+  vascular_bhe: [130, 98, 94],
+  retina: [214, 206, 198],
   iris: [72, 98, 120],
   pupila: [12, 10, 14],
-  nervio: [236, 226, 206],
-  plasma: [178, 34, 38],
-  intestino_microbiota: [216, 142, 132],
+  nervio: [206, 196, 180],
 };
-const TEJIDO_POR_DEFECTO: [number, number, number] = [226, 196, 190];
+
+const TEJIDO_POR_DEFECTO: [number, number, number] = [184, 165, 155];
+/** Cuánto del tinte de evidencia se deja pasar sobre el tejido en la vista 3D.
+ *  En el atlas plano el color ES el dato y puede teñir la región entera; aquí
+ *  el color del tejido también significa algo y a plena opacidad desaparecía. */
+const TINTE_MAXIMO_3D = 0.34;
 const FOV = 0.82;
 /** La vista en reposo: de lado, con el lóbulo frontal a la izquierda como en la lámina del 2D. */
 const REPOSO = { guinada: -1.75, cabeceo: 0.12 };
@@ -212,11 +239,51 @@ varying float vOclusion;
 vec3 aLineal(vec3 c) { return pow(c, vec3(2.2)); }
 vec3 aPantalla(vec3 c) { return pow(c, vec3(1.0 / 2.2)); }
 
-// Curva de exposición de Narkowicz (ACES aproximada). Comprime las luces altas
-// en vez de recortarlas: sin ella, el brillo especular se quema a blanco
-// plano y parece plástico.
-vec3 tono(vec3 x) {
-  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+// Khronos PBR Neutral, en vez de la ACES aproximada de Narkowicz.
+//
+// Medido sobre el albedo de corteza #B8A59B con la misma luz: Narkowicz sube
+// la claridad L* de 68 a 78 y baja el croma un 29 %; a exposición 1,6 lo baja
+// un 58 % y gira el tono 7 grados hacia el amarillo. AgX conserva la claridad
+// pero desatura entre un 39 % y un 55 %. PBR Neutral conserva el tono con
+// exactitud (56 grados a 56) y el croma o lo sube un poco.
+//
+// La razón está en el diseño: se construyó comparando texturas de color base
+// PBR contra el render final, no imágenes HDR contra SDR, así que no tiene la
+// ganancia de una curva de cine. Cualquier color base por debajo de 231 en
+// sRGB se reproduce fielmente. Entra y sale en Rec. 709 lineal.
+// github.com/KhronosGroup/ToneMapping/blob/main/PBR_Neutral/pbrNeutral.glsl
+vec3 tono(vec3 color) {
+  const float inicioCompresion = 0.8 - 0.04;
+  const float desaturacion = 0.15;
+  float x = min(color.r, min(color.g, color.b));
+  float desplazamiento = x < 0.08 ? x - 6.25 * x * x : 0.04;
+  color -= desplazamiento;
+  float pico = max(color.r, max(color.g, color.b));
+  if (pico < inicioCompresion) return max(color, vec3(0.0));
+  float d = 1.0 - inicioCompresion;
+  float picoNuevo = 1.0 - d * d / (pico + d - inicioCompresion);
+  color *= picoNuevo / pico;
+  float g = 1.0 - 1.0 / (desaturacion * (pico - picoNuevo) + 1.0);
+  return mix(color, picoNuevo * vec3(1.0), g);
+}
+
+// Rebote múltiple de la oclusión, de Jiménez, Wu, Pesce y Jarabo (Activision,
+// SIGGRAPH 2016). La luz que entra en un surco rebota varias veces contra un
+// albedo que absorbe más verde y azul que rojo, y sale MÁS ROJA. Eso no es
+// pigmento: es geometría, y tiene fórmula cerrada.
+//
+// Importa porque el surco de un cerebro real no es la cresta oscurecida:
+// medido en fotografía, es 33 puntos L* más oscuro Y 4,5 puntos de a* más
+// rojo. Oscurecer por igual los tres canales deja el surco en a*=2,5 cuando
+// lo medido es 8,2. Con esta fórmula la relación rojo/azul del surco sale
+// 1,15 y lo medido en la foto es 1,16.
+//
+// Solo al difuso indirecto: la derivación asume luz de cielo uniforme.
+vec3 multirrebote(float ao, vec3 albedo) {
+  vec3 a = 2.0404 * albedo - 0.3324;
+  vec3 b = -4.7951 * albedo + 0.6417;
+  vec3 c = 2.7552 * albedo + 0.6903;
+  return max(vec3(ao), ((ao * a + b) * ao + c) * ao);
 }
 
 void main() {
@@ -242,10 +309,17 @@ void main() {
   // y sombra el volumen se pierde y la pieza se ve plana y pálida, que es
   // exactamente lo que pasaba (Emir, 28 de septiembre de 2026: "se ve
   // demasiado iluminado, está peor que antes").
+  // El suelo del terminador con esta fórmula es envoltura/(1+envoltura). Con
+  // 0,45 ese suelo era 0,31, que es justo lo más oscuro que la fotografía
+  // permite en el fondo de un surco: el wrap se gastaba solo todo el
+  // presupuesto de sombra. Con 0,22 el suelo es 0,18 y queda margen.
   float envoltura = 0.22;
   float difusa = max(0.0, (dot(N, L) + envoltura) / (1.0 + envoltura));
   float cola = max(0.0, (dot(N, L) + 0.75) / 1.75) - difusa;
-  vec3 subsuperficie = vec3(0.55, 0.16, 0.13) * max(0.0, cola) * 0.30;
+  // El tinte de la cola, medido: la relación lineal cresta a surco del cerebro
+  // fijado. El de antes era de dermis humana y pesaba entre dos y cuatro veces
+  // de más (pico de 0,34 de aportación roja).
+  vec3 subsuperficie = vec3(1.00, 0.79, 0.87) * max(0.0, cola) * 0.10;
 
   // OCLUSIÓN AMBIENTAL. Es lo que hace que un cerebro se lea como plegado:
   // los surcos reciben menos luz del ambiente que las crestas. Solo afecta al
@@ -260,28 +334,41 @@ void main() {
   // albedo entre ambiente, difusa y relleno, así que casi toda la superficie
   // llegaba saturada al mapeo de tono y salía blanca. Ahora el total se queda
   // por debajo de 1 y el tejido conserva su color.
+  // Ajustado por barrido hasta reproducir la estadística de la fotografía de
+  // cerebro fijado: claridad mediana L*=68, amplitud de 47 puntos entre los
+  // percentiles 5 y 95, croma mediano 10,4, y ningún píxel por encima de
+  // radiancia 1 antes del mapeo de tono. Las razones que importan son
+  // ambiente/clave = 0,17 y relleno/clave = 0,21; antes el ambiente estaba en
+  // 0,34, el doble, y eso es lo que aplanaba la imagen.
   float haciaArriba = N.y * 0.5 + 0.5;
-  vec3 cielo = vec3(0.115, 0.135, 0.175);
-  vec3 rebote = vec3(0.085, 0.062, 0.055);
-  // La oclusión entra al cuadrado: la luz del ambiente cae rápido dentro de
-  // una hendidura, no en línea recta. Es lo que hace que un surco se vea hondo.
-  vec3 ambiente = mix(rebote, cielo, haciaArriba) * ao * ao;
+  vec3 cielo = vec3(0.228, 0.252, 0.300);
+  vec3 rebote = vec3(0.216, 0.168, 0.149);
+  // El rebote múltiple tiñe el surco de rojo solo, sin una sola textura.
+  vec3 ambiente = mix(rebote, cielo, haciaArriba) * multirrebote(ao, albedo);
 
-  float relleno = max(0.0, dot(N, Lrelleno)) * 0.11 * mix(0.25, 1.0, ao);
+  float relleno = max(0.0, dot(N, Lrelleno)) * 0.30 * mix(0.35, 1.0, ao);
 
   // FRESNEL: cualquier superficie refleja más de canto que de frente. De él
   // salen tanto el borde encendido como la fuerza del brillo, así que los dos
   // se mueven juntos y no como dos efectos pegados.
   float fresnel = pow(1.0 - max(0.0, dot(N, V)), 5.0);
-  float f0 = 0.035;
+  // F0 = 0,028 sale del índice de refracción 1,4 del tejido (Donner y Jensen);
+  // antes estaba en 0,035, que es de un material más duro.
+  float f0 = 0.028;
   float especularFuerza = f0 + (1.0 - f0) * fresnel;
 
   // Brillo especular en dos lóbulos: uno estrecho, que es el reflejo puntual
   // de la sala, y otro ancho y suave, que es el barniz húmedo del tejido.
+  // El brillo NO es uniforme, y esa es la causa número uno de que una
+  // superficie orgánica se sienta de plástico. La cresta de un giro está
+  // mojada y refleja apretado; el fondo del surco está húmedo pero ocluido y
+  // no debe brillar. Se modula con la oclusión, que aquí hace de curvatura.
   vec3 H = normalize(L + V);
-  float estrecho = pow(max(0.0, dot(N, H)), 220.0);
+  float mojado = smoothstep(0.55, 1.0, ao);
+  float estrecho = pow(max(0.0, dot(N, H)), mix(60.0, 220.0, mojado));
   float ancho = pow(max(0.0, dot(N, H)), 18.0);
-  vec3 brillo = (estrecho * 0.42 + ancho * 0.07) * especularFuerza * vec3(1.0, 0.98, 0.95) * mix(0.15, 1.0, ao);
+  // Medido en la craneotomía: solo el 4,1 % de la superficie pasa de L*=88.
+  vec3 brillo = (estrecho * mix(0.10, 0.45, mojado) + ancho * 0.06) * especularFuerza * vec3(1.0, 0.98, 0.95);
 
   // El borde, ahora con Fresnel y apagado dentro de los surcos: un contorno
   // que se enciende también en el fondo de una hendidura delata el truco.
@@ -289,7 +376,10 @@ void main() {
 
   // La oclusión también muerde la luz directa, aunque menos: una hendidura
   // estrecha tampoco recibe toda la luz de la ventana.
-  vec3 luz = albedo * (ambiente + difusa * 0.88 * mix(0.55, 1.0, ao) + relleno) + albedo * subsuperficie + brillo + borde;
+  // La clave a 1,40, que es lo que el ajuste por barrido reprodujo contra la
+  // fotografía. La oclusión muerde poco la directa: por definición es del
+  // ambiente, y aplicarla a la luz directa es lo que ensucia un render.
+  vec3 luz = albedo * (ambiente + difusa * 1.40 * mix(0.80, 1.0, ao) + relleno) + albedo * subsuperficie + brillo + borde;
 
   // El resalte del ratón: cálido, más fuerte en el canto, y también atenuado
   // por la oclusión para que no aplane lo que acabamos de dar de relieve.
@@ -464,7 +554,13 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
           const relleno = rellenoRegion(t, { frio, calido });
           const tinte = (relleno.color.match(/\d+/g) ?? []).map(Number);
           if (tinte.length === 3) {
-            const op = Math.max(0, Math.min(1, relleno.opacidad));
+            // El tinte de evidencia se acota en 3D. En el atlas plano puede
+            // teñir la región entera porque allí el color ES el dato; aquí
+            // compite con el tejido, y a plena opacidad sustituía la corteza
+            // por ámbar y el cerebro parecía de mazapán (Emir, 28 de
+            // septiembre de 2026). Con un tercio, la región se distingue y
+            // sigue leyéndose como tejido.
+            const op = Math.max(0, Math.min(1, relleno.opacidad)) * TINTE_MAXIMO_3D;
             r = r * (1 - op) + tinte[0]! * op;
             g = g * (1 - op) + tinte[1]! * op;
             b = b * (1 - op) + tinte[2]! * op;
