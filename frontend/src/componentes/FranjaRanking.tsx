@@ -143,7 +143,11 @@ function Bloqueos({ c }: { c: ComponentesRanking }) {
  *  parcial (solo hace falta la lista de hipótesis para resolver títulos y lo
  *  que la regla de bloqueos lee). Con `explicar`, añade debajo la frase en
  *  llano de qué movería a la hipótesis. */
-export function FranjaRanking({ estado, h, explicar = false }: { estado: EstadoParaRanking; h: Hipotesis; explicar?: boolean }) {
+/** `compacto`: en la tabla del ranking solo se enseña lo que ordena y lo que
+ *  cambia entre filas. Las quince piezas de la franja completa, repetidas en
+ *  cada fila, eran tres líneas de ruido con la mitad de los valores idénticos
+ *  (Emir, 28 de septiembre de 2026). La franja entera sigue en la ficha. */
+export function FranjaRanking({ estado, h, explicar = false, compacto = false }: { estado: EstadoParaRanking; h: Hipotesis; explicar?: boolean; compacto?: boolean }) {
   const c = componentesDe(estado, h);
   const pocos = c.partidos < 3;
   const n = c.cohortesDistintas.length;
@@ -152,7 +156,7 @@ export function FranjaRanking({ estado, h, explicar = false }: { estado: EstadoP
     <div>
       <div className="hip-meta" role="group" aria-label="Componentes del ranking, sin sumar">
         <ChipCerteza c={c} />
-        {c.direccion && (
+        {!compacto && c.direccion && (
           <Chip tono={etiquetaDireccion(c.direccion).tono} title={DEFINICIONES.direccion}>
             {etiquetaDireccion(c.direccion).etiqueta}
           </Chip>
@@ -166,10 +170,10 @@ export function FranjaRanking({ estado, h, explicar = false }: { estado: EstadoP
         <Chip tono={c.enContra > 0 ? 'mal' : 'borde'} title={DEFINICIONES.enContra}>
           {formatearEntero(c.enContra)} en contra
         </Chip>
-        <Chip tono={c.socavan > 0 ? 'aviso' : 'borde'} title={`${DEFINICIONES.socavan}${c.socavadas > 0 ? ` Hoy ${plural(c.socavadas, 'apoyo socavado no cuenta', 'apoyos socavados no cuentan')}.` : ''}`}>
+        {!compacto && <Chip tono={c.socavan > 0 ? 'aviso' : 'borde'} title={`${DEFINICIONES.socavan}${c.socavadas > 0 ? ` Hoy ${plural(c.socavadas, 'apoyo socavado no cuenta', 'apoyos socavados no cuentan')}.` : ''}`}>
           {c.socavan === 1 ? '1 socava' : `${formatearEntero(c.socavan)} socavan`}
-        </Chip>
-        {c.razonesEnContra > 0 && (
+        </Chip>}
+        {!compacto && c.razonesEnContra > 0 && (
           <Chip tono="aviso" title="Razones en contra que el juez enumera en la conclusión: no son afirmaciones verificadas (esas son las de 'en contra' y 'socavan'), sino ataques al paso inferencial o cosas que faltan. Se cuentan aparte para que '0 en contra' no se lea como 'sin objeciones'.">
             {c.razonesEnContra === 1 ? '1 razón en contra (juez)' : `${formatearEntero(c.razonesEnContra)} razones en contra (juez)`}
           </Chip>
@@ -184,7 +188,7 @@ export function FranjaRanking({ estado, h, explicar = false }: { estado: EstadoP
           </Chip>
         )}
         <Bloqueos c={c} />
-        {c.bt ? (
+        {compacto ? null : c.bt ? (
           <Chip title={DEFINICIONES.bt}>
             BT {formatearEntero(c.bt.fuerza)} ({formatearEntero(c.bt.ic95[0])} a {formatearEntero(c.bt.ic95[1])})
           </Chip>
@@ -196,9 +200,9 @@ export function FranjaRanking({ estado, h, explicar = false }: { estado: EstadoP
         <Chip tono={pocos ? 'aviso' : 'neutro'} title={DEFINICIONES.partidos}>
           {plural(c.partidos, 'partido')}
         </Chip>
-        <Chip tono={novedad.tono} title={`${novedad.nota}${c.novedad.detalle ? ` Detalle: ${c.novedad.detalle}` : ''}`}>
+        {!compacto && <Chip tono={novedad.tono} title={`${novedad.nota}${c.novedad.detalle ? ` Detalle: ${c.novedad.detalle}` : ''}`}>
           {novedad.etiqueta}
-        </Chip>
+        </Chip>}
         {c.ruta ? (
           <Chip tono={c.ruta.coherente ? 'acento' : 'aviso'} title={`Ruta terapéutica evaluada por regla sobre la evidencia que tiene: pasos cubiertos de ocho y el primero que falta. ${c.ruta.coherente ? 'El paso que declara la tarjeta es coherente con lo cubierto.' : 'El paso que declara la tarjeta va por delante de lo que la evidencia cubre.'}`}>
             {etiquetaRuta(c.ruta)}

@@ -14,11 +14,11 @@
 
 import { useMemo, useState } from 'react';
 import { Contador, ElementoAnimado, ListaAnimada } from '../componentes/Animado';
+import { FranjaRanking } from '../componentes/FranjaRanking';
 import type { EstadoRosa, Hipotesis, Investigacion } from '../datos/tipos';
 import { AvisoMuestra, Chip } from '../componentes/piezas';
 import { Candidatas } from '../componentes/Rosa2018';
 import { Esqueleto, EsqueletoPantalla, EsqueletoTarjeta, EsqueletoTarjetas } from '../componentes/Esqueleto';
-import { FranjaRanking } from '../componentes/FranjaRanking';
 import { calibracion } from '../lib/calidad';
 import { useCalculoDiferido } from '../lib/diferido';
 import { DECISION_KILLER, ESTADO_HIPOTESIS, killerPendienteDe } from '../lib/etiquetas';
@@ -52,12 +52,14 @@ function GraficaElo({ puntos }: { puntos: Hipotesis['historialElo'] }) {
 function Fila({ h, i, invId, estado }: { h: Hipotesis; i: number; invId: string; estado: EstadoRosa }) {
   const d = variacionElo(h);
   return (
-    <a className="ranking-fila" href={rutaDe(invId, 'hipotesis', h.id)}>
+    <a className={`ranking-fila ${h.candidata ? 'ranking-candidata' : ''}`} href={rutaDe(invId, 'hipotesis', h.id)}>
       <span className="ranking-pos">{i + 1}</span>
       <div>
         <h3>{h.titulo}</h3>
         <div className="hip-meta">
-          <Chip>{ESTADO_HIPOTESIS[h.estado]}</Chip>
+          {/* El estado solo cuando no es "propuesta": salía idéntico en las
+              seis filas (Emir, 28 de septiembre de 2026). */}
+          {h.estado !== 'propuesta' && <Chip>{ESTADO_HIPOTESIS[h.estado]}</Chip>}
           {h.origen === 'humana' && <Chip tono="acento">Humana</Chip>}
           <Chip tono="borde">{h.cluster}</Chip>
           {killerPendienteDe(h) && (
@@ -75,7 +77,13 @@ function Fila({ h, i, invId, estado }: { h: Hipotesis; i: number; invId: string;
           </span>
           <span>{(h.coste.literatura + h.coste.analisis).toFixed(1).replace('.', ',')} $ gastados</span>
         </div>
-        <FranjaRanking estado={estado} h={h} />
+        {/* La franja explica por qué cada hipótesis está en ese puesto, así
+            que se queda. Pero en modo compacto: en la tabla salían quince
+            chips por fila, en cuatro colores y tres líneas de alto, y la
+            mitad eran iguales en todas ("0 en contra", "0 socavan", "sin
+            bloqueos", "novedad sin comprobar"). Compacta deja lo que ordena y
+            lo que cambia entre filas; lo demás está en la ficha, a un clic. */}
+        <FranjaRanking estado={estado} h={h} compacto />
       </div>
       <GraficaElo puntos={h.historialElo} />
       <div className="hip-elo">
@@ -173,7 +181,11 @@ export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRos
     const { lista, clusters, estado: foto } = r;
     if (vista === 'lista') {
       return (
-        <ListaAnimada className="cola" como="div">
+        // `ranking-lista` y no `cola`: eran la misma clase, y por eso las dos
+        // pantallas se veían casi idénticas pese a contestar preguntas
+        // distintas (Emir, 28 de septiembre de 2026). La cola es "qué leo
+        // ahora"; el ranking es "cómo se comparan", y va como clasificación.
+        <ListaAnimada className="ranking-lista" como="div">
           {lista.map((h, i) => (
             <ElementoAnimado key={h.id}>
               <Fila h={h} i={i} invId={r.invId} estado={foto} />
