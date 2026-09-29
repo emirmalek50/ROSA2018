@@ -15,7 +15,7 @@
 //
 // No hay endpoint nuevo: el grafo ya viaja dentro del estado.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { EstadoRosa, Hipotesis, Investigacion } from '../datos/tipos';
 import {
   actoresDe,
@@ -55,10 +55,28 @@ const ALTO = 430;
 const Y_HIPOTESIS = ALTO + 24;
 const Y_AMENAZAS = ALTO + 150;
 const LIENZO_ALTO = ALTO + 300;
+/** Lo que queda libre bajo la última caja, en coordenadas del lienzo. El lienzo
+ *  ya no reserva siempre la franja de las amenazas: sin ninguna, dejaba un hueco
+ *  vacío de 257 px en un monitor y de 124 en una laptop (Emir, 29 de septiembre
+ *  de 2026: "se ve un espacio vacío grande en el cuadro"). */
+const MARGEN_ABAJO = 40;
+
+/** Dónde puede partirse una palabra larga de la cascada, con guion y solo si no
+ *  cabe (U+00AD, guion blando). "neurodegeneración" mide 114 px a 12,5 px de
+ *  letra, y en una laptop la caja mide de 72 a 92: se salía. En un monitor la caja
+ *  mide 180 y el guion no aparece. */
+const PREFIJOS_PARTIBLES = /^(neuro|inmuno|cerebro|hiper|hipo|micro|astro|oligo|sinapto|fosfo)(?=[a-záéíóúñ]{5,})/i;
+
+function partible(etiqueta: string): string {
+  return etiqueta
+    .split(' ')
+    .map((palabra) => (palabra.length > 11 ? palabra.replace(PREFIJOS_PARTIBLES, '$1\u00AD') : palabra))
+    .join(' ');
+}
 
 /** Cuánto ocupa una caja, para que las flechas salgan del borde y no del
  *  centro. En coordenadas del lienzo. */
-const CAJA_ANCHO = 128;
+const CAJA_ANCHO = 150;
 const CAJA_ALTO = 46;
 
 /** Una arista de consenso, curvada del borde derecho de una caja al izquierdo
@@ -147,6 +165,44 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
     }
     return v;
   }, [sobre, casc.aristas]);
+
+  // El alto del lienzo es el de lo que contiene. Las cajas se colocan en % de ese
+  // alto, pero el lienzo tiene la proporción ANCHO / alto, así que su posición en
+  // píxeles (y * ancho / ANCHO) no depende del alto: cambiarlo no mueve nada, solo
+  // quita el hueco de abajo. Se mide porque el texto no escala con el lienzo: la
+  // caja de "lo que mueve" ocupa más coordenadas en una laptop que en un monitor.
+  const hayActores = Boolean(actores.exposicion || actores.desenlace);
+  const altoEstimado = amenazas.length ? LIENZO_ALTO : hayActores ? Y_HIPOTESIS + 120 : ALTO + 16;
+  const [altoLienzo, fijarAltoLienzo] = useState(altoEstimado);
+  const lienzo = useRef<HTMLDivElement | null>(null);
+  // Dependencias ESTABLES: con las amenazas ocultas, `amenazas` es una lista nueva
+  // en cada render, y depender de ella volvería a medir (y a fijar el alto, y a
+  // renderizar) sin fin. Cuenta lo que cambia la forma: cuántas amenazas, si hay
+  // actores, qué nodos y qué hipótesis.
+  const huellaLienzo = `${amenazas.map((a) => a.id).join('|')}#${hayActores}#${casc.nodos.length}#${actores.exposicion ?? ''}#${actores.desenlace ?? ''}`;
+  useLayoutEffect(() => {
+    const el = lienzo.current;
+    if (!el) return;
+    const medir = () => {
+      const w = el.clientWidth;
+      if (!w) return; // sin maquetar (pruebas): se queda la estimación
+      let fondo = 0;
+      for (const hijo of el.querySelectorAll<HTMLElement>('.mec-nodo, .mec-actor, .mec-amenaza')) fondo = Math.max(fondo, hijo.offsetTop + hijo.offsetHeight);
+      if (!fondo) return;
+      const medido = Math.ceil((fondo * ANCHO) / w + MARGEN_ABAJO);
+      fijarAltoLienzo((antes) => (Math.abs(antes - medido) > 2 ? medido : antes));
+    };
+    medir();
+    if (typeof ResizeObserver === 'undefined') return;
+    const vigia = new ResizeObserver(medir);
+    vigia.observe(el);
+    for (const hijo of el.querySelectorAll('.mec-actor, .mec-amenaza')) vigia.observe(hijo);
+    return () => vigia.disconnect();
+  }, [huellaLienzo]);
+  // Sin maquetar (pruebas), o antes de la primera medida, manda la estimación.
+  useEffect(() => {
+    if (!lienzo.current?.clientWidth) fijarAltoLienzo(altoEstimado);
+  }, [altoEstimado]);
 
   const columnas = useMemo(() => {
     const vistas = new Map<Capa, number>();
@@ -244,8 +300,8 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
 
       <div className="mec-fila">
         <div className="mec-marco">
-          <div className="mec-lienzo" style={{ aspectRatio: `${ANCHO} / ${LIENZO_ALTO}` }}>
-            <svg viewBox={`0 0 ${ANCHO} ${LIENZO_ALTO}`}>
+          <div className="mec-lienzo" ref={lienzo} style={{ aspectRatio: `${ANCHO} / ${altoLienzo}` }}>
+            <svg viewBox={`0 0 ${ANCHO} ${altoLienzo}`}>
               <defs>
                 <marker
                   id="mec-gris"
@@ -365,12 +421,12 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                   onBlur={() => señalar(null)}
                   style={{
                     left: `${((p.x + CAJA_ANCHO / 2) / ANCHO) * 100}%`,
-                    top: `${(p.y / LIENZO_ALTO) * 100}%`,
+                    top: `${(p.y / altoLienzo) * 100}%`,
                     width: `${(CAJA_ANCHO / ANCHO) * 100}%`,
                   }}
                   title={`${n.etiqueta} entra en juego en ${n.enJuego} de las ${casc.total} hipótesis, como actor o como confusor`}
                 >
-                  {n.etiqueta}
+                  {partible(n.etiqueta)}
                   <span className="mec-cuantas">
                     en {n.enJuego} de {casc.total}
                   </span>
@@ -382,7 +438,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
               <>
                 <div
                   className="mec-actor"
-                  style={{ left: '30%', top: `${(Y_HIPOTESIS / LIENZO_ALTO) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
+                  style={{ left: '30%', top: `${(Y_HIPOTESIS / altoLienzo) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
                   title={actores.exposicion}
                 >
                   <b>LO QUE MUEVE</b>
@@ -390,7 +446,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                 </div>
                 <div
                   className="mec-actor"
-                  style={{ left: '70%', top: `${(Y_HIPOTESIS / LIENZO_ALTO) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
+                  style={{ left: '70%', top: `${(Y_HIPOTESIS / altoLienzo) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
                   title={actores.desenlace}
                 >
                   <b>Y LO LEE EN</b>
@@ -405,7 +461,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                 className="mec-amenaza"
                 style={{
                   left: `${((i + 0.5) / amenazas.length) * 100}%`,
-                  top: `${(Y_AMENAZAS / LIENZO_ALTO) * 100}%`,
+                  top: `${(Y_AMENAZAS / altoLienzo) * 100}%`,
                   width: `${94 / amenazas.length}%`,
                 }}
               >

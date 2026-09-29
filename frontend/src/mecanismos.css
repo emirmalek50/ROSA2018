@@ -139,6 +139,11 @@
   width: 100%;
   background: var(--inset);
   border-radius: 9px;
+  /* Las cajas miden un porcentaje del lienzo y la letra no: en una laptop la caja
+     encoge y la palabra no (Emir, 29 de septiembre de 2026: "neurodegeneración" y
+     "neuroinflamación" se salían en la laptop y en el monitor no). Con el lienzo
+     como contenedor, la letra de las cajas puede medirse en su ancho (cqw). */
+  container-type: inline-size;
 }
 .mec-lienzo svg {
   position: absolute;
@@ -176,12 +181,19 @@
   border: 1px solid var(--border-strong);
   background: var(--surface);
   border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 12.5px;
+  /* Tope arriba: el tamaño de siempre, así que en un monitor no cambia nada. Abajo
+     encoge con el lienzo hasta 10,5 px (1,9 % del ancho: con 560 px de lienzo, la
+     laptop más estrecha medida, sale 10,6). Si aun así una palabra no cabe, parte
+     por el guion blando que pone el componente, y como último recurso por donde
+     haga falta: mejor partida que saliéndose de la caja. */
+  padding: 6px clamp(5px, 0.8cqw, 8px);
+  font-size: clamp(10.5px, 1.9cqw, 12.5px);
   line-height: 1.2;
   text-align: center;
   color: var(--text);
   box-shadow: var(--shadow-soft);
+  hyphens: manual;
+  overflow-wrap: anywhere;
 }
 /* Cuantas más hipótesis lo tienen en juego, más peso visual. La escala es
    NEUTRA a propósito: el morado ya significa "lo que la hipótesis supone" en
@@ -237,7 +249,7 @@
 
 .mec-cuantas {
   display: block;
-  font-size: 9.5px;
+  font-size: clamp(8.5px, 1.45cqw, 9.5px);
   color: var(--text-3);
   font-family: var(--font-mono);
   margin-top: 2px;
