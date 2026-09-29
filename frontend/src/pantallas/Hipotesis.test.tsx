@@ -127,7 +127,13 @@ describe('la ficha de la hipótesis', () => {
     const franja = nodo.querySelector('[role="group"][aria-label="Componentes del ranking, sin sumar"]')!;
     expect(franja).not.toBeNull();
     expect(franja.compareDocumentPosition(nodo.querySelector('h2')!) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-    expect(franja.parentElement!.querySelector('p.meta')!.textContent!.length).toBeGreaterThan(10);
+    // La explicación de por qué está donde está va plegada desde el 28 de
+    // septiembre de 2026: era una frase de más de doce líneas que dominaba la
+    // ficha por encima de la propia hipótesis. Sigue estando, con su rótulo.
+    const explica = franja.parentElement!.querySelector('details.franja-explica')!;
+    expect(explica).not.toBeNull();
+    expect(explica.querySelector('summary')!.textContent).toContain('Qué le falta para subir');
+    expect(explica.querySelector('p')!.textContent!.length).toBeGreaterThan(10);
     // Alternativas en su sección.
     expect(nodo.textContent).toContain('Explicaciones alternativas');
     expect(nodo.textContent).toContain('La función renal explica a la vez el GFAP y el NfL en plasma.');

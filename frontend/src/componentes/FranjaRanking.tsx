@@ -229,7 +229,15 @@ export function FranjaRanking({ estado, h, explicar = false }: { estado: EstadoP
           </Chip>
         )}
       </div>
-      {explicar && <p className="meta">{queCambiariaElOrden(h)}</p>}
+      {/* Qué le falta para subir. Es una sola frase generada, pero puede pasar
+          de doce líneas y dominaba la ficha entera por encima de la hipótesis
+          (Emir, 28 de septiembre de 2026). Va plegada, con su rótulo. */}
+      {explicar && (
+        <details className="franja-explica">
+          <summary>Qué le falta para subir y qué cambiaría su orden</summary>
+          <p>{queCambiariaElOrden(h)}</p>
+        </details>
+      )}
     </div>
   );
 }

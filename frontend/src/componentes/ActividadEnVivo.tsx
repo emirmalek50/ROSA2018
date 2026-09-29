@@ -18,10 +18,17 @@ import type { Corrida, Iteracion, PasoPlan } from '../datos/tipos';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { formatearDuracion, formatearEntero } from '../lib/formato';
 
-/** Resorte equivalente al `.smooth` de SwiftUI: aterriza sin rebotar. */
-export const SUAVE_IOS = { type: 'spring', stiffness: 300, damping: 30, mass: 1 } as const;
-/** Equivalente al `.snappy`: un pelín de rebote, para lo que aparece. */
-export const VIVO_IOS = { type: 'spring', stiffness: 420, damping: 28, mass: 0.9 } as const;
+// Los resortes de SwiftUI, convertidos a los parámetros de `motion` con las
+// fórmulas de Apple (stiffness = (2pi/duración)^2 * masa; damping =
+// 4pi(1-rebote)/duración * masa). Se dan por física y no por duración porque
+// solo la forma física hereda la velocidad al interrumpirse, como hace
+// SwiftUI al redirigir una animación a mitad de camino.
+/** `.smooth` de SwiftUI (duración 0,5, rebote 0): aterriza sin rebotar. */
+export const SUAVE_IOS = { type: 'spring', stiffness: 157.9, damping: 25.13, mass: 1 } as const;
+/** `.snappy` (duración 0,5, rebote 0,15): vivo sin que se note el rebote. */
+export const VIVO_IOS = { type: 'spring', stiffness: 157.9, damping: 21.36, mass: 1 } as const;
+/** El de los dígitos de los widgets de Apple: `spring(duration: 0.2)`. */
+export const CIFRA_IOS = { type: 'spring', stiffness: 987, damping: 62.83, mass: 1 } as const;
 
 type Pulso = 'marcha' | 'espera' | 'quieto';
 
@@ -100,26 +107,23 @@ function Cifra({ valor, decimales = 0, sufijo }: { valor: number; decimales?: nu
   );
 }
 
-function Vital({ nombre, children, title }: { nombre: string; children: ReactNode; title?: string }) {
+function Vital({ nombre, children, title, pie }: { nombre: string; children: ReactNode; title?: string; pie?: ReactNode }) {
   return (
     <div className="vivo-vital" title={title}>
       <div className="vivo-vital-cifra">{children}</div>
       <div className="vivo-vital-nombre">{nombre}</div>
+      {pie}
     </div>
   );
 }
 
-/** El aro del tope de la corrida: cuánto se ha gastado de lo autorizado. */
-function Aro({ fraccion }: { fraccion: number }) {
+/** El tope gastado, en barra. Las HIG reservan los anillos a los de Actividad
+ *  (Mover, Ejercicio, De pie): usarlos para otra cosa los vacía de sentido. */
+function BarraTope({ fraccion }: { fraccion: number }) {
   const f = Math.max(0, Math.min(1, Number.isFinite(fraccion) ? fraccion : 0));
-  const r = 11;
-  const c = 2 * Math.PI * r;
   return (
-    <span className={`vivo-aro ${f > 0.85 ? 'vivo-aro-aviso' : ''}`}>
-      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
-        <circle className="vivo-aro-fondo" cx="13" cy="13" r={r} />
-        <circle className="vivo-aro-frente" cx="13" cy="13" r={r} strokeDasharray={c} strokeDashoffset={c * (1 - f)} />
-      </svg>
+    <span className={`vivo-barra ${f > 0.85 ? 'vivo-barra-aviso' : ''}`} aria-hidden="true">
+      <i style={{ transform: `scaleX(${f})` }} />
     </span>
   );
 }
@@ -223,8 +227,11 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
         <Vital nombre="artículos leídos">
           <Cifra valor={corrida.gasto.articulosLeidos} />
         </Vital>
-        <Vital nombre="del tope de la corrida" title={`${formatearEntero(corrida.gasto.llamadas)} de ${formatearEntero(tope)} llamadas`}>
-          <Aro fraccion={fraccionTope} />
+        <Vital
+          nombre={`del tope · quedan ${formatearEntero(Math.max(0, tope - corrida.gasto.llamadas))}`}
+          title={`${formatearEntero(corrida.gasto.llamadas)} de ${formatearEntero(tope)} llamadas autorizadas`}
+          pie={<BarraTope fraccion={fraccionTope} />}
+        >
           <Cifra valor={Math.round(fraccionTope * 100)} sufijo=" %" />
         </Vital>
       </div>

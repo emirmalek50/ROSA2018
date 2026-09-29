@@ -33,8 +33,8 @@
 :root {
   /* SF Pro en macOS e iOS; Inter (que se diseñó cerca de SF) en lo demás. */
   --font-sistema:
-    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
-    'Inter Variable', Inter, system-ui, 'Segoe UI', sans-serif;
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI',
+    'Inter Variable', Inter, Roboto, 'Helvetica Neue', Arial, sans-serif;
 
   /* Escala tipográfica corta, con los nombres de las HIG de Apple. Solo lo
      que esta capa necesita: si hiciera falta un tamaño más, es que la
@@ -48,9 +48,9 @@
   --t-leyenda: 11px;
 
   /* Radios continuos: cuanto más grande la caja, más radio, como en iOS. */
-  --r-vivo: 20px;
-  --r-tarjeta: 14px;
-  --r-pieza: 10px;
+  --r-vivo: 16px;
+  --r-tarjeta: 12px;
+  --r-pieza: 8px;
   --r-pastilla: 999px;
 
   /* El material: translúcido sobre el fondo, con saturación subida, que es
@@ -67,10 +67,10 @@
     0 24px 48px -24px rgba(28, 25, 23, 0.14);
 
   /* El acento de ROSA2018 (el morado del árbol) y el verde de "está vivo". */
-  --vivo: #30d158;
-  --vivo-halo: rgba(48, 209, 88, 0.22);
-  --espera: #ff9f0a;
-  --espera-halo: rgba(255, 159, 10, 0.22);
+  --vivo: #34c759;
+  --vivo-halo: rgba(52, 199, 89, 0.22);
+  --espera: #ff8d28;
+  --espera-halo: rgba(255, 141, 40, 0.2);
   --quieto: #8e8e93;
   --quieto-halo: rgba(142, 142, 147, 0.2);
 }
@@ -83,9 +83,9 @@
     0 1px 2px rgba(0, 0, 0, 0.5),
     0 8px 24px -8px rgba(0, 0, 0, 0.55),
     0 24px 48px -24px rgba(0, 0, 0, 0.6);
-  --vivo: #32d74b;
-  --espera: #ffd60a;
-  --espera-halo: rgba(255, 214, 10, 0.2);
+  --vivo: #30d158;
+  --espera: #ff9230;
+  --espera-halo: rgba(255, 146, 48, 0.2);
   --quieto: #8e8e93;
 }
 
@@ -134,7 +134,6 @@
   gap: 8px;
   font-size: var(--t-llamada);
   font-weight: 590;
-  letter-spacing: -0.08px;
   color: var(--text);
 }
 
@@ -153,10 +152,24 @@
   flex: none;
 }
 
+.vivo-punto {
+  position: relative;
+}
+
+/* El halo va en un pseudo-elemento y anima transform y opacity: animar
+   `box-shadow` obliga al navegador a repintar en cada fotograma. */
 .vivo-marcha .vivo-punto {
   background: var(--vivo);
-  box-shadow: 0 0 0 0 var(--vivo-halo);
+}
+
+.vivo-marcha .vivo-punto::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--vivo);
   animation: vivo-latido 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  will-change: transform, opacity;
 }
 
 .vivo-espera .vivo-punto {
@@ -164,9 +177,9 @@
 }
 
 @keyframes vivo-latido {
-  0% { box-shadow: 0 0 0 0 var(--vivo-halo); }
-  70% { box-shadow: 0 0 0 7px rgba(48, 209, 88, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(48, 209, 88, 0); }
+  0% { transform: scale(1); opacity: 0.55; }
+  70% { transform: scale(2.7); opacity: 0; }
+  100% { transform: scale(2.7); opacity: 0; }
 }
 
 .vivo-reloj {
@@ -185,8 +198,7 @@
 .vivo-haciendo {
   margin: 14px 0 0;
   font-size: var(--t-titulo);
-  font-weight: 600;
-  letter-spacing: -0.5px;
+  font-weight: 590;
   line-height: 1.24;
   color: var(--text);
   text-wrap: balance;
@@ -264,8 +276,7 @@
 
 .vivo-vital-cifra {
   font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.6px;
+  font-weight: 590;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
   color: var(--text);
@@ -278,47 +289,40 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--text-2);
-  letter-spacing: -0.2px;
 }
 
 .vivo-vital-nombre {
   font-size: var(--t-leyenda);
   color: var(--text-2);
-  letter-spacing: 0.1px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* El aro del tope: dice cuánto queda sin leer una cifra. */
-.vivo-aro {
-  display: inline-flex;
-  align-items: center;
-  margin-right: 7px;
-  translate: 0 1px;
+/* El tope gastado, en barra y no en anillo: las HIG reservan los anillos a
+   los de Actividad. Escala en X, que no repinta. */
+.vivo-barra {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  overflow: hidden;
+  margin-top: 7px;
+  max-width: 132px;
 }
 
-.vivo-aro svg {
-  flex: none;
-  transform: rotate(-90deg);
+.vivo-barra i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.vivo-aro circle {
-  fill: none;
-  stroke-width: 3.5;
-  stroke-linecap: round;
+.vivo-barra-aviso i {
+  background: var(--espera);
 }
-
-.vivo-aro .vivo-aro-fondo {
-  stroke: color-mix(in srgb, var(--text) 12%, transparent);
-}
-
-.vivo-aro .vivo-aro-frente {
-  stroke: var(--accent);
-  transition: stroke-dashoffset 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.vivo-aro-aviso .vivo-aro-frente { stroke: var(--espera); }
 
 /* ---------------------------------------------------------------------- 4 */
 
@@ -336,7 +340,6 @@
   font-family: var(--font-sistema);
   font-size: var(--t-llamada);
   font-weight: 510;
-  letter-spacing: -0.08px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -406,7 +409,7 @@
 /* ---------------------------------------------------------------------- 6 */
 
 @media (prefers-reduced-motion: reduce) {
-  .vivo-marcha .vivo-punto,
+  .vivo-marcha .vivo-punto::after,
   .vivo-paso-en_curso::after {
     animation: none;
   }
@@ -448,13 +451,11 @@
 
 .pantalla-vivo {
   font-family: var(--font-sistema);
-  letter-spacing: -0.01em;
 }
 
 .vivo-titulo-pantalla {
   font-size: var(--t-titulo-grande);
-  font-weight: 640;
-  letter-spacing: -0.9px;
+  font-weight: 700;
   line-height: 1.12;
   margin: 18px 0 14px;
 }
@@ -483,8 +484,7 @@
 
 .pantalla-vivo .seccion-titulo h3 {
   font-size: var(--t-cabecera);
-  font-weight: 620;
-  letter-spacing: -0.35px;
+  font-weight: 590;
 }
 
 .pantalla-vivo .seccion-titulo p,
@@ -527,7 +527,6 @@
 
 .pantalla-vivo .gasto-item strong {
   font-size: 19px;
-  letter-spacing: -0.5px;
 }
 
 .pantalla-vivo .gasto-item span {
@@ -539,7 +538,6 @@
   border-radius: var(--r-pastilla);
   font-family: var(--font-sistema);
   font-weight: 510;
-  letter-spacing: -0.08px;
   transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), background 0.14s ease, border-color 0.14s ease;
 }
 
@@ -561,7 +559,6 @@
 @media (max-width: 700px) {
   .vivo-titulo-pantalla {
     font-size: 24px;
-    letter-spacing: -0.6px;
   }
 }
 
@@ -602,8 +599,7 @@
 .pantalla-vivo .llano h4 {
   margin: 0 0 6px;
   font-size: 15.5px;
-  font-weight: 620;
-  letter-spacing: -0.3px;
+  font-weight: 590;
   text-transform: none;
   color: var(--text);
 }
@@ -628,8 +624,7 @@
 /* La pregunta que la iteración intentó contestar: manda sobre los bloques. */
 .pantalla-vivo .llano-pregunta {
   font-size: 18px;
-  font-weight: 620;
-  letter-spacing: -0.45px;
+  font-weight: 590;
   line-height: 1.32;
   color: var(--text);
   text-wrap: balance;
@@ -678,8 +673,7 @@
 /* El título de sección manda sobre el rótulo del bloque. */
 .pantalla-vivo .seccion-titulo h3 {
   font-size: 19px;
-  font-weight: 640;
-  letter-spacing: -0.5px;
+  font-weight: 700;
 }
 
 .pantalla-vivo .llano-glosario summary {
@@ -691,4 +685,278 @@
   .pantalla-vivo .llano-pregunta { font-size: 16.5px; }
   .pantalla-vivo .seccion-titulo h3 { font-size: 17px; }
   .pantalla-vivo .llano > .llano-bloque { padding-left: 11px; }
+}
+
+/* ==========================================================================
+   Cola de hipótesis y ficha de una hipótesis (28 de septiembre de 2026)
+   --------------------------------------------------------------------------
+   El mismo mal que la corrida, en su forma más pura: sopa de chips. Cada fila
+   de la cola llevaba de siete a diez chips y textos, todos del mismo tamaño y
+   peso ("Propuesta", "7 de 7 afirmaciones respaldadas", "Certeza muy baja",
+   "Killer: Suspendida", "Iteración 2", "esperando 3 h 18 min"...), y la ficha
+   de una hipótesis abría con TRECE. Con todo gritando igual no se distingue lo
+   excepcional (un hallazgo abierto, que es candidata) de lo que tienen todas.
+
+   La regla que se aplica aquí: lo que comparten todas las filas se dice en
+   texto llano y en color secundario; lo que distingue a una se queda como
+   chip de color. Un chip es una excepción, no una etiqueta.
+   ========================================================================== */
+
+/* --- La cola: una lista agrupada, y casi sin color ---------------------- */
+
+/* Emir, 28 de septiembre de 2026: "no quiero que me dejes todos esos colores,
+   parece más genérico que la primera app de un vibecoder". Tenía razón: cada
+   fila llevaba morado (Propuesta), verde (afirmaciones respaldadas), gris
+   (certeza), gris (Killer), verde (Candidata), rojo (hallazgo abierto), ámbar
+   (juicio pendiente) y verde o rojo en el Elo. Ocho colores por fila.
+
+   Apple no hace jerarquía con color: la hace con tamaño, peso, contraste y
+   aire, y guarda el color para UNA cosa. Así que la cola es monocroma. El
+   único color que queda es el acento en el filo izquierdo de la fila que es
+   candidata al laboratorio, y el rojo del texto cuando algo está roto de
+   verdad. Todo lo demás es negro sobre blanco en dos niveles de gris. */
+
+.pantalla-vivo .cola {
+  display: block;
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-tarjeta);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.035);
+}
+
+:root[data-theme='dark'] .pantalla-vivo .cola {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.pantalla-vivo .cola > * + * {
+  border-top: 0.5px solid var(--border);
+}
+
+.pantalla-vivo .hip-fila {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 15px 18px;
+  gap: 18px;
+  transition: background 0.14s ease;
+}
+
+.pantalla-vivo .hip-fila:hover {
+  background: var(--hover);
+}
+
+/* El título manda: es lo que se lee para decidir si abrir. */
+.pantalla-vivo .hip-fila h3 {
+  font-size: 15.5px;
+  font-weight: 590;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.pantalla-vivo .hip-meta {
+  gap: 4px 8px;
+  margin-top: 7px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+/* TODOS los chips de la fila dejan de ser chips: sin caja, sin fondo, sin
+   color. Son datos, y los datos se escriben. */
+.pantalla-vivo .hip-meta .chip {
+  border-color: transparent;
+  background: transparent;
+  padding: 0;
+  color: var(--text-2);
+  font-weight: 400;
+  font-size: 12.5px;
+}
+
+/* Separador entre datos, en vez de nueve cajas pegadas. */
+.pantalla-vivo .hip-meta > * + *::before {
+  content: '·';
+  color: var(--text-3);
+  margin-right: 8px;
+}
+
+/* El verde del recuento de afirmaciones y los demás tonos semánticos se
+   apagan: en una lista, que 7 de 7 estén respaldadas es lo normal. */
+.pantalla-vivo .hip-meta .tono-ok,
+.pantalla-vivo .hip-meta .tono-aviso {
+  color: var(--text-2);
+}
+
+/* Lo único que conserva color es lo que está roto: un bloqueo, un hallazgo
+   abierto, una fuente retractada. Si todo puede ser rojo, el rojo no avisa. */
+.pantalla-vivo .hip-meta .tono-mal {
+  color: var(--red);
+  font-weight: 510;
+}
+
+/* El Elo: cifra tabular, sin verde ni rojo, y los dos datos separados. Antes
+   salían pegados ("-463 partidos" eran -46 de Elo y 3 partidos). */
+.pantalla-vivo .hip-elo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  min-width: 78px;
+}
+
+.pantalla-vivo .hip-elo strong {
+  font-size: 19px;
+  font-weight: 590;
+  color: var(--text);
+}
+
+.pantalla-vivo .hip-elo span {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+
+.pantalla-vivo .hip-elo .subida,
+.pantalla-vivo .hip-elo .bajada {
+  color: var(--text-2);
+}
+
+/* La candidata al laboratorio: un filo con el acento. Es la única fila que
+   se distingue, y se distingue por su sitio, no por un chip verde. */
+.pantalla-vivo .hip-fila:has(.chip-ok) {
+  box-shadow: inset 2.5px 0 0 var(--accent);
+}
+
+.pantalla-vivo .hip-fila:has(.chip-ok) h3::after {
+  content: 'Candidata';
+  font-size: 10.5px;
+  font-weight: 590;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-left: 9px;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+
+/* El chip verde de "Candidata" ya no hace falta: lo dice el filo y el rótulo. */
+.pantalla-vivo .hip-meta .chip-ok {
+  display: none;
+}
+
+.pantalla-vivo .hip-fila.hip-tarde {
+  box-shadow: inset 2.5px 0 0 var(--text-3);
+}
+
+/* --- La ficha: la cabecera deja de ser trece chips ---------------------- */
+
+.pantalla-vivo .hip-cabecera .chip-borde,
+.pantalla-vivo .hip-resumen .chip-borde {
+  border-color: transparent;
+  background: transparent;
+  padding-inline: 0;
+  color: var(--text-2);
+  font-weight: 400;
+}
+
+.pantalla-vivo .hip-titulo,
+.pantalla-vivo .detalle-hipotesis h2 {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.18;
+  text-wrap: balance;
+}
+
+/* "En pocas palabras": la caja morada gigante pasa a ser una cita con el
+   acento al lado, y su rótulo un encabezado de verdad (lo arregla la regla
+   de `.llano h4` de más arriba). */
+.pantalla-vivo .llano-hipotesis {
+  border-radius: var(--r-tarjeta);
+  border: 0.5px solid var(--border);
+  border-left: 2px solid var(--accent);
+  background: var(--inset);
+  padding: 16px 18px;
+}
+
+.pantalla-vivo .llano-hipotesis p {
+  color: var(--text);
+}
+
+@media (max-width: 700px) {
+  .pantalla-vivo .hip-titulo,
+  .pantalla-vivo .detalle-hipotesis h2 { font-size: 21px; }
+  .pantalla-vivo .hip-fila { padding: 13px 14px; }
+}
+
+/* La explicación de por qué la hipótesis está donde está: una frase generada
+   que puede pasar de doce líneas y que dominaba la ficha por encima de la
+   propia hipótesis. Plegada, con su rótulo, y abierta a un clic. */
+.pantalla-vivo .franja-explica {
+  margin-top: 10px;
+  border-top: 0.5px solid var(--border);
+  padding-top: 10px;
+}
+
+.pantalla-vivo .franja-explica > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 12.5px;
+  font-weight: 510;
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.14s ease;
+}
+
+.pantalla-vivo .franja-explica > summary:hover {
+  color: var(--text);
+}
+
+.pantalla-vivo .franja-explica > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pantalla-vivo .franja-explica > summary::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-right: 1.3px solid currentColor;
+  border-bottom: 1.3px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.pantalla-vivo .franja-explica[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.pantalla-vivo .franja-explica > p {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-2);
+  max-width: 84ch;
+}
+
+/* La fila de estado de la ficha: los chips con caja que quedaban. Solo
+   conserva caja lo que es una decisión (el estado de la hipótesis). */
+.pantalla-vivo .detalle-hip > div > .acciones .chip-borde,
+.pantalla-vivo .detalle-hip > div > .acciones .chip-neutro,
+.pantalla-vivo .detalle-hip > div > .acciones .chip-ok,
+.pantalla-vivo .detalle-hip > div > .acciones .chip-aviso {
+  border-color: transparent;
+  background: transparent;
+  padding-inline: 0;
+  color: var(--text-2);
+  font-weight: 400;
+}
+
+.pantalla-vivo .detalle-hip > div > .acciones {
+  gap: 4px 10px;
+  font-size: 12.5px;
+}
+
+.pantalla-vivo .detalle-hip h2 {
+  margin-top: 4px;
 }

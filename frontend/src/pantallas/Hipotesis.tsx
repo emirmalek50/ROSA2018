@@ -113,7 +113,10 @@ function FilaCola({ h, ahora, href, horasEspera, estado }: { h: Hip; ahora: numb
       <div>
         <h3>{h.titulo}</h3>
         <div className="hip-meta">
-          <Chip tono={TONO_ESTADO[h.estado]}>{ESTADO_HIPOTESIS[h.estado]}</Chip>
+          {/* El estado solo cuando no es el de la cola: en "Pendientes" las
+              seis filas ponían "Propuesta", y un dato que se repite en todas
+              no ayuda a elegir ninguna (Emir, 28 de septiembre de 2026). */}
+          {h.estado !== 'propuesta' && <Chip tono={TONO_ESTADO[h.estado]}>{ESTADO_HIPOTESIS[h.estado]}</Chip>}
           {h.origen === 'humana' && <Chip tono="acento">Humana</Chip>}
           <span className={`tono-${r.tono === 'vacio' ? 'aviso' : r.tono}`}>{r.frase}</span>
           {h.conclusion && (
@@ -137,12 +140,15 @@ function FilaCola({ h, ahora, href, horasEspera, estado }: { h: Hip; ahora: numb
           {abiertos > 0 && <span className="tono-mal">{abiertos} {abiertos === 1 ? 'hallazgo abierto' : 'hallazgos abiertos'}</span>}
           {retractadas.length > 0 && <span className="tono-mal">depende de una fuente retractada</span>}
           <span>Iteración {h.iteracion}</span>
-          {pendiente && (
-            <span className={tarde ? 'tono-mal' : ''} title={tarde ? `Supera las ${horasEspera} h de la política de esperas` : ''}>
+          {pendiente ? (
+            <span className={tarde ? 'tono-mal' : ''} title={`Creada el ${new Date(h.creadaEn).toLocaleString('es-ES')}${tarde ? `; supera las ${horasEspera} h de la política de esperas` : ''}`}>
               esperando {formatearDuracion(espera)}
             </span>
+          ) : (
+            // Con "esperando 3 h 21 min" delante, la fecha absoluta repetía lo
+            // mismo y empujaba la línea a partirse en dos.
+            <Momento t={h.creadaEn} ahora={ahora} />
           )}
-          <Momento t={h.creadaEn} ahora={ahora} />
         </div>
       </div>
       <div className="hip-elo">
@@ -1154,7 +1160,7 @@ export function Hipotesis({
     if (!fichaLista) return <EsqueletoPantalla variante="ficha" rotulo="la hipótesis" />;
     return (
       <>
-        <div className="contenido">
+        <div className="contenido pantalla-vivo">
           <p style={{ marginBottom: 14 }}>
             <a className="enlace" href={rutaDe(inv.id, 'hipotesis')}>
               Volver a la cola
@@ -1181,7 +1187,7 @@ export function Hipotesis({
   const cabecera = filtro === 'laboratorio' ? CABECERA_COLA.laboratorio : CABECERA_COLA.cola;
 
   return (
-    <div className="contenido">
+    <div className="contenido pantalla-vivo">
       <AvisoMuestra conexion={estado.conexion} />
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
