@@ -111,6 +111,49 @@ function TarjetaHecho({ h, ahora, fuentes, porId }: { h: HechoMundo; ahora: numb
   );
 }
 
+/** Cuántos hechos se pintan de una columna antes de pedir más (28 de
+ *  septiembre de 2026). Esta investigación tiene 424 hechos y se pintaban
+ *  todos: la página medía unos 71.000 píxeles de alto, que nadie recorre, y
+ *  el navegador montaba 424 tarjetas con sus citas y su procedencia para
+ *  enseñar las diez primeras. */
+const HECHOS_POR_TANDA = 15;
+
+/** Una columna del modelo de mundo con su tanda: las primeras y un botón que
+ *  trae las siguientes. El recuento del encabezado sigue siendo el total, que
+ *  es el dato que importa. */
+function ColumnaDeHechos({ col, lista, conFiltro, ahora, fuentes, porId }: { col: HechoMundo['estado']; lista: HechoMundo[]; conFiltro: boolean; ahora: number; fuentes: Map<string, Fuente>; porId: Map<string, HechoMundo> }) {
+  const [cuantos, setCuantos] = useState(HECHOS_POR_TANDA);
+  // Al cambiar el filtro se vuelve a la primera tanda: si no, un filtro que
+  // deja tres resultados seguiría diciendo "ver los otros 200".
+  const visibles = lista.slice(0, cuantos);
+  const faltan = lista.length - visibles.length;
+  return (
+    <section className="mundo-columna" aria-label={ESTADO_HECHO[col]}>
+      <h3>
+        {ESTADO_HECHO[col]} <span className="nav-cuenta">{lista.length}</span>
+      </h3>
+      {lista.length === 0 ? (
+        <p className="meta">Nada aquí{conFiltro ? ' con este filtro' : ''}.</p>
+      ) : (
+        <>
+          <ListaAnimada className="mundo-tarjetas" como="ul">
+            {visibles.map((h) => (
+              <ElementoAnimado key={h.id} como="li">
+                <TarjetaHecho h={h} ahora={ahora} fuentes={fuentes} porId={porId} />
+              </ElementoAnimado>
+            ))}
+          </ListaAnimada>
+          {faltan > 0 && (
+            <button type="button" className="btn btn-s mundo-mas" onClick={() => setCuantos((n) => n + HECHOS_POR_TANDA * 2)}>
+              Ver {faltan <= HECHOS_POR_TANDA * 2 ? `los otros ${faltan}` : `${HECHOS_POR_TANDA * 2} más`} de {lista.length}
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 /** Los enlaces del grafo entre hechos: a quién sustituye, quién lo sustituyó, qué
  *  preguntas respondió y con qué choca. Un hecho sustituido no se borra: queda aquí. */
 function EnlacesDelHecho({ h, porId }: { h: HechoMundo; porId?: Map<string, HechoMundo> }) {
@@ -416,27 +459,17 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
         </Seccion>
       ) : (
         <div className="mundo-columnas" style={{ marginTop: 28 }}>
-          {COLUMNAS.map((col) => {
-            const lista = filtrados.filter((h) => h.estado === col).sort(orden);
-            return (
-              <section key={col} className="mundo-columna" aria-label={ESTADO_HECHO[col]}>
-                <h3>
-                  {ESTADO_HECHO[col]} <span className="nav-cuenta">{lista.length}</span>
-                </h3>
-                {lista.length === 0 ? (
-                  <p className="meta">Nada aquí{q !== '' || tema !== 'todos' ? ' con este filtro' : ''}.</p>
-                ) : (
-                  <ListaAnimada className="mundo-tarjetas" como="ul">
-                    {lista.map((h) => (
-                      <ElementoAnimado key={h.id} como="li">
-                        <TarjetaHecho h={h} ahora={ahora} fuentes={fuentesPorId} porId={porId} />
-                      </ElementoAnimado>
-                    ))}
-                  </ListaAnimada>
-                )}
-              </section>
-            );
-          })}
+          {COLUMNAS.map((col) => (
+            <ColumnaDeHechos
+              key={col}
+              col={col}
+              lista={filtrados.filter((h) => h.estado === col).sort(orden)}
+              conFiltro={q !== '' || tema !== 'todos'}
+              ahora={ahora}
+              fuentes={fuentesPorId}
+              porId={porId}
+            />
+          ))}
         </div>
       )}
     </>

@@ -13,7 +13,7 @@
 import { acciones } from '../datos/almacen';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
 import { Esqueleto, EsqueletoPantalla, EsqueletoTarjeta } from '../componentes/Esqueleto';
-import { AvisoMuestra, Chip, Momento, Seccion, Vacio, descargar } from '../componentes/piezas';
+import { AvisoMuestra, Momento, Seccion, Vacio, descargar } from '../componentes/piezas';
 import { atributosEnVuelo, useCalculoDiferido, useEnVuelo } from '../lib/diferido';
 import { specificAims } from '../lib/exportar';
 import { rutaDe } from '../lib/ruta';
@@ -100,47 +100,54 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
       ) : (
         <div className="seccion">
           {direcciones.map((d, i) => (
-            <article key={i} className={`tarjeta direccion ${d.inesperada ? 'direccion-inesperada' : ''}`}>
-              <div className="acciones" style={{ justifyContent: 'space-between' }}>
-                <h3 style={{ fontSize: 15, fontWeight: 600 }}>
-                  {i + 1}. {d.titulo}
-                </h3>
-                {d.inesperada && <Chip tono="acento">Área inesperada</Chip>}
-              </div>
-              <p style={{ marginTop: 6 }}>{d.razon}</p>
-              <div className="rejilla-3" style={{ marginTop: 12 }}>
-                <div>
-                  <p className="campo-etiqueta">Hallazgos recientes</p>
-                  <ul className="lista-limpia" style={{ fontSize: 13, marginTop: 6 }}>
+            // Cada dirección es un informe corto y se lee en su orden natural:
+            // por qué, qué se sabe ya, qué falta averiguar y una idea concreta.
+            // Antes iba en tres columnas de unos 28 caracteres, que es meter
+            // prosa científica densa en un ancho de móvil (Emir, 28 de
+            // septiembre de 2026: "no tengas miedo de reorganizar").
+            <article key={i} className={`direccion ${d.inesperada ? 'direccion-inesperada' : ''}`}>
+              <header className="direccion-cabecera">
+                <span className="direccion-numero" aria-hidden="true">{i + 1}</span>
+                <h3>{d.titulo}</h3>
+                {d.inesperada && <span className="direccion-marca">Área inesperada</span>}
+              </header>
+              <p className="direccion-razon">{d.razon}</p>
+              <div className="direccion-columnas">
+                <section>
+                  <h4>Qué se sabe ya</h4>
+                  <ul>
                     {d.hallazgosRecientes.map((h) => (
                       <li key={h}>{h}</li>
                     ))}
                   </ul>
-                </div>
-                <div>
-                  <p className="campo-etiqueta">Qué investigar</p>
-                  <ul className="lista-limpia" style={{ fontSize: 13, marginTop: 6 }}>
+                </section>
+                <section>
+                  <h4>Qué falta averiguar</h4>
+                  <ul>
                     {d.queInvestigar.map((h) => (
                       <li key={h}>{h}</li>
                     ))}
                   </ul>
-                </div>
-                <div>
-                  <p className="campo-etiqueta">Idea ejemplo</p>
-                  <p style={{ fontSize: 13, marginTop: 6 }}>{d.ideaEjemplo}</p>
-                </div>
+                </section>
               </div>
+              {/* La idea concreta es lo único accionable de la dirección: va
+                  entera, a todo el ancho, y con el acento. */}
+              <section className="direccion-idea">
+                <h4>Una idea concreta</h4>
+                <p>{d.ideaEjemplo}</p>
+              </section>
               {d.hipotesisIds.length > 0 && (
-                <div className="rivales" style={{ marginTop: 12 }}>
+                <footer className="direccion-hipotesis">
+                  <span>De aquí salen:</span>
                   {d.hipotesisIds.map((id) => {
                     const h = hipotesis.find((x) => x.id === id);
                     return h ? (
-                      <a key={id} className="chip chip-borde" href={rutaDe(inv.id, 'hipotesis', id)}>
-                        {h.titulo.length > 70 ? `${h.titulo.slice(0, 67)}...` : h.titulo} · {h.elo}
+                      <a key={id} href={rutaDe(inv.id, 'hipotesis', id)}>
+                        {h.titulo.length > 70 ? `${h.titulo.slice(0, 67)}...` : h.titulo} <b>{h.elo}</b>
                       </a>
                     ) : null;
                   })}
-                </div>
+                </footer>
               )}
             </article>
           ))}
@@ -152,28 +159,36 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
           <p className="meta">Sin meta-revisión todavía.</p>
         ) : (
           meta.map((m) => (
-            <div key={m.iteracion} className="tarjeta seccion">
-              <p className="meta">
-                Iteración {m.iteracion} · <Momento t={m.fecha} ahora={ahora} />
-              </p>
-              <ul className="lista-limpia">
+            // Once párrafos de cinco líneas, todos del mismo peso y con su
+            // botón al lado, eran un muro. Ahora cada debilidad es una fila de
+            // una lista agrupada, con el texto a un ancho legible y la acción
+            // a la derecha; las iteraciones viejas van plegadas.
+            <details key={m.iteracion} className="debilidades" open={m.iteracion === meta[0]!.iteracion}>
+              <summary>
+                Iteración {m.iteracion} · {m.debilidades.length} {m.debilidades.length === 1 ? 'debilidad' : 'debilidades'} · <Momento t={m.fecha} ahora={ahora} />
+              </summary>
+              <ul>
                 {m.debilidades.map((d) => (
                   <li key={d.id}>
-                    <div>
-                      <p style={{ fontSize: 13.5 }}>{d.texto}</p>
-                      <div className="rivales" style={{ marginTop: 6 }}>
-                        {d.hipotesisAfectadas.map((id) => {
-                          const h = hipotesis.find((x) => x.id === id);
-                          return h ? (
-                            <a key={id} className="chip chip-borde" href={rutaDe(inv.id, 'hipotesis', id)}>
-                              {h.titulo.length > 40 ? `${h.titulo.slice(0, 37)}...` : h.titulo}
-                            </a>
-                          ) : null;
-                        })}
-                      </div>
+                    <div className="debilidad-texto">
+                      <p>{d.texto}</p>
+                      {d.hipotesisAfectadas.length > 0 && (
+                        <p className="debilidad-afecta">
+                          Afecta a{' '}
+                          {d.hipotesisAfectadas.map((id, k) => {
+                            const h = hipotesis.find((x) => x.id === id);
+                            return h ? (
+                              <span key={id}>
+                                {k > 0 ? ', ' : ''}
+                                <a href={rutaDe(inv.id, 'hipotesis', id)}>{h.titulo.length > 40 ? `${h.titulo.slice(0, 37)}...` : h.titulo}</a>
+                              </span>
+                            ) : null;
+                          })}
+                        </p>
+                      )}
                     </div>
                     {d.inyectada ? (
-                      <Chip tono="ok">Ya es criterio</Chip>
+                      <span className="debilidad-hecha">Ya es criterio</span>
                     ) : (
                       <button type="button" className="btn btn-s" onClick={() => corrida && acciones.inyectarDebilidad(corrida.id, d.id)}>
                         Inyectar como criterio
@@ -182,7 +197,7 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
                   </li>
                 ))}
               </ul>
-            </div>
+            </details>
           ))
         )}
       </Seccion>
