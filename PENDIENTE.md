@@ -417,3 +417,84 @@ que alguien lea ese informe, así que no se metió. Lo que sí serviría: mirar 
 palabra ANTERIOR y la SIGUIENTE con una tabla de sujetos del proyecto (corrida,
 iteración, juez, ROSA2018, paso) delante del verbo, o etiquetar por categoría
 gramatical con una librería, que es dependencia nueva para un guion de apoyo.
+
+## 29 de septiembre de 2026: auditoría de bugs, ineficiencias y ROSA2018 como científica
+
+Lo que se arregló está en los commits de esa madrugada. Aquí queda lo que se
+midió y NO se tocó, con la cifra, para que se decida con datos.
+
+### Lo más grande: 71 conectores que el bucle nunca considera
+
+De los 87 conectores, se usan 16, siempre los mismos, y son los del perfil de
+diana (HPA, UniProt, Reactome, STRING, GWAS Catalog, ClinVar, ChEMBL, DGIdb,
+MyGene, Open Targets, GTEx, PubTator, GEO, CELLxGENE, Exa). 1.099 consultas en
+total, 1 % de error.
+
+Los otros 71 solo se alcanzan por el ReAct de `rosa/herramientas.py`, y esa
+ruta únicamente corre cuando una PERSONA pregunta desde la interfaz
+(`/api/investigaciones/{id}/preguntar`). El bucle autónomo nunca se plantea
+consultar una base curada para resolver un supuesto o una comprobación, aunque
+27 de las 34 hipótesis estén suspendidas y las razones que escribe el Killer
+sean muchas veces preguntas que una base contesta.
+
+Por qué no se hizo esta noche: meter el ReAct en el bucle es decidir cuándo,
+para qué y con qué presupuesto, y eso cambia el coste y el comportamiento de
+cada corrida. Es una decisión de Emir, no de un agente a las 2 de la mañana.
+
+Lo barato y seguro que sí se puede hacer primero: `EvaluarSupuesto` recibe solo
+el supuesto y las afirmaciones sostenidas de la literatura. NO recibe el perfil
+de diana, que ROSA2018 ya tiene calculado y guardado para 29 de las 34
+hipótesis (26 de las 27 suspendidas), con 654 tokens de expresión en tejido y
+por tipo celular, función de la proteína, interactores, rutas, fármacos y
+recuento de publicaciones. El propio docstring de la firma dice que "muchos
+supuestos no se contestan leyendo artículos". Pasarle el perfil no cuesta
+ninguna llamada de más.
+
+### Por qué están suspendidas las 27
+
+Comprobaciones que FALLAN: sesgo_evidencia 10, independencia_cohortes 7,
+supuestos contradichos 6, identificadores_resuelven 1.
+NO COMPROBABLES: factibilidad 19, novedad 15, contexto_humano 9,
+fidelidad_evidencia 7, sesgo_evidencia 6, independencia_cohortes 5,
+direccion_causal 4, redundancia 2, supuestos 1.
+
+De esas, las que suspenden por no poder comprobarse son las de `CRITICAS`:
+novedad (15) y fidelidad_evidencia (7). La factibilidad, aunque salga 19 veces,
+reformula, no suspende.
+
+Dentro de la novedad hay 97 comprobaciones en "no comprobado". 23 por un fallo
+de red o de consulta y 74 por el marcador de fábrica "No comprobado todavía",
+que quiere decir que el paso nunca llegó a esa clave. 25 hipótesis llevan
+`genetica = no_comprobado` con el detalle "por comprobar otra vez: se sacó de
+GWAS Catalog cuando el conector no filtraba por gen; arreglado el 25 de
+septiembre de 2026": el conector se arregló y el veredicto viejo sigue puesto.
+Esas 25 sí están en la cola de reintento (6 por iteración), así que se
+resolverán solas si se deja correr una corrida.
+
+### El reparto del tiempo de una corrida
+
+Corrida 42: 4,22 h de pared, 1.638 llamadas al modelo que suman 5,39 h. El
+48,2 % de la pared no tiene ninguna llamada viva: 75 min son dos esperas a una
+persona y 47 min (18,5 %) son ROSA2018 haciendo otra cosa. No se sabía cuál,
+porque la literatura no se cronometraba; ya se cronometra (`msBases`,
+`msFuentes` y el `ms` de cada consulta), así que la siguiente corrida lo dice.
+
+Lo que NO es el cuello, medido: los semáforos (las llamadas solapan de 10 a 23
+a la vez cuando corren), las consultas a las bases (van en paralelo) y la
+tienda (42,7 ms por mutación, 3.089 mutaciones, 132 s en 4,22 h = 0,9 %).
+
+Sospechoso principal para esos 47 min: el bucle de `pasos.py` que recorre las
+fuentes relevantes de cada consulta EN SERIE, con dos llamadas de red por
+vuelta (Crossref y el resumen o el PDF). Se puede paralelizar prefetcheando las
+dos lecturas (ninguna toca el estado) y recorriendo después en orden para no
+descolocar la traza. Antes de hacerlo, mirar lo que diga `msFuentes`.
+
+### `mlflow.db`
+
+706 MB de datos muertos. No se borró nada: borrar datos sin que lo pida su
+dueño no es una decisión de un agente.
+
+### El guion de tildes
+
+Ver la sección de arriba: quedan los pares nombre/verbo (termino/término/
+terminó, numero/número/numeró) que el diccionario resuelve siempre al nombre.
