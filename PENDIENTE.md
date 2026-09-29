@@ -471,23 +471,25 @@ septiembre de 2026": el conector se arregló y el veredicto viejo sigue puesto.
 Esas 25 sí están en la cola de reintento (6 por iteración), así que se
 resolverán solas si se deja correr una corrida.
 
-### El reparto del tiempo de una corrida
+### El reparto del tiempo de una corrida (CORREGIDO el mismo 29 de septiembre)
 
-Corrida 42: 4,22 h de pared, 1.638 llamadas al modelo que suman 5,39 h. El
-48,2 % de la pared no tiene ninguna llamada viva: 75 min son dos esperas a una
-persona y 47 min (18,5 %) son ROSA2018 haciendo otra cosa. No se sabía cuál,
-porque la literatura no se cronometraba; ya se cronometra (`msBases`,
-`msFuentes` y el `ms` de cada consulta), así que la siguiente corrida lo dice.
+Lo que se escribió aquí de madrugada estaba mal. Se dijo que la corrida 42 tenía
+47 min (18,5 %) sin ninguna llamada al modelo y se señaló el bucle en serie de las
+fuentes como sospechoso principal. Esa cifra se midió desde la primera hasta la
+última llamada con el identificador de la corrida, y eso incluye el relleno de
+fondo que sigue DESPUÉS de que la corrida termine. El tablero del método
+(rosa/metodo.py) reparte la pared dentro de la ventana real de la corrida y separa
+cuatro cosas: 135 min de pared, 100 con el modelo trabajando, 20 esperando a una
+persona, 10 con el servidor apagado (un reinicio) y 5 min de trabajo sin modelo:
+un 4 %. No hay nada que paralelizar ahí.
 
-Lo que NO es el cuello, medido: los semáforos (las llamadas solapan de 10 a 23
-a la vez cuando corren), las consultas a las bases (van en paralelo) y la
-tienda (42,7 ms por mutación, 3.089 mutaciones, 132 s en 4,22 h = 0,9 %).
+Sobre las 26 corridas terminadas de la base, las antiguas pasaban del 23 al 76 %
+del tiempo activo trabajando sin modelo y las tres más recientes están entre el 0
+y el 11 %. Tres corridas antiguas salían con 15 a 63 horas "sin modelo": era el
+servidor apagado con la corrida a medias (3.755 de 3.900 min en la peor).
 
-Sospechoso principal para esos 47 min: el bucle de `pasos.py` que recorre las
-fuentes relevantes de cada consulta EN SERIE, con dos llamadas de red por
-vuelta (Crossref y el resumen o el PDF). Se puede paralelizar prefetcheando las
-dos lecturas (ninguna toca el estado) y recorriendo después en orden para no
-descolocar la traza. Antes de hacerlo, mirar lo que diga `msFuentes`.
+El cronómetro de la literatura (`msBases`, `msFuentes`) sigue puesto: la próxima
+corrida larga dirá si el bucle de fuentes pesa. Hasta entonces no se toca.
 
 ### `mlflow.db`
 

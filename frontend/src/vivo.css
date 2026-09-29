@@ -1624,3 +1624,81 @@
 .contenido .pantalla-cabecera {
   margin-bottom: 20px;
 }
+
+/* ---------------------------------------------------------------------
+   Tablero del método (componentes/TableroMetodo.tsx). Monocromo; el único
+   acento es el del aviso, que es lo que hay que mirar.
+   --------------------------------------------------------------------- */
+.contenido .metodo-resumen {
+  margin: 0 0 14px;
+  color: var(--text-2);
+  font-size: 14.5px;
+}
+.contenido .metodo-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.contenido .metodo-fila {
+  padding: 14px 16px;
+  border-radius: var(--r-pieza);
+  background: var(--inset);
+  border: 1px solid var(--border);
+}
+.contenido .metodo-fila.metodo-aviso {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.contenido .metodo-linea {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.contenido .metodo-fila h4 {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 590;
+  color: var(--text);
+}
+.contenido .metodo-estado {
+  flex: none;
+  font-size: 12.5px;
+  font-weight: 510;
+  color: var(--text-3);
+}
+.contenido .metodo-aviso .metodo-estado {
+  color: var(--accent);
+}
+.contenido .metodo-cifra {
+  margin: 4px 0 6px;
+  font-size: 18px;
+  font-weight: 590;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.contenido .metodo-sin_datos .metodo-cifra {
+  color: var(--text-2);
+  font-size: 15.5px;
+}
+.contenido .metodo-texto,
+.contenido .metodo-falta {
+  margin: 0 0 6px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.contenido .metodo-falta span {
+  font-weight: 590;
+  color: var(--text);
+}
+.contenido .metodo-fase {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.contenido .tarjeta.metodo {
+  padding: 18px 20px;
+}

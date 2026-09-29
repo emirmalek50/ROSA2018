@@ -4003,7 +4003,7 @@ def hechos_que_motivan(hechos: Any, investigacion_id: str, respaldo: Any, maximo
     return salida
 
 
-async def _equipo_de_hipotesis(ctx: Ctx, paso: dict[str, Any], pista: Pista, inv: dict[str, Any], mundo: str, texto_af: str, validas: list[dict[str, Any]], lecciones_h: str) -> list[Any]:
+async def _equipo_de_hipotesis(ctx: Ctx, paso: dict[str, Any], pista: Pista, inv: dict[str, Any], mundo: str, texto_af: str, validas: list[dict[str, Any]], lecciones_h: str) -> list[tuple[Any, str]]:
     """Las propuestas del equipo de generación (rosa/equipo.py): varios miembros con
     enfoques distintos, en rondas, compartiendo un tablón con la puntuación por
     regla de cada propuesta y por qué, y elegidas al final por esa puntuación y sin
@@ -4057,7 +4057,11 @@ async def _equipo_de_hipotesis(ctx: Ctx, paso: dict[str, Any], pista: Pista, inv
         pista.nota(f"Entra por el enfoque «{x['enfoque']}» (ronda {x['ronda']}, {x['puntos']} puntos): {x['titulo'][:90]}")
     for x in sorted(descartadas, key=lambda y: -y["puntos"])[:4]:
         pista.nota(f"Se queda fuera «{x['titulo'][:70]}» ({x['enfoque']}, {x['puntos']} puntos): {'; '.join(x['motivos'])[:160]}")
-    return [x["hp"] for x in elegidas]
+    # Con el enfoque: sin él no se puede medir qué forma de generar ideas funciona
+    # (rosa/metodo.py `eficacia_por_enfoque`, la estadística que el Supervisor del
+    # Co-Scientist usa para repartir el trabajo). Hasta el 29 de septiembre de 2026
+    # solo quedaba en una nota de la pista.
+    return [(x["hp"], x["enfoque"]) for x in elegidas]
 
 
 async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
@@ -4083,7 +4087,7 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
         ahora = P.ahora_ms()
         fuentes = ctx.fuentes()
         existentes_titulos = {V.normalizar(h["titulo"]) for h in e["hipotesis"] if h["investigacionId"] == ctx.investigacion_id} | {V.normalizar(t) for t in VIVERO.titulos(inv)}
-        for hp in propuestas:
+        for hp, enfoque in propuestas:
             if V.normalizar(hp.titulo) in existentes_titulos:
                 continue
             respaldo = [validas[i - 1] for i in hp.afirmaciones if 1 <= i <= len(validas)]
@@ -4102,6 +4106,7 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
             destino, nivel_nace, motivo_nace = destino_de_propuesta(afirmaciones, fuentes_h)
             if destino == "vivero":
                 semilla = VIVERO.nueva_semilla(ctx.investigacion_id, ctx.numero, ahora, hp, afirmaciones, fuentes_h, motivo_nace, ctx.corrida_id)
+                semilla["enfoque"] = enfoque
                 ctx.mutar(lambda e2, s=semilla: VIVERO.anadir(e2, ctx.investigacion_id, s, ahora), "vivero")
                 existentes_titulos.add(V.normalizar(hp.titulo))
                 pista.nota(f"Al vivero, no nace todavía: '{hp.titulo[:60]}' ({motivo_nace}). Le falta: {semilla['falta'][:120]}")
@@ -4136,6 +4141,7 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
             h["procedencia"]["fuentes"] = fuentes_h
             h["_entidades"] = list(hp.entidades_novedad)[:6]
             h["_corridaOrigen"] = ctx.corrida_id
+            h["enfoque"] = enfoque
             ctx.mutar(lambda e2, h=h: (e2["hipotesis"].append(h), A.con_evento(e2, ctx.investigacion_id, "hipotesis_nueva", f"Hipótesis nueva en la cola: {h['titulo']}", f"#/investigaciones/{ctx.investigacion_id}/hipotesis/{h['id']}", ahora)) and True, "hipotesis_nueva")
             nuevas_ids.append(h["id"])
             existentes_titulos.add(V.normalizar(h["titulo"]))

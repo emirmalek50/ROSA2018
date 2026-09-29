@@ -219,6 +219,23 @@ export const INVESTIGACION: Investigacion = {
     },
   ],
   vigilarLiteraturaHasta: null,
+  // El tablero del método (rosa/metodo.py), con cifras del orden de las que dio la
+  // base real el 29 de septiembre de 2026.
+  metodo: {
+    fecha: hace(2 * HORA),
+    iteracion: 11,
+    corridaId: 'cor-3',
+    avisos: ['balanza', 'cuestiones', 'embudo'],
+    indicadores: [
+      { clave: 'balanza', titulo: 'Lo que apoya frente a lo que contradice', estado: 'aviso', cifra: '86 a favor, 3 en contra', texto: 'Solo el 3 % de las afirmaciones enlazadas tira en contra, y 4 hipótesis acumulan 4 o más apoyos sin ninguna contra. La literatura real de una hipótesis biológica no se ve así: es la firma de no haber buscado lo que la refuta, no de que sea cierta.', fase: 'cribado', queHariaFalta: 'Búsquedas dirigidas al criterio de refutación de cada hipótesis (el efecto nulo, el signo contrario, la réplica que no sale) y un cribado que las puntúe alto.', datos: {} },
+      { clave: 'cuestiones', titulo: 'Las preguntas que se apunta, ¿las cierra?', estado: 'aviso', cifra: '60 abiertas, 2 resueltas', texto: 'Ha resuelto el 3 % de las cuestiones que abrió (31 del Killer, 20 de la escalera de certeza, 9 del modelo de mundo). ROSA2018 apunta lo que le falta y no va a buscarlo.', fase: 'busqueda', queHariaFalta: 'Que las cuestiones lleguen al criterio de búsqueda de cada paso y rotar las que llevan más tiempo abiertas.', datos: {} },
+      { clave: 'embudo', titulo: 'El embudo del Killer', estado: 'aviso', cifra: '6 de 9 vivas suspendidas', texto: 'Más de la mitad de las hipótesis vivas está suspendida (6 de 9): entran y no salen hacia ningún lado. Lo que más falla: sesgo evidencia (3). Lo que más se queda sin comprobar: novedad (4), factibilidad (3).', fase: 'killer', queHariaFalta: 'Atacar primero la comprobación que más suspende.', datos: {} },
+      { clave: 'enfoques', titulo: 'Qué forma de generar ideas funciona', estado: 'sin_datos', cifra: '0 del equipo, 9 del generador único', texto: 'Solo 0 hipótesis salieron del equipo de enfoques: pocas para comparar qué enfoque rinde.', fase: 'equipo', queHariaFalta: '', datos: {} },
+      { clave: 'concentracion', titulo: '¿Piensa siempre en lo mismo?', estado: 'bien', cifra: '2 de 9 nombran TREM2', texto: 'Lo más repetido que el objetivo no pide es TREM2, en el 22 % de las vivas.', fase: 'equipo', queHariaFalta: '', datos: {} },
+      { clave: 'conectores', titulo: '¿Usa las bases que tiene?', estado: 'sin_datos', cifra: '0 de 62 disponibles', texto: 'En esta corrida no hubo consultas a conectores.', fase: 'conectores', queHariaFalta: '', datos: {} },
+      { clave: 'tiempo', titulo: '¿En qué se va el tiempo?', estado: 'bien', cifra: '5 min sin modelo de 115 activos', texto: 'De 135 min de pared: 100 con el modelo trabajando, 20 esperando a una persona, 10 con el servidor apagado o colgado y 5 de trabajo sin modelo. El trabajo sin modelo es el 4 % del tiempo activo.', fase: 'bucle', queHariaFalta: '', datos: {} },
+    ],
+  },
 };
 
 export const CORRIDA: Corrida = {

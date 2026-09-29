@@ -20,6 +20,7 @@ import { CifrasAprendizaje } from '../componentes/CifrasAprendizaje';
 import { DatasetsPrograma } from '../componentes/DatasetsPrograma';
 import { Cargando, Esqueleto, EsqueletoFilas, EsqueletoPantalla, EsqueletoTarjeta, EsqueletoTexto } from '../componentes/Esqueleto';
 import { MapaEnfermedad } from '../componentes/MapaEnfermedad';
+import { TableroMetodo } from '../componentes/TableroMetodo';
 import { MapaRuta } from '../componentes/MapaRuta';
 import { Chip, Confirmar, Momento, Seccion } from '../componentes/piezas';
 import { ConocimientoOperativoDelLaboratorio, FormularioMision, Jerarquia, LibroDeProcedencia, MemoriaDelProyecto, PuertaYReproducciones, SubirDataset } from '../componentes/Rosa2018';
@@ -514,6 +515,13 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
             <DatasetsPrograma key={inv.id} datasets={estado.datasetsPrograma ?? []} investigacionId={inv.id} />
           </Cargando>
         </div>
+      </Seccion>
+
+      <Seccion
+        titulo="Cómo está investigando ROSA2018"
+        nota="El tablero del método: cifras calculadas por regla sobre lo que ROSA2018 dejó escrito mientras trabajaba, sin gastar ninguna llamada. Es lo que un jefe de laboratorio mira antes de opinar. No decide nada: al terminar cada corrida lo lee el revisor del arnés, que propone cambios, y los cambios los decide una persona."
+      >
+        <TableroMetodo tablero={inv.metodo ?? null} />
       </Seccion>
 
       <ColaDeTriaje inv={inv} estado={estado} />

@@ -355,6 +355,8 @@ export interface Investigacion {
   viveroRetiradas?: { id: Id; titulo: string; enunciado: string; motivo: string; iteracion: number | null; retiradaEn: number }[];
   /** Mapa del estado de la enfermedad (rosa/mapa_enfermedad.py), guardado al cerrar cada iteración. Null o ausente si no se calculó. */
   mapaEnfermedad?: MapaEnfermedad | null;
+  /** Cómo está investigando ROSA2018, medido por regla al cerrar cada iteración (rosa/metodo.py). */
+  metodo?: TableroMetodo | null;
   /** Vista de programa de la ruta terapéutica por diana (rosa/ruta.py mapa_ruta). Null o ausente si no se guardó. */
   mapaRuta?: MapaRuta | null;
   /** Las tres cifras de aprendizaje (rosa/cifras_aprendizaje.py): acierto prerregistrado, tiempo hasta decidir y reutilización de lo heredado. */
@@ -2795,4 +2797,35 @@ export interface Alternativa {
   queLaDistinguiria: string;
   /** Iteración en la que ROSA2018 la escribió, si se sabe. */
   iteracion?: number | null;
+}
+
+/* ---------------------------------------------------------------------
+   Tablero del método (rosa/metodo.py): cifras por regla sobre las trazas
+   --------------------------------------------------------------------- */
+
+export type EstadoIndicador = 'aviso' | 'bien' | 'sin_datos';
+export type FaseIndicador = 'busqueda' | 'cribado' | 'killer' | 'equipo' | 'conectores' | 'bucle';
+
+export interface IndicadorMetodo {
+  clave: string;
+  titulo: string;
+  estado: EstadoIndicador;
+  /** La cifra corta ("117 a favor, 1 en contra"). */
+  cifra: string;
+  texto: string;
+  /** La parte del bucle que lo produce, para saber dónde tocar. */
+  fase: FaseIndicador;
+  queHariaFalta: string;
+  datos: Record<string, unknown>;
+}
+
+export interface TableroMetodo {
+  fecha: number;
+  iteracion: number | null;
+  corridaId: string | null;
+  /** Versión de las reglas con que se calculó (rosa/metodo.py VERSION_REGLAS). */
+  reglas?: number;
+  indicadores: IndicadorMetodo[];
+  /** Claves de los indicadores en aviso. */
+  avisos: string[];
 }

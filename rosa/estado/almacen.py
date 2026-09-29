@@ -810,6 +810,19 @@ class Almacen:
             ]
             return {"corridaId": corrida_id, "version": self.version, "consultas": list(c["busqueda"]["consultas"]), "fuentes": fuentes, "afirmaciones": afirmaciones}
 
+    def intervalos_de_llamadas(self, corrida_id: str) -> list[tuple[int, int]]:
+        """(inicio, duración) de cada llamada al modelo de la corrida, para repartir
+        su pared en el tablero del método (rosa/metodo.py)."""
+        with self._lock:
+            return [(int(t), int(ms or 0)) for t, ms in self._con.execute("SELECT t, ms FROM llamadas WHERE corrida_id=?", (corrida_id,)).fetchall() if t is not None]
+
+    def instantes_de_actividad(self, desde: int, hasta: int) -> list[int]:
+        """Los instantes del registro de auditoría en una ventana. Mientras el
+        servidor vive, el bucle escribe un `tick` cada 10 a 30 segundos, así que un
+        hueco largo aquí es que estaba parado o colgado (rosa/metodo.py)."""
+        with self._lock:
+            return [int(t) for (t,) in self._con.execute("SELECT t FROM acciones WHERE t BETWEEN ? AND ?", (int(desde), int(hasta))).fetchall()]
+
     def llamadas_de(self, corrida_id: str, limite: int = 200) -> list[dict[str, Any]]:
         with self._lock:
             filas = self._con.execute("SELECT t, modelo, rol, iteracion, tokens_entrada, tokens_salida, ms, ok, error FROM llamadas WHERE corrida_id=? ORDER BY seq DESC LIMIT ?", (corrida_id, limite)).fetchall()

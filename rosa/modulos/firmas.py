@@ -464,7 +464,20 @@ class RevisarArnes(dspy.Signature):
     corrida; nada de generalidades. No se proponen cambios de prompts (eso lo hace otra
     pieza, la optimización de programas) ni quitar comprobaciones del Killer: solo
     criterios de revisión nuevos o políticas del bucle. Si la corrida rindió bien y no
-    hay nada que cambiar, la lista va vacía y el diagnóstico lo dice."""
+    hay nada que cambiar, la lista va vacía y el diagnóstico lo dice.
+
+    `metodo` es el tablero del método: cifras calculadas por regla sobre las trazas de
+    la corrida (balanza a favor y en contra, cuestiones cerradas, embudo del Killer,
+    eficacia de cada enfoque del equipo, concentración, conectores usados, reparto del
+    tiempo). Es lo que un jefe de laboratorio mira antes de opinar. Las cifras no se
+    discuten: las puso una regla. Lo que se hace con ellas:
+
+    - Cada propuesta cita el indicador del tablero que la justifica, por su nombre y
+      su cifra, cuando hay alguno en AVISO. Un aviso que no se ataca se explica en el
+      diagnóstico.
+    - Se empieza por el aviso que más frena la investigación, no por el más fácil.
+    - Un indicador "sin datos" no justifica nada: no se interpreta su ausencia.
+    - Nada del tablero autoriza a proponer quitar una comprobación del Killer."""
 
     objetivo: str = dspy.InputField()
     metrica: str = dspy.InputField(desc="La métrica única de la corrida y su balance en una línea")
@@ -474,6 +487,7 @@ class RevisarArnes(dspy.Signature):
     criterios_actuales: str = dspy.InputField(desc="Los criterios de revisión que el Killer ya aplica")
     politicas_actuales: str = dspy.InputField(desc="Las políticas del bucle vigentes")
     arnes: str = dspy.InputField(desc="Commit, hash de las firmas y programas optimizados con los que corrió")
+    metodo: str = dspy.InputField(desc="El tablero del método: una línea por indicador con su estado (AVISO, bien, sin datos), su cifra, la fase a la que apunta y qué haría falta")
     diagnostico: str = dspy.OutputField(desc="Dos o tres frases en lenguaje corriente: por qué la corrida rindió lo que rindió")
     propuestas: list[PropuestaArnes] = dspy.OutputField(desc="Entre cero y tres")
 

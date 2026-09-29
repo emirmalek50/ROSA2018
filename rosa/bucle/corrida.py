@@ -39,6 +39,7 @@ from typing import Any, Awaitable, Callable
 from rosa import argumentacion as ARG
 from rosa import comprobaciones as COMP
 from rosa import cuestiones as CU
+from rosa import metodo as METODO
 from rosa import dependencias as DEP
 from rosa import sesgo as SESGO
 from rosa import certeza as CERTEZA, config, lecciones as LEC, parada as PARADA, politicas, priorizacion as PR, progreso as PROG, torneo
@@ -737,7 +738,46 @@ class Supervisor:
                 return
             if cambio.get("_promover"):
                 self._promover_programa(cambio)
+        self._tableros_que_faltan()
         await self._completar_en_llano()
+
+    def _tableros_que_faltan(self) -> None:
+        """El tablero del método de las investigaciones que todavía no lo tienen
+        (las anteriores al 29 de septiembre de 2026, o una nueva antes de su primer
+        cierre). Por regla y sin llamadas, con el registro de la última corrida. No
+        dispara eventos: un aviso que ya estaba no es noticia, y de golpe serían
+        veinte. Los avisos nuevos se anuncian a partir del siguiente cierre."""
+        e = self.almacen.estado
+        # Las que no lo tienen y las que lo tienen de reglas anteriores (un tablero
+        # guardado con otro umbral u otra frase no es el de hoy).
+        faltan = [i for i in e.get("investigaciones") or [] if isinstance(i, dict) and not METODO.vigente(i.get("metodo"))]
+        if not faltan:
+            return
+        ahora = P.ahora_ms()
+        tableros: dict[str, dict[str, Any]] = {}
+        for inv in faltan:
+            try:
+                c = METODO.ultima_corrida(e, inv["id"])
+                intervalos = self.almacen.intervalos_de_llamadas(c["id"]) if c else None
+                instantes = self.almacen.instantes_de_actividad(int(c.get("empezadaEn") or 0), int(c.get("terminadaEn") or ahora)) if c else None
+                tableros[inv["id"]] = METODO.tablero(e, inv["id"], ahora, corrida=c, intervalos_modelo=intervalos, instantes_actividad=instantes)
+            except Exception:  # noqa: BLE001  una investigación rara no deja a las demás sin tablero
+                traceback.print_exc()
+                # Sin el registro, el tiempo queda en "sin datos" pero lo demás sale. Si
+                # tampoco así, se le guarda un tablero vacío: sin él, esta función la
+                # volvería a intentar en cada tick (cada 10 s) para siempre.
+                try:
+                    tableros[inv["id"]] = METODO.tablero(e, inv["id"], ahora)
+                except Exception:  # noqa: BLE001
+                    tableros[inv["id"]] = {"fecha": ahora, "iteracion": None, "corridaId": None, "reglas": METODO.VERSION_REGLAS, "indicadores": [], "avisos": []}
+
+        def fn(e2: dict[str, Any]) -> bool:
+            for inv_id, t in tableros.items():
+                METODO.fijar(e2, inv_id, t)
+            return bool(tableros)
+
+        if tableros:
+            self.almacen.mutar(fn, "tablero_metodo")
 
     async def _revisar_arnes(self, c: dict[str, Any]) -> None:
         """Meta-campaña (lo que rekursiv.ai llama auto-autoresearch, aquí con
@@ -765,6 +805,13 @@ class Supervisor:
             lecciones_txt = LEC.texto_de(LEC.recientes(e, inv["id"], maximo=12), maximo=12) or "Ninguna"
         except Exception:  # noqa: BLE001
             lecciones_txt = "Ninguna"
+        # El tablero del método de la corrida que termina, recién calculado: el
+        # revisor lee las cifras de la corrida entera, no las de su última iteración.
+        try:
+            tablero = METODO.tablero(e, inv["id"], ahora, corrida=c, intervalos_modelo=self.almacen.intervalos_de_llamadas(c["id"]), instantes_actividad=self.almacen.instantes_de_actividad(int(c.get("empezadaEn") or 0), int(c.get("terminadaEn") or ahora)))
+        except Exception:  # noqa: BLE001  sin tablero, el revisor sigue con lo de siempre
+            traceback.print_exc()
+            tablero = None
         ctx = self._ctx(c)
         try:
             pred = await ctx.llamar(
@@ -778,6 +825,7 @@ class Supervisor:
                 criterios_actuales="\n".join(e.get("criteriosRevision", [])) or "Ninguno",
                 politicas_actuales=json.dumps(politicas.resumen(), ensure_ascii=False)[:1500],
                 arnes=json.dumps(c.get("arnes") or {}, ensure_ascii=False),
+                metodo=METODO.texto(tablero),
             )
             diagnostico = (getattr(pred, "diagnostico", "") or "").strip()
             propuestas = [{"tipo": getattr(p_, "tipo", ""), "descripcion": (getattr(p_, "descripcion", "") or "").strip(), "motivo": (getattr(p_, "motivo", "") or "").strip(), "riesgo": (getattr(p_, "riesgo", "") or "").strip()} for p_ in list(getattr(pred, "propuestas", []) or [])]
@@ -795,7 +843,12 @@ class Supervisor:
                 return False
             c2.pop("_revisarArnes", None)
             nuevos = cambios_desde_propuestas(e2, c2, propuestas, ahora)
-            c2["revisionArnes"] = {"fecha": ahora, "diagnostico": diagnostico[:600], "propuestas": len(nuevos), "descartadas": len(propuestas) - len(nuevos)}
+            c2["revisionArnes"] = {"fecha": ahora, "diagnostico": diagnostico[:600], "propuestas": len(nuevos), "descartadas": len(propuestas) - len(nuevos), "avisosDelMetodo": list((tablero or {}).get("avisos") or [])}
+            if tablero is not None:
+                # El tablero con el que se decidió queda en la corrida (lo que había
+                # cuando el revisor opinó) y el de la investigación se pone al día.
+                c2["metodo"] = tablero
+                METODO.fijar(e2, c2["investigacionId"], tablero)
             texto = f"Meta-campaña de la corrida {c2['numero']}: {diagnostico[:200]}" + (f" Propone {len(nuevos)} {'cambio' if len(nuevos) == 1 else 'cambios'} del arnés; los criterios se evalúan solos y una persona decide." if nuevos else " Sin cambios que proponer.")
             A.con_evento(e2, c2["investigacionId"], "aprendizaje", texto, "#/ajustes", ahora)
             return True
@@ -2586,6 +2639,11 @@ class Supervisor:
                 resumen, llano, revision = reparado["resumen"], reparado["llano"], reparado["revision"]
                 self.almacen.mutar(lambda e2: _guardar_cierre_parcial(e2, it["id"], resumen=resumen, llano=llano, reparacion={"hecha": True, "vueltas": reparado["vueltas"]}), "cierre_parcial")
         terminar = _condicion_de_parada(inv["condicionParada"], it["numero"], self._con_reloj(c), mision=inv.get("mision"))
+        # Lo que el tablero del método necesita del registro, leído fuera del reducer.
+        try:
+            registro_metodo = {"intervalos": self.almacen.intervalos_de_llamadas(c["id"]), "instantes": self.almacen.instantes_de_actividad(int(c.get("empezadaEn") or 0), ahora)}
+        except Exception:  # noqa: BLE001  sin registro, el tiempo queda en "sin datos"
+            registro_metodo = {"intervalos": None, "instantes": None}
 
         def fn(e2: dict[str, Any]) -> bool:
             it2 = next(x for x in e2["iteraciones"] if x["id"] == it["id"])
@@ -2652,7 +2710,7 @@ class Supervisor:
             # aprendizaje. Cada una en su try: un fallo deja incidencia y no rompe el cierre.
             # La métrica de la corrida (`PROG.metrica_de_corrida`) lee las cifras de
             # la investigación a demanda, así que las ve en cuanto se escriben aquí.
-            _vistas_de_programa_al_cerrar(e2, inv["id"], it2, ahora)
+            _vistas_de_programa_al_cerrar(e2, inv["id"], it2, ahora, registro_metodo=registro_metodo)
             # Lecciones por regla: lo que esta iteración enseña a no repetir (rosa/lecciones.py).
             nuevas_lecciones = LEC.registrar(e2, LEC.generar_al_cerrar(e2, c_prog, it2, revision, ahora))
             if nuevas_lecciones:
@@ -3605,9 +3663,9 @@ def _cuestiones_por_hueco(e: dict[str, Any], investigacion_id: str, huecos: list
 
 
 # A partir de cuántos apoyos sin una sola contra ROSA2018 se pregunta en voz alta si
-# ha buscado lo que la refutaría. Cuatro: con uno o dos puede no haber dado tiempo,
-# con cuatro ya son cuatro fuentes leídas que apuntan todas al mismo lado.
-APOYOS_SIN_CONTRA_QUE_PREOCUPAN = 4
+# ha buscado lo que la refutaría. Vive en rosa/metodo.py, que la usa también para la
+# balanza del tablero del método: un solo número para las dos cosas.
+APOYOS_SIN_CONTRA_QUE_PREOCUPAN = METODO.APOYOS_SIN_CONTRA_QUE_PREOCUPAN
 
 
 def _cuestiones_por_falta_de_contraste(e: dict[str, Any], investigacion_id: str, ahora: int, maximo: int = 3) -> int:
@@ -3673,7 +3731,7 @@ def _anadir_aprendizaje_al_llano(e: dict[str, Any], corrida_id: str, it: dict[st
         llano["aprendizaje"] = cifras["texto"]
 
 
-def _vistas_de_programa_al_cerrar(e2: dict[str, Any], inv_id: str, it2: dict[str, Any], ahora: int) -> None:
+def _vistas_de_programa_al_cerrar(e2: dict[str, Any], inv_id: str, it2: dict[str, Any], ahora: int, registro_metodo: dict[str, Any] | None = None) -> None:
     """Escribe en la investigación `mapaEnfermedad`, `mapaRuta` y
     `cifrasAprendizaje` (cada uno con fecha e iteración), añade el texto de las
     cifras al resumen en llano de la iteración y abre una cuestión por hueco
@@ -3693,12 +3751,29 @@ def _vistas_de_programa_al_cerrar(e2: dict[str, Any], inv_id: str, it2: dict[str
         abiertas = _cuestiones_por_hueco(e2, inv_id, list(mapa.get("huecos") or []), ahora)
         if abiertas:
             A.con_evento(e2, inv_id, "aprendizaje", f"El mapa de la enfermedad deja {abiertas} {'hueco' if abiertas == 1 else 'huecos'} que la misión nombra y nada cubre; quedan como cuestiones abiertas para buscar en amplitud", f"#/investigaciones/{inv_id}/investigacion", ahora)
+    except Exception as ex:  # noqa: BLE001
+        traceback.print_exc()
+        A.con_evento(e2, inv_id, "incidencia", f"No pude construir el mapa de la enfermedad al cerrar la iteración {n}: {type(ex).__name__}: {str(ex)[:160]}", f"#/investigaciones/{inv_id}/corrida", ahora)
+    try:
         sin_contraste = _cuestiones_por_falta_de_contraste(e2, inv_id, ahora)
         if sin_contraste:
             A.con_evento(e2, inv_id, "aprendizaje", f"{sin_contraste} {'hipótesis acumula' if sin_contraste == 1 else 'hipótesis acumulan'} apoyos sin una sola fuente en contra: queda como cuestión abierta buscar lo que {'la' if sin_contraste == 1 else 'las'} refutaría, porque no haber buscado no es lo mismo que no haber encontrado", f"#/investigaciones/{inv_id}/investigacion", ahora)
     except Exception as ex:  # noqa: BLE001
         traceback.print_exc()
-        A.con_evento(e2, inv_id, "incidencia", f"No pude construir el mapa de la enfermedad al cerrar la iteración {n}: {type(ex).__name__}: {str(ex)[:160]}", f"#/investigaciones/{inv_id}/corrida", ahora)
+        A.con_evento(e2, inv_id, "incidencia", f"No pude revisar qué hipótesis acumulan apoyos sin contraste al cerrar la iteración {n}: {type(ex).__name__}: {str(ex)[:160]}", f"#/investigaciones/{inv_id}/corrida", ahora)
+    try:
+        # El tablero del método (rosa/metodo.py): cómo está investigando ROSA2018,
+        # medido por regla sobre las trazas. Cero llamadas. Solo se dice como evento
+        # lo que PASA a aviso: el mismo aviso cada iteración sería ruido.
+        reg = registro_metodo or {}
+        corrida_met = METODO.ultima_corrida(e2, inv_id)
+        tablero = METODO.tablero(e2, inv_id, ahora, corrida=corrida_met, intervalos_modelo=reg.get("intervalos"), iteracion=n, instantes_actividad=reg.get("instantes"))
+        nuevos = METODO.fijar(e2, inv_id, tablero)
+        if nuevos:
+            A.con_evento(e2, inv_id, "aprendizaje", "El tablero del método marca " + ("un aviso nuevo" if len(nuevos) == 1 else f"{len(nuevos)} avisos nuevos") + ": " + "; ".join(f"{x['titulo'].lower()} ({x['cifra']})" for x in nuevos)[:400], f"#/investigaciones/{inv_id}/investigacion", ahora)
+    except Exception as ex:  # noqa: BLE001
+        traceback.print_exc()
+        A.con_evento(e2, inv_id, "incidencia", f"No pude calcular el tablero del método al cerrar la iteración {n}: {type(ex).__name__}: {str(ex)[:160]}", f"#/investigaciones/{inv_id}/corrida", ahora)
     try:
         inv2["mapaRuta"] = {**RUTA.mapa_ruta(e2, inv_id), "fecha": ahora, "iteracion": n}
     except Exception as ex:  # noqa: BLE001

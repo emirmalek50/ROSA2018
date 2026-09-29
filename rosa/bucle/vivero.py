@@ -150,6 +150,8 @@ def nacer(e: dict[str, Any], semilla: dict[str, Any], iteracion: int, ahora: int
     h["procedencia"]["fuentes"] = list(semilla["fuentes"])
     h["_entidades"] = list(semilla.get("entidadesNovedad", []))[:6]
     h["_corridaOrigen"] = corrida_id or semilla.get("corridaOrigen")
+    if semilla.get("enfoque"):
+        h["enfoque"] = semilla["enfoque"]  # de qué enfoque del equipo salió (rosa/metodo.py)
     h["_revisionPedida"] = True
     e["hipotesis"].append(h)
     inv = next((i for i in e["investigaciones"] if i["id"] == semilla["investigacionId"]), None)
