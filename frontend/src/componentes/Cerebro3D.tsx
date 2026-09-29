@@ -47,6 +47,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { distanciaParaEncuadrar, multiplicar, normal3, orbita, perspectiva, transformar } from '../lib/matriz4';
 import { encuadre, leerMalla, validarIndice, type EstructuraCerebro, type IndiceCerebro, type Malla } from '../lib/cerebro_malla';
 import { cajaDe, esfera, gota, tubo, unir, type Forma } from '../lib/formas3d';
+import { oclusionPorVertice } from '../lib/cavidad';
 import { colocarRotulos, type Ancla } from '../lib/rotulos3d';
 import { rellenoRegion, tokenAtlas } from '../lib/atlas_color';
 import { NOMBRE_CORTO } from '../lib/atlas_dibujo';
@@ -116,7 +117,9 @@ const REPOSO = { guinada: -1.75, cabeceo: 0.12 };
  *  diagonal, mayor que el cuerpo en cualquier dirección, y con él tal cual el
  *  cerebro salía pequeño. */
 const distanciaReposo = (radio: number): number => distanciaParaEncuadrar(radio * 0.74, FOV, 16 / 9, 0.06);
-const FONDO: [number, number, number] = [0.043, 0.039, 0.078];
+/** El fondo de la escena. Negro puro delata el lienzo: un azul muy oscuro y
+ *  desaturado lee como el fondo de un estudio y deja respirar al tejido. */
+const FONDO: [number, number, number] = [0.043, 0.047, 0.059];
 const TEXTO = '#f4efe4';
 const TEXTO_TENUE = 'rgba(244, 239, 228, 0.72)';
 const AMBAR = '#f0a030';
@@ -173,46 +176,126 @@ function satelites(): Satelite[] {
 const VERTICES_GLSL = `
 attribute vec3 posicion;
 attribute vec3 normal;
+// Oclusión ambiental calculada al cargar la malla (lib/cavidad.ts). 1 en la
+// cresta de una circunvolución, bajo en el fondo de un surco.
+attribute float oclusion;
 uniform mat4 proyeccion;
 uniform mat4 vista;
 uniform mat3 normalMat;
 varying vec3 vNormal;
 varying vec3 vHaciaCamara;
+varying vec3 vMundo;
+varying float vOclusion;
 void main() {
   vNormal = normalize(normalMat * normal);
   vec4 enCamara = vista * vec4(posicion, 1.0);
   vHaciaCamara = -enCamara.xyz;
+  vMundo = posicion;
+  vOclusion = oclusion;
   gl_Position = proyeccion * enCamara;
 }`;
 
 const FRAGMENTOS_GLSL = `
-precision mediump float;
+precision highp float;
 uniform vec3 color;
 uniform float opacidad;
 uniform float resalte;
 varying vec3 vNormal;
 varying vec3 vHaciaCamara;
+varying vec3 vMundo;
+varying float vOclusion;
+
+// Todo el cálculo de luz va en espacio LINEAL y solo al final se convierte a
+// sRGB. Sumar luces directamente sobre colores sRGB (que es lo que hacía
+// antes) apaga los medios tonos y deja la imagen lechosa: es el motivo número
+// uno de que un render por WebGL parezca de los noventa.
+vec3 aLineal(vec3 c) { return pow(c, vec3(2.2)); }
+vec3 aPantalla(vec3 c) { return pow(c, vec3(1.0 / 2.2)); }
+
+// Curva de exposición de Narkowicz (ACES aproximada). Comprime las luces altas
+// en vez de recortarlas: sin ella, el brillo especular se quema a blanco
+// plano y parece plástico.
+vec3 tono(vec3 x) {
+  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+
 void main() {
   vec3 N = normalize(vNormal);
   // Una malla simplificada trae algún triángulo del revés: se ilumina por la
   // cara que mira a la cámara, en vez de dejar un hueco negro.
   if (!gl_FrontFacing) N = -N;
-  vec3 haciaCamara = normalize(vHaciaCamara);
-  // La luz principal, arriba a la izquierda y algo por delante, y un relleno
-  // suave por el otro lado para que la sombra no se cierre en negro.
-  vec3 luz = normalize(vec3(-0.45, 0.62, 0.65));
-  vec3 relleno = normalize(vec3(0.5, -0.3, 0.4));
-  float difusa = max(0.0, dot(N, luz));
-  float suave = max(0.0, dot(N, relleno)) * 0.28;
-  // Luz de borde: enciende el contorno, donde la superficie se va de canto.
-  float borde = pow(1.0 - max(0.0, dot(N, haciaCamara)), 2.6);
-  // Brillo especular corto: el tejido fresco no es mate del todo.
-  vec3 media = normalize(luz + haciaCamara);
-  float brillo = pow(max(0.0, dot(N, media)), 28.0) * 0.16;
-  vec3 base = color * (0.34 + 0.72 * difusa + suave);
-  vec3 final = base + borde * 0.22 * (color * 0.5 + vec3(0.5)) + brillo;
-  final += resalte * (0.34 + 0.6 * borde) * vec3(1.0, 0.84, 0.5);
-  gl_FragColor = vec4(final, opacidad);
+  vec3 V = normalize(vHaciaCamara);
+  vec3 albedo = aLineal(color);
+
+  // La luz clave, arriba a la izquierda y algo por delante; y una de relleno
+  // fría por el otro lado, que es lo que hace de "resto de la sala".
+  vec3 L = normalize(vec3(-0.45, 0.62, 0.65));
+  vec3 Lrelleno = normalize(vec3(0.62, -0.18, 0.35));
+
+  // DISPERSIÓN BAJO LA SUPERFICIE, aproximada: el tejido no es opaco, la luz
+  // entra un poco y sale alrededor. Se simula envolviendo el difuso más allá
+  // del terminador (wrap lighting) y tiñendo de rojo esa cola, que es el color
+  // de la sangre bajo el tejido. Sin esto, la superficie parece cera pintada.
+  //
+  // La envoltura es corta (0,22) a propósito. Con 0,45 quedaba iluminado casi
+  // todo el hemisferio y el terminador desaparecía: sin esa frontera entre luz
+  // y sombra el volumen se pierde y la pieza se ve plana y pálida, que es
+  // exactamente lo que pasaba (Emir, 28 de septiembre de 2026: "se ve
+  // demasiado iluminado, está peor que antes").
+  float envoltura = 0.22;
+  float difusa = max(0.0, (dot(N, L) + envoltura) / (1.0 + envoltura));
+  float cola = max(0.0, (dot(N, L) + 0.75) / 1.75) - difusa;
+  vec3 subsuperficie = vec3(0.55, 0.16, 0.13) * max(0.0, cola) * 0.30;
+
+  // OCLUSIÓN AMBIENTAL. Es lo que hace que un cerebro se lea como plegado:
+  // los surcos reciben menos luz del ambiente que las crestas. Solo afecta al
+  // ambiente y al relleno, nunca a la luz directa, que es como se comporta.
+  float ao = clamp(vOclusion, 0.0, 1.0);
+
+  // Ambiente de hemisferio: luz de cielo desde arriba y rebote cálido desde
+  // abajo, en vez de una constante plana. Da profundidad hasta donde no llega
+  // ninguna luz directa.
+  //
+  // Los niveles son bajos a propósito. Antes sumaban hasta 1,74 veces el
+  // albedo entre ambiente, difusa y relleno, así que casi toda la superficie
+  // llegaba saturada al mapeo de tono y salía blanca. Ahora el total se queda
+  // por debajo de 1 y el tejido conserva su color.
+  float haciaArriba = N.y * 0.5 + 0.5;
+  vec3 cielo = vec3(0.115, 0.135, 0.175);
+  vec3 rebote = vec3(0.085, 0.062, 0.055);
+  // La oclusión entra al cuadrado: la luz del ambiente cae rápido dentro de
+  // una hendidura, no en línea recta. Es lo que hace que un surco se vea hondo.
+  vec3 ambiente = mix(rebote, cielo, haciaArriba) * ao * ao;
+
+  float relleno = max(0.0, dot(N, Lrelleno)) * 0.11 * mix(0.25, 1.0, ao);
+
+  // FRESNEL: cualquier superficie refleja más de canto que de frente. De él
+  // salen tanto el borde encendido como la fuerza del brillo, así que los dos
+  // se mueven juntos y no como dos efectos pegados.
+  float fresnel = pow(1.0 - max(0.0, dot(N, V)), 5.0);
+  float f0 = 0.035;
+  float especularFuerza = f0 + (1.0 - f0) * fresnel;
+
+  // Brillo especular en dos lóbulos: uno estrecho, que es el reflejo puntual
+  // de la sala, y otro ancho y suave, que es el barniz húmedo del tejido.
+  vec3 H = normalize(L + V);
+  float estrecho = pow(max(0.0, dot(N, H)), 220.0);
+  float ancho = pow(max(0.0, dot(N, H)), 18.0);
+  vec3 brillo = (estrecho * 0.42 + ancho * 0.07) * especularFuerza * vec3(1.0, 0.98, 0.95) * mix(0.15, 1.0, ao);
+
+  // El borde, ahora con Fresnel y apagado dentro de los surcos: un contorno
+  // que se enciende también en el fondo de una hendidura delata el truco.
+  vec3 borde = fresnel * 0.16 * mix(0.05, 1.0, ao) * (albedo * 0.55 + vec3(0.45));
+
+  // La oclusión también muerde la luz directa, aunque menos: una hendidura
+  // estrecha tampoco recibe toda la luz de la ventana.
+  vec3 luz = albedo * (ambiente + difusa * 0.88 * mix(0.55, 1.0, ao) + relleno) + albedo * subsuperficie + brillo + borde;
+
+  // El resalte del ratón: cálido, más fuerte en el canto, y también atenuado
+  // por la oclusión para que no aplane lo que acabamos de dar de relieve.
+  luz += resalte * (0.26 + 0.5 * fresnel) * mix(0.5, 1.0, ao) * aLineal(vec3(1.0, 0.84, 0.5));
+
+  gl_FragColor = vec4(aPantalla(tono(luz)), opacidad);
 }`;
 
 const PICKING_GLSL = `
@@ -229,6 +312,9 @@ interface Pieza {
   rotulo: boolean;
   posiciones: WebGLBuffer;
   normales: WebGLBuffer;
+  /** Oclusión ambiental por vértice (lib/cavidad.ts), o null en los cuerpos
+   *  generados por código, que no son superficies plegadas y no la necesitan. */
+  oclusion: WebGLBuffer | null;
   indices: WebGLBuffer;
   cuenta: number;
   /** El color con el que se pinta en la pasada de selección. */
@@ -341,11 +427,24 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
       contexto.bufferData(contexto.ARRAY_BUFFER, m.posiciones, contexto.STATIC_DRAW);
       contexto.bindBuffer(contexto.ARRAY_BUFFER, nor);
       contexto.bufferData(contexto.ARRAY_BUFFER, m.normales, contexto.STATIC_DRAW);
+      // La oclusión ambiental se calcula una vez, aquí, sobre la malla real:
+      // es lo que hace que los surcos se lean como surcos y no como dibujo.
+      // Los cuerpos generados por código (el globo ocular, la gota, el tubo)
+      // son formas convexas sin pliegues y se dejan a 1.
+      let ocl: WebGLBuffer | null = null;
+      if (!exterior) {
+        const mapa = oclusionPorVertice(m.posiciones, m.normales, m.indices);
+        ocl = contexto.createBuffer();
+        if (ocl) {
+          contexto.bindBuffer(contexto.ARRAY_BUFFER, ocl);
+          contexto.bufferData(contexto.ARRAY_BUFFER, mapa, contexto.STATIC_DRAW);
+        }
+      }
       contexto.bindBuffer(contexto.ELEMENT_ARRAY_BUFFER, ind);
       contexto.bufferData(contexto.ELEMENT_ARRAY_BUFFER, m.indices, contexto.STATIC_DRAW);
       // El identificador va en el color: un número por canal, sin ambigüedad al leer el píxel.
       const n = piezas.length + 1;
-      piezas.push({ estructura: e, tejido, exterior, rotulo, posiciones: pos, normales: nor, indices: ind, cuenta: m.indices.length, id: [(n & 255) / 255, ((n >> 8) & 255) / 255, ((n >> 16) & 255) / 255] });
+      piezas.push({ estructura: e, tejido, exterior, rotulo, posiciones: pos, normales: nor, oclusion: ocl, indices: ind, cuenta: m.indices.length, id: [(n & 255) / 255, ((n >> 8) & 255) / 255, ((n >> 16) & 255) / 255] });
     };
 
     /** El color de cada pieza: su tejido con el tinte de la evidencia de su región. */
@@ -395,6 +494,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
       if (uNormal) contexto.uniformMatrix3fv(uNormal, false, nm);
       const aPos = contexto.getAttribLocation(prog, 'posicion');
       const aNor = contexto.getAttribLocation(prog, 'normal');
+      const aOcl = contexto.getAttribLocation(prog, 'oclusion');
       const mirada = focoRef.current ?? datos.current.seleccion;
       const porDentro = mirada !== null && PROFUNDAS.has(mirada);
       // Al mirar una estructura de dentro, todo lo del cerebro se vuelve
@@ -429,6 +529,17 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
           contexto.bindBuffer(contexto.ARRAY_BUFFER, p.normales);
           contexto.enableVertexAttribArray(aNor);
           contexto.vertexAttribPointer(aNor, 3, contexto.FLOAT, false, 0, 0);
+        }
+        if (aOcl >= 0) {
+          if (p.oclusion) {
+            contexto.bindBuffer(contexto.ARRAY_BUFFER, p.oclusion);
+            contexto.enableVertexAttribArray(aOcl);
+            contexto.vertexAttribPointer(aOcl, 1, contexto.FLOAT, false, 0, 0);
+          } else {
+            // Sin mapa (los cuerpos generados por código): expuesto del todo.
+            contexto.disableVertexAttribArray(aOcl);
+            contexto.vertexAttrib1f(aOcl, 1);
+          }
         }
         contexto.bindBuffer(contexto.ELEMENT_ARRAY_BUFFER, p.indices);
         if (seleccionando) {

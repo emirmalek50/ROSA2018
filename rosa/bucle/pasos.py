@@ -3867,8 +3867,16 @@ async def _torneo(ctx: Ctx, pista: Pista) -> int:
     #    el bloque de revisiones automáticas (hipotesis_para_torneo).
     for a, b in ronda.pares:
         try:
-            p1 = await ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(a, etiqueta="Candidata A"), hipotesis_b=hipotesis_para_torneo(b, etiqueta="Candidata B"), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(a)}\nSobre B: {T.revisiones_humanas(b)}")
-            p2 = await ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(b, etiqueta="Candidata A"), hipotesis_b=hipotesis_para_torneo(a, etiqueta="Candidata B"), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(b)}\nSobre B: {T.revisiones_humanas(a)}")
+            # Las dos lecturas del par (A contra B y B contra A) son
+            # independientes: se piden a la vez. En serie costaban dos esperas
+            # del juez, unos 36 s de mediana por partido, y el torneo es la
+            # parte más lenta del paso de hipótesis (28 de septiembre de 2026).
+            # El orden de los partidos ENTRE SÍ no cambia, que es lo único que
+            # afectaría al Elo, porque se aplica igual que antes.
+            p1, p2 = await _en_paralelo(
+                ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(a, etiqueta="Candidata A"), hipotesis_b=hipotesis_para_torneo(b, etiqueta="Candidata B"), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(a)}\nSobre B: {T.revisiones_humanas(b)}"),
+                ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(b, etiqueta="Candidata A"), hipotesis_b=hipotesis_para_torneo(a, etiqueta="Candidata B"), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(b)}\nSobre B: {T.revisiones_humanas(a)}"),
+            )
         except PresupuestoAgotado:
             raise
         except VIG.ModeloSinRespuesta:
