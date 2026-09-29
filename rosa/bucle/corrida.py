@@ -2522,7 +2522,17 @@ class Supervisor:
         try:
             acumulado = await EV.acumular(ctx, it["numero"], pista_ev)
             con_evidencia = set(acumulado.get("ids", []))
-            vivero_res = await EV.acumular_vivero(ctx, it["numero"], pista_ev)
+            # El vivero lleva SU pista: `EV.acumular` cierra la suya al terminar
+            # (con el resumen ya escrito), así que hasta el 29 de septiembre de
+            # 2026 la línea del vivero ("N ideas, M nacen, K se retiran") caía
+            # dentro de un paso que la pantalla ya daba por hecho y no contaba en
+            # su resumen. El trabajo se hacía y no se veía.
+            pista_viv = ctx.pista(None, "modelo", "Evidencia nueva para las ideas del vivero", "Sonnet 5")
+            try:
+                vivero_res = await EV.acumular_vivero(ctx, it["numero"], pista_viv)
+            finally:
+                if pista_viv.abierta:
+                    pista_viv.cerrar("Vivero revisado")
             con_evidencia |= set(vivero_res.get("nacidas", []))
         except PresupuestoAgotado:
             pista_ev.fallar("Sin presupuesto: la evidencia nueva se enlaza al retomar el cierre")

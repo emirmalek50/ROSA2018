@@ -730,11 +730,34 @@ class Almacen:
             return {"ok": True, "seq": self._con.execute("SELECT MAX(seq) FROM acciones").fetchone()[0], "roturasDocumentadas": len(informe["roturas"])}
 
     def registrar_llamada(self, modelo: str, rol: str | None, corrida_id: str | None, iteracion: int | None, tokens_entrada: int, tokens_salida: int, ms: int, ok: bool, error: str | None = None) -> None:
+        """Apunta la llamada en la tabla `llamadas`, que es de donde sale la
+        contabilidad del gasto y con la que se reconstruyó la hora perdida de la
+        corrida 13.
+
+        Se salta los dos casos en los que este almacén no tiene derecho a
+        escribir, que hasta el 29 de septiembre de 2026 no se comprobaban:
+
+        - Solo lectura: el INSERT lanzaba `OperationalError` en crudo desde la
+          ruta de la llamada al modelo, así que una llamada que YA había
+          respondido se perdía por no poder apuntar su línea de registro. La
+          telemetría no puede tumbar el trabajo que documenta.
+        - Obsoleto: otro proceso se quedó con la base. Seguir apuntando aquí
+          mezcla el gasto de dos ROSA2018 en la misma tabla, que es exactamente
+          la bifurcación del registro que `EscritorObsoleto` existe para cortar.
+
+        Y si sqlite falla por otra cosa (disco lleno, base bloqueada), se avisa
+        por stderr y la llamada sigue: perder una línea de registro es malo,
+        perder la respuesta del modelo es peor."""
+        if self.solo_lectura or self.obsoleto:
+            return
         with self._lock:
-            self._con.execute(
-                "INSERT INTO llamadas(t, modelo, rol, corrida_id, iteracion, tokens_entrada, tokens_salida, ms, ok, error) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                (P.ahora_ms(), modelo, rol, corrida_id, iteracion, tokens_entrada, tokens_salida, ms, 1 if ok else 0, error),
-            )
+            try:
+                self._con.execute(
+                    "INSERT INTO llamadas(t, modelo, rol, corrida_id, iteracion, tokens_entrada, tokens_salida, ms, ok, error) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (P.ahora_ms(), modelo, rol, corrida_id, iteracion, tokens_entrada, tokens_salida, ms, 1 if ok else 0, error),
+                )
+            except sqlite3.Error as ex:
+                print(f"No se pudo apuntar la llamada a {modelo} en el registro de llamadas ({ex!r}); el gasto de esta llamada no sale en la contabilidad.", file=sys.stderr, flush=True)
 
     def evidencia_de(self, corrida_id: str) -> dict[str, Any] | None:
         """La cadena de trazabilidad de una corrida: consultas, fuentes (con la

@@ -48,6 +48,18 @@ class Pista:
 
         self.almacen.mutar(cambiar, "pista")
 
+    @property
+    def abierta(self) -> bool:
+        """La pista sigue en marcha: nadie la cerró ni la hizo fallar. Quien
+        abre una pista y llama a algo que PUEDE cerrarla la comprueba antes de
+        cerrarla otra vez, para no pisar el resumen que ya escribió."""
+        for it in self.almacen.estado["iteraciones"]:
+            if it["id"] == self.iteracion_id:
+                for p in it["pistas"]:
+                    if p["id"] == self.id:
+                        return bool(p["estado"] == "en_curso")
+        return False
+
     def detenida(self) -> bool:
         for it in self.almacen.estado["iteraciones"]:
             if it["id"] == self.iteracion_id:

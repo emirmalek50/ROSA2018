@@ -107,3 +107,41 @@ def test_el_mismo_diccionario_se_conserva_al_recargar():
         al.aplicar("anadirCriterio", {"texto": VENENO})
     assert al.estado is capturado, "el bucle se quedaría con un estado huérfano"
     al.cerrar()
+
+
+def test_el_registro_de_llamadas_no_tumba_la_llamada_ni_mezcla_dos_procesos():
+    """Dos huecos hasta el 29 de septiembre de 2026:
+
+    - Con el almacén en solo lectura, el INSERT lanzaba `OperationalError` en
+      crudo desde la ruta de la llamada al modelo: una llamada que YA había
+      respondido se perdía por no poder apuntar su línea de registro.
+    - Con el almacén obsoleto (otro proceso se quedó con la base) seguía
+      apuntando, así que el gasto de dos ROSA2018 se mezclaba en la tabla de la
+      que sale la contabilidad, que es justo la bifurcación que
+      `EscritorObsoleto` existe para cortar."""
+    import tempfile
+    from pathlib import Path
+
+    from rosa.estado.almacen import Almacen
+
+    ruta = Path(tempfile.mkdtemp()) / "ll.db"
+    al = Almacen(ruta)
+    cuantas = lambda a: a._con.execute("SELECT COUNT(*) FROM llamadas").fetchone()[0]  # noqa: E731
+    try:
+        al.registrar_llamada("opus", "juez", None, None, 10, 5, 100, True)
+        assert cuantas(al) == 1
+        # Obsoleto: no suma nada más.
+        al.obsoleto = True
+        al.registrar_llamada("opus", "juez", None, None, 10, 5, 100, True)
+        assert cuantas(al) == 1
+    finally:
+        al.obsoleto = False
+        al.cerrar()
+
+    solo = Almacen(ruta, solo_lectura=True)
+    try:
+        # No lanza: perder una línea de registro es malo, perder la respuesta peor.
+        solo.registrar_llamada("opus", "juez", None, None, 10, 5, 100, True)
+        assert cuantas(solo) == 1
+    finally:
+        solo.cerrar()

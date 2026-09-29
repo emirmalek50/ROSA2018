@@ -123,3 +123,42 @@ def test_hipotesis_vivas_ensena_el_peldano_siguiente():
            "conclusion": {"certeza": "muy_baja", "direccion": "apoya", "loMasFragil": "umbrales", "subiria": "una réplica", "bajaria": "orden inverso", "escalera": [{"de": "muy_baja", "a": "baja", "falta": "una segunda cohorte independiente"}]}}]
     t = T.hipotesis_vivas(hs, "inv")
     assert "peldaño siguiente (por regla): para subir a baja le falta una segunda cohorte independiente. Cohortes distintas hoy: 1 (BIOCARD)" in t
+
+
+def test_el_trabajo_del_vivero_no_se_escribe_en_una_pista_ya_cerrada(monkeypatch):
+    """Hasta el 29 de septiembre de 2026 el cierre pasaba la MISMA pista a
+    `EV.acumular` y a `EV.acumular_vivero`, y `acumular` la cierra al terminar
+    con su resumen ya escrito. La línea del vivero ("N ideas, M nacen, K se
+    retiran") caía dentro de un paso que la pantalla daba por hecho y no contaba
+    en su resumen: el trabajo se hacía y no se veía. Ahora el vivero lleva su
+    propia pista."""
+    import inspect
+
+    from rosa.bucle import corrida as CO
+
+    fuente = inspect.getsource(CO.Supervisor._cerrar_iteracion) if hasattr(CO, "Supervisor") else inspect.getsource(CO)
+    i = fuente.index("EV.acumular(ctx")
+    tramo = fuente[i : i + 1200]
+    assert "EV.acumular_vivero(ctx" in tramo, "el vivero se acumula en otro sitio: revisar este test"
+    # La pista que recibe el vivero no es la que `EV.acumular` acaba de cerrar.
+    llamada = tramo[tramo.index("EV.acumular_vivero(ctx") :]
+    assert "pista_ev" not in llamada.split(")")[0], "el vivero vuelve a escribir en la pista cerrada de la evidencia"
+
+
+def test_una_pista_cerrada_ya_no_dice_que_esta_abierta():
+    """`abierta` es lo que deja comprobar el caso de arriba en caliente: quien
+    abre una pista y llama a algo que puede cerrarla no debe pisar el resumen."""
+    from rosa.bucle.pista import Pista
+
+    al = Almacen(Path(tempfile.mkdtemp()) / "p.db")
+    try:
+        al.mutar(lambda e: (e["iteraciones"].append({"id": "it1", "corridaId": "cor", "numero": 1, "pistas": []}), True)[1], "test")
+        p = Pista(al, "it1", None, "modelo", "Prueba", "Sonnet 5")
+        assert p.abierta is True
+        p.cerrar("hecho")
+        assert p.abierta is False
+        p2 = Pista(al, "it1", None, "modelo", "Otra", "Sonnet 5")
+        p2.fallar("se cayó")
+        assert p2.abierta is False
+    finally:
+        al.cerrar()
