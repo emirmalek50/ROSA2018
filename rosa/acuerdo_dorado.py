@@ -35,17 +35,34 @@ def acuerdo_dorado(e: dict[str, Any]) -> dict[str, Any]:
     salida: dict[str, Any] = {"casos": len(casos), "global": None, "porComprobacion": {}, "porModelo": {}}
     if not casos:
         return salida
-    juez = [c.get("veredictoJuez") for c in casos]
-    humano = [c.get("veredictoHumano") for c in casos]
-    salida["global"] = AC.acuerdo(juez, humano, categorias=list(VEREDICTOS))
-    for nombre in sorted({c.get("comprobacion") for c in casos if c.get("comprobacion")}):
-        sub = [c for c in casos if c.get("comprobacion") == nombre]
+    # Un caso sin los dos veredictos no es un acuerdo ni un desacuerdo: se
+    # queda fuera. `AC.matriz_confusion` hacía `m[idx[None]]` y tumbaba el
+    # informe entero, y con él el PRISMA.
+    casos = [c for c in casos if c.get("veredictoJuez") in VEREDICTOS and c.get("veredictoHumano") in VEREDICTOS]
+    salida["casos"] = len(casos)
+    if not casos:
+        return salida
+
+    def _con_suficiencia(sub: list[dict[str, Any]]) -> dict[str, Any]:
+        """El acuerdo de un subconjunto, diciendo si hay casos bastantes.
+
+        `suficiente` se calculaba solo por comprobación. El bloque global y el
+        de por modelo salían sin él, así que un kappa de 1,0 sobre DOS
+        etiquetas se publicaba como "casi perfecto" en el informe PRISMA y en
+        el Markdown que se pega en un manuscrito (28 de septiembre de 2026).
+        Un kappa de 1,0 sobre dos etiquetas no es acuerdo casi perfecto: no es
+        nada."""
         a = AC.acuerdo([c.get("veredictoJuez") for c in sub], [c.get("veredictoHumano") for c in sub], categorias=list(VEREDICTOS))
         a["suficiente"] = len(sub) >= MINIMO_CASOS
-        salida["porComprobacion"][nombre] = a
+        if not a["suficiente"]:
+            a["interpretacion"] = f"sin etiquetas suficientes ({len(sub)} de {MINIMO_CASOS} mínimas): la cifra no se puede leer"
+        return a
+
+    salida["global"] = _con_suficiencia(casos)
+    for nombre in sorted({c.get("comprobacion") for c in casos if c.get("comprobacion")}):
+        salida["porComprobacion"][nombre] = _con_suficiencia([c for c in casos if c.get("comprobacion") == nombre])
     for modelo in sorted({c.get("modeloJuez") or "?" for c in casos}):
-        sub = [c for c in casos if (c.get("modeloJuez") or "?") == modelo]
-        salida["porModelo"][modelo] = AC.acuerdo([c.get("veredictoJuez") for c in sub], [c.get("veredictoHumano") for c in sub], categorias=list(VEREDICTOS))
+        salida["porModelo"][modelo] = _con_suficiencia([c for c in casos if (c.get("modeloJuez") or "?") == modelo])
     return salida
 
 

@@ -154,8 +154,12 @@ def juzgar_dominio(dominio: dict[str, Any], respuestas: dict[str, str]) -> tuple
     su respuesta va en el sentido de bajo riesgo, "expone" cuando va en el de
     alto riesgo, y "sin informacion" si NI. Bajo: todas protegen. Alto: alguna
     expone con seguridad (Y/N seco) o mas de la mitad exponen. Algunas dudas:
-    lo demas (incluye lo que no se sabe)."""
-    protegen = exponen = sin_info = 0
+    lo demas (incluye lo que no se sabe).
+
+    El codigo dice ahora lo mismo que esta linea. Hasta el 28 de septiembre de
+    2026 el umbral era `exponen >= 1.5` con las seguras sumando 1,5, asi que
+    DOS respuestas "probablemente" tambien lo alcanzaban y salia "alto"."""
+    protegen = exponen = sin_info = seguros = 0
     detalle = []
     for p in dominio["preguntas"]:
         r = _normalizar(respuestas.get(p["id"], "NI"))
@@ -169,13 +173,20 @@ def juzgar_dominio(dominio: dict[str, Any], respuestas: dict[str, str]) -> tuple
             exponen += 1
             detalle.append(f"{p['id']}={r}{' (seguro)' if seguro else ''}")
             if seguro:
-                exponen += 0.5  # una respuesta segura en la direccion del riesgo pesa mas
+                seguros += 1
         else:
             protegen += 1
     total = len(dominio["preguntas"])
     if exponen == 0 and sin_info == 0:
         return "bajo", "todas las preguntas del dominio van en el sentido de bajo riesgo"
-    if exponen >= 1.5 or exponen > total / 2:
+    # "Alto" si alguna respuesta SEGURA va en el sentido del riesgo, o si más
+    # de la mitad exponen. Antes el umbral era `exponen >= 1.5` con las
+    # seguras sumando 1,5 cada una, así que DOS respuestas "probablemente"
+    # también llegaban a 1,5 y salía "alto" (28 de septiembre de 2026). Con
+    # dos de cinco y ninguna segura, RoB 2 da "algunas dudas", y ROSA2018
+    # escribía "riesgo global alto" atribuyéndoselo a un instrumento con
+    # nombre. Cascada: peso GRADE 0,5 y `sesgo_evidencia: falla`, que suspende.
+    if seguros >= 1 or exponen > total / 2:
         return "alto", "respuestas en el sentido del riesgo: " + ", ".join(detalle)
     return "algunas_dudas", ("respuestas en el sentido del riesgo: " + ", ".join(detalle) + "; " if detalle else "") + (f"{sin_info} preguntas sin información en el texto" if sin_info else "")
 

@@ -544,7 +544,10 @@ def test_killer_determinista_tolera_registros_antiguos_con_none():
     for campo, valor in (("novedad", None), ("supuestos", None), ("procedencia", None), ("afirmaciones", None), ("afirmaciones", [None, "texto"]), ("novedad", {"precedente": None, "ensayos": "x"})):
         hh = {**h, campo: valor}
         c = {x["comprobacion"]: x for x in K.comprobaciones_deterministas(hh, {"hipotesis": [hh]})}
-        assert c["citas_reales"]["resultado"] == "falla", campo
+        # Sin afirmaciones es "no comprobable", no "falla" (28 de septiembre de
+        # 2026): cero afirmaciones es "todavía no se ha buscado", y con `falla`
+        # la decisión descartaba una hipótesis recién nacida sin mirarla.
+        assert c["citas_reales"]["resultado"] == "no_comprobable", campo
         assert c["novedad"]["resultado"] in ("pasa", "no_comprobable"), campo
 
 

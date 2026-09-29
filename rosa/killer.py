@@ -95,7 +95,15 @@ def comprobaciones_deterministas(h: dict[str, Any], e: dict[str, Any]) -> list[d
     # 1. Citas reales: ninguna afirmación con cita que no resuelve o sin cita.
     rotas = [a for a in afs if a["veredicto"] in ("cita_no_resuelve", "sin_cita")]
     if not afs:
-        c.append({"comprobacion": "citas_reales", "resultado": "falla", "detalle": "La hipótesis no cita ninguna afirmación"})
+        # Cero afirmaciones es "todavía no se ha buscado", no "la evidencia
+        # falla". Con `falla` la decisión salía `descartar_en_contexto` con el
+        # motivo "La evidencia no sostiene la hipótesis", que saca del bucle a
+        # una hipótesis recién nacida sin haberla mirado (28 de septiembre de
+        # 2026). Es la regla de la casa rota en el eslabón más caro. Como
+        # `no_comprobable` en una comprobación crítica, suspende, que es el
+        # mismo criterio que la comprobación de fidelidad de aquí al lado ya
+        # aplicaba para este caso, y el que S-10 argumentó para los supuestos.
+        c.append({"comprobacion": "citas_reales", "resultado": "no_comprobable", "detalle": "La hipótesis todavía no cita ninguna afirmación: no se ha buscado evidencia para ella, no es que la evidencia falle"})
     elif rotas:
         c.append({"comprobacion": "citas_reales", "resultado": "falla", "detalle": f"{len(rotas)} afirmaciones con cita que no resuelve o sin cita: " + "; ".join(a["texto"][:80] for a in rotas[:3])})
     else:

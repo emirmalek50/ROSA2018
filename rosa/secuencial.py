@@ -21,7 +21,13 @@ def e_valor(p: float, kappa: float = KAPPA) -> float:
     return kappa * p ** (kappa - 1)
 
 
-CLAVES_P = ("p_valor", "p_value", "pvalue", "valor_p", "p_bilateral", "p_unilateral", "p_ajustada", "p_ajustado", "p_adj", "p")
+# En orden de prioridad, y la AJUSTADA va primero (28 de septiembre de 2026).
+# Estaba detrás de la cruda, así que un análisis sobre 50 genes que reportaba
+# p cruda 0,002 y p ajustada 0,40 entraba con 0,002 y el e-valor acumulado
+# decía "rechaza la hipótesis nula". Tras corregir por comparaciones
+# múltiples no había nada. Si una ejecución da las dos, la que vale es la
+# ajustada: la cruda ya está gastada en la corrección.
+CLAVES_P = ("p_ajustada", "p_ajustado", "p_adj", "p_valor", "p_value", "pvalue", "valor_p", "p_bilateral", "p_unilateral", "p")
 
 
 def p_de(resultados: dict[str, str]) -> float | None:
