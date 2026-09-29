@@ -3676,12 +3676,20 @@ async def _revisar_hipotesis(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: st
     supuestos = fusionar_supuestos(h.get("supuestos"), list(getattr(rev, "supuestos", None) or [])[:8] if rev is not None else [], nunca_revisada=h.get("ultimaRevisionAutomatica") is None)
     texto_sup, lista_sup = afirmaciones_para_supuestos(h, ctx.afirmaciones())
     evaluados: list[dict[str, Any] | None] = [None] * len(supuestos)
+    perfil_diana = DI.texto_perfil(h.get("perfilDiana") if isinstance(h.get("perfilDiana"), dict) else None)
     sem = asyncio.Semaphore(4)
 
     async def evaluar(i: int, s: dict[str, Any]) -> None:
         async with sem:
             try:
-                p2 = await ctx.llamar("volumen", ctx.programas.evaluar_supuesto, supuesto=s["texto"], afirmaciones_sostenidas=texto_sup)
+                # El perfil de diana ya está calculado y guardado (29 de las 34
+                # hipótesis de la base lo tienen, y 26 de las 27 suspendidas): pasarlo
+                # no cuesta ninguna llamada y contesta la clase de supuesto que no
+                # está en la literatura sino en una base curada (si algo se expresa
+                # donde la hipótesis dice, si la proteína interactúa con quien se
+                # dice). `validar_supuesto_evaluado` ya impide que de aquí salga un
+                # "contradicho": eso exige señalar una afirmación numerada.
+                p2 = await ctx.llamar("volumen", ctx.programas.evaluar_supuesto, supuesto=s["texto"], afirmaciones_sostenidas=texto_sup, perfil_diana=perfil_diana)
                 ev = p2.evaluacion
                 estado, evidencia, ids = validar_supuesto_evaluado(getattr(ev, "estado", None), getattr(ev, "evidencia", None), getattr(ev, "indices_que_lo_niegan", None), lista_sup)
                 alcance = alcance_del_supuesto(estado, getattr(ev, "indices_que_lo_tocan", None), ids, getattr(ev, "donde_se_responde", None), getattr(ev, "cota", None), lista_sup)

@@ -423,10 +423,29 @@ class EvaluarSupuesto(dspy.Signature):
 
     Decir siempre qué afirmaciones tocan el tema aunque no lo resuelvan
     (`indices_que_lo_tocan`), y dónde estaría la respuesta (`donde_se_responde`): muchos
-    supuestos no se contestan leyendo artículos sino mirando qué mide una cohorte."""
+    supuestos no se contestan leyendo artículos sino mirando qué mide una cohorte.
+
+    `perfil_diana` es la tabla de bases públicas curadas para la diana de la hipótesis
+    (expresión en tejido y por tipo celular en HPA y GTEx, función e interactores en
+    UniProt, STRING y Reactome, genética en GWAS Catalog y ClinVar, fármacos en ChEMBL
+    y DGIdb, recuento de publicaciones en PubTator). Muchos supuestos son justo eso: si
+    algo se expresa donde la hipótesis dice, si la proteína hace lo que se le atribuye,
+    si interactúa con quien se dice. Se usa así y solo así:
+
+    - Puede llevar un supuesto de `sin_evidencia` a `plausible`, y entonces `evidencia`
+      nombra la capa y la cifra ("HPA: astrocitos 781,6 nCPM").
+    - NO puede dar `respaldado`: eso pide una afirmación de la literatura con su cita,
+      y un registro de base de datos no es un resultado sobre la población de la
+      hipótesis.
+    - NO puede dar `contradicho`: contradecir exige señalar una afirmación numerada.
+      Una base que no dice lo que el supuesto necesita es `sin_evidencia`, no una
+      negación.
+
+    Una capa en "no pude comprobar" no dice nada: ni a favor ni en contra."""
 
     supuesto: str = dspy.InputField()
     afirmaciones_sostenidas: str = dspy.InputField()
+    perfil_diana: str = dspy.InputField(desc="Tabla de bases públicas curadas para la diana; 'sin consultar' si no hay")
     evaluacion: SupuestoEvaluado = dspy.OutputField()
 
 
