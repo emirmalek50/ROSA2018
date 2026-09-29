@@ -563,3 +563,76 @@ exclusión y, cuando el gen se resuelve por alias y no por símbolo aprobado,
 exigir contexto de gen o proteína en el fragmento. Después, volver a normalizar
 las entidades de los hechos afectados. Importa para la sección molecular y para
 las pistas de redundancia entre hipótesis, que se calculan con estas entidades.
+
+## 29 de septiembre de 2026: auditoría de «Al laboratorio» (lo que no anotó quien la construye)
+
+Medido sobre el estado real (solo lectura) y el árbol de trabajo de esa tarde,
+con la sección todavía sin commitear. Los tests pasan (21 de backend y 15 de
+frontend), pero ninguno cubre esto. Lo de TREM2 y los genes falsos por alias ya
+está anotado más arriba; aquí va el resto, por lo que más pesa.
+
+Lo que no funciona o dice algo falso:
+
+1. **El muro enseña primero lo que no se puede mandar.** Ordena por número de
+   menciones (`rosa/laboratorio.py:412`): tau, GFAP, NfL, APOE y APP arriba. De
+   esas cinco, cuatro llevan la hoja con «qué se hace» y «sistema» vacíos,
+   porque sus hipótesis son de biomarcadores en sangre y no de laboratorio. 23
+   de las 29 hipótesis enlazadas no tienen sistema experimental, y 9 de las 17
+   dianas ninguna hipótesis. Las tres que sí traen un experimento (SULF2, TFEB,
+   NDST3) salen las últimas, con 0 afirmaciones. Es la trampa de la frecuencia.
+2. **Nunca se usa el PDB, aunque el pie diga que sí.** `rosa/laboratorio.py:381`
+   pone siempre AlphaFold con clase «predicha». La tarjeta grande del muro es
+   tau, cuyo modelo tiene un 7,5 % de confianza alta y un 65,6 % muy baja,
+   mientras el PDB tiene 308 estructuras medidas de tau (con los filamentos de
+   cerebro con Alzheimer), 431 de BACE1 (con inhibidores unidos) y 265 de APP.
+   El conector `pdb_estructuras` existe y no se llama.
+3. **El texto sobre TREM2 es falso.** `rosa/laboratorio.py:348` y
+   `frontend/src/pantallas/Laboratorio.tsx:1409` dicen «sin acceso de UniProt,
+   no hay estructura que traer»; TREM2 es Q9NZC2 y tiene estructura. Lo cierto
+   es «no pude resolver su UniProt».
+4. **La hoja de SULF2 se contradice.** «Qué se hace» sale de la tarjeta
+   («expresión inducible de SULF2 en neuronas», un experimento de laboratorio)
+   y «sistema» del contrato, que es «datos públicos existentes» con la actividad
+   «extracción crítica de resultados agregados publicados, no generación de
+   muestras» (`rosa/laboratorio.py:586-607`).
+5. **Las marcas de UniProt están hechas a la medida de SULF2.** `QUE_MARCAR`
+   (`Laboratorio.tsx:31-39`) solo reconoce regiones «Catalytic», «Hydrophilic»
+   y «Disordered»; en tau ignora el «Microtubule-binding domain», que es donde
+   agrega, y solo marca un tramo desordenado.
+6. **La química es ruido.** Por coaparición en la misma frase
+   (`rosa/laboratorio.py:229-245`), 11 de las 14 dianas con evidencia llevan
+   «amyloid-beta» y lecanemab como su química. Los tres «compuestos» de la
+   sección son el péptido de la enfermedad, un anticuerpo y la semaglutida (un
+   péptido de 4 kDa que no cruza al cerebro): ninguna molécula pequeña pedible.
+7. **Un fallo de PubChem queda guardado para siempre como «no existe».**
+   `_compuestos_que_faltan` (`rosa/bucle/corrida.py:765`) mete en `ya` también
+   los no encontrados, así que un tiempo agotado no se reintenta nunca, y la
+   pantalla (`Laboratorio.tsx:1425-1428`) lo presenta como «PubChem no lo
+   reconoce». Además `corrida.py:779` se queda con el primer resultado cuando
+   PubChem devuelve varios.
+8. **Sin freno de certeza.** Detrás de las dianas hay 26 hipótesis que el
+   Killer suspende, 2 que propone descartar y 1 que avanza, todas en certeza
+   muy baja o baja, bajo el título «Lo que ROSA2018 mandaría al laboratorio»
+   (`Laboratorio.tsx:1309`). Nada dice «todavía no se manda».
+
+Ineficiencias:
+
+9. **Cada visita copia el estado entero bajo el candado.** `rosa/servidor.py:540`
+   hace `copy.deepcopy` de 37 MB: 0,53 s con las escrituras bloqueadas, para un
+   cálculo que tarda 0,01 s. Basta calcular bajo el candado o copiar solo
+   `hechos`, `hipotesis`, `relaciones`, `entidadesCache` e `investigaciones`.
+10. **La lámina se vuelve a renderizar en cada fotograma mientras gira.**
+    `reproyectar` llama a `fijarPuestos(nuevos)` sin comparar
+    (`Laboratorio.tsx:759`), y `proyectar` pide `getBoundingClientRect` por cada
+    marca en cada fotograma (`frontend/src/lib/visorMolecular.ts:242`). Con el
+    giro en reposo a los 3 s, sigue así mientras alguien lee el protocolo.
+11. **Cada tarjeta del muro es un Mol* completo girando sin parar**, con
+    oclusión ambiental y contorno (`Laboratorio.tsx:1474-1482`). Con el margen
+    de 300 px hay varias a la vez, y al desplazarse se destruyen y se vuelven a
+    montar. Para miniaturas bastaría una imagen fija; en vivo, solo la grande.
+12. **402 KB por visita**: van todos los protocolos enteros de todas las
+    hipótesis de todas las dianas (GFAP sola, 172 KB) aunque el muro solo
+    enseña un resumen.
+13. Menor: en `Miniatura` el fallo no se reinicia (`Laboratorio.tsx:1487` y
+    `:1504`); si una carga falla una vez, la tarjeta dice «no pude traer la
+    estructura» aunque luego cargue.
