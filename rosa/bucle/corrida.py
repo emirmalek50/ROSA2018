@@ -3604,6 +3604,59 @@ def _cuestiones_por_hueco(e: dict[str, Any], investigacion_id: str, huecos: list
     return nuevas
 
 
+# A partir de cuántos apoyos sin una sola contra ROSA2018 se pregunta en voz alta si
+# ha buscado lo que la refutaría. Cuatro: con uno o dos puede no haber dado tiempo,
+# con cuatro ya son cuatro fuentes leídas que apuntan todas al mismo lado.
+APOYOS_SIN_CONTRA_QUE_PREOCUPAN = 4
+
+
+def _cuestiones_por_falta_de_contraste(e: dict[str, Any], investigacion_id: str, ahora: int, maximo: int = 3) -> int:
+    """Abre una cuestión por cada hipótesis viva que acumula apoyos y NINGUNA
+    afirmación en contra ni que socave.
+
+    El 29 de septiembre de 2026 se contaron las relaciones de las 34 hipótesis de
+    la base: 117 afirmaciones a favor y UNA en contra, con once hipótesis de
+    cuatro o más apoyos y cero contras (una de ellas con diecisiete). La
+    literatura de una hipótesis biológica real no se ve así; eso es el sesgo de
+    confirmación de ROSA2018 medido en sus propios datos. No prueba que las
+    hipótesis sean falsas: prueba que ROSA2018 no había ido a buscar lo que las
+    tumba.
+
+    La cuestión es el sitio correcto para decirlo porque cierra el círculo con lo
+    que ya existe: `contexto.preguntas_abiertas` mete las cuestiones abiertas con
+    su "qué la resolvería" en el criterio del paso, el generador de consultas lo
+    lee y escribe la consulta, y el cribado (que desde hoy ve lo que refutaría)
+    puntúa alto el artículo que la traiga. No cuesta ninguna llamada al modelo y
+    no toca la certeza: decir "no lo he buscado" no es decir "es falso".
+    """
+    abiertas = {str(c.get("texto") or "") for c in CU.abiertas(e, investigacion_id)}
+    candidatas = []
+    for h in e.get("hipotesis") or []:
+        if h.get("investigacionId") != investigacion_id or h.get("estado") in ("descartada", "suspendida"):
+            continue
+        rel = [str(a.get("relacion") or "") for a in (h.get("afirmaciones") or [])]
+        a_favor = sum(1 for r in rel if r in ("apoya", "apoya_indirecta"))
+        en_contra = sum(1 for r in rel if r in ("contradice", "socava"))
+        if en_contra == 0 and a_favor >= APOYOS_SIN_CONTRA_QUE_PREOCUPAN:
+            candidatas.append((a_favor, h))
+    candidatas.sort(key=lambda x: -x[0])
+    nuevas = 0
+    for a_favor, h in candidatas[:maximo]:
+        titulo = str(h.get("titulo") or "")[:70]
+        texto = f"Ninguna fuente contradice «{titulo}» tras {a_favor} afirmaciones a favor: falta buscar lo que la refutaría"
+        if texto in abiertas:
+            continue
+        x = h.get("experimento") or {}
+        criterio = str(x.get("refuta") or (h.get("tarjeta") or {}).get("prediccionFalsable") or "").strip()
+        que_resuelve = (f"una búsqueda dirigida a: {criterio[:200]}" if criterio else "una búsqueda dirigida al resultado contrario o al efecto nulo en la misma población y con la misma medida") + ", y la fuente que la responda en un sentido o en el otro"
+        cuestion = CU.nueva(investigacion_id, texto, {"tipo": "analisis", "id": None}, que_resuelve, ahora, prioridad=2, hipotesis_ids=[str(h.get("id"))])
+        _, motivo = CU.registrar_con_motivo(e, cuestion)
+        abiertas.add(texto)
+        if motivo == "nueva":
+            nuevas += 1
+    return nuevas
+
+
 def _anadir_aprendizaje_al_llano(e: dict[str, Any], corrida_id: str, it: dict[str, Any]) -> None:
     """Pega al resumen en llano de la iteración el párrafo de las cifras de
     aprendizaje (clave `aprendizaje`) cuando las cifras guardadas en la
@@ -3640,6 +3693,9 @@ def _vistas_de_programa_al_cerrar(e2: dict[str, Any], inv_id: str, it2: dict[str
         abiertas = _cuestiones_por_hueco(e2, inv_id, list(mapa.get("huecos") or []), ahora)
         if abiertas:
             A.con_evento(e2, inv_id, "aprendizaje", f"El mapa de la enfermedad deja {abiertas} {'hueco' if abiertas == 1 else 'huecos'} que la misión nombra y nada cubre; quedan como cuestiones abiertas para buscar en amplitud", f"#/investigaciones/{inv_id}/investigacion", ahora)
+        sin_contraste = _cuestiones_por_falta_de_contraste(e2, inv_id, ahora)
+        if sin_contraste:
+            A.con_evento(e2, inv_id, "aprendizaje", f"{sin_contraste} {'hipótesis acumula' if sin_contraste == 1 else 'hipótesis acumulan'} apoyos sin una sola fuente en contra: queda como cuestión abierta buscar lo que {'la' if sin_contraste == 1 else 'las'} refutaría, porque no haber buscado no es lo mismo que no haber encontrado", f"#/investigaciones/{inv_id}/investigacion", ahora)
     except Exception as ex:  # noqa: BLE001
         traceback.print_exc()
         A.con_evento(e2, inv_id, "incidencia", f"No pude construir el mapa de la enfermedad al cerrar la iteración {n}: {type(ex).__name__}: {str(ex)[:160]}", f"#/investigaciones/{inv_id}/corrida", ahora)

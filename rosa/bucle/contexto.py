@@ -245,6 +245,46 @@ def preguntas_abiertas(hechos: list[dict[str, Any]], investigacion_id: str, obje
     return cabecera + "\nPreguntas abiertas:\n" + "\n".join(lineas)
 
 
+# Cuántas hipótesis vivas entran en el criterio de refutación y cuánto se recorta
+# cada línea. Tres y 180 caracteres: lo bastante para que el cribado reconozca el
+# resultado que las tumba, sin llenar el prompt de un cribado que se hace cientos
+# de veces por corrida.
+MAX_HIPOTESIS_EN_CRIBADO = 3
+LARGO_CRITERIO_REFUTACION = 180
+
+
+def que_refutaria(hipotesis: list[dict[str, Any]], investigacion_id: str, maximo: int = MAX_HIPOTESIS_EN_CRIBADO) -> str:
+    """Qué resultado tumbaría cada hipótesis viva de la investigación.
+
+    Esto va al criterio del cribado porque, hasta el 29 de septiembre de 2026,
+    `PuntuarRelevancia` puntuaba "cuánto ayuda este artículo a responder el
+    objetivo" y nada más. Un artículo que REFUTA una hipótesis viva es de lo más
+    valioso que ROSA2018 puede encontrar (es lo que cierra una línea de trabajo en
+    vez de alargarla), y con ese criterio puntuaba como uno que no viene a cuento:
+    el cribado recogía lo que confirma y dejaba fuera lo que contradice, que es
+    sesgo de confirmación metido en la tubería.
+
+    Sale del `refuta` del experimento prerregistrado si lo hay (es lo más
+    concreto: un intervalo, un signo, un umbral) y si no de la predicción
+    falsable de la tarjeta. No cuesta ninguna llamada: son datos que ya están.
+    """
+    vivas = [h for h in hipotesis if h.get("investigacionId") == investigacion_id and h.get("estado") not in ("descartada", "suspendida")]
+    # Primero las que están más arriba: una hipótesis en revisión o aceptada es la
+    # que más importa refutar, y entre iguales, la que se escribió antes.
+    orden = {"aceptada": 0, "en_revision": 1, "propuesta": 2}
+    vivas.sort(key=lambda h: (orden.get(str(h.get("estado")), 9), h.get("iteracion", 0)))
+    lineas = []
+    for h in vivas[:maximo]:
+        x = h.get("experimento") or {}
+        criterio = str(x.get("refuta") or (h.get("tarjeta") or {}).get("prediccionFalsable") or "").strip()
+        if not criterio:
+            continue
+        lineas.append(f"- «{str(h.get('titulo') or '')[:70]}» se refutaría si: {criterio[:LARGO_CRITERIO_REFUTACION]}")
+    if not lineas:
+        return ""
+    return "Lo que refutaría una hipótesis viva (un artículo que traiga esto es MUY relevante, tanto como uno que la apoye):\n" + "\n".join(lineas)
+
+
 def terminos_registro(objetivo: str, pregunta: str | None = None, detalle: str = "", maximo: int = 3) -> list[str]:
     """Términos para ClinicalTrials.gov, que está en inglés: primero los
     nombres propios (fármacos, ensayos), después siglas y genes. Nunca

@@ -167,7 +167,16 @@ def texto_dossier(e: dict[str, Any], h: dict[str, Any], inv: dict[str, Any] | No
     sostenidas = [a for a in h["afirmaciones"] if a["veredicto"] in ("sostenida", "parcial")]
     otras = [a for a in h["afirmaciones"] if a["veredicto"] not in ("sostenida", "parcial")]
     cohortes = cohortes_de(h)
-    L += ["", "## 3. Evidencia con procedencia", f"{len(sostenidas)} afirmaciones sostenidas o parciales de {len(h['afirmaciones'])}; {len(h['procedencia']['fuentes'])} fuentes; {len(cohortes)} cohortes distintas identificadas" + (f" ({', '.join(cohortes)})" if cohortes else "") + "."]
+    # La balanza, en la primera línea de la sección: quien lee un dossier de 17
+    # apoyos y 0 contras tiene que enterarse de que son 17 y 0. El 29 de
+    # septiembre de 2026 la base entera tenía 117 afirmaciones a favor y UNA en
+    # contra, y ningún dossier lo decía.
+    a_favor = sum(1 for a in sostenidas if a.get("relacion") in ("apoya", "apoya_indirecta"))
+    en_contra = sum(1 for a in sostenidas if a.get("relacion") in ("contradice", "socava"))
+    balanza = f" Balanza: {a_favor} a favor y {en_contra} en contra."
+    if en_contra == 0 and a_favor >= 4:
+        balanza += " NINGUNA fuente la contradice, y eso no es lo mismo que haber buscado lo que la refutaría y no haberlo encontrado: mira si hay una búsqueda dirigida a su criterio de refutación antes de leer esto como respaldo."
+    L += ["", "## 3. Evidencia con procedencia", f"{len(sostenidas)} afirmaciones sostenidas o parciales de {len(h['afirmaciones'])}; {len(h['procedencia']['fuentes'])} fuentes; {len(cohortes)} cohortes distintas identificadas" + (f" ({', '.join(cohortes)})" if cohortes else "") + "." + balanza]
     for a in sostenidas:
         clase = a.get("clase") or ("dato" if a["tipo"] == "dato" else "literatura")
         L.append(f"- [{a['veredicto']}, {a['tipo']}, clase {clase}{', SINTÉTICO' if a.get('sintetico') else ''}] {a['texto']} {a['cita']}")

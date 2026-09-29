@@ -186,9 +186,13 @@ def _pregunta_de(ctx: "Ctx") -> str | None:
 
 
 def _criterio(ctx: "Ctx", inv: dict[str, Any]) -> str:
-    """El criterio de relevancia de este paso: objetivo, pregunta de la corrida
-    y preguntas abiertas propias (ver contexto.preguntas_abiertas)."""
-    return T.preguntas_abiertas(ctx.e["hechos"], ctx.investigacion_id, inv["objetivo"], pregunta=_pregunta_de(ctx), cuestiones=ctx.e.get("cuestiones"))
+    """El criterio de relevancia de este paso: objetivo, pregunta de la corrida,
+    preguntas abiertas propias (ver contexto.preguntas_abiertas) y qué refutaría
+    las hipótesis vivas (contexto.que_refutaria), para que el cribado recoja
+    también lo que las contradice y no solo lo que las apoya."""
+    base = T.preguntas_abiertas(ctx.e["hechos"], ctx.investigacion_id, inv["objetivo"], pregunta=_pregunta_de(ctx), cuestiones=ctx.e.get("cuestiones"))
+    refuta = T.que_refutaria(ctx.e["hipotesis"], ctx.investigacion_id)
+    return f"{base}\n\n{refuta}" if refuta else base
 
 
 def destino_de_propuesta(afirmaciones: list[dict[str, Any]], fuentes: list[dict[str, Any]]) -> tuple[str, str, str]:
@@ -1238,7 +1242,11 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
     minimo = politicas.RELEVANCIA_MINIMA_AMPLITUD if modo == "amplitud" else RELEVANCIA_MINIMA
     titulo_pista = (consulta.get("tema") or consulta["consulta"])[:80]
     pista = ctx.pista(paso["id"], "literatura", (f"Amplitud: {titulo_pista}" if modo == "amplitud" else titulo_pista)[:90], nombre_base)
-    resultado = {"identificados": 0, "cribados": 0, "textoCompleto": 0, "leidos": 0}
+    # `msBases` es lo que tardan las bases en contestar la consulta y `msFuentes` lo
+    # que tarda en traer los documentos uno a uno. Los dos son tiempo de corrida que
+    # hasta el 29 de septiembre de 2026 no se medía: de las 4,22 h de la corrida 42,
+    # 47 min no tenían ninguna llamada al modelo viva y no se sabía en qué se iban.
+    resultado = {"identificados": 0, "cribados": 0, "textoCompleto": 0, "leidos": 0, "msBases": 0, "msFuentes": 0}
     inv = ctx.inv()
     contexto_amplitud = ""
     if modo == "amplitud":
@@ -1276,10 +1284,16 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
                 pista.nota(f"La consulta relajada no llegó a {nombre_base} ({str(ex)[:100]}); se sigue con lo que trajo la original. No es 'sin resultados'.")
                 total_relajada = None
         resultado["identificados"] = max(total, total_relajada or 0)
+        # Cuánto tardó en traer esto. ROSA2018 cronometra cada llamada al modelo al
+        # milisegundo y no cronometraba NADA de la literatura, que es la otra mitad
+        # de una corrida: de las 4,22 h de la corrida 42, 47 min no tenían ninguna
+        # llamada al modelo viva y no había forma de saber en qué se iban.
+        resultado["msBases"] += max(0, P.ahora_ms() - ahora)
+        ms_consulta = max(0, P.ahora_ms() - ahora)
 
         def anotar(e: dict[str, Any]) -> bool:
             c = next(x for x in e["corridas"] if x["id"] == ctx.corrida_id)
-            registro = {"base": nombre_base, "consulta": consulta["consulta"], "fecha": ahora, "resultados": total, "iteracion": ctx.numero, "tema": consulta["tema"], "modo": modo, "porque": (consulta.get("porque") or "")[:300], "desdeFecha": consulta.get("desde_fecha")}
+            registro = {"base": nombre_base, "consulta": consulta["consulta"], "fecha": ahora, "ms": ms_consulta, "resultados": total, "iteracion": ctx.numero, "tema": consulta["tema"], "modo": modo, "porque": (consulta.get("porque") or "")[:300], "desdeFecha": consulta.get("desde_fecha")}
             if consulta.get("_acotadaDe"):
                 registro["acotadaDe"] = consulta["_acotadaDe"][:300]
             if relajada:
@@ -1443,6 +1457,11 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             pista.nota(f"Consulta demasiado amplia: {total} resultados y ninguno relevante entre los {len(puntuados)} cribados. Queda marcada para que el plan la acote (nombre exacto en el título y el resumen, o un término más específico).")
 
         numero_corrida = int(ctx.corrida().get("numero") or 0)
+        # El bucle de abajo es EN SERIE y cada vuelta hace dos llamadas de red
+        # (Crossref para la retracción, y el resumen o el PDF de la fuente). Se
+        # cronometra aparte de la consulta para poder decir cuánto de una corrida
+        # se va en traer documentos, que hasta ahora no se medía.
+        t_fuentes = P.ahora_ms()
         for i, (puntuacion, a, motivo) in enumerate(relevantes):
             if pista.detenida():
                 break
@@ -1494,7 +1513,8 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             resultado["leidos"] += 1
             pista.resultado(f"{a['referencia']} (relevancia {puntuacion}): {motivo[:100]}")
 
-        pista.cerrar(f"{total} resultados, {len(relevantes)} relevantes, {resultado['textoCompleto']} con texto completo")
+        resultado["msFuentes"] += max(0, P.ahora_ms() - t_fuentes)
+        pista.cerrar(f"{total} resultados, {len(relevantes)} relevantes, {resultado['textoCompleto']} con texto completo, {(P.ahora_ms() - ahora) / 1000:.0f} s en total")
     except PresupuestoAgotado:
         pista.cerrar("Presupuesto agotado: la pista se retoma al ampliarlo", "detenida")
         raise
@@ -1663,6 +1683,8 @@ async def paso_literatura(ctx: Ctx, paso: dict[str, Any]) -> str:
         c = next(x for x in e2["corridas"] if x["id"] == ctx.corrida_id)
         c["busqueda"]["cribados"] += total.get("cribados", 0)
         c["busqueda"]["textoCompleto"] += total.get("textoCompleto", 0)
+        c["busqueda"]["msBases"] = int(c["busqueda"].get("msBases") or 0) + total.get("msBases", 0)
+        c["busqueda"]["msFuentes"] = int(c["busqueda"].get("msFuentes") or 0) + total.get("msFuentes", 0)
         c["gasto"]["articulosLeidos"] += total.get("leidos", 0)
         for q in consultas:
             if q.get("modo") == "amplitud":

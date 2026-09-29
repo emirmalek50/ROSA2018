@@ -554,6 +554,9 @@ export interface ConsultaBusqueda {
   relevantes?: number;
   /** Solo en la novedad del campo: desde qué fecha se buscó. */
   desdeFecha?: string | null;
+  /** Lo que tardó la base en contestar esta consulta, en ms. Ausente en las
+   *  consultas anteriores al 29 de septiembre de 2026. */
+  ms?: number;
 }
 
 /** El flujo de la busqueda de la corrida: identificados, cribados, leidos a
@@ -568,6 +571,12 @@ export interface FlujoBusqueda {
   traidos?: number;
   /** Excluidos en el cribado con su motivo (item 16b de PRISMA 2020). */
   excluidos?: ExcluidoCribado[];
+  /** Lo que tardaron las bases en contestar las consultas, en ms. */
+  msBases?: number;
+  /** Lo que tardo en traer los documentos uno a uno (Crossref, resumen, PDF), en ms.
+   *  Es la mitad de una corrida que no se medía: de las 4,22 h de la corrida 42,
+   *  47 min no tenian ninguna llamada al modelo viva. */
+  msFuentes?: number;
 }
 
 export interface ExcluidoCribado {

@@ -165,7 +165,7 @@ def nueva_corrida(investigacion_id: str, numero: int, ahora: int, limite: int | 
         # de la corrida o el de la iteración N), para que el aviso no culpe al global.
         "presupuesto": {"limiteLlamadas": limite or config.PRESUPUESTO_CORRIDA, "alertas": list(config.ALERTAS_PRESUPUESTO), "avisadas": [], "motivoPausa": ""},
         "contexto": {"tokensUsados": 0, "tokensLimite": 400_000, "compactaciones": 0, "ultimaCompactacion": None},
-        "busqueda": {"identificados": 0, "cribados": 0, "textoCompleto": 0, "usados": 0, "consultas": [], "excluidos": [], "traidos": 0},
+        "busqueda": {"identificados": 0, "cribados": 0, "textoCompleto": 0, "usados": 0, "consultas": [], "excluidos": [], "traidos": 0, "msBases": 0, "msFuentes": 0},
         "coberturas": [],
         "metaRevisiones": [],
         "procesos": [],
