@@ -265,7 +265,11 @@ def acentuar_texto(texto: str) -> str:
     texto = _INTERROGATIVO.sub(lambda m: m.group(1) + INTERROGATIVOS[m.group(2).lower()] if m.group(2)[0].islower() else m.group(1) + INTERROGATIVOS[m.group(2).lower()].capitalize(), texto)
     # ... salvo cuando sigue un articulo, un demostrativo, una mayuscula o una
     # cifra: "Que el efecto sea independiente" es un "que" completivo.
-    texto = re.sub(r"^(Que|Como)(?=\s+(?![A-Z0-9]|(?:el|la|los|las|un|una|unos|unas|este|esta|estos|estas|ese|esa|esos|esas|eso|esto|aquel|aquella|lo|si)\b))", lambda m: "Qué" if m.group(1) == "Que" else "Cómo", texto)
+    # ... ni cuando lo que sigue es un verbo en SUBJUNTIVO, que es la marca del
+    # "que" completivo: "Que exista el campo no basta" es "[el hecho de] que
+    # exista", no una pregunta. Sin esto, el guion acentuaba "Qué exista", que
+    # cambia la frase de sentido (29 de septiembre de 2026).
+    texto = re.sub(r"^(Que|Como)(?=\s+(?![A-Z0-9]|(?:el|la|los|las|un|una|unos|unas|este|esta|estos|estas|ese|esa|esos|esas|eso|esto|aquel|aquella|lo|si)\b|(?:" + "|".join(SUBJUNTIVOS_TRAS_QUE) + r")\b))", lambda m: "Qué" if m.group(1) == "Que" else "Cómo", texto)
     # esta/está: si le sigue un participio, un gerundio, un adverbio o una
     # preposicion de estado, es el verbo.
     texto = _ESTA.sub(lambda m: ("Está" if m.group(1)[0].isupper() else "está") + m.group(2), texto)
@@ -273,6 +277,11 @@ def acentuar_texto(texto: str) -> str:
     texto = re.sub(r"\b([Aa])un\b(?!\s+as[ií]\b)", lambda m: m.group(1) + "ún", texto)
     return texto
 
+
+# Formas de subjuntivo que abren una oración completiva detrás de "que". No es la
+# lista entera del castellano: son las que aparecen escribiendo sobre ROSA2018
+# ("que exista", "que sea", "que haya", "que quede", "que pase", "que valga").
+SUBJUNTIVOS_TRAS_QUE = ("exista", "existan", "sea", "sean", "haya", "hayan", "tenga", "tengan", "pase", "pasen", "valga", "valgan", "quede", "queden", "salga", "salgan", "funcione", "funcionen", "aparezca", "aparezcan", "cambie", "cambien", "suba", "suban", "baje", "bajen", "falle", "fallen", "siga", "sigan", "vuelva", "vuelvan", "pueda", "puedan", "diga", "digan", "mida", "midan", "llegue", "lleguen", "entre", "entren", "corra", "corran", "escriba", "escriban", "lea", "lean", "guarde", "guarden", "cuente", "cuenten", "responda", "respondan")
 
 INTERROGATIVOS = {"que": "qué", "como": "cómo", "donde": "dónde", "cuando": "cuándo", "cual": "cuál", "cuales": "cuáles", "quien": "quién", "quienes": "quiénes", "cuanto": "cuánto", "cuanta": "cuánta", "cuantos": "cuántos", "cuantas": "cuántas"}
 _INTERROGATIVO = re.compile(r"(¿\s*)(que|como|donde|cuando|cual|cuales|quien|quienes|cuanto|cuanta|cuantos|cuantas)\b", re.IGNORECASE)
