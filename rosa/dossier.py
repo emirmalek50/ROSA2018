@@ -29,6 +29,9 @@ ETIQUETA_BLOQUEO = {
     "fuente_retractada": "Depende de una fuente retractada",
 }
 
+# Los factores GRADE en castellano, los mismos que rosa/certeza.py enseña.
+CERTEZA_ETIQUETAS = {"riesgo_de_sesgo": "riesgo de sesgo", "inconsistencia": "inconsistencia", "evidencia_indirecta": "evidencia indirecta", "imprecision": "imprecisión", "sesgo_de_publicacion": "sesgo de publicación", "efecto_grande": "efecto grande", "gradiente": "gradiente dosis-respuesta", "replicacion_independiente": "replicación independiente"}
+
 APRENDIZAJE_POR_RESULTADO = {
     "apoyo_reproducido": "Sube la certeza de la hipótesis; la conclusión se rehace con el dato como evidencia directa; se propone replicar en una cohorte distinta.",
     "negativo_interpretable": "Baja la certeza o cambia la dirección; la hipótesis se marca para descartar en este contexto o reformular; el negativo entra al modelo de mundo como hecho.",
@@ -132,6 +135,30 @@ def texto_dossier(e: dict[str, Any], h: dict[str, Any], inv: dict[str, Any] | No
     L.append(f"Estado: {h['estado']}. Elo {h['elo']} tras {len(h.get('partidos', []))} partidos. Decisión del Killer sobre esta versión: {h.get('decisionKiller') or 'PENDIENTE (nunca juzgada)'}.")
     if k:
         L.append(f"Conclusión de ROSA2018: certeza {k.get('certeza')}, dirección {k.get('direccion')}. {k.get('enunciado', '')}")
+        # De dónde sale ese nivel. GRADE (y la regla de este proyecto) pide los
+        # factores que bajan o suben la certeza A LA VISTA, y el dossier decía
+        # "certeza baja" y punto. Hay hipótesis de la base cuyo techo es baja en vez
+        # de muy baja SOLO porque el juez marcó "efecto grande" sobre una única
+        # cohorte: quien lee la conclusión tiene que poder verlo y discutirlo.
+        techo_bruto = k.get("techo")
+        techo: dict[str, Any] = techo_bruto if isinstance(techo_bruto, dict) else {}
+        if techo.get("motivo"):
+            juez = techo.get("certezaDelJuez")
+            linea = f"De dónde sale esa certeza: techo por regla {techo.get('nivel')} ({techo['motivo']})"
+            if juez and juez != k.get("certeza"):
+                linea += f"; el juez había dicho {juez} y manda el menor de los dos"
+            L.append(linea + ".")
+        suben = [CERTEZA_ETIQUETAS.get(str(f.get("factor")), str(f.get("factor"))) for f in (k.get("factores") or []) if isinstance(f, dict) and f.get("efecto") == "sube"]
+        bajan = [CERTEZA_ETIQUETAS.get(str(f.get("factor")), str(f.get("factor"))) for f in (k.get("factores") or []) if isinstance(f, dict) and f.get("efecto") == "baja"]
+        if suben or bajan:
+            L.append("Factores GRADE que dejó el juez: " + "; ".join(x for x in (("bajan: " + ", ".join(bajan)) if bajan else "", ("suben: " + ", ".join(suben)) if suben else "") if x) + ".")
+        # Un factor del juez que la estructura desmiente. "Replicación independiente"
+        # con una sola cohorte no es posible: replicar es que lo vea OTRA cohorte
+        # independiente. Pasa en la base (1 de 34 el 29 de septiembre de 2026) y lo
+        # ve quien lee, no una regla que lo tape.
+        cohortes_h = cohortes_de(h)
+        if any(f.get("factor") == "replicacion_independiente" and f.get("efecto") == "sube" for f in (k.get("factores") or []) if isinstance(f, dict)) and len(cohortes_h) < 2:
+            L.append(f"AVISO: el juez marcó «replicación independiente» como factor que sube la certeza, y la evidencia reunida tiene {'una sola cohorte identificada (' + cohortes_h[0] + ')' if cohortes_h else 'ninguna cohorte identificada'}. Replicar es que lo vea otra cohorte independiente: el factor no se sostiene sobre esta evidencia.")
 
     # 2. Hipotesis
     L += ["", "## 2. La hipótesis (contrato completo)", f"Título: {h['titulo']}", f"Enunciado: {h['enunciado']}", f"Mecanismo: {h['mecanismo']}"]

@@ -543,7 +543,17 @@ function enviar(nombre: string, args: Record<string, unknown>): Promise<void> {
   return fetch(`${API}/acciones/${nombre}`, { method: 'POST', headers: cabeceras(), body: JSON.stringify(args) })
     .then(async (r) => {
       if (r.status >= 500) {
-        if (vivo.estado.conexion !== 'sin_conexion') aplicar((e) => ({ ...e, conexion: 'sin_conexion' }));
+        // El servidor CONTESTÓ y no aplicó la acción. Hasta el 29 de septiembre de
+        // 2026 aquí solo se marcaba "sin conexión" y se volvía: el cambio optimista
+        // se quedaba pintado como aplicado, sin aviso, hasta que otra cosa
+        // resincronizara. El caso que más duele es el 503 de EscritorObsoleto (otra
+        // ROSA2018 se quedó con la base): el servidor está vivo, responde, y no va a
+        // guardar nada, así que la persona seguía decidiendo sobre una pantalla que
+        // mentía. Se avisa y se resincroniza; si el servidor está de verdad caído,
+        // `resincronizar` vuelve a marcar sin conexión y reabre el flujo.
+        const motivo = r.status === 503 ? 'Esta ROSA2018 ya no puede guardar cambios (otra se quedó con la base). Cierra esta y arranca una sola.' : `El servidor falló al guardar (${r.status}).`;
+        fijarAviso(`No se guardó la acción "${nombre}". ${motivo} Lo que veías como aplicado no lo está.`);
+        void resincronizar();
         return;
       }
       if (!r.ok) {

@@ -392,3 +392,57 @@ describe('subida de datos del laboratorio marcados como sintéticos (S-18)', () 
     expect(subidas.map((s) => s.sintetico)).toEqual(['si', 'no']);
   });
 });
+
+describe('una acción inmediata que el servidor no guarda', () => {
+  it('un 503 al pausar la corrida avisa y resincroniza en vez de dejar el cambio pintado', async () => {
+    // Las acciones inmediatas (pausar, detener, fijar amplitud) van por `enviar`,
+    // que hasta el 29 de septiembre de 2026 en un 5xx solo marcaba "sin conexión" y
+    // volvía: el cambio optimista se quedaba en pantalla como aplicado, sin aviso.
+    // El 503 es el de EscritorObsoleto (otra ROSA2018 se quedó con la base): el
+    // servidor está vivo, responde, y no va a guardar nada.
+    const { A } = await montar();
+    const corrida = remoto.corridas.find((c) => c.estado === 'en_marcha') ?? remoto.corridas[0]!;
+    respuestaPost = () => new Response('obsoleto', { status: 503 });
+    const antes = posts.length;
+    await act(async () => {
+      await A.acciones.pausarCorrida(corrida.id);
+    });
+    expect(posts.length).toBe(antes + 1);
+
+    let aviso: { texto: string } | null = null;
+    const { useAvisoConflicto } = A;
+    const cont = document.createElement('div');
+    document.body.appendChild(cont);
+    function Aviso() {
+      aviso = useAvisoConflicto();
+      return null;
+    }
+    await act(async () => createRoot(cont).render(<Aviso />));
+    expect(aviso).not.toBeNull();
+    expect(aviso!.texto).toContain('No se guardó la acción "pausarCorrida"');
+    // El 503 se nombra por lo que es, no como un fallo genérico.
+    expect(aviso!.texto).toContain('otra se quedó con la base');
+    expect(aviso!.texto).toContain('Lo que veías como aplicado no lo está');
+    respuestaPost = () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  });
+
+  it('un 500 cualquiera también avisa, con el código', async () => {
+    const { A } = await montar();
+    const corrida = remoto.corridas[0]!;
+    respuestaPost = () => new Response('boom', { status: 500 });
+    await act(async () => {
+      await A.acciones.pausarCorrida(corrida.id);
+    });
+    let aviso: { texto: string } | null = null;
+    const { useAvisoConflicto } = A;
+    const cont = document.createElement('div');
+    document.body.appendChild(cont);
+    function Aviso() {
+      aviso = useAvisoConflicto();
+      return null;
+    }
+    await act(async () => createRoot(cont).render(<Aviso />));
+    expect(aviso!.texto).toContain('El servidor falló al guardar (500)');
+    respuestaPost = () => new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  });
+});

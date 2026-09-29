@@ -147,3 +147,60 @@ def test_con_pocos_apoyos_no_avisa_aunque_no_haya_contras():
     t = _dossier_con([_af("apoya", i) for i in range(2)])
     assert "Balanza: 2 a favor y 0 en contra" in t
     assert "NINGUNA fuente la contradice" not in t
+
+
+def _con_conclusion(certeza, techo, factores, fuentes):
+    from rosa import dossier as D
+    from rosa.estado import plantilla as P
+
+    e = P.estado_inicial()
+    inv = dict(e["investigaciones"][0]) if e.get("investigaciones") else {"id": "inv-1", "objetivo": "O", "limites": [], "condicionParada": ""}
+    inv.setdefault("id", "inv-1")
+    e["investigaciones"] = [inv]
+    h = P.nueva_hipotesis(inv["id"], 1, 1, titulo="Duración conjunta GFAP-NfL")
+    h["conclusion"] = {"certeza": certeza, "direccion": "apoya", "enunciado": "La evidencia sugiere que sí.", "techo": techo, "factores": factores}
+    h["procedencia"]["fuentes"] = fuentes
+    e["hipotesis"] = [h]
+    return D.texto_dossier(e, h, inv, None, 1_790_700_000_000)
+
+
+def test_el_dossier_dice_de_donde_sale_la_certeza():
+    """GRADE, y la regla de este proyecto, piden los factores que suben o bajan
+    la certeza A LA VISTA. El dossier decía "certeza baja" y punto, y había
+    hipótesis cuyo techo es baja en vez de muy baja SOLO porque el juez marcó
+    "efecto grande" sobre una única cohorte."""
+    t = _con_conclusion(
+        "baja",
+        {"nivel": "baja", "motivo": "solo literatura de una sola cohorte, pero el juez documentó un efecto grande", "certezaDelJuez": "moderada"},
+        [{"factor": "efecto_grande", "efecto": "sube"}, {"factor": "imprecision", "efecto": "baja"}],
+        [{"id": "f1", "referencia": "R", "titulo": "T", "cohorte": "API Colombia"}],
+    )
+    assert "De dónde sale esa certeza: techo por regla baja" in t
+    assert "el juez documentó un efecto grande" in t
+    # Y que el techo mandó sobre el juez.
+    assert "el juez había dicho moderada y manda el menor de los dos" in t
+    assert "Factores GRADE que dejó el juez: bajan: imprecisión; suben: efecto grande" in t
+
+
+def test_avisa_del_factor_que_la_estructura_desmiente():
+    """«Replicación independiente» con una sola cohorte no es posible: replicar
+    es que lo vea otra cohorte independiente. Pasa en la base (1 de 34)."""
+    t = _con_conclusion(
+        "baja",
+        {"nivel": "baja", "motivo": "solo literatura de una sola cohorte", "certezaDelJuez": "baja"},
+        [{"factor": "replicacion_independiente", "efecto": "sube"}],
+        [{"id": "f1", "referencia": "R", "titulo": "T", "cohorte": "API Colombia"}],
+    )
+    assert "AVISO: el juez marcó «replicación independiente»" in t
+    assert "una sola cohorte identificada (API Colombia)" in t
+    assert "el factor no se sostiene sobre esta evidencia" in t
+
+
+def test_con_dos_cohortes_la_replicacion_no_se_avisa():
+    t = _con_conclusion(
+        "baja",
+        {"nivel": "baja", "motivo": "dos cohortes", "certezaDelJuez": "baja"},
+        [{"factor": "replicacion_independiente", "efecto": "sube"}],
+        [{"id": "f1", "referencia": "R1", "titulo": "T", "cohorte": "ADNI"}, {"id": "f2", "referencia": "R2", "titulo": "T", "cohorte": "BIOCARD"}],
+    )
+    assert "AVISO: el juez marcó" not in t
