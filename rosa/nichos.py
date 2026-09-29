@@ -192,13 +192,51 @@ def celdas_de_propuesta(hp: Any, inv: dict[str, Any] | None) -> set[tuple[str | 
     return {(estadio, r, c) for r in regiones for c in celulas}
 
 
-def puntos_por_nicho(celdas: set[tuple[str | None, str | None, str | None]], arch: dict[str, Any] | None) -> tuple[int, str | None]:
+def ejes_de_respaldo(textos: list[str]) -> tuple[set[str], set[str], set[str]]:
+    """(fases, regiones, tipos celulares) que nombran las afirmaciones citadas."""
+    fases: set[str] = set()
+    regiones: set[str] = set()
+    celulas: set[str] = set()
+    for t in textos:
+        try:
+            x = MAPA.ejes_de_texto(t)
+        except Exception:  # noqa: BLE001
+            continue
+        if x.get("estadio"):
+            fases.add(str(x["estadio"]))
+        regiones |= {str(r) for r in x.get("region") or [] if r}
+        celulas |= {str(c) for c in x.get("tipoCelular") or [] if c}
+    return fases, regiones, celulas
+
+
+def sostenido_por_la_evidencia(k: tuple[str | None, str | None, str | None], respaldo: tuple[set[str], set[str], set[str]] | None) -> bool:
+    """El nicho lo sostienen las afirmaciones que la propuesta CITA, no sus propias
+    palabras: cada eje con valor del nicho lo nombra al menos una de ellas.
+
+    Por qué (29 de septiembre de 2026). Huang y otros (arXiv 2609.28614) midieron
+    que un agente que ve por qué lo puntúa su revisor aprende a esquivarlo: la
+    evasión llega al 40,5 % si el revisor explica sus razones, frente al 20,3 % si
+    solo dice que no. El equipo de hipótesis ve en el tablón qué puntuó y por qué.
+    Si el nicho saliera del texto de la propuesta, bastaría con escribir "deterioro
+    cognitivo leve" para ganar los dos puntos aunque la evidencia citada no dijera
+    nada de esa fase. Sin respaldo (None) no se puede comprobar y no se premia."""
+    if respaldo is None:
+        return False
+    for valor, nombrados in zip(k, respaldo):
+        if valor and valor not in nombrados:
+            return False
+    return True
+
+
+def puntos_por_nicho(celdas: set[tuple[str | None, str | None, str | None]], arch: dict[str, Any] | None, respaldo: tuple[set[str], set[str], set[str]] | None = None) -> tuple[int, str | None]:
     """(puntos, motivo) para el marcador del equipo: +2 si la propuesta cae en un
-    nicho listo; −2 si SOLO cae en la celda saturada. Lo demás, 0."""
+    nicho listo Y sus afirmaciones citadas lo sostienen; −2 si SOLO cae en la celda
+    saturada. Lo demás, 0. La resta no pide respaldo: caer en la celda llena no se
+    puede fingir para ganar nada."""
     if not arch or not celdas:
         return 0, None
     listos = {x["clave"]: x for x in arch.get("listos") or []}
-    en_listo = [listos[k] for k in celdas if k in listos]
+    en_listo = [listos[k] for k in celdas if k in listos and sostenido_por_la_evidencia(k, respaldo)]
     if en_listo:
         return 2, f"cae en un nicho vacío con evidencia de {len(en_listo[0]['cohortes'])} cohortes ({en_listo[0]['etiqueta']})"
     saturada = arch.get("saturada")
@@ -208,12 +246,15 @@ def puntos_por_nicho(celdas: set[tuple[str | None, str | None, str | None]], arc
     return 0, None
 
 
-def nicho_de_hipotesis(hp: Any, inv: dict[str, Any] | None, arch: dict[str, Any] | None) -> dict[str, Any]:
-    """Lo que guarda la hipótesis que nace: sus celdas y si cayó en un nicho listo.
-    Es lo que dirá, dentro de unas iteraciones, si MAP-Elites hizo lo que predijo."""
+def nicho_de_hipotesis(hp: Any, inv: dict[str, Any] | None, arch: dict[str, Any] | None, respaldo: tuple[set[str], set[str], set[str]] | None = None) -> dict[str, Any]:
+    """Lo que guarda la hipótesis que nace: sus celdas y si cayó en un nicho listo
+    que su evidencia sostiene. Es lo que dirá, dentro de unas iteraciones, si
+    MAP-Elites hizo lo que predijo; con la misma regla que el marcador, para que la
+    medida del efecto tampoco se pueda inflar con palabras."""
     celdas = celdas_de_propuesta(hp, inv)
     listos = {x["clave"] for x in (arch or {}).get("listos") or []}
-    return {"celdas": [etiqueta(k) for k in sorted(celdas, key=lambda k: tuple(x or "" for x in k))][:6], "enNichoListo": bool(celdas & listos)}
+    en_listo = any(k in listos and sostenido_por_la_evidencia(k, respaldo) for k in celdas)
+    return {"celdas": [etiqueta(k) for k in sorted(celdas, key=lambda k: tuple(x or "" for x in k))][:6], "enNichoListo": en_listo}
 
 
-__all__ = ["COHORTES_PARA_NICHO_LISTO", "VIVAS_PARA_SATURAR", "archivo", "celdas_de_propuesta", "clave", "etiqueta", "nicho_de_hipotesis", "puntos_por_nicho", "reparto", "texto_para_miembro"]
+__all__ = ["COHORTES_PARA_NICHO_LISTO", "VIVAS_PARA_SATURAR", "archivo", "celdas_de_propuesta", "clave", "ejes_de_respaldo", "etiqueta", "nicho_de_hipotesis", "puntos_por_nicho", "reparto", "sostenido_por_la_evidencia", "texto_para_miembro"]

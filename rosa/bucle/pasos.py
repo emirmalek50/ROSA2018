@@ -4136,7 +4136,7 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
             if destino == "vivero":
                 semilla = VIVERO.nueva_semilla(ctx.investigacion_id, ctx.numero, ahora, hp, afirmaciones, fuentes_h, motivo_nace, ctx.corrida_id)
                 semilla["enfoque"] = enfoque
-                semilla["nicho"] = NI.nicho_de_hipotesis(hp, inv, archivo_nichos)
+                semilla["nicho"] = NI.nicho_de_hipotesis(hp, inv, archivo_nichos, NI.ejes_de_respaldo([str(a.get("texto") or "") for a in respaldo]))
                 ctx.mutar(lambda e2, s=semilla: VIVERO.anadir(e2, ctx.investigacion_id, s, ahora), "vivero")
                 existentes_titulos.add(V.normalizar(hp.titulo))
                 pista.nota(f"Al vivero, no nace todavía: '{hp.titulo[:60]}' ({motivo_nace}). Le falta: {semilla['falta'][:120]}")
@@ -4172,7 +4172,7 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
             h["_entidades"] = list(hp.entidades_novedad)[:6]
             h["_corridaOrigen"] = ctx.corrida_id
             h["enfoque"] = enfoque
-            h["nicho"] = NI.nicho_de_hipotesis(hp, inv, archivo_nichos)
+            h["nicho"] = NI.nicho_de_hipotesis(hp, inv, archivo_nichos, NI.ejes_de_respaldo([str(a.get("texto") or "") for a in respaldo]))
             ctx.mutar(lambda e2, h=h: (e2["hipotesis"].append(h), A.con_evento(e2, ctx.investigacion_id, "hipotesis_nueva", f"Hipótesis nueva en la cola: {h['titulo']}", f"#/investigaciones/{ctx.investigacion_id}/hipotesis/{h['id']}", ahora)) and True, "hipotesis_nueva")
             nuevas_ids.append(h["id"])
             existentes_titulos.add(V.normalizar(h["titulo"]))

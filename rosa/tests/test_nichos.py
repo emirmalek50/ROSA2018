@@ -120,7 +120,8 @@ def test_el_marcador_suma_en_nicho_vacio_y_resta_en_la_celda_llena():
     arch = {"listos": [{"clave": ("prodromica_dcl", "plasma", "astrocito"), "etiqueta": "DCL × plasma × astrocito", "cohortes": ["A", "B"]}], "ocupados": [{"clave": ("preclinica", "plasma", "astrocito"), "vivas": 7}], "saturada": ("preclinica", "plasma", "astrocito")}
     en_nicho = {"titulo": "GFAP plasmático en DCL prodrómico", "enunciado": "En deterioro cognitivo leve el GFAP plasmático predice conversión", "etapa": "prodrómica", "celula": "astrocito"}
     en_llena = {"titulo": "GFAP plasmático preclínico", "enunciado": "En fase preclínica el GFAP plasmático sube antes", "etapa": "preclínica", "celula": "astrocito"}
-    assert NI.puntos_por_nicho(NI.celdas_de_propuesta(en_nicho, inv), arch)[0] == 2
+    evidencia_dcl = NI.ejes_de_respaldo(["En participantes con deterioro cognitivo leve de ADNI, el GFAP plasmático de astrocitos reactivos predijo la conversión"])
+    assert NI.puntos_por_nicho(NI.celdas_de_propuesta(en_nicho, inv), arch, evidencia_dcl)[0] == 2
     puntos, motivo = NI.puntos_por_nicho(NI.celdas_de_propuesta(en_llena, inv), arch)
     assert puntos == -2 and "ya hay 7 hipótesis vivas" in motivo
     assert NI.puntos_por_nicho(set(), arch) == (0, None) and NI.puntos_por_nicho({("x", "y", "z")}, None) == (0, None)
@@ -135,8 +136,12 @@ def test_sin_mapa_o_con_mapa_roto_no_hay_nichos_y_nada_se_rompe():
 def test_la_hipotesis_que_nace_guarda_su_nicho():
     inv = {"id": INV, "titulo": "T", "objetivo": "O"}
     arch = {"listos": [{"clave": ("prodromica_dcl", "plasma", "astrocito")}]}
-    n = NI.nicho_de_hipotesis({"titulo": "GFAP en DCL", "enunciado": "GFAP plasmático en deterioro cognitivo leve", "etapa": "prodrómica", "celula": "astrocito"}, inv, arch)
+    hp = {"titulo": "GFAP en DCL", "enunciado": "GFAP plasmático en deterioro cognitivo leve", "etapa": "prodrómica", "celula": "astrocito"}
+    evidencia = NI.ejes_de_respaldo(["En deterioro cognitivo leve el GFAP plasmático de astrocitos sube"])
+    n = NI.nicho_de_hipotesis(hp, inv, arch, evidencia)
     assert n["enNichoListo"] is True and any("prodrómica" in c for c in n["celdas"])
+    # Sin la evidencia, la medida del efecto tampoco lo cuenta.
+    assert NI.nicho_de_hipotesis(hp, inv, arch)["enNichoListo"] is False
 
 
 def test_el_equipo_recibe_su_nicho_y_la_firma_tiene_la_regla():
@@ -163,3 +168,25 @@ def test_los_nichos_nunca_tumban_al_equipo(monkeypatch):
     assert asyncio.run(PASOS._archivo_de_nichos(ctx, {"id": INV})) == {"ocupados": [], "listos": [], "saturada": None, "sinFruto": 0}
     sin_corrida = SimpleNamespace(e={}, investigacion_id=INV)
     assert asyncio.run(PASOS._archivo_de_nichos(sin_corrida, {"id": INV}))["listos"] == []
+
+
+
+def test_nombrar_la_fase_sin_evidencia_de_esa_fase_no_da_puntos():
+    """El intento de trampa que Huang y otros (arXiv 2609.28614) predicen para un
+    generador que ve en el tablón por qué lo puntúan: escribir "deterioro
+    cognitivo leve" en la propuesta para caer en el nicho vacío, citando
+    afirmaciones que no dicen nada de esa fase. No da puntos."""
+    inv = {"id": INV, "titulo": "GFAP y NfL en portadores de APOE4", "objetivo": "GFAP antes que NfL"}
+    arch = {"listos": [{"clave": ("prodromica_dcl", "plasma", "astrocito"), "etiqueta": "DCL × plasma × astrocito", "cohortes": ["A", "B"]}], "ocupados": [], "saturada": None}
+    propuesta = {"titulo": "GFAP plasmático en DCL", "enunciado": "En deterioro cognitivo leve el GFAP plasmático de astrocitos predice conversión", "etapa": "prodrómica", "celula": "astrocito"}
+    celdas = NI.celdas_de_propuesta(propuesta, inv)
+    assert ("prodromica_dcl", "plasma", "astrocito") in celdas  # por sus palabras, cae en el nicho
+    sin_fase = NI.ejes_de_respaldo(["El GFAP plasmático de los astrocitos sube con la edad", "El GFAP en plasma se asocia al amiloide"])
+    assert NI.puntos_por_nicho(celdas, arch, sin_fase) == (0, None)
+    assert NI.puntos_por_nicho(celdas, arch, None) == (0, None)
+
+
+def test_el_marcador_del_equipo_mira_las_afirmaciones_citadas():
+    """Integración: `equipo.puntuar` pasa el texto de lo que la propuesta cita."""
+    fuente = inspect.getsource(EQ.puntuar)
+    assert "NI.ejes_de_respaldo(" in fuente and "for a in respaldo" in fuente

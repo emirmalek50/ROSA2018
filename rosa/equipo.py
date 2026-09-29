@@ -163,7 +163,9 @@ def puntuar(hp: Any, validas: list[dict[str, Any]], fuentes: dict[str, Any], exi
     if nichos:
         from rosa import nichos as NI
 
-        extra, motivo_nicho = NI.puntos_por_nicho(NI.celdas_de_propuesta(hp, inv), nichos)
+        # El nicho lo tienen que sostener las afirmaciones citadas, no las palabras
+        # de la propuesta (rosa/nichos.py `sostenido_por_la_evidencia`).
+        extra, motivo_nicho = NI.puntos_por_nicho(NI.celdas_de_propuesta(hp, inv), nichos, NI.ejes_de_respaldo([str(a.get("texto") or "") for a in respaldo]))
         puntos += extra
         en_nicho = extra > 0
         if motivo_nicho and extra < 0:
