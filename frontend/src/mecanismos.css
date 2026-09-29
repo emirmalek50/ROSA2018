@@ -125,6 +125,17 @@
   gap: 16px;
   align-items: start;
 }
+/* El cuadro y, debajo, lo que le falta al programa: juntos llenan el alto que el
+   panel de la derecha ocupa al lado. */
+.mec-izquierda {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.mec-izquierda > .mec-falta {
+  margin-top: 0;
+}
 
 .mec-marco {
   background: var(--surface);
@@ -351,6 +362,21 @@
   box-shadow: var(--shadow-soft);
   padding: 14px 16px;
   min-width: 0;
+}
+/* Con dos columnas, el panel se queda al lado del dibujo al bajar (bajo la
+   cabecera fija, de 56 px) y, si no cabe en la pantalla, se desplaza por dentro.
+   Medía de 990 a 1.144 px, más que la pantalla de una laptop, y la fila entera
+   medía lo que él: el hueco bajo el cuadro salía de ahí. Así además los
+   interruptores de "qué hace falta para creérselo" quedan siempre junto a la
+   cascada que cambian. */
+@media (min-width: 1101px) {
+  .mec-panel {
+    position: sticky;
+    top: 72px;
+    max-height: calc(100vh - 88px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 .mec-elige {
   display: block;

@@ -299,194 +299,226 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
       )}
 
       <div className="mec-fila">
-        <div className="mec-marco">
-          <div className="mec-lienzo" ref={lienzo} style={{ aspectRatio: `${ANCHO} / ${altoLienzo}` }}>
-            <svg viewBox={`0 0 ${ANCHO} ${altoLienzo}`}>
-              <defs>
-                <marker
-                  id="mec-gris"
-                  markerUnits="userSpaceOnUse"
-                  markerWidth="9"
-                  markerHeight="7"
-                  refX="8"
-                  refY="3.5"
-                  orient="auto"
-                >
-                  <path d="M0,0 L9,3.5 L0,7 z" fill="var(--text-3)" />
-                </marker>
-                <marker
-                  id="mec-morado"
-                  markerUnits="userSpaceOnUse"
-                  markerWidth="11"
-                  markerHeight="9"
-                  refX="10"
-                  refY="4.5"
-                  orient="auto"
-                >
-                  <path d="M0,0 L11,4.5 L0,9 z" fill="var(--accent)" />
-                </marker>
-                <marker
-                  id="mec-rojo"
-                  markerUnits="userSpaceOnUse"
-                  markerWidth="10"
-                  markerHeight="8"
-                  refX="9"
-                  refY="4"
-                  orient="auto"
-                >
-                  <path d="M0,0 L10,4 L0,8 z" fill="var(--red)" />
-                </marker>
-              </defs>
-              {casc.aristas.map((a) => {
-                const de = porId.get(a.de);
-                const hacia = porId.get(a.a);
-                if (!de || !hacia) return null;
-                // Sin las dos puntas: una flecha nunca estorba a sí misma.
-                const estorbos = cajas.filter((c) => c.id !== a.de && c.id !== a.a);
-                const desvio = desvioDeArco(de, hacia, estorbos, CAJA_ANCHO, CAJA_ALTO);
-                return (
-                  <path
-                    key={`${a.de}-${a.a}`}
-                    d={curva(de, hacia, desvio)}
-                    className={
-                      !sobre
-                        ? 'mec-consenso'
-                        : a.de === sobre || a.a === sobre
-                          ? 'mec-consenso mec-encendida'
-                          : 'mec-consenso mec-apagada'
-                    }
-                    markerEnd="url(#mec-gris)"
+        {/* La columna izquierda lleva el cuadro Y lo que le falta al programa. El
+            panel de la derecha mide más que el cuadro (990 a 1.144 px en una
+            laptop), y con "Qué le falta al programa" debajo de las dos columnas
+            quedaba un hueco de 350 a 500 px bajo el cuadro (Emir, 29 de septiembre
+            de 2026). */}
+        <div className="mec-izquierda">
+          <div className="mec-marco">
+            <div className="mec-lienzo" ref={lienzo} style={{ aspectRatio: `${ANCHO} / ${altoLienzo}` }}>
+              <svg viewBox={`0 0 ${ANCHO} ${altoLienzo}`}>
+                <defs>
+                  <marker
+                    id="mec-gris"
+                    markerUnits="userSpaceOnUse"
+                    markerWidth="9"
+                    markerHeight="7"
+                    refX="8"
+                    refY="3.5"
+                    orient="auto"
                   >
-                    <title>{`Consenso del campo: ${a.de} lleva a ${a.a}. ${a.contexto}`}</title>
-                  </path>
-                );
-              })}
-              {/* La hipótesis: lo que afirma, de X a Y. Sin dato propio, por eso
-                  va en morado discontinuo. */}
-              {(actores.exposicion || actores.desenlace) && (
-                <path
-                  d={`M${ANCHO * 0.3 + CAJA_ANCHO},${Y_HIPOTESIS + CAJA_ALTO / 2} L${ANCHO * 0.7 - CAJA_ANCHO},${Y_HIPOTESIS + CAJA_ALTO / 2}`}
-                  className="mec-afirma"
-                  markerEnd="url(#mec-morado)"
-                >
-                  <title>Lo que afirma la hipótesis, sin dato propio que lo sostenga</title>
-                </path>
-              )}
-              {amenazas.map((am, i) => {
-                // A donde apunta DE VERDAD, segun las aristas del grafo.
-                const aX = am.hacia.includes('X');
-                const aY = am.hacia.includes('Y');
-                const x = (ANCHO * (i + 0.5)) / amenazas.length;
-                return [aX ? 'X' : null, aY ? 'Y' : null].filter(Boolean).map((cual) => {
-                  const dx = cual === 'X' ? ANCHO * 0.3 : ANCHO * 0.7;
+                    <path d="M0,0 L9,3.5 L0,7 z" fill="var(--text-3)" />
+                  </marker>
+                  <marker
+                    id="mec-morado"
+                    markerUnits="userSpaceOnUse"
+                    markerWidth="11"
+                    markerHeight="9"
+                    refX="10"
+                    refY="4.5"
+                    orient="auto"
+                  >
+                    <path d="M0,0 L11,4.5 L0,9 z" fill="var(--accent)" />
+                  </marker>
+                  <marker
+                    id="mec-rojo"
+                    markerUnits="userSpaceOnUse"
+                    markerWidth="10"
+                    markerHeight="8"
+                    refX="9"
+                    refY="4"
+                    orient="auto"
+                  >
+                    <path d="M0,0 L10,4 L0,8 z" fill="var(--red)" />
+                  </marker>
+                </defs>
+                {casc.aristas.map((a) => {
+                  const de = porId.get(a.de);
+                  const hacia = porId.get(a.a);
+                  if (!de || !hacia) return null;
+                  // Sin las dos puntas: una flecha nunca estorba a sí misma.
+                  const estorbos = cajas.filter((c) => c.id !== a.de && c.id !== a.a);
+                  const desvio = desvioDeArco(de, hacia, estorbos, CAJA_ANCHO, CAJA_ALTO);
                   return (
                     <path
-                      key={`${am.id}-${cual}`}
-                      d={`M${x},${Y_AMENAZAS - 6} C${x},${Y_AMENAZAS - 50} ${dx},${Y_HIPOTESIS + CAJA_ALTO + 70} ${dx},${Y_HIPOTESIS + CAJA_ALTO + 8}`}
-                      className="mec-amenaza-linea"
-                      markerEnd="url(#mec-rojo)"
+                      key={`${a.de}-${a.a}`}
+                      d={curva(de, hacia, desvio)}
+                      className={
+                        !sobre
+                          ? 'mec-consenso'
+                          : a.de === sobre || a.a === sobre
+                            ? 'mec-consenso mec-encendida'
+                            : 'mec-consenso mec-apagada'
+                      }
+                      markerEnd="url(#mec-gris)"
                     >
-                      <title>{`${am.clase}: ataca a ${cual === 'X' ? 'lo que la hipótesis mueve' : 'lo que la hipótesis lee'}. ${am.texto}`}</title>
+                      <title>{`Consenso del campo: ${a.de} lleva a ${a.a}. ${a.contexto}`}</title>
                     </path>
                   );
-                });
+                })}
+                {/* La hipótesis: lo que afirma, de X a Y. Sin dato propio, por eso
+                    va en morado discontinuo. */}
+                {(actores.exposicion || actores.desenlace) && (
+                  <path
+                    d={`M${ANCHO * 0.3 + CAJA_ANCHO},${Y_HIPOTESIS + CAJA_ALTO / 2} L${ANCHO * 0.7 - CAJA_ANCHO},${Y_HIPOTESIS + CAJA_ALTO / 2}`}
+                    className="mec-afirma"
+                    markerEnd="url(#mec-morado)"
+                  >
+                    <title>Lo que afirma la hipótesis, sin dato propio que lo sostenga</title>
+                  </path>
+                )}
+                {amenazas.map((am, i) => {
+                  // A donde apunta DE VERDAD, segun las aristas del grafo.
+                  const aX = am.hacia.includes('X');
+                  const aY = am.hacia.includes('Y');
+                  const x = (ANCHO * (i + 0.5)) / amenazas.length;
+                  return [aX ? 'X' : null, aY ? 'Y' : null].filter(Boolean).map((cual) => {
+                    const dx = cual === 'X' ? ANCHO * 0.3 : ANCHO * 0.7;
+                    return (
+                      <path
+                        key={`${am.id}-${cual}`}
+                        d={`M${x},${Y_AMENAZAS - 6} C${x},${Y_AMENAZAS - 50} ${dx},${Y_HIPOTESIS + CAJA_ALTO + 70} ${dx},${Y_HIPOTESIS + CAJA_ALTO + 8}`}
+                        className="mec-amenaza-linea"
+                        markerEnd="url(#mec-rojo)"
+                      >
+                        <title>{`${am.clase}: ataca a ${cual === 'X' ? 'lo que la hipótesis mueve' : 'lo que la hipótesis lee'}. ${am.texto}`}</title>
+                      </path>
+                    );
+                  });
+                })}
+              </svg>
+
+              {columnas.map(([capa, x]) => (
+                <span key={capa} className="mec-col" style={{ left: `${(x / ANCHO) * 100}%` }}>
+                  {TITULO_CAPA[capa]}
+                </span>
+              ))}
+
+              {casc.nodos.map((n: NodoCascada) => {
+                const p = puestos.find((q) => q.id === n.id);
+                if (!p) return null;
+                return (
+                  <div
+                    key={n.id}
+                    className={[
+                      'mec-nodo',
+                      `mec-${intensidad(n.enJuego, casc.total)}`,
+                      sobre === n.id ? 'mec-senalado' : '',
+                      sobre && vecinos.has(n.id) ? 'mec-vecino' : '',
+                      sobre && sobre !== n.id && !vecinos.has(n.id) ? 'mec-apagado' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    tabIndex={0}
+                    onMouseEnter={() => señalar(n.id)}
+                    onMouseLeave={() => señalar(null)}
+                    onFocus={() => señalar(n.id)}
+                    onBlur={() => señalar(null)}
+                    style={{
+                      left: `${((p.x + CAJA_ANCHO / 2) / ANCHO) * 100}%`,
+                      top: `${(p.y / altoLienzo) * 100}%`,
+                      width: `${(CAJA_ANCHO / ANCHO) * 100}%`,
+                    }}
+                    title={`${n.etiqueta} entra en juego en ${n.enJuego} de las ${casc.total} hipótesis, como actor o como confusor`}
+                  >
+                    {partible(n.etiqueta)}
+                    <span className="mec-cuantas">
+                      en {n.enJuego} de {casc.total}
+                    </span>
+                  </div>
+                );
               })}
-            </svg>
 
-            {columnas.map(([capa, x]) => (
-              <span key={capa} className="mec-col" style={{ left: `${(x / ANCHO) * 100}%` }}>
-                {TITULO_CAPA[capa]}
-              </span>
-            ))}
+              {(actores.exposicion || actores.desenlace) && (
+                <>
+                  <div
+                    className="mec-actor"
+                    style={{ left: '30%', top: `${(Y_HIPOTESIS / altoLienzo) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
+                    title={actores.exposicion}
+                  >
+                    <b>LO QUE MUEVE</b>
+                    <span>{actores.exposicion || 'sin declarar'}</span>
+                  </div>
+                  <div
+                    className="mec-actor"
+                    style={{ left: '70%', top: `${(Y_HIPOTESIS / altoLienzo) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
+                    title={actores.desenlace}
+                  >
+                    <b>Y LO LEE EN</b>
+                    <span>{actores.desenlace || 'sin declarar'}</span>
+                  </div>
+                </>
+              )}
 
-            {casc.nodos.map((n: NodoCascada) => {
-              const p = puestos.find((q) => q.id === n.id);
-              if (!p) return null;
-              return (
+              {amenazas.map((am, i) => (
                 <div
-                  key={n.id}
-                  className={[
-                    'mec-nodo',
-                    `mec-${intensidad(n.enJuego, casc.total)}`,
-                    sobre === n.id ? 'mec-senalado' : '',
-                    sobre && vecinos.has(n.id) ? 'mec-vecino' : '',
-                    sobre && sobre !== n.id && !vecinos.has(n.id) ? 'mec-apagado' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  tabIndex={0}
-                  onMouseEnter={() => señalar(n.id)}
-                  onMouseLeave={() => señalar(null)}
-                  onFocus={() => señalar(n.id)}
-                  onBlur={() => señalar(null)}
+                  key={am.id}
+                  className="mec-amenaza"
                   style={{
-                    left: `${((p.x + CAJA_ANCHO / 2) / ANCHO) * 100}%`,
-                    top: `${(p.y / altoLienzo) * 100}%`,
-                    width: `${(CAJA_ANCHO / ANCHO) * 100}%`,
+                    left: `${((i + 0.5) / amenazas.length) * 100}%`,
+                    top: `${(Y_AMENAZAS / altoLienzo) * 100}%`,
+                    width: `${94 / amenazas.length}%`,
                   }}
-                  title={`${n.etiqueta} entra en juego en ${n.enJuego} de las ${casc.total} hipótesis, como actor o como confusor`}
                 >
-                  {partible(n.etiqueta)}
-                  <span className="mec-cuantas">
-                    en {n.enJuego} de {casc.total}
+                  <b>{am.clase}</b>
+                  <span className="mec-amenaza-texto" title={am.texto}>
+                    {am.texto}
                   </span>
                 </div>
-              );
-            })}
+              ))}
+            </div>
 
-            {(actores.exposicion || actores.desenlace) && (
-              <>
-                <div
-                  className="mec-actor"
-                  style={{ left: '30%', top: `${(Y_HIPOTESIS / altoLienzo) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
-                  title={actores.exposicion}
-                >
-                  <b>LO QUE MUEVE</b>
-                  <span>{actores.exposicion || 'sin declarar'}</span>
-                </div>
-                <div
-                  className="mec-actor"
-                  style={{ left: '70%', top: `${(Y_HIPOTESIS / altoLienzo) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
-                  title={actores.desenlace}
-                >
-                  <b>Y LO LEE EN</b>
-                  <span>{actores.desenlace || 'sin declarar'}</span>
-                </div>
-              </>
+            {verAmenazas && !todasLasAmenazas.length && (
+              <p className="mec-sin-amenazas">
+                Esta hipótesis no tiene ninguna explicación alternativa apuntada en su grafo, así que no hay cajas rojas que
+                pintar. <b>No quiere decir que esté limpia</b>: quiere decir que el Killer no dejó ninguna en el último
+                cálculo. Las que se le conocen, si las hay, están en la ficha de la hipótesis.
+              </p>
             )}
 
-            {amenazas.map((am, i) => (
-              <div
-                key={am.id}
-                className="mec-amenaza"
-                style={{
-                  left: `${((i + 0.5) / amenazas.length) * 100}%`,
-                  top: `${(Y_AMENAZAS / altoLienzo) * 100}%`,
-                  width: `${94 / amenazas.length}%`,
-                }}
-              >
-                <b>{am.clase}</b>
-                <span className="mec-amenaza-texto" title={am.texto}>
-                  {am.texto}
-                </span>
-              </div>
-            ))}
+            <p className="mec-pie">
+              Las cajas y sus flechas grises son la cascada del campo (marco ATN), escrita a mano en{' '}
+              <code>rosa/causal.py</code> y revisable: es contexto declarado, no verdad comprobada. Debajo de cada caja, en
+              cuántas de las {casc.total} hipótesis entra en juego ese nodo, como actor o como confusor. No es cuántas lo
+              estudian.
+            </p>
           </div>
 
-          {verAmenazas && !todasLasAmenazas.length && (
-            <p className="mec-sin-amenazas">
-              Esta hipótesis no tiene ninguna explicación alternativa apuntada en su grafo, así que no hay cajas rojas que
-              pintar. <b>No quiere decir que esté limpia</b>: quiere decir que el Killer no dejó ninguna en el último
-              cálculo. Las que se le conocen, si las hay, están en la ficha de la hipótesis.
+          <div className="mec-falta">
+            <p className="mec-falta-t">QUÉ LE FALTA AL PROGRAMA</p>
+            <p className="mec-falta-d">
+              Los mismos supuestos, contados sobre las {casc.total} hipótesis con grafo. Lo ámbar es lo que habría que
+              conseguir para que esos efectos dejaran de estar acotados.
             </p>
-          )}
-
-          <p className="mec-pie">
-            Las cajas y sus flechas grises son la cascada del campo (marco ATN), escrita a mano en{' '}
-            <code>rosa/causal.py</code> y revisable: es contexto declarado, no verdad comprobada. Debajo de cada caja, en
-            cuántas de las {casc.total} hipótesis entra en juego ese nodo, como actor o como confusor. No es cuántas lo
-            estudian.
-          </p>
+            <ul>
+              {supuestos.map((s) => (
+                <li key={s.clave}>
+                  <span className="mec-n">{s.nombre}</span>
+                  <span className="mec-barra" aria-hidden="true">
+                    <i className="mec-cumple" style={{ flexGrow: s.cumplen }} />
+                    <i className="mec-parte-falta" style={{ flexGrow: s.faltan }} />
+                  </span>
+                  <span className="mec-c">
+                    {s.cumplen} cumplen ·{' '}
+                    <b>
+                      {s.faltan} falta{s.faltan === 1 ? '' : 'n'}
+                    </b>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         <div className="mec-panel">
@@ -595,31 +627,6 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
             </a>
           )}
         </div>
-      </div>
-
-      <div className="mec-falta">
-        <p className="mec-falta-t">QUÉ LE FALTA AL PROGRAMA</p>
-        <p className="mec-falta-d">
-          Los mismos supuestos, contados sobre las {casc.total} hipótesis con grafo. Lo ámbar es lo que habría que
-          conseguir para que esos efectos dejaran de estar acotados.
-        </p>
-        <ul>
-          {supuestos.map((s) => (
-            <li key={s.clave}>
-              <span className="mec-n">{s.nombre}</span>
-              <span className="mec-barra" aria-hidden="true">
-                <i className="mec-cumple" style={{ flexGrow: s.cumplen }} />
-                <i className="mec-parte-falta" style={{ flexGrow: s.faltan }} />
-              </span>
-              <span className="mec-c">
-                {s.cumplen} cumplen ·{' '}
-                <b>
-                  {s.faltan} falta{s.faltan === 1 ? '' : 'n'}
-                </b>
-              </span>
-            </li>
-          ))}
-        </ul>
       </div>
     </div>
   );
