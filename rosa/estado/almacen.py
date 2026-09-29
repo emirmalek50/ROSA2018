@@ -452,28 +452,42 @@ class Almacen:
                 raise EscritorObsoleto(f"El almacén sobre {self.ruta.name} se abrió solo para leer: no puede escribir.")
             if self.obsoleto:
                 raise EscritorObsoleto(f"Otro proceso escribió sobre {self.ruta.name}; este almacén ya no escribe. Cierra este proceso y arranca una sola ROSA2018.")
+            # TODO lo que va entre el reducer y la transacción entra en este try.
+            # Antes solo lo estaba `fn(self.estado)`, y `_serializar`, los dos
+            # `json.dumps` y `hash_fila` quedaban fuera: si cualquiera de los
+            # tres lanzaba, el reducer ya había mutado la memoria y nadie lo
+            # deshacía, así que el valor venenoso se quedaba dentro y TODAS las
+            # mutaciones siguientes fallaban en el mismo punto, para siempre.
+            #
+            # Reproducido el 28 de septiembre de 2026 con un solo POST: un
+            # sustituto Unicode suelto (lo que produce `JSON.stringify` de una
+            # cadena cortada a mitad de un emoji) lo acepta `json.loads` pero no
+            # orjson. A partir de ahí el bucle seguía aplicando reducers sobre
+            # memoria y pagando llamadas al modelo, la versión no subía, el SSE
+            # no empujaba nada, la interfaz se quedaba congelada en la última
+            # instantánea buena y al reiniciar se perdía todo.
             try:
                 resultado = fn(self.estado)
+                if resultado is False:
+                    return False
+                texto, cambiaron = self._serializar()
+                # Registro solo de anadir encadenado: cada fila lleva el hash de la
+                # anterior. Borrar o alterar una fila rompe la cadena desde ahi
+                # (verificar_cadena). Las mutaciones del bucle, que no traen argumentos,
+                # registran que claves del estado tocaron. Estado y registro se escriben
+                # en la misma transaccion: o quedan los dos o ninguno.
+                t = P.ahora_ms()
+                args_json = json.dumps(args if args else {"cambiaron": cambiaron}, ensure_ascii=False, default=str)
+                res_json = json.dumps(resultado, default=str)
+                version_nueva = self.version + 1
+                h = hash_fila(self._ultimo_hash, t, nombre, args_json, res_json, version_nueva, actor or None)
             except Exception:
-                # Un reducer que lanza a medias deja el estado en memoria mutado sin
-                # guardar: se vuelve a la ultima version persistida. Se rellena EL
-                # MISMO diccionario (no se rebindea el atributo): las corrutinas del
-                # bucle que capturaron `almacen.estado` siguen viendo el estado bueno.
+                # Se vuelve a la ultima version persistida. Se rellena EL MISMO
+                # diccionario (no se rebindea el atributo): las corrutinas del
+                # bucle que capturaron `almacen.estado` siguen viendo el estado
+                # bueno.
                 self._recargar_desde_disco()
                 raise
-            if resultado is False:
-                return False
-            texto, cambiaron = self._serializar()
-            # Registro solo de anadir encadenado: cada fila lleva el hash de la
-            # anterior. Borrar o alterar una fila rompe la cadena desde ahi
-            # (verificar_cadena). Las mutaciones del bucle, que no traen argumentos,
-            # registran que claves del estado tocaron. Estado y registro se escriben
-            # en la misma transaccion: o quedan los dos o ninguno.
-            t = P.ahora_ms()
-            args_json = json.dumps(args if args else {"cambiaron": cambiaron}, ensure_ascii=False, default=str)
-            res_json = json.dumps(resultado, default=str)
-            version_nueva = self.version + 1
-            h = hash_fila(self._ultimo_hash, t, nombre, args_json, res_json, version_nueva, actor or None)
             self._con.execute("BEGIN IMMEDIATE")
             try:
                 version_anterior = self.version
