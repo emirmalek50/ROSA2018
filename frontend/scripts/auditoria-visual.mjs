@@ -42,6 +42,10 @@ if (inv) {
 const AUDITAR = () => {
   const problemas = [];
   const visible = (el) => {
+    // El texto solo para lectores de pantalla esta recortado a proposito (1 px
+    // con overflow oculto): no es un fallo de maqueta y ensuciaba el informe
+    // con 56 falsos positivos (28 de septiembre de 2026).
+    if (el.closest('.sr-only')) return false;
     const r = el.getBoundingClientRect();
     const cs = getComputedStyle(el);
     if (!(r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.opacity !== '0' && cs.display !== 'none')) return false;

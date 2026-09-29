@@ -442,7 +442,8 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         ))}
         {estado.conexion !== 'muestra' && <SubirDataset inv={inv} />}
         {verCatalogo && (
-          <table className="tabla">
+          <div className="tabla-desliza">
+          <table className="tabla tabla-ancha">
             <thead>
               <tr>
                 <th>Conjunto</th>
@@ -487,6 +488,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Seccion>
 
@@ -540,7 +542,8 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         {corridas.length === 0 ? (
           <p className="meta">Sin corridas todavía.</p>
         ) : (
-          <table className="tabla">
+          <div className="tabla-desliza">
+          <table className="tabla tabla-ancha">
             <thead>
               <tr>
                 <th>Corrida</th>
@@ -574,6 +577,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Seccion>
     </div>

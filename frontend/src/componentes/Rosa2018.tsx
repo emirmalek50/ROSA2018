@@ -173,7 +173,11 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
           <details className="versiones" open>
             <summary>Áreas de investigación que ROSA2018 comparo ({m.areas!.length}); empieza por las elegidas</summary>
             <p className="meta">Se comparan por relevancia para la meta, valor de intervención, incertidumbre, comprobabilidad, coste, demora y dependencia, conservando familias de mecanismo distintas. La disponibilidad de datos no sustituye a la relevancia. Un mecanismo desconocido sigue siendo una explicación permitida.</p>
-            <table className="tabla">
+            {/* Siete columnas de prosa no caben en el ancho del contenido: el
+                navegador partía las palabras ("Famil / ia"). El contenedor se
+                desplaza y la tabla se queda entera (28 de septiembre de 2026). */}
+            <div className="tabla-desliza">
+            <table className="tabla tabla-ancha">
               <thead>
                 <tr>
                   <th>Área</th>
@@ -191,6 +195,7 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
                 ))}
               </tbody>
             </table>
+            </div>
           </details>
         )}
       </div>

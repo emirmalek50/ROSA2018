@@ -445,11 +445,11 @@
 }
 
 /* ==========================================================================
-   La pantalla que usa esta capa. Acotado a `.pantalla-vivo` mientras se
+   La pantalla que usa esta capa. Acotado a `.contenido` mientras se
    prueba en la corrida; si convence, sube a `.contenido` y vale para todas.
    ========================================================================== */
 
-.pantalla-vivo {
+.contenido {
   font-family: var(--font-sistema);
 }
 
@@ -478,17 +478,17 @@
 
 /* Secciones: un título que se lee como título, y aire entre bloques. El
    problema de la pantalla vieja no era el color, era que todo medía 14 px. */
-.pantalla-vivo .seccion + .seccion {
+.contenido .seccion + .seccion {
   margin-top: 36px;
 }
 
-.pantalla-vivo .seccion-titulo h3 {
+.contenido .seccion-titulo h3 {
   font-size: var(--t-cabecera);
   font-weight: 590;
 }
 
-.pantalla-vivo .seccion-titulo p,
-.pantalla-vivo .nota {
+.contenido .seccion-titulo p,
+.contenido .nota {
   font-size: var(--t-pie);
   color: var(--text-2);
   max-width: 76ch;
@@ -497,20 +497,20 @@
 /* Tarjetas: esquina continua, borde de medio píxel y sombra de contacto, como
    una tarjeta de iOS. El borde gris de 1 px en todo es la marca de un
    dashboard genérico. */
-.pantalla-vivo .tarjeta {
+.contenido .tarjeta {
   border-radius: var(--r-tarjeta);
   border: 0.5px solid var(--border);
   box-shadow: 0 1px 2px rgba(28, 25, 23, 0.035);
   padding: 18px 20px;
 }
 
-:root[data-theme='dark'] .pantalla-vivo .tarjeta {
+:root[data-theme='dark'] .contenido .tarjeta {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 /* Las cifras del gasto: alineadas, sin caja cada una. Siete cajas iguales con
    borde eran siete cosas gritando lo mismo. */
-.pantalla-vivo .gasto {
+.contenido .gasto {
   gap: 0;
   border: 0.5px solid var(--border);
   border-radius: var(--r-tarjeta);
@@ -518,40 +518,40 @@
   background: var(--surface);
 }
 
-.pantalla-vivo .gasto-item {
+.contenido .gasto-item {
   border: 0;
   border-radius: 0;
   box-shadow: inset -0.5px 0 0 var(--border), inset 0 -0.5px 0 var(--border);
   padding: 14px 16px;
 }
 
-.pantalla-vivo .gasto-item strong {
+.contenido .gasto-item strong {
   font-size: 19px;
 }
 
-.pantalla-vivo .gasto-item span {
+.contenido .gasto-item span {
   font-size: var(--t-leyenda);
 }
 
 /* Botones de la pantalla: pastilla y rebote al pulsar, como en iOS. */
-.pantalla-vivo .btn {
+.contenido .btn {
   border-radius: var(--r-pastilla);
   font-family: var(--font-sistema);
   font-weight: 510;
   transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), background 0.14s ease, border-color 0.14s ease;
 }
 
-.pantalla-vivo .btn:active:not(:disabled) {
+.contenido .btn:active:not(:disabled) {
   transform: scale(0.96);
 }
 
-.pantalla-vivo .chip {
+.contenido .chip {
   border-radius: var(--r-pastilla);
   font-weight: 510;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pantalla-vivo .btn:active:not(:disabled) {
+  .contenido .btn:active:not(:disabled) {
     transform: none;
   }
 }
@@ -588,7 +588,7 @@
    color secundario. El cuerpo es lo que se aparta, no el rótulo.
    ========================================================================== */
 
-.pantalla-vivo .llano {
+.contenido .llano {
   gap: 24px;
   font-size: 14.5px;
   line-height: 1.6;
@@ -596,7 +596,7 @@
 
 /* El rótulo del bloque: un encabezado de verdad. Sin versalitas, que a 12 px
    se leen peor y se confunden con una etiqueta de formulario. */
-.pantalla-vivo .llano h4 {
+.contenido .llano h4 {
   margin: 0 0 6px;
   font-size: 15.5px;
   font-weight: 590;
@@ -605,24 +605,24 @@
 }
 
 /* El cuerpo se aparta: es la explicación, no el titular. */
-.pantalla-vivo .llano p,
-.pantalla-vivo .llano li {
+.contenido .llano p,
+.contenido .llano li {
   color: var(--text-2);
 }
 
 /* Una línea fina delante de cada bloque: el ojo encuentra el principio sin
    leer. Más barato que una caja por bloque, que serían seis cajas iguales. */
-.pantalla-vivo .llano > .llano-bloque {
+.contenido .llano > .llano-bloque {
   padding-left: 14px;
   border-left: 2px solid var(--border);
 }
 
-.pantalla-vivo .llano > .llano-bloque:hover {
+.contenido .llano > .llano-bloque:hover {
   border-left-color: var(--accent-border);
 }
 
 /* La pregunta que la iteración intentó contestar: manda sobre los bloques. */
-.pantalla-vivo .llano-pregunta {
+.contenido .llano-pregunta {
   font-size: 18px;
   font-weight: 590;
   line-height: 1.32;
@@ -633,7 +633,7 @@
 
 /* Los mensajes clave: lo que hay que leer si solo se lee una cosa. Caja con
    material suave, no un borde gris más. */
-.pantalla-vivo .llano-clave {
+.contenido .llano-clave {
   padding: 16px 18px;
   border-radius: var(--r-tarjeta);
   border: 0.5px solid var(--border);
@@ -641,50 +641,50 @@
   border-left: 2px solid var(--accent);
 }
 
-.pantalla-vivo .llano-clave li {
+.contenido .llano-clave li {
   color: var(--text);
 }
 
 /* Lo que te toca a ti: con el acento, porque es lo único accionable. */
-.pantalla-vivo .llano-accion {
+.contenido .llano-accion {
   border-radius: var(--r-tarjeta);
   border: 0.5px solid var(--accent-border);
   border-left: 2px solid var(--accent);
   padding: 14px 16px;
 }
 
-.pantalla-vivo .llano-accion h4 {
+.contenido .llano-accion h4 {
   color: var(--accent-strong);
 }
 
-.pantalla-vivo .llano-accion p {
+.contenido .llano-accion p {
   color: var(--text);
 }
 
 /* Las viñetas, sin el punto gordo por defecto y con sangría menor. */
-.pantalla-vivo .llano ul {
+.contenido .llano ul {
   padding-left: 18px;
 }
 
-.pantalla-vivo .llano li::marker {
+.contenido .llano li::marker {
   color: var(--text-3);
 }
 
 /* El título de sección manda sobre el rótulo del bloque. */
-.pantalla-vivo .seccion-titulo h3 {
+.contenido .seccion-titulo h3 {
   font-size: 19px;
   font-weight: 700;
 }
 
-.pantalla-vivo .llano-glosario summary {
+.contenido .llano-glosario summary {
   font-size: var(--t-llamada);
   font-weight: 510;
 }
 
 @media (max-width: 700px) {
-  .pantalla-vivo .llano-pregunta { font-size: 16.5px; }
-  .pantalla-vivo .seccion-titulo h3 { font-size: 17px; }
-  .pantalla-vivo .llano > .llano-bloque { padding-left: 11px; }
+  .contenido .llano-pregunta { font-size: 16.5px; }
+  .contenido .seccion-titulo h3 { font-size: 17px; }
+  .contenido .llano > .llano-bloque { padding-left: 11px; }
 }
 
 /* ==========================================================================
@@ -716,7 +716,7 @@
    candidata al laboratorio, y el rojo del texto cuando algo está roto de
    verdad. Todo lo demás es negro sobre blanco en dos niveles de gris. */
 
-.pantalla-vivo .cola {
+.contenido .cola {
   display: block;
   border: 0.5px solid var(--border);
   border-radius: var(--r-tarjeta);
@@ -725,15 +725,15 @@
   box-shadow: 0 1px 2px rgba(28, 25, 23, 0.035);
 }
 
-:root[data-theme='dark'] .pantalla-vivo .cola {
+:root[data-theme='dark'] .contenido .cola {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-.pantalla-vivo .cola > * + * {
+.contenido .cola > * + * {
   border-top: 0.5px solid var(--border);
 }
 
-.pantalla-vivo .hip-fila {
+.contenido .hip-fila {
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -743,19 +743,19 @@
   transition: background 0.14s ease;
 }
 
-.pantalla-vivo .hip-fila:hover {
+.contenido .hip-fila:hover {
   background: var(--hover);
 }
 
 /* El título manda: es lo que se lee para decidir si abrir. */
-.pantalla-vivo .hip-fila h3 {
+.contenido .hip-fila h3 {
   font-size: 15.5px;
   font-weight: 590;
   line-height: 1.35;
   color: var(--text);
 }
 
-.pantalla-vivo .hip-meta {
+.contenido .hip-meta {
   gap: 4px 8px;
   margin-top: 7px;
   font-size: 12.5px;
@@ -764,7 +764,7 @@
 
 /* TODOS los chips de la fila dejan de ser chips: sin caja, sin fondo, sin
    color. Son datos, y los datos se escriben. */
-.pantalla-vivo .hip-meta .chip {
+.contenido .hip-meta .chip {
   border-color: transparent;
   background: transparent;
   padding: 0;
@@ -774,7 +774,7 @@
 }
 
 /* Separador entre datos, en vez de nueve cajas pegadas. */
-.pantalla-vivo .hip-meta > * + *::before {
+.contenido .hip-meta > * + *::before {
   content: '·';
   color: var(--text-3);
   margin-right: 8px;
@@ -782,21 +782,21 @@
 
 /* El verde del recuento de afirmaciones y los demás tonos semánticos se
    apagan: en una lista, que 7 de 7 estén respaldadas es lo normal. */
-.pantalla-vivo .hip-meta .tono-ok,
-.pantalla-vivo .hip-meta .tono-aviso {
+.contenido .hip-meta .tono-ok,
+.contenido .hip-meta .tono-aviso {
   color: var(--text-2);
 }
 
 /* Lo único que conserva color es lo que está roto: un bloqueo, un hallazgo
    abierto, una fuente retractada. Si todo puede ser rojo, el rojo no avisa. */
-.pantalla-vivo .hip-meta .tono-mal {
+.contenido .hip-meta .tono-mal {
   color: var(--red);
   font-weight: 510;
 }
 
 /* El Elo: cifra tabular, sin verde ni rojo, y los dos datos separados. Antes
    salían pegados ("-463 partidos" eran -46 de Elo y 3 partidos). */
-.pantalla-vivo .hip-elo {
+.contenido .hip-elo {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -804,31 +804,31 @@
   min-width: 78px;
 }
 
-.pantalla-vivo .hip-elo strong {
+.contenido .hip-elo strong {
   font-size: 19px;
   font-weight: 590;
   color: var(--text);
 }
 
-.pantalla-vivo .hip-elo span {
+.contenido .hip-elo span {
   display: block;
   font-size: 11.5px;
   line-height: 1.35;
   color: var(--text-3);
 }
 
-.pantalla-vivo .hip-elo .subida,
-.pantalla-vivo .hip-elo .bajada {
+.contenido .hip-elo .subida,
+.contenido .hip-elo .bajada {
   color: var(--text-2);
 }
 
 /* La candidata al laboratorio: un filo con el acento. Es la única fila que
    se distingue, y se distingue por su sitio, no por un chip verde. */
-.pantalla-vivo .hip-fila:has(.chip-ok) {
+.contenido .hip-fila:has(.chip-ok) {
   box-shadow: inset 2.5px 0 0 var(--accent);
 }
 
-.pantalla-vivo .hip-fila:has(.chip-ok) h3::after {
+.contenido .hip-fila:has(.chip-ok) h3::after {
   content: 'Candidata';
   font-size: 10.5px;
   font-weight: 590;
@@ -839,19 +839,21 @@
   white-space: nowrap;
 }
 
-/* El chip verde de "Candidata" ya no hace falta: lo dice el filo y el rótulo. */
-.pantalla-vivo .hip-meta .chip-ok {
+/* El chip verde de "Candidata" ya no hace falta: lo dice el filo y el rótulo.
+   Solo en la cola: `.hip-meta .chip-ok` a secas también ocultaba "7 a favor",
+   que lleva el mismo tono y es un dato que sí hay que ver. */
+.contenido .cola .hip-meta .chip-ok {
   display: none;
 }
 
-.pantalla-vivo .hip-fila.hip-tarde {
+.contenido .hip-fila.hip-tarde {
   box-shadow: inset 2.5px 0 0 var(--text-3);
 }
 
 /* --- La ficha: la cabecera deja de ser trece chips ---------------------- */
 
-.pantalla-vivo .hip-cabecera .chip-borde,
-.pantalla-vivo .hip-resumen .chip-borde {
+.contenido .hip-cabecera .chip-borde,
+.contenido .hip-resumen .chip-borde {
   border-color: transparent;
   background: transparent;
   padding-inline: 0;
@@ -859,8 +861,8 @@
   font-weight: 400;
 }
 
-.pantalla-vivo .hip-titulo,
-.pantalla-vivo .detalle-hipotesis h2 {
+.contenido .hip-titulo,
+.contenido .detalle-hipotesis h2 {
   font-size: 26px;
   font-weight: 700;
   line-height: 1.18;
@@ -870,7 +872,7 @@
 /* "En pocas palabras": la caja morada gigante pasa a ser una cita con el
    acento al lado, y su rótulo un encabezado de verdad (lo arregla la regla
    de `.llano h4` de más arriba). */
-.pantalla-vivo .llano-hipotesis {
+.contenido .llano-hipotesis {
   border-radius: var(--r-tarjeta);
   border: 0.5px solid var(--border);
   border-left: 2px solid var(--accent);
@@ -878,26 +880,26 @@
   padding: 16px 18px;
 }
 
-.pantalla-vivo .llano-hipotesis p {
+.contenido .llano-hipotesis p {
   color: var(--text);
 }
 
 @media (max-width: 700px) {
-  .pantalla-vivo .hip-titulo,
-  .pantalla-vivo .detalle-hipotesis h2 { font-size: 21px; }
-  .pantalla-vivo .hip-fila { padding: 13px 14px; }
+  .contenido .hip-titulo,
+  .contenido .detalle-hipotesis h2 { font-size: 21px; }
+  .contenido .hip-fila { padding: 13px 14px; }
 }
 
 /* La explicación de por qué la hipótesis está donde está: una frase generada
    que puede pasar de doce líneas y que dominaba la ficha por encima de la
    propia hipótesis. Plegada, con su rótulo, y abierta a un clic. */
-.pantalla-vivo .franja-explica {
+.contenido .franja-explica {
   margin-top: 10px;
   border-top: 0.5px solid var(--border);
   padding-top: 10px;
 }
 
-.pantalla-vivo .franja-explica > summary {
+.contenido .franja-explica > summary {
   cursor: pointer;
   list-style: none;
   font-size: 12.5px;
@@ -909,15 +911,15 @@
   transition: color 0.14s ease;
 }
 
-.pantalla-vivo .franja-explica > summary:hover {
+.contenido .franja-explica > summary:hover {
   color: var(--text);
 }
 
-.pantalla-vivo .franja-explica > summary::-webkit-details-marker {
+.contenido .franja-explica > summary::-webkit-details-marker {
   display: none;
 }
 
-.pantalla-vivo .franja-explica > summary::before {
+.contenido .franja-explica > summary::before {
   content: '';
   width: 5px;
   height: 5px;
@@ -927,11 +929,11 @@
   transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.pantalla-vivo .franja-explica[open] > summary::before {
+.contenido .franja-explica[open] > summary::before {
   transform: rotate(45deg);
 }
 
-.pantalla-vivo .franja-explica > p {
+.contenido .franja-explica > p {
   margin: 10px 0 0;
   font-size: 13px;
   line-height: 1.55;
@@ -941,10 +943,10 @@
 
 /* La fila de estado de la ficha: los chips con caja que quedaban. Solo
    conserva caja lo que es una decisión (el estado de la hipótesis). */
-.pantalla-vivo .detalle-hip > div > .acciones .chip-borde,
-.pantalla-vivo .detalle-hip > div > .acciones .chip-neutro,
-.pantalla-vivo .detalle-hip > div > .acciones .chip-ok,
-.pantalla-vivo .detalle-hip > div > .acciones .chip-aviso {
+.contenido .detalle-hip > div > .acciones .chip-borde,
+.contenido .detalle-hip > div > .acciones .chip-neutro,
+.contenido .detalle-hip > div > .acciones .chip-ok,
+.contenido .detalle-hip > div > .acciones .chip-aviso {
   border-color: transparent;
   background: transparent;
   padding-inline: 0;
@@ -952,11 +954,673 @@
   font-weight: 400;
 }
 
-.pantalla-vivo .detalle-hip > div > .acciones {
+.contenido .detalle-hip > div > .acciones {
   gap: 4px 10px;
   font-size: 12.5px;
 }
 
-.pantalla-vivo .detalle-hip h2 {
+.contenido .detalle-hip h2 {
   margin-top: 4px;
+}
+
+/* ==========================================================================
+   Ranking: una tabla de clasificación, no otra lista de tarjetas
+   --------------------------------------------------------------------------
+   Emir ya había avisado de que Ranking y Cola de hipótesis "se ven casi lo
+   mismo". Y lo eran: las dos, tarjetas apiladas con el título y una nube de
+   chips. Pero contestan preguntas distintas. La cola es "qué leo ahora"; el
+   ranking es "cómo se comparan entre sí". Una lista de lectura y una tabla de
+   clasificación no se parecen en nada en el mundo real, y aquí tampoco.
+
+   Encima era la pantalla con más ruido de todas: quince chips por fila en
+   cuatro colores, tres líneas de alto, porque a los seis chips propios se les
+   sumaban los diez de la franja del ranking.
+
+   Forma nueva: columnas alineadas, cifras tabulares a la derecha, la posición
+   a la izquierda, y la gráfica del Elo como lo que de verdad distingue esta
+   pantalla. Monocroma, como la cola.
+   ========================================================================== */
+
+.contenido .ranking-lista {
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-tarjeta);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.035);
+}
+
+:root[data-theme='dark'] .contenido .ranking-lista {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.contenido .ranking-lista > * + * {
+  border-top: 0.5px solid var(--border);
+}
+
+.contenido .ranking-fila {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  grid-template-columns: 30px minmax(0, 1fr) 104px 96px;
+  gap: 16px;
+  padding: 14px 18px;
+  align-items: center;
+  transition: background 0.14s ease;
+}
+
+.contenido .ranking-fila:hover {
+  background: var(--hover);
+  border-color: transparent;
+}
+
+/* La posición: el puesto en la tabla, tranquilo y alineado. */
+.contenido .ranking-pos {
+  font-size: 15px;
+  font-weight: 510;
+  color: var(--text-3);
+  text-align: right;
+}
+
+.contenido .ranking-fila h3 {
+  font-size: 15px;
+  font-weight: 590;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+/* Los quince chips pasan a ser datos en una línea. La regla de `.hip-meta`
+   de la cola ya los aplana; aquí solo se aprietan y se limitan a una línea
+   para que las columnas de la tabla queden alineadas de verdad. */
+.contenido .ranking-fila .hip-meta {
+  margin-top: 5px;
+  gap: 3px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* La franja del ranking repite en cada fila lo que ya dice la columna de la
+   derecha (Elo, BT, partidos) y lo que no cambia entre filas. En la tabla se
+   queda lo comparativo; el resto está a un clic, en la ficha. */
+.contenido .ranking-fila .franja-explica {
+  display: none;
+}
+
+.contenido .grafica-elo {
+  width: 104px;
+  height: 30px;
+  opacity: 0.85;
+}
+
+.contenido .grafica-elo path {
+  stroke: var(--text-2);
+}
+
+.contenido .grafica-elo circle {
+  fill: var(--accent);
+}
+
+/* La columna de cifras: alineada a la derecha, tabular, y cada dato en su
+   línea. Antes salían pegadas ("+17BT 1673" eran +17 de Elo y BT 1.673). */
+.contenido .ranking-fila .hip-elo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  text-align: right;
+}
+
+.contenido .ranking-fila .hip-elo strong {
+  font-size: 19px;
+  font-weight: 590;
+  color: var(--text);
+}
+
+.contenido .ranking-fila .hip-elo span {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.contenido .ranking-fila .hip-elo .subida,
+.contenido .ranking-fila .hip-elo .bajada {
+  color: var(--text-2);
+}
+
+/* La candidata al laboratorio: un filo con el acento, por clase y no por
+   `:has(.chip-ok)`. Había un chip verde en todas las filas ("la evidencia
+   apoya la hipótesis"), así que el filo salía en las seis y no marcaba nada. */
+.contenido .ranking-candidata {
+  box-shadow: inset 2.5px 0 0 var(--accent);
+}
+
+@media (max-width: 900px) {
+  .contenido .ranking-fila {
+    grid-template-columns: 26px minmax(0, 1fr) 88px;
+    gap: 12px;
+    padding: 13px 14px;
+  }
+  .contenido .grafica-elo { display: none; }
+}
+
+/* ==========================================================================
+   Panorama: un informe, no una hoja de cálculo (28 de septiembre de 2026)
+   --------------------------------------------------------------------------
+   Es "lo que ROSA2018 le enseñaría primero al investigador clínico principal",
+   y se leía como un formulario: cada dirección metía prosa científica densa en
+   tres columnas de unos 28 caracteres, con los rótulos en versalitas grises de
+   11 px. Debajo, once párrafos de cinco líneas todos con el mismo peso.
+
+   Reorganizado al orden en que se lee un informe: por qué, qué se sabe ya, qué
+   falta averiguar, y una idea concreta. Las dos del medio van en paralelo
+   porque se comparan; la idea va entera y con el acento porque es lo único
+   accionable.
+   ========================================================================== */
+
+.contenido .direccion {
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-tarjeta);
+  background: var(--surface);
+  padding: 22px 24px;
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.035);
+}
+
+:root[data-theme='dark'] .contenido .direccion {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.contenido .direccion + .direccion {
+  margin-top: 16px;
+}
+
+.contenido .direccion-cabecera {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+/* El número de la dirección: marca de orden, no un dato. */
+.contenido .direccion-numero {
+  font-size: 19px;
+  font-weight: 590;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.contenido .direccion-cabecera h3 {
+  font-size: 18px;
+  font-weight: 590;
+  line-height: 1.3;
+  color: var(--text);
+  margin: 0;
+  flex: 1;
+  text-wrap: balance;
+}
+
+.contenido .direccion-marca {
+  font-size: 10.5px;
+  font-weight: 590;
+  text-transform: uppercase;
+  color: var(--accent);
+  white-space: nowrap;
+  flex: none;
+}
+
+.contenido .direccion-inesperada {
+  box-shadow: inset 2.5px 0 0 var(--accent), 0 1px 2px rgba(28, 25, 23, 0.035);
+}
+
+/* El porqué: la entrada del informe, a un ancho de lectura de verdad. */
+.contenido .direccion-razon {
+  margin: 10px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text);
+  max-width: 78ch;
+}
+
+/* Lo que se sabe y lo que falta, en paralelo: se comparan. Dos columnas de
+   unos 46 caracteres se leen; tres de 28, no. */
+.contenido .direccion-columnas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 22px 32px;
+  margin-top: 20px;
+}
+
+.contenido .direccion h4 {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  font-weight: 590;
+  text-transform: none;
+  color: var(--text);
+}
+
+.contenido .direccion-columnas ul {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.contenido .direccion-columnas li {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.contenido .direccion-columnas li::marker {
+  color: var(--text-3);
+}
+
+/* La idea concreta: lo único accionable de la dirección. */
+.contenido .direccion-idea {
+  margin-top: 20px;
+  padding: 14px 16px;
+  border-radius: var(--r-pieza);
+  background: var(--inset);
+  border-left: 2px solid var(--accent);
+}
+
+.contenido .direccion-idea p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text);
+  max-width: 80ch;
+}
+
+.contenido .direccion-hipotesis {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 0.5px solid var(--border);
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.contenido .direccion-hipotesis a {
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.contenido .direccion-hipotesis a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.contenido .direccion-hipotesis b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 510;
+  color: var(--text-3);
+}
+
+/* --- Las debilidades recurrentes: una lista, no un muro ----------------- */
+
+.contenido .debilidades {
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-tarjeta);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.contenido .debilidades + .debilidades {
+  margin-top: 12px;
+}
+
+.contenido .debilidades > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 13px 18px;
+  font-size: 13px;
+  font-weight: 510;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.contenido .debilidades > summary::-webkit-details-marker {
+  display: none;
+}
+
+.contenido .debilidades > summary::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-right: 1.3px solid var(--text-3);
+  border-bottom: 1.3px solid var(--text-3);
+  transform: rotate(-45deg);
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  flex: none;
+}
+
+.contenido .debilidades[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.contenido .debilidades[open] > summary {
+  border-bottom: 0.5px solid var(--border);
+  color: var(--text);
+}
+
+.contenido .debilidades ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.contenido .debilidades li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  padding: 15px 18px;
+}
+
+.contenido .debilidades li + li {
+  border-top: 0.5px solid var(--border);
+}
+
+.contenido .debilidad-texto p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text);
+  max-width: 88ch;
+}
+
+.contenido .debilidad-afecta {
+  margin-top: 6px !important;
+  font-size: 12px !important;
+  color: var(--text-3) !important;
+}
+
+.contenido .debilidad-afecta a {
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.contenido .debilidad-afecta a:hover {
+  text-decoration: underline;
+}
+
+.contenido .debilidad-hecha {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .contenido .direccion { padding: 16px 16px; }
+  .contenido .direccion-cabecera h3 { font-size: 16px; }
+  .contenido .debilidades li { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}
+
+/* ==========================================================================
+   Modelo de mundo (28 de septiembre de 2026)
+   --------------------------------------------------------------------------
+   Pintaba las 424 fichas de hechos de golpe: la página medía unos 71.000
+   píxeles de alto (el capturador de pantalla reventó al intentarlo, 410
+   megapíxeles). Nadie recorre eso, y el navegador montaba 424 tarjetas con sus
+   citas y su procedencia para enseñar las diez primeras. Ahora va por tandas.
+   ========================================================================== */
+
+.contenido .mundo-columna > h3 {
+  font-size: 13px;
+  font-weight: 590;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 0.5px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.contenido .mundo-mas {
+  width: 100%;
+  margin-top: 10px;
+  justify-content: center;
+  color: var(--text-2);
+}
+
+.contenido .mundo-mas:hover {
+  color: var(--text);
+}
+
+/* La ficha de un hecho: el enunciado es el contenido; lo demás es etiqueta y
+   se aparta. Los chips de entidad (identificadores de ontología) son muchos y
+   repetidos, así que pierden la caja como en las demás pantallas. */
+.contenido .mundo-tarjetas .tarjeta,
+.contenido .mundo-tarjetas > li > div {
+  border-radius: var(--r-pieza);
+}
+
+.contenido .mundo-columna .chip-borde,
+.contenido .mundo-columna .chip-neutro {
+  border-color: transparent;
+  background: transparent;
+  padding-inline: 0;
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.contenido .mundo-columna .chip-borde + .chip-borde::before,
+.contenido .mundo-columna .chip-neutro + .chip-neutro::before {
+  content: '·';
+  color: var(--text-3);
+  margin-right: 6px;
+}
+
+/* La ficha de un hecho: el enunciado es lo que se lee; la cabecera y las
+   entidades son etiquetas y se apartan. Tres chips arriba más hasta seis de
+   ontología abajo, todos con su caja, hacían que cada hecho pareciera un
+   formulario y no una frase. */
+.contenido .hecho-cabecera .chip {
+  border-color: transparent;
+  background: transparent;
+  padding: 0;
+  font-weight: 400;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.contenido .hecho-cabecera .chip-acento,
+.contenido .hecho-cabecera .chip-aviso {
+  color: var(--text-2);
+  font-weight: 510;
+}
+
+.contenido .hecho-cabecera > * + *::before {
+  content: '·';
+  color: var(--text-3);
+  margin-right: 7px;
+}
+
+.contenido .hecho > p {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text);
+  margin: 8px 0 10px;
+}
+
+.contenido .hecho > .acciones .chip-borde {
+  border-color: transparent;
+  background: transparent;
+  padding: 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.contenido .hecho > .acciones .chip-borde + .chip-borde::before {
+  content: '·';
+  color: var(--text-3);
+  margin-right: 6px;
+}
+
+/* ==========================================================================
+   Citas: las variables que faltaban (28 de septiembre de 2026)
+   --------------------------------------------------------------------------
+   `src/citas.css` está escrito contra el sistema visual del RAG anterior de
+   FIREtech: usa `--panel`, `--linea`, `--texto` y `--texto-tenue`, que NO
+   existen en ROSA2018. Al no existir, el navegador caía a los colores de
+   reserva escritos en cada `var(...)`, todos oscuros (#14121f y blancos
+   translúcidos). Resultado: en tema claro la columna de afirmaciones salía
+   casi negra con el texto encima en gris oscuro, ilegible, y llevaba así
+   desde que se escribió.
+
+   Aquí se atan a los tokens de ROSA2018, que sí cambian con el tema. Lo que
+   NO se toca es la hoja de la derecha: imita el papel y es clara a propósito
+   en los dos temas, porque se está leyendo un artículo, no una interfaz.
+   ========================================================================== */
+
+.citas-cuerpo,
+.citas-col {
+  --panel: var(--surface);
+  --linea: var(--border);
+  --texto: var(--text);
+  --texto-tenue: var(--text-2);
+}
+
+/* El rótulo de cada columna deja de ser versalitas de 13 px con tracking y
+   pasa a ser un encabezado, como en el resto de ROSA2018. */
+.contenido .citas-col > header h3 {
+  font-size: 13px;
+  font-weight: 590;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text);
+}
+
+.contenido .citas-col {
+  border-width: 0.5px;
+  border-radius: var(--r-tarjeta);
+}
+
+/* ==========================================================================
+   Inicio: "Mientras no estabas" deja de ser un bloque lila
+   --------------------------------------------------------------------------
+   Iba con `background: var(--accent-soft)` y borde de acento a todo lo ancho,
+   y como hay una tarjeta por investigación, la pantalla de inicio era una
+   sucesión de bloques morados enormes. El acento tiene que señalar una cosa,
+   no teñir media pantalla: se queda en el filo izquierdo y en el rótulo.
+   ========================================================================== */
+
+.contenido .resumen {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-left: 2.5px solid var(--accent);
+  border-radius: var(--r-tarjeta);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.035);
+}
+
+:root[data-theme='dark'] .contenido .resumen {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.contenido .resumen > header strong,
+.contenido .resumen > h3 {
+  font-size: 15px;
+  font-weight: 590;
+  color: var(--text);
+}
+
+.contenido .resumen-titulo {
+  font-weight: 400;
+  color: var(--text-2);
+}
+
+/* Los eventos de la tarjeta: etiqueta a la izquierda en texto llano, el
+   enlace en el medio y la fecha a la derecha. Las etiquetas iban con caja y
+   se repiten en casi todas las filas ("Vigilancia de literatura"). */
+.contenido .resumen-eventos .chip {
+  border-color: transparent;
+  background: transparent;
+  padding-inline: 0;
+  color: var(--text-3);
+  font-weight: 400;
+  font-size: 11.5px;
+}
+
+/* ==========================================================================
+   Tablas de comparación anchas (28 de septiembre de 2026)
+   --------------------------------------------------------------------------
+   La tabla de áreas comparadas tiene siete columnas de prosa. Metidas en el
+   ancho del contenido, el navegador parte las palabras: "Famil / ia", y una
+   palabra por línea en las celdas largas. Una tabla de comparación se lee o
+   se desplaza; lo que no se puede es partirla en sílabas.
+
+   El contenedor es el que se desplaza, no la tabla: poner `display: block` en
+   la tabla desincroniza el ancho de las columnas entre `thead` y `tbody`.
+   ========================================================================== */
+
+.contenido .tabla-desliza {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--r-pieza);
+}
+
+.contenido .tabla-ancha {
+  min-width: 1180px;
+  table-layout: auto;
+}
+
+.contenido .tabla-ancha th,
+.contenido .tabla-ancha td {
+  vertical-align: top;
+  hyphens: none;
+  overflow-wrap: break-word;
+}
+
+.contenido .tabla-ancha th:first-child,
+.contenido .tabla-ancha td:first-child {
+  min-width: 200px;
+}
+
+/* ==========================================================================
+   Chips que hacen de rótulo en una fila: dejan de montarse sobre el texto
+   --------------------------------------------------------------------------
+   Fallo anterior a este rediseño, medido en el navegador: en `.leccion` la
+   rejilla es `auto minmax(0, 1fr)` y la primera pista colapsaba a 0 px, con
+   lo que el chip del ámbito ("Resumen", "Consultas") se salía 8 px por encima
+   del texto de la lección. Comprobado desactivando las reglas nuevas: pasaba
+   igual sin ellas. 70 de los 120 solapamientos que encontró la auditoría
+   visual eran este.
+
+   Un chip que hace de rótulo nunca se encoge por debajo de su texto.
+   ========================================================================== */
+
+.contenido .leccion {
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+
+.contenido .leccion > .chip,
+.contenido .dsp-cabecera > .chip {
+  flex: none;
+  min-width: max-content;
+}
+
+/* La descripción de una pantalla es ayuda, no contenido: se aparta. En Árbol
+   son once líneas de instrucciones que empujaban el grafo fuera de la
+   pantalla. Medida más ancha y cuerpo menor: las mismas palabras ocupan la
+   mitad de alto y el contenido sube. */
+.contenido .pantalla-cabecera p {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-2);
+  max-width: 88ch;
+}
+
+/* La cabecera con el título de 30 px ya separa bastante del contenido. */
+.contenido .pantalla-cabecera {
+  margin-bottom: 20px;
 }

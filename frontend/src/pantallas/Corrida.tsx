@@ -255,9 +255,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
   if (pintada === null) return <EsqueletoCorrida corrida={corrida} />;
 
   return (
-    // `pantalla-vivo` acota la capa de diseño nueva (src/vivo.css) a esta
-    // pantalla mientras se prueba: el resto de ROSA2018 sigue con la base.
-    <div className="contenido pantalla-vivo">
+    <div className="contenido">
       <AvisoMuestra conexion={estado.conexion} />
       <VigilanteModelos salud={estado.saludModelos} incidencias={incidenciasAutomaticas} estadoCorrida={corrida.estado} espera={corrida.esperandoModelo ?? null} ahora={ahora} onReintentar={envolverCorrida(() => acciones.reanudarCorrida(corrida.id))} />
       <div className="pantalla-cabecera vivo-cabecera-pantalla">

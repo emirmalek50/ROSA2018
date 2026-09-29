@@ -1160,7 +1160,7 @@ export function Hipotesis({
     if (!fichaLista) return <EsqueletoPantalla variante="ficha" rotulo="la hipótesis" />;
     return (
       <>
-        <div className="contenido pantalla-vivo">
+        <div className="contenido">
           <p style={{ marginBottom: 14 }}>
             <a className="enlace" href={rutaDe(inv.id, 'hipotesis')}>
               Volver a la cola
@@ -1187,7 +1187,7 @@ export function Hipotesis({
   const cabecera = filtro === 'laboratorio' ? CABECERA_COLA.laboratorio : CABECERA_COLA.cola;
 
   return (
-    <div className="contenido pantalla-vivo">
+    <div className="contenido">
       <AvisoMuestra conexion={estado.conexion} />
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
