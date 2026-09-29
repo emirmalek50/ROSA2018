@@ -190,7 +190,7 @@ def _criterio(ctx: "Ctx", inv: dict[str, Any]) -> str:
     preguntas abiertas propias (ver contexto.preguntas_abiertas) y qué refutaría
     las hipótesis vivas (contexto.que_refutaria), para que el cribado recoja
     también lo que las contradice y no solo lo que las apoya."""
-    base = T.preguntas_abiertas(ctx.e["hechos"], ctx.investigacion_id, inv["objetivo"], pregunta=_pregunta_de(ctx), cuestiones=ctx.e.get("cuestiones"))
+    base = T.preguntas_abiertas(ctx.e["hechos"], ctx.investigacion_id, inv["objetivo"], pregunta=_pregunta_de(ctx), cuestiones=ctx.e.get("cuestiones"), turno=ctx.numero)
     refuta = T.que_refutaria(ctx.e["hipotesis"], ctx.investigacion_id)
     return f"{base}\n\n{refuta}" if refuta else base
 

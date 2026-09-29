@@ -213,12 +213,28 @@ def _sufijo_vecinos(titulos: list[str] | None) -> str:
     return " → respalda: " + "; ".join(f"«{t[:60]}»" for t in titulos)
 
 
-def preguntas_abiertas(hechos: list[dict[str, Any]], investigacion_id: str, objetivo: str, maximo: int = 8, pregunta: str | None = None, cuestiones: list[dict[str, Any]] | None = None) -> str:
+# De las `maximo` líneas del criterio, cuántas se le guardan a las cuestiones
+# (rosa/cuestiones.py: lo que el Killer dice que falta, el peldaño de la escalera,
+# lo que pide una persona). Sin reserva se quedaban SIEMPRE fuera: el 29 de
+# septiembre de 2026 la base tenía 127 cuestiones abiertas (46 del Killer, 25 de
+# la escalera) y en la investigación con 60 llegaban CERO al criterio, porque las
+# preguntas del modelo de mundo se comían las ocho líneas. ROSA2018 escribía qué
+# le falta a cada una de sus 27 hipótesis suspendidas y no se lo enseñaba nunca a
+# lo que escribe las consultas.
+RESERVA_CUESTIONES = 3
+
+
+def preguntas_abiertas(hechos: list[dict[str, Any]], investigacion_id: str, objetivo: str, maximo: int = 8, pregunta: str | None = None, cuestiones: list[dict[str, Any]] | None = None, turno: int = 0) -> str:
     """El criterio de relevancia: primero el objetivo y la pregunta de la
     corrida, después las preguntas abiertas propias por prioridad. Una
     pregunta heredada de otra investigación solo entra si nombra algo del
     objetivo (un nombre propio, o dos términos clave): el conocimiento
-    heredado sirve para razonar, no para decidir qué se lee."""
+    heredado sirve para razonar, no para decidir qué se lee.
+
+    `turno` (el número de iteración) rota qué cuestiones entran en la reserva:
+    con 60 abiertas y 3 sitios, sin rotar saldrían las tres mismas para siempre
+    y las otras 57 no se buscarían nunca. Rotando, una investigación larga las
+    recorre todas sin guardar nada nuevo en el estado."""
     cabecera = f"Objetivo: {objetivo.strip()}" + (f"\nPregunta de esta corrida: {pregunta.strip()}" if pregunta and pregunta.strip() else "")
     abiertas = sorted([h for h in hechos if h["investigacionId"] == investigacion_id and h["estado"] == "abierto"], key=lambda h: h["prioridad"])
     propias = [h for h in abiertas if not es_heredado(h)]
@@ -237,7 +253,23 @@ def preguntas_abiertas(hechos: list[dict[str, Any]], investigacion_id: str, obje
     # las resolvería, para que el cribado sepa qué artículo las cierra.
     otras = [c for c in (cuestiones or []) if c.get("investigacionId") == investigacion_id and c.get("estado") == "abierta" and (c.get("origen") or {}).get("tipo") != "pregunta_modelo"]
     otras.sort(key=lambda c: (c.get("prioridad", 5), c.get("creadaEn", 0)))
-    otras = otras[: max(0, maximo - len(elegidas))]
+    # La reserva: las cuestiones no compiten por las sobras. Se les guardan hasta
+    # RESERVA_CUESTIONES líneas (menos si hay menos cuestiones o menos preguntas
+    # que recortar), y las preguntas del modelo de mundo se quedan con el resto.
+    reserva = min(RESERVA_CUESTIONES, len(otras), max(0, maximo - 1))
+    if reserva and len(elegidas) > maximo - reserva:
+        elegidas = elegidas[: maximo - reserva]
+    # Nunca más sitios que cuestiones hay: la ventana da la vuelta sobre la lista
+    # doblada y sin este tope una sola cuestión saldría repetida varias veces.
+    sitios = min(len(otras), max(reserva, maximo - len(elegidas)))
+    if otras and sitios:
+        # Ventana que rota con la iteración: la 1 ve las tres primeras, la 2 las
+        # tres siguientes, y al dar la vuelta se empieza otra vez. Las de más
+        # prioridad van primero dentro de cada vuelta porque la lista va ordenada.
+        inicio = (max(0, int(turno or 0)) * sitios) % len(otras)
+        otras = (otras + otras)[inicio : inicio + sitios]
+    else:
+        otras = []
     if not elegidas and not otras:
         return cabecera + "\nSin preguntas abiertas propias todavía."
     lineas = [f"{i + 1}. {h['enunciado']}" + (" (heredada)" if es_heredado(h) else "") for i, h in enumerate(elegidas)]
