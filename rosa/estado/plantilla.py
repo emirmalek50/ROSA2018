@@ -102,6 +102,16 @@ def estado_inicial() -> dict[str, Any]:
         "permisosConectores": {},
         "skills": [],
         "conectores": [],
+        # Cuántas estructuras MEDIDAS tiene el PDB de cada proteína diana, por
+        # accession de UniProt. Lo rellena el bucle (rosa/bucle/corrida.py) y
+        # lo enseña la sección de laboratorio: hasta ahora el pie de página
+        # decía que se usaba el PDB y no se usaba nunca.
+        "estructurasMedidas": {},
+        # La secuencia del transcrito canónico de cada diana, por accession de
+        # UniProt, para diseñar oligonucleótidos antisentido (rosa/aso.py). La
+        # rellena el bucle; el cDNA no viaja al navegador, solo el diseño.
+        "secuencias": {},
+        "criba": {},
         "relaciones": __import__("rosa.causal", fromlist=["relaciones_iniciales"]).relaciones_iniciales(),
         "artefactos": [],
         "casos": casos_de_control(),

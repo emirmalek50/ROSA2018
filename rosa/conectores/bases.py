@@ -69,6 +69,68 @@ async def ensembl_gen(simbolo: str) -> Resultado:
     return Resultado(datos, 1 if d.get("id") else 0, [d["id"]] if d.get("id") else [], str(d.get("version") or ""), (d.get("assembly_name") == "GRCh38", f"build {d.get('assembly_name')}"))
 
 
+@conector("ensembl_transcrito", "Ensembl REST", "El transcrito canónico de un gen humano y su secuencia de ARN mensajero (cDNA), con cuántos transcritos más tiene", "La secuencia exacta sobre la que se diseña un oligonucleótido antisentido", _esq(ensembl="Identificador Ensembl del gen, por ejemplo ENSG00000186868", uniprot="Accession UniProt de la proteína, para confirmar que es la misma isoforma (opcional)"), "Sin restricciones", "15 por segundo (cabeceras X-RateLimit)", "https://rest.ensembl.org/documentation/info/sequence_id", grupo="genomas")
+async def ensembl_transcrito(ensembl: str, uniprot: str = "") -> Resultado:
+    """El transcrito canónico y su cDNA.
+
+    Se pide el canónico y NO se eligen los demás por cuenta propia: MAPT tiene
+    55 transcritos y en cerebro adulto seis isoformas de tau, y cuál se baja no
+    es lo mismo que cuánta se baja. El número de transcritos viaja en la
+    respuesta para que la pantalla pueda decir que esa decisión existe."""
+    r = await pedir("GET", f"https://rest.ensembl.org/lookup/id/{quote(ensembl)}", _lim["ensembl"], params={"expand": "1", "content-type": "application/json"})
+    d = r.json()
+    ts = d.get("Transcript") or []
+    canon = next((t for t in ts if t.get("is_canonical")), None) or next((t for t in ts if t.get("biotype") == "protein_coding"), None)
+    if not canon:
+        return Resultado(None, 0, [], None, (False, "el gen no trae transcritos"))
+    s2 = await pedir("GET", f"https://rest.ensembl.org/sequence/id/{quote(canon['id'])}", _lim["ensembl"], params={"type": "cdna", "content-type": "application/json"})
+    seq = str(s2.json().get("seq") or "").upper()
+    # Dónde empieza y acaba la parte que se traduce a proteína. Hace falta para
+    # saber en qué región cae cada ventana, y eso importa de verdad: un
+    # análisis de eficacia da ~53 % de reducción de mediana para 3'UTR y exón,
+    # 44 % para 5'UTR y 32 % para las uniones de exones.
+    inicio_cds = fin_cds = None
+    if canon.get("biotype") == "protein_coding" and seq:
+        s3 = await pedir("GET", f"https://rest.ensembl.org/sequence/id/{quote(canon['id'])}", _lim["ensembl"], params={"type": "cds", "content-type": "application/json"})
+        cds = str(s3.json().get("seq") or "").upper()
+        # Solo si aparece UNA vez: si no, no se sabe dónde empieza.
+        if cds and seq.count(cds) == 1:
+            i = seq.find(cds)
+            inicio_cds, fin_cds = i + 1, i + len(cds)
+    # MANE Select: el transcrito que el NCBI y el EMBL-EBI acuerdan como EL
+    # representativo del gen, emparejado con la proteína canónica de UniProt.
+    # Es lo que garantiza que la estructura que se dibuja y el ARN sobre el que
+    # se diseña el oligo son la MISMA isoforma. Cuando no lo hay no se puede
+    # confirmar, y eso pasa justo en los genes donde la pregunta está abierta:
+    # MAPT no tiene MANE Select porque no hay acuerdo sobre cuál es la versión
+    # representativa de tau.
+    mane = None
+    try:
+        ru = await pedir("GET", f"https://rest.uniprot.org/uniprotkb/{quote(str(uniprot or ''))}.json", _lim["uniprot"], params={"fields": "xref_mane-select"}) if uniprot else None
+        if ru is not None:
+            mane = next((x.get("id") for x in ru.json().get("uniProtKBCrossReferences", []) if x.get("database") == "MANE-Select"), None)
+    except Exception:  # noqa: BLE001  una fuente que no responde no cambia el diseño
+        mane = None
+    datos = {
+        "gen": d.get("display_name"),
+        "transcrito": canon.get("id"),
+        "maneSelect": mane,
+        # `None` es «no pude comprobarlo», `False` es «hay MANE y es OTRO».
+        "mismaIsoformaQueLaProteina": None if not mane else (str(mane).split(".")[0] == str(canon.get("id"))),
+        "biotipo": canon.get("biotype"),
+        "esCanonico": bool(canon.get("is_canonical")),
+        "transcritosDelGen": len(ts),
+        "largo": len(seq),
+        "inicioCds": inicio_cds,
+        "finCds": fin_cds,
+        "cdna": seq,
+        "build": d.get("assembly_name"),
+    }
+    # Una secuencia que no sea solo ACGT no sirve para diseñar nada.
+    limpia = bool(seq) and set(seq) <= set("ACGTN")
+    return Resultado(datos, len(seq), [str(canon["id"])], str(canon.get("version") or ""), (limpia and d.get("assembly_name") == "GRCh38", f"{len(seq)} nt, build {d.get('assembly_name')}"))
+
+
 @conector("myvariant_variante", "MyVariant.info (BioThings)", "Anota una variante por rsID: gen, significado clínico en ClinVar, frecuencia en gnomAD, CADD", "Si una variante nombrada en una hipótesis es patogenica, frecuente o rara", _esq(rsid="Identificador dbSNP, por ejemplo rs429358"), "Software Apache-2.0; ClinVar dominio publico, gnomAD ficheros publicos", "1000 peticiones por IP y día sin clave", "https://docs.myvariant.info/", grupo="variantes")
 async def myvariant_variante(rsid: str) -> Resultado:
     r = await pedir("GET", "https://myvariant.info/v1/query", _lim["myvariant"], params={"q": f"dbsnp.rsid:{rsid}", "fields": "clinvar.rcv.clinical_significance,gnomad_genome.af.af,dbsnp.gene.symbol,cadd.phred", "assembly": "hg38"})

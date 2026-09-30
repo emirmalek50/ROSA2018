@@ -5,7 +5,7 @@
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
 import { ESTADO_CORRIDA } from '../lib/etiquetas';
 import { pendientesDeRevision } from '../lib/hipotesis';
-import { rutaDe, type Pantalla, type Ruta } from '../lib/ruta';
+import { rutaDe, rutaLaboratorio, type Pantalla, type Ruta } from '../lib/ruta';
 import {
   IconActivity,
   IconDocument,
@@ -61,6 +61,20 @@ function IconCita({ size = 16 }: { size?: number }) {
       <path d="M14 3v4h4" />
       <path d="M8 13h8" strokeWidth="3.4" opacity="0.45" />
       <path d="M8 17h5" />
+    </svg>
+  );
+}
+
+/** Icono de lo que va al laboratorio: una hélice de proteína dentro de un vial.
+ *  No es un matraz (ese es el de la cola de hipótesis): aquí lo que se enseña
+ *  es una estructura, no un experimento por hacer. */
+function IconEstructura({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 2.5h8" />
+      <path d="M9.5 2.5v4.2L5.6 18.4A2.4 2.4 0 0 0 7.9 21.5h8.2a2.4 2.4 0 0 0 2.3-3.1L14.5 6.7V2.5" />
+      <path d="M8.4 12.2c1.6 1.4 3.2 1.4 4.3.3s2.4-1.4 3.6-.3" />
+      <path d="M7.2 16.4c1.9 1.6 3.8 1.6 5.2.3s2.9-1.5 4.3-.2" />
     </svg>
   );
 }
@@ -162,6 +176,16 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar }: Prop
             })}
           </div>
         )}
+
+        <div className="barra-seccion">
+          <div className="barra-titulo">
+            <span>De todas las investigaciones</span>
+          </div>
+          <a className="nav-item" href={rutaLaboratorio()} aria-current={ruta.tipo === 'laboratorio' ? 'page' : undefined} onClick={onCerrar}>
+            <IconEstructura size={15} />
+            Al laboratorio
+          </a>
+        </div>
 
         <div className="barra-seccion">
           <a className="nav-item" href="#/ajustes" aria-current={ruta.tipo === 'ajustes' ? 'page' : undefined} onClick={onCerrar}>

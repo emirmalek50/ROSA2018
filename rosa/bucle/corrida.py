@@ -37,8 +37,11 @@ import traceback
 from typing import Any, Awaitable, Callable
 
 from rosa import argumentacion as ARG
+from rosa import aso as ASO
+from rosa import criba as CRIBA
 from rosa import comprobaciones as COMP
 from rosa import cuestiones as CU
+from rosa import laboratorio as LAB
 from rosa import metodo as METODO
 from rosa import dependencias as DEP
 from rosa import sesgo as SESGO
@@ -738,8 +741,281 @@ class Supervisor:
                 return
             if cambio.get("_promover"):
                 self._promover_programa(cambio)
+        await self._compuestos_que_faltan()
+        await self._estructuras_que_faltan()
+        await self._secuencias_que_faltan()
+        self._criba_si_toca()
         await self._tableros_que_faltan()
         await self._completar_en_llano()
+
+    async def _compuestos_que_faltan(self) -> None:
+        """Resuelve en PubChem los compuestos que las intervenciones nombran y los
+        guarda en la investigación, para la sección de laboratorio.
+
+        Se hace aquí y no al pintar la pantalla porque PubChem limita a 5 consultas
+        por segundo y 400 por minuto, y porque el resultado no cambia: un compuesto
+        es el que es. Cada nombre se consulta UNA vez por investigación; el que
+        PubChem no conoce se guarda como no encontrado y no se vuelve a pedir
+        (lecanemab, por ejemplo, es un anticuerpo y no está como compuesto).
+
+        Quien decide si un nombre es un compuesto es PubChem, no ROSA2018: de los
+        textos salen candidatos por regla y solo entra el que la base resuelve."""
+        from rosa.conectores.base import _consultar
+
+        e = self.almacen.estado
+        for inv in list(e.get("investigaciones") or []):
+            if not isinstance(inv, dict):
+                continue
+            guardados = inv.get("compuestos")
+            # Solo se saltan los que ya tienen respuesta de PubChem. Los que
+            # quedaron sin comprobar (la fuente no respondió) vuelven a la cola.
+            ya = {
+                str(c.get("nombre") or "").lower()
+                for c in (guardados if isinstance(guardados, list) else [])
+                if isinstance(c, dict) and (c.get("encontrado") or c.get("comprobado", True))
+            }
+            # Primero los que la EVIDENCIA nombra (entidades CHEBI del modelo de
+            # mundo, que es lo que la sección enseña) y después los que solo
+            # aparecen en los textos de intervención.
+            de_la_evidencia = [c["nombre"] for c in LAB.compuestos_nombrados(e, inv["id"])]
+            textos = [str(LAB._dic(h, "tarjeta").get("intervencion") or "") for h in LAB._vivas(e, inv["id"])]
+            candidatos = [c for c in dict.fromkeys(de_la_evidencia + LAB.candidatos_de_compuesto(textos)) if c.lower() not in ya]
+            if not candidatos:
+                continue
+            nuevos: list[dict[str, Any]] = []
+            consultas: list[dict[str, Any]] = []
+            for nombre in candidatos[:3]:  # tres por tick: el límite de PubChem manda
+                reg, datos = await _consultar("pubchem_compuesto", resumen=f"Compuesto {nombre}", nombre=nombre)
+                consultas.append(reg)
+                ficha = LAB.ficha_de_compuesto(nombre, (datos or [{}])[0] if isinstance(datos, list) and datos else None)
+                # «No lo encontré» y «no pude preguntar» NO son lo mismo, y
+                # confundirlos rompe la regla de ROSA2018: un tiempo agotado no
+                # es «no existe». Si el conector dio error se guarda como no
+                # comprobado y se vuelve a intentar; si respondió y no hay
+                # nada, entonces sí es que PubChem no lo tiene.
+                fallo = reg.get("error")
+                nuevos.append(ficha or {
+                    "nombre": nombre,
+                    "encontrado": False,
+                    "comprobado": not fallo,
+                    "motivo": str(fallo) if fallo else "PubChem no tiene ningún compuesto con ese nombre",
+                    "fecha": P.ahora_ms(),
+                })
+                if ficha:
+                    ficha["fecha"] = P.ahora_ms()
+                    ficha["encontrado"] = True
+                    ficha["comprobado"] = True
+
+            def fn(e2: dict[str, Any], inv_id: str = inv["id"], nuevos: list[dict[str, Any]] = nuevos, consultas: list[dict[str, Any]] = consultas) -> bool:
+                i2 = next((x for x in e2.get("investigaciones") or [] if isinstance(x, dict) and x.get("id") == inv_id), None)
+                if i2 is None:
+                    return False
+                lista = i2.setdefault("compuestos", [])
+                if not isinstance(lista, list):
+                    lista = i2["compuestos"] = []
+                # Un reintento sustituye al intento que no se pudo comprobar,
+                # en vez de dejar los dos y que la pantalla enseñe el viejo.
+                por_nombre = {str(c.get("nombre") or "").lower(): i for i, c in enumerate(lista) if isinstance(c, dict)}
+                for c in nuevos:
+                    k = str(c.get("nombre") or "").lower()
+                    if k in por_nombre:
+                        lista[por_nombre[k]] = c
+                    else:
+                        lista.append(c)
+                i2.setdefault("consultas", []).extend(consultas)
+                encontrados = [c for c in nuevos if c.get("encontrado")]
+                if encontrados:
+                    A.con_evento(e2, inv_id, "aprendizaje", f"{len(encontrados)} {'compuesto identificado' if len(encontrados) == 1 else 'compuestos identificados'} en PubChem para el laboratorio: " + ", ".join(f"{c['nombre']} ({c.get('formula')})" for c in encontrados), f"#/investigaciones/{inv_id}/laboratorio", P.ahora_ms())
+                return True
+
+            self.almacen.mutar(fn, "compuestos")
+            return  # uno por tick: no se atropella el límite de la fuente
+
+    async def _estructuras_que_faltan(self) -> None:
+        """Cuenta en el RCSB PDB cuántas estructuras MEDIDAS hay de cada diana.
+
+        Hasta el 29 de septiembre de 2026 la sección de laboratorio enseñaba
+        siempre el modelo predicho de AlphaFold y el pie decía que también
+        usaba el PDB: era falso. Y para tau la diferencia importa, porque su
+        modelo predicho tiene un 8 % de confianza alta mientras el PDB guarda
+        cientos de estructuras medidas, incluidos los filamentos sacados de
+        cerebros con Alzheimer.
+
+        ROSA2018 no ELIGE una: la mayoría de esas entradas son péptidos cortos
+        o fragmentos, y quedarse con una al azar sería peor que el modelo
+        completo. Lo que hace es decir cuántas hay y dejar ir a verlas."""
+        from rosa.conectores.base import _consultar
+
+        e = self.almacen.estado
+        guardadas = e.get("estructurasMedidas")
+        guardadas = guardadas if isinstance(guardadas, dict) else {}
+        pendientes = [
+            d["uniprot"]
+            for d in LAB.dianas_de(e)
+            if d["uniprot"] not in guardadas or not guardadas[d["uniprot"]].get("comprobado", True)
+        ]
+        if not pendientes:
+            return
+        uniprot = pendientes[0]
+        reg, datos = await _consultar("pdb_estructuras", resumen=f"Estructuras medidas de {uniprot}", uniprot=uniprot)
+        fallo = reg.get("error")
+        d0 = datos if isinstance(datos, dict) else {}
+        ficha = {
+            "total": int(d0.get("total") or 0) if not fallo else 0,
+            "entradas": list(d0.get("entradas") or [])[:6],
+            # Un tiempo agotado no es «cero estructuras»: se vuelve a intentar.
+            "comprobado": not fallo,
+            "motivo": str(fallo) if fallo else "",
+            "fecha": P.ahora_ms(),
+        }
+
+        def fn(e2: dict[str, Any], u: str = uniprot, ficha: dict[str, Any] = ficha) -> bool:
+            m = e2.setdefault("estructurasMedidas", {})
+            if not isinstance(m, dict):
+                m = e2["estructurasMedidas"] = {}
+            m[u] = ficha
+            return True
+
+        self.almacen.mutar(fn, "estructuras")
+
+    async def _secuencias_que_faltan(self) -> None:
+        """Trae la secuencia del transcrito canónico de cada diana, que es lo
+        único que hace falta para diseñar un oligonucleótido antisentido.
+
+        Va aquí y no al pintar la pantalla porque la secuencia no cambia (un
+        transcrito es el que es) y porque Ensembl limita a quince por segundo.
+        El cDNA se guarda en el estado y no viaja al navegador: son casi siete
+        mil nucleótidos por diana y la pantalla solo necesita el diseño."""
+        from rosa.conectores.base import _consultar
+
+        e = self.almacen.estado
+        guardadas = e.get("secuencias")
+        guardadas = guardadas if isinstance(guardadas, dict) else {}
+        pendiente = next(
+            (
+                d
+                for d in LAB.dianas_de(e)
+                # Falta si no está, si no se pudo comprobar, o si el diseño
+                # guardado es de una versión anterior de las reglas.
+                if d.get("ensembl")
+                and (
+                    d["uniprot"] not in guardadas
+                    or not guardadas[d["uniprot"]].get("comprobado", True)
+                    or ((guardadas[d["uniprot"]].get("diseño") or {}).get("version") or 0) < ASO.VERSION
+                )
+            ),
+            None,
+        )
+        if not pendiente:
+            return
+        reg, datos = await _consultar("ensembl_transcrito", resumen=f"Transcrito de {pendiente['simbolo']}", ensembl=str(pendiente["ensembl"]), uniprot=str(pendiente["uniprot"]))
+        fallo = reg.get("error")
+        ficha = dict(datos) if isinstance(datos, dict) and not fallo else {}
+        # El DISEÑO se calcula aquí, una vez, y no en cada visita a la
+        # pantalla: recorrer los transcritos de las diecisiete dianas costaba
+        # dos segundos por petición, y el resultado no cambia nunca porque un
+        # transcrito es el que es.
+        ficha["diseño"] = ASO.diseño(ficha) if ficha.get("cdna") else None
+        # El cDNA ya no hace falta guardarlo: son casi siete mil nucleótidos
+        # por diana en un estado que se copia y se sirve entero.
+        ficha.pop("cdna", None)
+        # Un Ensembl que no responde no es «este gen no tiene transcrito».
+        ficha["comprobado"] = not fallo
+        ficha["motivo"] = str(fallo) if fallo else ""
+        ficha["fecha"] = P.ahora_ms()
+
+        def fn(e2: dict[str, Any], u: str = str(pendiente["uniprot"]), ficha: dict[str, Any] = ficha) -> bool:
+            m = e2.setdefault("secuencias", {})
+            if not isinstance(m, dict):
+                m = e2["secuencias"] = {}
+            m[u] = ficha
+            return True
+
+        self.almacen.mutar(fn, "secuencias")
+
+    def _criba_si_toca(self) -> None:
+        """Lanza el cribado de los candidatos antisentido contra el transcriptoma
+        humano entero, si hay algo nuevo que cribar.
+
+        Tarea de fondo y en procesos hijos, no aquí: `bytes.find` no suelta el
+        GIL, así que los ochenta y seis segundos que tarda colgarían el servidor
+        entero si corrieran en este hilo. El bucle sigue mientras tanto y el
+        resultado entra al estado cuando llega.
+
+        Se dispara por HUELLA de las secuencias, no por contar candidatos: una
+        heurística de cantidad condenaría a recribar en cada vuelta lo que ya
+        está hecho. Si el conjunto de candidatos no cambió y la versión de las
+        reglas tampoco, no se toca nada; y si cambió, se criba SOLO lo que
+        falta, porque un resultado ya calculado no cambia nunca."""
+        e = self.almacen.estado
+        pet = CRIBA.peticion_de(e)
+        if not pet:
+            return
+        huella = CRIBA.huella_de(pet)
+        guardada = e.get("criba")
+        guardada = guardada if isinstance(guardada, dict) else {}
+        if guardada.get("huella") == huella and guardada.get("version") == CRIBA.VERSION:
+            return
+        t = CRIBA.transcriptoma()
+        if not t["hay"]:
+            # Sin los ficheros NO se criba, y eso se guarda tal cual. «No pude
+            # comprobar» no es «está limpio»: la pantalla tiene que poder
+            # decir cuál de las dos cosas es.
+            if guardada.get("motivo") == t["motivo"]:
+                return
+
+            def fn0(e2: dict[str, Any], t: dict[str, Any] = t, huella: str = huella) -> bool:
+                e2["criba"] = {"version": CRIBA.VERSION, "huella": "", "fecha": P.ahora_ms(), "transcriptoma": t, "motivo": t["motivo"], "porSecuencia": {}}
+                return True
+
+            self.almacen.mutar(fn0, "criba")
+            return
+
+        # Solo lo que FALTA. El coste del cribado es patrones por bytes, así
+        # que recribar las 787 secuencias porque apareció una diana nueva son
+        # seis minutos tirados: un resultado ya calculado no cambia nunca
+        # (una secuencia es la que es y el fichero de Ensembl también). Al
+        # subir CRIBA.VERSION se rehace todo, que es de lo que sirve la
+        # versión.
+        ya = guardada.get("porSecuencia") if guardada.get("version") == CRIBA.VERSION else None
+        ya = ya if isinstance(ya, dict) else {}
+        faltan = [x for x in pet if x["secuencia"] not in ya]
+        if not faltan:
+            # Nada nuevo que cribar: solo hay que tirar lo que ya no se diseña
+            # y dejar la huella al día, sin lanzar ningún proceso.
+            vivas = {x["secuencia"] for x in pet}
+
+            def fn1(e2: dict[str, Any], huella: str = huella, ya: dict[str, Any] = ya, vivas: set[str] = vivas) -> bool:
+                c = e2.get("criba")
+                if not isinstance(c, dict):
+                    return False
+                c["porSecuencia"] = {k: v for k, v in ya.items() if k in vivas}
+                c["huella"] = huella
+                return True
+
+            self.almacen.mutar(fn1, "criba")
+            return
+
+        async def correr() -> None:
+            r = await CRIBA.cribar_aparte(faltan)
+            vivas = {x["secuencia"] for x in pet}
+            # Lo de antes que sigue en pie, más lo nuevo. Lo que ya no se
+            # diseña se cae: si vuelve, se vuelve a cribar.
+            r["porSecuencia"] = {**{k: v for k, v in ya.items() if k in vivas}, **r["porSecuencia"]}
+            r["huella"] = huella
+            r["fecha"] = P.ahora_ms()
+            r["transcriptoma"] = t
+            r["motivo"] = ""
+
+            def fn(e2: dict[str, Any], r: dict[str, Any] = r) -> bool:
+                e2["criba"] = r
+                return True
+
+            self.almacen.mutar(fn, "criba")
+            fuera = sum(1 for v in r["porSecuencia"].values() if v.get("veredicto") == "descartado")
+            print(f"Cribado antisentido: {len(faltan)} candidatos nuevos contra {r['transcritos']:,} transcritos en {r['segundos']} s; {fuera} de {len(r['porSecuencia'])} descartados por encajar en otro gen".replace(",", "."), flush=True)
+
+        self._lanzar_fondo("criba", correr, tope=900)
 
     async def _tableros_que_faltan(self) -> None:
         """Las vistas de programa que se quedaron viejas, rehechas por regla y sin

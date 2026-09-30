@@ -1,0 +1,2433 @@
+/* Lo que va al laboratorio.
+ *
+ * Esta pantalla es oscura en los dos temas, a propósito y no por descuido: lo
+ * que se mira es una estructura renderizada con oclusión ambiental, y sobre
+ * fondo claro pierde todo el volumen. Es la sala del espécimen, no un panel
+ * más; por eso pinta su propio fondo de borde a borde en vez de heredar --bg.
+ *
+ * Las medidas vienen del boceto que se aprobó (.capturas/zoom.html) y se
+ * conservan tal cual: el titular a 132 px, el bloque a la izquierda con su
+ * degradado propio para que el texto no compita con la proteína, y las tres
+ * capas del zoom semántico. */
+
+.lab-lamina,
+.lab-muro-marco {
+  --lab-tinta: #08070b;
+  --lab-linea: rgba(255, 255, 255, 0.1);
+  --lab-linea-fuerte: rgba(255, 255, 255, 0.22);
+  --lab-texto: #f4f2f7;
+  --lab-texto-2: #b5b1c0;
+  --lab-texto-3: #78737f;
+  --lab-acento: #a78bfa;
+  --lab-ambar: #f0a030;
+  --lab-verde: #6ee7a8;
+  color: var(--lab-texto);
+  background: var(--lab-tinta);
+}
+
+/* ------------------------------------------------------------------ lámina */
+
+/* El alto lo pone la pantalla midiendo desde su borde de arriba hasta el de la
+   ventana (usarAltoHastaAbajo). Este `calc` es solo el valor de partida del
+   primer fotograma, antes de que haya nada que medir. */
+.lab-lamina {
+  position: relative;
+  height: calc(100dvh - 118px);
+  min-height: 560px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.lab-lienzo {
+  position: absolute;
+  inset: 0;
+}
+
+/* Mol* trae su propia interfaz completa. Aquí no se quiere ninguna: la pantalla
+   pone su mando y sus etiquetas. Se apaga por CSS porque la configuración del
+   plugin deja fuera los paneles pero no los controles flotantes del visor. */
+.lab-lienzo .msp-viewport-controls,
+.lab-lienzo .msp-layout-top,
+.lab-lienzo .msp-highlight-toast-wrapper,
+.lab-lienzo .msp-overlay,
+.lab-lienzo .msp-task-state,
+.lab-lienzo .msp-viewport-top-left-controls {
+  display: none !important;
+}
+.lab-lienzo .msp-plugin,
+.lab-lienzo .msp-layout-standard,
+.lab-lienzo .msp-plugin-content {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+/* El velo apaga los bordes del lienzo para que la proteína salga de la
+   oscuridad en vez de estar pegada sobre un rectángulo. */
+.lab-velo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(ellipse 66% 62% at 62% 50%, transparent 36%, rgba(8, 7, 11, 0.6) 82%, rgba(8, 7, 11, 0.95) 100%);
+  transition: opacity 0.5s ease;
+}
+.lab-velo-tenue {
+  opacity: 0.35;
+}
+
+/* Todo lo que entra y sale con la distancia de la cámara. */
+.lab-capa {
+  transition:
+    opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1),
+    transform 0.42s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.lab-fuera {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+}
+
+.lab-bloque {
+  position: absolute;
+  left: 62px;
+  top: 74px;
+  z-index: 5;
+  max-width: 620px;
+  isolation: isolate;
+}
+.lab-bloque::before {
+  content: '';
+  position: absolute;
+  inset: -40px -90px -40px -80px;
+  z-index: -1;
+  background: radial-gradient(ellipse 74% 100% at 22% 50%, rgba(8, 7, 11, 0.93) 38%, transparent 76%);
+}
+.lab-catalogo {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin: 0 0 24px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  color: var(--lab-texto-3);
+}
+.lab-catalogo b {
+  color: var(--lab-acento);
+  font-weight: 500;
+}
+.lab-catalogo i {
+  flex: 1;
+  height: 1px;
+  background: var(--lab-linea);
+  font-style: normal;
+}
+.lab-bloque h1 {
+  font-size: 132px;
+  line-height: 0.82;
+  letter-spacing: -0.055em;
+  font-weight: 700;
+  margin: 0;
+  color: #fff;
+}
+.lab-binomio {
+  font-size: 19px;
+  color: var(--lab-texto-2);
+  margin: 18px 0 0;
+  font-weight: 340;
+  font-style: italic;
+}
+.lab-larga {
+  font-size: 15px;
+  line-height: 1.62;
+  color: var(--lab-texto-2);
+  margin: 24px 0 0;
+  max-width: 44ch;
+  padding-left: 18px;
+  border-left: 1px solid var(--lab-linea-fuerte);
+}
+.lab-larga b {
+  color: var(--lab-texto);
+  font-weight: 560;
+}
+.lab-grado {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 18px;
+  font-size: 12px;
+  border: 1px solid rgba(240, 160, 48, 0.42);
+  color: var(--lab-ambar);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+.lab-grado i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  font-style: normal;
+}
+.lab-grado-moderada,
+.lab-grado-alta {
+  border-color: rgba(110, 231, 168, 0.42);
+  color: var(--lab-verde);
+}
+
+.lab-abajo {
+  position: absolute;
+  left: 62px;
+  bottom: 78px;
+  z-index: 5;
+  isolation: isolate;
+}
+.lab-cifras {
+  display: flex;
+  align-items: flex-end;
+}
+.lab-abajo::before {
+  content: '';
+  position: absolute;
+  inset: -34px -80px -30px -70px;
+  z-index: -1;
+  background: radial-gradient(ellipse 78% 100% at 20% 50%, rgba(8, 7, 11, 0.92) 40%, transparent 78%);
+}
+.lab-cifra {
+  padding-right: 32px;
+  margin-right: 32px;
+  border-right: 1px solid var(--lab-linea);
+}
+.lab-cifra:last-child {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.lab-cifra b {
+  display: block;
+  font-size: 44px;
+  font-weight: 640;
+  letter-spacing: -0.035em;
+  line-height: 0.9;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+}
+.lab-cifra span {
+  font-size: 10px;
+  letter-spacing: 0.17em;
+  color: var(--lab-texto-3);
+  font-weight: 650;
+}
+.lab-ojo b {
+  color: var(--lab-ambar);
+}
+
+.lab-leyenda {
+  position: absolute;
+  right: 30px;
+  bottom: 54px;
+  z-index: 5;
+  font-size: 11.5px;
+  color: var(--lab-texto-2);
+}
+.lab-leyenda b {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--lab-texto-3);
+  margin-bottom: 9px;
+  font-weight: 650;
+}
+.lab-leyenda div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2.5px 0;
+}
+.lab-leyenda i {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+/* La hoja de pedido, arriba a la derecha con las medidas del boceto (336 px de
+   ancho, mismo cristal, mismo recuadro ámbar para la refutación). Se corta justo
+   encima del mando; el desvanecido de abajo avisa de que sigue y «copiar» se
+   lleva el texto entero.
+   El mando va al 60 % de la altura y no al 50 % del boceto: en el boceto el
+   lienzo medía 940 px y aquí mide 844, y con los textos reales del contrato la
+   hoja quedaba cortada justo antes de «qué la refutaría», que es el campo que
+   convierte la propuesta en un experimento. El corte de la hoja deja 34 px
+   libres por encima del mando: pegados, parecían el mismo bloque. */
+.lab-hoja {
+  position: absolute;
+  right: 30px;
+  top: 74px;
+  z-index: 5;
+  width: 336px;
+  max-height: calc(60% - 150px);
+  overflow-y: auto;
+  /* Si el contenido no cabe, el desvanecido de abajo lo dice: un texto cortado
+     en seco parece el final de la hoja y no lo es. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+  scrollbar-width: thin;
+  background: rgba(12, 11, 16, 0.72);
+  backdrop-filter: blur(22px);
+  border: 1px solid var(--lab-linea);
+  border-radius: 16px;
+  padding: 18px 20px;
+}
+.lab-hoja h3 {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--lab-texto-3);
+  font-weight: 650;
+  margin: 0 0 14px;
+}
+.lab-hoja dl {
+  margin: 0;
+}
+.lab-hoja dl > div {
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.lab-hoja dl > div:last-child {
+  border: 0;
+  padding-bottom: 0;
+}
+.lab-hoja dt {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--lab-texto-3);
+  font-weight: 650;
+  margin-bottom: 4px;
+}
+.lab-hoja dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--lab-texto);
+}
+.lab-mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--lab-texto-2);
+  overflow-wrap: anywhere;
+}
+.lab-refuta {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: rgba(240, 160, 48, 0.08);
+  border: 1px solid rgba(240, 160, 48, 0.26);
+}
+.lab-refuta dt {
+  color: var(--lab-ambar);
+}
+.lab-refuta dd {
+  font-size: 12.5px;
+  color: var(--lab-texto-2);
+  line-height: 1.5;
+}
+.lab-faltan {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--lab-texto-3);
+}
+
+/* Etiquetas ancladas a la proteína (nivel de partes). */
+.lab-anclas {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.lab-anclas svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.lab-anclas svg path {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.34);
+  stroke-width: 1;
+}
+.lab-ancla {
+  position: absolute;
+  transform: translate(0, -50%);
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.3;
+  transition: opacity 0.3s ease;
+  /* Es un botón: abre la ficha de esa parte y lleva la cámara hasta ella. */
+  font-family: inherit;
+  text-align: left;
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  cursor: pointer;
+}
+.lab-ancla:hover,
+.lab-ancla:focus-visible {
+  background: rgba(12, 11, 16, 0.78);
+  border-color: var(--lab-linea-fuerte);
+  backdrop-filter: blur(10px);
+}
+.lab-ancla-activa {
+  background: rgba(167, 139, 250, 0.16);
+  border-color: rgba(167, 139, 250, 0.5);
+  backdrop-filter: blur(10px);
+}
+/* La proteína de debajo puede ser azul brillante o naranja: sin un respaldo, la
+   etiqueta se pierde. Un halo oscuro pega al texto y no dibuja una caja. */
+.lab-ancla b,
+.lab-ancla span {
+  text-shadow:
+    0 1px 3px rgba(8, 7, 11, 0.96),
+    0 0 14px rgba(8, 7, 11, 0.9),
+    0 0 26px rgba(8, 7, 11, 0.75);
+}
+.lab-ancla b {
+  display: block;
+  font-weight: 600;
+  color: #fff;
+  font-size: 12.5px;
+}
+/* El detalle iba en gris sobre una proteína naranja y no se leía. */
+.lab-ancla span {
+  display: block;
+  color: #e4e0ec;
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+.lab-ancla-izq {
+  transform: translate(-100%, -50%);
+  text-align: right;
+}
+.lab-punto {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid #fff;
+  background: rgba(8, 7, 11, 0.6);
+  box-shadow:
+    0 0 0 2px rgba(8, 7, 11, 0.7),
+    0 0 12px rgba(8, 7, 11, 0.9);
+  transition: opacity 0.3s ease;
+}
+
+/* Nivel de átomos: el residuo bajo el ratón. */
+.lab-residuo {
+  position: absolute;
+  z-index: 6;
+  pointer-events: none;
+  transform: translate(14px, -50%);
+  background: rgba(12, 11, 16, 0.9);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--lab-linea);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+}
+.lab-residuo b {
+  display: block;
+  font-weight: 570;
+  margin-bottom: 3px;
+}
+.lab-residuo span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--lab-texto-3);
+}
+.lab-residuo em {
+  font-style: normal;
+  color: var(--lab-ambar);
+}
+
+/* El mando: niveles de zoom y estilo de dibujo. */
+.lab-mando {
+  position: absolute;
+  right: 30px;
+  top: 60%;
+  transform: translateY(-50%);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: flex-end;
+}
+.lab-niveles,
+.lab-estilos {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-end;
+}
+.lab-niveles button,
+.lab-estilos button {
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  padding: 7px 12px;
+  white-space: nowrap;
+  border-radius: 9px;
+  border: 1px solid var(--lab-linea);
+  background: rgba(12, 11, 16, 0.62);
+  backdrop-filter: blur(14px);
+  color: var(--lab-texto-2);
+  cursor: pointer;
+  text-align: right;
+}
+.lab-estilos button {
+  letter-spacing: 0.02em;
+  font-size: 11.5px;
+}
+.lab-niveles button[aria-current='true'],
+.lab-estilos button[aria-pressed='true'] {
+  color: #fff;
+  background: rgba(30, 27, 40, 0.8);
+}
+.lab-niveles button:hover,
+.lab-estilos button:hover {
+  color: #fff;
+  border-color: var(--lab-linea-fuerte);
+}
+
+.lab-volver {
+  position: absolute;
+  left: 30px;
+  top: 24px;
+  z-index: 7;
+  font: inherit;
+  font-size: 12px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--lab-linea);
+  background: rgba(12, 11, 16, 0.62);
+  backdrop-filter: blur(14px);
+  color: var(--lab-texto-2);
+  cursor: pointer;
+}
+.lab-volver:hover {
+  color: #fff;
+  border-color: var(--lab-linea-fuerte);
+}
+
+.lab-pie {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 6;
+  margin: 0;
+  max-width: 68ch;
+  text-align: center;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--lab-texto-3);
+  background: rgba(12, 11, 16, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--lab-linea);
+  border-radius: 999px;
+  padding: 7px 15px;
+}
+.lab-pie.lab-fuera {
+  transform: translate(-50%, 8px);
+}
+
+.lab-cargando {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  z-index: 9;
+  background: var(--lab-tinta);
+  color: var(--lab-texto-3);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px;
+}
+.lab-fallo {
+  color: var(--lab-texto-2);
+}
+.lab-fallo span {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--lab-texto-3);
+}
+
+/* -------------------------------------------------------------------- muro */
+
+.lab-muro-marco {
+  padding: 40px 42px 64px;
+  /* Que el fondo llegue al borde de abajo aunque haya poco contenido. */
+  min-height: calc(100dvh - 118px);
+}
+
+.lab-cabecera {
+  max-width: 1100px;
+  margin: 0 auto 44px;
+}
+.lab-migas {
+  margin: 0 0 14px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  color: var(--lab-texto-3);
+  text-transform: uppercase;
+}
+.lab-cabecera h1 {
+  margin: 0;
+  font-size: clamp(38px, 5.2vw, 68px);
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+  font-weight: 700;
+  color: #fff;
+  max-width: 19ch;
+}
+.lab-entrada {
+  margin: 22px 0 0;
+  max-width: 62ch;
+  font-size: 15.5px;
+  line-height: 1.66;
+  color: var(--lab-texto-2);
+  padding-left: 18px;
+  border-left: 1px solid var(--lab-linea-fuerte);
+}
+.lab-entrada b {
+  color: var(--lab-texto);
+  font-weight: 560;
+}
+/* Seis cifras no caben en una fila a 1440, y con el borde a la derecha el
+   salto quedaba roto. Con la separación en el hueco y no en el margen, la
+   segunda fila cae alineada. */
+.lab-tira {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 0;
+  margin-top: 32px;
+}
+.lab-tira > div {
+  padding-right: 26px;
+  margin-right: 26px;
+  border-right: 1px solid var(--lab-linea);
+}
+.lab-tira > div:last-child {
+  border: 0;
+  margin-right: 0;
+  padding-right: 0;
+}
+.lab-tira b {
+  display: block;
+  font-size: 34px;
+  font-weight: 640;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 7px;
+}
+.lab-tira span {
+  font-size: 10px;
+  letter-spacing: 0.17em;
+  color: var(--lab-texto-3);
+  font-weight: 650;
+}
+
+/* Cuatro columnas fijas y la principal ocupando dos por dos: con auto-fill la
+   última fila se quedaba a medias y dejaba un hueco a la derecha. Las minis van
+   todas a la misma altura para que las filas casen. */
+.lab-muro {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+@media (max-width: 1080px) {
+  .lab-muro {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 800px) {
+  .lab-muro {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* La tarjeta lleva dos accesos: la proteína y su oligonucleótido. Por eso es
+   un contenedor y no un botón, que no puede llevar otro dentro. */
+.lab-pieza {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--lab-linea);
+  border-radius: 16px;
+  background: #0c0b10;
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+.lab-pieza:hover {
+  border-color: var(--lab-linea-fuerte);
+  transform: translateY(-2px);
+}
+/* El botón es también columna flexible: si no, el `flex` de la miniatura se
+   queda sin padre que lo estire y el lienzo de la tarjeta principal se queda
+   en su mínimo dentro de una caja del triple de alto. Pasó al partir la
+   tarjeta en dos botones (proteína y oligonucleótido). */
+.lab-pieza-abrir {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+/* La primera ocupa dos columnas: el muro no es una rejilla plana, tiene una
+   pieza principal. Debajo de 720px vuelve a una sola columna. */
+/* La principal ocupa dos columnas y UNA fila. Ocupaba dos, y tenía sentido
+   cuando las tarjetas pequeñas eran cortas; ahora llevan la evidencia, la
+   decisión del Killer, si se puede mandar y el oligonucleótido, así que cada
+   una pasa de 500 px y la principal se estiraba a 1.053 con el lienzo a
+   medias y medio cuadro vacío debajo. */
+.lab-grande {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+}
+/* El lienzo de la principal crece con la tarjeta: ahora la altura la marca
+   su propia fila, así que llenar es lo correcto. */
+.lab-grande .lab-mini {
+  flex: 1;
+}
+.lab-mini {
+  display: block;
+  height: 210px;
+  position: relative;
+}
+.lab-mini-grande {
+  height: auto;
+  min-height: 300px;
+}
+.lab-mini .msp-viewport-controls,
+.lab-mini .msp-layout-top,
+.lab-mini .msp-highlight-toast-wrapper,
+.lab-mini .msp-overlay,
+.lab-mini .msp-task-state,
+.lab-mini .msp-viewport-top-left-controls {
+  display: none !important;
+}
+.lab-mini .msp-plugin,
+.lab-mini .msp-layout-standard,
+.lab-mini .msp-plugin-content {
+  background: transparent !important;
+  border: 0 !important;
+}
+.lab-marca {
+  display: block;
+  padding: 14px 16px 0;
+}
+.lab-marca b {
+  display: block;
+  font-size: 22px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.lab-marca em {
+  display: block;
+  margin-top: 4px;
+  font-size: 12.5px;
+  font-style: italic;
+  font-weight: 340;
+  color: var(--lab-texto-2);
+  line-height: 1.4;
+}
+.lab-cuantas {
+  display: block;
+  padding: 10px 16px 0;
+  font-size: 11.5px;
+  color: var(--lab-texto-3);
+}
+.lab-zocalo {
+  display: block;
+  padding: 12px 16px 16px;
+}
+.lab-barra {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.lab-barra i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #0053d6, #65cbf3);
+  transition: width 0.6s ease;
+}
+.lab-confianza {
+  display: block;
+  margin-top: 7px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--lab-texto-3);
+}
+.lab-sello {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 650;
+  color: var(--lab-texto-3);
+  background: rgba(8, 7, 11, 0.72);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--lab-linea);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+/* ------------------------------------------------------------- compuestos */
+
+.lab-seccion {
+  max-width: 1100px;
+  margin: 56px auto 0;
+}
+.lab-seccion h2 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+  font-weight: 660;
+  color: #fff;
+}
+.lab-nota-seccion {
+  margin: 10px 0 24px;
+  max-width: 68ch;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--lab-texto-2);
+}
+.lab-compuestos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(292px, 1fr));
+  gap: 16px;
+}
+.lab-compuesto {
+  border: 1px solid var(--lab-linea);
+  border-radius: 16px;
+  background: #0c0b10;
+  padding: 18px 20px;
+}
+.lab-compuesto header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.lab-compuesto h3 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.lab-cerebro {
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  padding: 4px 10px;
+  border: 1px solid var(--lab-linea);
+  color: var(--lab-texto-3);
+}
+.lab-cerebro-compatible {
+  color: var(--lab-verde);
+  border-color: rgba(110, 231, 168, 0.36);
+}
+.lab-cerebro-improbable {
+  color: var(--lab-ambar);
+  border-color: rgba(240, 160, 48, 0.36);
+}
+/* La estructura plana la sirve PubChem en PNG con fondo blanco. Se invierte y
+   se gira el tono para que los enlaces salgan claros sobre la tinta, sin
+   tocar la imagen original. */
+.lab-2d {
+  display: block;
+  width: 100%;
+  height: 132px;
+  object-fit: contain;
+  margin: 14px 0;
+  filter: invert(1) hue-rotate(180deg) brightness(1.08);
+  opacity: 0.86;
+}
+.lab-cerebro-motivo {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--lab-texto-2);
+}
+.lab-compuesto dl {
+  margin: 0;
+}
+.lab-compuesto dl > div {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.lab-compuesto dl > div:last-child {
+  border: 0;
+}
+.lab-compuesto dt {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  color: var(--lab-texto-3);
+  font-weight: 650;
+  margin-bottom: 4px;
+}
+.lab-compuesto dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--lab-texto);
+}
+.lab-largo {
+  font-size: 11px;
+  line-height: 1.45;
+}
+.lab-nota {
+  margin: 14px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--lab-texto-3);
+}
+.lab-sinresolver,
+.lab-pie-muro {
+  max-width: 1100px;
+  margin: 34px auto 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--lab-texto-3);
+}
+.lab-pie-muro {
+  padding-top: 22px;
+  border-top: 1px solid var(--lab-linea);
+}
+.lab-pie-muro a {
+  color: var(--lab-texto-2);
+}
+
+/* --------------------------------------------------------------- estrechos */
+
+@media (max-width: 1180px) {
+  .lab-bloque h1 {
+    font-size: 104px;
+  }
+  .lab-hoja {
+    width: 296px;
+  }
+}
+@media (max-width: 980px) {
+  .lab-bloque {
+    left: 30px;
+    top: 58px;
+    max-width: 58%;
+  }
+  .lab-bloque h1 {
+    font-size: 76px;
+  }
+  .lab-cifras {
+    left: 30px;
+    bottom: 34px;
+  }
+  .lab-cifra b {
+    font-size: 32px;
+  }
+  /* En estrecho la hoja taparía la proteína entera: se cierra y queda el
+     mando, que es lo que hace falta para mirar la estructura. */
+  .lab-hoja,
+  .lab-leyenda {
+    display: none;
+  }
+  .lab-muro-marco {
+    padding: 28px 20px 48px;
+  }
+}
+@media (max-width: 720px) {
+  .lab-grande {
+    grid-column: span 1;
+  }
+  .lab-mini-grande {
+    height: 210px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lab-capa,
+  .lab-ancla,
+  .lab-punto,
+  .lab-pieza,
+  .lab-barra i {
+    transition: none;
+  }
+}
+
+/* La decisión del Killer: manda sobre lo que se puede decir de una diana, así
+   que va al lado de la certeza GRADE y no escondida en la hoja. */
+.lab-insignias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.lab-killer-va {
+  border-color: rgba(110, 231, 168, 0.42);
+  color: var(--lab-verde);
+}
+.lab-killer-espera {
+  border-color: rgba(240, 160, 48, 0.42);
+  color: var(--lab-ambar);
+}
+.lab-killer-no {
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--lab-texto-3);
+}
+.lab-cuantas em {
+  font-style: normal;
+}
+.lab-estado-va {
+  color: var(--lab-verde);
+}
+.lab-estado-espera {
+  color: var(--lab-ambar);
+}
+.lab-estado-no {
+  color: var(--lab-texto-3);
+}
+
+/* Copiar: la sección existe para mandar algo a un laboratorio, y un SMILES de
+   novecientos caracteres no se transcribe a mano sin cambiar el compuesto. */
+.lab-copiar {
+  font: inherit;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  font-weight: 650;
+  text-transform: uppercase;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--lab-linea);
+  background: transparent;
+  color: var(--lab-texto-3);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.lab-copiar:hover {
+  color: #fff;
+  border-color: var(--lab-linea-fuerte);
+}
+/* El SMILES de un péptido pasa de los novecientos caracteres: se deja leer
+   entero, con su propio desplazamiento, sin empujar la tarjeta. */
+.lab-largo {
+  max-height: 84px;
+  overflow-y: auto;
+}
+
+/* El muro se adapta a cuántas dianas hay: con una sola, ocupa las cuatro
+   columnas; con dos, la mitad cada una. Con auto-fill y un span fijo, tres
+   dianas dejaban media rejilla vacía. */
+.lab-muro[data-cuantas='1'] .lab-grande {
+  grid-column: span 4;
+  grid-row: span 1;
+}
+.lab-muro[data-cuantas='2'] .lab-pieza {
+  grid-column: span 2;
+  grid-row: span 1;
+}
+.lab-muro[data-cuantas='2'] .lab-mini {
+  height: 300px;
+}
+
+/* Con datos reales, controles y refutación pasan de los 300 caracteres y
+   empujaban lo demás fuera de la hoja. Se recortan a la vista y se dice; el
+   texto entero sale en «copiar» y la hoja se puede desplazar. */
+.lab-recorta {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* El nivel de partes sin partes que marcar. Una fuente que no responde es "no
+   pude comprobar", nunca "no hay": la línea lo distingue. */
+.lab-sinmarcas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  margin: 0;
+  max-width: 44ch;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--lab-texto-2);
+  background: rgba(12, 11, 16, 0.82);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--lab-linea);
+  border-radius: 14px;
+  padding: 10px 18px;
+}
+
+/* Un compuesto que la evidencia nombra y PubChem no tiene: se enseña igual,
+   con menos peso visual, porque no hay nada que pedir de él todavía. */
+.lab-sin-ficha {
+  border-style: dashed;
+}
+.lab-peso-evidencia {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--lab-texto-2);
+}
+.lab-peso-evidencia b {
+  color: var(--lab-texto);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.lab-peso-evidencia .lab-mono {
+  font-size: 11px;
+  color: var(--lab-texto-3);
+}
+.lab-nota-falta {
+  margin-top: 12px;
+  color: var(--lab-texto-2);
+  font-size: 12px;
+}
+
+/* El nombre clínico junto al símbolo: MAPT es «tau» para quien la estudia. */
+.lab-bloque h1 small {
+  font-size: 0.26em;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--lab-texto-3);
+  margin-left: 0.28em;
+  vertical-align: 0.72em;
+}
+/* La cadena causal del grafo curado: amiloide → tau → neurodegeneración. */
+.lab-cadena {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--lab-texto-3);
+}
+.lab-grado-neutro {
+  border-color: var(--lab-linea-fuerte);
+  color: var(--lab-texto-2);
+}
+
+/* Sin experimento propuesto, la hoja enseña la evidencia en su lugar. */
+.lab-sabido > div {
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.lab-sabido dt {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--lab-texto-3);
+  font-weight: 650;
+  margin-bottom: 4px;
+}
+.lab-sabido dd {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--lab-texto);
+}
+.lab-sabido cite {
+  display: block;
+  margin-top: 5px;
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--lab-texto-3);
+}
+.lab-de-donde {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--lab-texto-3);
+}
+
+/* Lo que se quedó fuera del muro. Va con menos peso que el resto: importa que
+   esté dicho, no que compita con las dianas. */
+.lab-descartes p {
+  max-width: 88ch;
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--lab-texto-3);
+}
+.lab-descartes p b {
+  color: var(--lab-texto-2);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------- el experimento entero */
+
+/* El botón que lo abre: es lo primero que se busca al abrir una diana, así que
+   va dentro de la hoja y no escondido en un menú. */
+.lab-abrir-experimento {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 560;
+  text-align: left;
+  color: var(--lab-texto);
+  background: rgba(167, 139, 250, 0.1);
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+.lab-abrir-experimento:hover {
+  background: rgba(167, 139, 250, 0.18);
+}
+.lab-abrir-experimento i {
+  font-style: normal;
+  color: var(--lab-acento);
+}
+
+/* El panel: una superficie de lectura de verdad. El protocolo de una hipótesis
+   pasa de los tres mil caracteres y no cabe en el raíl de 336 px. */
+.lab-experimento {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: 8;
+  width: min(680px, 62%);
+  display: flex;
+  flex-direction: column;
+  background: rgba(10, 9, 13, 0.94);
+  backdrop-filter: blur(28px);
+  border-left: 1px solid var(--lab-linea);
+  box-shadow: -40px 0 80px rgba(0, 0, 0, 0.5);
+  animation: lab-entra-panel 0.34s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes lab-entra-panel {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lab-experimento {
+    animation: none;
+  }
+}
+.lab-experimento > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid var(--lab-linea);
+}
+.lab-experimento h2 {
+  margin: 12px 0 0;
+  font-size: 22px;
+  line-height: 1.28;
+  letter-spacing: -0.02em;
+  font-weight: 620;
+  color: #fff;
+  max-width: 46ch;
+}
+.lab-cerrar {
+  flex: none;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 8px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--lab-linea);
+  background: transparent;
+  color: var(--lab-texto-2);
+  cursor: pointer;
+}
+.lab-cerrar:hover {
+  color: #fff;
+  border-color: var(--lab-linea-fuerte);
+}
+.lab-experimento-cuerpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 22px 28px 40px;
+  scrollbar-width: thin;
+}
+.lab-experimento-cuerpo h3 {
+  margin: 30px 0 12px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  font-weight: 650;
+  color: var(--lab-texto-3);
+}
+.lab-experimento-cuerpo h3:first-of-type {
+  margin-top: 22px;
+}
+.lab-parrafo {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.62;
+  color: var(--lab-texto-2);
+}
+.lab-parrafo b {
+  color: var(--lab-texto);
+  font-weight: 580;
+}
+.lab-destacado {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--lab-texto);
+  padding-left: 16px;
+  border-left: 2px solid var(--lab-acento);
+}
+
+/* El protocolo viene numerado por ROSA2018: se lee como una lista de pasos. */
+.lab-pasos {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: paso;
+}
+.lab-pasos li {
+  counter-increment: paso;
+  position: relative;
+  padding: 0 0 16px 40px;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--lab-texto-2);
+}
+.lab-pasos li::before {
+  content: counter(paso);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--lab-linea-fuerte);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--lab-texto-3);
+}
+
+.lab-lecturas > div {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.lab-lecturas b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 580;
+  color: var(--lab-texto);
+  line-height: 1.5;
+}
+.lab-tipo-lectura {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 650;
+  color: var(--lab-texto-3);
+  border: 1px solid var(--lab-linea);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.lab-lecturas p {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--lab-texto-2);
+}
+.lab-refuta-linea {
+  color: var(--lab-ambar) !important;
+}
+
+.lab-campos {
+  margin: 0;
+}
+.lab-campo {
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.lab-campo dt {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  font-weight: 650;
+  color: var(--lab-texto-3);
+  margin-bottom: 7px;
+}
+.lab-campo dd {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--lab-texto-2);
+}
+.lab-campo-refuta {
+  background: rgba(240, 160, 48, 0.07);
+  border: 1px solid rgba(240, 160, 48, 0.24);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 6px 0;
+}
+.lab-campo-refuta dt {
+  color: var(--lab-ambar);
+}
+
+.lab-pestanas {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--lab-linea);
+}
+.lab-pestanas button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--lab-linea);
+  background: transparent;
+  color: var(--lab-texto-2);
+  cursor: pointer;
+}
+.lab-pestanas button[aria-selected='true'] {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--lab-linea-fuerte);
+}
+.lab-pestanas button i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.lab-punto-va {
+  background: var(--lab-verde);
+}
+.lab-punto-espera {
+  background: var(--lab-ambar);
+}
+.lab-punto-no {
+  background: var(--lab-texto-3);
+}
+.lab-pestanas span {
+  flex: 1;
+  min-width: 220px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--lab-texto-3);
+}
+
+/* La química, dentro de la lámina de su proteína: la fórmula y el SMILES
+   tienen que estar donde está la diana, no en otra pantalla. */
+.lab-quimica {
+  margin: 0 0 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--lab-linea);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.022);
+}
+.lab-quimica-cab b {
+  font-size: 16px;
+  font-weight: 620;
+  color: #fff;
+}
+.lab-quimica-cab span {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--lab-texto-3);
+}
+.lab-quimica-datos {
+  margin: 12px 0 0;
+}
+.lab-quimica-datos > div {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.lab-quimica-datos > div:last-child {
+  border: 0;
+}
+.lab-quimica-datos dt {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  font-weight: 650;
+  color: var(--lab-texto-3);
+  margin-bottom: 4px;
+}
+.lab-quimica-datos dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--lab-texto);
+}
+
+@media (max-width: 980px) {
+  .lab-experimento {
+    width: 100%;
+  }
+}
+
+.lab-acciones-exp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.lab-copiar-grande {
+  font-size: 10.5px;
+  padding: 7px 13px;
+  margin: 0;
+}
+
+/* ------------------------------------------------ la ficha de una parte */
+
+/* Va abajo a la izquierda, donde estaban las cifras: en el nivel de partes
+   esas ya no se enseñan y el sitio queda libre, así que la ficha no tapa la
+   proteína ni pelea con la hoja de pedido. */
+.lab-parte {
+  position: absolute;
+  left: 30px;
+  bottom: 24px;
+  z-index: 7;
+  width: min(430px, calc(100% - 420px));
+  max-height: calc(100% - 140px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 18px 20px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--lab-linea);
+  background: rgba(12, 11, 16, 0.88);
+  backdrop-filter: blur(22px);
+  animation: lab-sube 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@keyframes lab-sube {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lab-parte {
+    animation: none;
+  }
+}
+.lab-parte > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.lab-parte h3 {
+  margin: 10px 0 0;
+  font-size: 21px;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.lab-parte-desc {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--lab-texto-2);
+}
+.lab-parte h4 {
+  margin: 20px 0 8px;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  font-weight: 650;
+  color: var(--lab-texto-3);
+}
+.lab-parte-cifras {
+  display: flex;
+  margin: 16px 0 0;
+}
+.lab-parte-cifras > div {
+  padding-right: 22px;
+  margin-right: 22px;
+  border-right: 1px solid var(--lab-linea);
+}
+.lab-parte-cifras > div:last-child {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.lab-parte-cifras b {
+  display: block;
+  font-size: 26px;
+  font-weight: 640;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 6px;
+}
+.lab-parte-cifras .lab-ojo b {
+  color: var(--lab-ambar);
+}
+.lab-parte-cifras span {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--lab-texto-3);
+  font-weight: 650;
+}
+.lab-parte-lectura {
+  margin: 16px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--lab-texto-2);
+}
+.lab-parte-lectura b {
+  color: var(--lab-texto);
+  font-weight: 580;
+}
+/* La secuencia en una letra, que es lo que se pega en un pedido. */
+.lab-secuencia {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.75;
+  letter-spacing: 0.12em;
+  color: var(--lab-texto);
+  overflow-wrap: anywhere;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.lab-pruebas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lab-pruebas li {
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--lab-texto-2);
+}
+.lab-pruebas li:last-child {
+  border: 0;
+}
+.lab-eco {
+  display: block;
+  font-size: 10px;
+  color: var(--lab-texto-3);
+}
+.lab-parte a {
+  color: var(--lab-texto-2);
+}
+
+@media (max-width: 980px) {
+  .lab-parte {
+    width: calc(100% - 60px);
+    max-height: 58%;
+  }
+}
+
+/* El rótulo de paso dice que se puede pulsar; sin eso nadie lo intenta. */
+.lab-residuo i {
+  display: block;
+  margin-top: 5px;
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lab-acento);
+}
+/* El lienzo señala que hay algo que pulsar en el nivel de átomos. */
+.lab-lienzo {
+  cursor: default;
+}
+
+/* La ficha de un residuo comparte forma con la de una parte; lo suyo es el
+   tramo de secuencia con el residuo marcado. */
+.lab-residuo-ficha .lab-parte-cifras b {
+  font-size: 30px;
+}
+.lab-secuencia-contexto {
+  letter-spacing: 0.06em;
+  font-size: 15px;
+  text-align: center;
+}
+.lab-secuencia-contexto b {
+  font-weight: 400;
+  color: var(--lab-texto-2);
+  padding: 0 1px;
+}
+.lab-secuencia-contexto .lab-este {
+  color: #fff;
+  font-weight: 700;
+  background: rgba(167, 139, 250, 0.3);
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: 0 2px;
+}
+.lab-pruebas b {
+  color: var(--lab-texto);
+  font-weight: 580;
+}
+
+/* Si se puede mandar o no, en la tarjeta del muro: es lo que promete el
+   título de la sección y hasta ahora había que deducirlo. */
+.lab-mandar {
+  display: block;
+  padding: 6px 16px 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--lab-texto-3);
+}
+.lab-mandar-si {
+  color: var(--lab-verde);
+}
+/* Cuando la tarjeta de la hipótesis y su contrato no dicen lo mismo. */
+.lab-aviso-contrato {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: rgba(240, 160, 48, 0.08);
+  border: 1px solid rgba(240, 160, 48, 0.3);
+}
+.lab-aviso-contrato dt {
+  color: var(--lab-ambar) !important;
+}
+.lab-aviso-contrato dd {
+  font-size: 12.5px !important;
+  line-height: 1.5;
+  color: var(--lab-texto-2) !important;
+}
+
+/* Cuántas estructuras medidas hay, junto al catálogo de la lámina. */
+.lab-medidas {
+  margin: -14px 0 18px;
+  max-width: 52ch;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--lab-texto-3);
+}
+.lab-medidas a {
+  color: var(--lab-acento);
+}
+
+/* ------------------------------------ el oligonucleótido antisentido */
+
+/* El botón que lo abre va en verde: es lo único de esta sección que ROSA2018
+   diseña de verdad, y se distingue del experimento, que lo propone una
+   hipótesis. */
+.lab-abrir-aso {
+  background: rgba(110, 231, 168, 0.1);
+  border-color: rgba(110, 231, 168, 0.4);
+}
+.lab-abrir-aso:hover {
+  background: rgba(110, 231, 168, 0.18);
+}
+.lab-abrir-aso i {
+  color: var(--lab-verde);
+}
+
+/* La secuencia, que es la pieza. Las tres partes se ven de un vistazo porque
+   hacen cosas distintas: las alas agarran y protegen, el hueco de ADN es lo
+   único donde la RNasa H1 corta. */
+.aso-secuencia {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.16em;
+  border-radius: 9px;
+  overflow: hidden;
+}
+.aso-grande {
+  font-size: clamp(16px, 2.2vw, 26px);
+  letter-spacing: 0.2em;
+  margin: 4px 0 14px;
+}
+.aso-secuencia > span {
+  padding: 10px 12px;
+  white-space: nowrap;
+}
+.aso-grande > span {
+  padding: 16px 14px;
+}
+.aso-extremo {
+  color: var(--lab-texto-3);
+  letter-spacing: 0;
+  font-size: 0.7em;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.03);
+}
+.aso-ala {
+  color: #cbb9ff;
+  background: rgba(167, 139, 250, 0.16);
+  border-top: 1px solid rgba(167, 139, 250, 0.35);
+  border-bottom: 1px solid rgba(167, 139, 250, 0.35);
+}
+.aso-hueco {
+  color: #b9ffd8;
+  background: rgba(110, 231, 168, 0.16);
+  border-top: 1px solid rgba(110, 231, 168, 0.45);
+  border-bottom: 1px solid rgba(110, 231, 168, 0.45);
+  font-weight: 600;
+}
+.aso-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  color: var(--lab-texto-3);
+}
+.aso-leyenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.aso-leyenda i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.aso-punto-ala {
+  background: rgba(167, 139, 250, 0.7);
+}
+.aso-punto-hueco {
+  background: rgba(110, 231, 168, 0.7);
+}
+
+/* Sin cribado no se puede pedir, y eso no puede ir en letra pequeña. */
+.aso-aviso {
+  margin: 16px 0 0;
+  padding: 13px 16px;
+  border-radius: 12px;
+  background: rgba(240, 160, 48, 0.09);
+  border: 1px solid rgba(240, 160, 48, 0.32);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--lab-texto-2);
+}
+.aso-aviso b {
+  color: var(--lab-ambar);
+}
+
+/* El transcrito como una regla: sin esto, «posición 3230» no dice nada. */
+.aso-mapa {
+  margin: 4px 0 10px;
+}
+.aso-regla {
+  position: relative;
+  height: 44px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.11));
+  border: 1px solid var(--lab-linea);
+}
+.aso-marca {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--lab-linea-fuerte);
+  background: rgba(12, 11, 16, 0.92);
+  color: var(--lab-texto-2);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.aso-marca i {
+  font-style: normal;
+}
+.aso-marca:hover {
+  color: #fff;
+  border-color: var(--lab-verde);
+}
+.aso-marca-activa {
+  background: var(--lab-verde);
+  border-color: var(--lab-verde);
+  color: #08110c;
+  font-weight: 700;
+}
+.aso-regla-pies {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--lab-texto-3);
+}
+
+.aso-medidas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 0;
+  margin: 4px 0 16px;
+}
+.aso-medidas > div {
+  padding-right: 24px;
+  margin-right: 24px;
+  border-right: 1px solid var(--lab-linea);
+}
+.aso-medidas > div:last-child {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.aso-medidas b {
+  display: block;
+  font-size: 24px;
+  font-weight: 640;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.aso-medidas span {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--lab-texto-3);
+  font-weight: 650;
+}
+
+.aso-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.aso-fila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 11px;
+  border: 1px solid var(--lab-linea);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+.aso-fila:hover {
+  border-color: var(--lab-linea-fuerte);
+}
+.aso-fila-activa {
+  border-color: rgba(110, 231, 168, 0.5);
+  background: rgba(110, 231, 168, 0.06);
+}
+.aso-fila-n {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--lab-linea);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--lab-texto-3);
+}
+.aso-fila-datos {
+  font-size: 11px;
+  color: var(--lab-texto-3);
+}
+
+/* El acceso al oligonucleótido desde la tarjeta del muro. Enseña la secuencia
+   de verdad, con su hueco de ADN marcado: es lo que hace que se entienda de
+   qué va sin haber entrado. */
+.lab-pieza-aso {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: 11px 16px 13px;
+  border: 0;
+  border-top: 1px solid rgba(110, 231, 168, 0.22);
+  background: rgba(110, 231, 168, 0.06);
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+.lab-pieza-aso:hover {
+  background: rgba(110, 231, 168, 0.14);
+}
+.lab-pieza-aso-sec {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: #cbb9ff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lab-pieza-aso-sec i {
+  font-style: normal;
+  color: #b9ffd8;
+  font-weight: 700;
+}
+.lab-pieza-aso-pie {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--lab-verde);
+}
+.lab-pieza-aso-pie em {
+  font-style: normal;
+}
+
+/* El bloque que lo explica antes del muro. Desde fuera no se adivina que
+   ROSA2018 diseña algo, y es lo único que diseña. */
+.lab-aso-portada {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  flex-wrap: wrap;
+  max-width: 1100px;
+  margin: 0 auto 22px;
+  padding: 22px 26px;
+  border-radius: 18px;
+  border: 1px solid rgba(110, 231, 168, 0.28);
+  background: linear-gradient(100deg, rgba(110, 231, 168, 0.09), rgba(110, 231, 168, 0.02));
+}
+.lab-aso-portada h2 {
+  margin: 8px 0 10px;
+  font-size: 26px;
+  letter-spacing: -0.03em;
+  font-weight: 660;
+  color: #fff;
+}
+.lab-aso-portada p {
+  margin: 0;
+  max-width: 74ch;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--lab-texto-2);
+}
+.lab-aso-portada p b {
+  color: var(--lab-texto);
+  font-weight: 600;
+}
+.lab-aso-cifra {
+  flex: none;
+  text-align: right;
+}
+.lab-aso-cifra b {
+  display: block;
+  font-size: 52px;
+  font-weight: 660;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--lab-verde);
+  font-variant-numeric: tabular-nums;
+}
+.lab-aso-cifra span {
+  display: block;
+  margin-top: 8px;
+  max-width: 20ch;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  font-weight: 650;
+  color: var(--lab-texto-3);
+}
+.lab-verde b {
+  color: var(--lab-verde);
+}
+
+@media (max-width: 860px) {
+  .lab-aso-portada {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .lab-aso-cifra {
+    text-align: left;
+  }
+}
+
+/* ------------------------------------------------------- la decisión */
+
+/* Lo primero del muro: de todo lo verificado, cuál apagar. Lo que la hace
+   útil no es el veredicto, es que cada término se ve y se puede discutir. */
+.lab-decision {
+  max-width: 1100px;
+  margin: 0 auto 26px;
+  border-radius: 20px;
+  border: 1px solid rgba(110, 231, 168, 0.3);
+  background: linear-gradient(140deg, rgba(110, 231, 168, 0.1), rgba(110, 231, 168, 0.02) 60%);
+  overflow: hidden;
+}
+.lab-decision > header {
+  padding: 24px 28px 18px;
+}
+.lab-decision h2 {
+  margin: 10px 0 0;
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.16;
+  letter-spacing: -0.03em;
+  font-weight: 640;
+  color: var(--lab-texto-2);
+}
+.lab-decision h2 b {
+  color: #fff;
+  font-weight: 700;
+}
+.lab-decision h2 i {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--lab-texto-3);
+  font-size: 0.6em;
+}
+.lab-decision-entrada {
+  margin: 12px 0 0;
+  max-width: 76ch;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--lab-texto-2);
+}
+.lab-decision-entrada b {
+  color: var(--lab-texto);
+  font-weight: 600;
+}
+.lab-decision-cuerpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 28px;
+  padding: 4px 28px 20px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .lab-decision-cuerpo {
+    grid-template-columns: 1fr;
+  }
+}
+.lab-decision-oligo .lab-abrir-experimento {
+  margin-top: 14px;
+}
+.lab-decision-cuenta h3 {
+  margin: 0 0 10px;
+  font-size: 9.5px;
+  letter-spacing: 0.15em;
+  font-weight: 650;
+  color: var(--lab-texto-3);
+}
+.lab-decision-cuenta table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.lab-decision-cuenta th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--lab-texto-2);
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.lab-decision-cuenta td {
+  text-align: right;
+  padding: 7px 0 7px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  color: var(--lab-texto-3);
+  white-space: nowrap;
+}
+.lab-puntos {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.lab-puntos-si {
+  color: var(--lab-verde);
+}
+.lab-total th,
+.lab-total td {
+  border-bottom: 0;
+  padding-top: 11px;
+  font-weight: 700;
+  color: var(--lab-texto);
+}
+.lab-decision-pie {
+  padding: 16px 28px 22px;
+  border-top: 1px solid rgba(110, 231, 168, 0.18);
+  background: rgba(0, 0, 0, 0.22);
+}
+.lab-decision-pie p {
+  margin: 0 0 9px;
+  max-width: 96ch;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--lab-texto-3);
+}
+.lab-decision-pie p:last-child {
+  margin-bottom: 0;
+}
+.lab-decision-pie b {
+  color: var(--lab-texto-2);
+  font-weight: 600;
+}
+/* Qué la cambiaría: una decisión que no lo dice es una opinión. */
+.lab-decision-refuta {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(240, 160, 48, 0.07);
+  border: 1px solid rgba(240, 160, 48, 0.24);
+}
+.lab-decision-refuta b {
+  color: var(--lab-ambar) !important;
+}
+
+/* Cuando un oligonucleótido iría al revés de lo concluido. */
+.lab-pieza-aso-no {
+  display: block;
+  cursor: default;
+  border-top-color: rgba(240, 160, 48, 0.25);
+  background: rgba(240, 160, 48, 0.06);
+}
+.lab-pieza-aso-no .lab-pieza-aso-pie {
+  color: var(--lab-ambar);
+  margin-top: 0;
+}
+
+/* En la decisión la secuencia va en media columna, no a ancho completo: a
+   tamaño de panel se partía entre el segundo ala y el cierre. */
+.lab-decision-oligo .aso-grande {
+  font-size: clamp(13px, 1.25vw, 18px);
+  letter-spacing: 0.14em;
+}
+.lab-decision-oligo .aso-grande > span {
+  padding: 12px 10px;
+}
+
+/* Lo que el oligonucleótido hace y lo que NO hace. Va destacado porque es lo
+   primero que se malentiende: corta la producción, no retira lo ya hecho. */
+.aso-mecanismo {
+  margin: 14px 0 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--lab-linea);
+  background: rgba(255, 255, 255, 0.03);
+}
+.aso-mecanismo p {
+  margin: 0 0 9px;
+  font-size: 13px;
+  line-height: 1.62;
+  color: var(--lab-texto-2);
+}
+.aso-mecanismo p:last-child {
+  margin-bottom: 0;
+}
+.aso-mecanismo b {
+  color: var(--lab-ambar);
+  font-weight: 600;
+}
+.lab-nota-en-linea {
+  color: var(--lab-texto-3);
+}
+
+/* --- Cribado contra el transcriptoma ------------------------------------ */
+/* Decide si un candidato se puede pedir o no, así que el color dice el
+   veredicto de un vistazo y el texto dice siempre qué NO cubre. */
+.aso-criba {
+  margin: 20px 0 0;
+  padding: 15px 17px 14px;
+  border-radius: 13px;
+  border: 1px solid var(--lab-linea);
+  background: rgba(255, 255, 255, 0.022);
+}
+.aso-criba h3 {
+  margin: 0 0 9px;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--lab-texto-3);
+  font-weight: 600;
+}
+.aso-criba-titulo {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.aso-criba-bien {
+  border-color: rgba(110, 231, 168, 0.3);
+  background: rgba(110, 231, 168, 0.06);
+}
+.aso-criba-bien .aso-criba-titulo {
+  color: var(--lab-verde);
+}
+.aso-criba-mal {
+  border-color: rgba(240, 96, 96, 0.34);
+  background: rgba(240, 96, 96, 0.07);
+}
+.aso-criba-mal .aso-criba-titulo {
+  color: #f07070;
+}
+.aso-criba-duda {
+  border-color: rgba(240, 160, 48, 0.32);
+  background: rgba(240, 160, 48, 0.07);
+}
+.aso-criba-duda .aso-criba-titulo {
+  color: var(--lab-ambar);
+}
+.aso-criba-porque,
+.aso-criba-genes,
+.aso-criba-como {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  line-height: 1.62;
+  color: var(--lab-texto-2);
+}
+.aso-criba-genes b {
+  color: var(--lab-texto-1, #e8e6ee);
+}
+.aso-criba-genes.suave,
+.aso-criba-como {
+  color: var(--lab-texto-3);
+  font-size: 12px;
+}
+.aso-criba-cuentas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin: 11px 0;
+  padding: 0;
+}
+.aso-criba-cuentas div {
+  margin: 0;
+}
+.aso-criba-cuentas dt {
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--lab-texto-3);
+  margin: 0 0 2px;
+}
+.aso-criba-cuentas dd {
+  margin: 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--lab-texto-2);
+}
+.aso-criba-cuentas dd.mal {
+  color: #f07070;
+}
+.aso-criba-limites {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+.aso-criba-limites summary {
+  cursor: pointer;
+  color: var(--lab-texto-3);
+  padding: 3px 0;
+}
+.aso-criba-limites summary:hover {
+  color: var(--lab-texto-2);
+}
+.aso-criba-limites ul {
+  margin: 8px 0 0;
+  padding: 0 0 0 17px;
+  display: grid;
+  gap: 7px;
+}
+.aso-criba-limites li {
+  color: var(--lab-texto-3);
+  line-height: 1.6;
+}
+.aso-criba-limites b {
+  color: var(--lab-texto-2);
+}
+/* Un candidato que encaja en otro gen no se esconde: se enseña apagado y con
+   el sello de dónde choca, al final de la lista. */
+.aso-fila-fuera {
+  opacity: 0.55;
+}
+.aso-fila-fuera:hover {
+  opacity: 0.85;
+}
+.aso-fila-sello {
+  display: inline-block;
+  margin-left: 9px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #f07070;
+  background: rgba(240, 96, 96, 0.13);
+  border: 1px solid rgba(240, 96, 96, 0.3);
+}
+.aso-fila-sello.duda {
+  color: var(--lab-ambar);
+  background: rgba(240, 160, 48, 0.12);
+  border-color: rgba(240, 160, 48, 0.3);
+}
+/* El cribado del candidato elegido, en la tarjeta de la decisión. De todo lo
+   que hay ahí, es lo único que dice si esto se puede pedir hoy. */
+.lab-decision-criba {
+  padding: 10px 13px;
+  border-radius: 10px;
+  border: 1px solid var(--lab-linea);
+  margin-bottom: 11px !important;
+}
+.lab-decision-criba-bien {
+  border-color: rgba(110, 231, 168, 0.28);
+  background: rgba(110, 231, 168, 0.055);
+}
+.lab-decision-criba-bien b {
+  color: var(--lab-verde);
+}
+.lab-decision-criba-mal {
+  border-color: rgba(240, 96, 96, 0.3);
+  background: rgba(240, 96, 96, 0.06);
+}
+.lab-decision-criba-mal b {
+  color: #f07070;
+}
+.lab-decision-criba-duda {
+  border-color: rgba(240, 160, 48, 0.28);
+  background: rgba(240, 160, 48, 0.06);
+}
+.lab-decision-criba-duda b {
+  color: var(--lab-ambar);
+}

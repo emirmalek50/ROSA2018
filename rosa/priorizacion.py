@@ -105,13 +105,72 @@ def revision_registro_abierta(e: dict[str, Any], h: dict[str, Any]) -> bool:
     return grave_abierto((ultima.get("revisionRegistro") or {}).get("hallazgos"))
 
 
+# ---------------------------------------------------------------------------
+# El plus por tener un oligonucleótido que la ponga a prueba
+# ---------------------------------------------------------------------------
+#
+# Regla acordada el 30 de septiembre de 2026: una hipótesis que además trae un
+# oligonucleótido antisentido diseñado SE VALORA MÁS, pero no tenerlo no
+# penaliza ni bloquea nada. El plus SUMA y nunca resta, y no es una puerta.
+#
+# Importa que sea así y no al revés. Un ASO solo sabe BAJAR una proteína; si
+# «poder fabricar el oligo» fuera un requisito, ROSA derivaría hacia preguntas
+# del tipo «hay demasiado de esto» y dejaría de hacer las del tipo «esto falta»
+# o «esto es protector», que en Alzheimer son una parte grande del problema.
+# La investigación se hace igual; el oligo es una salida, no un criterio.
+
+# En la escala de Elo de ROSA2018 (hoy de 1.399 a 1.644, mediana 1.498) esto
+# mueve una hipótesis unos pocos puestos. Ni la sube a la cabeza ni pasa
+# desapercibido.
+PLUS_ASO = 40.0
+
+
+def aso_de(e: dict[str, Any], h: dict[str, Any]) -> dict[str, Any] | None:
+    """Si esta hipótesis tiene un oligonucleótido antisentido que la ponga a
+    prueba, y por qué.
+
+    Hacen falta tres cosas, y las tres salen del estado: que la hipótesis
+    apunte a una diana con accession de UniProt, que pida BAJARLA (un ASO no
+    sabe hacer otra cosa) y que el bucle ya haya diseñado los candidatos."""
+    i = ((h.get("perfilDiana") or {}).get("identificadores") or {})
+    u = str(i.get("uniprot") or "").strip()
+    if not u:
+        return None
+    if ((h.get("tarjeta") or {}).get("direccion")) != "disminuye":
+        return None
+    seqs = e.get("secuencias")
+    guardada = seqs.get(u) if isinstance(seqs, dict) else None
+    if not isinstance(guardada, dict) or not guardada.get("comprobado", True):
+        return None
+    d = guardada.get("diseño")
+    dis: dict[str, Any] = d if isinstance(d, dict) else {}
+    cands = dis.get("candidatos")
+    if not cands:
+        return None
+    return {
+        "uniprot": u,
+        "simbolo": i.get("simbolo"),
+        "transcrito": dis.get("transcrito"),
+        "candidatos": len(cands),
+        "plus": PLUS_ASO,
+        # Sin cribar contra el transcriptoma no se puede pedir, y el plus se
+        # da igual: lo que se valora es que la hipótesis tenga una salida
+        # concreta, no que ya esté lista para el laboratorio.
+        "cribado": bool(dis.get("cribados")),
+    }
+
+
 def candidatos(e: dict[str, Any], investigacion_id: str, maximo: int | None = None) -> list[dict[str, Any]]:
     """Las hipótesis que hoy irían al laboratorio, en orden. Solo las que el
-    Killer dejó avanzar, sin bloqueos, con diversidad por cluster."""
+    Killer dejó avanzar, sin bloqueos, con diversidad por cluster.
+
+    A igualdad de fuerza, primero la que trae un oligonucleótido diseñado. El
+    plus suma y no resta: no tenerlo no aparta a nadie."""
     maximo = maximo if maximo is not None else politicas.MAX_CANDIDATOS_LABORATORIO
     vivas = [h for h in e["hipotesis"] if h["investigacionId"] == investigacion_id and h["estado"] not in ("descartada",) and h.get("decisionKiller") == "avanzar" and not bloqueos_de(e, h)]
-    # Orden por Bradley-Terry cuando hay partidos suficientes; si no, por Elo.
-    vivas.sort(key=lambda h: (-((h.get("bt") or {}).get("fuerza") or h["elo"]), h["creadaEn"]))
+    # Orden por Bradley-Terry cuando hay partidos suficientes; si no, por Elo,
+    # más el plus de quien trae un oligonucleótido.
+    vivas.sort(key=lambda h: (-(((h.get("bt") or {}).get("fuerza") or h["elo"]) + (PLUS_ASO if aso_de(e, h) else 0.0)), h["creadaEn"]))
     elegidas: list[dict[str, Any]] = []
     clusters_usados: set[str] = set()
     pendientes = list(vivas)
@@ -141,6 +200,9 @@ def marcar_candidatas(e: dict[str, Any], investigacion_id: str, ahora: int | Non
         if h["investigacionId"] == investigacion_id:
             h["bloqueos"] = bloqueos_de(e, h)
             h["candidata"] = False
+            # Se anota en la hipótesis para que la interfaz pueda enseñar por
+            # qué una subió: un plus que no se ve es un número mágico.
+            h["aso"] = aso_de(e, h)
             anotar_cohortes(h)
     ids = [h["id"] for h in candidatos(e, investigacion_id)]
     for h in e["hipotesis"]:

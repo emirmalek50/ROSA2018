@@ -519,6 +519,84 @@ def crear_app(almacen: Almacen) -> FastAPI:
         """Botón "Sellar con un tercero": pide (o repite) el sello del prerregistro."""
         return await _sellar_prerregistro(hipotesis_id)
 
+    @app.get("/api/laboratorio")
+    async def laboratorio_global() -> JSONResponse:
+        """Lo que ROSA2018 mandaría al laboratorio, de TODAS las investigaciones a
+        la vez.
+
+        No cuelga de una investigación ni de una hipótesis a propósito (regla de
+        Emir, 29 de septiembre de 2026): es la unión de todo lo que ROSA2018 tiene
+        verificado hasta hoy, en un solo sitio. Una proteína que nombran tres
+        investigaciones sale una vez, con la evidencia de las tres sumada y con
+        cuáles son.
+
+        El fichero de coordenadas NO pasa por aquí: la pantalla lo baja de AlphaFold
+        o del PDB con la URL que va en la respuesta. Son de 0,5 a 2 MB por proteína,
+        y que el navegador los pida a la fuente deja la procedencia a la vista."""
+        from rosa import laboratorio as LAB
+
+        def armar() -> dict[str, Any]:
+            # Se calcula DENTRO del cerrojo y sin copiar el estado. Copiarlo
+            # costaba 0,25 s de bloqueo de escritura para un cálculo de 0,004:
+            # el 98 % del tiempo era copiar 37 MB que solo se iban a leer.
+            # `laboratorio()` no muta nada; lo único que se copia es la lista
+            # de compuestos, que sí acaba dentro de la respuesta.
+            with almacen._lock:
+                e = almacen.estado
+                todos = copy.deepcopy([c for i in (e.get("investigaciones") or []) for c in (i.get("compuestos") or []) if isinstance(c, dict)])
+                datos = LAB.laboratorio(e, None, [c for c in todos if c.get("encontrado")])
+            # Sin repetir: el mismo nombre se consultó una vez por
+            # investigación y aquí se juntan todas.
+            vistos: set[str] = set()
+            sin = []
+            for c in todos:
+                k = str(c.get("nombre") or "").lower()
+                if c.get("encontrado") or not k or k in vistos:
+                    continue
+                vistos.add(k)
+                sin.append(c)
+            datos["sinResolver"] = sin
+            return datos
+
+        # Fuera del bucle de eventos: son 1.242 hechos y 34 hipótesis, y la
+        # pantalla de citas ya enseñó lo que cuesta bloquearlo (22 de septiembre).
+        datos = await asyncio.to_thread(armar)
+        return JSONResponse(content=datos, headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/laboratorio/{uniprot}/experimentos")
+    async def experimentos_de_diana(uniprot: str) -> JSONResponse:
+        """El contrato entero de los experimentos propuestos sobre una diana.
+
+        Va aparte de `/api/laboratorio` porque el protocolo de una hipótesis
+        pasa de los 3.000 caracteres y el muro no enseña ni uno: mandarlos
+        todos en cada visita eran 100 KB de los 400 que pesaba la respuesta."""
+        from rosa import laboratorio as LAB
+
+        def armar() -> list[dict[str, Any]]:
+            with almacen._lock:
+                return LAB.experimentos_de(almacen.estado, uniprot)
+
+        return JSONResponse(content=await asyncio.to_thread(armar), headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/laboratorio/{uniprot}/oligos")
+    async def oligos_de_diana(uniprot: str) -> JSONResponse:
+        """El cribado completo de oligonucleótidos de una diana: los sesenta
+        candidatos con su diseño.
+
+        Va aparte de `/api/laboratorio` por tamaño: sesenta candidatos por cada
+        una de diecisiete dianas serían cuatrocientos kilobytes por visita, y
+        el muro enseña ocho."""
+        from rosa import laboratorio as LAB
+
+        def armar() -> dict[str, Any] | None:
+            with almacen._lock:
+                return LAB.oligos_de(almacen.estado, uniprot)
+
+        d = await asyncio.to_thread(armar)
+        if d is None:
+            raise HTTPException(404, "Esa diana no tiene oligonucleótidos diseñados")
+        return JSONResponse(content=d, headers={"Cache-Control": "no-store"})
+
     @app.get("/api/corridas/{corrida_id}/prisma")
     async def prisma_de(corrida_id: str) -> dict[str, Any]:
         """El flujo de búsqueda en PRISMA 2020 (variables oficiales del diagrama,

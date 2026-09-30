@@ -564,6 +564,104 @@ exigir contexto de gen o proteína en el fragmento. Después, volver a normaliza
 las entidades de los hechos afectados. Importa para la sección molecular y para
 las pistas de redundancia entre hipótesis, que se calculan con estas entidades.
 
+## Git bloqueado por la licencia de Xcode (29 de septiembre de 2026)
+
+`git` en esta máquina es `/usr/bin/git`, el de las herramientas de línea de
+comandos de Xcode, y devuelve "You have not agreed to the Xcode license
+agreements" en cualquier orden, incluido `git status`. Con eso quedan sin poder
+correr, además del commit:
+
+- `python3 scripts/escanear_secretos.py` (usa `git ls-files -z`).
+- Cualquier `git add` / `git commit` / `git push`.
+
+Lo desbloquea `sudo xcodebuild -license` en un terminal, aceptando la licencia.
+Hasta entonces el trabajo de la sección de laboratorio está en el árbol sin
+commitear. Lo demás de la verificación sí corrió y pasó: 2192 tests de backend,
+1066 de frontend, ruff limpio, trinquete de mypy en 263 (el límite), acentos
+limpios en los dos lados y `tsc --noEmit` sin errores.
+
+Nota aparte: `python3` también es el de Xcode y falla igual; los scripts hay que
+correrlos con `./.venv/bin/python`.
+
+## El selector de estilo de la lámina quedó fuera (29 de septiembre de 2026)
+
+`frontend/src/lib/visorMolecular.ts` sigue sirviendo los tres estilos
+(`ilustrativa`, `cinta`, `superficie`) y `Visor.estilo()` funciona, pero la
+pantalla ya no los ofrece: los seis botones hacían el mando el doble de alto que
+el del boceto aprobado y se comían la mitad de la hoja de pedido. Si se quieren
+de vuelta, el sitio es un desplegable en el propio mando, no seis botones.
+
+## «Al laboratorio» es global, no de una investigación (29 de septiembre de 2026)
+
+Se construyó dos veces mal antes de quedar bien, y queda escrito para que no
+vuelva a pasar. La sección NO es la vista de una hipótesis ni la de una
+investigación: es la unión de todo lo que ROSA2018 tiene verificado, de todas
+sus investigaciones, en un solo sitio.
+
+- Ruta: `GET /api/laboratorio` (sin identificador) y `#/laboratorio` en la
+  interfaz, con `#/laboratorio/<uniprot>` para enlazar una diana. Los enlaces
+  viejos a `#/investigaciones/<id>/laboratorio` redirigen.
+- Las dianas salen de `hechos[].entidades` (el modelo de mundo, que ya trae
+  HGNC, UniProt y Ensembl resueltos) más el `perfilDiana` de las hipótesis, no
+  solo de este último. Con datos reales: 17 dianas en vez de 5.
+- Los compuestos salen de `entidades[tipo=compuesto]` (CHEBI), no de una regex
+  sobre los textos de intervención. PubChem enriquece, no decide: un anticuerpo
+  como el lecanemab lo nombran 115 afirmaciones y nunca tendrá ficha de
+  molécula pequeña.
+
+Lo que sigue pendiente aquí: el grafo causal solo tiene 46 relaciones y la
+mayoría de las dianas salen sin ninguna flecha. Cuando `rosa/causal.py` crezca,
+la lámina las enseñará sin tocar nada.
+
+## Los genes falsos por alias se esquivan en el laboratorio, no se arreglan
+
+`rosa/laboratorio.py` exige que el UniProt de una diana se alcance por SÍMBOLO
+APROBADO (`entidadesCache[...].resueltoPor == "symbol"`) antes de enseñarla. Sin
+eso el muro se llena de proteínas que nadie mencionó: la escala ADAS-Cog entra
+como AGPS, la anomalía de imagen ARIA como ECSCR, los trazadores FDG y F18 como
+SMUG1 y MAMLD1, GLP como GOLGA6A, CD146 como MCAM. Son 13 en la investigación
+del amiloide y la tau.
+
+Eso es un parche local: el fallo está en la normalización de entidades, que
+resuelve por alias sin pedir contexto de gen, y ya estaba escrito más arriba en
+este fichero. Mientras no se arregle, cualquier sección nueva que lea
+`hechos[].entidades` tiene que aplicar el mismo filtro
+(`LAB.uniprot_por_simbolo_aprobado`) o enseñará lo mismo.
+
+Casos que el filtro NO coge, por si aparecen: MB (mioglobina, viene de
+«MB-2-VHL2») y CPAP (la proteína existe, pero el texto hablaba del aparato).
+Los dos tienen una sola mención y los descarta el umbral de dos hechos.
+
+## TREM2 está cacheado en negativo (29 de septiembre de 2026)
+
+`entidadesCache["gen:TREM2"]` vale `null`, así que TREM2 no tiene UniProt aunque
+sus entidades en los hechos traigan `HGNC:17761` y lo nombren 18 afirmaciones.
+Es uno de los genes de riesgo de Alzheimer mejor establecidos y ahora mismo no
+puede enseñar estructura. La sección lo dice en «nombradas y sin estructura que
+traer» en vez de callarlo, pero el arreglo de verdad es volver a resolverlo y
+limpiar las entradas negativas del caché que sí son genes.
+
+## El zoom y el giro de Mol* comparten bandera (29 de septiembre de 2026)
+
+Trampa para quien toque `frontend/src/lib/visorMolecular.ts`: la inercia al
+soltar el ratón parece que se enciende con `trackball.staticMoving = false`,
+pero esa bandera vale a la vez para el giro, el zoom y el encuadre
+(`mol-canvas3d/controls/trackball.js`). Con ella apagada, el zoom deja de
+aplicarse una vez por muesca y pasa a aplicarse en CADA fotograma mientras el
+rozamiento frena: con `dynamicDampingFactor` 0,06 eso multiplica una muesca por
+unas cincuenta y el zoom se vuelve inusable.
+
+Por eso el zoom se queda crudo (`zoomSpeed` 2,6 en vez de los 7 de fábrica, que
+con una proteína de mil residuos salta de la lámina al detalle en dos muescas) y
+el lanzamiento lo hace la pantalla: mide la velocidad del arrastre en sus
+últimos milisegundos y llama a `Visor.orbitar` con una velocidad que decae.
+
+Sin resolver: el zoom no se puede medir en Playwright. Ni `mouse.wheel` ni un
+`WheelEvent` sintético llegan al observador de entrada de Mol*, así que el nivel
+del zoom semántico no cambia en las capturas y la sensibilidad hay que juzgarla
+a mano. Los tres niveles sí se pueden probar pulsando los botones del mando
+(`.capturas/tapa.mjs`).
+
 ## 29 de septiembre de 2026: auditoría de «Al laboratorio» (lo que no anotó quien la construye)
 
 Medido sobre el estado real (solo lectura) y el árbol de trabajo de esa tarde,
@@ -636,3 +734,370 @@ Ineficiencias:
 13. Menor: en `Miniatura` el fallo no se reinicia (`Laboratorio.tsx:1487` y
     `:1504`); si una carga falla una vez, la tarjeta dice «no pude traer la
     estructura» aunque luego cargue.
+
+## Las pruebas de tiempo del frontend caen con la máquina cargada
+
+`npx vitest run` reparte 104 ficheros entre varios procesos, y las pruebas que
+miden tiempo caen de forma intermitente cuando la máquina está ocupada: el paso
+de fuerzas del árbol («menos de 8 ms por paso»), el montaje de MapaEnfermedad
+(«en un tiempo razonable») y las esperas de `App.cliente.test.tsx`. Cada
+ejecución cae en un sitio distinto y todas pasan al correrlas solas.
+
+Para saber si una caída es real: `npx vitest run --no-file-parallelism`. Así la
+suite entera pasa (104 ficheros, 1.072 pruebas, 29 de septiembre de 2026), y
+tarda 135 s en vez de 20. Si con eso también cae, entonces sí es el código.
+
+Lo que convendría: que esas tres pruebas midan trabajo (pasos por unidad de
+trabajo, o comparación contra una referencia medida en la misma ejecución) en
+vez de milisegundos de reloj, que dependen de lo que esté haciendo el portátil.
+
+## Revisión de «Al laboratorio»: lo arreglado y lo que queda (29 de septiembre)
+
+Una revisión externa encontró once cosas. Se comprobaron todas contra los
+datos reales y todas eran ciertas. Arreglado:
+
+- **El orden ponía arriba lo que no se puede mandar.** Se ordenaba por cuánta
+  evidencia nombra a cada proteína, así que salían primero las cuatro de
+  biomarcador en sangre con la hoja en blanco, y la única con un experimento
+  de banco propuesto (TFEB) quedaba en el puesto 17 de 17. Ahora manda si se
+  puede mandar y la cabecera dice cuántas son (una de diecisiete).
+- **«TREM2 no tiene acceso de UniProt» era falso**: es Q9NZC2. Quien no lo
+  resolvió fue ROSA2018.
+- **El pie decía que se usaba el PDB y no se usaba nunca.** Ahora el bucle
+  cuenta las estructuras medidas de cada diana (tau tiene 308) y la lámina lo
+  dice y enlaza. Lo que se DIBUJA sigue siendo el modelo predicho, que es el
+  único de longitud completa; ROSA2018 no elige una medida porque casi todas
+  son fragmentos.
+- **La hoja se contradecía**: la tarjeta de SULF2 dice «expresión inducible en
+  neuronas» y su contrato dice que lo que se hace es revisar literatura. Ahora
+  se avisa en la propia hoja.
+- **Las zonas marcadas se eligieron mirando SULF2** y no pedían `ft_repeat`,
+  así que en tau se ignoraban las cuatro repeticiones de unión a microtúbulos
+  (561-685), que es justo donde se agrega. Añadidas, con Motif y Site.
+- **Un PubChem que no responde se guardaba como «no existe» para siempre.**
+  Ahora se distingue no encontrado de no comprobado y lo segundo se reintenta.
+- **El servidor copiaba el estado entero (37 MB) en cada visita**: 0,25 s de
+  bloqueo de escritura para un cálculo de 0,004. El cálculo se hace dentro del
+  cerrojo sin copiar; la respuesta bajó de 244 ms a 8.
+- **La respuesta pesaba 405 KB** con todos los protocolos, que el muro no
+  enseña (GFAP sola, 186 KB). Ahora son 163 KB y el contrato se pide aparte en
+  `/api/laboratorio/{uniprot}/experimentos`.
+- **Las miniaturas eran diecisiete visores 3D girando a la vez** con oclusión
+  ambiental. Ya no giran.
+- **La proteína giraba mientras se lee** un protocolo de diez pasos. Con un
+  panel abierto no gira.
+
+Queda sin resolver:
+
+- **La química es coaparición, y con eso no basta.** Se relaciona una proteína
+  con un compuesto si salen en la misma afirmación, y por eso once de catorce
+  llevan «beta-amiloide» y lecanemab. Los tres compuestos de la sección son el
+  péptido de la enfermedad, un anticuerpo y la semaglutida: ninguna molécula
+  pequeña que se pueda pedir. La pantalla dice que es coaparición y no
+  afinidad, pero decirlo no lo hace útil. Lo que haría falta es sacar los
+  compuestos de las INTERVENCIONES de las hipótesis (lo que ROSA2018 propone
+  usar) y dejar la coaparición como contexto, o cruzar con ChEMBL por diana
+  para traer ligandos de verdad.
+- **Ninguna estructura medida se llega a dibujar.** Elegir bien exige saber
+  qué tramo cubre cada entrada del PDB y con qué resolución; el conector
+  actual solo da identificadores. Con esos metadatos se podría ofrecer la
+  medida cuando cubra la parte que interesa.
+
+## Oligonucleótidos antisentido: lo hecho y lo que falta (29 de septiembre)
+
+`rosa/aso.py` diseña gapmers 5-10-5 de 2'-MOE sobre el transcrito canónico de
+cada diana del muro. Es lo ÚNICO que ROSA2018 diseña de verdad, y funciona
+porque se calcula desde la secuencia (pública y exacta) y no hace falta
+predecir ninguna forma. La secuencia la trae el conector `ensembl_transcrito`
+y la guarda el bucle en `estado["secuencias"]`; el cDNA no viaja al navegador.
+
+Contexto de por qué importa: diranersen (BIIB080, Ionis y Biogen), un gapmer
+contra el ARN de MAPT por vía intratecal, redujo la patología tau en PET y el
+declive cognitivo en la fase 2 CELIA (mayo de 2026). MAPT es además la diana
+más nombrada por la evidencia de ROSA2018.
+
+**Lo que falta, y es lo que impide pedir nada:**
+
+- **El cribado de off-target.** Sin alinear cada candidato contra el
+  transcriptoma no se puede pedir, y ahora mismo TODOS salen sin cribar (se
+  dice en el propio candidato, no solo en la pantalla). Hace falta BLAST
+  contra RefSeq, y no solo contra el ARN maduro: el corte promiscuo de
+  pre-ARN largos es el mecanismo conocido de hepatotoxicidad de los gapmers
+  de alta afinidad (Burel et al., Nucleic Acids Res 44:2093, 2016). La API
+  de BLAST del NCBI es asíncrona (se manda, devuelve un RID y se sondea), así
+  que necesita un trabajador de fondo con el RID persistido entre tics, no una
+  llamada más dentro de `_secuencias_que_faltan`.
+- **La fase 2 que Emir eligió: ASO de corte alternativo.** La infraestructura
+  de secuencia y de cribado se reutiliza entera; lo que hace falta encima son
+  las coordenadas de exón y los sitios de corte (Ensembl los da) para poder
+  bloquear un sitio aceptor y desplazar, por ejemplo, el equilibrio 4R/3R de
+  tau en vez de bajarla toda.
+- **La accesibilidad del sitio.** Las herramientas comerciales predicen la
+  estructura secundaria local del ARN para no elegir una ventana que está
+  plegada sobre sí misma. No está hecho.
+
+Y una nota de honestidad que hay que conservar en la pantalla: los filtros son
+estadística de experimentos pasados, no una predicción. Una patente de Ionis
+describe sintetizar 156 oligonucleótidos para llevar unos pocos a dosis; la
+propia QIAGEN dice de su herramienta que es en parte empírica. Lo que ROSA2018
+produce es una lista corta para cribar.
+
+## El diseño de ASO se calcula en el bucle, nunca al pintar (29 de septiembre)
+
+Se metió y se arregló el mismo día, y queda escrito porque es fácil repetirlo:
+al enchufar `rosa/aso.py` a `/api/laboratorio`, la respuesta pasó de 13 ms a
+**27,9 segundos**. Dos causas, las dos mías:
+
+1. `diseño()` recorría el transcrito DOS veces: una en `candidatos()` para
+   elegir y otra solo para contar cuántas ventanas pasaban los filtros. Ahora
+   `_escanear()` lo recorre una vez y devuelve las dos cosas.
+2. Aun con un solo recorrido eran 2,2 s por visita con las diecisiete dianas,
+   porque se recalculaba en cada petición. Ahora el diseño lo calcula el bucle
+   cuando llega la secuencia y se guarda en `estado["secuencias"][uniprot]
+   ["diseño"]`; la petición solo lee.
+
+De paso, el cDNA ya no se guarda: son casi siete mil nucleótidos por diana en
+un estado que se copia y se sirve entero, y una vez calculado el diseño no
+hace falta.
+
+Regla general para esta sección: **cualquier cosa que recorra una secuencia o
+llame a una fuente va al bucle**, no a la ruta. La ruta solo lee y arma.
+
+Pendiente menor: la respuesta creció de 163 a 250 KB al añadir los diseños
+(ocho candidatos por diana, cada uno con su secuencia, su diana y sus
+medidas). Si molesta, el mismo truco que con los protocolos: mandar solo el
+primer candidato en el muro y los ocho al abrir el panel.
+
+## La dirección es una PUERTA, no un término (30 de septiembre de 2026)
+
+Un oligonucleótido antisentido solo sabe hacer una cosa: BAJAR la proteína.
+Ofrecerlo donde la evidencia pide subirla es proponer lo contrario de lo que
+concluyó la propia investigación. La sección lo hacía: enseñaba ocho oligos
+para apagar APP y SULF2 cuando sus hipótesis piden AUMENTARLAS. Cada secuencia
+estaba bien diseñada y la propuesta estaba al revés.
+
+Lo arregla `LAB.direccion_de`, que lee `hipotesis[].tarjeta.direccion`
+(`disminuye`, `aumenta`, `modula`, `sin_intervencion`). De 17 dianas, solo 3
+pasan: MAPT, GFAP y NDST3. Once son biomarcadores que ninguna hipótesis
+propone tocar, y eso también se dice.
+
+Cualquier modalidad que se añada después (ARN de interferencia, degradadores,
+activadores) tiene que declarar su dirección y pasar por la misma puerta.
+
+## La decisión única, y un término que estaba hinchado
+
+`LAB.oligo_que_mandaria` elige UNA diana de todas y enseña cada término de la
+cuenta. No existe un oligonucleótido general que las apague todas —empareja
+bases con UNA secuencia— así que lo que se reúne de toda la investigación es
+la decisión, no la molécula.
+
+Sale GFAP (13,3) por delante de MAPT (12,8), aunque MAPT tenga cuatro veces
+más evidencia: GFAP es la única cuya hipótesis llegó a «avanzar» en el Killer.
+La pantalla dice esa diferencia y dónde está, para que se pueda discutir.
+
+Un término estaba mal y se corrigió al comprobarlo: «investigaciones que
+convergen» contaba las que nombran la diana en una hipótesis SIN aportar ni un
+hecho. GFAP figuraba en seis y dos tenían cero hechos, lo que le regalaba 1,2
+puntos de convergencia inexistente. Ahora solo cuentan las que aportan
+evidencia.
+
+## MANE Select: que la proteína y el ARN sean la misma versión
+
+La pantalla dibuja una proteína (de UniProt, vía AlphaFold) y diseña sobre un
+ARN (de Ensembl). Son ramas distintas de la MISMA entidad del modelo de mundo
+(HGNC -> UniProt y HGNC -> Ensembl), pero eso no garantiza que sean la misma
+isoforma, y un desajuste ahí sería un fallo silencioso.
+
+MANE Select lo certifica: es el transcrito que el NCBI y el EMBL-EBI acuerdan
+como representativo, emparejado con la proteína canónica de UniProt. El
+conector `ensembl_transcrito` lo consulta y la pantalla lo dice.
+
+Siete de ocho comprobadas coinciden. **MAPT no tiene MANE Select**, y no es un
+fallo: es que no hay acuerdo sobre cuál es la versión representativa de tau,
+que es exactamente la pregunta abierta de las isoformas 4R y 3R. Cuando falta,
+se dice «no se puede confirmar», nunca «no coinciden».
+
+## Sesenta candidatos, no ocho
+
+Ocho era el número equivocado: el protocolo de Ionis describe probar unos
+ochenta en células para quedarse con ocho o diez, y esos ocho o diez son el
+RESULTADO del cribado, no la entrada. Ahora se diseñan 60 con separación
+adaptada al largo del transcrito (con 60 fijos, en un transcrito de 2.300 nt
+salían muchos menos de los pedidos). El muro trae ocho y el resto se pide en
+`/api/laboratorio/{uniprot}/oligos`.
+
+## La vía intratecal va en la hoja
+
+Los ASO no cruzan la barrera hematoencefálica: son grandes y muy cargados. Para
+una diana del sistema nervioso central eso no es un detalle de la hoja, es la
+diferencia entre un experimento posible y uno imposible. La hoja dice la vía
+(punción lumbar), por qué, el precedente (nusinersén, diranersen) y su límite
+conocido (menos fármaco en las regiones profundas del cerebro).
+
+## El oligo SUMA en la priorización, nunca es una puerta (30 de septiembre)
+
+Regla acordada con el compañero de Emir. Las investigaciones y el proceso de
+ROSA2018 siguen igual. Lo único que cambia: una hipótesis que además trae un
+oligonucleótido antisentido diseñado **se valora más**; no tenerlo **no
+penaliza ni aparta a nadie**.
+
+Está en `PR.aso_de` y en el orden de `PR.candidatos`: un plus de 40 sobre la
+fuerza (la escala de Elo va hoy de 1.399 a 1.644, así que mueve unos puestos
+sin decidir nada). Se anota en `hipotesis[].aso` para que la interfaz pueda
+enseñar por qué una subió: un número que mueve el orden y no se explica es un
+número mágico.
+
+Por qué suma y no filtra: un ASO solo sabe BAJAR una proteína. Si «poder
+fabricarlo» fuera un requisito, ROSA derivaría hacia preguntas del tipo «hay
+demasiado de esto» y dejaría de hacer las del tipo «esto falta» o «esto es
+protector», que en Alzheimer son una parte grande del problema. Hoy ya se ve:
+de 17 dianas, 2 piden SUBIR la proteína.
+
+Cualquier modalidad que se añada después (ARN de interferencia, degradadores,
+activadores) entra igual: como plus, no como puerta.
+
+## La decisión mezclaba hipótesis distintas (arreglado el mismo día)
+
+`_terminos` tomaba el mejor Killer y la mejor certeza de CUALQUIER hipótesis de
+la diana. En GFAP eso sumaba +3,0 por un «avanzar» que venía de una hipótesis
+de biomarcador que no propone intervenir, mientras la única que pide bajarla
+está suspendida y en certeza muy baja. Dibujaba una diana más sólida de lo que
+ninguna hipótesis sostiene.
+
+Ahora esos dos términos salen SOLO de las hipótesis con `direccion` de
+`disminuye`, que son las que un oligonucleótido pondría a prueba. Con eso la
+elegida pasa de GFAP (13,3) a MAPT (12,8), que además es la diana de
+diranersen.
+
+Regla general: **un término que justifica una decisión tiene que venir de la
+misma hipótesis que la sostiene.** Coger lo mejor de cada una es construir una
+hipótesis que nadie escribió.
+
+## Lo que un ASO hace y lo que no, dicho en la pantalla
+
+Se decía «el oligonucleótido que la apagaría». Apagar suena a retirar lo que
+hay, y no es eso: corta la PRODUCCIÓN y la proteína ya fabricada se queda hasta
+que la célula la degrade. Ahora dice «cortarían su producción», y el panel lleva
+`QUE_HACE` con lo que no hace, el matiz (los agregados no son un depósito
+muerto: cortar el suministro inclina la balanza) y el dato que lo sostiene (la
+señal de PET de tau bajó por debajo del inicio en la fase 1b del BIIB080), con
+sus dos avisos: dieciséis personas en la dosis alta y el PET de tau no es una
+medida perfecta de ovillos.
+
+Y junto a cada oligo va `tarjeta.etapa` de la hipótesis que lo respalda, que en
+MAPT dice «modelo celular con inclusiones de tau ya establecidas». Importa
+justo por lo anterior.
+
+## Una lectura estaba destruyendo datos (30 de septiembre de 2026)
+
+El fallo más feo de la sesión, y encadenado a una optimización mía.
+
+`aligerar()` recorta la lista de candidatos de oligo a ocho para el muro. Pero
+`d["aso"]` se asignaba con la referencia VIVA del estado
+(`guardada.get("diseño")`), así que el recorte se comía el diseño guardado:
+una sola visita a `/api/laboratorio` dejaba en ocho los sesenta candidatos, y
+el almacén lo persistía. Dos dianas llegaron a la base de datos con ocho.
+
+Se detectó porque la misma llamada devolvía 60 la primera vez y 8 la segunda.
+
+Viene de quitar el `deepcopy` del estado para bajar la respuesta de 250 ms a 8.
+Aquella optimización era correcta —el cálculo dura 4 ms y se puede hacer dentro
+del cerrojo— pero dejó de existir la copia que protegía al estado de lo que la
+ruta hiciera después. **Sin copia, todo lo que la ruta modifique hay que
+copiarlo a mano antes.** Hay un test que lo fija
+(`test_servir_la_pantalla_no_puede_destruir_el_diseño_guardado`).
+
+## Marcador de versión en el diseño, no heurísticas
+
+Para saber si hay que rehacer el diseño de una diana se miraba el número de
+candidatos guardados (`< 9`). Eso rehacía para siempre, en cada tic, los
+transcritos cortos que dan ocho de verdad. Ahora `rosa/aso.py` lleva `VERSION`
+y el bucle rehace cuando la guardada es anterior. Al cambiar las reglas de
+diseño hay que subir `VERSION`.
+
+## La tarjeta principal del muro
+
+Ocupaba dos filas, y tenía sentido cuando las pequeñas eran cortas. Con la
+evidencia, el Killer, si se puede mandar y el oligonucleótido, cada tarjeta
+pequeña pasa de 500 px, así que la principal se estiraba a 1.053 con medio
+cuadro vacío. Ahora ocupa dos columnas y una fila.
+
+De paso: al partir la tarjeta en dos botones (proteína y oligonucleótido) se
+rompió la cadena de `flex` y el lienzo se quedaba en su mínimo. El botón de
+abrir tiene que ser también columna flexible.
+
+Y el margen del IntersectionObserver de las miniaturas pasó de 300 a 900 px:
+con 300, bajar una pantalla destruía y rehacía medio muro y se quedaba en
+«trayendo la estructura». Con 900 quedan vivos unos ocho contextos WebGL, por
+debajo del tope del navegador.
+
+## El cribado contra el transcriptoma ya no es una promesa (30 sep 2026)
+
+Hasta hoy `rosa/aso.py` marcaba TODOS los candidatos como «sin cribar» y su
+cabecera decía que alinear contra el transcriptoma era BLAST y minutos por
+candidato. Con el servicio de NCBI es verdad: es asíncrono y hay que encolar.
+Pero el transcriptoma humano entero se descarga de Ensembl sin clave y ocupa
+225 MB (cDNA 184 MB + ncRNA 41 MB), y buscar en él una cadena de veinte letras
+es `bytes.find`. Medido: los 787 candidatos de las 17 dianas contra los 669.547
+transcritos en 350 s con cuatro procesos. Está en `rosa/criba.py`.
+
+Resultado real: **13 de 787 descartados** por encajar idéntico en otro gen.
+Tres modos de fallo, todos conocidos en el diseño de ASO:
+- **elementos Alu** (~1 millón de copias en el genoma, muy frecuentes en las
+  regiones 3' no traducidas, que es justo donde el diseño busca porque ahí la
+  actividad es mayor). El peor, en ATM, cae en 6.299 transcritos de 1.263
+  genes;
+- **repetidos** CAG y CTG (GFAP, TFEB);
+- **parálogos**: el candidato 2 de NDST3 cae en NDST4. Ese no es artefacto de
+  repetidos, es un fuera de diana biológico.
+
+### El fallo que casi se cuela: «otro gen» no es «otro nombre»
+
+La primera versión contaba por `gene_symbol` y daba **51** descartados, con
+PSEN2 en 38 de 39 (97 %). Era mío, no biología: PSEN2 comparte su locus con
+ENSG00000288674, que Ensembl anota como «Novel protein» y todavía no ha
+nombrado. Ahora se compara por SITIO del cromosoma (la cabecera FASTA trae
+`chromosome:GRCh38:1:226870616:226896098:1`) y un ARN anotado encima del mismo
+tramo se cuenta aparte, como «mismo sitio, otro nombre». Los descartados
+bajaron de 51 a 13 y los tres modos de fallo de arriba siguen saliendo.
+
+### Lo que este cribado NO cubre, y viaja con el resultado a la pantalla
+
+1. **Solo coincidencia exacta.** Con uno o dos fallos el oligo encaja igual y
+   la RNasa H1 corta igual. Hace falta un alineador tolerante a desajustes
+   (bowtie2 o blastn, instalables con brew; ninguno está). Por eso el veredicto
+   es «sin choque exacto» y nunca «seguro».
+2. **Solo ARN maduro.** Ensembl da el transcrito empalmado. El corte promiscuo
+   sobre el borrador largo con sus intrones es el mecanismo conocido de
+   hepatotoxicidad de los gapmers de alta afinidad (Burel et al., Nucleic Acids
+   Res 44:2093, 2016). Pide el genoma con su anotación, no el transcriptoma:
+   son ~880 MB y hay que mirar las dos hebras, del orden de 18 minutos.
+3. **Una referencia, no todas las personas.** Una variante común en el sitio
+   diana haría que el oligo no pegara en parte de la población. ROSA2018 tiene
+   conectores de variantes y aquí no se usan.
+
+Pendiente, por orden: el cribado tolerante a desajustes (1), luego el de
+pre-ARN (2), luego la comprobación de variantes (3).
+
+### Dos cosas de ingeniería que no son obvias
+
+- Va en **procesos hijos**, no en hilos: `bytes.find` no suelta el GIL, así que
+  en un hilo los 350 s colgarían el servidor entero.
+- Se dispara por **huella** del conjunto de secuencias, no por contar. Contar
+  ya obligó una vez a rehacer en cada tic lo que estaba hecho (ver más arriba).
+
+### El cribado es la segunda puerta de la decisión
+
+`oligo_que_mandaria` cogía el candidato número uno. `criba.pegar` reordena y
+manda los descartados al final, y la decisión excluye la diana cuyo mejor
+candidato choca. Sin eso ROSA2018 podía estar mandando el oligo de ATM que baja
+de paso otros 1.263 ARN. «Sin cribar» sí compite, marcado: no poder comprobar
+no es un no.
+
+### El fichero no está en el repositorio
+
+`datos/` está en `.gitignore`, así que los 225 MB no se versionan. Quien monte
+ROSA2018 en otra máquina tiene que descargarlos; las URL están en
+`rosa/criba.py` (`DE_DONDE`) y sin ellos la pantalla dice «sin cribar» con el
+motivo, nunca «limpio». Falta un botón que los traiga: la persona usuaria no
+abre la terminal.

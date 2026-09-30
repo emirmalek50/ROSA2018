@@ -72,6 +72,12 @@ sin aprobar por un humano.
   `rosa/sintetico.py` (ensayo en seco), `rosa/ontologias.py` (entidades
   canonicas), `rosa/costes.py`, `rosa/rocrate.py` (RO-Crate con PROV),
   `rosa/parada.py`. Ver `INVESTIGACION-AI-SCIENTIST-2026.md`.
+  Del 30 de septiembre: `rosa/aso.py` (oligonucleótidos antisentido: gapmer
+  5-10-5 por regla desde la secuencia del transcrito) y `rosa/criba.py`
+  (cribado contra los 669.547 transcritos humanos de Ensembl, en procesos
+  hijos porque `bytes.find` no suelta el GIL; el transcriptoma son 225 MB en
+  `datos/_transcriptoma/`, que no se versiona, y sin él la pantalla dice «sin
+  cribar», nunca «limpio»). Ver `PENDIENTE.md`.
 - `frontend/`: la interfaz web de ROSA2018 (React, Vite, TypeScript). Ver su
   `README.md`. `frontend/src/datos/almacen.ts` prueba el servidor al arrancar
   y, si no responde, cae a los datos de muestra con la corrida simulada.

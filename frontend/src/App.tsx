@@ -60,6 +60,7 @@ import { useCalculoDiferido } from './lib/diferido';
 import { pagina } from './lib/movimiento';
 import { loQueEspera } from './lib/digest';
 import type { Pantalla } from './lib/ruta';
+import { rutaLaboratorio } from './lib/ruta';
 import { useAhora } from './lib/useAhora';
 import { useRuta } from './lib/useRuta';
 import { Ajustes } from './pantallas/Ajustes';
@@ -67,6 +68,7 @@ import { Arbol, EsqueletoArbol } from './pantallas/Arbol';
 import { Artefactos } from './pantallas/Artefactos';
 import { Atlas, EsqueletoAtlas } from './pantallas/Atlas';
 import { Citas } from './pantallas/Citas';
+import { Laboratorio } from './pantallas/Laboratorio';
 import { Mecanismos } from './pantallas/Mecanismos';
 import { Calidad } from './pantallas/Calidad';
 import { Corrida } from './pantallas/Corrida';
@@ -191,6 +193,11 @@ export default function App() {
   } else if (ruta.tipo === 'ajustes') {
     titulo = 'Ajustes';
     pantalla = <Ajustes estado={estado} ahora={ahora} />;
+  } else if (ruta.tipo === 'laboratorio') {
+    // Global a propósito: reúne lo que ROSA2018 ha verificado en TODAS sus
+    // investigaciones, no lo de una.
+    titulo = 'Al laboratorio';
+    pantalla = <Laboratorio dianaId={ruta.dianaId} panel={ruta.panel} alAbrirDiana={(u, panel) => irA(rutaLaboratorio(u, panel ?? null))} />;
   } else if (ruta.tipo === 'investigacion') {
     if (!inv) {
       titulo = 'Investigación';
@@ -234,7 +241,6 @@ export default function App() {
           break;
         case 'mecanismos':
           pantalla = <Mecanismos key={inv.id} inv={inv} estado={estado} />;
-          break;
           break;
         case 'citas':
           pantalla = <Citas key={inv.id} inv={inv} estado={estado} />;

@@ -269,12 +269,40 @@ async def ucsc_genes_region(cromosoma: str, inicio: str, fin: str) -> Resultado:
 # ---------------------------------------------------------------------------
 
 
-@conector("pubchem_compuesto", "PubChem (PUG REST)", "Propiedades de un compuesto por nombre: fórmula, peso, SMILES, IUPAC", "Identidad química de un fármaco o metabolito que la hipótesis nombra", _esq(nombre="Nombre del compuesto"), "Dominio publico", "5 por segundo, 400 por minuto", "https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest", grupo="quimica")
+# Lo que un laboratorio necesita para PEDIR un compuesto. La fórmula NO basta:
+# C24H29NO3 la comparten muchos isómeros. Lo que fija la molécula es el SMILES y,
+# como clave corta, el InChIKey. Van también las propiedades con las que se juzga
+# si puede llegar al cerebro (peso, logP, polaridad, donantes y aceptores de
+# puente de hidrógeno).
+_PROPIEDADES_PUBCHEM = "MolecularFormula,MolecularWeight,IUPACName,SMILES,InChI,InChIKey,XLogP,TPSA,HBondDonorCount,HBondAcceptorCount"
+
+
+@conector("pubchem_compuesto", "PubChem (PUG REST)", "Propiedades de un compuesto por nombre: fórmula, peso, SMILES, InChIKey, IUPAC y propiedades fisicoquímicas", "Identidad química de un fármaco o metabolito que la hipótesis nombra, en la forma que un laboratorio puede pedir", _esq(nombre="Nombre del compuesto"), "Dominio publico", "5 por segundo, 400 por minuto", "https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest", grupo="quimica")
 async def pubchem_compuesto(nombre: str) -> Resultado:
-    r = await pedir("GET", f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{quote(nombre, safe='')}/property/MolecularFormula,MolecularWeight,IUPACName,CanonicalSMILES/JSON", _lim["pubchem"])
+    # PubChem renombró `CanonicalSMILES` a `SMILES` en 2025 y esta consulta seguía
+    # pidiendo el nombre viejo: la propiedad no venía en la respuesta y el conector
+    # devolvía `smiles: None` SIN error, justo el dato que hace falta para pedir el
+    # compuesto (29 de septiembre de 2026).
+    r = await pedir("GET", f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{quote(nombre, safe='')}/property/{_PROPIEDADES_PUBCHEM}/JSON", _lim["pubchem"])
     props = (r.json().get("PropertyTable") or {}).get("Properties", [])
-    datos = [{"cid": p.get("CID"), "formula": p.get("MolecularFormula"), "peso": p.get("MolecularWeight"), "iupac": p.get("IUPACName"), "smiles": p.get("CanonicalSMILES")} for p in props]
-    return Resultado(datos, len(datos), [str(p["cid"]) for p in datos if p.get("cid")], None, (len(datos) == 1, f"{len(datos)} compuestos con ese nombre"))
+    datos = [
+        {
+            "cid": p.get("CID"),
+            "formula": p.get("MolecularFormula"),
+            "peso": p.get("MolecularWeight"),
+            "iupac": p.get("IUPACName"),
+            "smiles": p.get("SMILES") or p.get("ConnectivitySMILES") or p.get("CanonicalSMILES"),
+            "inchi": p.get("InChI"),
+            "inchikey": p.get("InChIKey"),
+            "logp": p.get("XLogP"),
+            "tpsa": p.get("TPSA"),
+            "donantesH": p.get("HBondDonorCount"),
+            "aceptoresH": p.get("HBondAcceptorCount"),
+        }
+        for p in props
+    ]
+    faltan = [d["cid"] for d in datos if not d["smiles"]]
+    return Resultado(datos, len(datos), [str(p["cid"]) for p in datos if p.get("cid")], None, (len(datos) == 1 and not faltan, f"{len(datos)} compuestos con ese nombre" + (f"; {len(faltan)} sin SMILES" if faltan else "")))
 
 
 @conector("bindingdb_ligandos", "BindingDB", "Ligandos con afinidad medida contra una proteína (por UniProt), con corte de afinidad", "Cuantos compuestos se unen a la diana y con que afinidad", _esq(uniprot="Accession UniProt", corte_nM="Afinidad máxima en nM, por ejemplo 1000"), "CC BY 3.0 US", "1 por segundo en ROSA2018", "https://www.bindingdb.org/rwd/bind/BindingDBRESTfulAPI.jsp", grupo="quimica")

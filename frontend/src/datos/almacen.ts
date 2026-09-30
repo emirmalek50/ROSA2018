@@ -21,6 +21,7 @@ import { iniciarSimulacion } from './simulacion';
 import type { AlcancePermiso, Amplitud, AnclaComentario, Avisos, CampoEnmendable, CampoLecturaEnmendable, ClaseAccion, ClasificacionDatos, ConocimientoOperativo, Dataset, EstadoArea, EstadoEspejo, EstadoRosa, Investigacion, MetodoRegistrado, NivelAutonomia, NivelPermisoConector, ParadaCorrida, PasoPlan, PoliticaEsperas, PreguntaCampana, ProcedenciaDataset, RevisionHumana, TipoArtefacto } from './tipos';
 import { senalDeTope } from '../lib/diferido';
 import type { CitasRecuperables, FichaCita, ListaCitas } from '../lib/citas';
+import type { DisenoAso, ExperimentoDeDiana, Laboratorio } from '../lib/laboratorio';
 
 const CLAVE_VISITA = 'rosa-ultima-visita';
 const API = '/api';
@@ -1152,6 +1153,42 @@ export const acciones = {
     try {
       const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/costes`, { cache: 'no-store', headers: cabeceras(false), ...senalDeTope() });
       return r.ok ? ((await r.json()) as CostesInvestigacion) : 'sin_respuesta';
+    } catch {
+      return 'sin_respuesta';
+    }
+  },
+  /** Lo que ROSA2018 mandaría al laboratorio, de TODAS las investigaciones a la
+   *  vez: las dianas que su evidencia nombra, con la dirección de su estructura
+   *  y el peso de lo que las sostiene, y los compuestos. No cuelga de una
+   *  investigación. Sin modelo: lo arma rosa/laboratorio.py por regla. */
+  laboratorio: async (): Promise<Laboratorio | null | SinRespuesta> => {
+    if (modo !== 'servidor') return null;
+    try {
+      const r = await fetch(`${API}/laboratorio`, { cache: 'no-store', headers: cabeceras(false), ...senalDeTope() });
+      return r.ok ? ((await r.json()) as Laboratorio) : 'sin_respuesta';
+    } catch {
+      return 'sin_respuesta';
+    }
+  },
+  /** El contrato entero de los experimentos de una diana: protocolo paso a
+   *  paso, lecturas, controles, coste. Se pide aparte y solo al abrirlo,
+   *  porque eran 100 KB de los 400 que pesaba la respuesta del muro. */
+  experimentosDe: async (uniprot: string): Promise<ExperimentoDeDiana[] | null | SinRespuesta> => {
+    if (modo !== 'servidor') return null;
+    try {
+      const r = await fetch(`${API}/laboratorio/${encodeURIComponent(uniprot)}/experimentos`, { cache: 'no-store', headers: cabeceras(false), ...senalDeTope() });
+      return r.ok ? ((await r.json()) as ExperimentoDeDiana[]) : 'sin_respuesta';
+    } catch {
+      return 'sin_respuesta';
+    }
+  },
+  /** El cribado completo de oligonucleótidos de una diana: los sesenta
+   *  candidatos. El muro trae ocho; esto se pide al abrir el panel. */
+  oligosDe: async (uniprot: string): Promise<DisenoAso | null | SinRespuesta> => {
+    if (modo !== 'servidor') return null;
+    try {
+      const r = await fetch(`${API}/laboratorio/${encodeURIComponent(uniprot)}/oligos`, { cache: 'no-store', headers: cabeceras(false), ...senalDeTope() });
+      return r.ok ? ((await r.json()) as DisenoAso) : 'sin_respuesta';
     } catch {
       return 'sin_respuesta';
     }
