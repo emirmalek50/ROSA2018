@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { fijarIdioma } from './idioma';
 import {
+  coma,
   formatearCompacto,
   formatearDuracion,
   formatearEntero,
@@ -64,5 +67,50 @@ describe('numeros', () => {
     expect(plural(1, 'hipotesis', 'hipotesis')).toBe('1 hipotesis');
     expect(plural(3, 'afirmacion', 'afirmaciones')).toBe('3 afirmaciones');
     expect(plural(2, 'articulo')).toBe('2 articulos');
+  });
+});
+
+describe('el separador de números sigue al idioma', () => {
+  afterEach(() => {
+    fijarIdioma('es');
+    try {
+      localStorage.removeItem('rosa.idioma');
+    } catch {
+      // Sin almacenamiento no hay nada que limpiar.
+    }
+  });
+
+  it('en castellano, miles con punto y decimales con coma', () => {
+    fijarIdioma('es');
+    expect(formatearEntero(1171)).toBe('1.171');
+    expect(formatearEntero(48987)).toBe('48.987');
+    expect(coma('0.8')).toBe('0,8');
+    expect(formatearPorcentaje(0.185, 1)).toBe('18,5 %');
+  });
+
+  it('en inglés, al revés: miles con coma y decimales con punto', () => {
+    // No es cosmética. «1.171» leído en inglés es poco más de uno, no mil
+    // ciento setenta y uno: el número diría algo distinto de lo que es.
+    fijarIdioma('en');
+    expect(formatearEntero(1171)).toBe('1,171');
+    expect(formatearEntero(48987)).toBe('48,987');
+    expect(coma('0.8')).toBe('0.8');
+    expect(formatearPorcentaje(0.185, 1)).toBe('18.5 %');
+  });
+
+  it('los números por debajo de mil se ven igual en los dos idiomas', () => {
+    for (const i of ['es', 'en'] as const) {
+      fijarIdioma(i);
+      expect(formatearEntero(999)).toBe('999');
+      expect(formatearEntero(0)).toBe('0');
+      expect(formatearEntero(-42)).toBe('-42');
+    }
+  });
+
+  it('la duración también cambia de separador decimal', () => {
+    fijarIdioma('es');
+    expect(formatearDuracion(800)).toBe('0,8 s');
+    fijarIdioma('en');
+    expect(formatearDuracion(800)).toBe('0.8 s');
   });
 });

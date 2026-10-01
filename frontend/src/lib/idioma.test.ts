@@ -4,11 +4,24 @@
  * sin traducir tiene que verse EN CASTELLANO y entenderse, nunca en blanco ni
  * con el nombre de una clave. Es la razón de que la clave sea la propia frase
  * en castellano y no un identificador inventado. */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { negacionesDe } from '../datos/acciones';
 import { AMPLITUD } from './etiquetas';
 import { fijarIdioma, idiomaActual, tr, trc, trp } from './idioma';
+
+// `fijarIdioma` escribe en localStorage, y el modulo lo lee al importarse.
+// Si una prueba deja «en» puesto, el siguiente fichero de pruebas arranca en
+// ingles y falla por un motivo que no tiene nada que ver con el. Pasó. De ahi
+// el afterEach: el idioma se devuelve a castellano siempre, no solo antes.
+afterEach(() => {
+  fijarIdioma('es');
+  try {
+    localStorage.removeItem('rosa.idioma');
+  } catch {
+    // Sin almacenamiento no hay nada que limpiar.
+  }
+});
 
 describe('el idioma de la interfaz', () => {
   beforeEach(() => fijarIdioma('es'));

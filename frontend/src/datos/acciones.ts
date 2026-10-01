@@ -19,6 +19,7 @@
 
 import { partesAutomatizadas } from '../lib/parada';
 import { esViva, vigencia } from '../lib/desbloqueo';
+import { coma } from '../lib/formato';
 import type {
   Afirmacion,
   AlcancePermiso,
@@ -2012,7 +2013,7 @@ function compartenDireccion(pa: PerfilTexto, pb: PerfilTexto): boolean {
 }
 
 function conComa(n: number, decimales: number): string {
-  return n.toFixed(decimales).replace('.', ',');
+  return coma(n.toFixed(decimales));
 }
 
 /** Texto normalizado de un enunciado: minúsculas, sin tildes ni signos, letras griegas por su nombre. Misma regla que rosa/cuestiones.py normalizar. */

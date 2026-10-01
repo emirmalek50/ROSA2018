@@ -3,7 +3,9 @@
 // obligar a buscarlo). Las claves son expresiones regulares sobre el texto
 // del titulo y la nota de la seccion.
 
-export const GLOSARIO: { patron: RegExp; termino: string; definicion: string }[] = [
+import { traducido } from './idioma';
+
+export const GLOSARIO: { patron: RegExp; termino: string; definicion: string }[] = traducido([
   { patron: /\bElo\b/, termino: 'Elo', definicion: 'Puntuación del ranking, como en ajedrez: sube cuando una hipótesis gana un partido del torneo contra otra y baja cuando pierde. Empieza en 1500.' },
   { patron: /Bradley-?Terry|\bBT\b/, termino: 'Bradley-Terry', definicion: 'Otra forma de ordenar por partidos, con un intervalo de confianza: dice cuanta seguridad hay en el orden, no solo el orden.' },
   { patron: /\bkappa\b/i, termino: 'Kappa', definicion: 'Medida de acuerdo entre dos evaluadores (el juez y una persona) corregida por el acuerdo que se daría por azar. 0,6 o más es sustancial.' },
@@ -29,7 +31,7 @@ export const GLOSARIO: { patron: RegExp; termino: string; definicion: string }[]
   { patron: /\bRO-?Crate\b|\bPROV\b/, termino: 'RO-Crate y PROV', definicion: 'Formatos estándar para empaquetar un expediente con su procedencia de modo que cualquier herramienta de terceros lo verifique sin ROSA2018.' },
   { patron: /PRISMA/, termino: 'PRISMA', definicion: 'La guía con la que se reporta una revisión de la literatura: cuantos artículos se encontraron, se cribaron, se leyeron y se usaron, y por que se excluyo el resto.' },
   { patron: /cobertura/i, termino: 'Cobertura', definicion: 'Cuanto de lo relevante estima ROSA2018 haber encontrado ya en la literatura sobre un tema.' },
-];
+]);
 
 export function terminosEn(texto: string): { termino: string; definicion: string }[] {
   const vistos = new Set<string>();

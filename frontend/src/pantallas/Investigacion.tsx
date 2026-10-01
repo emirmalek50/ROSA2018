@@ -26,7 +26,7 @@ import { Chip, Confirmar, Momento, Seccion } from '../componentes/piezas';
 import { ConocimientoOperativoDelLaboratorio, FormularioMision, Jerarquia, LibroDeProcedencia, MemoriaDelProyecto, PuertaYReproducciones, SubirDataset } from '../componentes/Rosa2018';
 import { useCalculoDiferido } from '../lib/diferido';
 import { AMBITO_LECCION, AMPLITUD, CLASIFICACION_DATOS, ESTADO_CORRIDA, ESTADO_INVESTIGACION } from '../lib/etiquetas';
-import { formatearDuracion } from '../lib/formato';
+import { coma, formatearDuracion } from '../lib/formato';
 import { partesAutomatizadas, textoAutomatizacion } from '../lib/parada';
 import { rutaDe } from '../lib/ruta';
 import { tr } from '../lib/idioma';
@@ -54,7 +54,7 @@ function TarjetaDataset({ d, inv }: { d: Dataset; inv: Inv }) {
             {d.nombre}
           </strong>
           <p className="meta">
-            {d.descripcion} · {d.tamanoMb >= 1000 ? `${(d.tamanoMb / 1000).toFixed(1).replace('.', ',')} GB` : `${d.tamanoMb} MB`} · {d.columnas} columnas
+            {d.descripcion} · {d.tamanoMb >= 1000 ? `${coma((d.tamanoMb / 1000).toFixed(1))} GB` : `${d.tamanoMb} MB`} · {d.columnas} columnas
           </p>
         </div>
         <Chip tono={d.estado === 'aprobado' ? 'ok' : d.estado === 'rechazado' ? 'mal' : 'aviso'}>{d.estado === 'aprobado' ? 'Contrato aprobado' : d.estado === 'rechazado' ? 'Rechazado' : 'Comprobación pendiente'}</Chip>

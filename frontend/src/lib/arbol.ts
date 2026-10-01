@@ -15,6 +15,7 @@
 
 import type { Afirmacion, Corrida, Ejecucion, EstadoRosa, Hipotesis, Investigacion, Iteracion } from '../datos/tipos';
 import { rutaDe } from './ruta';
+import { tr, traducido, trp } from './idioma';
 
 export type TipoNodo = 'objetivo' | 'rama' | 'area' | 'hipotesis' | 'hecho' | 'pregunta' | 'fuente' | 'entidad' | 'experimento' | 'afirmacion' | 'ejecucion' | 'dataset' | 'laboratorio';
 export type TipoEnlace = 'rama' | 'cita' | 'respalda' | 'entidad' | 'causal' | 'rival' | 'experimento' | 'dato';
@@ -59,7 +60,7 @@ export interface Grafo {
   profundidadLiteratura?: Map<string, number | null>;
 }
 
-export const NOMBRE_TIPO: Record<TipoNodo, string> = {
+export const NOMBRE_TIPO: Record<TipoNodo, string> = traducido({
   objetivo: 'Objetivo',
   rama: 'Cluster de mecanismo',
   area: 'Área del programa',
@@ -73,9 +74,9 @@ export const NOMBRE_TIPO: Record<TipoNodo, string> = {
   ejecucion: 'Análisis in silico',
   dataset: 'Conjunto de datos',
   laboratorio: 'Resultado del laboratorio',
-};
+});
 
-export const NOMBRE_ENLACE: Record<TipoEnlace, string> = {
+export const NOMBRE_ENLACE: Record<TipoEnlace, string> = traducido({
   rama: 'pertenece a',
   cita: 'cita',
   respalda: 'respalda',
@@ -84,7 +85,7 @@ export const NOMBRE_ENLACE: Record<TipoEnlace, string> = {
   rival: 'rival en el torneo',
   experimento: 'se prueba en',
   dato: 'dato',
-};
+});
 
 const VIVA = (h: Hipotesis) => h.estado !== 'descartada';
 
@@ -169,9 +170,9 @@ export function ordinalesDeIteraciones(iteraciones: readonly IteracionMinima[], 
   return { deIteracion, deCorrida, total: desplazamiento };
 }
 
-const ESTADO_EJECUCION_LEGIBLE: Record<string, string> = { no_ejecutado: 'no ejecutado', en_curso: 'en curso', error_tecnico: 'error técnico', completado: 'completado', tiempo_agotado: 'tiempo agotado' };
-const AUDITORIA_LEGIBLE: Record<string, string> = { valido: 'válido', no_valido: 'no válido', no_evaluable_computacionalmente: 'no evaluable' };
-const VEREDICTO_LEGIBLE: Record<string, string> = { sostenida: 'sostenida', parcial: 'parcial', no_sostenida: 'no sostenida', cita_no_resuelve: 'la cita no resuelve', sin_cita: 'sin cita', ausencia_refutada: 'ausencia refutada', sin_verificar: 'sin verificar' };
+const ESTADO_EJECUCION_LEGIBLE: Record<string, string> = traducido({ no_ejecutado: 'no ejecutado', en_curso: 'en curso', error_tecnico: 'error técnico', completado: 'completado', tiempo_agotado: 'tiempo agotado' });
+const AUDITORIA_LEGIBLE: Record<string, string> = traducido({ valido: 'válido', no_valido: 'no válido', no_evaluable_computacionalmente: 'no evaluable' });
+const VEREDICTO_LEGIBLE: Record<string, string> = traducido({ sostenida: 'sostenida', parcial: 'parcial', no_sostenida: 'no sostenida', cita_no_resuelve: 'la cita no resuelve', sin_cita: 'sin cita', ausencia_refutada: 'ausencia refutada', sin_verificar: 'sin verificar' });
 const RESULTADO_LEGIBLE: Record<string, string> = { confirma: 'confirma', refuta: 'refuta', inconcluso: 'inconcluso', no_evaluable: 'no evaluable' };
 const NO_SOSTENIDOS = new Set(['no_sostenida', 'cita_no_resuelve', 'sin_cita', 'ausencia_refutada']);
 
@@ -201,7 +202,7 @@ export function recortar(texto: string, maximo: number): string {
 export function medicionDeEjecucion(run: Pick<Ejecucion, 'estado' | 'auditoria'>): string | null {
   if (run.estado !== 'completado') return null;
   if (run.auditoria?.veredicto !== 'valido') return null;
-  return 'análisis in silico completado y auditado como válido';
+  return tr('análisis in silico completado y auditado como válido');
 }
 
 export function medicionDeAfirmacion(a: Pick<Afirmacion, 'tipo' | 'clase' | 'sintetico' | 'veredicto'>): string | null {
@@ -209,14 +210,18 @@ export function medicionDeAfirmacion(a: Pick<Afirmacion, 'tipo' | 'clase' | 'sin
   if (a.clase !== 'observacion_original' && a.clase !== 'derivado') return null;
   if (a.sintetico) return null;
   if (a.veredicto !== 'sostenida' && a.veredicto !== 'parcial') return null;
-  return `${a.clase === 'derivado' ? 'dato derivado' : 'observación original'} ${a.veredicto === 'parcial' ? 'sostenida en parte' : 'sostenida'} por el verificador`;
+  // Frase entera con huecos con nombre: al traducir cambia el orden.
+  return trp('{clase} {veredicto} por el verificador', {
+    clase: a.clase === 'derivado' ? tr('dato derivado') : tr('observación original'),
+    veredicto: a.veredicto === 'parcial' ? tr('sostenida en parte') : tr('sostenida'),
+  });
 }
 
 /** Por qué un análisis no cuenta o hay que mirarlo con cuidado. */
 function alertaEjecucion(run: Pick<Ejecucion, 'estado' | 'auditoria'>): string | undefined {
-  if (run.estado === 'tiempo_agotado') return 'tiempo agotado: no es "sin efecto"';
-  if (run.estado === 'error_tecnico') return 'error técnico: no es "sin efecto"';
-  if (run.auditoria?.veredicto === 'no_valido') return 'el auditor no lo dio por válido';
+  if (run.estado === 'tiempo_agotado') return tr('tiempo agotado: no es "sin efecto"');
+  if (run.estado === 'error_tecnico') return tr('error técnico: no es "sin efecto"');
+  if (run.auditoria?.veredicto === 'no_valido') return tr('el auditor no lo dio por válido');
   return undefined;
 }
 
@@ -257,11 +262,11 @@ export function distancias(nodos: NodoArbol[], enlaces: EnlaceArbol[], origenes:
 export function fraseProfundidad(n: Pick<NodoArbol, 'profundidadDato' | 'profundidadLiteratura' | 'medicion'>): string {
   const d = n.profundidadDato ?? null;
   const l = n.profundidadLiteratura ?? null;
-  if (d === 0) return `Es una medición propia${n.medicion ? `: ${n.medicion}` : ''}.`;
-  if (d !== null) return `A ${d} ${d === 1 ? 'salto' : 'saltos'} de una medición propia.`;
-  if (l === 0) return 'Sin medición propia detrás; es una fuente leída.';
-  if (l !== null) return `Sin medición propia detrás; literatura a ${l} ${l === 1 ? 'salto' : 'saltos'}.`;
-  return 'Sin medición propia detrás ni fuente leída que la sostenga.';
+  if (d === 0) return n.medicion ? trp('Es una medición propia: {q}.', { q: n.medicion }) : tr('Es una medición propia.');
+  if (d !== null) return trp(d === 1 ? 'A {n} salto de una medición propia.' : 'A {n} saltos de una medición propia.', { n: d });
+  if (l === 0) return tr('Sin medición propia detrás; es una fuente leída.');
+  if (l !== null) return trp(l === 1 ? 'Sin medición propia detrás; literatura a {n} salto.' : 'Sin medición propia detrás; literatura a {n} saltos.', { n: l });
+  return tr('Sin medición propia detrás ni fuente leída que la sostenga.');
 }
 
 /** Peso de una hipótesis (de él sale el tamaño de su círculo): cuanto mejor la

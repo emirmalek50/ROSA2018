@@ -9,7 +9,7 @@
 import type { ReactNode } from 'react';
 import type { AgregadoAcierto, CasoPrerregistrado, CifrasAprendizaje as Cifras, ReutilizacionHeredada, TiempoHastaDecision } from '../datos/tipos';
 import { CERTEZA_EVIDENCIA } from '../lib/etiquetas';
-import { formatearEntero, formatearPorcentaje, plural } from '../lib/formato';
+import { coma, formatearEntero, formatearPorcentaje, plural } from '../lib/formato';
 import { tr } from '../lib/idioma';
 
 /** Glosario de reserva, copiado de rosa/cifras_aprendizaje.py GLOSARIO; el
@@ -93,8 +93,8 @@ export function textoTasa(tasa: number | null | undefined): string {
 export function textoHoras(horas: number | null | undefined): string {
   if (typeof horas !== 'number' || !Number.isFinite(horas) || horas < 0) return 'todavía no se puede medir';
   if (horas < 1) return `${Math.round(horas * 60)} min`;
-  if (horas < 48) return `${(Math.round(horas * 10) / 10).toString().replace('.', ',')} h`;
-  return `${(Math.round(horas / 2.4) / 10).toString().replace('.', ',')} días`;
+  if (horas < 48) return `${coma((Math.round(horas * 10) / 10).toString())} h`;
+  return `${coma((Math.round(horas / 2.4) / 10).toString())} días`;
 }
 
 function Cifra({ titulo, definicion, valor, nota, regla, detalle, hayDetalle }: { titulo: string; definicion: string; valor: string; nota: string; regla: string; detalle: ReactNode; hayDetalle: boolean }) {

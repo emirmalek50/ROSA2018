@@ -1,14 +1,24 @@
-// Formato de numeros, tiempos y plurales en espanol. Sin React: lo prueba
-// vitest tal cual. Los numeros grandes se enseñan con separador de miles de
-// punto y decimales con coma, como se leen en Republica Dominicana y Espana.
+// Formato de numeros, tiempos y plurales. Sin React: lo prueba vitest tal
+// cual. En castellano los numeros grandes llevan separador de miles de punto
+// y decimales con coma, como se leen en Republica Dominicana y Espana; en
+// ingles es al reves. No es cosmetica: «1.171» leido en ingles es poco mas
+// de uno, no mil ciento setenta y uno, asi que el separador tiene que seguir
+// al idioma.
+import { idiomaActual } from './idioma';
+
+/** El separador decimal del idioma. Se aplica sobre la cadena que ya produjo
+ *  `toFixed` o `toString`, que siempre traen punto. */
+export function coma(s: string): string {
+  return idiomaActual() === 'es' ? s.replace('.', ',') : s;
+}
 
 /** "0,8 s", "12 s", "1 min 4 s", "2 h 10 min". Sin decimales a partir de
  *  10 s: a ese tamano la decima no informa de nada. */
 export function formatearDuracion(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return '';
-  if (ms < 1000) return `${Math.max(1, Math.round(ms / 100)) / 10} s`.replace('.', ',');
+  if (ms < 1000) return `${coma((Math.max(1, Math.round(ms / 100)) / 10).toString())} s`;
   const s = ms / 1000;
-  if (s < 10) return `${(Math.round(s * 10) / 10).toString().replace('.', ',')} s`;
+  if (s < 10) return `${coma((Math.round(s * 10) / 10).toString())} s`;
   if (s < 60) return `${Math.round(s)} s`;
   const min = Math.floor(s / 60);
   if (min < 60) {
@@ -45,7 +55,7 @@ export function formatearEntero(n: number): string {
   if (!Number.isFinite(n)) return '';
   const negativo = n < 0;
   const digitos = Math.round(Math.abs(n)).toString();
-  const conPuntos = digitos.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const conPuntos = digitos.replace(/\B(?=(\d{3})+(?!\d))/g, idiomaActual() === 'es' ? '.' : ',');
   return negativo ? `-${conPuntos}` : conPuntos;
 }
 
@@ -55,7 +65,7 @@ export function formatearCompacto(n: number): string {
   if (!Number.isFinite(n)) return '';
   const abs = Math.abs(n);
   const signo = n < 0 ? '-' : '';
-  const unaDecimal = (x: number) => (Math.round(x * 10) / 10).toString().replace('.', ',');
+  const unaDecimal = (x: number) => coma((Math.round(x * 10) / 10).toString());
   if (abs >= 1_000_000_000) return `${signo}${unaDecimal(abs / 1_000_000_000)} G`;
   if (abs >= 1_000_000) return `${signo}${unaDecimal(abs / 1_000_000)} M`;
   if (abs >= 10_000) return `${signo}${unaDecimal(abs / 1_000)} k`;
@@ -67,7 +77,7 @@ export function formatearPorcentaje(fraccion: number, decimales = 0): string {
   if (!Number.isFinite(fraccion)) return '';
   const factor = 10 ** decimales;
   const valor = Math.round(fraccion * 100 * factor) / factor;
-  return `${valor.toString().replace('.', ',')} %`;
+  return `${coma(valor.toString())} %`;
 }
 
 /** "1 hipotesis", "3 hipotesis"; con plural explicito para palabras que

@@ -28,7 +28,7 @@ import { ResumenEnLlano } from '../componentes/EnLlano';
 import { AvisoMuestra, Barra, Chip, Confirmar, Momento, Seccion, SoloDetalle, Vacio } from '../componentes/piezas';
 import { IconPause, IconPlay } from '../componentes/icons';
 import { ALCANCE, MODO_BUSQUEDA, etiquetaCorrida, proponiendoPlan } from '../lib/etiquetas';
-import { formatearCompacto, formatearDuracion, formatearEntero, formatearPorcentaje } from '../lib/formato';
+import { coma, formatearCompacto, formatearDuracion, formatearEntero, formatearPorcentaje } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
 import { atributosEnVuelo, useCalculoDiferido, useEnVuelo } from '../lib/diferido';
 import { BORRADOR_VACIO, NIVELES_OBJETIVO, borradorDe, normalizarParada, resumenParada, type ParadaBorrador } from '../lib/parada';
@@ -585,7 +585,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                   <td>{p.nombre}</td>
                   <td className="mono">{p.host}</td>
                   <td className="num">{p.cpu} %</td>
-                  <td className="num">{p.memoriaMb > 0 ? `${(p.memoriaMb / 1000).toFixed(1).replace('.', ',')} GB` : ''}</td>
+                  <td className="num">{p.memoriaMb > 0 ? `${coma((p.memoriaMb / 1000).toFixed(1))} GB` : ''}</td>
                   <td>
                     <Momento t={p.empezadoEn} ahora={ahora} soloRelativo />
                   </td>
@@ -837,7 +837,7 @@ export function segundosDeTrabajo(c: CorridaConReloj, ahora: number): number {
  *  estimado por tokens al lado; si no hay factura, solo el estimado y dicho
  *  como tal. Vacío si no hay ninguna cifra. */
 export function textoCoste(g: Pick<CorridaTipo['gasto'], 'usd' | 'usdReal' | 'usdEsEstimado'>): { corto: string; principal: string; etiqueta: string; title: string } {
-  const usd = (v: number) => `${v.toFixed(2).replace('.', ',')} USD`;
+  const usd = (v: number) => `${coma(v.toFixed(2))} USD`;
   const real = typeof g.usdReal === 'number' && Number.isFinite(g.usdReal) ? g.usdReal : null;
   const estimado = typeof g.usd === 'number' && Number.isFinite(g.usd) ? g.usd : null;
   if (real !== null) {

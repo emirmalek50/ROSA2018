@@ -21,6 +21,7 @@ import type { CandidatoAso, Duplex as DuplexT, CompuestoDeLaboratorio, DianaDeLa
 import type { Residuo, Visor } from '../lib/visorMolecular';
 import '../laboratorio.css';
 import { tr } from '../lib/idioma';
+import { coma } from '../lib/formato';
 
 /* --------------------------------------------------------------------------
    Anotaciones de UniProt: lo que se marca sobre la proteína
@@ -86,7 +87,7 @@ const PRUEBA: Record<string, string> = {
 const n = (x: number) => x.toLocaleString('es');
 
 /** Un decimal con coma, que es como se escribe en castellano. */
-const dec = (x: number, d: number) => x.toFixed(d).replace('.', ',');
+const dec = (x: number, d: number) => coma(x.toFixed(d));
 
 const AMINOACIDOS: Record<string, { carga: 'positiva' | 'negativa' | 'sin carga'; polar: boolean; nota: string }> = {
   ALA: { carga: 'sin carga', polar: false, nota: 'pequeño y sin reactividad; el cambio de referencia cuando se quiere quitar una cadena lateral sin meter otra cosa' },

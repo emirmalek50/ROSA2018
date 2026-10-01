@@ -22,7 +22,7 @@ import { Esqueleto, EsqueletoPantalla, EsqueletoTarjeta, EsqueletoTarjetas } fro
 import { calibracion } from '../lib/calidad';
 import { useCalculoDiferido } from '../lib/diferido';
 import { DECISION_KILLER, ESTADO_HIPOTESIS, killerPendienteDe } from '../lib/etiquetas';
-import { formatearPorcentaje } from '../lib/formato';
+import { coma, formatearPorcentaje } from '../lib/formato';
 import { ranking, variacionElo } from '../lib/hipotesis';
 import { bloqueosDe, candidatos } from '../lib/priorizacion';
 import { rutaDe } from '../lib/ruta';
@@ -76,7 +76,7 @@ function Fila({ h, i, invId, estado }: { h: Hipotesis; i: number; invId: string;
           <span>
             {h.rivales.length} {h.rivales.length === 1 ? 'rival' : 'rivales'}
           </span>
-          <span>{(h.coste.literatura + h.coste.analisis).toFixed(1).replace('.', ',')} $ gastados</span>
+          <span>{coma((h.coste.literatura + h.coste.analisis).toFixed(1))} $ gastados</span>
         </div>
         {/* La franja explica por qué cada hipótesis está en ese puesto, así
             que se queda. Pero en modo compacto: en la tabla salían quince

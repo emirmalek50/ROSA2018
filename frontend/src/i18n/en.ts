@@ -35,6 +35,7 @@ import { FRASES7, ULTIMAS } from './en/12-frases';
 import { DOMINIO } from './en/13-dominio';
 import { DOMINIO2 } from './en/14-dominio';
 import { DOMINIO3 } from './en/15-dominio';
+import { ARBOL_ATLAS } from './en/16-arbol-atlas';
 
 export const EN: Record<string, string> = {
   ...CASCARA,
@@ -53,4 +54,5 @@ export const EN: Record<string, string> = {
   ...DOMINIO,
   ...DOMINIO2,
   ...DOMINIO3,
+  ...ARBOL_ATLAS,
 };

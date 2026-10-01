@@ -13,7 +13,7 @@ import { AvisoMuestra, Chip, Confirmar, Momento, Seccion } from '../componentes/
 import { agujerosDeConejo, calibracion } from '../lib/calidad';
 import { acuerdoDe, acuerdoPorComprobacion } from '../lib/acuerdo';
 import { CATEGORIA_CASO, COMPROBACION_KILLER, ESTADO_CASO, TIPO_AFIRMACION } from '../lib/etiquetas';
-import { formatearPorcentaje } from '../lib/formato';
+import { coma, formatearPorcentaje } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
 import { atributosEnVuelo } from '../lib/diferido';
 import { tr } from '../lib/idioma';
@@ -320,7 +320,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
           </div>
           <div className="tarjeta">
             <p className="campo-etiqueta">{tr("Coste por hipótesis")}</p>
-            <p style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{costeTotal.toFixed(1).replace('.', ',')} {tr("$ en total")}</p>
+            <p style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{coma(costeTotal.toFixed(1))} {tr("$ en total")}</p>
             <table className="tabla" style={{ marginTop: 6 }}>
               <tbody>
                 {[...propias]
@@ -332,7 +332,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
                           {h.titulo.length > 50 ? `${h.titulo.slice(0, 47)}...` : h.titulo}
                         </a>
                       </td>
-                      <td className="num">{(h.coste.literatura + h.coste.analisis).toFixed(1).replace('.', ',')} $</td>
+                      <td className="num">{coma((h.coste.literatura + h.coste.analisis).toFixed(1))} $</td>
                       <td className="num meta">Elo {h.elo}</td>
                     </tr>
                   ))}
@@ -370,7 +370,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         </div>
         )}
         {avisoGepa && <p role="status">{avisoGepa}</p>}
-        {estado.gepaAutomatico && <p className="meta">{Object.entries(estado.gepaAutomatico.trazas).map(([tipo, n]) => `${tipo}: ${n}`).join(' · ')} {tr("· Errores de registro:")} {estado.gepaAutomatico.erroresRegistro}{tr(". Programas con evaluación automática:")} {estado.gepaAutomatico.programas.join(', ')}.{typeof estado.gepaAutomatico.gastoUsd === 'number' ? ` Gasto acumulado de la optimización: ${estado.gepaAutomatico.gastoUsd.toFixed(2).replace('.', ',')} $.` : ''} {tr("Solo administración puede pausar, reanudar o volver a base; una promoción queda también en el registro de aprendizaje (Ajustes) y se revierte desde allí.")}</p>}
+        {estado.gepaAutomatico && <p className="meta">{Object.entries(estado.gepaAutomatico.trazas).map(([tipo, n]) => `${tipo}: ${n}`).join(' · ')} {tr("· Errores de registro:")} {estado.gepaAutomatico.erroresRegistro}{tr(". Programas con evaluación automática:")} {estado.gepaAutomatico.programas.join(', ')}.{typeof estado.gepaAutomatico.gastoUsd === 'number' ? ` Gasto acumulado de la optimización: ${coma(estado.gepaAutomatico.gastoUsd.toFixed(2))} $.` : ''} {tr("Solo administración puede pausar, reanudar o volver a base; una promoción queda también en el registro de aprendizaje (Ajustes) y se revierte desde allí.")}</p>}
         <table className="tabla">
           <thead>
             <tr>
@@ -398,7 +398,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
                   <td className="num">{g.estado === 'terminada' ? formatearPorcentaje(g.metricaInicial) : 'Pendiente'}</td>
                   <td className={`num ${g.metricaFinal > g.metricaInicial ? 'subida' : ''}`}>{g.estado === 'terminada' ? formatearPorcentaje(g.metricaFinal) : 'Pendiente'}</td>
                   <td className="num">{g.candidatos}</td>
-                  <td className="num">{g.gasto ? `${g.gasto.usd.toFixed(2).replace('.', ',')} $ · ${g.gasto.llamadas} llamadas` : 'sin dato'}</td>
+                  <td className="num">{g.gasto ? `${coma(g.gasto.usd.toFixed(2))} $ · ${g.gasto.llamadas} llamadas` : 'sin dato'}</td>
                   <td>{g.estado === 'en_marcha' ? <Chip tono="acento">{tr("En marcha")}</Chip> : g.estado === 'terminada' ? <Chip tono={g.promovido ? 'ok' : 'borde'}>{g.promovido ? 'Activado para nuevas corridas' : 'Terminada'}</Chip> : <Chip tono="mal">Fallida</Chip>}<p className="meta">{g.nota}</p></td>
                   <td>
                     {g.enlaceMlflow && <a className="enlace" href={g.enlaceMlflow} target="_blank" rel="noopener noreferrer">

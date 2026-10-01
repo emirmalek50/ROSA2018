@@ -25,6 +25,7 @@
 // supuesto, y el dato puede darle la razón o quitársela.
 
 import type { Hipotesis, SelloSupuestos } from '../datos/tipos';
+import { tr, traducido, trp } from './idioma';
 
 /** Por dónde se consigue un ingrediente. Es lo que decide el plazo y quién
  *  tiene que moverse, y por eso agrupa la lista. */
@@ -53,14 +54,14 @@ export interface Ingrediente {
   via: Via;
 }
 
-export const VIAS: { id: Via; nombre: string; como: string }[] = [
+export const VIAS: { id: Via; nombre: string; como: string }[] = traducido([
   { id: 'publicado', nombre: 'Buscar en lo publicado', como: 'artículos, suplementos y registros de ensayos' },
   { id: 'cohorte', nombre: 'Pedir datos de una cohorte', como: 'hace falta una solicitud de datos' },
   { id: 'analisis', nombre: 'Hacer el análisis', como: 'no hace falta pedir nada' },
   { id: 'investigacion', nombre: 'Investigación nueva', como: 'un estudio que todavía no existe' },
-];
+]);
 
-export const INGREDIENTES: Ingrediente[] = [
+export const INGREDIENTES: Ingrediente[] = traducido([
   {
     id: 'ensayos',
     nombre: 'Resultados de ensayos clínicos',
@@ -138,7 +139,7 @@ export const INGREDIENTES: Ingrediente[] = [
     donde: 'Un estudio nuevo o una revisión dirigida. No se resuelve pidiendo un conjunto de datos.',
     via: 'investigacion',
   },
-];
+]);
 
 const POR_ID = new Map(INGREDIENTES.map((i) => [i.id, i]));
 
@@ -394,10 +395,10 @@ export const REGLA_SUPUESTOS = 3;
 /** Qué le faltaba a cada regla anterior, en una frase para la pantalla. La
  *  regla que falte aquí cae en la frase genérica: nunca se nombra una fecha
  *  que no le corresponde. */
-export const LO_QUE_FALTABA: Record<number, string> = {
+export const LO_QUE_FALTABA: Record<number, string> = traducido({
   1: 'antes del 18 de septiembre, cuando el evaluador no miraba la evidencia propia de la hipótesis sino el principio de las afirmaciones de la corrida',
   2: 'antes del 23 de septiembre, cuando «sin evidencia» no decía si las fuentes habían tocado el tema, ni qué límite ponía un resultado nulo',
-};
+});
 
 export type MotivoVigencia = 'sin_sello' | 'regla' | 'fallidos' | 'evidencia';
 
@@ -453,15 +454,17 @@ export function vigencia(h: Hipotesis): Vigencia {
 export function vigenciaEnLlano(v: Vigencia): string {
   switch (v.motivo) {
     case 'regla':
-      return `Sus supuestos se evaluaron ${v.regla !== null && LO_QUE_FALTABA[v.regla] ? LO_QUE_FALTABA[v.regla] : 'con una regla anterior a la de hoy'}.`;
+      return trp('Sus supuestos se evaluaron {regla}.', { regla: (v.regla !== null && LO_QUE_FALTABA[v.regla]) || tr('con una regla anterior a la de hoy') });
     case 'evidencia':
-      return `Le ${v.nuevas === 1 ? 'llegó 1 afirmación' : `llegaron ${v.nuevas} afirmaciones`} después de evaluar sus supuestos.`;
+      return v.nuevas === 1
+        ? tr('Le llegó 1 afirmación después de evaluar sus supuestos.')
+        : trp('Le llegaron {n} afirmaciones después de evaluar sus supuestos.', { n: v.nuevas });
     case 'fallidos':
-      return 'El modelo no pudo evaluar alguno de sus supuestos: eso es "no pude comprobar", no "no hay".';
+      return tr('El modelo no pudo evaluar alguno de sus supuestos: eso es "no pude comprobar", no "no hay".');
     case 'sin_sello':
-      return 'No consta cuándo se evaluaron sus supuestos.';
+      return tr('No consta cuándo se evaluaron sus supuestos.');
     default:
-      return 'Sus supuestos están al día.';
+      return tr('Sus supuestos están al día.');
   }
 }
 

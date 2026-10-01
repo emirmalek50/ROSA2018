@@ -85,6 +85,7 @@ import type { CeldaMapa, EstadoRosa, HechoMundo, Hipotesis, Investigacion, MapaE
 import { DEFINICIONES_MAPA, ETIQUETAS_MAPA, etiquetaEje } from '../componentes/MapaEnfermedad';
 import { iteracionObjEn, ordinalesDeIteraciones } from './arbol';
 import { plural } from './formato';
+import { tr, traducido, trc, trp } from './idioma';
 
 /** Las claves de región del backend (rosa/mapa_enfermedad.py REGIONES), en el
  *  mismo orden. Un test las coteja con el fichero de Python: si allí cambia
@@ -190,7 +191,7 @@ const ORDEN_CERTEZA = ['muy_baja', 'baja', 'moderada', 'alta'];
 /** Qué es cada región, dicho en llano para quien la ve por primera vez. El
  *  backend hoy solo trae definiciones de estadio y de nivel; si algún día trae
  *  las de región (mapaEnfermedad.definiciones.region), mandan sobre estas. */
-export const DEFINICIONES_REGION: Record<string, string> = {
+export const DEFINICIONES_REGION: Record<string, string> = traducido({
   hipocampo: 'Estructura del lóbulo temporal medial, esencial para formar recuerdos nuevos. Es de las primeras regiones que se atrofian en el Alzheimer.',
   corteza_entorrinal: 'Puerta de entrada de la información hacia el hipocampo. Es donde empiezan los ovillos de tau (estadios I y II de Braak), antes de cualquier síntoma.',
   corteza_prefrontal: 'Parte delantera del cerebro: planificar, decidir y controlar la conducta. Se afecta más tarde que las regiones de la memoria.',
@@ -211,10 +212,10 @@ export const DEFINICIONES_REGION: Record<string, string> = {
   lcr: 'Líquido que baña el cerebro y la médula; se obtiene por punción lumbar. Refleja de forma directa la bioquímica del cerebro (amiloide beta 42, tau total, p-tau181).',
   neocorteza: 'La capa externa del cerebro en general, cuando la fuente no dice qué región concreta. No es un lugar: es una localización fallida, y por eso va en la bandeja de no localizados.',
   cerebro_sin_region: 'El cerebro en su conjunto, o sin región concreta en la fuente (una imagen global, un tejido sin especificar). No es un lugar: es una localización fallida, y por eso va en la bandeja de no localizados.',
-};
+});
 
 /** Qué es cada tipo de célula, en llano. Mismo criterio que las regiones. */
-export const DEFINICIONES_CELULA: Record<string, string> = {
+export const DEFINICIONES_CELULA: Record<string, string> = traducido({
   astrocito: 'Célula de sostén con forma de estrella: alimenta a las neuronas, regula el medio y forma parte de la barrera hematoencefálica. Cuando se activa libera GFAP.',
   microglia: 'La célula inmune propia del cerebro: limpia restos y placas y, activada de forma crónica, mantiene la inflamación.',
   neurona: 'La célula que transmite señales eléctricas. La pérdida de neuronas y de sus sinapsis es lo que produce los síntomas.',
@@ -223,7 +224,7 @@ export const DEFINICIONES_CELULA: Record<string, string> = {
   endotelio: 'Capa de células que recubre el interior de los vasos y forma la barrera hematoencefálica.',
   pericito: 'Célula que envuelve los capilares: regula el flujo y la permeabilidad de la barrera. Su pérdida la debilita.',
   inmune_periferico: 'Células inmunes de la sangre (linfocitos, monocitos, macrófagos) que pueden entrar al cerebro o influir desde fuera.',
-};
+});
 
 /** Qué se sabe de una región sin registros: si alguien la buscó o no. */
 export type CoberturaRegion = 'con_evidencia' | 'buscada_sin_hallazgo' | 'no_buscada';
@@ -818,10 +819,14 @@ export function construirAtlas(estado: EstadoRosa, inv: Investigacion, filtros: 
       .join(', ');
   let resumen: string;
   if (resumenHechos.size === 0 && resumenHipotesis.size === 0) {
-    resumen = 'Ningún hecho ni hipótesis situados con estos filtros.';
+    resumen = tr('Ningún hecho ni hipótesis situados con estos filtros.');
   } else {
-    resumen = `${plural(resumenHechos.size, 'hecho')} y ${plural(resumenHipotesis.size, 'hipótesis', 'hipótesis')} situados en ${plural(celdasConAlgo, 'celda')} (estadio, región y tipo celular).`;
-    for (const [nombre, mapaEje, eje] of [['Estadios', resumenEstadio, 'estadio'], ['Regiones', resumenRegion, 'region'], ['Tipos celulares', resumenCelula, 'tipoCelular']] as const) {
+    resumen = trp('{hechos} y {hipotesis} situados en {celdas} (estadio, región y tipo celular).', {
+      hechos: plural(resumenHechos.size, tr('hecho')),
+      hipotesis: plural(resumenHipotesis.size, tr('hipótesis'), trc('plural', 'hipótesis')),
+      celdas: plural(celdasConAlgo, tr('celda')),
+    });
+    for (const [nombre, mapaEje, eje] of [[tr('Estadios'), resumenEstadio, 'estadio'], [tr('Regiones'), resumenRegion, 'region'], [tr('Tipos celulares'), resumenCelula, 'tipoCelular']] as const) {
       const lista4 = cuatroMayores(mapaEje, eje);
       if (lista4) resumen += ` ${nombre}: ${lista4}.`;
     }
@@ -850,7 +855,7 @@ export function construirAtlas(estado: EstadoRosa, inv: Investigacion, filtros: 
       const motivo = texto(h.motivo);
       if (motivo) return motivo;
       const partes = [claveDe(h.estadio) && etiqueta('estadio', h.estadio!), claveDe(h.region) && etiqueta('region', h.region!), claveDe(h.tipoCelular) && etiqueta('tipoCelular', h.tipoCelular!)].filter((p): p is string => typeof p === 'string' && p !== '');
-      return `${partes.join(' · ') || 'Sin ejes'}: la misión lo nombra y ningún hecho ni hipótesis lo cubre por su propio contenido.`;
+      return trp('{ejes}: la misión lo nombra y ningún hecho ni hipótesis lo cubre por su propio contenido.', { ejes: partes.join(' · ') || tr('Sin ejes') });
     });
 
   const fecha = typeof mapa.fecha === 'number' && Number.isFinite(mapa.fecha) ? mapa.fecha : null;

@@ -42,6 +42,7 @@ import { Cargando, Esqueleto, EsqueletoTexto } from './Esqueleto';
 type SinRespuestaServidor = 'sin_respuesta';
 import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
 import { tr } from '../lib/idioma';
+import { coma } from '../lib/formato';
 
 /* ---------------------------------------------------------------------
    Mision
@@ -3069,7 +3070,7 @@ export function CostesPorDecision({ investigacionId }: { investigacionId: string
       vivo = false;
     };
   }, [investigacionId, intento]);
-  const usd = (v: number | null | undefined) => (v === null || v === undefined ? 'n/a' : `${v.toFixed(2).replace('.', ',')} $`);
+  const usd = (v: number | null | undefined) => (v === null || v === undefined ? 'n/a' : `${coma(v.toFixed(2))} $`);
   return (
     <Seccion detalle titulo="Coste por decisión" nota="Lo que decide presupuestos no es el coste de una llamada sino cuánto cuesta una hipótesis que llega al dossier, una candidata al laboratorio o una decisión que tomó una persona. El tiempo de revisión humana entra en el coste a la tarifa declarada en políticas: sin eso la comparación con investigar sin ROSA2018 no es honesta. Las cifras de modelo son estimaciones por tokens; lo facturado por el gateway, cuando el servidor lo guardó, va al lado.">
       {factura && (
@@ -3088,7 +3089,7 @@ export function CostesPorDecision({ investigacionId }: { investigacionId: string
           <div className="metricas">
             <div className="gasto-item">
               <strong>{usd(c.usdTotal)}</strong>
-              <span>total (estimado): {usd(c.usdModelo)} {tr("de modelo por tokens")}{(c.usdExa ?? 0) > 0 ? ` + ${usd(c.usdExa ?? 0)} en Exa` : ''} + {c.horasRevision.toFixed(2).replace('.', ',')} {tr("h de revisión a")} {c.tarifaHoraRevisionUsd} $/h</span>
+              <span>total (estimado): {usd(c.usdModelo)} {tr("de modelo por tokens")}{(c.usdExa ?? 0) > 0 ? ` + ${usd(c.usdExa ?? 0)} en Exa` : ''} + {coma(c.horasRevision.toFixed(2))} {tr("h de revisión a")} {c.tarifaHoraRevisionUsd} $/h</span>
             </div>
             <div className="gasto-item">
               <strong>{usd(c.usdPorDossier)}</strong>

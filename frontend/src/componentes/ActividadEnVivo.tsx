@@ -16,7 +16,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Corrida, Iteracion, PasoPlan } from '../datos/tipos';
 import { useMovimientoReducido } from '../lib/movimiento';
-import { formatearDuracion, formatearEntero } from '../lib/formato';
+import { coma, formatearDuracion, formatearEntero } from '../lib/formato';
 import { tr } from '../lib/idioma';
 
 // Los resortes de SwiftUI, convertidos a los parámetros de `motion` con las
@@ -99,7 +99,7 @@ function Cifra({ valor, decimales = 0, sufijo }: { valor: number; decimales?: nu
     id = requestAnimationFrame(paso);
     return () => cancelAnimationFrame(id);
   }, [valor, reducido]);
-  const texto = decimales > 0 ? mostrado.toFixed(decimales).replace('.', ',') : formatearEntero(Math.round(mostrado));
+  const texto = decimales > 0 ? coma(mostrado.toFixed(decimales)) : formatearEntero(Math.round(mostrado));
   return (
     <>
       {texto}
