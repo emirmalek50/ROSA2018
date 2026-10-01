@@ -1008,51 +1008,73 @@ def _terminos(d: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def _mejor_para_raton(diana: dict[str, Any], elegido: dict[str, Any]) -> dict[str, Any] | None:
-    """El mejor candidato de los que sirven en ratón tal cual, si no es ya el
-    elegido.
+def _mejor_para_animales(diana: dict[str, Any], elegido: dict[str, Any]) -> dict[str, Any] | None:
+    """El mejor candidato de los que se pueden probar en animales, si no es ya
+    el elegido.
 
-    Primero se prueba en el ratón. Un oligo que no encaja en el ARN del ratón
-    no puede ir a ningún experimento con animales tal cual: hay que diseñar un
-    sustituto contra la secuencia del ratón, probar ese, y aceptar que lo que
-    se mide no es exactamente la molécula que iría a la persona. Medido el 1
-    de octubre de 2026: de los 823 candidatos solo el 10 % servían, y el que
-    ROSA2018 mandaba no estaba entre ellos."""
+    Lo que piden los reguladores no son tres especies, son DOS: un roedor y un
+    no roedor (ICH M3(R2), borrador de la FDA de 2024). Ratón y rata son los
+    dos roedores, así que hace falta UNO; el macaco es el no roedor y además
+    el único donde la vía es la de la clínica. Se prefiere el que cubre las
+    dos casillas, y si no hay, el que cubra alguna.
+
+    Medido el 1 de octubre de 2026 sobre 823 candidatos: en macaco sirven 411,
+    en ratón 85 y en rata 81, y solo 80 cubren el paquete entero. Los roedores
+    son el cuello de botella, no el mono."""
     cands = (diana.get("aso") or {}).get("candidatos") or []
-    sirven = [c for c in cands if (c.get("raton") or {}).get("sirve") and (c.get("criba") or {}).get("veredicto") != "descartado"]
-    cuantos = len(sirven)
     if not cands:
         return None
-    if not sirven:
+    vivos = [c for c in cands if (c.get("criba") or {}).get("veredicto") != "descartado"]
+
+    def grado(c: dict[str, Any]) -> int:
+        e = c.get("especies") or {}
+        if e.get("tieneRoedor") and e.get("tieneNoRoedor"):
+            return 0
+        if e.get("tieneRoedor") or e.get("tieneNoRoedor"):
+            return 1
+        return 2
+
+    completos = [c for c in vivos if grado(c) == 0]
+    parciales = [c for c in vivos if grado(c) == 1]
+    mejor = (completos or parciales or [None])[0]
+    if mejor is None:
         return {
             "hay": False,
-            "cuantos": 0,
+            "completos": 0,
+            "parciales": 0,
             "deCuantos": len(cands),
             "porQue": (
-                f"Ninguno de los {len(cands)} candidatos de {diana['simbolo']} encaja en el ARN del ratón, así que "
-                "con ninguno se puede empezar por un experimento con animales tal cual: habría que diseñar un "
-                "oligo sustituto contra la secuencia del ratón."
+                f"Ninguno de los {len(cands)} candidatos de {diana['simbolo']} se puede probar tal cual en ninguna "
+                "de las especies donde hay que hacerlo. No cierra el camino (la FDA acepta oligos sustitutos "
+                "específicos de especie), pero es diseñar y caracterizar moléculas aparte para la toxicología."
             ),
         }
-    mejor = sirven[0]
+    e = mejor.get("especies") or {}
     ya_es = mejor["secuencia"] == elegido.get("secuencia")
     return {
         "hay": True,
-        "cuantos": cuantos,
+        "completo": grado(mejor) == 0,
+        "completos": len(completos),
+        "parciales": len(parciales),
         "deCuantos": len(cands),
         "esElMismo": ya_es,
         "candidato": mejor,
+        "sirveEn": e.get("sirvenEn") or [],
         "porQue": (
             (
-                f"El que ROSA2018 mandaría sirve además en ratón, que es la situación cómoda: la misma molécula "
-                "vale para el experimento con animales y para la persona."
+                "El que ROSA2018 mandaría cubre además la toxicología entera con la misma molécula: sirve en un "
+                "roedor y en el macaco. Es la situación cómoda y no la normal."
+            )
+            if ya_es and grado(mejor) == 0
+            else (
+                "El que ROSA2018 mandaría ya se puede probar en animales, aunque no cubra las dos casillas."
             )
             if ya_es
             else (
-                f"El que ROSA2018 mandaría NO encaja en el ARN del ratón, así que con él no se puede empezar por un "
-                f"experimento con animales. De los {len(cands)} candidatos, {cuantos} sí sirven, y este es el mejor "
-                "de ellos. Son dos decisiones distintas y las dos se enseñan: cuál tiene más detrás, y con cuál se "
-                "puede empezar mañana."
+                f"El que ROSA2018 mandaría no se puede probar en animales tal cual. De los {len(cands)} candidatos, "
+                f"{len(completos)} cubren el paquete entero (un roedor y el no roedor) y {len(parciales)} cubren "
+                "una sola casilla. Este es el mejor. Son dos decisiones distintas y las dos se enseñan: cuál tiene "
+                "más evidencia detrás, y con cuál se puede empezar mañana."
             )
         ),
     }
@@ -1145,9 +1167,9 @@ def oligo_que_mandaria(dianas: list[dict[str, Any]]) -> dict[str, Any] | None:
         # El estado del cribado del candidato elegido, arriba del todo: es lo
         # que decide si esto se puede pedir hoy o no.
         "criba": dict(candidato.get("criba") or {}),
-        "raton": dict(candidato.get("raton") or {}),
+        "especies": dict(candidato.get("especies") or {}),
         # Y la SEGUNDA respuesta: el mejor de los que se pueden probar en
-        # ratón tal cual.
+        # animales.
         #
         # Va aparte y no metido en la puntuación a propósito. Poder probar en
         # un animal no es una propiedad del oligo como la accesibilidad o los
@@ -1155,5 +1177,5 @@ def oligo_que_mandaria(dianas: list[dict[str, Any]]) -> dict[str, Any] | None:
         # cuenta con un peso que me inventaría yo haría la cuenta más opaca,
         # no mejor. Se dan las dos respuestas y la persona elige, que es la
         # regla de la casa.
-        "paraRaton": _mejor_para_raton(elegida, candidato),
+        "paraAnimales": _mejor_para_animales(elegida, candidato),
     }

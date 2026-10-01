@@ -73,7 +73,9 @@ Golpe = tuple[str, str, str, tuple[str, int, int, str]]
 # pantalla decía «comparado contra 0 transcritos», que es peor que callarlo.
 # 4: cada candidato lleva además si sirve en RATÓN, que es donde se prueba
 # primero (rosa/especie.py). Subir esto rehace el cribado entero.
-VERSION = 4
+# 5: cada candidato lleva en qué ESPECIES se puede probar (ratón, rata y
+# macaco), no solo el ratón. Subir esto rehace el cribado entero.
+VERSION = 5
 
 # Los dos ficheros de Ensembl. El de cDNA trae lo codificante, los pseudogenes
 # y los intrones retenidos; el de ncRNA trae los 195.143 lncRNA, que en cerebro
@@ -443,10 +445,10 @@ def pegar(e: dict[str, Any], diseño: dict[str, Any] | None) -> dict[str, Any] |
             nuevo["criba"]["porQue"] = str(c["motivo"])
         nuevo["cribado"] = bool(nuevo["criba"].get("cribado"))
         nuevo["avisoCribado"] = str(nuevo["criba"].get("porQue") or "")
-        # Lo del RATÓN sube al candidato, no se queda dentro del cribado: es
-        # otra pregunta (¿se puede probar en un animal?) y la pantalla y la
-        # decisión la leen aparte.
-        nuevo["raton"] = nuevo["criba"].pop("raton", None)
+        # Lo de las ESPECIES sube al candidato, no se queda dentro del
+        # cribado: es otra pregunta (¿dónde se puede probar esto?) y la
+        # pantalla y la decisión la leen aparte.
+        nuevo["especies"] = nuevo["criba"].pop("especies", None)
         cands.append(nuevo)
     # Estable: dentro de cada grado se respeta el orden por puntuación.
     grado = {"sin choque exacto": 0, "sin cribar": 1, "revisar": 2, "descartado": 3}
@@ -455,7 +457,7 @@ def pegar(e: dict[str, Any], diseño: dict[str, Any] | None) -> dict[str, Any] |
     fuera["cribados"] = sum(1 for x in cands if x["cribado"])
     fuera["descartadosPorCriba"] = sum(1 for x in cands if x["criba"].get("veredicto") == "descartado")
     fuera["limpios"] = sum(1 for x in cands if x["criba"].get("veredicto") == "sin choque exacto")
-    fuera["sirvenEnRaton"] = sum(1 for x in cands if (x.get("raton") or {}).get("sirve"))
+    fuera["conPaqueteCompleto"] = sum(1 for x in cands if (x.get("especies") or {}).get("veredicto") == "paquete completo")
     fuera["criba"] = {
         "hecho": bool(c.get("porSecuencia")),
         "fecha": c.get("fecha"),

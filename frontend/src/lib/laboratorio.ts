@@ -220,17 +220,20 @@ export interface OligoQueMandaria {
   frenteA: { simbolo: string; uniprot: string; puntos: number; porQueNo: string }[];
   fueraDeConcurso: Record<string, string[]>;
   queLaCambiaria: string;
-  /** Si el elegido sirve en ratón. */
-  raton?: EnRaton | null;
-  /** La SEGUNDA respuesta: el mejor de los que se pueden probar en ratón tal
-   *  cual. Va aparte y no metido en la puntuación a propósito: poder probar
-   *  en un animal es una restricción práctica, no una propiedad del oligo. */
-  paraRaton?: {
+  /** En qué especies se puede probar el elegido. */
+  especies?: EnLasEspecies | null;
+  /** La SEGUNDA respuesta: el mejor de los que se pueden probar en animales.
+   *  Va aparte y no metido en la puntuación a propósito: poder probar en un
+   *  animal es una restricción práctica, no una propiedad del oligo. */
+  paraAnimales?: {
     hay: boolean;
-    cuantos: number;
+    completo?: boolean;
+    completos: number;
+    parciales: number;
     deCuantos: number;
     esElMismo?: boolean;
     candidato?: CandidatoAso;
+    sirveEn?: string[];
     porQue: string;
   } | null;
   /** El cribado del candidato elegido, arriba del todo: es lo que decide si
@@ -289,27 +292,51 @@ export interface FalloDeFiltro {
  *  humanos de Ensembl (rosa/criba.py). Es coincidencia EXACTA y sobre ARN
  *  maduro: «sin choque exacto» quiere decir que no hay otro ARN con este tramo
  *  idéntico, que es bastante menos que «es seguro». */
-/** Si el mismo oligo sirve en el ratón, que es donde se prueba primero
- *  (rosa/especie.py). Un oligo que no encaja en el ARN del ratón no puede ir
- *  a ningún experimento con animales tal cual: hay que diseñar un sustituto
- *  contra la secuencia del ratón y aceptar que lo que se mide no es
- *  exactamente la molécula que iría a la persona. */
-export interface EnRaton {
+/** Si el mismo oligo sirve en una especie donde hay que probarlo
+ *  (rosa/especie.py). */
+export interface EnUnaEspecie {
   comprobado: boolean;
   version: number;
+  clave: "raton" | "rata" | "macaco";
+  nombre: string;
+  latin: string;
+  /** Lo que piden los reguladores es UN roedor y UN no roedor, no tres
+   *  especies: el papel importa tanto como la especie. */
+  papel: "roedor" | "no roedor";
+  /** Cómo se administra ahí, que para un oligo del sistema nervioso central
+   *  no es un detalle: solo en el macaco la vía es la de la clínica. */
+  via: string;
   simboloHumano: string;
-  /** El gen equivalente en ratón. Se busca POR EL NOMBRE, que es heurístico. */
+  /** El gen equivalente. Se busca POR EL NOMBRE, que es heurístico. */
   ortologo: string;
-  veredicto: "sirve tal cual" | "probablemente sirve, con menos fuerza" | "no sirve en ratón" | "no pude comprobar";
+  veredicto: "sirve tal cual" | "probablemente sirve, con menos fuerza" | "no sirve" | "no pude comprobar";
   /** `null` cuando no se pudo comprobar: no es lo mismo que «no sirve». */
   sirve: boolean | null;
   porQue: string;
   fallos?: number | null;
   dondeFallan?: number[];
   falloEnElHueco?: boolean;
-  transcritoDeRaton?: string;
+  transcrito?: string;
   transcritosQueEncajan?: number;
+}
+
+/** El veredicto de conjunto sobre dónde se puede probar el oligo.
+ *
+ *  No es «sirve en las tres»: lo que piden ICH M3(R2) y el borrador de la FDA
+ *  de 2024 es toxicología en DOS especies, un roedor y un no roedor. Ratón y
+ *  rata son los dos roedores, así que hace falta uno de los dos. */
+export interface EnLasEspecies {
+  veredicto: "paquete completo" | "falta el no roedor" | "falta el roedor" | "hacen falta sustitutos";
+  porQue: string;
+  sirvenEn: string[];
+  noSirvenEn: string[];
+  tieneRoedor: boolean;
+  tieneNoRoedor: boolean;
+  cuantas: number;
+  deCuantas: number;
+  marco: { queSePide: string; elNoRoedor: string; yEnElCerebro: string; siNoSirve: string };
   avisos: { que: string; porQue: string }[];
+  porEspecie: Record<string, EnUnaEspecie>;
 }
 
 /** De qué se puede uno fiar en todo esto, por niveles (rosa/fiabilidad.py).
@@ -460,8 +487,8 @@ export interface CandidatoAso {
   /** Solo llega al pedir el panel completo (`oligosDe`), no en el muro: son
    *  unos seiscientos bytes por candidato y el muro sirve diecisiete dianas. */
   duplex?: Duplex;
-  /** Si el mismo oligo sirve en el ratón. */
-  raton?: EnRaton | null;
+  /** En qué especies se puede probar el mismo oligo. */
+  especies?: EnLasEspecies | null;
 }
 
 export interface DisenoAso {
@@ -547,6 +574,8 @@ export interface DisenoAso {
   };
   /** Cuántos quedaron fuera por encajar idéntico en otro gen. */
   descartadosPorCriba?: number;
+  /** Cuántos cubren el paquete regulatorio entero (un roedor y el no roedor). */
+  conPaqueteCompleto?: number;
   limpios?: number;
   criba?: {
     hecho: boolean;

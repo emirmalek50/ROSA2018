@@ -1328,3 +1328,86 @@ Más «lo que no se ha comprobado» (pre-ARN con intrones, variantes de cada
 persona, que el orden sea el bueno, los efectos adversos de la química) y
 «qué es esto»: la entrada de un cribado primario, no un fármaco, y el número
 uno no es «el bueno».
+
+
+## Las especies: lo que de verdad se pide no son tres (1 oct 2026)
+
+El compañero de Emir: «para que un ASO sea bueno, debe servir en las tres
+especies, humanos, ratones y ratas». La idea es correcta (la cobertura de
+especies importa, y mucho) pero el marco real es otro y la pantalla dice el de
+verdad:
+
+- Lo que piden ICH M3(R2) y el borrador de la FDA de 2024 sobre seguridad no
+  clínica de oligonucleótidos es toxicología en **DOS** especies: un roedor y
+  un **NO roedor**. Ratón y rata son los dos roedores, así que hace falta UNO
+  de los dos, no los dos.
+- El no roedor es casi siempre el **macaco cangrejero** (*Macaca
+  fascicularis*, el «cynomolgus» de los informes), por su homología con la
+  persona y porque se considera predictivo de la toxicidad humana. El minipig
+  está validado como alternativa.
+- Y para un oligo del sistema nervioso central, que es nuestro caso, el macaco
+  importa el doble: es el **único de los tres donde la vía es la misma que en
+  la clínica** (punción lumbar intratecal). En el ratón se inyecta en el
+  ventrículo y en la rata por catéter. Es la vía del nusinersén y la del
+  tofersén, y las dos pasaron por roedor más macaco.
+- Que el oligo humano no funcione en roedores es **lo normal y está
+  previsto**: la FDA acepta explícitamente un «oligo sustituto» específico de
+  especie, de la misma química. Es trabajo y dinero de más, no un muro.
+
+Por eso el veredicto no es «sirve en las tres» sino «paquete completo / falta
+el no roedor / falta el roedor / hacen falta sustitutos».
+
+### Medido sobre los 823 candidatos (157 s contra las tres)
+
+| especie | papel | sirven |
+|---|---|---|
+| macaco cangrejero | no roedor | **411** (50 %) |
+| ratón | roedor | 85 (10 %) |
+| rata | roedor | 81 (10 %) |
+
+En las tres a la vez: 47. Con el **paquete regulatorio completo** (un roedor y
+el no roedor): **80** (9,7 %).
+
+El macaco es el fácil, como era de esperar por cercanía evolutiva; **los
+roedores son el cuello de botella**. Eso cambia el consejo práctico: si un
+candidato sirve en un roedor, vale mucho más de lo que su puntuación dice.
+
+### Lo que sigue pendiente aquí
+
+El gen equivalente se busca por el NOMBRE, y falla en CA2 (en ratón *Car2*).
+Lo correcto es la homología de Ensembl
+(`/homology/symbol/human/{gen}?target_species={especie}`), una llamada por
+diana y especie, cacheada. Con tres especies el fallo se multiplica por tres,
+así que ahora pesa más que ayer.
+
+## Por qué sigue habiendo investigación sobre ASO si las secuencias son públicas
+
+Emir lo preguntó y la respuesta encuadra todo lo que ROSA2018 puede y no puede
+hacer: la secuencia dice DÓNDE se pega el oligo, y todo lo difícil pasa
+después. Los tres problemas abiertos del campo en 2026 son:
+
+1. **La entrega.** Un ASO es grande y muy cargado, no cruza membranas solo y
+   el riñón lo elimina. Para el hígado se resolvió con GalNAc; para cerebro,
+   corazón y músculo no. De todos los ASO aprobados, todos menos uno van sin
+   vehículo de entrega.
+2. **El escape del endosoma.** Aunque entre en la célula, buena parte se queda
+   atrapada en vesículas y es farmacológicamente inerte. Ionis lo señala como
+   el paso que limita la potencia, y es la razón de que la cantidad de oligo
+   en un tejido prediga mal el efecto.
+3. **La ausencia de modelos predictivos validados.** Que es exactamente el
+   eslabón que `rosa/fiabilidad.py` marca en rojo. No es que ROSA2018 sea
+   floja ahí: es que nadie lo tiene resuelto, y por eso Ionis sintetiza
+   ochenta y prueba en células.
+
+De regalo, un dato que explica por qué «el oligo» no es una molécula: cada
+enlace fosforotioato es un centro quiral, así que un 20-mero con los 19
+enlaces modificados son 2^19 (unas 524.000) moléculas distintas mezcladas. Si
+conviene controlar eso o no lleva veinte años discutiéndose: Wave dice que sí
+(hasta 10 veces más potencia con ciertas configuraciones), los datos de Ionis
+dicen que de 1.024 isómeros solo 1 era claramente peor y ninguno mejor que la
+mezcla.
+
+Lo que las secuencias públicas hicieron fue MOVER el cuello de botella, no
+quitarlo. Encontrar el tramo de ARN era trabajo hace veinte años; hoy son diez
+segundos en un portátil. Lo que ROSA2018 hace es justo la parte que se volvió
+barata, y eso hay que decirlo en vez de dejar que parezca otra cosa.

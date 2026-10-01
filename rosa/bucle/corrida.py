@@ -1075,18 +1075,18 @@ class Supervisor:
             # pedir. Y tarda 145 s donde el barrido tarda 408. El barrido se
             # queda de respaldo para una máquina sin BLAST instalado.
             r = await (CRIBA.cribar_con_desajustes(faltan) if conblast["hay"] else CRIBA.cribar_aparte(faltan))
-            # Y si sirve en RATÓN, que es donde se prueba primero. Un oligo
-            # que no encaja en el ARN del ratón no puede ir a ningún
-            # experimento con animales tal cual: hay que diseñar un sustituto
-            # y aceptar que lo que se mide no es la molécula que iría a la
-            # persona. Medido el 1 de octubre de 2026: solo el 10 % de los 823
-            # candidatos sirven, y el que ROSA2018 mandaba NO estaba entre
-            # ellos.
-            rat = await ESPECIE.cribar_raton(faltan)
-            for sec, v in rat.get("porSecuencia", {}).items():
+            # Y en qué ESPECIES se puede probar. Lo que piden los reguladores
+            # es un roedor y un no roedor, no las tres: ratón y rata son los
+            # dos roedores y hace falta uno, y el macaco es el no roedor y
+            # además el único donde la vía es la de la clínica. Medido el 1 de
+            # octubre de 2026 sobre 823 candidatos: en macaco sirven 411, en
+            # ratón 85 y en rata 81, y solo 80 cubren el paquete entero. Los
+            # roedores son el cuello de botella, no el mono.
+            esp = await ESPECIE.cribar(faltan)
+            for sec, v in esp.get("porSecuencia", {}).items():
                 if sec in r["porSecuencia"]:
-                    r["porSecuencia"][sec]["raton"] = v
-            r["raton"] = {k: v for k, v in rat.items() if k != "porSecuencia"}
+                    r["porSecuencia"][sec]["especies"] = v
+            r["especies"] = {k: v for k, v in esp.items() if k != "porSecuencia"}
             vivas = {x["secuencia"] for x in pet}
             # Lo de antes que sigue en pie, más lo nuevo. Lo que ya no se
             # diseña se cae: si vuelve, se vuelve a cribar.

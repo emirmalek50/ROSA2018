@@ -857,8 +857,12 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
     // reciba tiene que saber que «sin choque exacto» no es «seguro».
     ...(d.criba?.hecho ? ['  lo que este cribado NO cubre:', ...d.criba.limites.map((l) => `    - ${l.que}: ${l.porQue}`)] : []),
     '',
-    c.raton ? `SE PUEDE PROBAR EN RATÓN: ${c.raton.veredicto.toUpperCase()}` : '',
-    c.raton ? `  ${c.raton.porQue}` : '',
+    c.especies ? `DÓNDE SE PUEDE PROBAR: ${c.especies.veredicto.toUpperCase()}` : '',
+    c.especies ? `  ${c.especies.porQue}` : '',
+    ...(c.especies
+      ? Object.values(c.especies.porEspecie).map((x) => `  ${x.nombre} (${x.papel}): ${x.veredicto}${x.ortologo ? ` · gen ${x.ortologo}` : ''}`)
+      : []),
+    c.especies ? `  Lo que se pide: ${c.especies.marco.queSePide}` : '',
     '',
     `El gen tiene ${d.transcritosDelGen} transcritos; este diseño va sobre el canónico. Cuál se baja no es lo mismo que cuánta se baja, y esa decisión es de quien dirige el experimento.`,
     '',
@@ -1251,63 +1255,99 @@ function FichaDuplex({ c }: { c: CandidatoAso }) {
 
 
 /* --------------------------------------------------------------------------
-   ¿Sirve en ratón?
+   ¿Dónde se puede probar esto?
    --------------------------------------------------------------------------
-   Primero se prueba ahí. Un oligo que no encaja en el ARN del ratón no puede
-   ir a ningún experimento con animales tal cual: hay que diseñar un sustituto
-   contra la secuencia del ratón, probar ese, y aceptar que lo que se mide no
-   es exactamente la molécula que iría a la persona.
+   El compañero de Emir dijo que un ASO bueno debe servir en humano, ratón y
+   rata. La idea es correcta pero el marco real es otro, y la pantalla dice el
+   de verdad: lo que piden ICH M3(R2) y el borrador de la FDA de 2024 es
+   toxicología en DOS especies, un roedor y un no roedor. Ratón y rata son los
+   dos roedores, así que hace falta uno de los dos, no los dos.
 
-   La regla es la misma que la del cribado de fuera de diana, usada al revés:
-   allí se pregunta dónde NO queremos que corte, aquí si cortará donde sí
-   queremos. Y la decide lo mismo, que el hueco de ADN encaje. */
-function FichaRaton({ c }: { c: CandidatoAso }) {
-  const r = c.raton;
-  if (!r) return null;
-  const clase = r.sirve === true ? 'aso-criba-bien' : r.sirve === false ? 'aso-criba-mal' : 'aso-criba-duda';
+   El no roedor es el macaco cangrejero (cynomolgus), y para un oligo del
+   sistema nervioso central importa el doble: es el único de los tres donde la
+   vía es la misma que en la clínica, la punción lumbar intratecal. En el
+   ratón se inyecta en el ventrículo y en la rata por catéter.
+
+   Y no servir en una especie NO es un muro: es lo normal, y se resuelve con
+   un oligo sustituto de la misma química que la FDA acepta. */
+const CLASE_ESPECIE: Record<string, string> = {
+  'paquete completo': 'aso-criba-bien',
+  'falta el no roedor': 'aso-criba-duda',
+  'falta el roedor': 'aso-criba-duda',
+  'hacen falta sustitutos': 'aso-criba-mal',
+};
+
+function FichaEspecies({ c }: { c: CandidatoAso }) {
+  const e = c.especies;
+  if (!e) return null;
+  const porEspecie = Object.values(e.porEspecie ?? {});
   return (
-    <section className={`aso-criba ${clase}`}>
-      <h3>¿SE PUEDE PROBAR EN RATÓN?</h3>
+    <section className={`aso-criba ${CLASE_ESPECIE[e.veredicto] ?? 'aso-criba-duda'}`}>
+      <h3>¿DÓNDE SE PUEDE PROBAR ESTE OLIGO?</h3>
       <p className="aso-criba-titulo">
-        {r.veredicto === 'sirve tal cual'
-          ? 'Sí: la misma molécula sirve en ratón'
-          : r.veredicto === 'probablemente sirve, con menos fuerza'
-            ? 'Probablemente sí, con menos fuerza'
-            : r.veredicto === 'no sirve en ratón'
-              ? 'No: haría falta un oligo sustituto para el ratón'
-              : 'No se pudo comprobar'}
+        {e.veredicto === 'paquete completo'
+          ? 'En todo lo que hace falta: un roedor y el no roedor'
+          : e.veredicto === 'falta el no roedor'
+            ? 'En un roedor sí, en el macaco no'
+            : e.veredicto === 'falta el roedor'
+              ? 'En el macaco sí, en ningún roedor'
+              : 'En ninguna: harían falta oligos sustitutos'}
       </p>
-      <p className="aso-criba-porque">{r.porQue}</p>
-      {r.ortologo ? (
-        <dl className="aso-criba-cuentas">
-          <div>
-            <dt>gen en ratón</dt>
-            <dd className="lab-mono">{r.ortologo}</dd>
-          </div>
-          {r.fallos !== null && r.fallos !== undefined ? (
-            <div>
-              <dt>letras que fallan</dt>
-              <dd className={r.fallos ? 'mal' : ''}>{r.fallos === 0 ? 'ninguna' : n(r.fallos)}</dd>
-            </div>
-          ) : null}
-          {r.falloEnElHueco !== undefined ? (
-            <div>
-              <dt>¿falla en el hueco?</dt>
-              <dd className={r.falloEnElHueco ? 'mal' : ''}>{r.falloEnElHueco ? 'sí, ahí no corta' : 'no'}</dd>
-            </div>
-          ) : null}
-          {r.transcritosQueEncajan ? (
-            <div>
-              <dt>transcritos del ratón</dt>
-              <dd>{n(r.transcritosQueEncajan)}</dd>
-            </div>
-          ) : null}
-        </dl>
+      <p className="aso-criba-porque">{e.porQue}</p>
+      <table className="esp-tabla">
+        <thead>
+          <tr>
+            <th>especie</th>
+            <th>papel</th>
+            <th>gen</th>
+            <th>veredicto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {porEspecie.map((x) => (
+            <tr key={x.clave} className={x.sirve ? 'esp-si' : x.sirve === false ? 'esp-no' : 'esp-duda'}>
+              <th>
+                {x.nombre}
+                <i>{x.latin}</i>
+              </th>
+              <td>{x.papel}</td>
+              <td className="lab-mono">{x.ortologo || '—'}</td>
+              <td>
+                {x.veredicto}
+                {x.fallos ? ` (${n(x.fallos)} letra${x.fallos === 1 ? '' : 's'} de diferencia)` : ''}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {/* El porqué de cada especie que no es un «sí» limpio. Sin esto un «no
+          pude comprobar» se queda en dos palabras y parece un «no». */}
+      {porEspecie.some((x) => !x.sirve) ? (
+        <ul className="esp-porques">
+          {porEspecie
+            .filter((x) => !x.sirve)
+            .map((x) => (
+              <li key={x.clave} className={x.sirve === null ? 'esp-porque-duda' : ''}>
+                <b>{x.nombre}:</b> {x.porQue}
+              </li>
+            ))}
+        </ul>
       ) : null}
+      <ul className="esp-vias">
+        {porEspecie.map((x) => (
+          <li key={x.clave}>
+            <b>{x.nombre}:</b> {x.via}
+          </li>
+        ))}
+      </ul>
       <details className="aso-criba-limites">
-        <summary>Qué NO dice esto ({r.avisos.length})</summary>
+        <summary>Qué se pide de verdad, y qué NO dice esto ({e.avisos.length + 1})</summary>
         <ul>
-          {r.avisos.map((a) => (
+          <li>
+            <b>Lo que piden los reguladores.</b> {e.marco.queSePide} {e.marco.elNoRoedor} {e.marco.yEnElCerebro}{' '}
+            {e.marco.siNoSirve}
+          </li>
+          {e.avisos.map((a) => (
             <li key={a.que}>
               <b>{a.que}.</b> {a.porQue}
             </li>
@@ -1659,7 +1699,7 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
             </div>
 
             <FichaCriba c={c} d={d} />
-            <FichaRaton c={c} />
+            <FichaEspecies c={c} />
             <FichaSitio c={c} d={d} />
             <FichaDuplex c={c} />
 
@@ -1771,6 +1811,18 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
                         <Secuencia c={x} />
                         <span className="aso-fila-datos">
                           pos {n(x.posicion)} · GC {Math.round(x.gc * 100)} % · motivos +{x.motivosBuenos}
+                          {/* Que un candidato cubra el paquete regulatorio se ve
+                              AQUÍ, en la lista, y no solo en su ficha: es lo que
+                              deja comparar el compromiso de un vistazo (el que
+                              cubre las dos casillas puede tener peor
+                              accesibilidad que el que no, y hay que verlo). */}
+                          {x.especies?.veredicto === 'paquete completo' ? (
+                            <b className="aso-fila-sello bien">roedor + macaco</b>
+                          ) : x.especies?.tieneRoedor || x.especies?.tieneNoRoedor ? (
+                            <b className="aso-fila-sello suave">
+                              {x.especies.sirvenEn.length === 1 ? x.especies.sirvenEn[0] : 'una especie'}
+                            </b>
+                          ) : null}
                           {v === 'descartado' ? (
                             <b className="aso-fila-sello">
                               choca en {n(x.criba.genesFuera)} gen{x.criba.genesFuera === 1 ? '' : 'es'}
@@ -2555,6 +2607,10 @@ function Decision({
     mezclado: 'porque hay hipótesis que piden subirlas y otras bajarlas',
     ninguna: 'porque ninguna hipótesis propone intervenir: son biomarcadores, no dianas de tratamiento todavía',
   };
+  // Fuera del JSX: un className multilínea rompe la comprobación de que
+  // ninguna clase lleve caracteres fuera de ASCII, y además se lee peor.
+  const pa = o.paraAnimales;
+  const colorAnimales = pa?.hay && pa.esElMismo && pa.completo ? 'bien' : pa?.hay ? 'duda' : 'mal';
   return (
     <section className="lab-decision">
       <header>
@@ -2618,24 +2674,27 @@ function Decision({
         <p className={`lab-decision-criba lab-decision-criba-${tituloCriba(o.criba?.veredicto).clase}`}>
           <b>{tituloCriba(o.criba?.veredicto).titulo}.</b> {o.criba?.porQue ?? o.candidato.avisoCribado}
         </p>
-        {/* La SEGUNDA respuesta. Primero se prueba en ratón, y el que más
-            evidencia tiene puede no servir ahí: son dos decisiones distintas
-            y se enseñan las dos en vez de esconder una en un peso. */}
-        {o.paraRaton ? (
-          <p className={`lab-decision-criba lab-decision-criba-${o.paraRaton.hay && !o.paraRaton.esElMismo ? 'duda' : o.paraRaton.hay ? 'bien' : 'mal'}`}>
+        {/* La SEGUNDA respuesta. Lo que piden los reguladores es un roedor y
+            un no roedor, y el que más evidencia tiene puede no servir en
+            ninguno: son dos decisiones distintas y se enseñan las dos en vez
+            de esconder una en un peso. */}
+        {o.paraAnimales ? (
+          <p className={`lab-decision-criba lab-decision-criba-${colorAnimales}`}>
             <b>
-              {o.paraRaton.esElMismo
-                ? 'Y se puede probar en ratón tal cual.'
-                : o.paraRaton.hay
-                  ? `Para empezar por el ratón, el ${o.paraRaton.candidato?.secuencia ?? 'otro'}.`
-                  : 'Ninguno se puede probar en ratón tal cual.'}
+              {o.paraAnimales.esElMismo
+                ? o.paraAnimales.completo
+                  ? 'Y cubre la toxicología entera con la misma molécula.'
+                  : 'Y se puede probar en animales.'
+                : o.paraAnimales.hay
+                  ? `Para empezar por los animales, el ${o.paraAnimales.candidato?.secuencia ?? 'otro'}.`
+                  : 'Ninguno se puede probar en animales tal cual.'}
             </b>{' '}
-            {o.paraRaton.porQue}
-            {o.paraRaton.hay && !o.paraRaton.esElMismo ? (
+            {o.paraAnimales.porQue}
+            {o.paraAnimales.hay && !o.paraAnimales.esElMismo ? (
               <>
                 {' '}
-                <span className="lab-mono">{o.paraRaton.candidato?.secuencia}</span> ({n(o.paraRaton.cuantos)} de{' '}
-                {n(o.paraRaton.deCuantos)} sirven).
+                <span className="lab-mono">{o.paraAnimales.candidato?.secuencia}</span>
+                {o.paraAnimales.sirveEn?.length ? <> (sirve en {o.paraAnimales.sirveEn.join(' y ')}).</> : null}
               </>
             ) : null}
           </p>
