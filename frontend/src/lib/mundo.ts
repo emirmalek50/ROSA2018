@@ -7,7 +7,7 @@
 // Nació el 1 de octubre de 2026 con la pantalla nueva (conversar como en un
 // chat y los hechos ordenados por tema).
 
-import type { EntidadCanonica, HechoMundo, PreguntaABases } from '../datos/tipos';
+import type { EntidadCanonica, EstadoCobertura, HechoMundo, PreguntaABases } from '../datos/tipos';
 import { idiomaActual, tr, trp } from './idioma';
 
 /* ---------------------------------------------------------------------
@@ -298,6 +298,64 @@ export function rastro(q: Pick<PreguntaABases, 'herramientas' | 'consultas'>): s
     frases.push(trp(n === 1 ? '1 búsqueda en {fuente}' : '{n} búsquedas en {fuente}', { n, fuente }));
   }
   return frases;
+}
+
+/** La cabecera de una respuesta, como en un buscador con fuentes: cuántas
+ *  búsquedas hizo, cuántos documentos distintos le devolvieron, cuánto
+ *  tardó y de qué fuentes, en el orden en que las usó. */
+export type ResumenBusqueda = { busquedas: number; documentos: number; segundos: number | null; fuentes: string[] };
+
+export function resumenBusqueda(q: Pick<PreguntaABases, 'herramientas' | 'consultas' | 'duracionMs'>): ResumenBusqueda {
+  const consultas = (q.consultas ?? []).filter((c) => c && typeof c === 'object');
+  const usadas = (q.herramientas ?? []).filter((h): h is string => typeof h === 'string');
+  const mapa = fuentesDeConsultas(q);
+  const fuentes: string[] = [];
+  const anadir = (f: string | null | undefined) => {
+    if (f && !fuentes.includes(f)) fuentes.push(f);
+  };
+  for (const h of usadas) anadir(nombreHerramienta(h, mapa) ?? h.replace(/_/g, ' '));
+  for (const c of consultas) anadir(c.fuente || null);
+  const ids = new Set<string>();
+  for (const c of consultas) if (!c.error) for (const id of c.ids ?? []) ids.add(`${c.herramienta}:${id}`);
+  const ms = typeof q.duracionMs === 'number' && q.duracionMs > 0 ? q.duracionMs : null;
+  return { busquedas: Math.max(usadas.length, consultas.length), documentos: ids.size, segundos: ms === null ? null : Math.max(1, Math.round(ms / 1000)), fuentes };
+}
+
+/** La inicial de una fuente para su pastilla: «Europe PMC» da «E», «el
+ *  proyecto» da «P». */
+export function inicialFuente(fuente: string): string {
+  const palabras = fuente.split(/[\s_-]+/).filter((p) => p && !/^(el|la|los|las|the|de|of)$/i.test(p));
+  return (palabras[0] ?? fuente).charAt(0).toUpperCase() || '?';
+}
+
+export const ESTADO_COBERTURA: Record<EstadoCobertura, string> = {
+  respondido: 'Respondido con lo consultado',
+  en_parte: 'En parte',
+  no_esta: 'No está en lo consultado',
+  no_pude_comprobar: 'No pude comprobar',
+};
+
+/** El pie de la respuesta: si cada referencia que cita sale de lo que
+ *  devolvieron las búsquedas de esta pregunta. Una respuesta que no
+ *  encuentra nada y no cita está bien; una que afirma sin citar, no tanto. */
+export type Veredicto = { tono: 'bien' | 'aviso' | 'neutro'; texto: string; sinRespaldo: string[] };
+
+export function veredictoAtribucion(q: Pick<PreguntaABases, 'atribucion' | 'cobertura'>): Veredicto | null {
+  const a = q.atribucion;
+  if (!a || !Array.isArray(a.citadas)) return null;
+  const citadas = a.citadas.length;
+  const sin = (a.sinRespaldo ?? []).filter((r) => typeof r === 'string');
+  if (citadas === 0) {
+    const cob = q.cobertura ?? [];
+    const afirma = cob.some((p) => p.estado === 'respondido' || p.estado === 'en_parte');
+    if (cob.length > 0 && !afirma) return { tono: 'bien', texto: tr('La respuesta se abstiene y no cita: correcto, nada que atribuir.'), sinRespaldo: [] };
+    if (afirma) return { tono: 'aviso', texto: tr('Responde sin citar ninguna referencia comprobable: tómalo como orientación, no como dato.'), sinRespaldo: [] };
+    return { tono: 'neutro', texto: tr('No cita referencias comprobables.'), sinRespaldo: [] };
+  }
+  if (sin.length === 0)
+    return { tono: 'bien', texto: citadas === 1 ? tr('La referencia que cita sale de lo que devolvieron las búsquedas.') : trp('Las {n} referencias que cita salen de lo que devolvieron las búsquedas.', { n: citadas }), sinRespaldo: [] };
+  if (citadas === 1) return { tono: 'aviso', texto: tr('La referencia que cita no sale de ninguna búsqueda de esta pregunta: compruébala antes de usarla.'), sinRespaldo: sin };
+  return { tono: 'aviso', texto: trp(sin.length === 1 ? '{m} de {n} referencias no sale de ninguna búsqueda de esta pregunta: compruébala antes de usarla.' : '{m} de {n} referencias no salen de ninguna búsqueda de esta pregunta: compruébalas antes de usarlas.', { m: sin.length, n: citadas }), sinRespaldo: sin };
 }
 
 export function unirLista(partes: string[]): string {

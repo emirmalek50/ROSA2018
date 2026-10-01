@@ -25,19 +25,23 @@ import {
 } from "../datos/acciones";
 import type {
   Corrida,
+  EstadoCobertura,
   EstadoRosa,
   Fuente,
   HechoMundo,
   Investigacion,
   MovimientoHecho,
+  ParteCobertura,
   PreguntaABases,
 } from "../datos/tipos";
 import { AvisoMuestra, Chip, Momento, Seccion } from "../componentes/piezas";
 import { Cargando, Esqueleto } from "../componentes/Esqueleto";
 import {
   IconAlert,
+  IconAlertCircle,
   IconArrowUp,
   IconCheck,
+  IconCheckCircle,
   IconChevronDown,
   IconCircleHalf,
   IconClock,
@@ -45,9 +49,11 @@ import {
   IconExternal,
   IconLayers,
   IconMessage,
+  IconMinusCircle,
   IconPen,
   IconRefresh,
   IconSearch,
+  IconShieldCheck,
   IconX,
 } from "../componentes/icons";
 import { RelacionesCausales, TablaConsultas } from "../componentes/Rosa2018";
@@ -66,6 +72,7 @@ import {
 import { formatearPorcentaje } from "../lib/formato";
 import { tr, trp } from "../lib/idioma";
 import {
+  ESTADO_COBERTURA,
   SIN_TEMA,
   analizarTexto,
   cuentaEstado,
@@ -75,6 +82,7 @@ import {
   filtrarHechos,
   fuentesDeConsultas,
   hiloDe,
+  inicialFuente,
   nombreEntidad,
   nombreHerramienta,
   nuevoHilo,
@@ -83,9 +91,11 @@ import {
   recortar,
   recuentoDe,
   referenciasDe,
+  resumenBusqueda,
   sugerencias,
   temasDeHechos,
   unirLista,
+  veredictoAtribucion,
   type Bloque,
   type Estante,
   type FiltroHechos,
@@ -93,6 +103,7 @@ import {
   type Sugerencia,
   type Temas,
   type Trozo,
+  type Veredicto,
 } from "../lib/mundo";
 
 type Vista = "conversar" | "hechos" | "cambios";
@@ -473,8 +484,7 @@ function CuerpoMundo({
   const [texto, setTexto] = useState("");
   // Sin selector: con conexión pregunta al modelo de mundo y a las
   // publicaciones; sin ella responde al momento con lo que ya sabe.
-  const modo: ModoPregunta =
-    estado.conexion === "en_linea" ? "bases" : "local";
+  const modo: ModoPregunta = estado.conexion === "en_linea" ? "bases" : "local";
   const [locales, setLocales] = useState<TurnoLocal[]>([]);
   const [errores, setErrores] = useState<ErrorLocal[]>([]);
   const [pendiente, setPendiente] = useState<Pendiente | null>(null);
@@ -768,7 +778,6 @@ function Conversar(p: PropsConversar) {
             {t.tipo === "local" && (
               <TurnoSoloLoQueSabe
                 t={t.t}
-                ahora={ahora}
                 base={base}
                 abrirHecho={p.abrirHecho}
                 buscarFuera={
@@ -783,7 +792,7 @@ function Conversar(p: PropsConversar) {
               <>
                 <BurbujaPregunta texto={t.e.pregunta} />
                 <div className="mundo-respuesta">
-                  <CabezaRespuesta fecha={t.e.fecha} ahora={ahora} />
+                  <CabezaRespuesta />
                   <div className="mundo-error" role="alert">
                     <IconAlert size={15} />
                     <span>{t.e.error}</span>
@@ -905,22 +914,190 @@ function BurbujaPregunta({ texto }: { texto: string }) {
   );
 }
 
-function CabezaRespuesta({
-  fecha,
-  ahora,
-  children,
-}: {
-  fecha: number;
-  ahora: number;
-  children?: ReactNode;
-}) {
+/** La marca de la app al lado de cada respuesta: quién habla, sin rótulo. */
+function CabezaRespuesta({ children }: { children?: ReactNode }) {
   return (
     <div className="mundo-respuesta-cabeza">
-      <span className="mundo-respuesta-quien">ROSA2018</span>
-      <span className="mundo-respuesta-cuando">
-        <Momento t={fecha} ahora={ahora} soloRelativo />
-      </span>
+      <img
+        className="mundo-marca"
+        src="/arbol-marca.png"
+        alt="ROSA2018"
+        width={24}
+        height={24}
+      />
       {children}
+    </div>
+  );
+}
+
+const FUENTES_VISIBLES = 3;
+
+/** «3 búsquedas | 7 documentos | 19 s» y las pastillas de las fuentes. Abre
+ *  la tabla de consultas. */
+function ResumenDeBusqueda({
+  q,
+  abierto,
+  alternar,
+}: {
+  q: PreguntaABases;
+  abierto: boolean;
+  alternar?: () => void;
+}) {
+  const r = resumenBusqueda(q);
+  const partes = [
+    trp(r.busquedas === 1 ? "{n} búsqueda" : "{n} búsquedas", {
+      n: r.busquedas,
+    }),
+    ...(r.documentos > 0
+      ? [
+          trp(r.documentos === 1 ? "{n} documento" : "{n} documentos", {
+            n: r.documentos,
+          }),
+        ]
+      : []),
+    ...(r.segundos !== null ? [trp("{n} s", { n: r.segundos })] : []),
+  ];
+  const visibles = r.fuentes.slice(0, FUENTES_VISIBLES);
+  const tonos = tonosDistintos(visibles);
+  const resto = r.fuentes.length - visibles.length;
+  const contenido = (
+    <>
+      <IconSearch size={13} />
+      {partes.map((t, i) => (
+        <span key={i} className="mundo-busqueda-dato">
+          {t}
+        </span>
+      ))}
+      {r.fuentes.length > 0 && (
+        <span
+          className="mundo-fuentes"
+          title={r.fuentes.join(", ")}
+          aria-label={trp("Fuentes: {lista}", { lista: r.fuentes.join(", ") })}
+        >
+          {visibles.map((f, i) => (
+            <i
+              key={f}
+              className={`mundo-fuente mundo-fuente-${tonos[i]}`}
+              aria-hidden="true"
+              style={{ zIndex: FUENTES_VISIBLES - i }}
+            >
+              {inicialFuente(f)}
+            </i>
+          ))}
+          {resto > 0 && (
+            <i className="mundo-fuente mundo-fuente-resto" aria-hidden="true">
+              +{resto}
+            </i>
+          )}
+        </span>
+      )}
+      {alternar && (
+        <IconChevronDown
+          size={13}
+          style={{ transform: abierto ? "rotate(180deg)" : "none" }}
+        />
+      )}
+    </>
+  );
+  return alternar ? (
+    <button
+      type="button"
+      className="mundo-busqueda"
+      aria-expanded={abierto}
+      title={tr("Ver qué consultó")}
+      onClick={alternar}
+    >
+      {contenido}
+    </button>
+  ) : (
+    <span className="mundo-busqueda mundo-busqueda-fija">{contenido}</span>
+  );
+}
+
+/** Un tono fijo por fuente, para que PubMed sea siempre del mismo color. */
+function tonoFuente(f: string): number {
+  let h = 0;
+  for (const ch of f) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h % TONOS_FUENTE;
+}
+
+const TONOS_FUENTE = 5;
+
+/** Los tonos de las fuentes visibles: el suyo, salvo que ya lo use otra de
+ *  la misma fila, y entonces el siguiente libre (dos círculos iguales no se
+ *  distinguen). */
+function tonosDistintos(fuentes: string[]): number[] {
+  const usados = new Set<number>();
+  return fuentes.map((f) => {
+    let t = tonoFuente(f);
+    while (usados.has(t) && usados.size < TONOS_FUENTE)
+      t = (t + 1) % TONOS_FUENTE;
+    usados.add(t);
+    return t;
+  });
+}
+
+const ICONO_COBERTURA: Record<EstadoCobertura, ReactNode> = {
+  respondido: <IconCheckCircle size={15} />,
+  en_parte: <IconCircleHalf size={15} />,
+  no_esta: <IconMinusCircle size={15} />,
+  no_pude_comprobar: <IconAlertCircle size={15} />,
+};
+
+/** Qué partes de la pregunta quedaron respondidas y cuáles no. */
+function CoberturaPregunta({ partes }: { partes: ParteCobertura[] }) {
+  return (
+    <section
+      className="mundo-cobertura"
+      aria-label={tr("Cobertura de la pregunta")}
+    >
+      <h4 className="mundo-cobertura-titulo">
+        {tr("Cobertura de la pregunta")}
+      </h4>
+      <ul>
+        {partes.map((p, i) => (
+          <li key={i} className={`mundo-cobertura-parte mundo-cob-${p.estado}`}>
+            <span className="mundo-cobertura-icono" aria-hidden="true">
+              {ICONO_COBERTURA[p.estado] ?? ICONO_COBERTURA.no_esta}
+            </span>
+            <div>
+              <p>{p.parte}</p>
+              <span className="mundo-cobertura-estado">
+                {tr(ESTADO_COBERTURA[p.estado] ?? ESTADO_COBERTURA.no_esta)}
+                {p.nota && (
+                  <span className="mundo-cobertura-nota"> · {p.nota}</span>
+                )}
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** El pie: si las referencias que cita salen de lo que devolvieron las búsquedas. */
+function PieAtribucion({ v }: { v: Veredicto }) {
+  return (
+    <div className={`mundo-atribucion mundo-atribucion-${v.tono}`}>
+      {v.tono === "aviso" ? (
+        <IconAlert size={13} />
+      ) : (
+        <IconShieldCheck size={13} />
+      )}
+      <span>
+        {v.texto}
+        {v.sinRespaldo.length > 0 && (
+          <span className="mundo-atribucion-lista">
+            {" "}
+            {v.sinRespaldo.map((r) => (
+              <code key={r} className="mundo-codigo">
+                {r}
+              </code>
+            ))}
+          </span>
+        )}
+      </span>
     </div>
   );
 }
@@ -1169,32 +1346,30 @@ function TurnoGuardado({
   const comprobables =
     refs.dois.length + refs.ensayos.length + refs.pmids.length;
   const pasos = rastro(q);
+  const cobertura = Array.isArray(q.cobertura) ? q.cobertura : [];
+  const veredicto = q.error ? null : veredictoAtribucion(q);
   const c: Contexto = { fuentes, porId: base.porId, abrirHecho };
   return (
     <>
       <BurbujaPregunta texto={q.pregunta} />
       <div className="mundo-respuesta">
-        <CabezaRespuesta fecha={q.fecha} ahora={ahora}>
+        <CabezaRespuesta>
           {(pasos.length > 0 || (q.consultas ?? []).length > 0) && (
-            <button
-              type="button"
-              className="mundo-rastro"
-              aria-expanded={abierto}
-              onClick={() => setAbierto((v) => !v)}
-            >
-              <span>
-                {cuentaPasos(Math.max(1, q.iteraciones || 0))}
-                {pasos.length > 0 && ` · ${unirLista(pasos)}`}
-              </span>
-              <IconChevronDown
-                size={12}
-                style={{ transform: abierto ? "rotate(180deg)" : "none" }}
-              />
-            </button>
+            <ResumenDeBusqueda
+              q={q}
+              abierto={abierto}
+              alternar={() => setAbierto((v) => !v)}
+            />
           )}
         </CabezaRespuesta>
         {abierto && (
           <div className="mundo-rastro-detalle">
+            {pasos.length > 0 && (
+              <p className="mundo-rastro-frase">
+                {cuentaPasos(Math.max(1, q.iteraciones || 0))} ·{" "}
+                {unirLista(pasos)}
+              </p>
+            )}
             {(q.consultas ?? []).length > 0 ? (
               <TablaConsultas consultas={q.consultas} ahora={ahora} />
             ) : (
@@ -1226,7 +1401,8 @@ function TurnoGuardado({
           <>
             <TextoRico bloques={bloques} c={c} />
             <HechosCitados hechos={citados} abrirHecho={abrirHecho} />
-            {limites.length > 0 && (
+            {cobertura.length > 0 && <CoberturaPregunta partes={cobertura} />}
+            {cobertura.length === 0 && limites.length > 0 && (
               <aside className="mundo-limites">
                 <span className="mundo-limites-titulo">
                   <IconAlert size={13} />
@@ -1235,6 +1411,7 @@ function TurnoGuardado({
                 <TextoRico bloques={limites} c={c} />
               </aside>
             )}
+            {veredicto && <PieAtribucion v={veredicto} />}
             <div className="mundo-respuesta-acciones">
               <BotonCopiar
                 texto={[
@@ -1248,7 +1425,7 @@ function TurnoGuardado({
                 <IconMessage size={13} />
                 {tr("Seguir preguntando")}
               </button>
-              {comprobables > 0 && (
+              {!veredicto && comprobables > 0 && (
                 <span className="mundo-accion-meta">
                   {trp(
                     comprobables === 1
@@ -1258,6 +1435,9 @@ function TurnoGuardado({
                   )}
                 </span>
               )}
+              <span className="mundo-accion-meta mundo-respuesta-cuando">
+                <Momento t={q.fecha} ahora={ahora} soloRelativo />
+              </span>
             </div>
           </>
         )}
@@ -1302,14 +1482,12 @@ function HechosEncontrados({
 
 function TurnoSoloLoQueSabe({
   t,
-  ahora,
   base,
   abrirHecho,
   buscarFuera,
   ocupado,
 }: {
   t: TurnoLocal;
-  ahora: number;
   base: BaseMundo;
   abrirHecho: (id: string) => void;
   buscarFuera?: () => void;
@@ -1320,7 +1498,7 @@ function TurnoSoloLoQueSabe({
     <>
       <BurbujaPregunta texto={t.pregunta} />
       <div className="mundo-respuesta">
-        <CabezaRespuesta fecha={t.fecha} ahora={ahora}>
+        <CabezaRespuesta>
           <span className="mundo-rastro mundo-rastro-fijo">
             {tr("Solo lo que ya sabe · no se guarda")}
           </span>
@@ -1430,21 +1608,23 @@ function TurnoPendiente({
     <>
       <BurbujaPregunta texto={p.pregunta} />
       <div className="mundo-respuesta" aria-live="polite">
-        <div className="mundo-pensando" role="status">
-          <span className="mundo-pensando-puntos" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <span>
-            {p.listo
-              ? tr("Respuesta lista. Llegando...")
-              : tr("Consultando el modelo de mundo y las publicaciones...")}
-          </span>
-          <span className="mundo-pensando-tiempo">
-            {trp("{n} s", { n: segundos })}
-          </span>
-        </div>
+        <CabezaRespuesta>
+          <div className="mundo-pensando" role="status">
+            <span className="mundo-pensando-puntos" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span>
+              {p.listo
+                ? tr("Respuesta lista. Llegando...")
+                : tr("Consultando el modelo de mundo y las publicaciones...")}
+            </span>
+            <span className="mundo-pensando-tiempo">
+              {trp("{n} s", { n: segundos })}
+            </span>
+          </div>
+        </CabezaRespuesta>
         {mientras.length > 0 && (
           <div className="mundo-mientras">
             <span className="mundo-ceja">

@@ -81,6 +81,26 @@ export const MUNDO: Record<string, string> = {
   '{n} paso': '{n} step',
   '{n} pasos': '{n} steps',
 
+  // La cabecera de la respuesta, la cobertura y el pie de atribución.
+  '{n} búsqueda': '{n} search',
+  '{n} búsquedas': '{n} searches',
+  '{n} documento': '{n} document',
+  '{n} documentos': '{n} documents',
+  'Fuentes: {lista}': 'Sources: {lista}',
+  'Ver qué consultó': 'See what it checked',
+  'Cobertura de la pregunta': 'Question coverage',
+  'Respondido con lo consultado': 'Answered from what it checked',
+  'En parte': 'Partly',
+  'No está en lo consultado': 'Not in what it checked',
+  'La respuesta se abstiene y no cita: correcto, nada que atribuir.': 'The answer abstains and cites nothing: correct, nothing to attribute.',
+  'Responde sin citar ninguna referencia comprobable: tómalo como orientación, no como dato.': 'It answers without citing any checkable reference: take it as guidance, not as data.',
+  'No cita referencias comprobables.': 'It cites no checkable references.',
+  'La referencia que cita sale de lo que devolvieron las búsquedas.': 'The reference it cites comes from what the searches returned.',
+  'Las {n} referencias que cita salen de lo que devolvieron las búsquedas.': 'The {n} references it cites come from what the searches returned.',
+  'La referencia que cita no sale de ninguna búsqueda de esta pregunta: compruébala antes de usarla.': 'The reference it cites does not come from any search for this question: check it before using it.',
+  '{m} de {n} referencias no sale de ninguna búsqueda de esta pregunta: compruébala antes de usarla.': '{m} of {n} references does not come from any search for this question: check it before using it.',
+  '{m} de {n} referencias no salen de ninguna búsqueda de esta pregunta: compruébalas antes de usarlas.': '{m} of {n} references do not come from any search for this question: check them before using them.',
+
   // La respuesta con lo que ya sabe y la que está en camino.
   'Solo lo que ya sabe · no se guarda': 'Only what it already knows · not saved',
   'Entre los {n} hechos del modelo de mundo no hay nada sobre eso. No lo invento.': 'There is nothing about that among the {n} facts in the world model. I will not make it up.',

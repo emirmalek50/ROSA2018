@@ -291,6 +291,26 @@ export function IconMinusCircle({ size = 14, ...props }: IconProps) {
   );
 }
 
+/** Visto bueno en un círculo: una parte de la pregunta respondida. */
+export function IconCheckCircle({ size = 14, ...props }: IconProps) {
+  return (
+    <svg {...base(size, { ...props, strokeWidth: 1.6 })}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="m8.8 12.2 2.2 2.2 4.3-4.6" />
+    </svg>
+  );
+}
+
+/** Exclamación en un círculo: una parte que no se pudo comprobar. */
+export function IconAlertCircle({ size = 14, ...props }: IconProps) {
+  return (
+    <svg {...base(size, { ...props, strokeWidth: 1.6 })}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8.2v4.6M12 15.6v.1" />
+    </svg>
+  );
+}
+
 /** Bombilla: el paso de pensar o entender, en la línea de tiempo del turno. */
 export function IconBulb({ size = 14, ...props }: IconProps) {
   return (

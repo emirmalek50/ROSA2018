@@ -216,6 +216,43 @@ describe('lo que se toca en el modelo de mundo', () => {
     expect(nodo.querySelector('.mundo-detalle')?.textContent).toContain('De dónde sale');
   });
 
+  it('una respuesta guardada lleva la marca, «búsquedas | documentos | s», la cobertura y el pie de atribución', async () => {
+    const e = estadoDeMuestra();
+    const inv = e.investigaciones[0]!;
+    inv.preguntasABases = [
+      {
+        id: 'pb-1', fecha: AHORA_MUESTRA - 60_000, pregunta: '¿Qué se sabe de p-tau217?', respuesta: 'No encuentro información sobre p-tau217 en los documentos.', limites: 'No hay estudios en plasma.', hilo: 'h-prueba',
+        herramientas: ['leer_modelo_de_mundo', 'buscar_pubmed', 'buscar_pubmed'], iteraciones: 4, quien: 'emir', error: null, duracionMs: 19_200,
+        consultas: [{ id: 'c1', herramienta: 'buscar_pubmed', fuente: 'PubMed', argumentos: {}, fecha: 1, n: 7, ids: ['1', '2', '3', '4', '5', '6', '7'], version: null, invariante: null, error: null, ms: 900, resumen: '' }],
+        cobertura: [
+          { estado: 'no_esta', parte: 'Qué es p-tau217 y para qué se ha propuesto', nota: '' },
+          { estado: 'no_esta', parte: 'Estudios en humanos en plasma, suero o LCR', nota: 'Ninguna búsqueda lo devolvió' },
+        ],
+        atribucion: { citadas: [], sinRespaldo: [] },
+      },
+    ];
+    sessionStorage.setItem(`rosa.mundo.hilo.${inv.id}`, 'h-prueba');
+    await act(async () => root.render(<ModeloDeMundo inv={inv} estado={e} ahora={AHORA_MUESTRA} />));
+    await esperarPintado();
+    sessionStorage.clear();
+    const r = nodo.querySelector('.mundo-respuesta')!;
+    expect(r.querySelector('img.mundo-marca')?.getAttribute('alt')).toBe('ROSA2018');
+    const cabeza = r.querySelector('.mundo-busqueda')!;
+    expect([...cabeza.querySelectorAll('.mundo-busqueda-dato')].map((x) => x.textContent)).toEqual(['3 búsquedas', '7 documentos', '19 s']);
+    expect([...cabeza.querySelectorAll('.mundo-fuente')].map((x) => x.textContent)).toEqual(['M', 'P']);
+    expect(r.querySelector('.mundo-cobertura-titulo')?.textContent).toBe('Cobertura de la pregunta');
+    expect(r.querySelectorAll('.mundo-cobertura-parte.mundo-cob-no_esta')).toHaveLength(2);
+    expect(r.querySelector('.mundo-cobertura')?.textContent).toContain('No está en lo consultado · Ninguna búsqueda lo devolvió');
+    // Con cobertura, «Lo que no pudo comprobar» no se repite aparte.
+    expect(r.querySelector('.mundo-limites')).toBeNull();
+    expect(r.querySelector('.mundo-atribucion-bien')?.textContent).toContain('La respuesta se abstiene y no cita: correcto, nada que atribuir.');
+    // La cabecera abre las consultas.
+    expect(r.querySelector('.mundo-rastro-detalle')).toBeNull();
+    await pulsar(cabeza);
+    expect(r.querySelector('.mundo-rastro-detalle')).not.toBeNull();
+    expect(cabeza.getAttribute('aria-expanded')).toBe('true');
+  });
+
   it('"Qué cambió" se abre sin romper y con sus tildes', async () => {
     const e = estadoDeMuestra();
     await act(async () => root.render(<ModeloDeMundo inv={e.investigaciones[0]!} estado={e} ahora={AHORA_MUESTRA} vistaInicial="cambios" />));

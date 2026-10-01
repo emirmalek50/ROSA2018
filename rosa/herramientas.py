@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import json
 import re
+import time
+import unicodedata
 from typing import Any
 
 import dspy
@@ -44,6 +46,7 @@ class PreguntarConHerramientas(dspy.Signature):
     contexto: str = dspy.InputField(desc="La misión y la memoria del proyecto")
     respuesta: str = dspy.OutputField(desc="Respuesta en llano con las herramientas e identificadores detrás de cada dato")
     limites: str = dspy.OutputField(desc="Lo que no se pudo comprobar o queda fuera de lo que las bases saben")
+    cobertura: str = dspy.OutputField(desc="La pregunta partida en lo que pide, de 1 a 5 partes, una por línea con el formato `estado | lo que pide esa parte | nota corta`. El estado es uno de: respondido (lo dicen las herramientas), en_parte, no_esta (se buscó y no aparece), no_pude_comprobar (una herramienta falló)")
 
 
 def _recortar(obj: Any, maximo: int = MAX_TEXTO_HERRAMIENTA) -> str:
@@ -198,10 +201,65 @@ def buscar_proyecto(estado: dict[str, Any], investigacion_id: str, consulta: str
     return hits[:maximo]
 
 
+ESTADOS_COBERTURA = ("respondido", "en_parte", "no_esta", "no_pude_comprobar")
+_SINONIMOS_COBERTURA = {"respondida": "respondido", "si": "respondido", "parcial": "en_parte", "en parte": "en_parte", "parcialmente": "en_parte", "no esta": "no_esta", "no_encontrado": "no_esta", "no encontrado": "no_esta", "no": "no_esta", "no pude comprobar": "no_pude_comprobar", "sin_comprobar": "no_pude_comprobar"}
+MAX_PARTES_COBERTURA = 6
+
+
+def _sin_tildes(t: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", t) if unicodedata.category(c) != "Mn")
+
+
+def leer_cobertura(texto: str) -> list[dict[str, str]]:
+    """Las partes de la pregunta con su estado, de las líneas `estado | parte
+    | nota` que escribe el modelo. Tolerante: viñetas, tildes, mayúsculas y
+    sinónimos ("parcial", "no encontrado"). Una línea que no casa con ningún
+    estado se descarta en vez de inventarle uno."""
+    salida: list[dict[str, str]] = []
+    for cruda in (texto or "").splitlines():
+        linea = re.sub(r"^\s*(?:[-*\u2022]|\d+[.)])\s*", "", cruda).strip().strip("`")
+        partes = [p.strip() for p in linea.split("|")]
+        if len(partes) < 2:
+            continue
+        clave = _sin_tildes(partes[0].strip("*` ").lower())
+        estado = clave if clave in ESTADOS_COBERTURA else _SINONIMOS_COBERTURA.get(clave) or _SINONIMOS_COBERTURA.get(clave.replace("_", " "))
+        if not estado or not partes[1]:
+            continue
+        salida.append({"estado": estado, "parte": partes[1][:300], "nota": " | ".join(partes[2:])[:240]})
+        if len(salida) >= MAX_PARTES_COBERTURA:
+            break
+    return salida
+
+
+_RE_REFERENCIA = re.compile(r"(10\.\d{4,9}/[^\s`\"'<>()\[\]]+)|\b(NCT\d{8})\b|\bPMID:?\s?(\d{6,9})\b|\b(he-[a-z0-9]+-\d+)\b")
+
+
+def referencias_citadas(texto: str) -> list[str]:
+    """Los identificadores comprobables que cita una respuesta: DOI, ensayo,
+    PMID y hecho del modelo de mundo, sin repetir y en orden de aparición."""
+    vistas: list[str] = []
+    for m in _RE_REFERENCIA.finditer(texto or ""):
+        ref = (m.group(1) or "").rstrip(".,;:") or m.group(2) or (f"PMID {m.group(3)}" if m.group(3) else "") or m.group(4)
+        if ref and ref not in vistas:
+            vistas.append(ref)
+    return vistas
+
+
+def atribucion(respuesta: str, devuelto: str) -> dict[str, list[str]]:
+    """¿Sale cada referencia citada de lo que devolvieron las herramientas en
+    ESTA pregunta? La conversación anterior no cuenta como fuente. El DOI se
+    compara sin mayúsculas; el PMID, por el número."""
+    base = (devuelto or "").lower()
+    citadas = referencias_citadas(respuesta)
+    sin = [r for r in citadas if (r[5:] if r.startswith("PMID ") else r).lower() not in base]
+    return {"citadas": citadas, "sinRespaldo": sin}
+
+
 async def preguntar(programas_lm: dspy.LM, estado: dict[str, Any], investigacion_id: str, pregunta: str, contexto: str, origen: str = "persona", almacen: Any = None) -> dict[str, Any]:
     """Una pregunta con herramientas. Devuelve respuesta, límites, las
     herramientas usadas y los registros de consulta."""
     registro: list[dict[str, Any]] = []
+    t0 = time.monotonic()
     tools = herramientas(estado, investigacion_id, registro, origen=origen, almacen=almacen)
     agente = dspy.ReAct(PreguntarConHerramientas, tools=tools, max_iters=MAX_ITERACIONES)
     with dspy.context(lm=programas_lm):
@@ -209,4 +267,7 @@ async def preguntar(programas_lm: dspy.LM, estado: dict[str, Any], investigacion
     traj = getattr(pred, "trajectory", {}) or {}
     usadas = [v for k, v in traj.items() if k.startswith("tool_name_") and v not in ("finish",)]
     limpio = lambda t: t.replace("\u2014", ", ").replace("\u2013", "-").strip()  # noqa: E731  sin guiones largos en la interfaz
-    return {"respuesta": limpio(pred.respuesta), "limites": limpio(pred.limites), "herramientas": usadas, "consultas": registro, "iteraciones": len([k for k in traj if k.startswith("tool_name_")])}
+    respuesta = limpio(pred.respuesta)
+    devuelto = "\n".join(str(v) for k, v in traj.items() if k.startswith("observation_"))
+    cobertura = [{k: limpio(v) for k, v in p.items()} for p in leer_cobertura(str(getattr(pred, "cobertura", "") or ""))]
+    return {"respuesta": respuesta, "limites": limpio(pred.limites), "cobertura": cobertura, "atribucion": atribucion(respuesta, devuelto), "duracionMs": int((time.monotonic() - t0) * 1000), "herramientas": usadas, "consultas": registro, "iteraciones": len([k for k in traj if k.startswith("tool_name_")])}

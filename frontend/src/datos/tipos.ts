@@ -2497,6 +2497,22 @@ export interface PreguntaABases {
    *  le pasa al modelo los turnos anteriores del mismo hilo. Ausente en las
    *  preguntas de antes, que hacen de hilo con su propio id. */
   hilo?: string;
+  /** La pregunta partida en lo que pide, con el estado de cada parte
+   *  (rosa/herramientas.py leer_cobertura). Ausente en las de antes. */
+  cobertura?: ParteCobertura[];
+  /** Las referencias que cita la respuesta y las que ninguna herramienta
+   *  devolvió en esta pregunta (rosa/herramientas.py atribucion). */
+  atribucion?: { citadas: string[]; sinRespaldo: string[] };
+  /** Lo que tardó la respuesta entera, con el modelo. */
+  duracionMs?: number;
+}
+
+export type EstadoCobertura = 'respondido' | 'en_parte' | 'no_esta' | 'no_pude_comprobar';
+
+export interface ParteCobertura {
+  estado: EstadoCobertura;
+  parte: string;
+  nota: string;
 }
 
 export interface SkillCatalogo {

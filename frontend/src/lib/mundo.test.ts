@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EntidadCanonica, HechoMundo, PreguntaABases } from '../datos/tipos';
-import { SIN_TEMA, analizarLinea, analizarTexto, conversaciones, cuentaEstado, esLineaDeFuente, filtrarHechos, hiloDe, nuevoHilo, rastro, recortar, referenciasDe, sugerencias, temasDeHechos, textoPlano, unirLista } from './mundo';
+import { SIN_TEMA, analizarLinea, analizarTexto, conversaciones, cuentaEstado, esLineaDeFuente, filtrarHechos, hiloDe, inicialFuente, nuevoHilo, rastro, recortar, referenciasDe, resumenBusqueda, sugerencias, temasDeHechos, textoPlano, unirLista, veredictoAtribucion } from './mundo';
 
 const ent = (id: string, etiqueta: string, tipo = 'gen', alias: string[] = []): EntidadCanonica => ({ id, etiqueta, ontologia: id.split(':')[0]!, tipo, alias });
 
@@ -157,5 +157,50 @@ describe('el texto de la respuesta', () => {
     expect(analizarTexto('')).toEqual([]);
     expect(analizarTexto(undefined as unknown as string)).toEqual([]);
     expect(analizarTexto('<script>alert(1)</script>')[0]).toEqual({ tipo: 'parrafo', lineas: [[{ tipo: 'texto', texto: '<script>alert(1)</script>' }]] });
+  });
+});
+
+describe('la cabecera y el pie de una respuesta', () => {
+  const consulta = (herramienta: string, fuente: string, ids: string[], error: string | null = null) => ({ id: `c-${herramienta}-${ids.join('')}`, herramienta, fuente, argumentos: {}, fecha: 1, n: ids.length, ids, version: null, invariante: null, error, ms: 10, resumen: '' });
+
+  it('cuenta las búsquedas, los documentos distintos sin los fallidos, los segundos y las fuentes en orden', () => {
+    const r = resumenBusqueda({
+      herramientas: ['leer_modelo_de_mundo', 'buscar_pubmed', 'buscar_pubmed', 'buscar_ensayos'],
+      consultas: [consulta('buscar_pubmed', 'PubMed', ['1', '2']), consulta('buscar_pubmed', 'PubMed', ['2', '3']), consulta('buscar_ensayos', 'ClinicalTrials.gov', ['NCT1'], 'No pude comprobar: 503')],
+      duracionMs: 18_600,
+    });
+    expect(r).toEqual({ busquedas: 4, documentos: 3, segundos: 19, fuentes: ['modelo de mundo', 'PubMed', 'ClinicalTrials.gov'] });
+  });
+
+  it('una respuesta de antes, sin duración ni herramientas, no inventa segundos', () => {
+    const r = resumenBusqueda({ herramientas: [], consultas: [consulta('buscar_pubmed', 'PubMed', [])] });
+    expect(r.segundos).toBeNull();
+    expect(r.busquedas).toBe(1);
+    expect(r.documentos).toBe(0);
+    expect(r.fuentes).toEqual(['PubMed']);
+  });
+
+  it('la inicial de una fuente salta los artículos', () => {
+    expect(inicialFuente('Europe PMC')).toBe('E');
+    expect(inicialFuente('el proyecto')).toBe('P');
+    expect(inicialFuente('modelo de mundo')).toBe('M');
+  });
+
+  it('abstenerse sin citar está bien; afirmar sin citar, no', () => {
+    const no = { estado: 'no_esta' as const, parte: 'p', nota: '' };
+    expect(veredictoAtribucion({ atribucion: { citadas: [], sinRespaldo: [] }, cobertura: [no] })?.tono).toBe('bien');
+    expect(veredictoAtribucion({ atribucion: { citadas: [], sinRespaldo: [] }, cobertura: [no] })?.texto).toContain('nada que atribuir');
+    expect(veredictoAtribucion({ atribucion: { citadas: [], sinRespaldo: [] }, cobertura: [{ ...no, estado: 'respondido' }] })?.tono).toBe('aviso');
+    expect(veredictoAtribucion({ atribucion: { citadas: [], sinRespaldo: [] } })?.tono).toBe('neutro');
+  });
+
+  it('una referencia que ninguna búsqueda devolvió se nombra; sin atribución guardada no hay pie', () => {
+    const v = veredictoAtribucion({ atribucion: { citadas: ['PMID 1', '10.1/x', 'NCT01234567'], sinRespaldo: ['NCT01234567'] } })!;
+    expect(v.tono).toBe('aviso');
+    expect(v.texto).toContain('1 de 3');
+    expect(v.sinRespaldo).toEqual(['NCT01234567']);
+    expect(veredictoAtribucion({ atribucion: { citadas: ['PMID 1'], sinRespaldo: ['PMID 1'] } })!.texto).toContain('La referencia que cita no sale');
+    expect(veredictoAtribucion({ atribucion: { citadas: ['PMID 1', '10.1/x'], sinRespaldo: [] } })!.tono).toBe('bien');
+    expect(veredictoAtribucion({})).toBeNull();
   });
 });
