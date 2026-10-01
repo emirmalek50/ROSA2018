@@ -80,6 +80,32 @@ describe('el catálogo en inglés', () => {
     expect(malas.slice(0, 5)).toEqual([]);
   });
 
+  it('un término del proyecto se traduce siempre igual', () => {
+    // «sostenida» es un veredicto del verificador, no un adjetivo cualquiera:
+    // si en una pantalla sale «supported» y en otra «upheld», el lector en
+    // inglés cree que son dos estados. Pasó: el catálogo escrito a mano decía
+    // «Not supported» en un sitio y «not upheld» en otro.
+    const TERMINOS: { es: RegExp; debe: RegExp; nombre: string }[] = [
+      { es: /\bsostenid[ao]s?\b/i, debe: /\bsupport/i, nombre: 'sostenida -> supported' },
+      { es: /\bcerteza\b/i, debe: /\bcertainty\b/i, nombre: 'certeza -> certainty (GRADE)' },
+      { es: /\brefuta\b/i, debe: /\brefute/i, nombre: 'refuta -> refutes' },
+      { es: /\bdiana\b/i, debe: /\btarget\b/i, nombre: 'diana -> target' },
+      { es: /\bcribad?o?\b/i, debe: /\bscreen/i, nombre: 'cribado -> screening' },
+      // «hueco» tiene dos sentidos: el hueco de ADN del gapmer, que es «gap»,
+      // y un hueco del gráfico, que es «empty». Por eso la regla solo mira
+      // las frases que hablan del oligo; para el resto decide el contexto,
+      // que es justo para lo que está `trc`.
+      { es: /\bhuec[oa]\b(?=.*(?:oligo|gapmer|ASO|RNasa|ARN|ADN))|(?:oligo|gapmer|ASO|RNasa).*\bhuec[oa]\b/i, debe: /\bgap\b/i, nombre: 'hueco del gapmer -> gap' },
+    ];
+    const malas: string[] = [];
+    for (const t of TERMINOS) {
+      for (const [k, v] of entradas) {
+        if (t.es.test(k) && !t.debe.test(v)) malas.push(`${t.nombre}: ${k.slice(0, 44)} -> ${v.slice(0, 44)}`);
+      }
+    }
+    expect(malas.slice(0, 6)).toEqual([]);
+  });
+
   it('ninguna traducción se quedó en castellano por descuido', () => {
     // Señal barata: la ñ y los signos de apertura no existen en inglés. Una
     // tilde sí puede aparecer (en un nombre propio), así que no se mira.

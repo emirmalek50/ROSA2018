@@ -36,7 +36,7 @@ export const ARBOL_ATLAS: Record<string, string> = {
   '{clase} {veredicto} por el verificador': '{clase} {veredicto} by the verifier',
   'dato derivado': 'derived datum',
   'observación original': 'original observation',
-  'sostenida en parte': 'partly upheld',
+  'sostenida en parte': 'partly supported',
   'resultado del laboratorio sobre el prerregistro': 'lab result against the preregistration',
 
   // Estados de ejecucion, auditoria y veredicto.
@@ -50,14 +50,14 @@ export const ARBOL_ATLAS: Record<string, string> = {
   'no válido': 'not valid',
   'sin auditar': 'not audited',
   'el auditor no lo dio por válido': 'the auditor did not find it valid',
-  'no sostenida': 'not upheld',
+  'no sostenida': 'not supported',
   'sin verificar': 'not verified',
   'la cita no resuelve': 'the citation does not resolve',
   'ausencia refutada': 'absence refuted',
   'sin cita': 'no citation',
   'sin dato': 'no data',
   'sin efecto': 'no effect',
-  'el verificador no la sostiene': 'the verifier does not uphold it',
+  'el verificador no la sostiene': 'the verifier does not support it',
   'el Killer propone descartar': 'the Killer proposes discarding it',
 
   // El atlas: regiones.
