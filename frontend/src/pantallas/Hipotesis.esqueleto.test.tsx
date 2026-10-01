@@ -97,20 +97,11 @@ async function soltarYEsperar() {
   });
 }
 function montar(e: EstadoRosa, id: string | null, inv: Investigacion = e.investigaciones[0]!) {
-  return act(async () => root.render(<Hipotesis inv={inv} estado={e} ahora={Date.now()} detalleId={id} cajonAbierto={false} setCajonAbierto={() => undefined} irA={() => undefined} />));
+  return act(async () => root.render(<Hipotesis inv={inv} estado={e} ahora={Date.now()} detalleId={id} cajonAbierto={false} setCajonAbierto={() => undefined} />));
 }
 /** La muestra tiene una sola investigación: se fabrica una segunda con dos
  *  hipótesis pendientes propias, para probar el cambio de investigación. */
-function conOtraInvestigacion(): { e: EstadoRosa; invA: Investigacion; invB: Investigacion } {
-  const e = estadoDeMuestra();
-  const invA = e.investigaciones[0]!;
-  const invB: Investigacion = { ...structuredClone(invA), id: 'inv-2', titulo: 'Otra investigación' };
-  const propias = e.hipotesis.filter((h) => h.investigacionId === invA.id && (h.estado === 'propuesta' || h.estado === 'en_revision'));
-  const hipsB = propias.map((h, i) => ({ ...structuredClone(h), id: `hip-b-${i}`, investigacionId: 'inv-2' }));
-  return { e: { ...e, investigaciones: [...e.investigaciones, invB], hipotesis: [...e.hipotesis, ...hipsB] }, invA, invB };
-}
 const silueta = () => nodo.querySelector('.esqueleto-pantalla');
-const filas = () => [...nodo.querySelectorAll('.hip-fila')];
 const boton = (texto: string) => [...nodo.querySelectorAll('button')].find((b) => b.textContent?.trim() === texto);
 const pulsar = (b: HTMLButtonElement) => act(async () => b.click());
 const de = (nombre: string) => llamadas.filter((l) => l[0] === nombre);
@@ -122,78 +113,35 @@ function escribir(el: HTMLInputElement | HTMLTextAreaElement, texto: string) {
   });
 }
 
-describe('la silueta de la cola', () => {
-  it('el primer render es la silueta de lista con aria-busy y rótulo oculto; las filas llegan al frame siguiente', async () => {
-    await montar(estadoDeMuestra(), null);
-    const s = silueta()!;
-    expect(s).not.toBeNull();
-    expect(s.classList.contains('esqueleto-pantalla-lista')).toBe(true);
-    expect(s.getAttribute('aria-busy')).toBe('true');
-    expect(s.querySelector('.sr-only')?.textContent).toBe('Cargando la cola de hipótesis');
-    expect(filas()).toHaveLength(0);
-    await esperarPintado();
-    expect(silueta()).toBeNull();
-    expect(filas().length).toBeGreaterThan(0);
-    expect(nodo.querySelector('h2')?.textContent).toBe('Cola de hipótesis');
-    expect(nodo.textContent).not.toMatch(/\u2014/);
-  });
-
-  it('cambiar de investigación vuelve a la silueta y nunca enseña las filas de la anterior; un empuje del estado con la misma no', async () => {
-    const { e, invA, invB } = conOtraInvestigacion();
-    await montar(e, null, invA);
-    await esperarPintado();
-    const hrefsA = filas().map((a) => a.getAttribute('href') ?? '');
-    expect(hrefsA.length).toBeGreaterThan(0);
-    expect(hrefsA.every((h) => h.includes(invA.id))).toBe(true);
-    // El mismo contenido en un objeto de estado nuevo: la cola sigue, sin silueta.
-    await montar(structuredClone(e), null, invA);
-    expect(silueta()).toBeNull();
-    expect(filas()).toHaveLength(hrefsA.length);
-    // Otra investigación: silueta un frame y después solo sus filas.
-    await montar(e, null, invB);
-    expect(silueta()).not.toBeNull();
-    expect(filas()).toHaveLength(0);
-    await esperarPintado();
-    const hrefsB = filas().map((a) => a.getAttribute('href') ?? '');
-    expect(hrefsB).toHaveLength(2);
-    expect(hrefsB.every((h) => h.includes('inv-2'))).toBe(true);
-    expect(hrefsB.some((h) => h.includes(invA.id))).toBe(false);
-  });
-
-  it('con el estado sin cargar (conectando) se queda en la silueta de lista, o de ficha si hay una hipótesis abierta', async () => {
-    const e: EstadoRosa = { ...estadoDeMuestra(), conexion: 'conectando' };
-    await montar(e, null);
-    await esperarPintado();
-    expect(silueta()?.classList.contains('esqueleto-pantalla-lista')).toBe(true);
-    await montar(e, 'hip-1');
-    await esperarPintado();
-    expect(silueta()?.classList.contains('esqueleto-pantalla-ficha')).toBe(true);
-    expect(silueta()?.querySelector('.sr-only')?.textContent).toBe('Cargando la hipótesis');
-  });
-});
-
 describe('la silueta de la ficha', () => {
-  it('abre con la silueta de ficha, al frame siguiente pinta la hipótesis, al volver a la cola no hay silueta, y otra ficha vuelve a empezar', async () => {
+  it('abre con la silueta de ficha, al frame siguiente pinta la hipótesis, y otra ficha vuelve a empezar', async () => {
     const e = estadoDeMuestra();
     await montar(e, 'hip-1');
     const s = silueta()!;
     expect(s.classList.contains('esqueleto-pantalla-ficha')).toBe(true);
     expect(s.querySelector('.sr-only')?.textContent).toBe('Cargando la hipótesis');
-    expect(nodo.textContent).not.toContain('Volver a la cola');
+    expect(nodo.textContent).not.toContain('Volver al ranking');
     await esperarPintado();
     expect(silueta()).toBeNull();
-    expect(nodo.textContent).toContain('Volver a la cola');
+    // Desde el 1 de octubre de 2026 la lista vive en el ranking, así que el
+    // «volver» de la ficha lleva allí y no a una cola propia.
+    expect(nodo.textContent).toContain('Volver al ranking');
     expect(nodo.querySelector('h2')?.textContent).toBe(e.hipotesis.find((h) => h.id === 'hip-1')!.titulo);
-    // La cola ya se calculó mientras se veía la ficha: al volver no hay silueta.
-    await montar(e, null);
-    expect(silueta()).toBeNull();
-    expect(filas().length).toBeGreaterThan(0);
     // Otra hipótesis: silueta un frame y después su título.
     await montar(e, 'hip-2');
     expect(silueta()).not.toBeNull();
     await esperarPintado();
     expect(silueta()).toBeNull();
     expect(nodo.querySelector('h2')?.textContent).toBe(e.hipotesis.find((h) => h.id === 'hip-2')!.titulo);
+  });
+
+  it('un id que no existe en esta investigación lo dice, en vez de enseñar otra cosa', async () => {
+    // Antes esto caía en la cola, que ya no vive aquí. Un enlace viejo o una
+    // hipótesis borrada tienen que decirse.
+    await montar(estadoDeMuestra(), 'hip-que-no-existe');
+    await esperarPintado();
+    expect(nodo.textContent).toMatch(/no está en esta investigación/i);
+    expect(nodo.querySelector('a.enlace')?.getAttribute('href')).toMatch(/\/ranking$/);
   });
 });
 

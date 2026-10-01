@@ -53,7 +53,18 @@ export function parsearRuta(hash: string): Ruta {
     // investigación (29 de septiembre de 2026): llevan al laboratorio global,
     // que es donde está ahora lo que enseñaban.
     if (partes[2] === 'laboratorio') return { tipo: 'laboratorio', dianaId: partes[3] ?? null, panel: null };
-    const pantalla = partes[2] === 'desbloqueo' ? 'hipotesis' : (partes[2] ?? 'corrida');
+    // La cola de hipótesis se mudó al ranking el 1 de octubre de 2026 (Emir):
+    // las dos pantallas enseñaban la misma lista con otro orden. La LISTA se
+    // va, la FICHA se queda donde estaba, que es lo que mantiene vivos los
+    // treinta enlaces repartidos por el árbol, el atlas, la búsqueda, calidad,
+    // mecanismos y los eventos del inicio.
+    //   hipotesis               -> ranking/pendientes
+    //   hipotesis/laboratorio   -> ranking/laboratorio
+    //   hipotesis/<id>          -> se queda (es la ficha)
+    if (partes[2] === 'hipotesis' && (partes[3] === undefined || partes[3] === 'laboratorio')) {
+      return { tipo: 'investigacion', investigacionId: partes[1], pantalla: 'ranking', detalleId: partes[3] ?? 'pendientes' };
+    }
+    const pantalla = partes[2] === 'desbloqueo' ? 'ranking' : (partes[2] ?? 'corrida');
     if (!esPantalla(pantalla)) return { tipo: 'inicio' };
     return {
       tipo: 'investigacion',
@@ -93,4 +104,21 @@ export function rutaLaboratorio(dianaId: string | null = null, panel: 'aso' | nu
 /** Atajo para las pantallas de una investigacion. */
 export function rutaDe(investigacionId: string, pantalla: Pantalla, detalleId: string | null = null): string {
   return formatearRuta({ tipo: 'investigacion', investigacionId, pantalla, detalleId });
+}
+
+/** Las vistas del ranking, que viajan en el hueco del detalle de la URL
+ *  (`#/investigaciones/<id>/ranking/pendientes`). Van en la URL y no en un
+ *  `useState` para que el aviso de pendientes, el hilo del proceso y el
+ *  «volver» de una ficha puedan llevar a una vista concreta, y para que el
+ *  botón atrás del navegador haga lo que se espera. */
+export type VistaRanking = 'podio' | 'pendientes' | 'lista' | 'clusters' | 'laboratorio';
+
+export const VISTAS_RANKING: VistaRanking[] = ['podio', 'pendientes', 'lista', 'clusters', 'laboratorio'];
+
+/** La vista que toca para un `detalleId`. Lo que no sea una vista conocida
+ *  cae en el podio: en esa ranura de la URL puede venir el id de una
+ *  hipótesis de un enlace viejo, y vale más abrir el podio que una página en
+ *  blanco. */
+export function vistaDeRanking(detalleId: string | null | undefined): VistaRanking {
+  return VISTAS_RANKING.includes(detalleId as VistaRanking) ? (detalleId as VistaRanking) : 'podio';
 }

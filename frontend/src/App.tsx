@@ -53,7 +53,7 @@ import { BarraLateral } from './componentes/BarraLateral';
 import { BusquedaGlobal } from './componentes/BusquedaGlobal';
 import { Cabecera } from './componentes/Cabecera';
 import { ToastDeshacer } from './componentes/Deshacer';
-import { EsqueletoPantalla } from './componentes/Esqueleto';
+
 import { HiloDelProceso } from './componentes/HiloDelProceso';
 import { Recorrido, recorridoVisto } from './componentes/Recorrido';
 import { useCalculoDiferido } from './lib/diferido';
@@ -83,8 +83,10 @@ import { traducido, tr } from './lib/idioma';
 
 const TITULO_PANTALLA = traducido({
   corrida: 'Corrida en vivo',
-  hipotesis: 'Cola de hipótesis',
-  ranking: 'Ranking',
+  // La ruta `hipotesis` ya solo pinta la ficha de una: la lista se fusionó
+  // con el ranking el 1 de octubre de 2026.
+  hipotesis: 'Hipótesis',
+  ranking: 'Hipótesis y ranking',
   panorama: 'Panorama',
   mundo: 'Modelo de mundo',
   arbol: 'Árbol de la investigación',
@@ -102,14 +104,17 @@ const TITULO_PANTALLA = traducido({
  *  EsqueletoAtlas traen el suyo). App.esqueleto.test.tsx los coteja tal cual
  *  (no se exporta: un módulo de componente con más exportaciones pierde el
  *  refresco en caliente de Vite). */
-const ROTULO_RANKING = 'el ranking';
 
 /** Las pantallas que cuestan de pintar y la silueta que se enseña durante el
  *  primer frame tras el clic. Ver la regla de arriba: el MISMO componente que
  *  la pantalla pinta por dentro, para no saltar. */
 const SILUETA_AL_CAMBIAR: Partial<Record<Pantalla, (conexion: EstadoConexion) => JSX.Element>> = {
   arbol: (conexion) => <EsqueletoArbol conexion={conexion} />,
-  ranking: () => <EsqueletoPantalla variante="lista" rotulo={tr(ROTULO_RANKING)} />,
+  // El ranking NO está aquí desde el 1 de octubre de 2026: tiene cinco
+  // vistas (podio, pendientes, lista completa, clusters y laboratorio) y
+  // cada una pinta una silueta distinta. Desde fuera no se sabe cuál toca,
+  // y poner la de la lista hacía que al abrir el podio parpadearan dos
+  // formas seguidas. La pinta Ranking, que sí sabe en qué vista está.
   atlas: (conexion) => <EsqueletoAtlas conexion={conexion} />,
 };
 
@@ -223,16 +228,16 @@ export default function App() {
           pantalla = <Corrida key={inv.id} inv={inv} estado={estado} ahora={ahora} irA={irA} />;
           break;
         case 'hipotesis':
-          pantalla = <Hipotesis inv={inv} estado={estado} ahora={ahora} detalleId={ruta.detalleId} cajonAbierto={cajonAbierto} setCajonAbierto={setCajonAbierto} irA={irA} />;
+          pantalla = <Hipotesis inv={inv} estado={estado} ahora={ahora} detalleId={ruta.detalleId} cajonAbierto={cajonAbierto} setCajonAbierto={setCajonAbierto} />;
           break;
         case 'ranking':
-          pantalla = <Ranking inv={inv} estado={estado} />;
+          pantalla = <Ranking inv={inv} estado={estado} detalleId={ruta.detalleId} irA={irA} />;
           break;
         case 'panorama':
           pantalla = <Panorama inv={inv} estado={estado} ahora={ahora} />;
           break;
         case 'mundo':
-          pantalla = <ModeloDeMundo inv={inv} estado={estado} ahora={ahora} />;
+          pantalla = <ModeloDeMundo inv={inv} estado={estado} ahora={ahora} vistaInicial={ruta.detalleId} />;
           break;
         case 'arbol':
           pantalla = <Arbol key={inv.id} inv={inv} estado={estado} />;

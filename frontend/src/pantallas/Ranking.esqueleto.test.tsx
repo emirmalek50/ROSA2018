@@ -45,7 +45,24 @@ async function esperarPintado(ms = 60) {
     await new Promise((r) => setTimeout(r, ms));
   });
 }
-const montar = (inv: Investigacion, e: EstadoRosa) => act(async () => root.render(<Ranking inv={inv} estado={e} />));
+// La vista del ranking viaja en la URL desde el 1 de octubre de 2026, así
+// que el montaje la guarda y `irA` vuelve a pintar con la nueva: sin eso,
+// pulsar un botón del segmentado no cambiaría nada y el test mediría otra
+// cosa. Es además lo que hace la aplicación de verdad.
+let invActual: Investigacion;
+let estadoActual: EstadoRosa;
+let vistaActual: string | null;
+
+function pintar() {
+  return act(async () => root.render(<Ranking inv={invActual} estado={estadoActual} detalleId={vistaActual} irA={(hash) => { vistaActual = hash.split('/').pop() ?? null; void pintar(); }} />));
+}
+
+const montar = (inv: Investigacion, e: EstadoRosa, vista: string | null = 'lista') => {
+  invActual = inv;
+  estadoActual = e;
+  vistaActual = vista;
+  return pintar();
+};
 const silueta = () => nodo.querySelector('.esqueleto-pantalla');
 const filas = () => [...nodo.querySelectorAll('.ranking-fila')];
 const boton = (texto: string) => [...nodo.querySelectorAll('button')].find((b) => b.textContent?.trim() === texto)!;

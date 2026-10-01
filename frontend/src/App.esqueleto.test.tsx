@@ -245,15 +245,19 @@ describe('la espera al cambiar de pantalla desde App', () => {
     expect(raiz.querySelectorAll('[aria-busy="true"]').length).toBe(0);
   });
 
-  it('al abrir ROSA2018 directamente en el ranking (recarga) el primer commit es la silueta de la lista y luego las filas', async () => {
+  it('al abrir ROSA2018 directamente en la lista del ranking, el primer commit es su silueta y luego las filas', async () => {
+    // Con vista explícita en la URL: el ranking abre en el podio, cuya
+    // silueta es otra (EsqueletoPodio), y lo que se mide aquí es la de la
+    // lista. Que la silueta la pinte Ranking y no App es lo que evita que se
+    // vean dos formas seguidas.
     const e = estadoDeMuestra();
     const inv = e.investigaciones[0]!;
     await conEstado(e);
     const g = grabar();
-    await montarEn(rutaDe(inv.id, 'ranking'));
+    await montarEn(rutaDe(inv.id, 'ranking', 'lista'));
     await esperarPintado();
     g.parar();
-    expect(g.estados[0]).toBe(silueta(ROTULO_SILUETA.ranking, 'Ranking'));
+    expect(g.estados[0]).toBe(silueta(ROTULO_SILUETA.ranking, 'Hipótesis y ranking'));
     expect(g.estados[g.estados.length - 1]).toBe('sin silueta');
     // La silueta de App y la propia de Ranking son la misma EsqueletoPantalla: un solo estado, una sola forma y nunca dos aria-busy.
     expect(g.estados.length).toBe(2);
@@ -331,7 +335,7 @@ describe('la espera al cambiar de pantalla desde App', () => {
     await navegar(rutaDe(otra.id, 'ranking'));
     await esperarPintado();
     g2.parar();
-    expect(g2.estados[0]).toBe(silueta(ROTULO_SILUETA.ranking, 'Ranking'));
+    expect(g2.estados[0]).toBe(silueta(ROTULO_SILUETA.ranking, 'Hipótesis y ranking'));
     expect(g2.estados[g2.estados.length - 1]).toBe('sin silueta');
     expect(g2.formas).toHaveLength(1);
     expect(raiz.querySelector('.esqueleto-pantalla')).toBeNull();
@@ -341,11 +345,13 @@ describe('la espera al cambiar de pantalla desde App', () => {
     const e = estadoDeMuestra();
     const inv = e.investigaciones[0]!;
     await conEstado(e);
-    await montarEn(rutaDe(inv.id, 'ranking'));
+    await montarEn(rutaDe(inv.id, 'ranking', 'lista'));
     await esperarPintado();
     expect(raiz.querySelectorAll('.ranking-fila').length).toBeGreaterThan(0);
     const g = grabar();
-    await navegar(rutaDe(inv.id, 'ranking', 'detalle-que-no-existe'));
+    // Cambiar de vista dentro del ranking es cambiar el detalle de la ruta,
+    // no de página: ni silueta de App ni remontaje.
+    await navegar(rutaDe(inv.id, 'ranking', 'clusters'));
     await esperarPintado();
     g.parar();
     expect(g.estados.filter((x) => x.startsWith('silueta'))).toEqual([]);

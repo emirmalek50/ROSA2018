@@ -5697,3 +5697,30 @@ details.versiones > :not(summary) {
   display: grid;
   gap: 4px;
 }
+
+/* El aviso de lo que espera tu decisión, sobre el podio del ranking. La cola
+   dejó de ser una sección propia el 1 de octubre de 2026, así que esto es lo
+   único que recuerda que hay algo esperando. Es un botón, no una tarjeta
+   muerta: lleva a la vista de pendientes. */
+.aviso-pendientes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-left: 3px solid var(--amber, #d98324);
+}
+
+.aviso-pendientes strong {
+  font-size: 17px;
+}
+
+.aviso-pendientes:hover {
+  border-color: var(--amber, #d98324);
+}

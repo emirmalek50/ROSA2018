@@ -67,12 +67,15 @@ export const ElementoAnimado = forwardRef<HTMLElement, { children: ReactNode; cl
 });
 
 /** Un numero que corre hasta su valor cuando cambia (el Elo, un recuento).
- *  El ojo sigue el cambio y entiende la direccion sin leer el signo. */
-export function Contador({ valor, decimales = 0, className, sufijo = '' }: { valor: number; decimales?: number; className?: string; sufijo?: string }) {
+ *  El ojo sigue el cambio y entiende la direccion sin leer el signo. Con
+ *  `desde`, al montarse corre desde esa cifra (el podio: del Elo inicial al
+ *  actual); sin el, aparece ya con su valor. */
+export function Contador({ valor, decimales = 0, className, sufijo = '', desde }: { valor: number; decimales?: number; className?: string; sufijo?: string; desde?: number }) {
   const reducido = useMovimientoReducido();
-  const mv = useMotionValue(valor);
-  const [texto, setTexto] = useState(valor.toFixed(decimales));
-  const anterior = useRef(valor);
+  const inicio = desde !== undefined && Number.isFinite(desde) && !reducido ? desde : valor;
+  const mv = useMotionValue(inicio);
+  const [texto, setTexto] = useState(Number.isFinite(inicio) ? inicio.toFixed(decimales) : '');
+  const anterior = useRef(inicio);
   useEffect(() => {
     if (reducido || !Number.isFinite(valor)) {
       setTexto(Number.isFinite(valor) ? valor.toFixed(decimales) : '');

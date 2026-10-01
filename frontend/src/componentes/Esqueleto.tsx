@@ -253,6 +253,9 @@ type PropsPantalla = PropsCuerpo &
   PropsCabecera & {
     /** Lo que se está cargando, en llano y con artículo: "el ranking", "la corrida". */
     rotulo?: string;
+    /** Una clase más para el `.contenido`, la misma que lleva la pantalla
+     *  real (el ranking va centrado), para que la silueta no salte de sitio. */
+    clase?: string;
   };
 
 /** La silueta completa de una pantalla dentro de `.contenido`, con
@@ -262,9 +265,9 @@ type PropsPantalla = PropsCuerpo &
  *  filas va a pintar (`filas`, que el estado ya sabe) y de qué forma
  *  (`forma` tarjetas para el ranking y la cola, tabla para lo demás), o un
  *  cuerpo propio (`children`). */
-export function EsqueletoPantalla({ variante, rotulo = tr('la pantalla'), ...resto }: PropsPantalla): JSX.Element {
+export function EsqueletoPantalla({ variante, rotulo = tr('la pantalla'), clase, ...resto }: PropsPantalla): JSX.Element {
   return (
-    <div className={`contenido esqueleto-pantalla esqueleto-pantalla-${variante}`} role="status" aria-busy="true">
+    <div className={`contenido esqueleto-pantalla esqueleto-pantalla-${variante} ${clase ?? ''}`.trim()} role="status" aria-busy="true">
       <span className="sr-only">Cargando {rotulo}</span>
       <SiluetaPantalla variante={variante} {...resto} />
     </div>

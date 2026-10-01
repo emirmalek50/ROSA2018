@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatearRuta, parsearRuta, rutaDe } from './ruta';
+import { formatearRuta, parsearRuta, rutaDe, vistaDeRanking } from './ruta';
 
 describe('parsearRuta', () => {
   it('reconoce las rutas simples', () => {
@@ -52,9 +52,45 @@ describe('parsearRuta con URL rota', () => {
 });
 
 describe('pantallas retiradas', () => {
-  it('un enlace guardado a "Qué desbloquea más" lleva a las hipótesis de la misma investigación', () => {
+  it('un enlace guardado a "Qué desbloquea más" lleva al ranking de la misma investigación', () => {
     // Se retiró el 25 de septiembre de 2026; los datos siguen en el estado.
-    expect(parsearRuta('#/investigaciones/inv-1/desbloqueo')).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'hipotesis', detalleId: null });
-    expect(parsearRuta('#/investigaciones/inv-1/desbloqueo/hip-3')).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'hipotesis', detalleId: 'hip-3' });
+    // Llevaba a la cola de hipótesis, que desde el 1 de octubre vive dentro
+    // del ranking.
+    expect(parsearRuta('#/investigaciones/inv-1/desbloqueo')).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'ranking', detalleId: null });
+    expect(parsearRuta('#/investigaciones/inv-1/desbloqueo/hip-3')).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'ranking', detalleId: 'hip-3' });
+  });
+
+  it('la LISTA de hipótesis lleva al ranking, y la FICHA se queda donde estaba', () => {
+    // Esta es la distinción que sostiene toda la fusión. Si la ficha también
+    // se redirigiera, los treinta enlaces que llegan a ella desde el árbol,
+    // el atlas, la búsqueda, calidad, mecanismos y los eventos del inicio
+    // abrirían el ranking en vez de la hipótesis que se pidió.
+    expect(parsearRuta('#/investigaciones/inv-1/hipotesis')).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'ranking', detalleId: 'pendientes' });
+    expect(parsearRuta('#/investigaciones/inv-1/hipotesis/laboratorio')).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'ranking', detalleId: 'laboratorio' });
+    expect(parsearRuta('#/investigaciones/inv-1/hipotesis/hip-3')).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'hipotesis', detalleId: 'hip-3' });
+  });
+
+  it('una hipótesis que se llamara como una vista seguiría abriendo su ficha', () => {
+    // El centinela va en la misma ranura que el id, así que conviene saber
+    // qué gana. Solo «laboratorio» está reservado, porque es el único que ya
+    // se usaba así; «pendientes» o «podio» como id abren la ficha.
+    expect(parsearRuta('#/investigaciones/inv-1/hipotesis/pendientes')).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'hipotesis', detalleId: 'pendientes' });
+  });
+});
+
+describe('las vistas del ranking', () => {
+  it('la vista viaja en la URL y vuelve a leerse', () => {
+    expect(rutaDe('inv-1', 'ranking', 'pendientes')).toBe('#/investigaciones/inv-1/ranking/pendientes');
+    expect(vistaDeRanking(parsearRuta('#/investigaciones/inv-1/ranking/clusters').tipo === 'investigacion' ? 'clusters' : null)).toBe('clusters');
+  });
+
+  it('lo que no es una vista conocida cae en el podio, no en blanco', () => {
+    // En esa ranura puede llegar el id de una hipótesis de un enlace viejo.
+    for (const v of [null, undefined, '', 'hip-3', 'laboratorioX', 'PODIO']) {
+      expect(vistaDeRanking(v), `${String(v)} no es una vista`).toBe('podio');
+    }
+    for (const v of ['podio', 'pendientes', 'lista', 'clusters', 'laboratorio'] as const) {
+      expect(vistaDeRanking(v)).toBe(v);
+    }
   });
 });

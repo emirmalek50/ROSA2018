@@ -2,7 +2,7 @@
 // verificacion y hallazgos visibles. Sin React: lo prueba vitest.
 
 import type { Afirmacion, EstadoHipotesis, HallazgoRevisor, Hipotesis } from '../datos/tipos';
-import { VEREDICTO } from './etiquetas';
+import { DECISION_KILLER, VEREDICTO } from './etiquetas';
 import { tr } from './idioma';
 
 /** Orden de la cola: primero lo que espera a una persona. */
@@ -26,14 +26,33 @@ export function ordenarCola(hipotesis: Hipotesis[]): Hipotesis[] {
   });
 }
 
-/** Cuantas esperan a una persona: propuestas, en revision o por refinar. */
+/** Si esta hipotesis espera a una PERSONA.
+ *
+ *  Un solo predicado, y es a proposito. Habia dos que no coincidian: el
+ *  contador del menu y la fila de la cola contaban `propuesta`, `en_revision`
+ *  y `refinar`; el filtro de la cola añadia `aclarando`. Asi el menu podia
+ *  decir 5 y la lista enseñar 6, sin que nada fallara.
+ *
+ *  `aclarando` se queda FUERA porque es lo que pasa al pulsar «no puedo
+ *  juzgar»: la hipotesis vuelve a ROSA2018 para que la aclare. Espera a
+ *  ROSA2018, no a ti. Se enseña aparte, en su propio grupo. */
+export function esperaTuDecision(h: Pick<Hipotesis, 'estado'>): boolean {
+  return h.estado === 'propuesta' || h.estado === 'en_revision' || h.estado === 'refinar';
+}
+
+/** Si la tiene ROSA2018 aclarandola, tras un «no puedo juzgar». */
+export function enAclaracion(h: Pick<Hipotesis, 'estado'>): boolean {
+  return h.estado === 'aclarando';
+}
+
+/** Cuantas esperan a una persona. */
 export function pendientesDeRevision(hipotesis: Hipotesis[]): number {
-  return hipotesis.filter((h) => h.estado === 'propuesta' || h.estado === 'en_revision' || h.estado === 'refinar').length;
+  return hipotesis.filter(esperaTuDecision).length;
 }
 
 /** Cuanto lleva esperando la decision mas antigua de la cola, en ms. */
 export function esperaMasAntigua(hipotesis: Hipotesis[], ahora: number): number {
-  const pendientes = hipotesis.filter((h) => h.estado === 'propuesta' || h.estado === 'en_revision' || h.estado === 'refinar');
+  const pendientes = hipotesis.filter(esperaTuDecision);
   if (pendientes.length === 0) return 0;
   return ahora - Math.min(...pendientes.map((h) => h.creadaEn));
 }
@@ -129,3 +148,37 @@ export function motivoNoAceptable(h: Pick<Hipotesis, 'afirmaciones' | 'hallazgos
   }
   return null;
 }
+
+/** Los hallazgos del revisor tal como cuentan hoy. El Killer abre un hallazgo
+ *  "El Killer propone descartarla en este contexto" al proponer el descarte; si
+ *  una pasada posterior (con evidencia nueva) dijo avanzar o suspender, ese
+ *  hallazgo ya no describe la decisión vigente y se enseña como atendido, con
+ *  la nota de por qué, en vez de seguir bloqueando la aceptación y contando
+ *  como "hallazgo abierto". Misma lectura que hace el servidor al restaurar el
+ *  estado tras un avanzar (rosa/bucle/pasos.py): solo con "avanzar" o
+ *  "suspender" posteriores. Sin decisión (la versión nueva aún no pasó por el
+ *  Killer) o con "reformular", el servidor no lo atiende y aquí tampoco: un
+ *  descarte propuesto no se retira por ausencia de juicio. Nada se borra: el
+ *  hallazgo sigue en el registro con su razonamiento.
+ *
+ *  Vive aquí, y no en la pantalla, porque la usan las dos vistas: la fila de
+ *  la cola (para contar los hallazgos abiertos) y la ficha. */
+export function hallazgosVigentes(h: Pick<Hipotesis, 'hallazgos' | 'decisionKiller' | 'version'>): Hipotesis['hallazgos'] {
+  const hallazgos = Array.isArray(h.hallazgos) ? h.hallazgos : [];
+  if (h.decisionKiller !== 'avanzar' && h.decisionKiller !== 'suspender') return hallazgos;
+  return hallazgos.map((x) =>
+    x && x.estado === 'abierto' && /^El Killer propone descartarla/i.test(String(x.resumen ?? ''))
+      ? { ...x, estado: 'atendido' as const, respuestaDeRosa: x.respuestaDeRosa || `Retirado: la decisión más reciente del Killer sobre la versión ${h.version ?? 1} ya no es descartar${h.decisionKiller ? ` (${(DECISION_KILLER[h.decisionKiller]?.etiqueta ?? String(h.decisionKiller)).toLowerCase()})` : ''}.` }
+      : x,
+  );
+}
+
+/** El tono del chip de cada estado. Lo usan la fila de la cola y la ficha. */
+export const TONO_ESTADO: Record<EstadoHipotesis, 'ok' | 'aviso' | 'mal' | 'acento' | undefined> = {
+  propuesta: 'acento',
+  en_revision: 'aviso',
+  aceptada: 'ok',
+  descartada: 'mal',
+  refinar: 'aviso',
+  aclarando: 'aviso',
+};

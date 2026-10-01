@@ -1702,3 +1702,743 @@
 .contenido .tarjeta.metodo {
   padding: 18px 20px;
 }
+
+/* ==========================================================================
+   Ranking: el podio (1 de octubre de 2026)
+   --------------------------------------------------------------------------
+   Lo que abre el ranking: las tres primeras en sus pedestales y, debajo, por
+   qué está ahí la que se mira. Los metales son el único color propio de la
+   pantalla y solo marcan el puesto (la regla, el pedestal, el número); lo
+   demás usa los tonos de siempre: verde lo que sostiene, ámbar y rojo lo que
+   frena. En claro los metales se oscurecen para que se lean sobre blanco.
+   ========================================================================== */
+
+:root {
+  --oro: #a37812;
+  --plata: #6b7080;
+  --bronce: #a85a2a;
+}
+
+:root[data-theme='dark'] {
+  --oro: #edc472;
+  --plata: #c9ccd6;
+  --bronce: #d9925f;
+}
+
+/* El ranking va centrado en el hueco que deja la barra lateral: pegado a la
+   izquierda, con el podio, todo el aire sobraba a la derecha (Emir, 1 de
+   octubre de 2026). Y más ancho que el resto: tres columnas de podio en
+   1120 px dejaban los lados vacíos en una pantalla grande. Lo llevan
+   también sus siluetas, para no saltar. */
+.contenido.contenido-ranking {
+  max-width: 1480px;
+  margin-inline: auto;
+}
+
+.ranking-antetitulo {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--oro);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.podio {
+  --medalla: var(--oro);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.podio-puesto-1 {
+  --medalla: var(--oro);
+}
+
+.podio-puesto-2 {
+  --medalla: var(--plata);
+}
+
+.podio-puesto-3 {
+  --medalla: var(--bronce);
+}
+
+/* El escenario: tres columnas alineadas abajo, el primero en medio y más
+   ancho, un foco cálido detrás y la línea del suelo bajo los pedestales. */
+.podio-escenario {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: end;
+  gap: clamp(20px, 2vw, 32px);
+  padding: 28px 8px 0;
+  isolation: isolate;
+}
+
+.podio-escenario::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: -40px;
+  width: min(1200px, 90%);
+  height: 560px;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--oro) 16%, transparent), color-mix(in srgb, var(--accent) 5%, transparent) 55%, transparent);
+  pointer-events: none;
+}
+
+.podio-escenario::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-strong) 50%, transparent);
+}
+
+.podio-columna {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.podio-escenario .podio-puesto-1 {
+  order: 2;
+}
+
+.podio-escenario .podio-puesto-2 {
+  order: 1;
+}
+
+.podio-escenario .podio-puesto-3 {
+  order: 3;
+}
+
+/* Con dos puestos el hueco del tercero queda vacío a la derecha; con uno,
+   el primero va solo en medio. */
+.podio-escenario:has(> .podio-columna:only-child) .podio-puesto-1 {
+  grid-column: 2;
+}
+
+.podio-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(28, 25, 23, 0.07);
+  transition:
+    transform var(--dur-2, 240ms) var(--ease-salida, ease),
+    border-color var(--dur-2, 240ms) ease,
+    box-shadow var(--dur-2, 240ms) ease;
+}
+
+:root[data-theme='dark'] .podio-tarjeta {
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+}
+
+.podio-tarjeta:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--medalla) 55%, var(--border));
+}
+
+.podio-tarjeta:focus-visible {
+  outline: 2px solid var(--medalla);
+  outline-offset: 3px;
+}
+
+.podio-puesto-1 .podio-tarjeta {
+  border-color: color-mix(in srgb, var(--oro) 60%, transparent);
+  background: color-mix(in srgb, var(--oro) 4%, var(--surface));
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--oro) 16%, transparent);
+}
+
+.podio-elegida .podio-tarjeta {
+  border-color: var(--medalla);
+  box-shadow:
+    0 0 0 1px var(--medalla),
+    0 18px 48px color-mix(in srgb, var(--medalla) 20%, transparent);
+}
+
+.podio-tarjeta-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 10px;
+}
+
+.podio-lugar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--medalla);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.podio-lugar i {
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--medalla);
+}
+
+.podio-cluster {
+  overflow: hidden;
+  max-width: 100%;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--text-2);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podio-titulo {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.38;
+}
+
+.podio-puesto-1 .podio-titulo {
+  font-size: 17px;
+}
+
+.podio-elo {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.podio-elo-cifra {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.podio-elo-cifra small {
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.podio-elo-valor {
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.podio-puesto-1 .podio-elo-valor {
+  color: var(--oro);
+  font-size: 48px;
+}
+
+.podio-delta {
+  margin-bottom: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--hover);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.podio-delta-sube {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.podio-delta-baja {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.podio-bt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.podio-bt-cabecera {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.podio-bt-cabecera strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.podio-bt-cabecera > span {
+  white-space: nowrap;
+}
+
+.podio-bt-cabecera {
+  flex-wrap: wrap;
+}
+
+.podio-bt-ic {
+  color: var(--text-3);
+}
+
+.podio-bt-pista {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--active);
+}
+
+.podio-bt-intervalo {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--medalla) 40%, transparent);
+}
+
+.podio-bt-punto {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--medalla);
+}
+
+.podio-evidencia {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.podio-evidencia-fila {
+  display: grid;
+  grid-template-columns: 26px 70px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.podio-evidencia-cifra {
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.podio-cifra-ok {
+  color: var(--green);
+}
+
+.podio-evidencia-unidad {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.podio-marcas {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+}
+
+.podio-marcas i {
+  flex-shrink: 0;
+}
+
+.podio-marcas b {
+  color: var(--text-3);
+  font-size: 10px;
+}
+
+.podio-marcas-punto i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.podio-marcas-trazo {
+  gap: 4px;
+}
+
+.podio-marcas-trazo i {
+  width: 3px;
+  height: 12px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--medalla) 80%, transparent);
+}
+
+.podio-marcas-cuadro i {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--text) 30%, transparent);
+}
+
+/* El pedestal: sube desde el suelo (scaleY desde abajo) con el número del
+   puesto en serif, el único sitio de la app que la usa. */
+.podio-pedestal {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  height: 150px;
+  padding-top: 14px;
+  border: 1px solid color-mix(in srgb, var(--medalla) 50%, transparent);
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--medalla) 16%, transparent), color-mix(in srgb, var(--medalla) 2%, transparent));
+  transform-origin: bottom;
+  cursor: pointer;
+}
+
+.podio-pedestal span {
+  color: color-mix(in srgb, var(--medalla) 80%, transparent);
+  font-family: 'Newsreader', 'Iowan Old Style', 'Palatino', Georgia, serif;
+  font-size: 84px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.podio-puesto-1 .podio-pedestal {
+  height: 210px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--oro) 22%, transparent), color-mix(in srgb, var(--oro) 2%, transparent));
+}
+
+.podio-puesto-1 .podio-pedestal span {
+  color: var(--oro);
+  font-size: 112px;
+}
+
+.podio-puesto-3 .podio-pedestal {
+  height: 110px;
+}
+
+/* El porqué de la elegida: lo que la sostiene, lo que la frena y la ruta. */
+.podio-detalle {
+  --medalla: var(--oro);
+  padding: 18px 22px 22px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.podio:has(.podio-elegida.podio-puesto-2) .podio-detalle {
+  --medalla: var(--plata);
+}
+
+.podio:has(.podio-elegida.podio-puesto-3) .podio-detalle {
+  --medalla: var(--bronce);
+}
+
+.podio-detalle-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.podio-detalle-cabecera h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+}
+
+.podio-detalle-lugar {
+  flex-shrink: 0;
+  color: var(--medalla);
+  font-weight: 650;
+  transition: color var(--dur-2, 240ms) ease;
+}
+
+.podio-detalle-titulo {
+  overflow: hidden;
+  color: var(--text-3);
+  font-weight: 450;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podio-selector {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+.podio-selector button {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.podio-selector button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.podio-selector button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.podio-selector button[aria-pressed='true'] {
+  border-color: var(--medalla);
+  background: color-mix(in srgb, var(--medalla) 16%, transparent);
+  color: var(--text);
+  font-weight: 650;
+}
+
+.podio-detalle-cuerpo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(220px, 0.8fr);
+  gap: 28px;
+}
+
+.podio-razones h4,
+.podio-ruta h4 {
+  margin: 0 0 12px;
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.podio-razones .podio-razones-ok {
+  color: var(--green);
+}
+
+.podio-razones .podio-razones-aviso {
+  color: var(--amber);
+}
+
+.podio-razones ul {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.podio-razon {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-strong);
+}
+
+.podio-razon strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.podio-razon span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.podio-razon-ok {
+  border-left-color: var(--green);
+}
+
+.podio-razon-aviso {
+  border-left-color: var(--amber);
+}
+
+.podio-razon-aviso strong {
+  color: var(--amber);
+}
+
+.podio-razon-mal {
+  border-left-color: var(--red);
+}
+
+.podio-razon-mal strong {
+  color: var(--red);
+}
+
+.podio-lateral {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--inset);
+}
+
+.podio-ruta-cifra {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.podio-ruta-cifra strong {
+  color: var(--medalla);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.podio-ruta-cifra span {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.podio-ruta-pasos {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+  margin: 10px 0 8px;
+}
+
+.podio-ruta-pasos i {
+  height: 6px;
+  border-radius: 2px;
+  background: var(--active);
+}
+
+.podio-ruta-pasos i.podio-paso-hecho {
+  background: var(--medalla);
+}
+
+.podio-ruta-nota {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.podio-acciones {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.podio-acciones .btn {
+  width: 100%;
+  text-decoration: none;
+}
+
+.podio-pie {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+
+.podio-enlace {
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 550;
+}
+
+.podio-enlace:hover {
+  text-decoration: underline;
+}
+
+.podio-vacio {
+  padding: 40px 24px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 16px;
+  color: var(--text-2);
+  text-align: center;
+}
+
+/* La silueta del podio: las mismas columnas y pedestales, en gris. */
+.esqueleto-podio .esqueleto-podio-tarjeta {
+  min-height: 300px;
+  border-radius: 16px;
+}
+
+.esqueleto-podio .esqueleto-podio-pedestal {
+  border-color: var(--border);
+  background: var(--hover);
+  cursor: default;
+}
+
+/* En pantallas estrechas el podio se apila en orden 1, 2, 3 y los pedestales
+   pasan a ser una franja baja con el número, para que nada se corte. */
+@media (max-width: 860px) {
+  .podio-escenario {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 8px;
+  }
+
+  .podio-escenario .podio-columna {
+    order: 0;
+    grid-column: auto;
+  }
+
+  .podio-escenario:has(> .podio-columna:only-child) .podio-puesto-1 {
+    grid-column: auto;
+  }
+
+  .podio-pedestal,
+  .podio-puesto-1 .podio-pedestal,
+  .podio-puesto-3 .podio-pedestal {
+    display: none;
+  }
+
+  .podio-detalle-cuerpo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .podio-tarjeta,
+  .podio-tarjeta:hover {
+    transform: none;
+    transition: none;
+  }
+}

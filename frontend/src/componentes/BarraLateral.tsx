@@ -10,8 +10,7 @@ import { rutaDe, rutaLaboratorio, type Pantalla, type Ruta } from '../lib/ruta';
 import {
   IconActivity,
   IconDocument,
-  IconFlask,
-  IconGauge,
+    IconGauge,
   IconGlobe,
   IconLayers,
   IconPlus,
@@ -83,8 +82,10 @@ function IconEstructura({ size = 16 }: { size?: number }) {
 
 const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number }) => JSX.Element }[] = traducido([
   { clave: 'corrida', etiqueta: 'Corrida en vivo', icono: IconActivity },
-  { clave: 'hipotesis', etiqueta: 'Cola de hipótesis', icono: IconFlask },
-  { clave: 'ranking', etiqueta: 'Ranking', icono: IconTrophy },
+  // El ranking es también la cola: la sección «Cola de hipótesis» se fusionó
+  // aquí el 1 de octubre de 2026 porque las dos enseñaban la misma lista con
+  // otro orden. El contador de lo que espera tu decisión viene con ella.
+  { clave: 'ranking', etiqueta: 'Hipótesis y ranking', icono: IconTrophy },
   { clave: 'panorama', etiqueta: 'Panorama', icono: IconGlobe },
   { clave: 'mundo', etiqueta: 'Modelo de mundo', icono: IconLayers },
   { clave: 'arbol', etiqueta: 'Árbol', icono: IconTree },
@@ -122,7 +123,7 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
     const incidencias = estado.incidencias.filter((i) => corridas.includes(i.corridaId) && i.estado === 'pendiente' && i.tipo !== 'modelo_sin_respuesta').length;
     const planes = estado.iteraciones.filter((i) => corridas.includes(i.corridaId) && !i.planAprobado && i.terminadaEn === null).length;
     const datos = inv.datasets.filter((d) => d.estado === 'pendiente').length;
-    return { hipotesis: pendientesDeRevision(hip), corrida: permisos + incidencias + planes, investigacion: datos };
+    return { ranking: pendientesDeRevision(hip), corrida: permisos + incidencias + planes, investigacion: datos };
   };
   const n = cuentas(actual);
 

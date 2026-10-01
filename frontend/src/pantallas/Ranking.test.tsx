@@ -50,7 +50,7 @@ async function esperarPintado(ms = 60) {
   });
 }
 async function montar(inv: Investigacion, e: EstadoRosa) {
-  await act(async () => root.render(<Ranking inv={inv} estado={e} />));
+  await act(async () => root.render(<Ranking inv={inv} estado={e} detalleId="lista" irA={() => undefined} />));
   await esperarPintado();
 }
 

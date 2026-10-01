@@ -10,7 +10,7 @@ import { iteracionActualDe } from '../datos/acciones';
 import type { Corrida, EstadoRosa, Investigacion, TipoPista } from '../datos/tipos';
 import { pendientesDeRevision } from '../lib/hipotesis';
 import { useMovimientoReducido } from '../lib/movimiento';
-import { rutaDe, type Pantalla } from '../lib/ruta';
+import { rutaDe, vistaDeRanking, type Pantalla } from '../lib/ruta';
 import { proponiendoPlan } from '../lib/etiquetas';
 import { traducido, tr } from '../lib/idioma';
 
@@ -21,9 +21,9 @@ export const ETAPAS: { clave: Etapa; nombre: string; corto: string; explicacion:
   { clave: 'literatura', nombre: 'Buscar literatura', corto: 'Literatura', explicacion: 'Consultas a PubMed, Europe PMC, ensayos clínicos y bases curadas. Cada consulta queda registrada con fecha.', pantalla: 'corrida' },
   { clave: 'verificar', nombre: 'Verificar afirmaciones', corto: 'Verificar', explicacion: 'Cada afirmación extraida se contrasta con su pasaje literal; el juez decide si la fuente la sostiene.', pantalla: 'corrida' },
   { clave: 'mundo', nombre: 'Modelo de mundo', corto: 'Mundo', explicacion: 'Lo sostenido entra como hecho con su procedencia; lo abierto queda como pregunta. Se ve como árbol: que sostiene a que.', pantalla: 'arbol' },
-  { clave: 'hipotesis', nombre: 'Hipótesis y Killer', corto: 'Hipótesis', explicacion: 'ROSA2018 genera hipótesis, el Killer las somete a quince comprobaciones y tú decides sobre las que quedan en la cola.', pantalla: 'hipotesis' },
-  { clave: 'candidatas', nombre: 'Candidatas', corto: 'Candidatas', explicacion: 'El torneo (Elo y Bradley-Terry) y los bloqueos deciden cuales llegan al laboratorio: hasta tres por ciclo.', pantalla: 'ranking' },
-  { clave: 'laboratorio', nombre: 'Laboratorio', corto: 'Laboratorio', explicacion: 'El experimento se prerregistra y se sella con un tercero; los datos vuelven y ROSA2018 actualiza su conclusión. Aquí se ven solo las hipótesis que están en ese tramo.', pantalla: 'hipotesis', detalle: 'laboratorio' },
+  { clave: 'hipotesis', nombre: 'Hipótesis y Killer', corto: 'Hipótesis', explicacion: 'ROSA2018 genera hipótesis, el Killer las somete a quince comprobaciones y tú decides sobre las que quedan en la cola.', pantalla: 'ranking', detalle: 'pendientes' },
+  { clave: 'candidatas', nombre: 'Candidatas', corto: 'Candidatas', explicacion: 'El torneo (Elo y Bradley-Terry) y los bloqueos deciden cuales llegan al laboratorio: hasta tres por ciclo.', pantalla: 'ranking', detalle: 'podio' },
+  { clave: 'laboratorio', nombre: 'Laboratorio', corto: 'Laboratorio', explicacion: 'El experimento se prerregistra y se sella con un tercero; los datos vuelven y ROSA2018 actualiza su conclusión. Aquí se ven solo las hipótesis que están en ese tramo.', pantalla: 'ranking', detalle: 'laboratorio' },
 ]);
 
 const ETAPA_POR_PISTA: Record<TipoPista, Etapa> = {
@@ -115,7 +115,15 @@ export function HiloDelProceso({ estado, inv, pantalla, detalleId = null, compac
         const activa = hilo.activa === e.clave;
         const hecha = hilo.hechas.has(e.clave) && !activa;
         const espera = hilo.esperan[e.clave] ?? 0;
-        const aqui = pantalla === e.pantalla && (e.pantalla !== 'corrida' || e.clave === (hilo.activa ?? 'plan')) && (e.pantalla !== 'hipotesis' || (e.detalle ?? null) === (detalleId === 'laboratorio' ? 'laboratorio' : null));
+        // Tres etapas comparten la pantalla del ranking (hipótesis,
+        // candidatas y laboratorio), así que para saber en cuál estás hay que
+        // mirar también la vista. La ficha de una hipótesis
+        // (`hipotesis/<id>`) resalta «Hipótesis y Killer», que es de donde
+        // sale.
+        const aqui =
+          e.pantalla === 'ranking'
+            ? (pantalla === 'ranking' && vistaDeRanking(detalleId) === e.detalle) || (pantalla === 'hipotesis' && e.detalle === 'pendientes')
+            : pantalla === e.pantalla && (e.pantalla !== 'corrida' || e.clave === (hilo.activa ?? 'plan'));
         return (
           <a key={e.clave} className={`hilo-etapa ${activa ? 'hilo-activa' : ''} ${hecha ? 'hilo-hecha' : ''} ${espera ? 'hilo-espera' : ''} ${aqui ? 'hilo-aqui' : ''}`} href={rutaDe(inv.id, e.pantalla, e.detalle)} title={`${e.nombre}. ${e.explicacion}${espera ? ` Te espera${espera > 1 ? 'n' : ''} ${espera}.` : ''}`} aria-current={aqui ? 'step' : undefined}>
             <span className="hilo-punto" aria-hidden="true">

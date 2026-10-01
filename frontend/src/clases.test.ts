@@ -8,7 +8,9 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const MARCADORES = new Set(['conclusion', 'llano-bloque', 'plan-edicion', 'lista-plana', 'campo-fila', 'revision-registro', 'procedencia-artefacto', 'pestanas-s', 'embudo', 'arbol-afirmaciones']);
+// 'podio-tarjeta-entrada' es el envoltorio que motion necesita para no pisar
+// el :hover del boton: no lleva estilo, solo nombre.
+const MARCADORES = new Set(['podio-tarjeta-entrada', 'conclusion', 'llano-bloque', 'plan-edicion', 'lista-plana', 'campo-fila', 'revision-registro', 'procedencia-artefacto', 'pestanas-s', 'embudo', 'arbol-afirmaciones']);
 
 function ficheros(d: string, extension = /\.tsx$/): string[] {
   const salida: string[] = [];

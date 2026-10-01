@@ -55,7 +55,7 @@ async function esperarPintado(ms = 60) {
 }
 async function montar(e: EstadoRosa, id: string) {
   const inv = e.investigaciones[0]!;
-  await act(async () => root.render(<Hipotesis inv={inv} estado={e} ahora={Date.now()} detalleId={id} cajonAbierto={false} setCajonAbierto={() => undefined} irA={() => undefined} />));
+  await act(async () => root.render(<Hipotesis inv={inv} estado={e} ahora={Date.now()} detalleId={id} cajonAbierto={false} setCajonAbierto={() => undefined} />));
   await esperarPintado();
 }
 
@@ -234,15 +234,14 @@ describe('la ficha con las reglas del 17 de septiembre', () => {
     expect(nodo.textContent).toContain('Datos sintéticos o de prueba: no cuentan como evidencia');
   });
 
-  it('una suspensión técnica ("El juez no respondió") se enseña como pendiente de juicio en la cola y en la ficha', async () => {
+  it('una suspensión técnica ("El juez no respondió") se enseña como pendiente de juicio en la ficha', async () => {
     const e = structuredClone(estadoDeMuestra());
     const inv = e.investigaciones[0]!;
     const h = e.hipotesis.find((x) => x.investigacionId === inv.id && x.estado === 'propuesta')!;
     h.decisionKiller = 'suspender';
     h.revisiones = [...h.revisiones, { fecha: Date.now(), quien: 'Rosa', accion: 'killer', nota: 'suspender: El juez no respondió: no se puede dar por revisada', aCiegas: false }];
-    await montar(e, '');
-    const fila = [...nodo.querySelectorAll('.hip-fila')].find((f) => f.textContent?.includes(h.titulo))!;
-    expect(fila.textContent).toContain('Pendiente de juicio: el modelo no respondió');
+    // La fila de la cola lo comprueba componentes/ColaHipotesis.test.tsx,
+    // que es donde vive la lista desde el 1 de octubre de 2026.
     await montar(e, h.id);
     expect(nodo.textContent).toContain('Pendiente de juicio: el modelo no respondió');
     // Con la clave pública del servidor, igual, aunque la nota no lo diga.
@@ -253,7 +252,8 @@ describe('la ficha con las reglas del 17 de septiembre', () => {
   });
 
   it('un hallazgo "El Killer propone descartarla" abierto se enseña atendido si la decisión vigente ya no es descartar, y deja de bloquear la aceptación', async () => {
-    const { hallazgosVigentes } = await import('./Hipotesis');
+    // Vive en la logica, no en la pantalla: la usan la fila de la cola y la ficha.
+    const { hallazgosVigentes } = await import('../lib/hipotesis');
     const abierto = { id: 'x1', tipo: 'conclusion_no_sigue' as const, resumen: 'El Killer propone descartarla en este contexto', razonamiento: 'citas', estado: 'abierto' as const, respuestaDeRosa: null };
     const otro = { ...abierto, id: 'x2', resumen: 'Cita que no resuelve' };
     // Con descarte vigente, nada cambia.
@@ -283,9 +283,6 @@ describe('la ficha con las reglas del 17 de septiembre', () => {
     const h = e.hipotesis.find((x) => x.investigacionId === inv.id && x.estado === 'propuesta' && x.hallazgos.every((y) => y.estado !== 'abierto'))!;
     h.hallazgos = [abierto];
     h.decisionKiller = 'avanzar';
-    await montar(e, '');
-    const fila = [...nodo.querySelectorAll('.hip-fila')].find((f) => f.textContent?.includes(h.titulo))!;
-    expect(fila.textContent).not.toContain('hallazgo abierto');
     await montar(e, h.id);
     expect(nodo.textContent).not.toContain('hallazgo del revisor sigue abierto');
     // El Revisor lo pinta como atendido (plegado, tono ok), no como abierto.

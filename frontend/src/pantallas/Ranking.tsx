@@ -4,6 +4,11 @@
 // de ROSA2018). Vista alternativa por cluster para ver diversidad: el mejor de
 // cada cluster, como hace el agente de proximidad de Co-Scientist.
 //
+// Desde el 1 de octubre de 2026 (Emir) la pantalla abre en el podio: solo las
+// tres primeras, en pedestales, con el porqué de la que se mira
+// (componentes/PodioRanking.tsx). La lista completa, con las candidatas y el
+// acuerdo del revisor, y la vista por cluster siguen a un clic.
+//
 // Esperas visibles (estándar de Emir, 19 de septiembre de 2026): todo lo
 // derivado (orden por Elo, calibración, clusters, candidatas y por qué las
 // demás no lo son, con los bloqueos de cada una) se calcula después de pintar
@@ -19,14 +24,16 @@ import type { EstadoRosa, Hipotesis, Investigacion } from '../datos/tipos';
 import { AvisoMuestra, Chip } from '../componentes/piezas';
 import { Candidatas } from '../componentes/Rosa2018';
 import { Esqueleto, EsqueletoPantalla, EsqueletoTarjeta, EsqueletoTarjetas } from '../componentes/Esqueleto';
+import { PodioRanking, delPodio, tituloPodio } from '../componentes/PodioRanking';
+import { ColaHipotesis, FormularioHipotesis } from '../componentes/ColaHipotesis';
 import { calibracion } from '../lib/calidad';
 import { useCalculoDiferido } from '../lib/diferido';
 import { DECISION_KILLER, ESTADO_HIPOTESIS, killerPendienteDe } from '../lib/etiquetas';
 import { coma, formatearPorcentaje } from '../lib/formato';
-import { ranking, variacionElo } from '../lib/hipotesis';
+import { pendientesDeRevision, ranking, variacionElo } from '../lib/hipotesis';
 import { bloqueosDe, candidatos } from '../lib/priorizacion';
-import { rutaDe } from '../lib/ruta';
-import { tr } from '../lib/idioma';
+import { rutaDe, vistaDeRanking, type VistaRanking } from '../lib/ruta';
+import { tr, traducido, trp } from '../lib/idioma';
 
 function GraficaElo({ puntos }: { puntos: Hipotesis['historialElo'] }) {
   if (puntos.length < 2) return <svg className="grafica-elo" aria-hidden="true" />;
@@ -145,16 +152,16 @@ export function calcularRanking(estado: EstadoRosa, invId: string): RankingCalcu
 const ALTO_FILA_RANKING = 168;
 const ALTO_CANDIDATAS = 150;
 const MAX_FILAS_SILUETA = 40;
+/** El panel del porqué bajo el podio, medido a 1440 px con cuatro frenos. */
+const ALTO_DETALLE_PODIO = 280;
 
-/** La silueta del ranking: la cabecera gris con su margen y sus cuatro
+/** La silueta de la lista: la cabecera gris con su margen y sus cuatro
  *  líneas (la real mide 118 px), la tarjeta de candidatas, la fila del
  *  acuerdo y tantas tarjetas como hipótesis tiene la investigación, que el
- *  estado ya sabe sin calcular nada. La cabecera va en gris y no con el
- *  texto real porque App pinta la misma EsqueletoPantalla al cambiar de
- *  pantalla y las dos deben tener la misma forma (App.esqueleto.test.tsx). */
+ *  estado ya sabe sin calcular nada. */
 export function EsqueletoRanking({ filas }: { filas: number }) {
   return (
-    <EsqueletoPantalla variante="lista" rotulo={tr("el ranking")} margenSuperior={16} lineasDescripcion={4}>
+    <EsqueletoPantalla variante="lista" clase="contenido-ranking" rotulo={tr("el ranking")} margenSuperior={16} lineasDescripcion={4}>
       <EsqueletoTarjeta lineas={5} alto={ALTO_CANDIDATAS} />
       <div className="acciones" style={{ marginBottom: 14, marginTop: 12 }} aria-hidden="true">
         <Esqueleto className="esqueleto-chip" ancho={230} />
@@ -165,9 +172,81 @@ export function EsqueletoRanking({ filas }: { filas: number }) {
   );
 }
 
-export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
-  const [vista, setVista] = useState<'lista' | 'clusters'>('lista');
+/** La silueta del podio, que es lo que se abre: la cabecera gris con su
+ *  margen y dos líneas, tantas columnas como puestos va a haber (las que no
+ *  están descartadas, hasta tres; el estado lo sabe sin calcular nada), cada
+ *  una con su tarjeta y su pedestal a la altura real, y el panel del porqué.
+ *  La cabecera va en gris y no con el texto real porque App pinta la misma
+ *  EsqueletoPantalla al cambiar de pantalla y las dos deben tener la misma
+ *  forma (App.esqueleto.test.tsx). */
+export function EsqueletoPodio({ puestos }: { puestos: number }) {
+  const n = Math.max(1, Math.min(3, puestos));
+  return (
+    <EsqueletoPantalla variante="lista" clase="contenido-ranking" rotulo={tr("el ranking")} margenSuperior={16} lineasDescripcion={2}>
+      <div className="podio" aria-hidden="true">
+        <div className="podio-escenario esqueleto-podio">
+          {Array.from({ length: n }, (_, i) => (
+            <div key={i} className={`podio-columna podio-puesto-${i + 1}`}>
+              <EsqueletoTarjeta lineas={4} className="esqueleto-podio-tarjeta" />
+              <div className="podio-pedestal esqueleto-podio-pedestal" />
+            </div>
+          ))}
+        </div>
+        <EsqueletoTarjeta lineas={4} alto={ALTO_DETALLE_PODIO} />
+      </div>
+    </EsqueletoPantalla>
+  );
+}
+
+/** Las dos vistas que vienen de la antigua cola tienen cabecera propia: en
+ *  «Laboratorio» el titulo no puede decir «Ranking de hipotesis», porque lo
+ *  que se esta mirando es otra cosa. Las tres del ranking siguen con la suya.
+ *  `undefined` quiere decir «usa la del ranking». */
+const CABECERA: Partial<Record<VistaRanking, { titulo: string; nota: string }>> = traducido({
+  pendientes: {
+    titulo: 'Lo que espera tu decisión',
+    nota: 'Lo que ROSA2018 propone y espera tu lectura, ordenado por Elo. Nada entra al modelo de mundo sin pasar por aquí.',
+  },
+  laboratorio: {
+    titulo: 'Laboratorio',
+    nota: 'El tramo final: hipótesis con experimento asignado (prerregistrado y sellado), en curso o con datos recibidos, y las candidatas que esperan un laboratorio. Cuando vuelven los datos, ROSA2018 los juzga contra el prerregistro.',
+  },
+});
+
+/** Las cinco vistas. Lo usan las dos ramas de la pantalla (la del ranking y
+ *  la de la cola), asi que vive aparte para no escribirlo dos veces. */
+function Segmentado({ vista, setVista, esperan }: { vista: VistaRanking; setVista: (v: VistaRanking) => void; esperan: number }) {
+  return (
+    <div className="segmentos" role="group" aria-label={tr("Vista")}>
+      <button type="button" aria-pressed={vista === 'podio'} onClick={() => setVista('podio')}>
+        {tr("Podio")}
+      </button>
+      <button type="button" aria-pressed={vista === 'pendientes'} onClick={() => setVista('pendientes')} title={tr("Las que esperan tu decisión: aceptar, descartar o pedir que las refine")}>
+        {tr("Pendientes")}
+        {esperan > 0 && <span className="nav-cuenta">{esperan}</span>}
+      </button>
+      <button type="button" aria-pressed={vista === 'lista'} onClick={() => setVista('lista')}>
+        {tr("Lista completa")}
+      </button>
+      <button type="button" aria-pressed={vista === 'clusters'} onClick={() => setVista('clusters')}>
+        {tr("Por cluster")}
+      </button>
+      <button type="button" aria-pressed={vista === 'laboratorio'} onClick={() => setVista('laboratorio')} title={tr("Hipótesis con experimento asignado, en curso o con datos, y candidatas que esperan laboratorio")}>
+        {tr("Laboratorio")}
+      </button>
+    </div>
+  );
+}
+
+export function Ranking({ inv, estado, detalleId, irA }: { inv: Investigacion; estado: EstadoRosa; detalleId: string | null; irA: (hash: string) => void }) {
+  // La vista viene de la URL y no de un useState: así el aviso de pendientes,
+  // el hilo del proceso y el «volver» de una ficha pueden llevar a una vista
+  // concreta, y el botón atrás del navegador hace lo que se espera.
+  const vista = vistaDeRanking(detalleId);
+  const setVista = (v: VistaRanking) => irA(rutaDe(inv.id, 'ranking', v));
   const [soloMejor, setSoloMejor] = useState(false);
+  const [proponiendo, setProponiendo] = useState(false);
+  const esperanTuDecision = pendientesDeRevision(estado.hipotesis.filter((h) => h.investigacionId === inv.id));
   // Calculado tras el pintado. Si la investigación ya no es la misma, lo que
   // hay es de otra y se vuelve a la silueta; si solo cambió el estado (un
   // empuje del canal en vivo), se sigue enseñando el ranking anterior hasta
@@ -178,7 +257,7 @@ export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRos
   // cambió pero el cálculo nuevo aún no llegó, React recibe el mismo árbol y
   // no vuelve a pintar cada fila con su franja.
   const filas = useMemo(() => {
-    if (r === null) return null;
+    if (r === null || vista === 'podio') return null;
     const { lista, clusters, estado: foto } = r;
     if (vista === 'lista') {
       return (
@@ -215,50 +294,110 @@ export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRos
   // El estado global todavía no ha llegado, o el ranking de esta
   // investigación aún no está calculado: la silueta de la lista, nunca una
   // página vacía ni una congelación.
-  if (estado.conexion === 'conectando' || r === null) return <EsqueletoRanking filas={estado.hipotesis.filter((h) => h.investigacionId === inv.id).length} />;
-  const { cal, cands, noCands, estado: foto } = r;
-
-  return (
-    <div className="contenido">
-      <AvisoMuestra conexion={estado.conexion} />
-      <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
-        <div>
-          <h2>{tr("Ranking de hipótesis")}</h2>
-          <p>
-            {tr("Puntuación Elo por torneo entre rivales, revisada en cada iteración. Elo inicial 1500; funciona como el ranking de ajedrez: mayor Elo, mejor ha salido de los debates; cuánto fiarse lo dice la certeza GRADE, que va aparte. Las descartadas van al final aunque puntuaran alto.")}
-          </p>
-        </div>
-        <div className="acciones">
-          <div className="segmentos" role="group" aria-label="Vista">
-            <button type="button" aria-pressed={vista === 'lista'} onClick={() => setVista('lista')}>
-              Lista
-            </button>
-            <button type="button" aria-pressed={vista === 'clusters'} onClick={() => setVista('clusters')}>
-              {tr("Por cluster")}
+  // Las dos vistas que vienen de la antigua cola NO esperan al ranking: no
+  // necesitan el Elo, ni los clusters, ni las candidatas, ni la calibración.
+  // Si esperaran, abrir «Pendientes» costaría dos cálculos diferidos
+  // encadenados para enseñar una lista que ya sabe pintarse sola.
+  if (vista === 'pendientes' || vista === 'laboratorio') {
+    return (
+      <div className="contenido contenido-ranking">
+        <AvisoMuestra conexion={estado.conexion} />
+        <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
+          <div>
+            <h2>{CABECERA[vista]!.titulo}</h2>
+            <p>{CABECERA[vista]!.nota}</p>
+          </div>
+          <div className="acciones">
+            <Segmentado vista={vista} setVista={setVista} esperan={esperanTuDecision} />
+            <button type="button" className="btn btn-primario" onClick={() => setProponiendo((v) => !v)}>
+              {tr("Proponer hipótesis")}
             </button>
           </div>
         </div>
+        {proponiendo && <FormularioHipotesis inv={inv} onCerrar={() => setProponiendo(false)} irA={irA} />}
+        <ColaHipotesis inv={inv} estado={estado} vista={vista} />
       </div>
+    );
+  }
 
-      <Candidatas inv={inv} estado={foto} candidatas={cands} noCandidatas={noCands} />
+  // El estado global todavía no ha llegado, o el ranking de esta
+  // investigación aún no está calculado: la silueta, nunca una página vacía
+  // ni una congelación.
+  if (estado.conexion === 'conectando' || r === null) {
+    const propias = estado.hipotesis.filter((h) => h.investigacionId === inv.id);
+    return vista === 'podio' ? <EsqueletoPodio puestos={delPodio(propias).length} /> : <EsqueletoRanking filas={propias.length} />;
+  }
+  const { cal, cands, noCands, estado: foto } = r;
+  const enPodio = vista === 'podio' ? delPodio(r.lista).length : 0;
+  const enJuego = r.lista.filter((h) => h.estado !== 'descartada').length;
+  const verLista = () => setVista('lista');
 
-      <div className="acciones" style={{ marginBottom: 14 }}>
-        <Chip tono={cal.acuerdo === null ? undefined : cal.acuerdo >= 0.7 ? 'ok' : 'aviso'} title={tr("Cuántas veces la recomendación del revisor coincidió con lo que decidió una persona")}>
-          {tr("Acuerdo revisor y personas:")} {cal.acuerdo === null ? tr('sin decisiones todavía') : formatearPorcentaje(cal.acuerdo)}
-        </Chip>
-        <span className="meta">{tr("Las decisiones humanas de aceptar y descartar son la señal que calibra al juez del torneo.")}</span>
-      </div>
-
-      {vista === 'lista' ? (
-        filas
-      ) : (
-        <div className="seccion">
-          <label className="interruptor">
-            <input type="checkbox" checked={soloMejor} onChange={(e) => setSoloMejor(e.target.checked)} />
-            {tr("Mostrar solo la mejor de cada cluster (para ver la diversidad, no la repetición)")}
-          </label>
-          {filas}
+  return (
+    <div className="contenido contenido-ranking">
+      <AvisoMuestra conexion={estado.conexion} />
+      <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
+        <div>
+          <span className="ranking-antetitulo">{enJuego === 1 ? tr('Torneo Elo · 1 hipótesis en juego') : trp('Torneo Elo · {n} hipótesis en juego', { n: enJuego })}</span>
+          <h2>{CABECERA[vista]?.titulo ?? (vista === 'podio' && enPodio > 0 ? tituloPodio(enPodio) : tr("Ranking de hipótesis"))}</h2>
+          {CABECERA[vista] ? (
+            <p>{CABECERA[vista]!.nota}</p>
+          ) : vista === 'podio' ? (
+            <p>{tr("Mayor Elo, mejor les ha ido en los debates contra sus rivales. Cuánto fiarse lo dice la certeza GRADE, que va aparte. Toca una para ver por qué está ahí.")}</p>
+          ) : (
+            <p>
+              {tr("Puntuación Elo por torneo entre rivales, revisada en cada iteración. Elo inicial 1500; funciona como el ranking de ajedrez: mayor Elo, mejor ha salido de los debates; cuánto fiarse lo dice la certeza GRADE, que va aparte. Las descartadas van al final aunque puntuaran alto.")}
+            </p>
+          )}
         </div>
+        <div className="acciones">
+          <Segmentado vista={vista} setVista={setVista} esperan={esperanTuDecision} />
+          <button type="button" className="btn btn-primario" onClick={() => setProponiendo((v) => !v)}>
+            {tr("Proponer hipótesis")}
+          </button>
+        </div>
+      </div>
+
+      {proponiendo && <FormularioHipotesis inv={inv} onCerrar={() => setProponiendo(false)} irA={irA} />}
+
+      {/* El aviso va sobre el podio: la cola dejó de ser una sección propia y
+          sin esto no habría nada que recordara que algo espera tu decisión. */}
+      {vista === 'podio' && esperanTuDecision > 0 && (
+        <button type="button" className="tarjeta aviso-pendientes" onClick={() => setVista('pendientes')}>
+          <span>
+            <strong>{esperanTuDecision}</strong>{' '}
+            {esperanTuDecision === 1 ? tr('hipótesis espera tu decisión') : tr('hipótesis esperan tu decisión')}
+          </span>
+          <span className="enlace">{tr("Verlas")}</span>
+        </button>
+      )}
+
+      {/* Pendientes y Laboratorio ya salieron arriba, por el camino que no
+          espera al cálculo del ranking. */}
+      {vista === 'podio' ? (
+        <PodioRanking key={r.invId} lista={r.lista} estado={foto} invId={r.invId} alVerLista={verLista} />
+      ) : (
+        <>
+          <Candidatas inv={inv} estado={foto} candidatas={cands} noCandidatas={noCands} />
+
+          <div className="acciones" style={{ marginBottom: 14 }}>
+            <Chip tono={cal.acuerdo === null ? undefined : cal.acuerdo >= 0.7 ? 'ok' : 'aviso'} title={tr("Cuántas veces la recomendación del revisor coincidió con lo que decidió una persona")}>
+              {tr("Acuerdo revisor y personas:")} {cal.acuerdo === null ? tr('sin decisiones todavía') : formatearPorcentaje(cal.acuerdo)}
+            </Chip>
+            <span className="meta">{tr("Las decisiones humanas de aceptar y descartar son la señal que calibra al juez del torneo.")}</span>
+          </div>
+
+          {vista === 'lista' ? (
+            filas
+          ) : (
+            <div className="seccion">
+              <label className="interruptor">
+                <input type="checkbox" checked={soloMejor} onChange={(e) => setSoloMejor(e.target.checked)} />
+                {tr("Mostrar solo la mejor de cada cluster (para ver la diversidad, no la repetición)")}
+              </label>
+              {filas}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

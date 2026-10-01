@@ -13,10 +13,7 @@
 // "lista"), la ficha abre con un frame de silueta "ficha", y cada botón que
 // habla con el servidor lleva su marca de vuelo (useEnVuelo).
 
-import { useEffect, useRef, useState } from 'react';
-import { Contador, ElementoAnimado, ListaAnimada } from '../componentes/Animado';
-import type { TargetAndTransition } from 'motion/react';
-import { salidaPorDecision } from '../lib/movimiento';
+import { useRef, useState } from 'react';
 import { acciones } from '../datos/almacen';
 import type { EstadoRosa, Hipotesis as Hip, Investigacion, Supuesto } from '../datos/tipos';
 import { BandejaComentarios, NuevoComentario, useSeleccionComentable } from '../componentes/Comentarios';
@@ -24,51 +21,23 @@ import { Procedencia, type PestanaProcedencia } from '../componentes/Procedencia
 import { Revisor } from '../componentes/Revisor';
 import { Verificacion } from '../componentes/Verificacion';
 import { ConclusionDeRosa, HipotesisEnLlano, ViabilidadDeLaPrueba } from '../componentes/EnLlano';
-import { AvisoMuestra, Chip, Confirmar, Momento, Seccion, Vacio, descargar } from '../componentes/piezas';
-import { Esqueleto, EsqueletoPantalla, EsqueletoTarjetas } from '../componentes/Esqueleto';
+import { Chip, Confirmar, Momento, Seccion, Vacio, descargar } from '../componentes/piezas';
+import { EsqueletoPantalla } from '../componentes/Esqueleto';
 import { Bloqueos, ConsultasABases, ContextoDeBases, ContratoDelExperimento, DecisionesKiller, Dimensiones, EjecucionesInSilico, FusionYConflictos, GrafoCausalDeHipotesis, PerfilDeLaDiana, ProtocoloYEnmiendas, TarjetaDeHipotesis } from '../componentes/Rosa2018';
 import { FranjaRanking } from '../componentes/FranjaRanking';
 import { Alternativas } from '../componentes/Alternativas';
 import { dependeDeRetractada, resumenEvidencia, tramosFuertes } from '../lib/calidad';
-import { ALCANCE_SUPUESTO, DONDE_SE_RESPONDE, ESTADO_HIPOTESIS, ESTADO_SUPUESTO, TIPO_REVISION, DECISION_KILLER, RESULTADO_LABORATORIO, certezaDe, killerPendienteDe } from '../lib/etiquetas';
+import { ALCANCE_SUPUESTO, DONDE_SE_RESPONDE, ESTADO_HIPOTESIS, ESTADO_SUPUESTO, TIPO_REVISION, DECISION_KILLER, RESULTADO_LABORATORIO, killerPendienteDe } from '../lib/etiquetas';
 import { expediente } from '../lib/exportar';
-import { formatearDuracion } from '../lib/formato';
-import { motivoNoAceptable, ordenarCola, resumirVerificacion, variacionElo } from '../lib/hipotesis';
+import {  } from '../lib/formato';
+import { TONO_ESTADO, hallazgosVigentes, motivoNoAceptable } from '../lib/hipotesis';
 import { bloqueosDe } from '../lib/priorizacion';
 import { rutaDe } from '../lib/ruta';
 import { atributosEnVuelo, useCalculoDiferido, useEnVuelo, useEsperaSenal } from '../lib/diferido';
 import { ESPERA_DOSSIER_MS, huellaDossier } from './Artefactos';
-import { traducido, tr } from '../lib/idioma';
+import { tr } from '../lib/idioma';
 
-const TONO_ESTADO: Record<Hip['estado'], 'ok' | 'aviso' | 'mal' | 'acento' | undefined> = {
-  propuesta: 'acento',
-  en_revision: 'aviso',
-  aceptada: 'ok',
-  descartada: 'mal',
-  refinar: 'aviso',
-  aclarando: 'aviso',
-};
 
-/** Los hallazgos del revisor tal como cuentan hoy. El Killer abre un hallazgo
- *  "El Killer propone descartarla en este contexto" al proponer el descarte; si
- *  una pasada posterior (con evidencia nueva) dijo avanzar o suspender, ese
- *  hallazgo ya no describe la decisión vigente y se enseña como atendido, con
- *  la nota de por qué, en vez de seguir bloqueando la aceptación y contando
- *  como "hallazgo abierto". Misma lectura que hace el servidor al restaurar el
- *  estado tras un avanzar (rosa/bucle/pasos.py): solo con "avanzar" o
- *  "suspender" posteriores. Sin decisión (la versión nueva aún no pasó por el
- *  Killer) o con "reformular", el servidor no lo atiende y aquí tampoco: un
- *  descarte propuesto no se retira por ausencia de juicio. Nada se borra: el
- *  hallazgo sigue en el registro con su razonamiento. */
-export function hallazgosVigentes(h: Pick<Hip, 'hallazgos' | 'decisionKiller' | 'version'>): Hip['hallazgos'] {
-  const hallazgos = Array.isArray(h.hallazgos) ? h.hallazgos : [];
-  if (h.decisionKiller !== 'avanzar' && h.decisionKiller !== 'suspender') return hallazgos;
-  return hallazgos.map((x) =>
-    x && x.estado === 'abierto' && /^El Killer propone descartarla/i.test(String(x.resumen ?? ''))
-      ? { ...x, estado: 'atendido' as const, respuestaDeRosa: x.respuestaDeRosa || `Retirado: la decisión más reciente del Killer sobre la versión ${h.version ?? 1} ya no es descartar${h.decisionKiller ? ` (${(DECISION_KILLER[h.decisionKiller]?.etiqueta ?? String(h.decisionKiller)).toLowerCase()})` : ''}.` }
-      : x,
-  );
-}
 
 /** Texto con los tramos que afirman de más subrayados en ámbar. */
 function TextoConFuertes({ texto, campo, como = 'p' }: { texto: string; campo: 'enunciado' | 'mecanismo'; como?: 'p' | 'h2' }) {
@@ -99,76 +68,6 @@ function TextoConFuertes({ texto, campo, como = 'p' }: { texto: string; campo: '
   );
 }
 
-function FilaCola({ h, ahora, href, horasEspera, estado }: { h: Hip; ahora: number; href: string; horasEspera: number; estado: EstadoRosa }) {
-  const r = resumirVerificacion(h.afirmaciones);
-  const bloqueos = bloqueosDe(estado, h);
-  const abiertos = hallazgosVigentes(h).filter((x) => x.estado === 'abierto').length;
-  const juicioPendiente = killerPendienteDe(h);
-  const d = variacionElo(h);
-  const pendiente = h.estado === 'propuesta' || h.estado === 'en_revision' || h.estado === 'refinar';
-  const espera = ahora - h.creadaEn;
-  const tarde = pendiente && espera > horasEspera * 3_600_000;
-  const retractadas = dependeDeRetractada(h);
-  return (
-    <a className={`tarjeta tarjeta-interactiva hip-fila ${tarde ? 'hip-tarde' : ''}`} href={href}>
-      <div>
-        <h3>{h.titulo}</h3>
-        <div className="hip-meta">
-          {/* El estado solo cuando no es el de la cola: en "Pendientes" las
-              seis filas ponían "Propuesta", y un dato que se repite en todas
-              no ayuda a elegir ninguna (Emir, 28 de septiembre de 2026). */}
-          {h.estado !== 'propuesta' && <Chip tono={TONO_ESTADO[h.estado]}>{ESTADO_HIPOTESIS[h.estado]}</Chip>}
-          {h.origen === 'humana' && <Chip tono="acento">Humana</Chip>}
-          <span className={`tono-${r.tono === 'vacio' ? 'aviso' : r.tono}`}>{r.frase}</span>
-          {h.conclusion && (
-            <Chip tono={certezaDe(h.conclusion.certeza).tono} title={h.conclusion.escalera?.[0] ? `Para subir a ${certezaDe(h.conclusion.escalera[0].a).etiqueta.toLowerCase()}: ${h.conclusion.escalera[0].falta}` : certezaDe(h.conclusion.certeza).nota}>
-              {certezaDe(h.conclusion.certeza).etiqueta}
-            </Chip>
-          )}
-          {h.decisionKiller && DECISION_KILLER[h.decisionKiller] && (
-            <Chip tono={DECISION_KILLER[h.decisionKiller].tono} title={DECISION_KILLER[h.decisionKiller].nota}>
-              Killer: {DECISION_KILLER[h.decisionKiller].etiqueta}
-            </Chip>
-          )}
-          {juicioPendiente && (
-            <Chip tono="aviso" title={tr("La última pasada del Killer no fue un juicio: el modelo no respondió o su respuesta no se pudo leer. La decisión que se ve es la anterior; ROSA2018 repite la revisión en el siguiente paso o cuando la pidas.")}>
-              {juicioPendiente}
-            </Chip>
-          )}
-          {(h.version ?? 1) > 1 && <Chip tono="borde">v{h.version}</Chip>}
-          {h.candidata && bloqueos.length === 0 && <Chip tono="ok">Candidata</Chip>}
-          {bloqueos.length > 0 && <span className="tono-mal">{bloqueos.length} {bloqueos.length === 1 ? 'bloqueo' : 'bloqueos'}</span>}
-          {abiertos > 0 && <span className="tono-mal">{abiertos} {abiertos === 1 ? tr('hallazgo abierto') : tr('hallazgos abiertos')}</span>}
-          {retractadas.length > 0 && <span className="tono-mal">{tr("depende de una fuente retractada")}</span>}
-          <span>{tr("Iteración")} {h.iteracion}</span>
-          {pendiente ? (
-            <span className={tarde ? 'tono-mal' : ''} title={`Creada el ${new Date(h.creadaEn).toLocaleString('es-ES')}${tarde ? `; supera las ${horasEspera} h de la política de esperas` : ''}`}>
-              esperando {formatearDuracion(espera)}
-            </span>
-          ) : (
-            // Con "esperando 3 h 21 min" delante, la fecha absoluta repetía lo
-            // mismo y empujaba la línea a partirse en dos.
-            <Momento t={h.creadaEn} ahora={ahora} />
-          )}
-        </div>
-      </div>
-      <div className="hip-elo">
-        <strong>
-          <Contador valor={h.elo} />
-        </strong>
-        <span className={d > 0 ? 'subida' : d < 0 ? 'bajada' : 'meta'}>{d > 0 ? `+${d}` : d}</span>
-        <span className="meta">{h.partidos.length} {h.partidos.length === 1 ? 'partido' : 'partidos'}</span>
-      </div>
-    </a>
-  );
-}
-
-function salidaDe(h: Hip): TargetAndTransition {
-  if (h.estado === 'aceptada') return salidaPorDecision.aprobar;
-  if (h.estado === 'descartada') return salidaPorDecision.descartar;
-  if (h.estado === 'refinar' || h.estado === 'aclarando') return salidaPorDecision.refinar;
-  return salidaPorDecision.neutra;
-}
 
 /** Lo que el estado de un supuesto no dice solo (regla 3, 23 de septiembre de
  *  2026): si alguien miró donde estaría la respuesta, dónde se respondería, y
@@ -211,57 +110,6 @@ function ArbolSupuestos({ supuestos, nivel = 0 }: { supuestos: Supuesto[]; nivel
   );
 }
 
-function FormularioHipotesis({ inv, onCerrar, irA }: { inv: Investigacion; onCerrar: () => void; irA: (hash: string) => void }) {
-  const [d, setD] = useState({ titulo: '', enunciado: '', mecanismo: '', biomarcador: '', cohorte: '', diseno: '', cluster: '' });
-  const [error, setError] = useState<string | null>(null);
-  const campo = (k: keyof typeof d, label: string, filas = 1, marcador = '') => (
-    <div className="campo" key={k}>
-      <label htmlFor={`hh-${k}`}>{label}</label>
-      {filas > 1 ? <textarea id={`hh-${k}`} value={d[k]} rows={filas} placeholder={marcador} onChange={(e) => setD({ ...d, [k]: e.target.value })} /> : <input id={`hh-${k}`} value={d[k]} placeholder={marcador} onChange={(e) => setD({ ...d, [k]: e.target.value })} />}
-    </div>
-  );
-  return (
-    <form
-      className="tarjeta seccion"
-      onSubmit={(e) => {
-        e.preventDefault();
-        const id = acciones.proponerHipotesis(inv.id, d);
-        if (id === null) {
-          setError(tr('Faltan el título, el enunciado, o el biomarcador o la cohorte con que se comprobaría. Sin comprobación no entra al torneo.'));
-          return;
-        }
-        irA(rutaDe(inv.id, 'hipotesis', id));
-      }}
-    >
-      <div>
-        <h3 style={{ fontSize: 15, fontWeight: 600 }}>{tr("Proponer una hipótesis")}</h3>
-        <p className="meta">{tr("Entra al torneo con el mismo Elo inicial que las de ROSA2018, marcada como tuya. En Co-Scientist la conjetura del experto acabó superando a las generadas.")}</p>
-      </div>
-      {campo('titulo', tr('Título'), 1, tr('La función renal sesga los umbrales de p-tau217 en cohortes latinoamericanas'))}
-      {campo('enunciado', 'Enunciado', 3)}
-      {campo('mecanismo', tr('Mecanismo propuesto'), 2)}
-      <div className="rejilla-3">
-        {campo('biomarcador', 'Biomarcador', 1)}
-        {campo('cohorte', 'Cohorte', 1)}
-        {campo('diseno', tr('Diseño'), 1)}
-      </div>
-      {campo('cluster', tr('Cluster (tema)'), 1, tr('Biomarcadores sanguíneos'))}
-      {error && (
-        <p role="alert" style={{ color: 'var(--red)', fontSize: 13 }}>
-          {error}
-        </p>
-      )}
-      <div className="acciones">
-        <button type="submit" className="btn btn-primario">
-          {tr("Meter al torneo")}
-        </button>
-        <button type="button" className="btn btn-fantasma" onClick={onCerrar}>
-          Cancelar
-        </button>
-      </div>
-    </form>
-  );
-}
 
 function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: EstadoRosa; ahora: number; onAbrirProcedencia: (pestana: PestanaProcedencia, celda?: number) => void }) {
   const contenedor = useRef<HTMLDivElement>(null);
@@ -1059,45 +907,6 @@ function sinComprobar(x: { estado: string; detalle: string }): boolean {
   return x.estado === 'no_comprobado' || x.detalle.startsWith('No comprobado');
 }
 
-/** Los textos de la cabecera de la cola por filtro, compartidos por la
- *  pantalla y su silueta para que midan lo mismo. */
-const CABECERA_COLA = traducido({
-  cola: {
-    titulo: 'Cola de hipótesis',
-    descripcion: 'Lo que ROSA2018 propone y espera tu lectura. Arriba lo pendiente, ordenado por Elo. Nada entra al modelo de mundo sin pasar por aquí.',
-  },
-  laboratorio: {
-    titulo: 'Laboratorio',
-    descripcion: 'El tramo final: hipótesis con experimento asignado (prerregistrado y sellado), en curso o con datos recibidos, y las candidatas que esperan un laboratorio. Cuando vuelven los datos, ROSA2018 los juzga contra el prerregistro.',
-  },
-});
-/** Medido en Chromium a 1440 px: cada fila de la cola mide 84 px (título de
- *  una línea) o 109 (de dos). */
-const ALTO_FILA_COLA = 96;
-const MAX_FILAS_SILUETA = 40;
-
-/** La silueta de la cola: la cabecera con su texto real (la real mide 75 px
- *  con su margen de 16), los segmentos y el botón en gris y tantas tarjetas
- *  como hipótesis va a enseñar el filtro, que el estado ya sabe sin ordenar. */
-export function EsqueletoCola({ filtro, filas }: { filtro: 'pendientes' | 'todas' | 'laboratorio'; filas: number }) {
-  const cabecera = filtro === 'laboratorio' ? CABECERA_COLA.laboratorio : CABECERA_COLA.cola;
-  return (
-    <EsqueletoPantalla
-      variante="lista"
-      rotulo={tr("la cola de hipótesis")}
-      margenSuperior={16}
-      cabecera={cabecera}
-      acciones={
-        <div className="acciones esqueleto-acciones" aria-hidden="true">
-          <Esqueleto className="esqueleto-segmentos" ancho={236} />
-          <Esqueleto className="esqueleto-boton" ancho={150} />
-        </div>
-      }
-    >
-      <EsqueletoTarjetas filas={Math.min(MAX_FILAS_SILUETA, Math.max(1, filas))} altoFila={ALTO_FILA_COLA} />
-    </EsqueletoPantalla>
-  );
-}
 
 export function Hipotesis({
   inv,
@@ -1106,7 +915,6 @@ export function Hipotesis({
   detalleId,
   cajonAbierto,
   setCajonAbierto,
-  irA,
 }: {
   inv: Investigacion;
   estado: EstadoRosa;
@@ -1114,149 +922,60 @@ export function Hipotesis({
   detalleId: string | null;
   cajonAbierto: boolean;
   setCajonAbierto: (v: boolean) => void;
-  irA: (hash: string) => void;
 }) {
-  // La cola, calculada después de pintar la silueta. Ordenar y pintar cada
-  // fila con sus chips (bloqueos, verificación, hallazgos, Killer) congelaba
-  // la pantalla un instante al cambiar de investigación; ahora el primer
-  // frame es la silueta y el trabajo va detrás. Se guarda con qué
-  // investigación y con qué estado se calculó: si la investigación ya no es
-  // esa, lo que hay es de otra y se vuelve a la silueta; si solo cambió el
-  // estado (un empuje del canal en vivo), se sigue enseñando la cola
-  // anterior hasta que llega la nueva, sin parpadeo.
-  const { valor: colaCalculada } = useCalculoDiferido(() => ({ invId: inv.id, estado, propias: ordenarCola(estado.hipotesis.filter((h) => h.investigacionId === inv.id)) }), [estado, inv.id]);
-  const cola = colaCalculada !== null && colaCalculada.invId === inv.id ? colaCalculada : null;
-  const propias = cola?.propias ?? [];
-  // "laboratorio" en el sitio del id es la vista del tramo final (la etapa
-  // Laboratorio del hilo): lo asignado, en curso o con datos, y las candidatas
-  // con experimento propuesto que esperan un laboratorio.
-  const vistaLab = detalleId === 'laboratorio';
-  const [filtro, setFiltro] = useState<'pendientes' | 'todas' | 'laboratorio'>(vistaLab ? 'laboratorio' : 'pendientes');
-  useEffect(() => {
-    if (vistaLab) setFiltro('laboratorio');
-    else if (detalleId === null) setFiltro((f) => (f === 'laboratorio' ? 'pendientes' : f));
-  }, [vistaLab, detalleId]);
-  const [proponiendo, setProponiendo] = useState(false);
+  // Solo la ficha. La lista se mudó al Ranking el 1 de octubre de 2026
+  // (componentes/ColaHipotesis.tsx): las dos pantallas enseñaban lo mismo con
+  // otro orden. La ruta de la ficha no cambió, y por eso los treinta enlaces
+  // que llegan aquí desde el árbol, el atlas, la búsqueda, calidad,
+  // mecanismos y los eventos del inicio siguen valiendo sin tocar ninguno.
   const [pestana, setPestana] = useState<PestanaProcedencia>('fuentes');
   const [celda, setCelda] = useState<number | null>(null);
-  const seleccionada = vistaLab ? null : estado.hipotesis.find((h) => h.id === detalleId && h.investigacionId === inv.id) ?? null;
-  // La ficha también abre con un frame de silueta: pinta decenas de secciones
-  // y abrirla congelaba la cola un instante. Se guarda qué hipótesis se
-  // preparó para no enseñar la silueta al volver a la cola.
+  const seleccionada = estado.hipotesis.find((h) => h.id === detalleId && h.investigacionId === inv.id) ?? null;
+  // La ficha abre con un frame de silueta: pinta decenas de secciones y
+  // hacerlo de golpe congelaba la pantalla un instante.
   const { valor: ficha } = useCalculoDiferido(() => ({ id: seleccionada?.id ?? null }), [seleccionada?.id ?? null]);
   const fichaLista = seleccionada !== null && ficha !== null && ficha.id === seleccionada.id;
-  const enLaboratorio = (h: Hip) => Boolean(h.experimento && (h.experimento.estado !== 'propuesto' || h.candidata));
-  const pendiente = (h: Hip) => h.estado === 'propuesta' || h.estado === 'en_revision' || h.estado === 'refinar' || h.estado === 'aclarando';
-  const pasaFiltro = (h: Hip) => (filtro === 'todas' ? true : filtro === 'laboratorio' ? enLaboratorio(h) : pendiente(h));
-  const visibles = propias.filter(pasaFiltro);
-  // Cuántas filas va a tener la cola, sin ordenar nada: para que la silueta
-  // pinte las mismas y el contenido no salte al llegar.
-  const filasPrevistas = () => estado.hipotesis.filter((h) => h.investigacionId === inv.id && pasaFiltro(h)).length;
 
-  // El estado global todavía no ha llegado: la silueta de lo que se va a
-  // abrir, nunca una página vacía.
-  if (estado.conexion === 'conectando') return seleccionada ? <EsqueletoPantalla variante="ficha" rotulo={tr("la hipótesis")} /> : <EsqueletoCola filtro={filtro} filas={filasPrevistas()} />;
+  if (estado.conexion === 'conectando') return <EsqueletoPantalla variante="ficha" rotulo={tr("la hipótesis")} />;
 
-  if (seleccionada) {
-    if (!fichaLista) return <EsqueletoPantalla variante="ficha" rotulo={tr("la hipótesis")} />;
+  // Antes esto caía en la cola, que ya no vive aquí. Un id que no existe en
+  // esta investigación (un enlace viejo, una hipótesis borrada) se dice, no
+  // se disimula enseñando otra cosa.
+  if (seleccionada === null) {
     return (
-      <>
-        <div className="contenido">
-          <p style={{ marginBottom: 14 }}>
-            <a className="enlace" href={rutaDe(inv.id, 'hipotesis')}>
-              {tr("Volver a la cola")}
-            </a>
-          </p>
-          <Detalle
-            key={seleccionada.id}
-            h={seleccionada}
-            estado={estado}
-            ahora={ahora}
-            onAbrirProcedencia={(p, c) => {
-              setPestana(p);
-              setCelda(c ?? null);
-              setCajonAbierto(true);
-            }}
-          />
-        </div>
-        {cajonAbierto && <Procedencia hipotesis={seleccionada} ahora={ahora} onCerrar={() => setCajonAbierto(false)} pestanaInicial={pestana} celdaDestacada={celda} />}
-      </>
+      <div className="contenido">
+        <Vacio titulo={tr("Esa hipótesis no está en esta investigación")}>
+          {tr("Puede que el enlace sea de otra investigación o que la hipótesis ya no exista.")}{' '}
+          <a className="enlace" href={rutaDe(inv.id, 'ranking')}>
+            {tr("Ver el ranking de hipótesis")}
+          </a>
+        </Vacio>
+      </div>
     );
   }
 
-  if (cola === null) return <EsqueletoCola filtro={filtro} filas={filasPrevistas()} />;
-  const cabecera = filtro === 'laboratorio' ? CABECERA_COLA.laboratorio : CABECERA_COLA.cola;
-
+  if (!fichaLista) return <EsqueletoPantalla variante="ficha" rotulo={tr("la hipótesis")} />;
   return (
-    <div className="contenido">
-      <AvisoMuestra conexion={estado.conexion} />
-      <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
-        <div>
-          <h2>{cabecera.titulo}</h2>
-          <p>{cabecera.descripcion}</p>
-        </div>
-        <div className="acciones">
-          <div className="segmentos" role="group" aria-label="Filtro">
-            <button type="button" aria-pressed={filtro === 'pendientes'} onClick={() => setFiltro('pendientes')}>
-              Pendientes
-            </button>
-            <button type="button" aria-pressed={filtro === 'todas'} onClick={() => setFiltro('todas')}>
-              Todas
-            </button>
-            <button type="button" aria-pressed={filtro === 'laboratorio'} onClick={() => setFiltro('laboratorio')} title={tr("Hipótesis con experimento asignado, en curso o con datos, y candidatas que esperan laboratorio")}>
-              Laboratorio
-            </button>
-          </div>
-          <button type="button" className="btn btn-primario" onClick={() => setProponiendo((v) => !v)}>
-            {tr("Proponer hipótesis")}
-          </button>
-        </div>
+    <>
+      <div className="contenido">
+        <p style={{ marginBottom: 14 }}>
+          <a className="enlace" href={rutaDe(inv.id, 'ranking', 'pendientes')}>
+            {tr("Volver al ranking")}
+          </a>
+        </p>
+        <Detalle
+          key={seleccionada.id}
+          h={seleccionada}
+          estado={estado}
+          ahora={ahora}
+          onAbrirProcedencia={(p, c) => {
+            setPestana(p);
+            setCelda(c ?? null);
+            setCajonAbierto(true);
+          }}
+        />
       </div>
-      {proponiendo && <FormularioHipotesis inv={inv} onCerrar={() => setProponiendo(false)} irA={irA} />}
-      {visibles.length === 0 ? (
-        filtro === 'laboratorio' ? (
-          <Vacio titulo={tr("Nada en el laboratorio todavía")} pasos={[tr('El Killer deja avanzar una hipótesis y el torneo la coloca entre las candidatas (etapa Candidatas del hilo, en Ranking).'), tr('ROSA2018 le propone un experimento: protocolo, ensayo, controles y criterios de éxito y refutación.'), tr('Tú lo asignas a un laboratorio desde la ficha: el prerregistro se congela y se sella con un tercero.'), tr('El laboratorio devuelve los datos y ROSA2018 los juzga contra lo prerregistrado.')]}>
-            {tr("Aquí aparecerán las hipótesis que lleguen a ese tramo.")}
-          </Vacio>
-        ) : (
-        <Vacio titulo={filtro === 'pendientes' && propias.length > 0 ? tr('Nada pendiente') : tr('Todavía no hay hipótesis')} pasos={propias.length === 0 ? [tr('ROSA2018 busca literatura y verifica afirmaciones (etapas 2 y 3 del hilo).'), tr('Lo sostenido entra al modelo de mundo.'), tr('Con eso, ROSA2018 genera hipótesis y el Killer las juzga; las que quedan aparecen aquí, ordenadas por Elo.'), tr('Tú decides sobre cada una: aceptar, descartar o pedir que la refine.')] : undefined}>
-          {propias.length > 0 ? tr('ROSA2018 no tiene hipótesis esperando tu revisión en esta investigación. Con "Todas" ves las ya decididas.') : tr('También puedes proponer una tú con el botón de arriba: pasa por el mismo Killer.')}
-        </Vacio>
-        )
-      ) : (
-        <ListaAnimada className="cola" como="div">
-          {visibles.map((h) => (
-            <ElementoAnimado key={h.id} salida={salidaDe(estado.hipotesis.find((x) => x.id === h.id) ?? h)}>
-              <FilaCola h={h} ahora={ahora} href={rutaDe(inv.id, 'hipotesis', h.id)} horasEspera={estado.politicaEsperas.horas} estado={cola.estado} />
-            </ElementoAnimado>
-          ))}
-        </ListaAnimada>
-      )}
-      {(inv.vivero?.length ?? 0) > 0 && (
-        <Seccion
-          detalle
-          titulo={`Vivero de ideas (${inv.vivero!.length})`}
-          nota={tr("Propuestas de ROSA2018 que todavía no nacen como hipótesis: su evidencia viene de una sola cohorte y no da para certeza baja. En cada cierre de iteración ROSA2018 les suma lo que lee; cuando llegan a dos cohortes distintas, nacen y entran en la cola. Si pasan seis iteraciones sin ganar nada, salen con su motivo.")}
-        >
-          <div className="cola">
-            {inv.vivero!.map((s) => (
-              <div key={s.id} className="tarjeta hip-fila">
-                <div>
-                  <h3>{s.titulo}</h3>
-                  <p className="meta">{s.enunciado}</p>
-                  <div className="hip-meta">
-                    <Chip tono="borde">{tr("Idea desde la iteración")} {s.iteracion}</Chip>
-                    <Chip tono="borde">{s.afirmaciones.length} {s.afirmaciones.length === 1 ? tr('afirmación') : 'afirmaciones'}</Chip>
-                    <Chip tono="borde">{s.fuentes.length} {s.fuentes.length === 1 ? 'fuente' : 'fuentes'}</Chip>
-                    <span className="meta">Actualizada <Momento t={s.actualizadaEn} ahora={ahora} /></span>
-                  </div>
-                  <p className="meta"><strong>{tr("Le falta para nacer:")}</strong> {s.falta}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Seccion>
-      )}
-    </div>
+      {cajonAbierto && <Procedencia hipotesis={seleccionada} ahora={ahora} onCerrar={() => setCajonAbierto(false)} pestanaInicial={pestana} celdaDestacada={celda} />}
+    </>
   );
 }

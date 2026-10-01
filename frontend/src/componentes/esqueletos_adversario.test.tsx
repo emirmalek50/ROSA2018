@@ -98,7 +98,7 @@ describe('botones en vuelo con las acciones reales del almacén', () => {
     const generar = vi.spyOn(acciones, 'generarDossier');
     const e: EstadoRosa = { ...estadoDeMuestra(), conexion: 'en_linea' };
     const inv = e.investigaciones[0]!;
-    await act(async () => root.render(<Hipotesis inv={inv} estado={e} ahora={AHORA_MUESTRA} detalleId="hip-1" cajonAbierto={false} setCajonAbierto={() => undefined} irA={() => undefined} />));
+    await act(async () => root.render(<Hipotesis inv={inv} estado={e} ahora={AHORA_MUESTRA} detalleId="hip-1" cajonAbierto={false} setCajonAbierto={() => undefined} />));
     await esperarPintado();
     const b = boton('Generar dossier');
     expect(b).toBeDefined();
@@ -153,7 +153,7 @@ describe('el tamaño de la silueta de pantalla frente al contenido', () => {
   it('la cabecera de EsqueletoPantalla lleva el mismo margen superior que la cabecera real (16 px) para no saltar', async () => {
     const e = estadoDeMuestra();
     const inv = e.investigaciones[0]!;
-    await act(async () => root.render(<Ranking inv={inv} estado={e} />));
+    await act(async () => root.render(<Ranking inv={inv} estado={e} detalleId="lista" irA={() => undefined} />));
     const cabEsqueleto = nodo.querySelector('.esqueleto-pantalla .pantalla-cabecera') as HTMLElement | null;
     expect(cabEsqueleto).not.toBeNull();
     await esperarPintado();
@@ -170,7 +170,7 @@ describe('el tamaño de la silueta de pantalla frente al contenido', () => {
     // Tres hipótesis propias: la lista real tendrá tres filas.
     const propias = e.hipotesis.filter((h) => h.investigacionId === inv.id).slice(0, 3);
     const e3: EstadoRosa = { ...e, hipotesis: [...propias, ...e.hipotesis.filter((h) => h.investigacionId !== inv.id)] };
-    await act(async () => root.render(<Ranking inv={inv} estado={e3} />));
+    await act(async () => root.render(<Ranking inv={inv} estado={e3} detalleId="lista" irA={() => undefined} />));
     const filasEsqueleto = nodo.querySelectorAll('.esqueleto-fila').length;
     await esperarPintado();
     const filasReales = nodo.querySelectorAll('.ranking-fila').length;
