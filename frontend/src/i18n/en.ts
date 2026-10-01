@@ -28,6 +28,10 @@ import { ETIQUETAS3 } from './en/05-etiquetas';
 import { FRASES } from './en/06-frases';
 import { FRASES2 } from './en/07-frases';
 import { FRASES3 } from './en/08-frases';
+import { FRASES4 } from './en/09-frases';
+import { FRASES5 } from './en/10-frases';
+import { FRASES6 } from './en/11-frases';
+import { FRASES7, ULTIMAS } from './en/12-frases';
 
 export const EN: Record<string, string> = {
   ...CASCARA,
@@ -38,4 +42,9 @@ export const EN: Record<string, string> = {
   ...FRASES,
   ...FRASES2,
   ...FRASES3,
+  ...FRASES4,
+  ...FRASES5,
+  ...FRASES6,
+  ...FRASES7,
+  ...ULTIMAS,
 };
