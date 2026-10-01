@@ -17,6 +17,7 @@ import { ESTADO_PISTA, TIPO_PISTA, mostrarTexto } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { IconAlert, IconCheck, IconChevronDown, IconMinus, IconSpinner, IconStop, IconTrash, IconUser } from './icons';
 import { Chip, Momento } from './piezas';
+import { tr } from '../lib/idioma';
 
 function IconoPaso({ paso }: { paso: PasoPlan }) {
   if (paso.estado === 'en_curso') return <IconSpinner size={12} />;
@@ -39,9 +40,9 @@ function Consulta({ c }: { c: NonNullable<Pista['transcripcion'][number]['consul
       </button>
       {abierta && (
         <dl className="consulta-detalle">
-          <dt>Parámetros</dt>
+          <dt>{tr("Parámetros")}</dt>
           <dd className="mono">{c.parametros}</dd>
-          <dt>Devolvió</dt>
+          <dt>{tr("Devolvió")}</dt>
           <dd>{c.resultados}</dd>
         </dl>
       )}
@@ -58,7 +59,7 @@ export function Transcripcion({ pista, ahora, onDetener }: { pista: Pista; ahora
         {pista.ms > 0 && ` · ${formatearDuracion(pista.ms)}`}
       </p>
       {pista.transcripcion.length === 0 ? (
-        <p className="meta">Todavía sin actividad registrada.</p>
+        <p className="meta">{tr("Todavía sin actividad registrada.")}</p>
       ) : (
         <ol className="transcripcion" aria-label={`Transcripción de ${pista.titulo}`}>
           <AnimatePresence initial={false}>
@@ -76,9 +77,9 @@ export function Transcripcion({ pista, ahora, onDetener }: { pista: Pista; ahora
       )}
       {pista.estado === 'en_curso' && onDetener && (
         <div className="dirigir" style={{ marginTop: 8 }}>
-          <input className="entrada entrada-s" value={indicacion} placeholder="Indicación para ROSA2018 al detenerla (opcional)" onChange={(e) => setIndicacion(e.target.value)} aria-label="Indicación al detener la pista" />
+          <input className="entrada entrada-s" value={indicacion} placeholder={tr("Indicación para ROSA2018 al detenerla (opcional)")} onChange={(e) => setIndicacion(e.target.value)} aria-label={tr("Indicación al detener la pista")} />
           <button type="button" className="btn btn-s btn-peligro" onClick={() => onDetener(indicacion)}>
-            <IconStop size={11} /> Detener esta pista
+            <IconStop size={11} /> {tr("Detener esta pista")}
           </button>
         </div>
       )}
@@ -126,13 +127,13 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
       <div className="plan-editor">
         <div className="acciones" style={{ justifyContent: 'space-between' }}>
           <div>
-            <strong style={{ fontSize: 13 }}>Plan propuesto para la iteración {iteracion.numero}</strong>
+            <strong style={{ fontSize: 13 }}>{tr("Plan propuesto para la iteración")} {iteracion.numero}</strong>
             <p className="meta">
-              Propuesto <Momento t={iteracion.planPropuestoEn} ahora={ahora} />. ROSA2018 no ejecuta nada hasta que lo apruebes. Reordena, quita o añade pasos y fija el presupuesto de cada uno.
+              Propuesto <Momento t={iteracion.planPropuestoEn} ahora={ahora} />{tr(". ROSA2018 no ejecuta nada hasta que lo apruebes. Reordena, quita o añade pasos y fija el presupuesto de cada uno.")}
             </p>
           </div>
           <button type="button" className="btn btn-primario" onClick={onAprobarPlan}>
-            Aprobar plan y ejecutar
+            {tr("Aprobar plan y ejecutar")}
           </button>
         </div>
         <ol className="plan plan-edicion">
@@ -179,13 +180,13 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
                   </button>
                 </div>
                 {paso.detalle !== '' && <p className="paso-detalle">{paso.detalle}</p>}
-                {paso.valorDecision ? <p className="paso-detalle paso-valor" title="Qué decisión cambia según el resultado de este paso (valor de decisión)">Decide: {paso.valorDecision}</p> : null}
+                {paso.valorDecision ? <p className="paso-detalle paso-valor" title={tr("Qué decisión cambia según el resultado de este paso (valor de decisión)")}>Decide: {paso.valorDecision}</p> : null}
               </div>
             </li>
           ))}
         </ol>
         <div className="dirigir">
-          <input className="entrada entrada-s" value={nuevoPaso} placeholder="Añadir un paso" onChange={(e) => setNuevoPaso(e.target.value)} aria-label="Paso nuevo" />
+          <input className="entrada entrada-s" value={nuevoPaso} placeholder={tr("Añadir un paso")} onChange={(e) => setNuevoPaso(e.target.value)} aria-label="Paso nuevo" />
           <button
             type="button"
             className="btn btn-s"
@@ -195,7 +196,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
               setNuevoPaso('');
             }}
           >
-            Añadir
+            {tr("Añadir")}
           </button>
         </div>
       </div>
@@ -214,9 +215,9 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
             <div className="paso-cuerpo">
               <div className="paso-titulo">
                 <span className={paso.estado === 'en_curso' ? 'shimmer-text' : ''}>{paso.titulo}</span>
-                {paso.indicacionHumana && <Chip tono="acento">Indicación tuya</Chip>}
+                {paso.indicacionHumana && <Chip tono="acento">{tr("Indicación tuya")}</Chip>}
                 {paso.estado === 'fallido' && <Chip tono="mal">Fallido</Chip>}
-                {paso.estado === 'sin_trabajo' && <Chip tono="borde">Sin trabajo</Chip>}
+                {paso.estado === 'sin_trabajo' && <Chip tono="borde">{tr("Sin trabajo")}</Chip>}
                 {paso.comprobacion && paso.comprobacion.resultado !== 'pasa' && (
                   <Chip tono={paso.comprobacion.resultado === 'falla' ? 'mal' : 'aviso'}>
                     {paso.comprobacion.resultado === 'falla' ? 'La etapa no produjo nada' : paso.comprobacion.resultado === 'no_comprobable' ? 'No se pudo comprobar' : 'Sin materia'}

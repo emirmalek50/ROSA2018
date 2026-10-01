@@ -6,6 +6,7 @@ import { useMemo } from 'react';
 import type { Corrida } from '../datos/tipos';
 import { resumenMetrica, serieDeProgreso } from '../lib/progreso';
 import { Seccion } from './piezas';
+import { tr } from '../lib/idioma';
 
 const PELDANO = ['muy baja', 'baja', 'moderada', 'alta'];
 
@@ -76,7 +77,7 @@ export function GraficaProgreso({ corridas }: { corridas: Corrida[] }) {
         ))}
         <text className="gp-eje gp-fallido-etiqueta" x={ml - 4} y={yBanda} textAnchor="end">fallos</text>
       </svg>
-      {maxReal === 0 && <p className="meta">Ninguna hipótesis ha subido un peldaño de certeza todavía: la línea morada está en cero y el eje marca hasta dónde llegaría el primero.</p>}
+      {maxReal === 0 && <p className="meta">{tr("Ninguna hipótesis ha subido un peldaño de certeza todavía: la línea morada está en cero y el eje marca hasta dónde llegaría el primero.")}</p>}
       <div className="gp-leyenda meta">
         <span><i className="gp-muestra gp-muestra-peldanos" /> peldaños de certeza</span>
         <span><i className="gp-muestra gp-muestra-hechos" /> hechos acumulados</span>

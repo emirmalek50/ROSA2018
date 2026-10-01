@@ -3,7 +3,7 @@
 // pendientes llevan su cuenta al lado, porque son lo que espera a una persona.
 
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import { t } from '../lib/idioma';
+import { tr } from '../lib/idioma';
 import { ESTADO_CORRIDA } from '../lib/etiquetas';
 import { pendientesDeRevision } from '../lib/hipotesis';
 import { rutaDe, rutaLaboratorio, type Pantalla, type Ruta } from '../lib/ruta';
@@ -129,7 +129,7 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
   return (
     <>
       {abierta && <div className="scrim" onClick={onCerrar} aria-hidden="true" />}
-      <nav className={`barra ${abierta ? 'abierta' : ''}`} aria-label={t('Navegación principal')}>
+      <nav className={`barra ${abierta ? 'abierta' : ''}`} aria-label={tr('Navegación principal')}>
         <a className="marca" href="#/" onClick={onCerrar}>
           <img src="/arbol-marca.png" alt="" width={30} height={30} />
           <div>
@@ -138,9 +138,9 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
           </div>
         </a>
 
-        <button type="button" className="nav-item nav-buscar" onClick={onBuscar} disabled={actual === null} title={t('Buscar en la investigación (Cmd+K o Ctrl+K)')}>
+        <button type="button" className="nav-item nav-buscar" onClick={onBuscar} disabled={actual === null} title={tr('Buscar en la investigación (Cmd+K o Ctrl+K)')}>
           <IconSearch size={14} />
-          {t('Buscar')}
+          {tr('Buscar')}
           <span className="meta" style={{ marginLeft: 'auto' }}>
             Cmd K
           </span>
@@ -148,9 +148,9 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
 
         <div className="barra-seccion">
           <div className="barra-titulo">
-            <span>{t('Investigaciones')}</span>
-            <a href="#/nueva" onClick={onCerrar} title={t('Nueva investigación')}>
-              <IconPlus size={13} /> {t('Nueva')}
+            <span>{tr('Investigaciones')}</span>
+            <a href="#/nueva" onClick={onCerrar} title={tr('Nueva investigación')}>
+              <IconPlus size={13} /> {tr('Nueva')}
             </a>
           </div>
           {estado.investigaciones.map((inv) => {
@@ -167,7 +167,7 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
         {actual && (
           <div className="barra-seccion">
             <div className="barra-titulo">
-              <span>{t('Esta investigación')}</span>
+              <span>{tr('Esta investigación')}</span>
             </div>
             {PANTALLAS.map((p) => {
               const Icono = p.icono;
@@ -185,11 +185,11 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
 
         <div className="barra-seccion">
           <div className="barra-titulo">
-            <span>{t('De todas las investigaciones')}</span>
+            <span>{tr('De todas las investigaciones')}</span>
           </div>
           <a className="nav-item" href={rutaLaboratorio()} aria-current={ruta.tipo === 'laboratorio' ? 'page' : undefined} onClick={onCerrar}>
             <IconEstructura size={15} />
-            {t('Al laboratorio')}
+            {tr('Al laboratorio')}
           </a>
         </div>
 
@@ -204,18 +204,18 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
               }}
             >
               <IconAyuda size={15} />
-              {t('Cómo funciona ROSA2018')}
+              {tr('Cómo funciona ROSA2018')}
             </button>
           )}
           <a className="nav-item" href="#/ajustes" aria-current={ruta.tipo === 'ajustes' ? 'page' : undefined} onClick={onCerrar}>
             <IconSettings size={15} />
-            {t('Ajustes')}
+            {tr('Ajustes')}
           </a>
         </div>
 
         <p className="barra-pie">
-          {t('ROSA2018 investiga; la persona decide.')}{' '}
-          {t('Ninguna hipótesis entra al modelo de mundo sin pasar por la cola.')}
+          {tr('ROSA2018 investiga; la persona decide.')}{' '}
+          {tr('Ninguna hipótesis entra al modelo de mundo sin pasar por la cola.')}
         </p>
       </nav>
     </>

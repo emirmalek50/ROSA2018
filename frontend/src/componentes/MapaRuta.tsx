@@ -10,6 +10,7 @@ import type { CeldaMapaRuta, EstadoRosa, MapaRuta as Mapa, PasoRutaTerapeutica }
 import { CERTEZA_EVIDENCIA, PASO_RUTA } from '../lib/etiquetas';
 import { plural } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
+import { tr } from '../lib/idioma';
 
 /** Los ocho pasos en orden. */
 export const PASOS_RUTA: PasoRutaTerapeutica[] = ['mecanismo', 'opciones_intervencion', 'compromiso_diana', 'efecto_funcional', 'selectividad_toxicidad', 'exposicion', 'replicacion_independiente', 'evidencia_poblacion'];
@@ -70,9 +71,9 @@ function Celda({ celda, hueco, paso, diana }: { celda: CeldaMapaRuta | undefined
 export function MapaRuta({ mapa, estado }: { mapa: Mapa | null | undefined; estado?: EstadoRosa }) {
   if (!mapa || typeof mapa !== 'object') {
     return (
-      <article className="tarjeta mapa-ruta" aria-label="Mapa de la ruta terapéutica">
-        <h3 className="mapa-ruta-cabecera">Mapa de la ruta terapéutica</h3>
-        <p className="meta">Se calcula al cerrar la primera iteración: por cada diana con hipótesis vivas, qué pasos de la ruta (del mecanismo a la evidencia en personas) están cubiertos y cuáles están huecos.</p>
+      <article className="tarjeta mapa-ruta" aria-label={tr("Mapa de la ruta terapéutica")}>
+        <h3 className="mapa-ruta-cabecera">{tr("Mapa de la ruta terapéutica")}</h3>
+        <p className="meta">{tr("Se calcula al cerrar la primera iteración: por cada diana con hipótesis vivas, qué pasos de la ruta (del mecanismo a la evidencia en personas) están cubiertos y cuáles están huecos.")}</p>
       </article>
     );
   }
@@ -87,24 +88,24 @@ export function MapaRuta({ mapa, estado }: { mapa: Mapa | null | undefined; esta
   const iteracion = entero(mapa.iteracion);
   const resumen = texto(mapa.resumen);
   return (
-    <article className="tarjeta mapa-ruta" aria-label="Mapa de la ruta terapéutica">
+    <article className="tarjeta mapa-ruta" aria-label={tr("Mapa de la ruta terapéutica")}>
       <div className="mapa-ruta-cabecera">
-        <h3>Mapa de la ruta terapéutica</h3>
+        <h3>{tr("Mapa de la ruta terapéutica")}</h3>
         <span className="meta">{iteracion ? `Calculado al cerrar la iteración ${iteracion}.` : 'Calculado a demanda.'}</span>
       </div>
       {resumen ? <p className="mapa-ruta-resumen">{resumen}</p> : null}
       <p className="meta">
-        Cada columna es un paso de la ruta terapéutica: los ocho pasos que separan un mecanismo de un beneficio para una persona. Pasa el ratón por el nombre del paso para leer qué comprueba. En cada celda, cuántas hipótesis vivas de esa diana cubren el paso; en gris, los pasos que ninguna cubre.
+        {tr("Cada columna es un paso de la ruta terapéutica: los ocho pasos que separan un mecanismo de un beneficio para una persona. Pasa el ratón por el nombre del paso para leer qué comprueba. En cada celda, cuántas hipótesis vivas de esa diana cubren el paso; en gris, los pasos que ninguna cubre.")}
       </p>
       {filas.length === 0 ? (
-        <p className="meta">Sin dianas que mapear: hace falta al menos una hipótesis viva en esta investigación (las que no declaran diana se agrupan en la fila "Sin diana declarada").</p>
+        <p className="meta">{tr("Sin dianas que mapear: hace falta al menos una hipótesis viva en esta investigación (las que no declaran diana se agrupan en la fila \"Sin diana declarada\").")}</p>
       ) : (
         <div className="mapa-ruta-tabla">
           <table className="tabla">
             <thead>
               <tr>
-                <th>Diana o proceso</th>
-                <th className="num" title="Hipótesis vivas de esta investigación que nombran esta diana.">Hipótesis</th>
+                <th>{tr("Diana o proceso")}</th>
+                <th className="num" title={tr("Hipótesis vivas de esta investigación que nombran esta diana.")}>{tr("Hipótesis")}</th>
                 {PASOS_RUTA.map((p) => (
                   <th key={p} className="num ruta-paso" title={`${PASO_RUTA[p].etiqueta}: ${DEFINICIONES_PASO[p]}.`}>
                     <span className="ruta-paso-numero">{PASO_RUTA[p].orden}</span> {PASO_RUTA[p].etiqueta}
@@ -136,7 +137,7 @@ export function MapaRuta({ mapa, estado }: { mapa: Mapa | null | undefined; esta
                           {hip.length > 4 ? ` y ${hip.length - 4} más` : ''}
                         </span>
                       )}
-                      {entero(f.hechos) > 0 && <span className="meta ruta-fila-hechos">{plural(entero(f.hechos), 'hecho')} del modelo de mundo</span>}
+                      {entero(f.hechos) > 0 && <span className="meta ruta-fila-hechos">{plural(entero(f.hechos), 'hecho')} {tr("del modelo de mundo")}</span>}
                     </td>
                     <td className="num">{hip.length}</td>
                     {PASOS_RUTA.map((p) => (

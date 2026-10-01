@@ -16,6 +16,7 @@ import { CATEGORIA_CASO, COMPROBACION_KILLER, ESTADO_CASO, TIPO_AFIRMACION } fro
 import { formatearPorcentaje } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
 import { atributosEnVuelo } from '../lib/diferido';
+import { tr } from '../lib/idioma';
 
 function Caso({ c }: { c: CasoControl }) {
   const [respuesta, setRespuesta] = useState(c.respuestaEsperada);
@@ -46,7 +47,7 @@ function Caso({ c }: { c: CasoControl }) {
           }}
           disabled={c.estado === 'descartado'}
         />
-        <small>Se guarda al salir del campo. Vaciarla no la borra: un caso sin respuesta no tiene criterio para juzgarse.</small>
+        <small>{tr("Se guarda al salir del campo. Vaciarla no la borra: un caso sin respuesta no tiene criterio para juzgarse.")}</small>
       </div>
       <div className="acciones">
         {c.estado !== 'aprobado' && (
@@ -61,7 +62,7 @@ function Caso({ c }: { c: CasoControl }) {
         )}
         {c.estado !== 'propuesto' && (
           <button type="button" className="btn btn-fantasma btn-s" onClick={() => acciones.cambiarEstadoCaso(c.clave, 'propuesto')}>
-            Volver a por revisar
+            {tr("Volver a por revisar")}
           </button>
         )}
       </div>
@@ -105,7 +106,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         <div>
           <h2>Calidad</h2>
           <p>
-            El juez se calibra con casos aprobados por personas antes de fijarlo. Hoy hay {aprobados} de {estado.casos.length} aprobados: con cero, las métricas de acuerdo no significan nada.
+            {tr("El juez se calibra con casos aprobados por personas antes de fijarlo. Hoy hay")} {aprobados} de {estado.casos.length} {tr("aprobados: con cero, las métricas de acuerdo no significan nada.")}
           </p>
         </div>
       </div>
@@ -123,7 +124,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
             </div>
             <div className="gasto-item">
               <strong>{formatearPorcentaje(ultima.cobertura)}</strong>
-              <span>cobertura de los puntos</span>
+              <span>{tr("cobertura de los puntos")}</span>
             </div>
             <div className="gasto-item">
               <strong>{ultima.ausenciasRefutadas}</strong>
@@ -131,11 +132,11 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
             </div>
             <div className="gasto-item">
               <strong>{ultima.entidadDistinta}</strong>
-              <span>datos de otra entidad</span>
+              <span>{tr("datos de otra entidad")}</span>
             </div>
             <div className="gasto-item">
               <strong>{formatearPorcentaje(ultima.sinVerificar)}</strong>
-              <span>"sin verificar" cuando no sabe</span>
+              <span>{tr("\"sin verificar\" cuando no sabe")}</span>
             </div>
           </div>
         )}
@@ -144,7 +145,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
       <Seccion titulo="Conjunto dorado: acuerdo juez-humano por comprobación" nota="Cada etiqueta que una persona pone sobre una comprobación del Killer (en la ficha de la hipótesis) entra aquí. Kappa de Cohen corrige el acuerdo por el azar; se mide por comprobación, no en promedio, porque el juez puede acertar en citas y fallar en sesgo. Hacen falta al menos 100 casos por comprobación (200 si el fallo es raro) para que la cifra sea estable; hasta entonces es orientativa.">
         {(() => {
           const casos = estado.conjuntoDorado ?? [];
-          if (casos.length === 0) return <p className="meta">Sin etiquetas todavía. Abre una hipótesis juzgada por el Killer y marca en cada comprobación tu veredicto.</p>;
+          if (casos.length === 0) return <p className="meta">{tr("Sin etiquetas todavía. Abre una hipótesis juzgada por el Killer y marca en cada comprobación tu veredicto.")}</p>;
           const global = acuerdoDe(casos);
           const porComp = acuerdoPorComprobacion(casos);
           return (
@@ -156,7 +157,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
               <table className="tabla">
                 <thead>
                   <tr>
-                    <th>Comprobación</th>
+                    <th>{tr("Comprobación")}</th>
                     <th>Etiquetas</th>
                     <th>Acuerdo bruto</th>
                     <th>Kappa</th>
@@ -221,7 +222,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
             <table className="tabla">
               <thead>
                 <tr>
-                  <th>Modelo de mundo al decidir</th>
+                  <th>{tr("Modelo de mundo al decidir")}</th>
                   <th>Etiquetas</th>
                   <th>Acuerdo bruto</th>
                   <th>Kappa</th>
@@ -299,7 +300,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
               </ul>
             ) : (
               <p className="meta" style={{ marginTop: 6 }}>
-                Sin desacuerdos registrados.
+                {tr("Sin desacuerdos registrados.")}
               </p>
             )}
           </div>
@@ -318,8 +319,8 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
             ))}
           </div>
           <div className="tarjeta">
-            <p className="campo-etiqueta">Coste por hipótesis</p>
-            <p style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{costeTotal.toFixed(1).replace('.', ',')} $ en total</p>
+            <p className="campo-etiqueta">{tr("Coste por hipótesis")}</p>
+            <p style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{costeTotal.toFixed(1).replace('.', ',')} {tr("$ en total")}</p>
             <table className="tabla" style={{ marginTop: 6 }}>
               <tbody>
                 {[...propias]
@@ -345,7 +346,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         detalle titulo="Casos de control"
         nota="Los 17 los propuso el RAG sobre otro corpus y ninguno está aprobado. Sirven para probar el ciclo; los del dominio del Alzheimer hay que escribirlos con el compañero."
         acciones={
-          <div className="segmentos" role="group" aria-label="Filtro de casos">
+          <div className="segmentos" role="group" aria-label={tr("Filtro de casos")}>
             {(['propuesto', 'aprobado', 'descartado', 'todos'] as const).map((f) => (
               <button key={f} type="button" aria-pressed={filtro === f} onClick={() => setFiltro(f)}>
                 {f === 'todos' ? 'Todos' : ESTADO_CASO[f]}
@@ -354,13 +355,13 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
           </div>
         }
       >
-        {casos.length === 0 ? <p className="meta">Ningún caso en este estado.</p> : casos.map((c) => <Caso key={c.clave} c={c} />)}
+        {casos.length === 0 ? <p className="meta">{tr("Ningún caso en este estado.")}</p> : casos.map((c) => <Caso key={c.clave} c={c} />)}
       </Seccion>
 
       <Seccion detalle titulo="Optimizaciones con GEPA" nota="Captura continua y optimización automática por ciclos. Los candidatos se examinan con casos que GEPA no vio; solo los que mejoran sin regresiones se activan para nuevas corridas. Son métricas de un evaluador automático, no validación científica.">
         <p role="status">{estado.gepaAutomatico?.nota ?? 'El servicio automático aún no ha informado de su estado en este servidor.'}</p>
         {estado.conexion === 'muestra' ? (
-          <p className="meta">Con datos de muestra no hay servicio que controlar.</p>
+          <p className="meta">{tr("Con datos de muestra no hay servicio que controlar.")}</p>
         ) : (
         <div className="acciones">
           <button type="button" className="btn" disabled={controlandoGepa} {...atributosEnVuelo(accionGepa === 'pausar')} onClick={() => void controlarGepa('pausar')}>Pausar promociones</button>
@@ -369,15 +370,15 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         </div>
         )}
         {avisoGepa && <p role="status">{avisoGepa}</p>}
-        {estado.gepaAutomatico && <p className="meta">{Object.entries(estado.gepaAutomatico.trazas).map(([tipo, n]) => `${tipo}: ${n}`).join(' · ')} · Errores de registro: {estado.gepaAutomatico.erroresRegistro}. Programas con evaluación automática: {estado.gepaAutomatico.programas.join(', ')}.{typeof estado.gepaAutomatico.gastoUsd === 'number' ? ` Gasto acumulado de la optimización: ${estado.gepaAutomatico.gastoUsd.toFixed(2).replace('.', ',')} $.` : ''} Solo administración puede pausar, reanudar o volver a base; una promoción queda también en el registro de aprendizaje (Ajustes) y se revierte desde allí.</p>}
+        {estado.gepaAutomatico && <p className="meta">{Object.entries(estado.gepaAutomatico.trazas).map(([tipo, n]) => `${tipo}: ${n}`).join(' · ')} {tr("· Errores de registro:")} {estado.gepaAutomatico.erroresRegistro}{tr(". Programas con evaluación automática:")} {estado.gepaAutomatico.programas.join(', ')}.{typeof estado.gepaAutomatico.gastoUsd === 'number' ? ` Gasto acumulado de la optimización: ${estado.gepaAutomatico.gastoUsd.toFixed(2).replace('.', ',')} $.` : ''} {tr("Solo administración puede pausar, reanudar o volver a base; una promoción queda también en el registro de aprendizaje (Ajustes) y se revierte desde allí.")}</p>}
         <table className="tabla">
           <thead>
             <tr>
               <th>Fecha</th>
               <th>Programa</th>
               <th>Presupuesto</th>
-              <th className="num">Métrica inicial</th>
-              <th className="num">Métrica final</th>
+              <th className="num">{tr("Métrica inicial")}</th>
+              <th className="num">{tr("Métrica final")}</th>
               <th className="num">Candidatos</th>
               <th className="num">Gasto</th>
               <th>Estado</th>
@@ -398,7 +399,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
                   <td className={`num ${g.metricaFinal > g.metricaInicial ? 'subida' : ''}`}>{g.estado === 'terminada' ? formatearPorcentaje(g.metricaFinal) : 'Pendiente'}</td>
                   <td className="num">{g.candidatos}</td>
                   <td className="num">{g.gasto ? `${g.gasto.usd.toFixed(2).replace('.', ',')} $ · ${g.gasto.llamadas} llamadas` : 'sin dato'}</td>
-                  <td>{g.estado === 'en_marcha' ? <Chip tono="acento">En marcha</Chip> : g.estado === 'terminada' ? <Chip tono={g.promovido ? 'ok' : 'borde'}>{g.promovido ? 'Activado para nuevas corridas' : 'Terminada'}</Chip> : <Chip tono="mal">Fallida</Chip>}<p className="meta">{g.nota}</p></td>
+                  <td>{g.estado === 'en_marcha' ? <Chip tono="acento">{tr("En marcha")}</Chip> : g.estado === 'terminada' ? <Chip tono={g.promovido ? 'ok' : 'borde'}>{g.promovido ? 'Activado para nuevas corridas' : 'Terminada'}</Chip> : <Chip tono="mal">Fallida</Chip>}<p className="meta">{g.nota}</p></td>
                   <td>
                     {g.enlaceMlflow && <a className="enlace" href={g.enlaceMlflow} target="_blank" rel="noopener noreferrer">
                       MLflow <IconExternal />
@@ -408,7 +409,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
               ))}
           </tbody>
         </table>
-        <p className="meta">Se comprueba si hay datos cada 10 minutos, con al menos seis horas entre ciclos y nunca mientras una corrida está en marcha. Los casos se separan por investigación; el examen final (al menos 8 casos, dos lecturas del juez por caso) exige mejora media de 0,05 sin ningún caso claramente peor. Se conserva cada versión anterior. El Killer y el juez no se autoentrenan con sus propios veredictos. Los prompts y las respuestas se guardan con redacción de secretos en el registro privado, no en esta pantalla. Pausar impide nuevas promociones; una petición al Gateway ya enviada puede terminar.</p>
+        <p className="meta">{tr("Se comprueba si hay datos cada 10 minutos, con al menos seis horas entre ciclos y nunca mientras una corrida está en marcha. Los casos se separan por investigación; el examen final (al menos 8 casos, dos lecturas del juez por caso) exige mejora media de 0,05 sin ningún caso claramente peor. Se conserva cada versión anterior. El Killer y el juez no se autoentrenan con sus propios veredictos. Los prompts y las respuestas se guardan con redacción de secretos en el registro privado, no en esta pantalla. Pausar impide nuevas promociones; una petición al Gateway ya enviada puede terminar.")}</p>
       </Seccion>
     </div>
   );

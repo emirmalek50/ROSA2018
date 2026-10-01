@@ -41,6 +41,7 @@ import { construirRelieve, type Poligono, type Relieve } from '../lib/atlas_reli
 import { CEREBRO_BASE } from '../lib/cerebro_base';
 import { intensidad, NO_LOCALIZADAS, type Atlas, type RegionAtlas } from '../lib/atlas';
 import { useMovimientoReducido } from '../lib/movimiento';
+import { tr } from '../lib/idioma';
 
 type Punto = { x: number; y: number };
 type Trazo = { puntos: Punto[]; cerrado: boolean };
@@ -649,20 +650,20 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
   const restablecer = () => { detener.current(); camara.current = inicial(); redibujar.current(); };
   const apuntada: RegionAtlas | undefined = atlas.regiones.find((r) => r.clave === (foco ?? seleccion));
   return (
-    <section className="atlas-3d" aria-label="Atlas en tres dimensiones">
+    <section className="atlas-3d" aria-label={tr("Atlas en tres dimensiones")}>
       <div className="atlas-lienzo atlas-3d-lienzo">
         <div className="atlas-3d-herramientas">
           <button type="button" className="btn btn-s" onClick={restablecer}>Restablecer vista</button>
           <button type="button" className="btn btn-s" aria-label="Acercar atlas" onClick={() => zoom(0.85)}>+</button>
           <button type="button" className="btn btn-s" aria-label="Alejar atlas" onClick={() => zoom(1.18)}>−</button>
-          <label>Región <select aria-label="Seleccionar región del atlas 3D" value={seleccion ?? ''} onChange={(e) => { if (e.target.value) seleccionar(e.target.value); }}>
+          <label>{tr("Región")} <select aria-label={tr("Seleccionar región del atlas 3D")} value={seleccion ?? ''} onChange={(e) => { if (e.target.value) seleccionar(e.target.value); }}>
             <option value="">Explorar regiones</option>
             {atlas.regiones.filter((r) => regiones.some((g) => g.clave === r.clave)).map((r) => <option key={r.clave} value={r.clave}>{r.etiqueta} · {r.conteo}</option>)}
           </select></label>
         </div>
-        {fallo ? <p role="status" className="atlas-3d-sin-lienzo">Este navegador no permite dibujar el relieve. Puedes consultar toda la evidencia en «Vista 2D».</p> : <canvas
+        {fallo ? <p role="status" className="atlas-3d-sin-lienzo">{tr("Este navegador no permite dibujar el relieve. Puedes consultar toda la evidencia en «Vista 2D».")}</p> : <canvas
           ref={canvas} className="atlas-3d-canvas" tabIndex={0} role="img"
-          aria-label="Relieve del atlas sobre la lámina anatómica: flechas para girar, + y - para acercar o alejar, Inicio para restablecer. Usa el selector Región para consultar evidencia con el teclado."
+          aria-label={tr("Relieve del atlas sobre la lámina anatómica: flechas para girar, + y - para acercar o alejar, Inicio para restablecer. Usa el selector Región para consultar evidencia con el teclado.")}
           onKeyDown={(e) => {
             if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-', 'Home'].includes(e.key)) return;
             e.preventDefault();
@@ -700,7 +701,7 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
           onPointerLeave={() => cambiarFoco(null)}
         />}
       </div>
-      <p className="meta">El hemisferio del corte sagital en relieve, con el volumen y los pliegues idealizados: el mapa anatómico es el del corte, no la superficie. Arrastra para girar, usa la rueda para acercar y pulsa una región para leer su evidencia.</p>
+      <p className="meta">{tr("El hemisferio del corte sagital en relieve, con el volumen y los pliegues idealizados: el mapa anatómico es el del corte, no la superficie. Arrastra para girar, usa la rueda para acercar y pulsa una región para leer su evidencia.")}</p>
       <p className="atlas-3d-lectura" aria-live="polite">{apuntada ? `${apuntada.etiqueta}: ${apuntada.conteo} registros · ${apuntada.cohortes.length} cohortes nombradas por sus hipótesis${apuntada.discordia.length ? ' · Discordia entre hechos' : ''}${!apuntada.conteo ? apuntada.cobertura === 'buscada_sin_hallazgo' ? ' · Buscada sin hallazgo' : ' · No buscada' : ''}` : 'Selecciona una región para ver sus cifras y abrir su ficha.'}</p>
     </section>
   );

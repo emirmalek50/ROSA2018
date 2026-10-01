@@ -11,6 +11,7 @@ import { useState } from 'react';
 import type { AccesoDatasetPrograma, DatasetPrograma, FuenteDatasetPrograma, Id, TipoDatasetPrograma } from '../datos/tipos';
 import { formatearEntero } from '../lib/formato';
 import { Chip } from './piezas';
+import { tr } from '../lib/idioma';
 
 /** Etiquetas visibles, copiadas de rosa/datasets_programa.py ETIQUETA_FUENTE,
  *  ETIQUETA_TIPO y ETIQUETA_ACCESO. Las claves se comparan con el servidor y
@@ -125,13 +126,13 @@ function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id 
           <span className="mono dsp-accession">{accession}</span>
         )}
         <Chip tono={TONO_ACCESO[acceso]} title={DEFINICION_ACCESO[acceso]}>{ETIQUETA_ACCESO[acceso]}</Chip>
-        {usado && <Chip tono="acento" title="Alguna corrida de esta investigación lo consultó o lo analizó.">usado aquí</Chip>}
-        {!usado && usadoEn > 0 && <Chip title="Lo usó otra investigación de este programa.">usado en {usadoEn} {usadoEn === 1 ? 'investigación' : 'investigaciones'}</Chip>}
+        {usado && <Chip tono="acento" title={tr("Alguna corrida de esta investigación lo consultó o lo analizó.")}>usado aquí</Chip>}
+        {!usado && usadoEn > 0 && <Chip title={tr("Lo usó otra investigación de este programa.")}>usado en {usadoEn} {usadoEn === 1 ? 'investigación' : 'investigaciones'}</Chip>}
       </div>
       <p className="dsp-titulo">{titulo}</p>
       <dl className="dsp-datos">
         <div>
-          <dt title="Qué clase de dato es: expresión de genes en tejido entero (bulk), célula a célula (célula única), proteínas, variantes genéticas o imagen.">Tipo</dt>
+          <dt title={tr("Qué clase de dato es: expresión de genes en tejido entero (bulk), célula a célula (célula única), proteínas, variantes genéticas o imagen.")}>Tipo</dt>
           <dd>{ETIQUETA_TIPO[tipo]}</dd>
         </div>
         <div>
@@ -139,11 +140,11 @@ function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id 
           <dd>{tejido}</dd>
         </div>
         <div>
-          <dt title="Fase de la enfermedad de los donantes o participantes, si la ficha la dice.">Fase</dt>
+          <dt title={tr("Fase de la enfermedad de los donantes o participantes, si la ficha la dice.")}>Fase</dt>
           <dd>{estadio}</dd>
         </div>
         <div>
-          <dt title="Tamaño: muestras (ficheros o tejidos medidos), donantes (personas distintas) y células, según lo que la ficha declare.">n</dt>
+          <dt title={tr("Tamaño: muestras (ficheros o tejidos medidos), donantes (personas distintas) y células, según lo que la ficha declare.")}>n</dt>
           <dd>{textoN(d)}</dd>
         </div>
         {texto(d.organismo) && (
@@ -161,17 +162,17 @@ function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id 
       </dl>
       {acceso === 'controlado' && (
         <p className="meta dsp-nota">
-          Acceso controlado: el proyecto no lo pide. ROSA2018 trabaja solo con datos públicos; este conjunto queda registrado para que conste, no se propone para análisis con datos individuales.
+          {tr("Acceso controlado: el proyecto no lo pide. ROSA2018 trabaja solo con datos públicos; este conjunto queda registrado para que conste, no se propone para análisis con datos individuales.")}
         </p>
       )}
       {compartidas.length > 0 && (
-        <p className="meta dsp-nota" title="Dos series que comparten muestras no son dos evidencias independientes.">
-          Comparte muestras con {compartidas.join(', ')}: no cuentan como dos evidencias.
+        <p className="meta dsp-nota" title={tr("Dos series que comparten muestras no son dos evidencias independientes.")}>
+          Comparte muestras con {compartidas.join(', ')}{tr(": no cuentan como dos evidencias.")}
         </p>
       )}
       {registro.length > 0 && (
         <details className="dsp-registro">
-          <summary>Cómo se dedujo cada dato ({registro.length})</summary>
+          <summary>{tr("Cómo se dedujo cada dato (")}{registro.length})</summary>
           <ul className="lista-limpia">
             {registro.map((r, i) => (
               <li key={i} className="meta">
@@ -194,12 +195,12 @@ export function DatasetsPrograma({ datasets, investigacionId }: { datasets: Data
   const visibles = (verTodos ? todos : propios).slice().sort((a, b) => (numero(b.actualizadoEn) ?? 0) - (numero(a.actualizadoEn) ?? 0));
   const controlados = visibles.filter((d) => accesoDe(d) === 'controlado').length;
   return (
-    <article className="tarjeta dsp" aria-label="Datasets del programa">
+    <article className="tarjeta dsp" aria-label={tr("Datasets del programa")}>
       <div className="dsp-encabezado">
         <div>
-          <h3>Datasets del programa</h3>
+          <h3>{tr("Datasets del programa")}</h3>
           <p className="meta">
-            Cada conjunto de datos público que ROSA2018 encontró al buscar datos (GEO, CELLxGENE, Synapse, ArrayExpress, Expression Atlas) o que una persona subió, con lo que se dedujo por regla de su ficha. Lo que no se pudo deducir dice "sin comprobar", nunca se inventa.
+            {tr("Cada conjunto de datos público que ROSA2018 encontró al buscar datos (GEO, CELLxGENE, Synapse, ArrayExpress, Expression Atlas) o que una persona subió, con lo que se dedujo por regla de su ficha. Lo que no se pudo deducir dice \"sin comprobar\", nunca se inventa.")}
           </p>
         </div>
         {todos.length > propios.length && (
@@ -209,9 +210,9 @@ export function DatasetsPrograma({ datasets, investigacionId }: { datasets: Data
         )}
       </div>
       {todos.length === 0 ? (
-        <p className="meta">El registro está vacío: se llena cuando ROSA2018 consulta bases de datos al buscar datos para una hipótesis o cuando alguien sube un fichero.</p>
+        <p className="meta">{tr("El registro está vacío: se llena cuando ROSA2018 consulta bases de datos al buscar datos para una hipótesis o cuando alguien sube un fichero.")}</p>
       ) : visibles.length === 0 ? (
-        <p className="meta">Ninguna corrida de esta investigación ha usado todavía un dataset del registro. El botón de arriba muestra los {todos.length} del programa.</p>
+        <p className="meta">{tr("Ninguna corrida de esta investigación ha usado todavía un dataset del registro. El botón de arriba muestra los")} {todos.length} del programa.</p>
       ) : (
         <>
           <p className="meta dsp-resumen">
@@ -224,7 +225,7 @@ export function DatasetsPrograma({ datasets, investigacionId }: { datasets: Data
               <Fila key={`${texto(d.id) || `${texto(d.fuente)}-${texto(d.accession)}`}-${i}`} d={d} investigacionId={investigacionId} />
             ))}
           </ul>
-          {visibles.length > 60 && <p className="meta">Se muestran 60 de {visibles.length}.</p>}
+          {visibles.length > 60 && <p className="meta">{tr("Se muestran 60 de")} {visibles.length}.</p>}
         </>
       )}
     </article>

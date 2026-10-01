@@ -9,6 +9,7 @@ import { TIPO_EVENTO, mostrarTexto } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { IconCheck, IconCopy } from './icons';
 import { Chip, Momento } from './piezas';
+import { tr } from '../lib/idioma';
 
 export function Resumen({ d, titulo, ahora, onVisto }: { d: Digest; titulo: string; ahora: number; onVisto: () => void }) {
   const [copiado, setCopiado] = useState(false);
@@ -21,9 +22,9 @@ export function Resumen({ d, titulo, ahora, onVisto }: { d: Digest; titulo: stri
       <div className="acciones" style={{ justifyContent: 'space-between' }}>
         <div>
           <h3 style={{ fontSize: 15, fontWeight: 600 }}>
-            Mientras no estabas <span className="resumen-titulo">· {titulo}</span>
+            {tr("Mientras no estabas")} <span className="resumen-titulo">· {titulo}</span>
           </h3>
-          <p className="meta">Lo que cambió {ventana}. «Visto» cierra la tarjeta hasta que haya algo nuevo; lo que te espera sigue en la tarjeta de cada investigación.</p>
+          <p className="meta">{tr("Lo que cambió")} {ventana}{tr(". «Visto» cierra la tarjeta hasta que haya algo nuevo; lo que te espera sigue en la tarjeta de cada investigación.")}</p>
         </div>
         <div className="acciones">
           <button
@@ -33,7 +34,7 @@ export function Resumen({ d, titulo, ahora, onVisto }: { d: Digest; titulo: stri
               void navigator.clipboard?.writeText(digestComoTexto(d, titulo)).then(() => setCopiado(true));
               window.setTimeout(() => setCopiado(false), 2000);
             }}
-            title="Copiar como texto (es lo que se manda por Slack o correo)"
+            title={tr("Copiar como texto (es lo que se manda por Slack o correo)")}
           >
             {copiado ? <IconCheck size={13} /> : <IconCopy size={13} />} {copiado ? 'Copiado' : 'Copiar'}
           </button>

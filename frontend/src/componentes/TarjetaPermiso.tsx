@@ -11,6 +11,7 @@ import { ALCANCE, TIPO_PERMISO } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { IconLock } from './icons';
 import { Chip, Momento } from './piezas';
+import { tr } from '../lib/idioma';
 
 interface Props {
   solicitud: SolicitudPermiso;
@@ -31,7 +32,7 @@ export function TarjetaPermiso({ solicitud, ahora, horasEspera, seleccionada, on
     <article className={`permiso ${resuelta ? 'permiso-resuelto' : ''} ${tarde ? 'permiso-tarde' : ''}`} aria-live="polite">
       <div className="permiso-cabecera">
         {!resuelta && onSeleccionar && (
-          <input type="checkbox" className="permiso-check" checked={seleccionada ?? false} onChange={(e) => onSeleccionar(e.target.checked)} aria-label="Seleccionar para aprobar en lote" />
+          <input type="checkbox" className="permiso-check" checked={seleccionada ?? false} onChange={(e) => onSeleccionar(e.target.checked)} aria-label={tr("Seleccionar para aprobar en lote")} />
         )}
         <IconLock size={16} />
         <div style={{ flex: 1 }}>

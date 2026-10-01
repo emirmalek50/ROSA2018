@@ -13,6 +13,7 @@ import { IconAlert } from '../componentes/icons';
 import { avisosDelObjetivo, parafrasis, proponerConfiguracion } from '../lib/objetivo';
 import { partesAutomatizadas, textoAutomatizacion } from '../lib/parada';
 import { rutaDe } from '../lib/ruta';
+import { tr } from '../lib/idioma';
 
 export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (hash: string) => void }) {
   const [titulo, setTitulo] = useState('');
@@ -56,8 +57,8 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
     <div className="contenido" style={{ maxWidth: 800 }}>
       <div className="pantalla-cabecera">
         <div>
-          <h2>Nueva investigación</h2>
-          <p>Lo que ROSA2018 lee antes de cada iteración. Se puede cambiar después, pero la primera corrida arranca con esto.</p>
+          <h2>{tr("Nueva investigación")}</h2>
+          <p>{tr("Lo que ROSA2018 lee antes de cada iteración. Se puede cambiar después, pero la primera corrida arranca con esto.")}</p>
         </div>
       </div>
       <form
@@ -68,14 +69,14 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
         }}
       >
         <div className="campo">
-          <label htmlFor="n-titulo">Título</label>
-          <input id="n-titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Biomarcadores plasmáticos y progresión en Alzheimer familiar" />
+          <label htmlFor="n-titulo">{tr("Título")}</label>
+          <input id="n-titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder={tr("Biomarcadores plasmáticos y progresión en Alzheimer familiar")} />
         </div>
         <div className="campo">
           <label htmlFor="n-objetivo">Objetivo</label>
-          <textarea id="n-objetivo" value={objetivo} onChange={(e) => setObjetivo(e.target.value)} rows={3} placeholder="Qué quieres que ROSA2018 encuentre, en una o dos frases. Un solo objetivo por investigación." />
+          <textarea id="n-objetivo" value={objetivo} onChange={(e) => setObjetivo(e.target.value)} rows={3} placeholder={tr("Qué quieres que ROSA2018 encuentre, en una o dos frases. Un solo objetivo por investigación.")} />
           {objetivo.trim() !== '' && avisos.length > 0 && (
-            <ul className="avisos-objetivo" aria-label="Avisos sobre el objetivo">
+            <ul className="avisos-objetivo" aria-label={tr("Avisos sobre el objetivo")}>
               {avisos.map((a) => (
                 <li key={a.tipo}>
                   <IconAlert size={13} /> {a.texto}
@@ -83,25 +84,25 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
               ))}
             </ul>
           )}
-          {objetivo.trim() !== '' && avisos.length === 0 && <small className="tono-ok">El objetivo tiene contexto, comprobación y una sola dirección.</small>}
+          {objetivo.trim() !== '' && avisos.length === 0 && <small className="tono-ok">{tr("El objetivo tiene contexto, comprobación y una sola dirección.")}</small>}
         </div>
         <div className="campo">
-          <label htmlFor="n-relevancia">Qué cuenta como relevante</label>
-          <textarea id="n-relevancia" value={relevancia} onChange={(e) => setRelevancia(e.target.value)} rows={2} placeholder="Una diana nueva, una hipótesis mecanística, una asociación biomarcador-progresión, un candidato a reposicionamiento..." />
-          <small>Es el criterio con el que ROSA2018 prioriza y con el que el revisor juzga. Si está vacío, ROSA2018 perseguira todo lo que parezca significativo.</small>
+          <label htmlFor="n-relevancia">{tr("Qué cuenta como relevante")}</label>
+          <textarea id="n-relevancia" value={relevancia} onChange={(e) => setRelevancia(e.target.value)} rows={2} placeholder={tr("Una diana nueva, una hipótesis mecanística, una asociación biomarcador-progresión, un candidato a reposicionamiento...")} />
+          <small>{tr("Es el criterio con el que ROSA2018 prioriza y con el que el revisor juzga. Si está vacío, ROSA2018 perseguira todo lo que parezca significativo.")}</small>
         </div>
         <div className="campo">
-          <label htmlFor="n-limites">Límites (uno por línea)</label>
+          <label htmlFor="n-limites">{tr("Límites (uno por línea)")}</label>
           <textarea id="n-limites" value={limites} onChange={(e) => setLimites(e.target.value)} rows={4} />
         </div>
         <div className="campo">
-          <label htmlFor="n-parada">Condición de parada</label>
-          <input id="n-parada" value={parada} onChange={(e) => setParada(e.target.value)} placeholder="3 iteraciones, o 72 horas, lo que ocurra primero" />
+          <label htmlFor="n-parada">{tr("Condición de parada")}</label>
+          <input id="n-parada" value={parada} onChange={(e) => setParada(e.target.value)} placeholder={tr("3 iteraciones, o 72 horas, lo que ocurra primero")} />
           <p className="meta">{parada.trim() ? textoAutomatizacion(partesAutomatizadas(parada)) : 'ROSA2018 para sola cuando se cumple una cifra: iteraciones, minutos u horas de corrida, o llamadas al modelo. El resto de la frase lo lee para planificar, pero la decisión de parar por otro motivo es tuya.'}</p>
         </div>
         <div className="campo">
-          <label htmlFor="n-revisores">Quien revisa (separados por coma)</label>
-          <input id="n-revisores" value={revisores} onChange={(e) => setRevisores(e.target.value)} placeholder="la persona responsable, Compañero, el investigador clínico principal" />
+          <label htmlFor="n-revisores">{tr("Quien revisa (separados por coma)")}</label>
+          <input id="n-revisores" value={revisores} onChange={(e) => setRevisores(e.target.value)} placeholder={tr("la persona responsable, Compañero, el investigador clínico principal")} />
         </div>
 
         <Seccion titulo="Configuración que ROSA2018 leerá" nota="Propuesta a partir del objetivo. Es lo que alimenta la generación, la revisión y los debates del torneo. Edítala si no encaja.">
@@ -111,17 +112,17 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
           </div>
           <div className="rejilla-2">
             <div className="campo">
-              <label htmlFor="n-atr">Atributos deseables (uno por línea)</label>
+              <label htmlFor="n-atr">{tr("Atributos deseables (uno por línea)")}</label>
               <textarea id="n-atr" value={configEfectiva.atributos} rows={4} onChange={(e) => setConfig({ ...configEfectiva, atributos: e.target.value })} />
             </div>
             <div className="campo">
-              <label htmlFor="n-res">Restricciones (una por línea)</label>
+              <label htmlFor="n-res">{tr("Restricciones (una por línea)")}</label>
               <textarea id="n-res" value={configEfectiva.restricciones} rows={4} onChange={(e) => setConfig({ ...configEfectiva, restricciones: e.target.value })} />
             </div>
           </div>
           {config !== null && (
             <button type="button" className="enlace" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => setConfig(null)}>
-              Volver a la propuesta de ROSA2018
+              {tr("Volver a la propuesta de ROSA2018")}
             </button>
           )}
         </Seccion>
@@ -177,7 +178,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
                     ))}
                   </ol>
                   <button type="button" className="btn btn-s" onClick={() => setObjetivo(p.redaccion)}>
-                    Usar esta redacción
+                    {tr("Usar esta redacción")}
                   </button>
                 </div>
               ))}
@@ -187,16 +188,16 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
 
         {estado.investigaciones.length > 0 && (
           <div className="campo">
-            <label htmlFor="n-heredar">Partir del modelo de mundo de</label>
+            <label htmlFor="n-heredar">{tr("Partir del modelo de mundo de")}</label>
             <select id="n-heredar" value={heredar} onChange={(e) => setHeredar(e.target.value)}>
-              <option value="">Empezar en blanco</option>
+              <option value="">{tr("Empezar en blanco")}</option>
               {estado.investigaciones.map((i) => (
                 <option key={i.id} value={i.id}>
                   {i.titulo} ({estado.hechos.filter((h) => h.investigacionId === i.id).length} nodos)
                 </option>
               ))}
             </select>
-            <small>ROSA2018 arranca sabiendo lo que ya se supo, se abrió y se descarto en esa investigación.</small>
+            <small>{tr("ROSA2018 arranca sabiendo lo que ya se supo, se abrió y se descarto en esa investigación.")}</small>
           </div>
         )}
 
@@ -207,7 +208,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
         )}
         <div className="acciones">
           <button type="submit" className="btn btn-primario">
-            Crear investigación
+            {tr("Crear investigación")}
           </button>
           <a className="btn btn-fantasma" href="#/">
             Cancelar

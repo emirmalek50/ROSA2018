@@ -7,13 +7,14 @@ import type { ConclusionHipotesis, ResumenLlano, ViabilidadPrueba } from '../dat
 import { CERTEZA_EVIDENCIA, DIRECCION_EVIDENCIA, FACTOR_CERTEZA } from '../lib/etiquetas';
 import { Chip } from './piezas';
 import { Momento, Seccion } from './piezas';
+import { tr } from '../lib/idioma';
 
 export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: ResumenLlano | null | undefined; numero: number; abierta?: boolean }) {
   if (resumen === undefined) return null;
   return (
     <Seccion titulo={`Qué encontró ROSA2018 en la iteración ${numero}`} nota="Contado en lenguaje corriente, con cada término técnico definido al final. El detalle con citas, veredictos y pistas está más abajo.">
       {resumen === null ? (
-        <p className="meta">ROSA2018 no pudo escribir el resumen de esta iteración (el modelo no respondió). El resumen técnico está en las iteraciones anteriores.</p>
+        <p className="meta">{tr("ROSA2018 no pudo escribir el resumen de esta iteración (el modelo no respondió). El resumen técnico está en las iteraciones anteriores.")}</p>
       ) : (
         <div className={`llano ${abierta ? '' : 'llano-compacto'}`}>
           {resumen.titulo && <p className="llano-pregunta">{resumen.titulo}</p>}
@@ -28,17 +29,17 @@ export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: R
             </div>
           )}
           <div className="llano-bloque">
-            <h4>Qué quería averiguar ROSA2018</h4>
+            <h4>{tr("Qué quería averiguar ROSA2018")}</h4>
             <p>{resumen.queBuscaba}</p>
           </div>
           {resumen.queHizo && (
             <div className="llano-bloque">
-              <h4>Qué hizo</h4>
+              <h4>{tr("Qué hizo")}</h4>
               <p>{resumen.queHizo}</p>
             </div>
           )}
           <div className="llano-bloque">
-            <h4>Qué encontró</h4>
+            <h4>{tr("Qué encontró")}</h4>
             <ul>
               {resumen.queEncontro.map((t, i) => (
                 <li key={i}>{t}</li>
@@ -47,13 +48,13 @@ export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: R
           </div>
           {resumen.limitaciones && (
             <div className="llano-bloque">
-              <h4>Hasta donde fiarse de esto</h4>
+              <h4>{tr("Hasta donde fiarse de esto")}</h4>
               <p>{resumen.limitaciones}</p>
             </div>
           )}
           {resumen.cambios.length > 0 && (
             <div className="llano-bloque">
-              <h4>Qué cambió desde la iteración anterior</h4>
+              <h4>{tr("Qué cambió desde la iteración anterior")}</h4>
               <ul>
                 {resumen.cambios.map((t, i) => (
                   <li key={i}>{t}</li>
@@ -63,7 +64,7 @@ export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: R
           )}
           {resumen.quePropone.length > 0 && (
             <div className="llano-bloque">
-              <h4>Qué propone comprobar</h4>
+              <h4>{tr("Qué propone comprobar")}</h4>
               <ul>
                 {resumen.quePropone.map((t, i) => (
                   <li key={i}>{t}</li>
@@ -72,23 +73,23 @@ export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: R
             </div>
           )}
           <div className="llano-bloque">
-            <h4>Qué falta</h4>
+            <h4>{tr("Qué falta")}</h4>
             <p>{resumen.queFalta}</p>
           </div>
           <div className="llano-bloque llano-accion">
-            <h4>Qué te toca</h4>
+            <h4>{tr("Qué te toca")}</h4>
             <p>{resumen.queTeToca}</p>
           </div>
           {typeof resumen.aprendizaje === 'string' && resumen.aprendizaje.trim() && (
             <div className="llano-bloque">
-              <h4>Qué aprendió ROSA2018 hasta aquí</h4>
+              <h4>{tr("Qué aprendió ROSA2018 hasta aquí")}</h4>
               <p>{resumen.aprendizaje}</p>
             </div>
           )}
           <p className="meta">
             {resumen.alDia?.fechaBusqueda ? (
               <>
-                Evidencia buscada hasta el <Momento t={resumen.alDia.fechaBusqueda} ahora={Date.now()} />.
+                {tr("Evidencia buscada hasta el")} <Momento t={resumen.alDia.fechaBusqueda} ahora={Date.now()} />.
               </>
             ) : (
               'Sin consultas nuevas en esta iteración.'
@@ -97,7 +98,7 @@ export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: R
           </p>
           {resumen.terminos.length > 0 && (
             <details className="llano-glosario">
-              <summary>Los términos que aparecen arriba ({resumen.terminos.length})</summary>
+              <summary>{tr("Los términos que aparecen arriba (")}{resumen.terminos.length})</summary>
               <dl>
                 {resumen.terminos.map((t) => (
                   <div key={t.termino}>
@@ -136,7 +137,7 @@ export function ViabilidadDeLaPrueba({ v }: { v: ViabilidadPrueba | null | undef
   return (
     <div className="viabilidad">
       <h4>
-        ¿Se puede hacer la prueba con los datos que existen? <Chip tono={veredicto.tono}>{veredicto.etiqueta}</Chip>
+        {tr("¿Se puede hacer la prueba con los datos que existen?")} <Chip tono={veredicto.tono}>{veredicto.etiqueta}</Chip>
       </h4>
       {v.explicacion && <p>{v.explicacion}</p>}
       {v.exclusiones.length > 0 && (
@@ -148,10 +149,10 @@ export function ViabilidadDeLaPrueba({ v }: { v: ViabilidadPrueba | null | undef
           ))}
         </ul>
       )}
-      {v.alternativa && <p className="meta">Dónde sí puede estar ese grupo: {v.alternativa}</p>}
+      {v.alternativa && <p className="meta">{tr("Dónde sí puede estar ese grupo:")} {v.alternativa}</p>}
       {v.ensayos.length > 0 && (
         <p className="meta">
-          Leído en ClinicalTrials.gov:{' '}
+          {tr("Leído en ClinicalTrials.gov:")}{' '}
           {v.ensayos.map((x, i) => (
             <span key={x.nct}>
               {i > 0 ? ', ' : ''}
@@ -162,8 +163,8 @@ export function ViabilidadDeLaPrueba({ v }: { v: ViabilidadPrueba | null | undef
           .
         </p>
       )}
-      {v.sinRespuesta.length > 0 && <p className="meta">El registro no respondió para {v.sinRespuesta.join(', ')}: no se pudo consultar, y ROSA2018 lo vuelve a intentar.</p>}
-      {v.noEncontrados.length > 0 && <p className="meta">Sin ensayos de fase 2 o 3 en el registro para {v.noEncontrados.join(', ')}; pueden estar registrados con otro nombre.</p>}
+      {v.sinRespuesta.length > 0 && <p className="meta">{tr("El registro no respondió para")} {v.sinRespuesta.join(', ')}{tr(": no se pudo consultar, y ROSA2018 lo vuelve a intentar.")}</p>}
+      {v.noEncontrados.length > 0 && <p className="meta">{tr("Sin ensayos de fase 2 o 3 en el registro para")} {v.noEncontrados.join(', ')}{tr("; pueden estar registrados con otro nombre.")}</p>}
     </div>
   );
 }
@@ -172,8 +173,8 @@ export function HipotesisEnLlano({ texto }: { texto: string | null | undefined }
   if (texto === undefined) return null;
   return (
     <div className="llano llano-hipotesis">
-      <h4>En pocas palabras</h4>
-      {texto === null ? <p className="meta">ROSA2018 todavía no escribió el resumen de esta hipótesis.</p> : <p>{texto}</p>}
+      <h4>{tr("En pocas palabras")}</h4>
+      {texto === null ? <p className="meta">{tr("ROSA2018 todavía no escribió el resumen de esta hipótesis.")}</p> : <p>{texto}</p>}
     </div>
   );
 }
@@ -187,7 +188,7 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
   if (conclusion === null) {
     return (
       <Seccion titulo="Conclusión de ROSA2018">
-        <p className="meta">ROSA2018 todavía no escribió su conclusión sobre esta hipótesis. La escribe al crearla y la rehace al cerrar cada iteración con la evidencia que le haya llegado desde entonces.</p>
+        <p className="meta">{tr("ROSA2018 todavía no escribió su conclusión sobre esta hipótesis. La escribe al crearla y la rehace al cerrar cada iteración con la evidencia que le haya llegado desde entonces.")}</p>
       </Seccion>
     );
   }
@@ -200,7 +201,7 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
       nota="Dos cosas distintas, como en GRADE: cuanto se puede fiar uno de la evidencia reunida (certeza) y hacia donde apunta (dirección). Ninguna dice si la hipótesis es cierta: eso lo decide un experimento. Se rehace al cerrar cada iteración: lo que ROSA2018 lee después de nacer la hipótesis se le suma (a favor, indirecto o en contra) y la certeza se recalcula."
       acciones={
         <span className="meta">
-          Iteración {conclusion.iteracion} · <Momento t={conclusion.fecha} ahora={ahora} />
+          {tr("Iteración")} {conclusion.iteracion} · <Momento t={conclusion.fecha} ahora={ahora} />
         </span>
       }
     >
@@ -211,20 +212,20 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
           </Chip>
           <Chip tono={d.tono}>{d.etiqueta}</Chip>
           <span className="meta">
-            Se apoya en {b.sostenidas} de {b.afirmaciones} afirmaciones sostenidas, de {b.fuentes} {b.fuentes === 1 ? 'fuente' : 'fuentes'}
+            Se apoya en {b.sostenidas} de {b.afirmaciones} {tr("afirmaciones sostenidas, de")} {b.fuentes} {b.fuentes === 1 ? 'fuente' : 'fuentes'}
             {b.interpretaciones > 0 ? `; ${b.interpretaciones} ${b.interpretaciones === 1 ? 'es interpretación' : 'son interpretaciones'}, no datos` : ''}.
           </span>
         </div>
         <p className="meta">{g.nota}</p>
         {conclusion.techo && (
           <p className="meta">
-            Nivel máximo con lo que hay, por regla: <strong>{CERTEZA_EVIDENCIA[conclusion.techo.nivel].etiqueta.replace('Certeza ', '')}</strong>, porque {conclusion.techo.motivo}.
+            {tr("Nivel máximo con lo que hay, por regla:")} <strong>{CERTEZA_EVIDENCIA[conclusion.techo.nivel].etiqueta.replace('Certeza ', '')}</strong>, porque {conclusion.techo.motivo}.
             {conclusion.techo.acotada && ` El juez había dicho «${CERTEZA_EVIDENCIA[conclusion.techo.certezaDelJuez].etiqueta.toLowerCase()}»; la regla lo acotó.`}
           </p>
         )}
         {conclusion.escalera && conclusion.escalera.length > 0 && (
           <div className="conclusion-escalera">
-            <h4>Para subir</h4>
+            <h4>{tr("Para subir")}</h4>
             <ol>
               {conclusion.escalera.map((p) => (
                 <li key={p.a}>
@@ -232,19 +233,19 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
                 </li>
               ))}
             </ol>
-            {conclusion.subiria && <p className="meta">Lo que el juez pide en concreto: {conclusion.subiria}</p>}
+            {conclusion.subiria && <p className="meta">{tr("Lo que el juez pide en concreto:")} {conclusion.subiria}</p>}
           </div>
         )}
         <p className="conclusion-enunciado">{conclusion.enunciado}</p>
         {conclusion.cambio && (
           <p className="meta">
-            Cambio respecto a la iteración {conclusion.cambio.de.iteracion ?? '?'}: antes {conclusion.cambio.de.certeza ? CERTEZA_EVIDENCIA[conclusion.cambio.de.certeza].etiqueta.toLowerCase() : 'sin certeza'} y {conclusion.cambio.de.direccion ? DIRECCION_EVIDENCIA[conclusion.cambio.de.direccion].etiqueta.toLowerCase() : 'sin dirección'}. {conclusion.cambio.motivo}
+            {tr("Cambio respecto a la iteración")} {conclusion.cambio.de.iteracion ?? '?'}: antes {conclusion.cambio.de.certeza ? CERTEZA_EVIDENCIA[conclusion.cambio.de.certeza].etiqueta.toLowerCase() : 'sin certeza'} y {conclusion.cambio.de.direccion ? DIRECCION_EVIDENCIA[conclusion.cambio.de.direccion].etiqueta.toLowerCase() : 'sin dirección'}. {conclusion.cambio.motivo}
           </p>
         )}
         <p className="conclusion-texto">{conclusion.conclusion}</p>
         {conclusion.factores.length > 0 && (
           <div className="llano-bloque">
-            <h4>Por qué esta certeza</h4>
+            <h4>{tr("Por qué esta certeza")}</h4>
             <ul className="factores">
               {conclusion.factores.map((f, i) => (
                 <li key={i}>
@@ -260,27 +261,27 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
             {conclusion.aFavor.length === 0 ? <p className="meta">Nada directo.</p> : <ul>{conclusion.aFavor.map((t, i) => <li key={i}>{t}</li>)}</ul>}
           </div>
           <div className="llano-bloque">
-            <h4>En contra o que la debilita</h4>
-            {conclusion.enContra.length === 0 ? <p className="meta">Nada encontrado, lo cual no es lo mismo que nada que encontrar.</p> : <ul>{conclusion.enContra.map((t, i) => <li key={i}>{t}</li>)}</ul>}
+            <h4>{tr("En contra o que la debilita")}</h4>
+            {conclusion.enContra.length === 0 ? <p className="meta">{tr("Nada encontrado, lo cual no es lo mismo que nada que encontrar.")}</p> : <ul>{conclusion.enContra.map((t, i) => <li key={i}>{t}</li>)}</ul>}
           </div>
         </div>
         <div className="llano-bloque">
-          <h4>De que depende más</h4>
+          <h4>{tr("De que depende más")}</h4>
           <p>{conclusion.loMasFragil}</p>
         </div>
         <div className="conclusion-columnas">
           <div className="llano-bloque llano-accion">
-            <h4>Subiría la certeza si</h4>
+            <h4>{tr("Subiría la certeza si")}</h4>
             <p>{conclusion.subiria}</p>
           </div>
           <div className="llano-bloque llano-accion">
-            <h4>Bajaría si</h4>
+            <h4>{tr("Bajaría si")}</h4>
             <p>{conclusion.bajaria}</p>
           </div>
         </div>
         {conclusion.noComprobado.length > 0 && (
           <div className="llano-bloque">
-            <h4>Qué no pudimos comprobar</h4>
+            <h4>{tr("Qué no pudimos comprobar")}</h4>
             <ul>
               {conclusion.noComprobado.map((t, i) => (
                 <li key={i} className="meta">
@@ -292,7 +293,7 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
         )}
         {conclusion.fechaBusqueda && (
           <p className="meta">
-            Evidencia buscada hasta el <Momento t={conclusion.fechaBusqueda} ahora={ahora} />.
+            {tr("Evidencia buscada hasta el")} <Momento t={conclusion.fechaBusqueda} ahora={ahora} />.
           </p>
         )}
       </div>

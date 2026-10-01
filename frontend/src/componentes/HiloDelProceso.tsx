@@ -12,6 +12,7 @@ import { pendientesDeRevision } from '../lib/hipotesis';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { rutaDe, type Pantalla } from '../lib/ruta';
 import { proponiendoPlan } from '../lib/etiquetas';
+import { tr } from '../lib/idioma';
 
 export type Etapa = 'plan' | 'literatura' | 'verificar' | 'mundo' | 'hipotesis' | 'candidatas' | 'laboratorio';
 
@@ -109,7 +110,7 @@ export function HiloDelProceso({ estado, inv, pantalla, detalleId = null, compac
   if (!corrida) return null;
   const hilo = estadoDelHilo(estado, inv, corrida);
   return (
-    <nav className={`hilo ${compacto ? 'hilo-compacto' : ''}`} aria-label="Etapas de la investigación">
+    <nav className={`hilo ${compacto ? 'hilo-compacto' : ''}`} aria-label={tr("Etapas de la investigación")}>
       {ETAPAS.map((e, i) => {
         const activa = hilo.activa === e.clave;
         const hecha = hilo.hechas.has(e.clave) && !activa;
@@ -126,7 +127,7 @@ export function HiloDelProceso({ estado, inv, pantalla, detalleId = null, compac
               {!compacto && hilo.cuentas[e.clave] && <span className="hilo-cuenta">{hilo.cuentas[e.clave]}</span>}
             </span>
             {espera > 0 && (
-              <span className="hilo-aviso" title="Espera una decisión tuya">
+              <span className="hilo-aviso" title={tr("Espera una decisión tuya")}>
                 {espera}
               </span>
             )}

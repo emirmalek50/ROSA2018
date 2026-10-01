@@ -9,6 +9,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useAccionesPendientes, type AccionPendiente } from '../datos/almacen';
 import { useAhora } from '../lib/useAhora';
 import { useMovimientoReducido } from '../lib/movimiento';
+import { tr } from '../lib/idioma';
 
 function Aviso({ a, ahora }: { a: AccionPendiente; ahora: number }) {
   const restante = Math.max(0, a.hasta - ahora);
@@ -24,7 +25,7 @@ function Aviso({ a, ahora }: { a: AccionPendiente; ahora: number }) {
         <button type="button" className="btn btn-s" onClick={a.deshacer}>
           Deshacer
         </button>
-        <button type="button" className="btn btn-s btn-fantasma" onClick={a.enviar} title="No esperar: enviar ahora">
+        <button type="button" className="btn btn-s btn-fantasma" onClick={a.enviar} title={tr("No esperar: enviar ahora")}>
           Ahora
         </button>
       </div>

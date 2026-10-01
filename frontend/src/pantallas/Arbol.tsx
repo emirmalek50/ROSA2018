@@ -55,6 +55,7 @@ import { acotarCamara, camaraInicial, distanciaEncuadre, ESPERA_GIRO_MS, paso3d,
 import { ajusteLienzo, construirEscena, dibujar, nodoBajoPuntero, Paleta, registrarEscena, RESPALDOS_PALETA, type Escena, type EstiloNodo, type Trazo } from '../lib/lienzo_arbol';
 import { useCalculoDiferido } from '../lib/diferido';
 import { useMovimientoReducido } from '../lib/movimiento';
+import { tr } from '../lib/idioma';
 const COLOR: Record<TipoNodo, string> = {
   objetivo: 'var(--accent)',
   rama: 'var(--accent-soft-2)',
@@ -248,12 +249,12 @@ function SiluetaArbol({ conexion }: { conexion: EstadoRosa['conexion'] }) {
       <AvisoMuestra conexion={conexion} />
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
-          <h2>Árbol de la investigación</h2>
+          <h2>{tr("Árbol de la investigación")}</h2>
           <p>{AYUDA}</p>
         </div>
         {/* Los mandos reales, deshabilitados: son chrome fijo, no contenido que llega, y así la cabecera mide exactamente lo mismo que con el árbol. */}
         <div className="acciones" aria-hidden="true">
-          <div className="segmentos" role="group" aria-label="Vista del árbol">
+          <div className="segmentos" role="group" aria-label={tr("Vista del árbol")}>
             <button type="button" aria-pressed disabled>
               Vista plana
             </button>
@@ -261,20 +262,20 @@ function SiluetaArbol({ conexion }: { conexion: EstadoRosa['conexion'] }) {
               Vista 3D
             </button>
           </div>
-          <div className="segmentos" role="group" aria-label="Color de los nodos">
+          <div className="segmentos" role="group" aria-label={tr("Color de los nodos")}>
             <button type="button" aria-pressed disabled>
-              Por tipo y mecanismo
+              {tr("Por tipo y mecanismo")}
             </button>
             <button type="button" disabled>
-              Por distancia al dato
+              {tr("Por distancia al dato")}
             </button>
           </div>
-          <input className="entrada entrada-s" style={{ width: 220 }} placeholder="Buscar en el árbol" aria-label="Buscar en el árbol" disabled readOnly />
+          <input className="entrada entrada-s" style={{ width: 220 }} placeholder={tr("Buscar en el árbol")} aria-label={tr("Buscar en el árbol")} disabled readOnly />
           <button type="button" className="btn btn-s" disabled>
-            Plegar todo
+            {tr("Plegar todo")}
           </button>
           <button type="button" className="btn btn-s" disabled>
-            Desplegar todo
+            {tr("Desplegar todo")}
           </button>
         </div>
       </div>
@@ -874,7 +875,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
       <div className="contenido">
         <AvisoMuestra conexion={estado.conexion} />
         <Vacio titulo="El árbol todavía no tiene ramas" pasos={['El tronco es el objetivo; ya está.', 'Cuando ROSA2018 busque literatura y verifique afirmaciones, aparecerán los hechos y las fuentes.', 'Cada hipótesis será una hoja en la rama de su cluster de mecanismo, unida a lo que la sostiene.', 'El experimento que llegue al laboratorio será el fruto.']}>
-          Aquí se ve toda la investigación conectada: qué sostiene a qué, qué comparte una entidad con qué, y qué rivaliza con qué.
+          {tr("Aquí se ve toda la investigación conectada: qué sostiene a qué, qué comparte una entidad con qué, y qué rivaliza con qué.")}
         </Vacio>
       </div>
     );
@@ -891,32 +892,32 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
       <AvisoMuestra conexion={estado.conexion} />
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
-          <h2>Árbol de la investigación</h2>
+          <h2>{tr("Árbol de la investigación")}</h2>
           <p>{AYUDA}</p>
         </div>
         <div className="acciones">
-          <div className="segmentos" role="group" aria-label="Vista del árbol">
-            <button type="button" aria-pressed={!vista3d} onClick={() => cambiarVista('plana')} title="El árbol en el plano: arrastra el fondo para desplazarlo y los nodos para moverlos">
+          <div className="segmentos" role="group" aria-label={tr("Vista del árbol")}>
+            <button type="button" aria-pressed={!vista3d} onClick={() => cambiarVista('plana')} title={tr("El árbol en el plano: arrastra el fondo para desplazarlo y los nodos para moverlos")}>
               Vista plana
             </button>
-            <button type="button" aria-pressed={vista3d} onClick={() => cambiarVista('3d')} title="El árbol en tres dimensiones: arrastra el fondo para girarlo, rueda para acercar; lo lejano se ve pequeño y tenue">
+            <button type="button" aria-pressed={vista3d} onClick={() => cambiarVista('3d')} title={tr("El árbol en tres dimensiones: arrastra el fondo para girarlo, rueda para acercar; lo lejano se ve pequeño y tenue")}>
               Vista 3D
             </button>
           </div>
-          <div className="segmentos" role="group" aria-label="Color de los nodos">
-            <button type="button" aria-pressed={modoColor === 'tipo'} onClick={() => setModoColor('tipo')} title="Relleno por tipo de nodo y por familia de mecanismo en las hipótesis; anillo por distancia al dato">
-              Por tipo y mecanismo
+          <div className="segmentos" role="group" aria-label={tr("Color de los nodos")}>
+            <button type="button" aria-pressed={modoColor === 'tipo'} onClick={() => setModoColor('tipo')} title={tr("Relleno por tipo de nodo y por familia de mecanismo en las hipótesis; anillo por distancia al dato")}>
+              {tr("Por tipo y mecanismo")}
             </button>
-            <button type="button" aria-pressed={modoColor === 'dato'} onClick={() => setModoColor('dato')} title="Cuanto más intenso, más cerca de una medición propia de ROSA2018; ámbar, solo literatura leída; gris punteado, nada">
-              Por distancia al dato
+            <button type="button" aria-pressed={modoColor === 'dato'} onClick={() => setModoColor('dato')} title={tr("Cuanto más intenso, más cerca de una medición propia de ROSA2018; ámbar, solo literatura leída; gris punteado, nada")}>
+              {tr("Por distancia al dato")}
             </button>
           </div>
-          <input className="entrada entrada-s" style={{ width: 220 }} value={texto} placeholder="Buscar en el árbol" onChange={(e) => setTexto(e.target.value)} aria-label="Buscar en el árbol" />
+          <input className="entrada entrada-s" style={{ width: 220 }} value={texto} placeholder={tr("Buscar en el árbol")} onChange={(e) => setTexto(e.target.value)} aria-label={tr("Buscar en el árbol")} />
           <button type="button" className="btn btn-s" onClick={() => { setVisibles(visiblesIniciales(grafo, hip)); setSeleccion(null); vistaRef.current = { x: 0, y: 0, k: 1 }; camaraRef.current = camaraInicial(); camaraTocada.current = false; encuadrar.current = true; sucio.current = true; repintar(); }}>
-            Plegar todo
+            {tr("Plegar todo")}
           </button>
-          <button type="button" className="btn btn-s" onClick={() => { setVisibles(new Set(grafo.nodos.map((n) => n.id))); }} title="Despliega hasta las fuentes: puede ser mucho">
-            Desplegar todo
+          <button type="button" className="btn btn-s" onClick={() => { setVisibles(new Set(grafo.nodos.map((n) => n.id))); }} title={tr("Despliega hasta las fuentes: puede ser mucho")}>
+            {tr("Desplegar todo")}
           </button>
         </div>
       </div>
@@ -927,7 +928,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
           {/* La misma información para el teclado y los lectores de pantalla: un botón por
               nodo visible. Llevan las clases grafo-nodo y grafo-<tipo> que tenían las esferas
               del SVG: son los nodos en el árbol de accesibilidad y así los localizan los tests. */}
-          <ul className="sr-only" role="list" aria-label="Nodos del árbol">
+          <ul className="sr-only" role="list" aria-label={tr("Nodos del árbol")}>
             {nodosVisibles.map((n) => (
               <li key={n.id}>
                 <button type="button" className={`grafo-nodo grafo-${n.tipo}`} data-id={n.id} aria-pressed={seleccion === n.id} onClick={() => pulsar(n, 1)} onDoubleClick={() => { if (n.href) window.location.hash = n.href; }} onFocus={() => ponerHover(n.id)} onBlur={() => ponerHover(null)}>
@@ -945,7 +946,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
               {nodoSel.sub && <p className="meta">{nodoSel.sub}</p>}
               {nodoSel.alerta && <p className="tono-mal" style={{ fontSize: 13 }}>{nodoSel.alerta}</p>}
               {nodoSel.alias && nodoSel.alias.length > 1 && <p className="meta">Alias: {nodoSel.alias.slice(0, 8).join(', ')}</p>}
-              <p className="meta">Aparece desde la iteración {nodoSel.iteracion || 1} de {grafo.iteracionMax} (contando seguidas todas las corridas).</p>
+              <p className="meta">{tr("Aparece desde la iteración")} {nodoSel.iteracion || 1} de {grafo.iteracionMax} {tr("(contando seguidas todas las corridas).")}</p>
               {!SIN_DISTANCIA.has(nodoSel.tipo) && <p className="meta">{fraseProfundidad(nodoSel)}</p>}
               <h4>Conectado con</h4>
               <ul className="grafo-vecinos">
@@ -974,11 +975,11 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
           ) : (
             <>
               <h3>Leyenda</h3>
-              <p className="meta">Cada nodo tiene dos colores con dos mensajes: el de dentro dice qué es; el borde dice cuánta evidencia lo sostiene.</p>
+              <p className="meta">{tr("Cada nodo tiene dos colores con dos mensajes: el de dentro dice qué es; el borde dice cuánta evidencia lo sostiene.")}</p>
               {modoColor === 'dato' ? (
                 <>
-                  <h4 className="grafo-leyenda-titulo">El color de dentro: a qué distancia está del dato</h4>
-                  <p className="meta">En este modo el relleno cuenta los saltos que separan cada nodo de una medición propia de ROSA2018. Medición propia es un análisis in silico que pasó la auditoría, un resultado del laboratorio o una observación original sostenida.</p>
+                  <h4 className="grafo-leyenda-titulo">{tr("El color de dentro: a qué distancia está del dato")}</h4>
+                  <p className="meta">{tr("En este modo el relleno cuenta los saltos que separan cada nodo de una medición propia de ROSA2018. Medición propia es un análisis in silico que pasó la auditoría, un resultado del laboratorio o una observación original sostenida.")}</p>
                   <ul className="grafo-leyenda">
                     {ESCALA_DATO.map((c, i) => (
                       <li key={`d${i}`}>
@@ -991,17 +992,17 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
                       </li>
                     ))}
                     <li>
-                      <span className="grafo-punto grafo-punto-nulo" aria-hidden="true" /> Sin medición propia ni literatura leída: gris punteado. Nada lo sostiene todavía.
+                      <span className="grafo-punto grafo-punto-nulo" aria-hidden="true" /> {tr("Sin medición propia ni literatura leída: gris punteado. Nada lo sostiene todavía.")}
                     </li>
                   </ul>
-                  <p className="meta">El tronco, las áreas, las ramas y las entidades conservan su color: son estructura o nombres, no evidencia. Borde rojo: hay una alerta. Punteada: descartada o sin medición propia.</p>
+                  <p className="meta">{tr("El tronco, las áreas, las ramas y las entidades conservan su color: son estructura o nombres, no evidencia. Borde rojo: hay una alerta. Punteada: descartada o sin medición propia.")}</p>
                 </>
               ) : (
                 <>
-                  <h4 className="grafo-leyenda-titulo">El color de dentro: qué es cada nodo</h4>
+                  <h4 className="grafo-leyenda-titulo">{tr("El color de dentro: qué es cada nodo")}</h4>
                   <ul className="grafo-leyenda">
                     <li>
-                      <span className="grafo-punto" style={{ background: `conic-gradient(${PALETA_CLUSTER.slice(0, 6).join(', ')})` }} aria-hidden="true" /> {DEFINICION_TIPO.hipotesis} La rama que las agrupa lleva el mismo color.
+                      <span className="grafo-punto" style={{ background: `conic-gradient(${PALETA_CLUSTER.slice(0, 6).join(', ')})` }} aria-hidden="true" /> {DEFINICION_TIPO.hipotesis} {tr("La rama que las agrupa lleva el mismo color.")}
                       {familias.length > 0 && (
                         <ul className="grafo-leyenda grafo-leyenda-sub">
                           {familias.map((f) => (
@@ -1018,18 +1019,18 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
                       </li>
                     ))}
                   </ul>
-                  <h4 className="grafo-leyenda-titulo">El borde: cuánta evidencia lo sostiene</h4>
+                  <h4 className="grafo-leyenda-titulo">{tr("El borde: cuánta evidencia lo sostiene")}</h4>
                   <ul className="grafo-leyenda">
-                    <li><span className="grafo-punto grafo-anillo" style={{ borderColor: 'var(--grafo-dato-1)' }} aria-hidden="true" /> Anillo verde: a un paso de una medición propia de ROSA2018 (un análisis in silico que pasó la auditoría, un resultado del laboratorio o una observación original). Es lo más sólido.</li>
-                    <li><span className="grafo-punto grafo-anillo" style={{ borderColor: 'var(--grafo-lit-1)' }} aria-hidden="true" /> Anillo ámbar: solo literatura leída detrás. ROSA2018 lo sostiene con artículos, pero nunca lo ha medido ella.</li>
-                    <li><span className="grafo-punto grafo-anillo grafo-anillo-nulo" aria-hidden="true" /> Anillo gris punteado: nada lo sostiene todavía.</li>
-                    <li><span className="grafo-punto grafo-anillo" style={{ borderColor: 'var(--red)' }} aria-hidden="true" /> Anillo rojo: hay una alerta (una contradicción, un bloqueo o una marca editorial). Manda sobre los demás.</li>
-                    <li><span className="grafo-punto grafo-anillo grafo-anillo-rayas" aria-hidden="true" /> A rayas: hipótesis descartada.</li>
+                    <li><span className="grafo-punto grafo-anillo" style={{ borderColor: 'var(--grafo-dato-1)' }} aria-hidden="true" /> {tr("Anillo verde: a un paso de una medición propia de ROSA2018 (un análisis in silico que pasó la auditoría, un resultado del laboratorio o una observación original). Es lo más sólido.")}</li>
+                    <li><span className="grafo-punto grafo-anillo" style={{ borderColor: 'var(--grafo-lit-1)' }} aria-hidden="true" /> {tr("Anillo ámbar: solo literatura leída detrás. ROSA2018 lo sostiene con artículos, pero nunca lo ha medido ella.")}</li>
+                    <li><span className="grafo-punto grafo-anillo grafo-anillo-nulo" aria-hidden="true" /> {tr("Anillo gris punteado: nada lo sostiene todavía.")}</li>
+                    <li><span className="grafo-punto grafo-anillo" style={{ borderColor: 'var(--red)' }} aria-hidden="true" /> {tr("Anillo rojo: hay una alerta (una contradicción, un bloqueo o una marca editorial). Manda sobre los demás.")}</li>
+                    <li><span className="grafo-punto grafo-anillo grafo-anillo-rayas" aria-hidden="true" /> {tr("A rayas: hipótesis descartada.")}</li>
                   </ul>
-                  <p className="meta">En resumen: dentro, qué es y a qué mecanismo pertenece; el borde, si ROSA2018 lo midió (verde), solo lo leyó (ámbar) o aún no tiene nada (gris).</p>
+                  <p className="meta">{tr("En resumen: dentro, qué es y a qué mecanismo pertenece; el borde, si ROSA2018 lo midió (verde), solo lo leyó (ámbar) o aún no tiene nada (gris).")}</p>
                 </>
               )}
-              <h4 className="grafo-leyenda-titulo">Las líneas: cómo se conectan</h4>
+              <h4 className="grafo-leyenda-titulo">{tr("Las líneas: cómo se conectan")}</h4>
               <ul className="grafo-leyenda">
                 {(Object.keys(NOMBRE_ENLACE) as TipoEnlace[]).map((t) => (
                   <li key={t}>
@@ -1046,7 +1047,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
           {hasta === grafo.iteracionMax ? 'En vivo' : 'Volver al presente'}
         </button>
         <label htmlFor="grafo-iteracion">
-          Cómo creció: hasta la iteración <strong>{hasta}</strong> de {grafo.iteracionMax}
+          {tr("Cómo creció: hasta la iteración")} <strong>{hasta}</strong> de {grafo.iteracionMax}
         </label>
         <input id="grafo-iteracion" type="range" min={1} max={Math.max(1, grafo.iteracionMax)} value={Math.min(hasta, Math.max(1, grafo.iteracionMax))} onChange={(e) => setHasta(Number(e.target.value))} />
         <span className="meta">

@@ -29,6 +29,7 @@ import { AMBITO_LECCION, AMPLITUD, CLASIFICACION_DATOS, ESTADO_CORRIDA, ESTADO_I
 import { formatearDuracion } from '../lib/formato';
 import { partesAutomatizadas, textoAutomatizacion } from '../lib/parada';
 import { rutaDe } from '../lib/ruta';
+import { tr } from '../lib/idioma';
 
 /** Catalogo de datos del Alzheimer, como el de Biomni-AD. Acceso abierto o
  *  controlado; lo controlado pasa por acuerdo de uso y, si hay personas, por
@@ -61,31 +62,31 @@ function TarjetaDataset({ d, inv }: { d: Dataset; inv: Inv }) {
       <div className="comprobacion-datos">
         <div className={d.columnasSinDiccionario > 0 ? 'mal' : 'ok'}>
           <strong>{d.columnasSinDiccionario}</strong>
-          <span>columnas sin diccionario</span>
+          <span>{tr("columnas sin diccionario")}</span>
           {d.columnasSinDiccionario > 0 && (
             <button type="button" className="btn btn-s" onClick={() => acciones.aprobarDiccionario(inv.id, d.id)}>
-              Aprobar el diccionario que propone ROSA2018
+              {tr("Aprobar el diccionario que propone ROSA2018")}
             </button>
           )}
         </div>
         <div className={d.valoresCentinela > 0 ? 'mal' : 'ok'}>
           <strong>{d.valoresCentinela}</strong>
-          <span>columnas con valores centinela (0, -1, "NA" como texto)</span>
+          <span>{tr("columnas con valores centinela (0, -1, \"NA\" como texto)")}</span>
         </div>
         <div className={d.nombresDuplicados > 0 ? 'mal' : 'ok'}>
           <strong>{d.nombresDuplicados}</strong>
-          <span>nombres de columna duplicados entre ficheros</span>
+          <span>{tr("nombres de columna duplicados entre ficheros")}</span>
         </div>
         {(d.valoresCentinela > 0 || d.nombresDuplicados > 0) && (
           <button type="button" className="btn btn-s" onClick={() => acciones.corregirDataset(inv.id, d.id)}>
-            Marcar centinelas y duplicados como corregidos en el fichero
+            {tr("Marcar centinelas y duplicados como corregidos en el fichero")}
           </button>
         )}
       </div>
       <div className="acciones" style={{ justifyContent: 'space-between' }}>
         <label className="interruptor" style={{ gap: 6 }}>
-          <span className="meta">Clasificación</span>
-          <select className="entrada entrada-s" style={{ width: 'auto' }} value={d.clasificacion} onChange={(e) => acciones.clasificarDataset(inv.id, d.id, e.target.value as Dataset['clasificacion'])} aria-label="Clasificación de los datos">
+          <span className="meta">{tr("Clasificación")}</span>
+          <select className="entrada entrada-s" style={{ width: 'auto' }} value={d.clasificacion} onChange={(e) => acciones.clasificarDataset(inv.id, d.id, e.target.value as Dataset['clasificacion'])} aria-label={tr("Clasificación de los datos")}>
             {(Object.keys(CLASIFICACION_DATOS) as Dataset['clasificacion'][]).map((c) => (
               <option key={c} value={c}>
                 {CLASIFICACION_DATOS[c]}
@@ -96,7 +97,7 @@ function TarjetaDataset({ d, inv }: { d: Dataset; inv: Inv }) {
         {d.estado === 'pendiente' && (
           <div className="acciones">
             <button type="button" className="btn btn-primario btn-s" disabled={!limpio} title={limpio ? '' : 'Primero corrige o documenta lo que falta'} onClick={() => acciones.decidirDataset(inv.id, d.id, 'aprobado')}>
-              Aprobar contrato de datos
+              {tr("Aprobar contrato de datos")}
             </button>
             <button type="button" className="btn btn-s" onClick={() => acciones.decidirDataset(inv.id, d.id, 'rechazado')}>
               Rechazar
@@ -106,7 +107,7 @@ function TarjetaDataset({ d, inv }: { d: Dataset; inv: Inv }) {
       </div>
       {d.clasificacion === 'personas' && (
         <p className="aviso-muestra" style={{ marginTop: 4 }}>
-          Datos de personas: antes de que ROSA2018 los toque hay que desidentificarlos (la skill deidentify corre en local, sin red) y la fase pasa por un comite certificado y por CONABIOS (Ley 172-13). Las herramientas que envian texto al gateway quedan bloqueadas para este fichero.
+          {tr("Datos de personas: antes de que ROSA2018 los toque hay que desidentificarlos (la skill deidentify corre en local, sin red) y la fase pasa por un comite certificado y por CONABIOS (Ley 172-13). Las herramientas que envian texto al gateway quedan bloqueadas para este fichero.")}
         </p>
       )}
       <LibroDeProcedencia inv={inv} d={d} />
@@ -129,7 +130,7 @@ function QueToca({ inv, corridas, irA }: { inv: Inv; corridas: EstadoRosa['corri
     <div className={`quetoca ${tareas.length === 0 ? 'quetoca-vacio' : ''}`} role="status">
       <strong>{tareas.length === 0 ? 'Nada te espera aquí.' : tareas.length === 1 ? 'Te espera una cosa:' : `Te esperan ${tareas.length} cosas:`}</strong>
       {tareas.length === 0 ? (
-        <span className="meta"> El objetivo, la misión y los datos están en orden. Lo demás de esta pantalla es consulta.</span>
+        <span className="meta"> {tr("El objetivo, la misión y los datos están en orden. Lo demás de esta pantalla es consulta.")}</span>
       ) : (
         <ul>
           {tareas.map((t) => (
@@ -232,7 +233,7 @@ function SiluetaPrograma({ clase, titulo, forma }: { clase: 'cifras-ap' | 'mapa-
     <article className={`tarjeta ${clase}`} data-esqueleto="programa" aria-label={titulo}>
       <div className={cabecera}>
         <h3>{titulo}</h3>
-        <span className="meta">ROSA2018 lo calcula al cerrar la iteración en curso.</span>
+        <span className="meta">{tr("ROSA2018 lo calcula al cerrar la iteración en curso.")}</span>
       </div>
       {forma === 'texto' && (
         <>
@@ -305,11 +306,11 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
           <p style={{ whiteSpace: 'pre-wrap' }}>{inv.objetivo}</p>
         </div>
         <div className="tarjeta seccion">
-          <h3 style={{ fontSize: 13, fontWeight: 600 }}>Qué cuenta como relevante</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 600 }}>{tr("Qué cuenta como relevante")}</h3>
           <p>{inv.relevancia || 'Sin definir. ROSA2018 perseguira todo lo que parezca significativo.'}</p>
         </div>
         <div className="tarjeta seccion">
-          <h3 style={{ fontSize: 13, fontWeight: 600 }}>Límites</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 600 }}>{tr("Límites")}</h3>
           <ul className="lista-limpia">
             {inv.limites.map((l, i) => (
               <li key={i}>{l}</li>
@@ -317,7 +318,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
           </ul>
         </div>
         <div className="tarjeta seccion">
-          <h3 style={{ fontSize: 13, fontWeight: 600 }}>Condición de parada</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 600 }}>{tr("Condición de parada")}</h3>
           <p>{inv.condicionParada}</p>
           <p className="meta">{textoAutomatizacion(inv.condicionParadaAutomatizada ?? partesAutomatizadas(inv.condicionParada))}</p>
           <h3 style={{ fontSize: 13, fontWeight: 600, marginTop: 8 }}>Quien revisa</h3>
@@ -332,7 +333,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
       </div>
 
       <Seccion id="mision" titulo="Misión" nota="El marco que fija el programa antes de la primera corrida (etapa 0 de ROSA2018): a quién aplica, en qué etapa, en qué célula o tejido, qué mecanismo, qué tipo de resultado se busca, qué puede hacer el laboratorio y con qué presupuesto. ROSA2018 propone; una persona aprueba. Debajo, las áreas de investigación que ROSA2018 comparó para elegir por dónde empezar.">
-        {inv.mision === undefined || inv.mision === null ? <p className="meta">ROSA2018 propondrá la misión al arrancar la primera corrida. También puedes escribirla tú: arriba a la derecha, "Editar".</p> : null}
+        {inv.mision === undefined || inv.mision === null ? <p className="meta">{tr("ROSA2018 propondrá la misión al arrancar la primera corrida. También puedes escribirla tú: arriba a la derecha, \"Editar\".")}</p> : null}
         <FormularioMision inv={inv} corridas={corridas} />
       </Seccion>
 
@@ -376,11 +377,11 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
             </div>
             <div className="rejilla-2">
               <div className="campo">
-                <label htmlFor="c-atr">Atributos (uno por línea)</label>
+                <label htmlFor="c-atr">{tr("Atributos (uno por línea)")}</label>
                 <textarea id="c-atr" value={atr} rows={4} onChange={(e) => setAtr(e.target.value)} />
               </div>
               <div className="campo">
-                <label htmlFor="c-res">Restricciones (una por línea)</label>
+                <label htmlFor="c-res">{tr("Restricciones (una por línea)")}</label>
                 <textarea id="c-res" value={res} rows={4} onChange={(e) => setRes(e.target.value)} />
               </div>
             </div>
@@ -410,11 +411,11 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
           </div>
         )}
         <div className="tarjeta amplitud">
-          <p className="campo-etiqueta">Amplitud de búsqueda</p>
+          <p className="campo-etiqueta">{tr("Amplitud de búsqueda")}</p>
           <p className="meta">
-            Cuánto explora ROSA2018 fuera de la pregunta en cada paso de literatura. Con foco sube la certeza de lo que ya hay; con amplitud encuentra lo que hay al lado (una segunda cohorte, un contraejemplo, una línea nueva). Se aplica desde el siguiente paso de literatura.
+            {tr("Cuánto explora ROSA2018 fuera de la pregunta en cada paso de literatura. Con foco sube la certeza de lo que ya hay; con amplitud encuentra lo que hay al lado (una segunda cohorte, un contraejemplo, una línea nueva). Se aplica desde el siguiente paso de literatura.")}
           </p>
-          <div className="acciones amplitud-botones" role="radiogroup" aria-label="Amplitud de búsqueda">
+          <div className="acciones amplitud-botones" role="radiogroup" aria-label={tr("Amplitud de búsqueda")}>
             {(['enfocada', 'equilibrada', 'amplia'] as Amplitud[]).map((a) => {
               const activa = (inv.configuracion.amplitud ?? 'equilibrada') === a;
               return (
@@ -437,7 +438,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
           </button>
         }
       >
-        {inv.datasets.length === 0 && <p className="meta">Sin datos adjuntos: ROSA2018 trabaja solo con literatura y bases curadas.</p>}
+        {inv.datasets.length === 0 && <p className="meta">{tr("Sin datos adjuntos: ROSA2018 trabaja solo con literatura y bases curadas.")}</p>}
         {inv.datasets.map((d) => (
           <TarjetaDataset key={d.id} d={d} inv={inv} />
         ))}
@@ -448,7 +449,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
             <thead>
               <tr>
                 <th>Conjunto</th>
-                <th>Qué es</th>
+                <th>{tr("Qué es")}</th>
                 <th>Acceso</th>
                 <th className="num">Tamaño</th>
                 <th></th>
@@ -482,7 +483,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
                         })
                       }
                     >
-                      Usar en esta investigación
+                      {tr("Usar en esta investigación")}
                     </button>
                   </td>
                 </tr>
@@ -548,7 +549,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
 
       <Seccion detalle titulo="Corridas" nota="Cada corrida es un arranque del bucle con estas instrucciones.">
         {corridas.length === 0 ? (
-          <p className="meta">Sin corridas todavía.</p>
+          <p className="meta">{tr("Sin corridas todavía.")}</p>
         ) : (
           <div className="tabla-desliza">
           <table className="tabla tabla-ancha">
@@ -556,9 +557,9 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
               <tr>
                 <th>Corrida</th>
                 <th>Estado</th>
-                <th>Empezó</th>
+                <th>{tr("Empezó")}</th>
                 <th className="num">Iteraciones</th>
-                <th className="num">Duración</th>
+                <th className="num">{tr("Duración")}</th>
                 <th className="num">Llamadas</th>
                 <th>Cierre</th>
               </tr>
@@ -623,7 +624,7 @@ export function ColaDeTriaje({ inv, estado }: { inv: Inv; estado: EstadoRosa }) 
   const cerradas = todas.filter((t) => ['hecha', 'rechazada', 'caducada'].includes(t.estado)).sort((a, b) => b.creadaEn - a.creadaEn);
   return (
     <Seccion detalle titulo={`Cola de trabajo que ROSA2018 pidió abrir (${vivas.length})`} nota="Cuando un paso ve algo que el plan no cubría, lo pide aquí en vez de perderlo. Una regla decide si entra, y si no entra dice por qué. Lo que entra lo programa el plan de la iteración siguiente, que tiene que explicar por escrito cada tarea que deja fuera.">
-      {vivas.length === 0 && <p className="meta">Nada en la cola. Es lo normal: ROSA2018 solo pide abrir trabajo cuando ve algo concreto.</p>}
+      {vivas.length === 0 && <p className="meta">{tr("Nada en la cola. Es lo normal: ROSA2018 solo pide abrir trabajo cuando ve algo concreto.")}</p>}
       <ul className="lista-limpia cuestiones">
         {vivas.slice(0, 20).map((t) => (
           <li key={t.id} className="cuestion">
@@ -661,9 +662,9 @@ export function ColaDeTriaje({ inv, estado }: { inv: Inv; estado: EstadoRosa }) 
           setHaria('');
         }}
       >
-        <input value={vio} onChange={(ev) => setVio(ev.target.value)} placeholder="Qué viste" aria-label="Qué viste" />
-        <input value={haria} onChange={(ev) => setHaria(ev.target.value)} placeholder="Qué habría que hacer" aria-label="Qué habría que hacer" />
-        <select value={herramienta} onChange={(ev) => setHerramienta(ev.target.value)} aria-label="Con qué herramienta">
+        <input value={vio} onChange={(ev) => setVio(ev.target.value)} placeholder={tr("Qué viste")} aria-label={tr("Qué viste")} />
+        <input value={haria} onChange={(ev) => setHaria(ev.target.value)} placeholder={tr("Qué habría que hacer")} aria-label={tr("Qué habría que hacer")} />
+        <select value={herramienta} onChange={(ev) => setHerramienta(ev.target.value)} aria-label={tr("Con qué herramienta")}>
           {['literatura', 'ensayos', 'extraccion', 'verificacion', 'novedad', 'modelo', 'hipotesis', 'analisis', 'meta'].map((x) => (
             <option key={x} value={x}>
               {x}
@@ -707,12 +708,12 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
   const titulo = (id: string) => estado.hipotesis.find((h) => h.id === id)?.titulo ?? id;
   return (
     <Seccion detalle titulo={`Cuestiones abiertas (${abiertas.length})`} nota="Lo que la investigación tiene pendiente de responder, con su origen y lo que lo resolvería. ROSA2018 las abre desde las preguntas del modelo de mundo, lo que pide el Killer y el peldaño siguiente de cada hipótesis; las cierra cuando un hecho nuevo las responde. Tú puedes abrir, resolver o descartar.">
-      {abiertas.length === 0 && <p className="meta">Ninguna cuestión abierta todavía.</p>}
+      {abiertas.length === 0 && <p className="meta">{tr("Ninguna cuestión abierta todavía.")}</p>}
       <ul className="lista-limpia cuestiones">
         {abiertas.slice(0, 40).map((c) => (
           <li key={c.id} className="cuestion">
             <div>
-              <Chip tono="borde" title="Prioridad 1 es lo más urgente">P{c.prioridad}</Chip> <span>{c.texto}</span>
+              <Chip tono="borde" title={tr("Prioridad 1 es lo más urgente")}>P{c.prioridad}</Chip> <span>{c.texto}</span>
               <div className="meta">
                 {ORIGEN_CUESTION[c.origen.tipo]}
                 {c.hipotesisIds.length > 0 ? ` · sobre ${c.hipotesisIds.map(titulo).join('; ')}` : ''}
@@ -737,8 +738,8 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
           setResolveria('');
         }}
       >
-        <input value={texto} onChange={(ev) => setTexto(ev.target.value)} placeholder="Abrir una cuestión: ¿qué falta por saber?" aria-label="Cuestión nueva" />
-        <input value={resolveria} onChange={(ev) => setResolveria(ev.target.value)} placeholder="Qué la resolvería (opcional)" aria-label="Qué la resolvería" />
+        <input value={texto} onChange={(ev) => setTexto(ev.target.value)} placeholder={tr("Abrir una cuestión: ¿qué falta por saber?")} aria-label={tr("Cuestión nueva")} />
+        <input value={resolveria} onChange={(ev) => setResolveria(ev.target.value)} placeholder={tr("Qué la resolvería (opcional)")} aria-label={tr("Qué la resolvería")} />
         <button type="submit" className="btn btn-s" disabled={texto.trim() === ''}>
           Abrir
         </button>

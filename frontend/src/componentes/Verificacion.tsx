@@ -14,6 +14,7 @@ import { TIPO_AFIRMACION, tipoAfirmacion, VEREDICTO } from '../lib/etiquetas';
 import { resumirVerificacion } from '../lib/hipotesis';
 import { IconAlert, IconCheck, IconChevronDown } from './icons';
 import { Chip } from './piezas';
+import { tr } from '../lib/idioma';
 
 interface Props {
   afirmaciones: Afirmacion[];
@@ -72,10 +73,10 @@ export function Verificacion({ afirmaciones, cobertura = null, ocultarCitas = fa
                     {a.texto}
                   </span>
                   {!ocultarCitas && a.cita !== '' && <span className="verif-cita">{a.cita}</span>}
-                  {ocultarCitas && a.cita !== '' && <span className="verif-cita">[cita oculta: revisión a ciegas]</span>}
+                  {ocultarCitas && a.cita !== '' && <span className="verif-cita">{tr("[cita oculta: revisión a ciegas]")}</span>}
                   {!ocultarCitas && a.fragmento && (
                     <details className="verif-fragmento">
-                      <summary>Lo que dice la fuente, literal</summary>
+                      <summary>{tr("Lo que dice la fuente, literal")}</summary>
                       <blockquote>{a.fragmento}</blockquote>
                     </details>
                   )}

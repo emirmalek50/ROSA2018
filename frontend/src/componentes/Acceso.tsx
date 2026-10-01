@@ -12,6 +12,7 @@ import { useMovimientoReducido } from '../lib/movimiento';
 import { ArbolVivo } from './ArbolVivo';
 import { EsqueletoAplicacion } from './Esqueleto';
 import './acceso.css';
+import { tr } from '../lib/idioma';
 
 type Sesion = {
   correo: string | null;
@@ -112,8 +113,8 @@ export function CuentasDelEquipo() {
   const resto = (cuentas ?? []).filter((c) => c.estado !== 'pendiente');
   return (
     <div className="cuentas-equipo">
-      <h4>Cuentas del equipo</h4>
-      <p className="meta">Cualquier persona con correo @{DOMINIO} puede pedir cuenta desde la pantalla de acceso. Aprueba solo si sabes que esa persona la pidió: si no, entraría quien haya escrito su correo.</p>
+      <h4>{tr("Cuentas del equipo")}</h4>
+      <p className="meta">{tr("Cualquier persona con correo @")}{DOMINIO} {tr("puede pedir cuenta desde la pantalla de acceso. Aprueba solo si sabes que esa persona la pidió: si no, entraría quien haya escrito su correo.")}</p>
       {cuentas === null && !error && <p className="meta">Cargando…</p>}
       {cuentas !== null && pendientes.length === 0 && <p className="meta">Ninguna solicitud pendiente.</p>}
       {pendientes.length > 0 && (
@@ -179,7 +180,7 @@ export function CuentaActual() {
           }
         }}
       >
-        Cerrar sesión
+        {tr("Cerrar sesión")}
       </button>
       {error && <p role="alert">{error}</p>}
     </div>
@@ -316,15 +317,15 @@ export function Acceso({ children }: { children: ReactNode }) {
     <main className="acceso">
       <section className="acceso-identidad" aria-label="Alzheimer Project">
         <div className="acceso-identidad-marca">
-          <img src="/arbol-marca.png" width={56} height={56} alt="Árbol de Alzheimer Project" />
+          <img src="/arbol-marca.png" width={56} height={56} alt={tr("Árbol de Alzheimer Project")} />
           <p>Alzheimer Project</p>
         </div>
         <h1>
-          Una investigación.
+          {tr("Una investigación.")}
           <br />
-          Conocimiento que crece.
+          {tr("Conocimiento que crece.")}
         </h1>
-        <p className="acceso-descripcion">ROSA2018 lee, verifica y propone. Tu equipo decide el siguiente paso, y cada decisión queda con su procedencia.</p>
+        <p className="acceso-descripcion">{tr("ROSA2018 lee, verifica y propone. Tu equipo decide el siguiente paso, y cada decisión queda con su procedencia.")}</p>
         <ArbolVivo />
       </section>
 
@@ -343,7 +344,7 @@ export function Acceso({ children }: { children: ReactNode }) {
                 void (registrando ? registrar() : entrar());
               }}
             >
-              <label htmlFor="acceso-correo">Correo de Alzheimer Project</label>
+              <label htmlFor="acceso-correo">{tr("Correo de Alzheimer Project")}</label>
               <div className={`acceso-campo ${correo && !correo.toLowerCase().endsWith(`@${DOMINIO}`) ? 'acceso-campo-fuera' : ''}`}>
                 <span className="acceso-campo-icono" aria-hidden="true">
                   <IconoSobre />
@@ -374,7 +375,7 @@ export function Acceso({ children }: { children: ReactNode }) {
               />
               {registrando && (
                 <>
-                  <label htmlFor="acceso-repetida">Repítela</label>
+                  <label htmlFor="acceso-repetida">{tr("Repítela")}</label>
                   <input id="acceso-repetida" type="password" autoComplete="new-password" required minLength={10} maxLength={256} value={repetida} onChange={(e) => setRepetida(e.target.value)} />
                 </>
               )}
@@ -395,7 +396,7 @@ export function Acceso({ children }: { children: ReactNode }) {
               {registrando ? 'Ya tengo cuenta: iniciar sesión' : '¿No tienes cuenta? Pídela con tu correo del proyecto'}
             </button>
             <p className="acceso-privacidad">
-              Acceso exclusivo para <span className="acceso-dominio">@{DOMINIO}</span>. Los avisos de tus corridas llegarán a esta misma cuenta.
+              Acceso exclusivo para <span className="acceso-dominio">@{DOMINIO}</span>{tr(". Los avisos de tus corridas llegarán a esta misma cuenta.")}
             </p>
           </motion.div>
 
@@ -413,7 +414,7 @@ export function Acceso({ children }: { children: ReactNode }) {
             </p>
           )}
         </motion.div>
-        <p className="acceso-pie">ROSA2018 investiga; la persona decide.</p>
+        <p className="acceso-pie">{tr("ROSA2018 investiga; la persona decide.")}</p>
       </section>
     </main>
   );
@@ -432,9 +433,9 @@ export function Instalacion({ onGuardar }: { onGuardar: () => Promise<void> }) {
   const smtp = proveedor === 'smtp';
   return (
     <details className="acceso-instalacion" open>
-      <summary>Configurar correo de esta instalación</summary>
-      <p>Disponible solo en el equipo de ROSA2018, antes de registrar la primera cuenta. Esa primera cuenta verificada administrará la conexión de correo.</p>
-      <div className="acceso-opciones acceso-opciones-proveedor" role="group" aria-label="Proveedor de correo">
+      <summary>{tr("Configurar correo de esta instalación")}</summary>
+      <p>{tr("Disponible solo en el equipo de ROSA2018, antes de registrar la primera cuenta. Esa primera cuenta verificada administrará la conexión de correo.")}</p>
+      <div className="acceso-opciones acceso-opciones-proveedor" role="group" aria-label={tr("Proveedor de correo")}>
         <button type="button" aria-pressed={smtp} onClick={() => setProveedor('smtp')}>
           <span>Google Workspace</span>
         </button>
@@ -444,19 +445,19 @@ export function Instalacion({ onGuardar }: { onGuardar: () => Promise<void> }) {
       </div>
       {smtp ? (
         <p>
-          Sale desde el buzón corporativo que ya existe, sin registrar nada en un tercero. Hace falta una{' '}
+          {tr("Sale desde el buzón corporativo que ya existe, sin registrar nada en un tercero. Hace falta una")}{' '}
           <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">
-            contraseña de aplicación
+            {tr("contraseña de aplicación")}
           </a>{' '}
-          de esa cuenta de Google (requiere verificación en dos pasos), no la contraseña normal. No la pegues en el chat.
+          {tr("de esa cuenta de Google (requiere verificación en dos pasos), no la contraseña normal. No la pegues en el chat.")}
         </p>
       ) : (
         <p>
-          Crea una cuenta en{' '}
+          {tr("Crea una cuenta en")}{' '}
           <a href="https://resend.com" target="_blank" rel="noreferrer">
             Resend
           </a>
-          , verifica tu dominio y genera una clave con permiso de envío. No pegues la clave en el chat.
+          {tr(", verifica tu dominio y genera una clave con permiso de envío. No pegues la clave en el chat.")}
         </p>
       )}
       <form
@@ -481,9 +482,9 @@ export function Instalacion({ onGuardar }: { onGuardar: () => Promise<void> }) {
       >
         {smtp ? (
           <>
-            <label htmlFor="instalacion-usuario">Cuenta de Google Workspace (usuario y remitente)</label>
+            <label htmlFor="instalacion-usuario">{tr("Cuenta de Google Workspace (usuario y remitente)")}</label>
             <input id="instalacion-usuario" type="email" required placeholder="tu.nombre@alzheimerproject.com" value={usuario} onChange={(e) => setUsuario(e.target.value)} />
-            <label htmlFor="instalacion-clave">Contraseña de aplicación (16 letras)</label>
+            <label htmlFor="instalacion-clave">{tr("Contraseña de aplicación (16 letras)")}</label>
             <input id="instalacion-clave" type="password" autoComplete="new-password" required value={clave} onChange={(e) => setClave(e.target.value.replace(/\s+/g, ''))} />
             <div className="acceso-instalacion-fila">
               <div>
@@ -498,17 +499,17 @@ export function Instalacion({ onGuardar }: { onGuardar: () => Promise<void> }) {
           </>
         ) : (
           <>
-            <label htmlFor="instalacion-remitente">Remitente verificado en Resend</label>
+            <label htmlFor="instalacion-remitente">{tr("Remitente verificado en Resend")}</label>
             <input id="instalacion-remitente" type="email" required value={remitente} onChange={(e) => setRemitente(e.target.value)} />
-            <label htmlFor="instalacion-clave">Clave privada de envío</label>
+            <label htmlFor="instalacion-clave">{tr("Clave privada de envío")}</label>
             <input id="instalacion-clave" type="password" autoComplete="new-password" required value={clave} onChange={(e) => setClave(e.target.value)} />
           </>
         )}
-        <label htmlFor="instalacion-url">Dirección web de ROSA2018</label>
+        <label htmlFor="instalacion-url">{tr("Dirección web de ROSA2018")}</label>
         <input id="instalacion-url" type="url" required value={url} onChange={(e) => setUrl(e.target.value)} />
-        <small>Localhost sirve solo en este equipo. Para acceso desde otros equipos necesitas un despliegue HTTPS.</small>
+        <small>{tr("Localhost sirve solo en este equipo. Para acceso desde otros equipos necesitas un despliegue HTTPS.")}</small>
         <button className="btn" disabled={ocupado}>
-          Guardar conexión
+          {tr("Guardar conexión")}
         </button>
       </form>
       <p role="status">{mensaje}</p>

@@ -38,6 +38,7 @@ import {
 import { rutaDe } from '../lib/ruta';
 import { AvisoMuestra } from '../componentes/piezas';
 import '../mecanismos.css';
+import { tr } from '../lib/idioma';
 
 const AYUDA =
   'El grafo causal de cada hipótesis: qué dice que causa qué, sobre el fondo de lo que el campo ya da por sentado, y con las explicaciones alternativas que tendrían que ser falsas para que el efecto sea del actor y no de otra cosa.';
@@ -221,8 +222,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
           </div>
         </div>
         <p className="nota">
-          Todavía no hay ninguna hipótesis con grafo causal en esta investigación. El grafo lo calcula ROSA2018 sola, sin
-          modelo, cuando una hipótesis tiene enunciado y evidencia que mirar.
+          {tr("Todavía no hay ninguna hipótesis con grafo causal en esta investigación. El grafo lo calcula ROSA2018 sola, sin modelo, cuando una hipótesis tiene enunciado y evidencia que mirar.")}
         </p>
       </div>
     );
@@ -243,35 +243,33 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
       </div>
 
       <p className="mec-comose">
-        <b>Cómo se lee:</b>
+        <b>{tr("Cómo se lee:")}</b>
         <span>
           <i className="mec-trazo mec-t-consenso" />
-          lo que el campo da por sentado, sin comprobar ({aristas.base_curada})
+          {tr("lo que el campo da por sentado, sin comprobar (")}{aristas.base_curada})
         </span>
         <span>
           <i className="mec-trazo mec-t-afirma" />
-          lo que afirma la hipótesis, sin dato propio ({aristas.supuesto})
+          {tr("lo que afirma la hipótesis, sin dato propio (")}{aristas.supuesto})
         </span>
         <span>
           <i className="mec-trazo mec-t-evidencia" />
-          sostenido por evidencia propia{' '}
+          {tr("sostenido por evidencia propia")}{' '}
           {aristas.inferencia_con_evidencia === 0 ? (
-            <b className="mec-cero">(0 en esta corrida)</b>
+            <b className="mec-cero">{tr("(0 en esta corrida)")}</b>
           ) : (
             `(${aristas.inferencia_con_evidencia})`
           )}
         </span>
         <span>
           <i className="mec-trazo mec-t-amenaza" />
-          lo que lo tumbaría: confusor, artefacto, selección o causa inversa
+          {tr("lo que lo tumbaría: confusor, artefacto, selección o causa inversa")}
         </span>
       </p>
       <p className="mec-comose mec-comose-2">
-        <b>El número de cada caja:</b>
+        <b>{tr("El número de cada caja:")}</b>
         <span>
-          en cuántas de las {casc.total} hipótesis entra en juego ese nodo, sea porque lo estudian o porque es un confusor
-          que hay que vigilar. No es cuántas lo estudian. Cuanto más relleno está el recuadro, en más entra; el de borde
-          discontinuo apenas aparece. Pasa el ratón por una flecha y te dice qué afirma.
+          {tr("en cuántas de las")} {casc.total} {tr("hipótesis entra en juego ese nodo, sea porque lo estudian o porque es un confusor que hay que vigilar. No es cuántas lo estudian. Cuanto más relleno está el recuadro, en más entra; el de borde discontinuo apenas aparece. Pasa el ratón por una flecha y te dice qué afirma.")}
         </span>
       </p>
 
@@ -285,16 +283,15 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
           Amenazas ({todasLasAmenazas.length})
         </button>
         <span className="mec-cuenta">
-          {casc.total} hipótesis con grafo · {veredictos.identificable} identificables · {veredictos.acotado} acotadas
+          {casc.total} {tr("hipótesis con grafo ·")} {veredictos.identificable} identificables · {veredictos.acotado} acotadas
           {veredictos.sin_resolver ? ` · ${veredictos.sin_resolver} sin resolver` : ''}
         </span>
       </div>
 
       {aristas.inferencia_con_evidencia === 0 && aristas.total > 0 && (
         <p className="mec-aviso">
-          <b>Ninguna arista está sostenida por evidencia propia todavía.</b> De las {aristas.total} del grafo,{' '}
-          {aristas.supuesto} son supuestos de la hipótesis y {aristas.base_curada} consenso del campo. No es un fallo de
-          esta pantalla: es lo que hay, y por eso se cuenta.
+          <b>{tr("Ninguna arista está sostenida por evidencia propia todavía.")}</b> De las {aristas.total} del grafo,{' '}
+          {aristas.supuesto} {tr("son supuestos de la hipótesis y")} {aristas.base_curada} {tr("consenso del campo. No es un fallo de esta pantalla: es lo que hay, y por eso se cuenta.")}
         </p>
       )}
 
@@ -375,7 +372,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                     className="mec-afirma"
                     markerEnd="url(#mec-morado)"
                   >
-                    <title>Lo que afirma la hipótesis, sin dato propio que lo sostenga</title>
+                    <title>{tr("Lo que afirma la hipótesis, sin dato propio que lo sostenga")}</title>
                   </path>
                 )}
                 {amenazas.map((am, i) => {
@@ -447,7 +444,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                     style={{ left: '30%', top: `${(Y_HIPOTESIS / altoLienzo) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
                     title={actores.exposicion}
                   >
-                    <b>LO QUE MUEVE</b>
+                    <b>{tr("LO QUE MUEVE")}</b>
                     <span>{actores.exposicion || 'sin declarar'}</span>
                   </div>
                   <div
@@ -455,7 +452,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                     style={{ left: '70%', top: `${(Y_HIPOTESIS / altoLienzo) * 100}%`, width: `${(CAJA_ANCHO * 1.7 / ANCHO) * 100}%` }}
                     title={actores.desenlace}
                   >
-                    <b>Y LO LEE EN</b>
+                    <b>{tr("Y LO LEE EN")}</b>
                     <span>{actores.desenlace || 'sin declarar'}</span>
                   </div>
                 </>
@@ -481,25 +478,20 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
 
             {verAmenazas && !todasLasAmenazas.length && (
               <p className="mec-sin-amenazas">
-                Esta hipótesis no tiene ninguna explicación alternativa apuntada en su grafo, así que no hay cajas rojas que
-                pintar. <b>No quiere decir que esté limpia</b>: quiere decir que el Killer no dejó ninguna en el último
-                cálculo. Las que se le conocen, si las hay, están en la ficha de la hipótesis.
+                {tr("Esta hipótesis no tiene ninguna explicación alternativa apuntada en su grafo, así que no hay cajas rojas que pintar.")} <b>{tr("No quiere decir que esté limpia")}</b>{tr(": quiere decir que el Killer no dejó ninguna en el último cálculo. Las que se le conocen, si las hay, están en la ficha de la hipótesis.")}
               </p>
             )}
 
             <p className="mec-pie">
-              Las cajas y sus flechas grises son la cascada del campo (marco ATN), escrita a mano en{' '}
-              <code>rosa/causal.py</code> y revisable: es contexto declarado, no verdad comprobada. Debajo de cada caja, en
-              cuántas de las {casc.total} hipótesis entra en juego ese nodo, como actor o como confusor. No es cuántas lo
-              estudian.
+              {tr("Las cajas y sus flechas grises son la cascada del campo (marco ATN), escrita a mano en")}{' '}
+              <code>rosa/causal.py</code> {tr("y revisable: es contexto declarado, no verdad comprobada. Debajo de cada caja, en cuántas de las")} {casc.total} {tr("hipótesis entra en juego ese nodo, como actor o como confusor. No es cuántas lo estudian.")}
             </p>
           </div>
 
           <div className="mec-falta">
-            <p className="mec-falta-t">QUÉ LE FALTA AL PROGRAMA</p>
+            <p className="mec-falta-t">{tr("QUÉ LE FALTA AL PROGRAMA")}</p>
             <p className="mec-falta-d">
-              Los mismos supuestos, contados sobre las {casc.total} hipótesis con grafo. Lo ámbar es lo que habría que
-              conseguir para que esos efectos dejaran de estar acotados.
+              {tr("Los mismos supuestos, contados sobre las")} {casc.total} {tr("hipótesis con grafo. Lo ámbar es lo que habría que conseguir para que esos efectos dejaran de estar acotados.")}
             </p>
             <ul>
               {supuestos.map((s) => (
@@ -523,7 +515,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
 
         <div className="mec-panel">
           <label className="mec-elige">
-            <span className="meta">Hipótesis</span>
+            <span className="meta">{tr("Hipótesis")}</span>
             <select value={elegida?.id ?? ''} onChange={(e) => elegir(e.target.value)}>
               {hipotesis.map((h) => (
                 <option key={h.id} value={h.id}>
@@ -543,16 +535,16 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
             </p>
             {tocado && (
               <p className="mec-d mec-d-nota">
-                Esto es una pregunta, no un resultado: ROSA2018 sigue guardando <b>{guardado}</b>.
+                {tr("Esto es una pregunta, no un resultado: ROSA2018 sigue guardando")} <b>{guardado}</b>.
               </p>
             )}
           </div>
 
           {(actores.exposicion || actores.desenlace) && (
             <dl className="mec-actores">
-              <dt>Afirma que mueve</dt>
+              <dt>{tr("Afirma que mueve")}</dt>
               <dd>{actores.exposicion || 'sin declarar'}</dd>
-              <dt>Y lo lee en</dt>
+              <dt>{tr("Y lo lee en")}</dt>
               <dd>{actores.desenlace || 'sin declarar'}</dd>
             </dl>
           )}
@@ -560,19 +552,18 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
           {ficha.flojos > 0 && (
             <p className="mec-ojo">
               <b>
-                Ojo: {ficha.flojos} de {ficha.total} supuestos de su ficha no sostienen nada
+                Ojo: {ficha.flojos} de {ficha.total} {tr("supuestos de su ficha no sostienen nada")}
               </b>{' '}
               ({ficha.sin_evidencia} sin evidencia
-              {ficha.contradicho ? `, ${ficha.contradicho} contradicho${ficha.contradicho === 1 ? '' : 's'}` : ''}). Los
-              tres de aquí abajo dicen si el efecto sería <i>identificable</i>; esos dicen si los <i>ingredientes</i>{' '}
-              existen, y son cosas distintas.{' '}
+              {ficha.contradicho ? `, ${ficha.contradicho} contradicho${ficha.contradicho === 1 ? '' : 's'}` : ''}{tr("). Los tres de aquí abajo dicen si el efecto sería")} <i>identificable</i>{tr("; esos dicen si los")} <i>ingredientes</i>{' '}
+              {tr("existen, y son cosas distintas.")}{' '}
               {elegida && (
-                <a href={rutaDe(inv.id, 'hipotesis', elegida.id)}>Verlos en la hipótesis</a>
+                <a href={rutaDe(inv.id, 'hipotesis', elegida.id)}>{tr("Verlos en la hipótesis")}</a>
               )}
             </p>
           )}
 
-          <p className="mec-supuestos-t">QUÉ HACE FALTA PARA CREÉRSELO</p>
+          <p className="mec-supuestos-t">{tr("QUÉ HACE FALTA PARA CREÉRSELO")}</p>
           <ul className="mec-supuestos">
             {cumplidos.map((s) => (
               <li key={s}>
@@ -616,14 +607,13 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
 
           {!!faltantes.length && (
             <p className="meta mec-pista">
-              Los que faltan se pueden encender para ver a dónde llevarían: el veredicto se recalcula con la misma regla
-              que usa el servidor. Es para saber qué haría falta, no para darlo por hecho.
+              {tr("Los que faltan se pueden encender para ver a dónde llevarían: el veredicto se recalcula con la misma regla que usa el servidor. Es para saber qué haría falta, no para darlo por hecho.")}
             </p>
           )}
 
           {elegida && (
             <a className="btn btn-s" href={rutaDe(inv.id, 'hipotesis', elegida.id)}>
-              Abrir la hipótesis
+              {tr("Abrir la hipótesis")}
             </a>
           )}
         </div>

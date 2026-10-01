@@ -8,6 +8,7 @@ import { ESTADO_HALLAZGO, TIPO_HALLAZGO } from '../lib/etiquetas';
 import { hallazgosVisibles } from '../lib/hipotesis';
 import { IconChevronDown } from './icons';
 import { Chip } from './piezas';
+import { tr } from '../lib/idioma';
 
 function TarjetaHallazgo({ h }: { h: HallazgoRevisor }) {
   const [abierto, setAbierto] = useState(h.estado === 'abierto');
@@ -39,7 +40,7 @@ function TarjetaHallazgo({ h }: { h: HallazgoRevisor }) {
 
 export function Revisor({ hallazgos }: { hallazgos: HallazgoRevisor[] }) {
   const [todo, setTodo] = useState(false);
-  if (hallazgos.length === 0) return <p className="meta">El revisor no encontró nada que objetar. Eso no sustituye a tu lectura.</p>;
+  if (hallazgos.length === 0) return <p className="meta">{tr("El revisor no encontró nada que objetar. Eso no sustituye a tu lectura.")}</p>;
   const { visibles, ocultos } = hallazgosVisibles(hallazgos, todo);
   return (
     <div className="hallazgos">
@@ -50,7 +51,7 @@ export function Revisor({ hallazgos }: { hallazgos: HallazgoRevisor[] }) {
       </ul>
       {ocultos > 0 && (
         <button type="button" className="enlace" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => setTodo(true)}>
-          Mostrar todo ({ocultos} mas)
+          {tr("Mostrar todo (")}{ocultos} mas)
         </button>
       )}
     </div>

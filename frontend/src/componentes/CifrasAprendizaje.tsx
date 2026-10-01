@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import type { AgregadoAcierto, CasoPrerregistrado, CifrasAprendizaje as Cifras, ReutilizacionHeredada, TiempoHastaDecision } from '../datos/tipos';
 import { CERTEZA_EVIDENCIA } from '../lib/etiquetas';
 import { formatearEntero, formatearPorcentaje, plural } from '../lib/formato';
+import { tr } from '../lib/idioma';
 
 /** Glosario de reserva, copiado de rosa/cifras_aprendizaje.py GLOSARIO; el
  *  que llega con las cifras manda, este cubre un registro que no lo traiga. */
@@ -106,9 +107,9 @@ function Cifra({ titulo, definicion, valor, nota, regla, detalle, hayDetalle }: 
       <p className="cifra-ap-valor">{valor}</p>
       <p className="meta">{nota}</p>
       <details className="cifra-ap-detalle">
-        <summary>Cómo se calcula{hayDetalle ? ' y el detalle' : ''}</summary>
+        <summary>{tr("Cómo se calcula")}{hayDetalle ? ' y el detalle' : ''}</summary>
         <p className="meta cifra-ap-regla">{regla}</p>
-        {hayDetalle ? detalle : <p className="meta">Sin casos que detallar todavía.</p>}
+        {hayDetalle ? detalle : <p className="meta">{tr("Sin casos que detallar todavía.")}</p>}
       </details>
     </article>
   );
@@ -144,7 +145,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
     return (
       <article className="tarjeta cifras-ap" aria-label="Aprendizaje">
         <h3 className="cifras-ap-cabecera">Aprendizaje</h3>
-        <p className="meta">Se calcula al cerrar la primera iteración: acierto de las predicciones prerregistradas, tiempo hasta cada decisión y reutilización de lo heredado.</p>
+        <p className="meta">{tr("Se calcula al cerrar la primera iteración: acierto de las predicciones prerregistradas, tiempo hasta cada decisión y reutilización de lo heredado.")}</p>
       </article>
     );
   }
@@ -179,7 +180,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
           ))}
         </div>
       ) : (
-        <p className="meta">El servidor no escribió el texto en llano de estas cifras; abajo están los números.</p>
+        <p className="meta">{tr("El servidor no escribió el texto en llano de estas cifras; abajo están los números.")}</p>
       )}
       <div className="cifras-ap-rejilla">
         {a && (
@@ -194,17 +195,17 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
               <>
                 {objeto(a.porFuente) && (
                   <p className="meta">
-                    Por fuente: análisis in silico {textoTasa(a.porFuente.analisis?.tasa)} ({cuenta(a.porFuente.analisis?.casos)} casos); laboratorio {textoTasa(a.porFuente.laboratorio?.tasa)} ({cuenta(a.porFuente.laboratorio?.casos)} casos).
+                    {tr("Por fuente: análisis in silico")} {textoTasa(a.porFuente.analisis?.tasa)} ({cuenta(a.porFuente.analisis?.casos)} casos); laboratorio {textoTasa(a.porFuente.laboratorio?.tasa)} ({cuenta(a.porFuente.laboratorio?.casos)} casos).
                   </p>
                 )}
                 {porNivel.length > 0 && (
                   <p className="meta">
-                    Por certeza GRADE de la hipótesis: {porNivel.map(([nivel, v]) => `${CERTEZA_EVIDENCIA[nivel as keyof typeof CERTEZA_EVIDENCIA]?.etiqueta.toLowerCase() ?? nivel} ${cuenta(v?.aciertos)} de ${cuenta(v?.casos)}`).join('; ')}.
+                    {tr("Por certeza GRADE de la hipótesis:")} {porNivel.map(([nivel, v]) => `${CERTEZA_EVIDENCIA[nivel as keyof typeof CERTEZA_EVIDENCIA]?.etiqueta.toLowerCase() ?? nivel} ${cuenta(v?.aciertos)} de ${cuenta(v?.casos)}`).join('; ')}.
                   </p>
                 )}
                 {objeto(a.excluidos) && (
                   <p className="meta">
-                    Excluidos: {cuenta(a.excluidos.planesSinCongelar)} planes sin congelar, {cuenta(a.excluidos.planesSinEjecucionValida)} sin ejecución válida, {cuenta(a.excluidos.planesReproduccion)} de reproducción, {cuenta(a.excluidos.laboratorioSinPrerregistro)} experimentos sin prerregistro.
+                    Excluidos: {cuenta(a.excluidos.planesSinCongelar)} planes sin congelar, {cuenta(a.excluidos.planesSinEjecucionValida)} sin ejecución válida, {cuenta(a.excluidos.planesReproduccion)} de reproducción, {cuenta(a.excluidos.laboratorioSinPrerregistro)} {tr("experimentos sin prerregistro.")}
                   </p>
                 )}
                 {detalleAcierto.length > 0 && (
@@ -251,7 +252,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
                 )}
                 {(cuenta(t.sinFechaCreacion) || cuenta(t.decisionesSinFecha) || cuenta(t.fechasInvertidas)) ? (
                   <p className="meta">
-                    Registros que no se pudieron medir: {cuenta(t.sinFechaCreacion)} hipótesis sin fecha de creación, {cuenta(t.decisionesSinFecha)} decisiones sin fecha, {cuenta(t.fechasInvertidas)} decisiones anteriores a la creación (cuentan como 0 horas).
+                    {tr("Registros que no se pudieron medir:")} {cuenta(t.sinFechaCreacion)} {tr("hipótesis sin fecha de creación,")} {cuenta(t.decisionesSinFecha)} decisiones sin fecha, {cuenta(t.fechasInvertidas)} {tr("decisiones anteriores a la creación (cuentan como 0 horas).")}
                   </p>
                 ) : null}
               </>

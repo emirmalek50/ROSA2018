@@ -83,27 +83,33 @@ export function useIdioma(): Idioma {
 
 /** Traduce una frase. La clave ES la frase en castellano.
  *
+ *  Se llama `tr` y no `t`, que es lo habitual en i18n, porque en este código
+ *  los nombres van en castellano y `t` ya se usaba como variable local para
+ *  «tiempo» en seis ficheros. Una función de traducción que choca con una
+ *  variable local es un error de compilación en el mejor caso y un texto
+ *  equivocado en el peor.
+ *
  *  Lo que no esté en el catálogo se devuelve tal cual, en castellano: una
  *  traducción que falta tiene que verse como texto que se entiende, no como
  *  un hueco. */
-export function t(es: string): string {
+export function tr(es: string): string {
   if (idioma === 'es') return es;
   return EN[es] ?? es;
 }
 
 /** Igual, pero con contexto, para las frases que se repiten con sentidos
  *  distintos. La clave es `contexto\u0004frase`, como en gettext. */
-export function tc(contexto: string, es: string): string {
+export function trc(contexto: string, es: string): string {
   if (idioma === 'es') return es;
   return EN[`${contexto}\u0004${es}`] ?? EN[es] ?? es;
 }
 
-/** Traduce rellenando huecos: `tp('Quedan {n} de {m}', {n: 3, m: 8})`.
+/** Traduce rellenando huecos: `trp('Quedan {n} de {m}', {n: 3, m: 8})`.
  *
  *  Los huecos van con nombre y no por posición porque al traducir cambia el
  *  orden de la frase, y con `%s` eso se rompe en silencio. */
-export function tp(es: string, valores: Record<string, string | number>): string {
-  const plantilla = t(es);
+export function trp(es: string, valores: Record<string, string | number>): string {
+  const plantilla = tr(es);
   return plantilla.replace(/\{(\w+)\}/g, (entero, clave: string) =>
     clave in valores ? String(valores[clave]) : entero,
   );

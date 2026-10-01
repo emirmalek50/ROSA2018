@@ -5,6 +5,7 @@
 // El mensaje tecnico se ensena tal cual para poder reportarlo.
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { tr } from '../lib/idioma';
 
 interface Props {
   children: ReactNode;
@@ -38,9 +39,9 @@ export class Limite extends Component<Props, Estado> {
     const mensaje = this.state.error.message || String(this.state.error);
     return (
       <div className="limite-error" role="alert">
-        <h3>Esta parte de ROSA2018 falló al pintarse</h3>
+        <h3>{tr("Esta parte de ROSA2018 falló al pintarse")}</h3>
         <p>
-          Los datos están a salvo: el fallo es de la pantalla, no del registro. Puedes volver a intentarlo o ir al inicio. Si se repite, copia el mensaje de abajo y pásaselo a quien mantiene ROSA2018.
+          {tr("Los datos están a salvo: el fallo es de la pantalla, no del registro. Puedes volver a intentarlo o ir al inicio. Si se repite, copia el mensaje de abajo y pásaselo a quien mantiene ROSA2018.")}
         </p>
         <pre className="limite-detalle">{mensaje}</pre>
         <div className="acciones">
@@ -48,7 +49,7 @@ export class Limite extends Component<Props, Estado> {
             Volver a intentar
           </button>
           <a className="btn" href="#/">
-            Ir al inicio
+            {tr("Ir al inicio")}
           </a>
           <button type="button" className="btn btn-fantasma" onClick={() => window.location.reload()}>
             Recargar ROSA2018

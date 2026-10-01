@@ -17,6 +17,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Corrida, Iteracion, PasoPlan } from '../datos/tipos';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { formatearDuracion, formatearEntero } from '../lib/formato';
+import { tr } from '../lib/idioma';
 
 // Los resortes de SwiftUI, convertidos a los parámetros de `motion` con las
 // fórmulas de Apple (stiffness = (2pi/duración)^2 * masa; damping =
@@ -157,7 +158,7 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
   return (
     <motion.section
       className={`vivo vivo-${pulso}`}
-      aria-label="Qué está haciendo ROSA2018 ahora"
+      aria-label={tr("Qué está haciendo ROSA2018 ahora")}
       initial={reducido ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.995 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={reducido ? { duration: 0.2 } : SUAVE_IOS}
@@ -166,9 +167,9 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
         <span className="vivo-estado">
           <i className="vivo-punto" aria-hidden="true" />
           {etiqueta}
-          {iteracion && <em>· Iteración {iteracion.numero}</em>}
+          {iteracion && <em>{tr("· Iteración")} {iteracion.numero}</em>}
         </span>
-        <span className="vivo-reloj" title="Tiempo de trabajo: el reloj de pared menos lo que la corrida pasó esperando a una persona y menos las pausas del proceso.">
+        <span className="vivo-reloj" title={tr("Tiempo de trabajo: el reloj de pared menos lo que la corrida pasó esperando a una persona y menos las pausas del proceso.")}>
           <b>{formatearDuracion(segundosDeTrabajo * 1000) || '0 s'}</b> de trabajo
           {relojParado ? ` · ${relojParado}: el reloj no corre` : ''}
         </span>
@@ -220,7 +221,7 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
           <Cifra valor={corrida.gasto.llamadas} />
         </Vital>
         {usd !== null && (
-          <Vital nombre="gastados" title="Lo que el AI Gateway facturó por las llamadas de esta corrida.">
+          <Vital nombre="gastados" title={tr("Lo que el AI Gateway facturó por las llamadas de esta corrida.")}>
             <Cifra valor={usd} decimales={2} sufijo=" USD" />
           </Vital>
         )}
@@ -243,7 +244,7 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
             <path d="M8 4.8v3.6M8 10.8v.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
           </svg>
           <span>
-            <strong>{reclaman === 1 ? 'Una cosa espera tu respuesta' : `${reclaman} cosas esperan tu respuesta`}</strong>. Hasta que decidas, ROSA2018 no sigue por ahí.
+            <strong>{reclaman === 1 ? 'Una cosa espera tu respuesta' : `${reclaman} cosas esperan tu respuesta`}</strong>{tr(". Hasta que decidas, ROSA2018 no sigue por ahí.")}
           </span>
         </motion.div>
       )}

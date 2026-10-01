@@ -33,6 +33,7 @@ import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
 import { AvisoMuestra } from '../componentes/piezas';
 import { fechaCorta, formatearEntero, plural } from '../lib/formato';
 import '../citas.css';
+import { tr } from '../lib/idioma';
 
 const AYUDA =
   'Cada afirmación que ROSA2018 ha extraído, junto al trozo exacto de la fuente que la sostiene. A la izquierda la afirmación; a la derecha la página tal como ROSA2018 la leyó, con el pasaje resaltado.';
@@ -83,8 +84,8 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
     await acciones.pedirRecuperacionCitas(inv.id, null);
   });
   return (
-    <section className="citas-recuperar-panel" aria-label="Recuperación de citas">
-      <h3>Recuperación de citas</h3>
+    <section className="citas-recuperar-panel" aria-label={tr("Recuperación de citas")}>
+      <h3>{tr("Recuperación de citas")}</h3>
       {pendiente && reg ? (
         <>
           <p role="status">{avanceDeRecuperacion(reg)}</p>
@@ -92,13 +93,13 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
         </>
       ) : cuenta === 'sin_respuesta' ? (
         <p className="nota" role="status">
-          No pude contar las afirmaciones por recuperar: el servidor no respondió. No quiere decir que no las haya.
+          {tr("No pude contar las afirmaciones por recuperar: el servidor no respondió. No quiere decir que no las haya.")}
         </p>
       ) : n > 0 && datos ? (
         <>
           <p>
-            {plural(datos.bloqueosViejos, 'afirmación de esta investigación sigue bloqueada', 'afirmaciones de esta investigación siguen bloqueadas')} por reglas del verificador que ya no valen
-            {datos.sinJuez ? `, y ${plural(datos.sinJuez, 'se quedó sin juez', 'se quedaron sin juez')}` : ''}. Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.
+            {plural(datos.bloqueosViejos, 'afirmación de esta investigación sigue bloqueada', 'afirmaciones de esta investigación siguen bloqueadas')} {tr("por reglas del verificador que ya no valen")}
+            {datos.sinJuez ? `, y ${plural(datos.sinJuez, 'se quedó sin juez', 'se quedaron sin juez')}` : ''}{tr(". Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.")}
             {datos.corridasVivas ? ' Hay una corrida trabajando en esta investigación: empezará cuando pare.' : ''}
           </p>
           <button type="button" className="btn btn-s btn-primario" onClick={() => void pedir()} {...atributosEnVuelo(enVuelo)}>
@@ -109,7 +110,7 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
       {terminada && reg && (
         <div className="citas-recuperar-informe">
           <p className="meta">
-            Última recuperación, pedida el {fechaCorta(reg.pedidaEn)} por {reg.quien}
+            {tr("Última recuperación, pedida el")} {fechaCorta(reg.pedidaEn)} por {reg.quien}
             {reg.corridaId ? ' (una sola corrida)' : ''}:
           </p>
           {reg.estado === 'fallida' ? (
@@ -256,23 +257,23 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
 
       {fase === 'sin_servidor' && (
         <p className="nota" role="status">
-          Las citas se leen del servidor de ROSA2018 y ahora mismo estás viendo los datos de muestra.
+          {tr("Las citas se leen del servidor de ROSA2018 y ahora mismo estás viendo los datos de muestra.")}
         </p>
       )}
       {fase === 'sin_respuesta' && (
         <p className="nota" role="status">
-          No pude comprobar las citas: el servidor no respondió. No quiere decir que no las haya.
+          {tr("No pude comprobar las citas: el servidor no respondió. No quiere decir que no las haya.")}
         </p>
       )}
       {fase === 'vacia' && (
         <p className="nota" role="status">
-          Esta corrida todavía no tiene afirmaciones extraídas con su cita.
+          {tr("Esta corrida todavía no tiene afirmaciones extraídas con su cita.")}
         </p>
       )}
 
       {(fase === 'listo' || fase === 'cargando') && (
         <div className="citas-cuerpo">
-          <section className="citas-col" aria-label="Afirmaciones de la corrida">
+          <section className="citas-col" aria-label={tr("Afirmaciones de la corrida")}>
             <header>
               <h3>Afirmaciones</h3>
               <div className="citas-filtros" role="group" aria-label="Filtrar afirmaciones">
@@ -286,16 +287,16 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                   Fallidas <span className="atlas-cifra">{fallidas}</span>
                 </button>
                 <button type="button" className="atlas-chip" aria-pressed={filtro === 'pagina'} onClick={() => setFiltro('pagina')}>
-                  Con página <span className="atlas-cifra">{resumen?.conPagina ?? 0}</span>
+                  {tr("Con página")} <span className="atlas-cifra">{resumen?.conPagina ?? 0}</span>
                 </button>
                 {(resumen?.bloqueosViejos ?? 0) > 0 && !recuperacionPendiente && (
-                  <button type="button" className="btn btn-s btn-primario citas-recuperar" onClick={() => void recuperar()} {...atributosEnVuelo(enVuelo)} title="Vuelve a juzgarlas, enlaza a las hipótesis las que salgan sostenidas y rehace sus conclusiones">
+                  <button type="button" className="btn btn-s btn-primario citas-recuperar" onClick={() => void recuperar()} {...atributosEnVuelo(enVuelo)} title={tr("Vuelve a juzgarlas, enlaza a las hipótesis las que salgan sostenidas y rehace sus conclusiones")}>
                     {enVuelo ? 'Pidiendo...' : `Recuperar las ${resumen?.bloqueosViejos ?? 0} de esta corrida`}
                   </button>
                 )}
                 {(resumen?.bloqueosViejos ?? 0) > 0 && (
-                  <button type="button" className="atlas-chip" aria-pressed={filtro === 'rancias'} onClick={() => setFiltro('rancias')} title="Bloqueadas con una versión anterior del verificador: hoy el verificador entero ya no las bloquearía">
-                    Ya no bloquearían <span className="atlas-cifra">{resumen?.bloqueosViejos ?? 0}</span>
+                  <button type="button" className="atlas-chip" aria-pressed={filtro === 'rancias'} onClick={() => setFiltro('rancias')} title={tr("Bloqueadas con una versión anterior del verificador: hoy el verificador entero ya no las bloquearía")}>
+                    {tr("Ya no bloquearían")} <span className="atlas-cifra">{resumen?.bloqueosViejos ?? 0}</span>
                   </button>
                 )}
               </div>
@@ -308,7 +309,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
             <div className="citas-lista">
               {fase === 'cargando' ? (
                 <div className="citas-esqueleto" aria-busy="true">
-                  <span className="sr-only">Cargando las citas</span>
+                  <span className="sr-only">{tr("Cargando las citas")}</span>
                   {[0, 1, 2, 3, 4, 5].map((i) => (
                     <div key={i} className="citas-fila">
                       <Esqueleto ancho="90%" alto={15} />
@@ -317,19 +318,19 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                   ))}
                 </div>
               ) : afirmaciones.length === 0 ? (
-                <p className="meta citas-fila">Ninguna afirmación con ese filtro.</p>
+                <p className="meta citas-fila">{tr("Ninguna afirmación con ese filtro.")}</p>
               ) : (
                 afirmaciones.map((a) => <FilaAfirmacion key={a.id} a={a} elegida={a.id === elegida} onElegir={() => setElegida(a.id)} />)
               )}
             </div>
           </section>
 
-          <section className="citas-col" aria-label="La fuente y su página">
+          <section className="citas-col" aria-label={tr("La fuente y su página")}>
             <header>
               <h3>Fuente</h3>
               {ficha && ficha.leidos.length > 1 && (
                 <div className="citas-leidos">
-                  <span className="meta">Se leyeron</span>
+                  <span className="meta">{tr("Se leyeron")}</span>
                   {ficha.leidos.map((l) => (
                     <span key={l.localizador} className={`citas-leido${l.actual ? ' actual' : ''}`}>
                       {l.pagina ?? l.localizador}
@@ -341,7 +342,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
             <div className="citas-doc">
               {cargandoFicha || fase === 'cargando' ? (
                 <div aria-busy="true">
-                  <span className="sr-only">Cargando la página de la fuente</span>
+                  <span className="sr-only">{tr("Cargando la página de la fuente")}</span>
                   <Esqueleto ancho="70%" alto={18} />
                   <div style={{ height: 10 }} />
                   <Esqueleto ancho="100%" alto={360} radio={8} />
@@ -349,7 +350,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
               ) : ficha ? (
                 <Ficha ficha={ficha} corridaId={corridaId} />
               ) : (
-                <p className="meta">Elige una afirmación de la izquierda para ver dónde se comprobó.</p>
+                <p className="meta">{tr("Elige una afirmación de la izquierda para ver dónde se comprobó.")}</p>
               )}
             </div>
           </section>
@@ -384,7 +385,7 @@ function Senales({ hoy, clase, localizador }: { hoy: ComprobacionDeHoy; clase: F
           {hoy.resuelve ? '✓' : '✗'}
         </span>
         <span>
-          <b>La cita apunta a un sitio que existe.</b>{' '}
+          <b>{tr("La cita apunta a un sitio que existe.")}</b>{' '}
           {hoy.resuelve ? enLlanoLaClase(clase, localizador) : hoy.motivoResuelve}
         </span>
       </li>
@@ -393,7 +394,7 @@ function Senales({ hoy, clase, localizador }: { hoy: ComprobacionDeHoy; clase: F
           {hoy.literal ? '✓' : '✗'}
         </span>
         <span>
-          <b>El pasaje está ahí, literal.</b>{' '}
+          <b>{tr("El pasaje está ahí, literal.")}</b>{' '}
           {hoy.literal ? 'Entero y en orden, tras normalizar tipografía y números de línea.' : hoy.resuelve ? 'Falta un tramo del pasaje en la fuente.' : 'No se pudo comprobar: la cita no resuelve.'}
         </span>
       </li>
@@ -435,15 +436,15 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
           <p className="meta">
             {[ficha.fuente.referencia, ficha.fuente.anio && !ficha.fuente.referencia.includes(String(ficha.fuente.anio)) ? String(ficha.fuente.anio) : '', ficha.fuente.doi ? `doi:${ficha.fuente.doi}` : '', ficha.fuente.tipoEstudio && ficha.fuente.tipoEstudio !== 'otro' ? ficha.fuente.tipoEstudio : ''].filter(Boolean).join(' · ')}
           </p>
-          {ficha.fuente.retraccion && <p className="citas-retraccion">Esta fuente está retractada.</p>}
+          {ficha.fuente.retraccion && <p className="citas-retraccion">{tr("Esta fuente está retractada.")}</p>}
         </div>
         <p className="meta citas-loc">{enLlanoLaClase(ficha.clase, ficha.localizador)}</p>
       </div>
 
       {ficha.conPdf && (
-        <div className="citas-vistas" role="group" aria-label="Cómo ver la página">
+        <div className="citas-vistas" role="group" aria-label={tr("Cómo ver la página")}>
           <button type="button" className={vista === 'texto' ? 'activo' : ''} onClick={() => cambiarVista('texto')} aria-pressed={vista === 'texto'}>
-            Texto leído
+            {tr("Texto leído")}
           </button>
           <button type="button" className={vista === 'pagina' ? 'activo' : ''} onClick={() => cambiarVista('pagina')} aria-pressed={vista === 'pagina'}>
             {ficha.pagina !== null ? `Página ${ficha.pagina} del PDF` : 'Página del PDF'}
@@ -468,10 +469,10 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
           {ficha.pagina !== null && <p className="citas-numpag">{ficha.pagina}</p>}
         </div>
       ) : (
-        <p className="nota">De esta fuente no se guardó el texto de ese localizador, así que no puedo enseñar dónde estaba el pasaje.</p>
+        <p className="nota">{tr("De esta fuente no se guardó el texto de ese localizador, así que no puedo enseñar dónde estaba el pasaje.")}</p>
       )}
       {vista === 'pagina' && ficha.conPdf && !ficha.completo && (
-        <p className="nota">El pasaje no está en esta página, así que no hay nada que marcar. La página se enseña igual, para poder comprobarlo.</p>
+        <p className="nota">{tr("El pasaje no está en esta página, así que no hay nada que marcar. La página se enseña igual, para poder comprobarlo.")}</p>
       )}
 
       <div className="citas-barra">
@@ -482,55 +483,54 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
         ) : (
           alPasaje && (
             <a className="btn btn-s btn-primario" href={alPasaje} target="_blank" rel="noreferrer">
-              Ver la cita en la fuente
+              {tr("Ver la cita en la fuente")}
             </a>
           )
         )}
         {ficha.conPdf && alPasaje && (
           <a className="btn btn-s" href={alPasaje} target="_blank" rel="noreferrer">
-            Abrir el PDF entero
+            {tr("Abrir el PDF entero")}
           </a>
         )}
         {enLaFuente && enLaFuente !== alPasaje && (
           <a className="btn btn-s" href={enLaFuente} target="_blank" rel="noreferrer">
-            Ficha del artículo
+            {tr("Ficha del artículo")}
           </a>
         )}
       </div>
       {ficha.conPdf ? (
         <p className="meta citas-pista-enlace">
-          La marca la pinta ROSA2018 sobre la página: el visor de PDF del navegador solo sabe abrir por una página, no resaltar, así que abrir el PDF entero lleva a la página {ficha.pagina ?? ''} sin marcar.
+          {tr("La marca la pinta ROSA2018 sobre la página: el visor de PDF del navegador solo sabe abrir por una página, no resaltar, así que abrir el PDF entero lleva a la página")} {ficha.pagina ?? ''} sin marcar.
         </p>
       ) : (
         alPasaje && (
-          <p className="meta citas-pista-enlace">El navegador salta solo hasta el pasaje y lo resalta. Si la página ha cambiado desde que ROSA2018 la leyó, se abrirá por el principio.</p>
+          <p className="meta citas-pista-enlace">{tr("El navegador salta solo hasta el pasaje y lo resalta. Si la página ha cambiado desde que ROSA2018 la leyó, se abrirá por el principio.")}</p>
         )
       )}
 
       <div className="citas-comparacion">
         <div>
-          <p className="citas-t">Lo que dijo ROSA2018</p>
+          <p className="citas-t">{tr("Lo que dijo ROSA2018")}</p>
           <p>{ficha.afirmacion.texto}</p>
-          <p className="meta">Veredicto al extraerla: <Veredicto veredicto={ficha.afirmacion.veredicto} /></p>
+          <p className="meta">{tr("Veredicto al extraerla:")} <Veredicto veredicto={ficha.afirmacion.veredicto} /></p>
           {ficha.afirmacion.motivo && <p className="meta">{ficha.afirmacion.motivo}</p>}
         </div>
         <div>
-          <p className="citas-t">Lo que se comprueba hoy</p>
+          <p className="citas-t">{tr("Lo que se comprueba hoy")}</p>
           <Senales hoy={hoy} clase={ficha.clase} localizador={ficha.localizador} />
           {!hoy.literal && hoy.falta && (
             <p>
-              No está en la fuente: <span className="citas-falta">{hoy.falta}</span>
+              {tr("No está en la fuente:")} <span className="citas-falta">{hoy.falta}</span>
             </p>
           )}
           {Boolean(ficha.bloqueoViejo) && (
             <p className="citas-rancio">
-              Esta afirmación quedó bloqueada con una versión anterior del verificador y hoy ya no lo estaría. Con «Reverificar» se vuelve a juzgar y su
-              veredicto se actualiza.
+              {tr("Esta afirmación quedó bloqueada con una versión anterior del verificador y hoy ya no lo estaría. Con «Reverificar» se vuelve a juzgar y su veredicto se actualiza.")}
             </p>
           )}
           {!ficha.bloqueoViejo && hoy.resuelve && hoy.literal && ficha.veredictoDeHoy?.bloquea && (
             <p className="citas-sigue">
-              La cita está en orden, pero la afirmación sigue bloqueada hoy por otra comprobación: {ficha.veredictoDeHoy.motivo}
+              {tr("La cita está en orden, pero la afirmación sigue bloqueada hoy por otra comprobación:")} {ficha.veredictoDeHoy.motivo}
             </p>
           )}
         </div>

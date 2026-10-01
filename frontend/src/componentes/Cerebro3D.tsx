@@ -54,6 +54,7 @@ import { NOMBRE_CORTO } from '../lib/atlas_dibujo';
 import { intensidad, type Atlas } from '../lib/atlas';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { Esqueleto } from './Esqueleto';
+import { tr } from '../lib/idioma';
 
 /** Los ficheros del modelo, resueltos por Vite a direcciones que el navegador
  *  puede pedir. Si la carpeta todavía no está, los mapas salen vacíos y la
@@ -875,22 +876,22 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
   };
 
   return (
-    <section className="atlas-3d" aria-label="Cerebro en tres dimensiones">
+    <section className="atlas-3d" aria-label={tr("Cerebro en tres dimensiones")}>
       <div className="atlas-lienzo atlas-3d-lienzo">
         <div className="atlas-3d-herramientas">
           <button type="button" className="btn btn-s" onClick={() => { detener.current(); camara.current = { ...REPOSO, distancia: distanciaReposo(radioRef.current) }; redibujar.current(); }}>Restablecer vista</button>
-          <button type="button" className="btn btn-s" aria-label="Girar a la izquierda" onClick={() => girar(-0.25, 0)}>◄</button>
-          <button type="button" className="btn btn-s" aria-label="Girar a la derecha" onClick={() => girar(0.25, 0)}>►</button>
-          <label>Estructura <select aria-label="Seleccionar estructura del cerebro" value={seleccion ?? ''} onChange={(e) => { if (e.target.value) seleccionar(e.target.value); }}>
+          <button type="button" className="btn btn-s" aria-label={tr("Girar a la izquierda")} onClick={() => girar(-0.25, 0)}>◄</button>
+          <button type="button" className="btn btn-s" aria-label={tr("Girar a la derecha")} onClick={() => girar(0.25, 0)}>►</button>
+          <label>Estructura <select aria-label={tr("Seleccionar estructura del cerebro")} value={seleccion ?? ''} onChange={(e) => { if (e.target.value) seleccionar(e.target.value); }}>
             <option value="">Explorar estructuras</option>
             {seleccionables.map((e) => <option key={e.clave} value={e.clave}>{e.nombre}</option>)}
           </select></label>
         </div>
-        {estado === 'cargando' && <div className="atlas-3d-cargando"><Esqueleto alto={280} /><span className="sr-only">Cargando el modelo del cerebro</span></div>}
+        {estado === 'cargando' && <div className="atlas-3d-cargando"><Esqueleto alto={280} /><span className="sr-only">{tr("Cargando el modelo del cerebro")}</span></div>}
         {respaldo ? <p role="status" className="atlas-3d-sin-lienzo">{aviso}</p> : <>
           <canvas
             ref={canvas} className="atlas-3d-canvas" tabIndex={0} role="img"
-            aria-label="Cerebro en tres dimensiones: arrastra o usa las flechas para girarlo, la rueda para acercarlo y el selector Estructura para consultar la evidencia de cada una."
+            aria-label={tr("Cerebro en tres dimensiones: arrastra o usa las flechas para girarlo, la rueda para acercarlo y el selector Estructura para consultar la evidencia de cada una.")}
             onKeyDown={(e) => {
               if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-', 'Home'].includes(e.key)) return;
               e.preventDefault();
@@ -940,7 +941,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         </>}
       </div>
       {!respaldo && (
-        <ul className="atlas-3d-leyenda" aria-label="Estructuras del cerebro: pasa el ratón para verlas y pulsa para abrir su evidencia">
+        <ul className="atlas-3d-leyenda" aria-label={tr("Estructuras del cerebro: pasa el ratón para verlas y pulsa para abrir su evidencia")}>
           {seleccionables.map((e) => {
             const dato = porClave.get(e.clave);
             const activo = e.clave === (foco ?? seleccion);
@@ -955,7 +956,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
           })}
         </ul>
       )}
-      <p className="meta">{credito}Las estructuras se encienden con la evidencia reunida: el color va por cohortes. El ojo, la gota de sangre y el intestino son cuerpos esquemáticos, no anatomía medida. Arrastra para girar el cerebro y pulsa una estructura para leer lo que hay sobre ella.</p>
+      <p className="meta">{credito}{tr("Las estructuras se encienden con la evidencia reunida: el color va por cohortes. El ojo, la gota de sangre y el intestino son cuerpos esquemáticos, no anatomía medida. Arrastra para girar el cerebro y pulsa una estructura para leer lo que hay sobre ella.")}</p>
       <p className="atlas-3d-lectura" aria-live="polite">{apuntada ? `${nombre ?? apuntada.etiqueta}: ${apuntada.conteo} registros · ${apuntada.cohortes.length} cohortes nombradas por sus hipótesis${apuntada.discordia.length ? ' · Discordia entre hechos' : ''}` : 'Señala una estructura para ver sus cifras y abrir su ficha.'}</p>
     </section>
   );

@@ -6,6 +6,7 @@
 // tiempo. Las cifras las pone una regla; aquí solo se enseñan. Los avisos van
 // primero porque son lo que hay que mirar.
 import type { EstadoIndicador, FaseIndicador, IndicadorMetodo, TableroMetodo as Tablero } from '../datos/tipos';
+import { tr } from '../lib/idioma';
 
 const FASE: Record<FaseIndicador, string> = {
   busqueda: 'búsqueda',
@@ -36,7 +37,7 @@ function Fila({ i }: { i: IndicadorMetodo }) {
       <p className="metodo-texto">{i.texto}</p>
       {estado === 'aviso' && i.queHariaFalta ? (
         <p className="metodo-falta">
-          <span>Haría falta</span> {i.queHariaFalta}
+          <span>{tr("Haría falta")}</span> {i.queHariaFalta}
         </p>
       ) : null}
       <p className="metodo-fase">Fase: {FASE[i.fase] ?? i.fase}</p>
@@ -48,8 +49,8 @@ export function TableroMetodo({ tablero }: { tablero: Tablero | null | undefined
   const indicadores = (Array.isArray(tablero?.indicadores) ? tablero!.indicadores : []).filter(valido);
   if (!tablero || indicadores.length === 0) {
     return (
-      <article className="tarjeta metodo" aria-label="Cómo está investigando ROSA2018">
-        <p className="meta">Se calcula al cerrar la primera iteración, por regla y sin gastar ninguna llamada: si ROSA2018 busca lo que refuta sus hipótesis, si cierra las preguntas que se apunta, si el embudo del Killer se mueve, qué forma de generar ideas rinde, si piensa siempre en lo mismo, si usa las bases que tiene y en qué se va el tiempo.</p>
+      <article className="tarjeta metodo" aria-label={tr("Cómo está investigando ROSA2018")}>
+        <p className="meta">{tr("Se calcula al cerrar la primera iteración, por regla y sin gastar ninguna llamada: si ROSA2018 busca lo que refuta sus hipótesis, si cierra las preguntas que se apunta, si el embudo del Killer se mueve, qué forma de generar ideas rinde, si piensa siempre en lo mismo, si usa las bases que tiene y en qué se va el tiempo.")}</p>
       </article>
     );
   }
@@ -59,7 +60,7 @@ export function TableroMetodo({ tablero }: { tablero: Tablero | null | undefined
   // investigaciones que aún no lo tenían: decir "al cerrar" sería falso.
   const cuando = typeof tablero.iteracion === 'number' ? `al cerrar la iteración ${tablero.iteracion}` : 'con lo que había al arrancar ROSA2018; se rehace al cerrar la próxima iteración';
   return (
-    <article className="tarjeta metodo" aria-label="Cómo está investigando ROSA2018">
+    <article className="tarjeta metodo" aria-label={tr("Cómo está investigando ROSA2018")}>
       <p className="metodo-resumen">
         {avisos === 0 ? 'Ningún aviso' : avisos === 1 ? '1 aviso' : `${avisos} avisos`} de {indicadores.length} indicadores, calculado {cuando}.
       </p>

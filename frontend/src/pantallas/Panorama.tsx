@@ -17,6 +17,7 @@ import { AvisoMuestra, Momento, Seccion, Vacio, descargar } from '../componentes
 import { atributosEnVuelo, useCalculoDiferido, useEnVuelo } from '../lib/diferido';
 import { specificAims } from '../lib/exportar';
 import { rutaDe } from '../lib/ruta';
+import { tr } from '../lib/idioma';
 
 /** Una promesa que se resuelve después del siguiente pintado (un fotograma y
  *  un temporizador a cero, como lib/diferido.ts): así el botón en vuelo llega
@@ -96,7 +97,7 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
       </div>
 
       {direcciones.length === 0 ? (
-        <Vacio titulo="Sin panorama todavía">ROSA2018 lo sintetiza al cerrar cada iteración a partir de las hipótesis, las revisiones y el modelo de mundo.</Vacio>
+        <Vacio titulo="Sin panorama todavía">{tr("ROSA2018 lo sintetiza al cerrar cada iteración a partir de las hipótesis, las revisiones y el modelo de mundo.")}</Vacio>
       ) : (
         <div className="seccion">
           {direcciones.map((d, i) => (
@@ -109,12 +110,12 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
               <header className="direccion-cabecera">
                 <span className="direccion-numero" aria-hidden="true">{i + 1}</span>
                 <h3>{d.titulo}</h3>
-                {d.inesperada && <span className="direccion-marca">Área inesperada</span>}
+                {d.inesperada && <span className="direccion-marca">{tr("Área inesperada")}</span>}
               </header>
               <p className="direccion-razon">{d.razon}</p>
               <div className="direccion-columnas">
                 <section>
-                  <h4>Qué se sabe ya</h4>
+                  <h4>{tr("Qué se sabe ya")}</h4>
                   <ul>
                     {d.hallazgosRecientes.map((h) => (
                       <li key={h}>{h}</li>
@@ -122,7 +123,7 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
                   </ul>
                 </section>
                 <section>
-                  <h4>Qué falta averiguar</h4>
+                  <h4>{tr("Qué falta averiguar")}</h4>
                   <ul>
                     {d.queInvestigar.map((h) => (
                       <li key={h}>{h}</li>
@@ -133,12 +134,12 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
               {/* La idea concreta es lo único accionable de la dirección: va
                   entera, a todo el ancho, y con el acento. */}
               <section className="direccion-idea">
-                <h4>Una idea concreta</h4>
+                <h4>{tr("Una idea concreta")}</h4>
                 <p>{d.ideaEjemplo}</p>
               </section>
               {d.hipotesisIds.length > 0 && (
                 <footer className="direccion-hipotesis">
-                  <span>De aquí salen:</span>
+                  <span>{tr("De aquí salen:")}</span>
                   {d.hipotesisIds.map((id) => {
                     const h = hipotesis.find((x) => x.id === id);
                     return h ? (
@@ -156,7 +157,7 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
 
       <Seccion titulo="Meta-revisión: debilidades recurrentes" nota="Lo que se repite en las revisiones de todas las hipótesis de la corrida. Inyectarlo como criterio hace que la siguiente generación lo tenga en cuenta.">
         {meta.length === 0 ? (
-          <p className="meta">Sin meta-revisión todavía.</p>
+          <p className="meta">{tr("Sin meta-revisión todavía.")}</p>
         ) : (
           meta.map((m) => (
             // Once párrafos de cinco líneas, todos del mismo peso y con su
@@ -165,7 +166,7 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
             // a la derecha; las iteraciones viejas van plegadas.
             <details key={m.iteracion} className="debilidades" open={m.iteracion === meta[0]!.iteracion}>
               <summary>
-                Iteración {m.iteracion} · {m.debilidades.length} {m.debilidades.length === 1 ? 'debilidad' : 'debilidades'} · <Momento t={m.fecha} ahora={ahora} />
+                {tr("Iteración")} {m.iteracion} · {m.debilidades.length} {m.debilidades.length === 1 ? 'debilidad' : 'debilidades'} · <Momento t={m.fecha} ahora={ahora} />
               </summary>
               <ul>
                 {m.debilidades.map((d) => (

@@ -9,6 +9,7 @@ import type { Incidencia } from '../datos/tipos';
 import { TIPO_INCIDENCIA } from '../lib/etiquetas';
 import { IconAlert } from './icons';
 import { Chip, Momento } from './piezas';
+import { tr } from '../lib/idioma';
 
 export function TarjetaIncidencia({ incidencia, ahora, onResolver }: { incidencia: Incidencia; ahora: number; onResolver: (resolucion: string) => void }) {
   const [otra, setOtra] = useState('');
@@ -46,7 +47,7 @@ export function TarjetaIncidencia({ incidencia, ahora, onResolver }: { incidenci
             </button>
           )}
           <div className="dirigir">
-            <input className="entrada" value={otra} placeholder="Otra resolución (por ejemplo: saltar ese artículo y anotarlo)" onChange={(e) => setOtra(e.target.value)} aria-label="Otra resolución" />
+            <input className="entrada" value={otra} placeholder={tr("Otra resolución (por ejemplo: saltar ese artículo y anotarlo)")} onChange={(e) => setOtra(e.target.value)} aria-label={tr("Otra resolución")} />
             <button type="button" className="btn" disabled={otra.trim() === ''} onClick={() => onResolver(otra)}>
               Aplicar
             </button>

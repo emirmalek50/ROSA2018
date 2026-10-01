@@ -26,6 +26,7 @@ import { COBERTURA_MINIMA, faltanParaCobertura } from '../lib/cobertura';
 import { useCalculoDiferido } from '../lib/diferido';
 import { CLASIFICACION_CITA, ESTADO_HECHO, TIPO_HECHO, nombreActor } from '../lib/etiquetas';
 import { formatearPorcentaje } from '../lib/formato';
+import { tr } from '../lib/idioma';
 
 function CitasDelHecho({ h }: { h: HechoMundo }) {
   const [abierto, setAbierto] = useState(false);
@@ -34,7 +35,7 @@ function CitasDelHecho({ h }: { h: HechoMundo }) {
   for (const c of h.citas) n[c.clasificacion]++;
   return (
     <div>
-      <button type="button" className="citas-badge" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)} title="Otras fuentes sobre este hecho: apoyan, mencionan, contrastan">
+      <button type="button" className="citas-badge" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)} title={tr("Otras fuentes sobre este hecho: apoyan, mencionan, contrastan")}>
         <span className="tono-ok">{n.apoya} apoyan</span>
         <span className="meta">{n.menciona} mencionan</span>
         <span className={n.contrasta > 0 ? 'tono-mal' : 'meta'}>{n.contrasta} contrastan</span>
@@ -81,7 +82,7 @@ function TarjetaHecho({ h, ahora, fuentes, porId }: { h: HechoMundo; ahora: numb
                 <code>{texto}</code>
               </a>
             ) : (
-              <code key={i} title="Fuente sin identificador registrado">
+              <code key={i} title={tr("Fuente sin identificador registrado")}>
                 {texto}
               </code>
             );
@@ -93,12 +94,12 @@ function TarjetaHecho({ h, ahora, fuentes, porId }: { h: HechoMundo; ahora: numb
       <EnlacesDelHecho h={h} porId={porId} />
       {h.pendienteRevision && (
         <p className="hecho-pendiente">
-          <Chip tono="aviso" title="Algo de lo que este hecho depende cambió (una fuente se retractó, otro hecho lo sustituyó o lo contradijo). ROSA2018 lo marca; una persona lo revisa.">
-            Pendiente de revisar
+          <Chip tono="aviso" title={tr("Algo de lo que este hecho depende cambió (una fuente se retractó, otro hecho lo sustituyó o lo contradijo). ROSA2018 lo marca; una persona lo revisa.")}>
+            {tr("Pendiente de revisar")}
           </Chip>{' '}
           {h.pendienteRevision.detalle}{' '}
           <button type="button" className="btn btn-s" onClick={() => acciones.atenderPendiente('hecho', h.id, 'revisado en el modelo de mundo')}>
-            Ya lo revisé
+            {tr("Ya lo revisé")}
           </button>
         </p>
       )}
@@ -133,7 +134,7 @@ function ColumnaDeHechos({ col, lista, conFiltro, ahora, fuentes, porId }: { col
         {ESTADO_HECHO[col]} <span className="nav-cuenta">{lista.length}</span>
       </h3>
       {lista.length === 0 ? (
-        <p className="meta">Nada aquí{conFiltro ? ' con este filtro' : ''}.</p>
+        <p className="meta">{tr("Nada aquí")}{conFiltro ? ' con este filtro' : ''}.</p>
       ) : (
         <>
           <ListaAnimada className="mundo-tarjetas" como="ul">
@@ -236,12 +237,12 @@ function SiluetaMundo() {
               Estado
             </button>
             <button type="button" disabled>
-              Qué cambió
+              {tr("Qué cambió")}
             </button>
           </div>
-          <input className="entrada" placeholder="Buscar en el modelo de mundo" aria-label="Buscar" disabled readOnly />
+          <input className="entrada" placeholder={tr("Buscar en el modelo de mundo")} aria-label="Buscar" disabled readOnly />
           <select className="entrada" aria-label="Tema" style={{ width: 'auto' }} disabled>
-            <option>Todos los temas</option>
+            <option>{tr("Todos los temas")}</option>
           </select>
         </div>
       </div>
@@ -249,7 +250,7 @@ function SiluetaMundo() {
         <button type="button" className="btn btn-s" disabled>
           Recomprobar retractaciones ahora
         </button>
-        <span className="meta">Contra Crossref y Retraction Watch. Se hace solo cada 24 h; esto lo adelanta.</span>
+        <span className="meta">{tr("Contra Crossref y Retraction Watch. Se hace solo cada 24 h; esto lo adelanta.")}</span>
       </div>
       {['relaciones', 'bases', 'preguntar'].map((s) => (
         <div key={s} className="tarjeta esqueleto-tarjeta" data-esqueleto="seccion" aria-hidden="true">
@@ -319,12 +320,12 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
               Estado
             </button>
             <button type="button" aria-pressed={vista === 'cambios'} onClick={() => setVista('cambios')}>
-              Qué cambió {movimientos.length > 0 && <span className="nav-cuenta">{movimientos.length}</span>}
+              {tr("Qué cambió")} {movimientos.length > 0 && <span className="nav-cuenta">{movimientos.length}</span>}
             </button>
           </div>
-          <input className="entrada" value={busqueda} placeholder="Buscar en el modelo de mundo" onChange={(e) => setBusqueda(e.target.value)} aria-label="Buscar" />
+          <input className="entrada" value={busqueda} placeholder={tr("Buscar en el modelo de mundo")} onChange={(e) => setBusqueda(e.target.value)} aria-label="Buscar" />
           <select className="entrada" value={tema} onChange={(e) => setTema(e.target.value)} aria-label="Tema" style={{ width: 'auto' }}>
-            <option value="todos">Todos los temas</option>
+            <option value="todos">{tr("Todos los temas")}</option>
             {temas.map((t) => (
               <option key={t} value={t}>
                 {t}
@@ -343,7 +344,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
         <button type="button" className="btn btn-s" onClick={() => acciones.recomprobarRetracciones(inv.id)}>
           Recomprobar retractaciones ahora
         </button>
-        <span className="meta">Contra Crossref y Retraction Watch. Se hace solo cada 24 h; esto lo adelanta.</span>
+        <span className="meta">{tr("Contra Crossref y Retraction Watch. Se hace solo cada 24 h; esto lo adelanta.")}</span>
       </div>
 
       {coberturas.length > 0 && (
@@ -369,7 +370,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
                   </span>
                   {baja && (
                     <button type="button" className="btn btn-s" onClick={() => corrida && acciones.dirigirCorrida(corrida.id, `Extender la búsqueda del tema "${c.tema}" hasta el 90 % de cobertura (unos ${Number.isFinite(faltan) ? faltan : 'muchos'} artículos más)`)} disabled={!corrida}>
-                      Extender búsqueda
+                      {tr("Extender búsqueda")}
                     </button>
                   )}
                 </div>
@@ -388,12 +389,12 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
           <input
             className="entrada"
             value={pregunta}
-            placeholder="Qué se sabe del cociente p-tau217/Abeta42"
+            placeholder={tr("Qué se sabe del cociente p-tau217/Abeta42")}
             onChange={(e) => setPregunta(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') setRespuesta(preguntarAlModeloDeMundo(estado.hechos, inv.id, pregunta, fuentesPorId));
             }}
-            aria-label="Pregunta al modelo de mundo"
+            aria-label={tr("Pregunta al modelo de mundo")}
           />
           <button type="button" className="btn" disabled={pregunta.trim() === ''} onClick={() => setRespuesta(preguntarAlModeloDeMundo(estado.hechos, inv.id, pregunta, fuentesPorId))}>
             Preguntar
@@ -402,7 +403,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
         {respuesta && (
           <div className="mensaje" style={{ whiteSpace: 'pre-wrap' }}>
             <header>
-              <span>Modelo de mundo</span>
+              <span>{tr("Modelo de mundo")}</span>
               <span>{respuesta.nodos.length} {respuesta.nodos.length === 1 ? 'nodo' : 'nodos'}</span>
             </header>
             {respuesta.respuesta}
@@ -422,7 +423,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
                         doi:{c.doi}
                       </a>
                     )}
-                    {!c.pmid && !c.doi && <span className="meta">sin identificador registrado</span>}
+                    {!c.pmid && !c.doi && <span className="meta">{tr("sin identificador registrado")}</span>}
                   </li>
                 ))}
               </ul>
@@ -434,7 +435,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
       {vista === 'cambios' ? (
         <Seccion titulo="Qué cambió desde tu última visita" nota="Movimientos entre sabido, abierto y descartado, con quién los decidió y por qué.">
           {movimientos.length === 0 ? (
-            <p className="meta">Nada se movió desde tu última visita.</p>
+            <p className="meta">{tr("Nada se movió desde tu última visita.")}</p>
           ) : (
             <ul className="lista-limpia">
               {movimientos.map((x, i) => (

@@ -19,6 +19,7 @@
 import type { EsperaModelo, EstadoCorrida, Incidencia, RolModelo, SaludModelo } from '../datos/tipos';
 import { formatearDuracion } from '../lib/formato';
 import { IconPlay } from './icons';
+import { tr } from '../lib/idioma';
 
 /** Nombres legibles de los modelos del gateway; los demás se enseñan tal cual. */
 export const NOMBRES_MODELOS: Readonly<Record<string, string>> = {
@@ -168,12 +169,12 @@ export function VigilanteModelos({ salud, incidencias = [], estadoCorrida, esper
     <section className={`vigilante${esperando ? ' vigilante-esperando' : ''}`} aria-label="Modelos">
       <div className="vigilante-cabecera">
         <h3>Modelos</h3>
-        <span className="meta" title="Los modelos de lenguaje del AI Gateway que ROSA2018 usa, por rol: el cerebro planifica y razona (GPT-6 Astra), el juez verifica (Claude Opus 5), el volumen lee y extrae en masa (Claude Sonnet 5). Cuando uno no responde, ROSA2018 reintenta con el mismo; no lo cambia por otro.">
+        <span className="meta" title={tr("Los modelos de lenguaje del AI Gateway que ROSA2018 usa, por rol: el cerebro planifica y razona (GPT-6 Astra), el juez verifica (Claude Opus 5), el volumen lee y extrae en masa (Claude Sonnet 5). Cuando uno no responde, ROSA2018 reintenta con el mismo; no lo cambia por otro.")}>
           {viva ? resumenDeSalud(filas) : 'la corrida está cerrada; la salud de los modelos se enseña en la corrida viva'}
         </span>
       </div>
       {!viva ? null : filas.length === 0 ? (
-        <p className="meta vigilante-vacio">Sin llamadas todavía</p>
+        <p className="meta vigilante-vacio">{tr("Sin llamadas todavía")}</p>
       ) : (
         <ul className="vigilante-lista">
           {filas.map(({ rol, s }) => {
@@ -189,7 +190,7 @@ export function VigilanteModelos({ salud, incidencias = [], estadoCorrida, esper
       )}
       {esperando && <AvisoEsperandoModelo espera={espera} ahora={ahora} onReintentar={onReintentar} />}
       {automaticas.length > 0 && (
-        <ul className="vigilante-incidencias" aria-label="Incidencias que ROSA2018 resuelve sola">
+        <ul className="vigilante-incidencias" aria-label={tr("Incidencias que ROSA2018 resuelve sola")}>
           {automaticas.map((i) => (
             <li key={i.id} title={i.detalle}>
               <span className="chip chip-aviso">{viva ? 'resolviéndose solo' : 'quedó abierta al cerrar la corrida'}</span>
@@ -218,7 +219,7 @@ export function AvisoEsperandoModelo({ espera, ahora, onReintentar }: { espera: 
     <div className="vigilante-aviso" role="status">
       <div className="vigilante-aviso-texto">
         <p>
-          ROSA2018 espera a que {nombre} vuelva a responder. Sondea cada minuto y retomará sola; {ultima}.
+          {tr("ROSA2018 espera a que")} {nombre} {tr("vuelva a responder. Sondea cada minuto y retomará sola;")} {ultima}.
         </p>
         <p className="meta">{detalles.join(' · ')}.</p>
       </div>

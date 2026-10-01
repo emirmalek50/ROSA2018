@@ -79,6 +79,7 @@ import { ModeloDeMundo } from './pantallas/ModeloDeMundo';
 import { NuevaInvestigacion } from './pantallas/NuevaInvestigacion';
 import { Panorama } from './pantallas/Panorama';
 import { Ranking } from './pantallas/Ranking';
+import { tr } from './lib/idioma';
 
 const TITULO_PANTALLA = {
   corrida: 'Corrida en vivo',
@@ -204,11 +205,11 @@ export default function App() {
       pantalla = (
         <div className="contenido">
           <div className="vacio">
-            <h3>No se pudo cargar esta investigación</h3>
-            <p role="status">Comprueba la conexión o vuelve a intentarlo. No se ha cambiado tu dirección de navegación.</p>
+            <h3>{tr("No se pudo cargar esta investigación")}</h3>
+            <p role="status">{tr("Comprueba la conexión o vuelve a intentarlo. No se ha cambiado tu dirección de navegación.")}</p>
             <p>
               <a className="enlace" href="#/">
-                Volver al inicio
+                {tr("Volver al inicio")}
               </a>
             </p>
           </div>
@@ -284,13 +285,13 @@ export default function App() {
         <Cabecera miga={miga} titulo={titulo} esperan={esperan} onMenu={() => setMenuAbierto(true)} onBuscar={() => setBuscando(true)} />
         {estado.conexion === 'sin_conexion' && (
           <div className="panel-sin-conexion" role="alert">
-            <span>Sin conexión a internet</span>
+            <span>{tr("Sin conexión a internet")}</span>
             <button type="button" className="btn btn-s" disabled={reintentando} onClick={() => void reintentar()}>
               {reintentando ? 'Reintentando…' : 'Reintentar'}
             </button>
           </div>
         )}
-        {conservando && <div className="aviso-conflicto" role="status">No se pudo actualizar esta investigación. Se conserva la última vista recibida; los datos pueden estar desactualizados.</div>}
+        {conservando && <div className="aviso-conflicto" role="status">{tr("No se pudo actualizar esta investigación. Se conserva la última vista recibida; los datos pueden estar desactualizados.")}</div>}
         {inv && ruta.tipo === 'investigacion' && <HiloDelProceso estado={estado} inv={inv} pantalla={ruta.pantalla} detalleId={ruta.detalleId} />}
         {aviso && (
           <div className={`aviso-conflicto ${aviso.tono === 'info' ? 'aviso-info' : ''}`} role={aviso.tono === 'info' ? 'status' : 'alert'}>

@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 import { cabeceras } from '../datos/almacen';
 import { atributosEnVuelo, senalDeTope, useEnVuelo } from '../lib/diferido';
 import { Cargando, Esqueleto, EsqueletoTexto } from './Esqueleto';
+import { tr } from '../lib/idioma';
 
 type Configuracion = { remitente: string; url: string; hora: number; zona: string; proveedor: 'resend' | 'smtp'; smtpServidor: string; smtpPuerto: number; smtpUsuario: string };
 type EstadoCorreo = Configuracion & {
@@ -141,37 +142,37 @@ export function Correo({ servidor }: { servidor: boolean }) {
   const guardar = envolverGuardar(() => (form ? ejecutar('/configuracion', { ...form, clave }, 'Configuración guardada. Puedes enviar una prueba.') : undefined));
   const probar = envolverPrueba(() => ejecutar('/prueba', {}, 'Prueba en cola. El historial mostrará si el proveedor la acepta.'));
   const desconectar = envolverDesconectar(() => ejecutar('/configuracion', { borrarClave: true }, 'Conexión eliminada y correos pendientes cancelados.'));
-  if (!servidor) return <p>El correo real solo está disponible con el servidor conectado, no en el modo de muestra.</p>;
+  if (!servidor) return <p>{tr("El correo real solo está disponible con el servidor conectado, no en el modo de muestra.")}</p>;
   return <div className="tarjeta seccion">
-    <h3>Envío real por correo</h3>
-    <p>Los avisos llegan a la cuenta que inició la corrida. El administrador conecta el correo una vez; la clave queda en el servidor, no en Convex. Dos opciones: la cuenta de Google Workspace del equipo por SMTP (con una contraseña de aplicación) o Resend (con dominio verificado).</p>
-    <p><a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">Contraseña de aplicación de Google</a> · <a href="https://resend.com/domains" target="_blank" rel="noreferrer">Verificar dominio en Resend</a> · <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer">Clave de Resend</a></p>
+    <h3>{tr("Envío real por correo")}</h3>
+    <p>{tr("Los avisos llegan a la cuenta que inició la corrida. El administrador conecta el correo una vez; la clave queda en el servidor, no en Convex. Dos opciones: la cuenta de Google Workspace del equipo por SMTP (con una contraseña de aplicación) o Resend (con dominio verificado).")}</p>
+    <p><a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer">{tr("Contraseña de aplicación de Google")}</a> · <a href="https://resend.com/domains" target="_blank" rel="noreferrer">{tr("Verificar dominio en Resend")}</a> · <a href="https://resend.com/api-keys" target="_blank" rel="noreferrer">{tr("Clave de Resend")}</a></p>
     {form && estado ? <>
       {estado.administrador && <form onSubmit={(e) => { e.preventDefault(); void guardar(); }}>
         <fieldset disabled={ocupado} style={{ border: 0, padding: 0 }}>
           <div className="campo"><label htmlFor="correo-proveedor">Proveedor</label><select id="correo-proveedor" value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value as 'resend' | 'smtp' })}><option value="smtp">Google Workspace u otro servidor SMTP</option><option value="resend">Resend</option></select></div>
           {form.proveedor === 'smtp' && <>
             <div className="campo"><label htmlFor="correo-smtp-servidor">Servidor SMTP</label><input id="correo-smtp-servidor" required value={form.smtpServidor} onChange={(e) => setForm({ ...form, smtpServidor: e.target.value })} /></div>
-            <div className="campo"><label htmlFor="correo-smtp-puerto">Puerto (587 con STARTTLS, 465 con TLS)</label><input id="correo-smtp-puerto" type="number" min={1} max={65535} required value={form.smtpPuerto} onChange={(e) => setForm({ ...form, smtpPuerto: Number(e.target.value) })} /></div>
-            <div className="campo"><label htmlFor="correo-smtp-usuario">Usuario (la cuenta que envía)</label><input id="correo-smtp-usuario" type="email" required value={form.smtpUsuario} onChange={(e) => setForm({ ...form, smtpUsuario: e.target.value })} /></div>
+            <div className="campo"><label htmlFor="correo-smtp-puerto">{tr("Puerto (587 con STARTTLS, 465 con TLS)")}</label><input id="correo-smtp-puerto" type="number" min={1} max={65535} required value={form.smtpPuerto} onChange={(e) => setForm({ ...form, smtpPuerto: Number(e.target.value) })} /></div>
+            <div className="campo"><label htmlFor="correo-smtp-usuario">{tr("Usuario (la cuenta que envía)")}</label><input id="correo-smtp-usuario" type="email" required value={form.smtpUsuario} onChange={(e) => setForm({ ...form, smtpUsuario: e.target.value })} /></div>
           </>}
           <div className="campo"><label htmlFor="correo-remitente">{form.proveedor === 'smtp' ? 'Correo remitente (la misma cuenta o un alias suyo)' : 'Correo remitente (dominio verificado en Resend)'}</label><input id="correo-remitente" type="email" required value={form.remitente} onChange={(e) => setForm({ ...form, remitente: e.target.value })} placeholder="rosa@tu-dominio.com" /></div>
           <div className="campo"><label htmlFor="correo-clave">{form.proveedor === 'smtp' ? 'Contraseña de aplicación' : 'Clave de Resend'} {estado.claveGuardada ? '(guardada; deja vacío para conservarla)' : ''}</label><input id="correo-clave" type="password" autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} /></div>
-          <div className="campo"><label htmlFor="correo-url">Dirección web para abrir ROSA2018 desde el correo</label><input id="correo-url" type="url" required value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /><small>Localhost solo funciona en el equipo que ejecuta ROSA2018. No incluyas tokens de acceso en esta URL.</small></div>
-          <div className="campo"><label htmlFor="correo-hora">Hora del resumen diario (0 a 23)</label><input id="correo-hora" type="number" min={0} max={23} required value={form.hora} onChange={(e) => setForm({ ...form, hora: Number(e.target.value) })} /></div>
+          <div className="campo"><label htmlFor="correo-url">{tr("Dirección web para abrir ROSA2018 desde el correo")}</label><input id="correo-url" type="url" required value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /><small>{tr("Localhost solo funciona en el equipo que ejecuta ROSA2018. No incluyas tokens de acceso en esta URL.")}</small></div>
+          <div className="campo"><label htmlFor="correo-hora">{tr("Hora del resumen diario (0 a 23)")}</label><input id="correo-hora" type="number" min={0} max={23} required value={form.hora} onChange={(e) => setForm({ ...form, hora: Number(e.target.value) })} /></div>
           <div className="campo"><label htmlFor="correo-zona">Zona horaria</label><input id="correo-zona" required value={form.zona} onChange={(e) => setForm({ ...form, zona: e.target.value })} /></div>
-          <button className="btn" type="submit" {...atributosEnVuelo(guardando)}>Guardar conexión</button>
+          <button className="btn" type="submit" {...atributosEnVuelo(guardando)}>{tr("Guardar conexión")}</button>
         </fieldset>
       </form>}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-        <button className="btn" type="button" disabled={ocupado || !estado.configurado} {...atributosEnVuelo(probando)} onClick={() => void probar()}>Enviar correo de prueba</button>
+        <button className="btn" type="button" disabled={ocupado || !estado.configurado} {...atributosEnVuelo(probando)} onClick={() => void probar()}>{tr("Enviar correo de prueba")}</button>
         {estado.administrador && <button className="btn btn-fantasma" type="button" disabled={ocupado || !estado.claveGuardada} {...atributosEnVuelo(desconectando)} onClick={() => void desconectar()}>Desconectar correo</button>}
       </div>
-      <p>La prueba envía un correo aunque los avisos automáticos estén apagados. No consume tokens; el proveedor de correo puede cobrar por los envíos. ROSA2018 debe permanecer encendida.</p>
-      <p>Solo se envían contadores y un enlace, sin títulos, documentos ni datos clínicos. Los avisos empiezan con las novedades, sin reenviar todo el historial.</p>
-      <h4>Últimos envíos</h4>
-      <p>Aceptado por el proveedor no confirma llegada al buzón. Consulta entregas o rebotes en el panel del proveedor o en el buzón remitente.</p>
-      {estado.historial.length === 0 ? <p>Todavía no hay envíos.</p> : <ul>{estado.historial.map((x) => <li key={x.id}>
+      <p>{tr("La prueba envía un correo aunque los avisos automáticos estén apagados. No consume tokens; el proveedor de correo puede cobrar por los envíos. ROSA2018 debe permanecer encendida.")}</p>
+      <p>{tr("Solo se envían contadores y un enlace, sin títulos, documentos ni datos clínicos. Los avisos empiezan con las novedades, sin reenviar todo el historial.")}</p>
+      <h4>{tr("Últimos envíos")}</h4>
+      <p>{tr("Aceptado por el proveedor no confirma llegada al buzón. Consulta entregas o rebotes en el panel del proveedor o en el buzón remitente.")}</p>
+      {estado.historial.length === 0 ? <p>{tr("Todavía no hay envíos.")}</p> : <ul>{estado.historial.map((x) => <li key={x.id}>
         {new Date(x.creado * 1000).toLocaleString()} · {x.destinatario} · {ETIQUETAS[x.estado] ?? x.estado} · {x.intentos} intento(s){x.error && <p>{x.error}</p>}
       </li>)}</ul>}
       {estado.error && <p role="alert">{estado.error}</p>}

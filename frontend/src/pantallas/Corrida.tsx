@@ -35,6 +35,7 @@ import { BORRADOR_VACIO, NIVELES_OBJETIVO, borradorDe, normalizarParada, resumen
 import { GraficaProgreso } from '../componentes/GraficaProgreso';
 import { ActividadEnVivo } from '../componentes/ActividadEnVivo';
 import { resumenMetrica } from '../lib/progreso';
+import { tr } from '../lib/idioma';
 
 type PropsCorrida = { inv: Investigacion; estado: EstadoRosa; ahora: number; irA: (hash: string) => void };
 
@@ -103,7 +104,7 @@ export function Corrida({ inv, estado, ahora, irA }: PropsCorrida) {
           accion={
             estado.conexion === 'muestra' ? undefined : (
               <button type="button" className="btn btn-primario" onClick={() => acciones.iniciarCorrida(inv.id)}>
-                <IconPlay size={13} /> Arrancar la primera corrida
+                <IconPlay size={13} /> {tr("Arrancar la primera corrida")}
               </button>
             )
           }
@@ -129,7 +130,7 @@ function NuevaCorrida({ inv, anterior }: { inv: Investigacion; anterior: Corrida
   if (!abierto) {
     return (
       <div className="acciones">
-        <button type="button" className="btn btn-primario" onClick={() => setAbierto(true)} title="Elige cuánto debe durar la corrida y ROSA2018 propone el plan de la iteración 1 sobre el modelo de mundo actual">
+        <button type="button" className="btn btn-primario" onClick={() => setAbierto(true)} title={tr("Elige cuánto debe durar la corrida y ROSA2018 propone el plan de la iteración 1 sobre el modelo de mundo actual")}>
           <IconPlay size={13} /> Nueva corrida
         </button>
       </div>
@@ -145,17 +146,17 @@ function NuevaCorrida({ inv, anterior }: { inv: Investigacion; anterior: Corrida
       }}
     >
       <p className="meta">
-        Cuánto debe durar esta corrida como mucho. Se detiene con lo que llegue primero. Deja todo vacío para que solo mande la condición de la investigación: «{inv.condicionParada || 'sin condición declarada'}».
+        {tr("Cuánto debe durar esta corrida como mucho. Se detiene con lo que llegue primero. Deja todo vacío para que solo mande la condición de la investigación: «")}{inv.condicionParada || 'sin condición declarada'}».
       </p>
       <div className="nueva-corrida-campos">
         <div className="campo">
           <label className="campo-etiqueta" htmlFor="nueva-corrida-tiempo">Tiempo</label>
           <div className="nueva-corrida-duracion">
             <input id="nueva-corrida-tiempo" type="number" inputMode="decimal" min={b.unidadTiempo === 'minutos' ? 1 : b.unidadTiempo === 'dias' ? 1 / 1440 : 1 / 60} max={b.unidadTiempo === 'minutos' ? 20160 : b.unidadTiempo === 'dias' ? 14 : 336} step="any" placeholder="por ejemplo 2" value={b.horas} onChange={campo('horas')} />
-            <select aria-label="Unidad de tiempo" value={b.unidadTiempo ?? 'horas'} onChange={(e) => setB((x) => ({ ...x, unidadTiempo: e.target.value as ParadaBorrador['unidadTiempo'] }))}>
+            <select aria-label={tr("Unidad de tiempo")} value={b.unidadTiempo ?? 'horas'} onChange={(e) => setB((x) => ({ ...x, unidadTiempo: e.target.value as ParadaBorrador['unidadTiempo'] }))}>
               <option value="minutos">Minutos</option>
               <option value="horas">Horas</option>
-              <option value="dias">Días</option>
+              <option value="dias">{tr("Días")}</option>
             </select>
           </div>
         </div>
@@ -164,27 +165,27 @@ function NuevaCorrida({ inv, anterior }: { inv: Investigacion; anterior: Corrida
           <input type="number" inputMode="numeric" min={1} step={1} placeholder="por ejemplo 6" value={b.iteraciones} onChange={campo('iteraciones')} />
         </label>
         <label className="campo nueva-corrida-certeza">
-          <span className="campo-etiqueta">Parar al llegar a certeza</span>
-          <select aria-label="Parar al llegar a certeza" value={b.certeza} onChange={(e) => setB((x) => ({ ...x, certeza: e.target.value as ParadaBorrador['certeza'] }))}>
-            <option value="">Sin objetivo de certeza</option>
+          <span className="campo-etiqueta">{tr("Parar al llegar a certeza")}</span>
+          <select aria-label={tr("Parar al llegar a certeza")} value={b.certeza} onChange={(e) => setB((x) => ({ ...x, certeza: e.target.value as ParadaBorrador['certeza'] }))}>
+            <option value="">{tr("Sin objetivo de certeza")}</option>
             {NIVELES_OBJETIVO.map((n) => (
               <option key={n} value={n}>{n}</option>
             ))}
           </select>
         </label>
         <label className="campo">
-          <span className="campo-etiqueta">Cuántas hipótesis</span>
+          <span className="campo-etiqueta">{tr("Cuántas hipótesis")}</span>
           <input type="number" inputMode="numeric" min={1} step={1} placeholder="1" value={b.cuantas} onChange={campo('cuantas')} disabled={!b.certeza} />
         </label>
         <label className="campo">
-          <span className="campo-etiqueta">Iteraciones sin avance</span>
+          <span className="campo-etiqueta">{tr("Iteraciones sin avance")}</span>
           <input type="number" inputMode="numeric" min={1} step={1} placeholder="por ejemplo 3" value={b.sinCambio} onChange={campo('sinCambio')} />
-          <small>Para si N iteraciones seguidas no suben ninguna hipótesis de certeza ni añaden hechos.</small>
+          <small>{tr("Para si N iteraciones seguidas no suben ninguna hipótesis de certeza ni añaden hechos.")}</small>
         </label>
         <label className="campo nueva-corrida-texto">
-          <span className="campo-etiqueta">Otra condición, en palabras</span>
-          <input type="text" maxLength={300} placeholder="por ejemplo: hasta que una hipótesis llegue a certeza baja" value={b.texto} onChange={campo('texto')} />
-          <small>ROSA2018 comprueba el tiempo, las iteraciones, la certeza y la falta de avance; las demás condiciones las decides tú con el botón de detener.</small>
+          <span className="campo-etiqueta">{tr("Otra condición, en palabras")}</span>
+          <input type="text" maxLength={300} placeholder={tr("por ejemplo: hasta que una hipótesis llegue a certeza baja")} value={b.texto} onChange={campo('texto')} />
+          <small>{tr("ROSA2018 comprueba el tiempo, las iteraciones, la certeza y la falta de avance; las demás condiciones las decides tú con el botón de detener.")}</small>
         </label>
       </div>
       <div className="acciones">
@@ -298,7 +299,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                 extra={
                   <label className="interruptor">
                     <input type="checkbox" checked={vigilar} onChange={(e) => setVigilar(e.target.checked)} />
-                    Vigilar la literatura 30 días: ROSA2018 avisa de artículos nuevos que toquen una hipótesis aceptada
+                    {tr("Vigilar la literatura 30 días: ROSA2018 avisa de artículos nuevos que toquen una hipótesis aceptada")}
                   </label>
                 }
                 onConfirmar={envolverCorrida((motivo: string) => acciones.detenerCorrida(corrida.id, motivo, vigilar ? 30 : null))}
@@ -312,11 +313,11 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
           hace falta de un vistazo, pero se sigue pudiendo leer. */}
       <div className="corrida-ficha">
         <span className="meta">
-          Empezó <Momento t={corrida.empezadaEn} ahora={ahora} />
+          {tr("Empezó")} <Momento t={corrida.empezadaEn} ahora={ahora} />
         </span>
         {corrida.terminadaEn !== null && (
           <span className="meta">
-            Terminó <Momento t={corrida.terminadaEn} ahora={ahora} />
+            {tr("Terminó")} <Momento t={corrida.terminadaEn} ahora={ahora} />
           </span>
         )}
         {textoCoste(corrida.gasto).corto && (
@@ -325,12 +326,12 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
           </span>
         )}
         {corrida.metrica && resumenMetrica(corrida.metrica) && (
-          <span className="meta" title="Balance de la corrida: peldaños de certeza GRADE subidos por las hipótesis, netos de los bajados, y por dólar gastado">
+          <span className="meta" title={tr("Balance de la corrida: peldaños de certeza GRADE subidos por las hipótesis, netos de los bajados, y por dólar gastado")}>
             Balance: {resumenMetrica(corrida.metrica)}
           </span>
         )}
         {corrida.parada && resumenParada(corrida.parada) && (
-          <span className="meta" title="Parada fijada al crear esta corrida; además sigue valiendo la condición de parada de la investigación">
+          <span className="meta" title={tr("Parada fijada al crear esta corrida; además sigue valiendo la condición de parada de la investigación")}>
             Se detiene con {resumenParada(corrida.parada)}
           </span>
         )}
@@ -384,7 +385,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                     Permitir {ALCANCE[a].toLowerCase()}
                   </button>
                 ))}
-                {alcancesComunes.length === 0 && <span className="meta">sin un alcance común; resuélvelas una a una</span>}
+                {alcancesComunes.length === 0 && <span className="meta">{tr("sin un alcance común; resuélvelas una a una")}</span>}
                 <button
                   type="button"
                   className="btn btn-s btn-peligro"
@@ -423,7 +424,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
         <div className="seccion" style={{ gridColumn: '1 / -1' }}>
           <SoloDetalle resumen={`Gasto: ${formatearEntero(corrida.gasto.llamadas)} llamadas al modelo, ${formatearEntero(corrida.gasto.articulosLeidos)} artículos leídos, ${formatearDuracion(segundosDeCorrida * 1000) || '0 s'} de trabajo${viva && enEspera ? ' (en espera de una persona)' : viva && esperandoModelo ? ' (esperando al modelo)' : ''}${textoCoste(corrida.gasto).corto ? `, ${textoCoste(corrida.gasto).corto}` : ''}.`}>
           <div className="gasto">
-            <div className="gasto-item" title="Tiempo de trabajo: reloj de pared menos la espera a una persona y las pausas del proceso; es lo que se compara con el tope en horas.">
+            <div className="gasto-item" title={tr("Tiempo de trabajo: reloj de pared menos la espera a una persona y las pausas del proceso; es lo que se compara con el tope en horas.")}>
               <strong>{formatearDuracion(segundosDeCorrida * 1000) || '0 s'}</strong>
               <span>{viva && enEspera ? 'de trabajo · en espera de una persona' : viva && esperandoModelo ? 'de trabajo · esperando al modelo' : 'de trabajo'}</span>
             </div>
@@ -450,12 +451,12 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
               <span>tokens de salida</span>
             </div>
             {(corrida.gasto.exaUsd ?? 0) > 0 && (
-              <div className="gasto-item" title="Búsquedas semánticas en Exa: 7 USD por mil búsquedas y 1 USD por mil páginas. Se suma al coste por decisión.">
+              <div className="gasto-item" title={tr("Búsquedas semánticas en Exa: 7 USD por mil búsquedas y 1 USD por mil páginas. Se suma al coste por decisión.")}>
                 <strong>{(corrida.gasto.exaUsd ?? 0).toFixed(3)} USD</strong>
                 <span>en Exa</span>
               </div>
             )}
-            <div className="gasto-item" title="Cuánto del contexto del cerebro está ocupado y cuántas veces se ha resumido el historial. Explica por qué ROSA2018 puede 'olvidar' tras días.">
+            <div className="gasto-item" title={tr("Cuánto del contexto del cerebro está ocupado y cuántas veces se ha resumido el historial. Explica por qué ROSA2018 puede 'olvidar' tras días.")}>
               <strong>{formatearPorcentaje(contextoPct)}</strong>
               <span>
                 contexto ocupado · {corrida.contexto.compactaciones} {corrida.contexto.compactaciones === 1 ? 'compactación' : 'compactaciones'}
@@ -490,10 +491,10 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
         <Seccion titulo={`Iteración ${iteracion ? iteracion.numero + 1 : corrida.iteracionActual}`} nota="ROSA2018 escribe el plan">
           <div className="tarjeta">
             <p>
-              <span className="shimmer-text">ROSA2018 está proponiendo el plan de esta iteración</span>
+              <span className="shimmer-text">{tr("ROSA2018 está proponiendo el plan de esta iteración")}</span>
             </p>
             <p className="meta">
-              Primero fija la misión de la investigación, después la pregunta de esta corrida y por último los pasos con su presupuesto. Son dos o tres llamadas al cerebro y suelen tardar uno o dos minutos. Cuando el plan esté listo aparecerá aquí para que lo apruebes, lo edites o lo dejes autoaprobar. Todavía no hay nada que aprobar.
+              {tr("Primero fija la misión de la investigación, después la pregunta de esta corrida y por último los pasos con su presupuesto. Son dos o tres llamadas al cerebro y suelen tardar uno o dos minutos. Cuando el plan esté listo aparecerá aquí para que lo apruebes, lo edites o lo dejes autoaprobar. Todavía no hay nada que aprobar.")}
             </p>
           </div>
         </Seccion>
@@ -536,7 +537,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
             // corrida nace con la autoaprobación encendida; aquí se apaga o se enciende.
             <label className="interruptor">
               <input type="checkbox" checked={corrida.autoAprobarPlanSegundos !== null} onChange={(e) => acciones.fijarAutoaprobacionPlan(corrida.id, e.target.checked ? 60 : null)} />
-              Autoaprobar cada plan si no respondo en 60 segundos. Si está apagado, ROSA2018 espera lo que haga falta y ese tiempo de espera no cuenta contra el tope de la corrida.
+              {tr("Autoaprobar cada plan si no respondo en 60 segundos. Si está apagado, ROSA2018 espera lo que haga falta y ese tiempo de espera no cuenta contra el tope de la corrida.")}
             </label>
           )}
           {viva && iteracion.planAprobado && (
@@ -545,9 +546,9 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                 className="entrada"
                 value={indicacion}
                 rows={1}
-                placeholder="Dirigir la corrida: una indicación que entra al plan tras el paso actual"
+                placeholder={tr("Dirigir la corrida: una indicación que entra al plan tras el paso actual")}
                 onChange={(e) => setIndicacion(e.target.value)}
-                aria-label="Indicación para ROSA2018"
+                aria-label={tr("Indicación para ROSA2018")}
               />
               <button
                 type="button"
@@ -571,7 +572,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
             <thead>
               <tr>
                 <th>Proceso</th>
-                <th>Dónde</th>
+                <th>{tr("Dónde")}</th>
                 <th className="num">CPU</th>
                 <th className="num">Memoria</th>
                 <th>Desde</th>
@@ -590,7 +591,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                   </td>
                   <td>
                     <div className="dirigir">
-                      <input className="entrada entrada-s" value={indicacionProceso[p.id] ?? ''} placeholder="Indicación (opcional)" onChange={(e) => setIndicacionProceso({ ...indicacionProceso, [p.id]: e.target.value })} aria-label={`Indicación al detener ${p.nombre}`} />
+                      <input className="entrada entrada-s" value={indicacionProceso[p.id] ?? ''} placeholder={tr("Indicación (opcional)")} onChange={(e) => setIndicacionProceso({ ...indicacionProceso, [p.id]: e.target.value })} aria-label={`Indicación al detener ${p.nombre}`} />
                       <BotonDetenerProceso onDetener={() => acciones.detenerProceso(corrida.id, p.id, indicacionProceso[p.id] ?? '')} />
                     </div>
                   </td>
@@ -608,7 +609,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
         nota="El flujo de la búsqueda (identificados, cribados, leídos a texto completo, usados) y las consultas exactas con fecha: la estrategia reproducible que pide cualquier revisor."
         acciones={
           <div className="acciones">
-            <button type="button" className="btn btn-s" disabled={prismaEnVuelo} {...atributosEnVuelo(prismaEnVuelo)} title="Descarga el flujo en PRISMA 2020 (variables oficiales del diagrama, ítems 6, 7, 8, 16a y 16b), la extensión para revisiones vivas y la declaración de la IA usada, en JSON y en Markdown. Sin ningún modelo: sale del registro." onClick={envolverPrisma(() => acciones.exportarPrisma(corrida.id))}>
+            <button type="button" className="btn btn-s" disabled={prismaEnVuelo} {...atributosEnVuelo(prismaEnVuelo)} title={tr("Descarga el flujo en PRISMA 2020 (variables oficiales del diagrama, ítems 6, 7, 8, 16a y 16b), la extensión para revisiones vivas y la declaración de la IA usada, en JSON y en Markdown. Sin ningún modelo: sale del registro.")} onClick={envolverPrisma(() => acciones.exportarPrisma(corrida.id))}>
               Exportar PRISMA 2020
             </button>
             <button type="button" className="btn btn-fantasma btn-s" onClick={() => setVerBusqueda((v) => !v)}>
@@ -771,10 +772,10 @@ function VolverOpciones({ onElegir }: { onElegir: (que: 'plan' | 'mundo' | 'ambo
   return (
     <div className="acciones">
       <button type="button" className="btn btn-s" onClick={() => onElegir('plan')}>
-        Solo el plan
+        {tr("Solo el plan")}
       </button>
       <button type="button" className="btn btn-s" onClick={() => onElegir('mundo')}>
-        Solo el modelo de mundo
+        {tr("Solo el modelo de mundo")}
       </button>
       <button type="button" className="btn btn-s" onClick={() => onElegir('ambos')}>
         Ambos

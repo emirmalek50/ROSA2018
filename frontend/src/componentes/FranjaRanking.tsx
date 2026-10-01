@@ -20,6 +20,7 @@ import { formatearEntero, plural } from '../lib/formato';
 import { EXPLICACION_BLOQUEO } from '../lib/priorizacion';
 import { componentesDe, queCambiariaElOrden, type ComponentesRanking, type EstadoNovedad, type EstadoParaRanking } from '../lib/ranking';
 import { Chip } from './piezas';
+import { tr } from '../lib/idioma';
 
 type Tono = 'ok' | 'aviso' | 'mal' | 'acento' | 'borde' | 'neutro';
 
@@ -89,7 +90,7 @@ function ChipCerteza({ c }: { c: ComponentesRanking }) {
   if (!c.certeza) {
     return (
       <Chip tono="borde" title={`${DEFINICIONES.certeza} ROSA2018 todavía no ha escrito una conclusión: la escribe al cerrar cada iteración.`}>
-        Sin conclusión todavía
+        {tr("Sin conclusión todavía")}
       </Chip>
     );
   }
@@ -112,7 +113,7 @@ function Bloqueos({ c }: { c: ComponentesRanking }) {
   if (c.bloqueosOrigen === 'no_comprobado') {
     return (
       <Chip tono="borde" title={DEFINICIONES.bloqueosSinComprobar}>
-        Bloqueos sin comprobar
+        {tr("Bloqueos sin comprobar")}
       </Chip>
     );
   }
@@ -120,11 +121,11 @@ function Bloqueos({ c }: { c: ComponentesRanking }) {
     const nota = c.bloqueosOrigen === 'servidor' ? ` ${DEFINICIONES.bloqueosServidor}` : '';
     return c.candidata ? (
       <Chip tono="ok" title={`${DEFINICIONES.candidata}${nota}`}>
-        Candidata al laboratorio
+        {tr("Candidata al laboratorio")}
       </Chip>
     ) : (
       <Chip tono="borde" title={`${DEFINICIONES.sinBloqueos}${nota}`}>
-        Sin bloqueos
+        {tr("Sin bloqueos")}
       </Chip>
     );
   }
@@ -154,7 +155,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
   const novedad = NOVEDAD[c.novedad.estado];
   return (
     <div>
-      <div className="hip-meta" role="group" aria-label="Componentes del ranking, sin sumar">
+      <div className="hip-meta" role="group" aria-label={tr("Componentes del ranking, sin sumar")}>
         <ChipCerteza c={c} />
         {!compacto && c.direccion && (
           <Chip tono={etiquetaDireccion(c.direccion).tono} title={DEFINICIONES.direccion}>
@@ -174,7 +175,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           {c.socavan === 1 ? '1 socava' : `${formatearEntero(c.socavan)} socavan`}
         </Chip>}
         {!compacto && c.razonesEnContra > 0 && (
-          <Chip tono="aviso" title="Razones en contra que el juez enumera en la conclusión: no son afirmaciones verificadas (esas son las de 'en contra' y 'socavan'), sino ataques al paso inferencial o cosas que faltan. Se cuentan aparte para que '0 en contra' no se lea como 'sin objeciones'.">
+          <Chip tono="aviso" title={tr("Razones en contra que el juez enumera en la conclusión: no son afirmaciones verificadas (esas son las de 'en contra' y 'socavan'), sino ataques al paso inferencial o cosas que faltan. Se cuentan aparte para que '0 en contra' no se lea como 'sin objeciones'.")}>
             {c.razonesEnContra === 1 ? '1 razón en contra (juez)' : `${formatearEntero(c.razonesEnContra)} razones en contra (juez)`}
           </Chip>
         )}
@@ -184,7 +185,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           </Chip>
         ) : (
           <Chip tono="borde" title={`${DEFINICIONES.killer} Todavía no la juzgó.`}>
-            Killer: sin juzgar
+            {tr("Killer: sin juzgar")}
           </Chip>
         )}
         <Bloqueos c={c} />
@@ -194,7 +195,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           </Chip>
         ) : (
           <Chip tono="borde" title={`${DEFINICIONES.bt} Todavía no se calculó: hacen falta partidos.`}>
-            Sin BT
+            {tr("Sin BT")}
           </Chip>
         )}
         <Chip tono={pocos ? 'aviso' : 'neutro'} title={DEFINICIONES.partidos}>
@@ -219,17 +220,17 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
         )}
         {c.pendiente && (
           <Chip tono="aviso" title={`${DEFINICIONES.pendiente}${c.pendienteDetalle ? ` ${c.pendienteDetalle}` : ''}`}>
-            Pendiente de revisar
+            {tr("Pendiente de revisar")}
           </Chip>
         )}
         {c.fusion === 'fusionada' && (
           <Chip tono="borde" title={`${DEFINICIONES.fusionada} En: ${c.fusionCon.map((x) => x.titulo).join('; ')}.`}>
-            Fusionada en otra
+            {tr("Fusionada en otra")}
           </Chip>
         )}
         {c.fusion === 'absorbe' && (
           <Chip tono="acento" title={`${DEFINICIONES.absorbe} Absorbió: ${c.fusionCon.map((x) => x.titulo).join('; ')}.`}>
-            Absorbió {c.fusionCon.length === 1 ? 'otra' : formatearEntero(c.fusionCon.length)}
+            {tr("Absorbió")} {c.fusionCon.length === 1 ? 'otra' : formatearEntero(c.fusionCon.length)}
           </Chip>
         )}
       </div>
@@ -238,7 +239,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           (Emir, 28 de septiembre de 2026). Va plegada, con su rótulo. */}
       {explicar && (
         <details className="franja-explica">
-          <summary>Qué le falta para subir y qué cambiaría su orden</summary>
+          <summary>{tr("Qué le falta para subir y qué cambiaría su orden")}</summary>
           <p>{queCambiariaElOrden(h)}</p>
         </details>
       )}

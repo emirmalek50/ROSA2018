@@ -9,6 +9,7 @@ import type { Corrida } from '../datos/tipos';
 import { estadoPresupuesto } from '../lib/calidad';
 import { formatearDuracion, formatearEntero, formatearPorcentaje } from '../lib/formato';
 import { Barra, Chip } from './piezas';
+import { tr } from '../lib/idioma';
 
 export function Presupuesto({ corrida, onAmpliar }: { corrida: Corrida; onAmpliar: (limite: number) => void }) {
   const p = estadoPresupuesto(corrida);
@@ -18,14 +19,14 @@ export function Presupuesto({ corrida, onAmpliar }: { corrida: Corrida; onAmplia
   return (
     <div className={`tarjeta presupuesto ${pausada ? 'presupuesto-pausado' : ''}`}>
       <div className="acciones" style={{ justifyContent: 'space-between' }}>
-        <strong style={{ fontSize: 13 }}>Tope de toda la corrida</strong>
+        <strong style={{ fontSize: 13 }}>{tr("Tope de toda la corrida")}</strong>
         <span className="meta">
-          {formatearEntero(corrida.gasto.llamadas)} de {formatearEntero(corrida.presupuesto.limiteLlamadas)} llamadas en total · {formatearPorcentaje(p.fraccion)}
+          {formatearEntero(corrida.gasto.llamadas)} de {formatearEntero(corrida.presupuesto.limiteLlamadas)} {tr("llamadas en total ·")} {formatearPorcentaje(p.fraccion)}
         </span>
       </div>
       <Barra fraccion={p.fraccion} marcas={corrida.presupuesto.alertas} tono={tono} />
       <p className="meta" style={{ margin: '6px 0 0' }}>
-        Cuenta todas las llamadas al modelo de la corrida: el plan, los pasos de cada iteración y el juez. El presupuesto que aparece en cada iteración cuenta solo las llamadas de sus pasos, por eso es más pequeño.
+        {tr("Cuenta todas las llamadas al modelo de la corrida: el plan, los pasos de cada iteración y el juez. El presupuesto que aparece en cada iteración cuenta solo las llamadas de sus pasos, por eso es más pequeño.")}
       </p>
       <div className="acciones" style={{ justifyContent: 'space-between' }}>
         <span className="meta">
@@ -42,7 +43,7 @@ export function Presupuesto({ corrida, onAmpliar }: { corrida: Corrida; onAmplia
         ))}
       </div>
       <div className="dirigir">
-        <input className="entrada entrada-s" type="number" min={corrida.gasto.llamadas + 1} step={100} value={nuevo} onChange={(e) => setNuevo(e.target.value)} aria-label="Nuevo tope de llamadas" style={{ maxWidth: 160 }} />
+        <input className="entrada entrada-s" type="number" min={corrida.gasto.llamadas + 1} step={100} value={nuevo} onChange={(e) => setNuevo(e.target.value)} aria-label={tr("Nuevo tope de llamadas")} style={{ maxWidth: 160 }} />
         <button type="button" className={`btn ${pausada ? 'btn-primario' : ''}`} disabled={!(Number(nuevo) > corrida.gasto.llamadas)} onClick={() => onAmpliar(Number(nuevo))}>
           {pausada ? 'Ampliar y reanudar' : 'Ampliar tope'}
         </button>

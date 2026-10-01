@@ -26,6 +26,7 @@ import { formatearPorcentaje } from '../lib/formato';
 import { ranking, variacionElo } from '../lib/hipotesis';
 import { bloqueosDe, candidatos } from '../lib/priorizacion';
 import { rutaDe } from '../lib/ruta';
+import { tr } from '../lib/idioma';
 
 function GraficaElo({ puntos }: { puntos: Hipotesis['historialElo'] }) {
   if (puntos.length < 2) return <svg className="grafica-elo" aria-hidden="true" />;
@@ -63,7 +64,7 @@ function Fila({ h, i, invId, estado }: { h: Hipotesis; i: number; invId: string;
           {h.origen === 'humana' && <Chip tono="acento">Humana</Chip>}
           <Chip tono="borde">{h.cluster}</Chip>
           {killerPendienteDe(h) && (
-            <Chip tono="aviso" title="La última pasada del Killer no fue un juicio: el modelo no respondió o su respuesta no se pudo leer. La decisión que se ve es la anterior; ROSA2018 repite la revisión en el siguiente paso o cuando la pidas.">
+            <Chip tono="aviso" title={tr("La última pasada del Killer no fue un juicio: el modelo no respondió o su respuesta no se pudo leer. La decisión que se ve es la anterior; ROSA2018 repite la revisión en el siguiente paso o cuando la pidas.")}>
               {killerPendienteDe(h)}
             </Chip>
           )}
@@ -92,7 +93,7 @@ function Fila({ h, i, invId, estado }: { h: Hipotesis; i: number; invId: string;
         </strong>
         <span className={d > 0 ? 'subida' : d < 0 ? 'bajada' : 'meta'}>{d > 0 ? `+${d}` : d}</span>
         {h.bt && (
-          <span className="meta" title="Fuerza de Bradley-Terry sobre los partidos, con intervalo del 95 % por bootstrap. Es lo que ordena a las candidatas.">
+          <span className="meta" title={tr("Fuerza de Bradley-Terry sobre los partidos, con intervalo del 95 % por bootstrap. Es lo que ordena a las candidatas.")}>
             BT {h.bt.fuerza} ({h.bt.ic95[0]} a {h.bt.ic95[1]})
           </span>
         )}
@@ -222,9 +223,9 @@ export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRos
       <AvisoMuestra conexion={estado.conexion} />
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
-          <h2>Ranking de hipótesis</h2>
+          <h2>{tr("Ranking de hipótesis")}</h2>
           <p>
-            Puntuación Elo por torneo entre rivales, revisada en cada iteración. Elo inicial 1500; funciona como el ranking de ajedrez: mayor Elo, mejor ha salido de los debates; cuánto fiarse lo dice la certeza GRADE, que va aparte. Las descartadas van al final aunque puntuaran alto.
+            {tr("Puntuación Elo por torneo entre rivales, revisada en cada iteración. Elo inicial 1500; funciona como el ranking de ajedrez: mayor Elo, mejor ha salido de los debates; cuánto fiarse lo dice la certeza GRADE, que va aparte. Las descartadas van al final aunque puntuaran alto.")}
           </p>
         </div>
         <div className="acciones">
@@ -233,7 +234,7 @@ export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRos
               Lista
             </button>
             <button type="button" aria-pressed={vista === 'clusters'} onClick={() => setVista('clusters')}>
-              Por cluster
+              {tr("Por cluster")}
             </button>
           </div>
         </div>
@@ -242,10 +243,10 @@ export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRos
       <Candidatas inv={inv} estado={foto} candidatas={cands} noCandidatas={noCands} />
 
       <div className="acciones" style={{ marginBottom: 14 }}>
-        <Chip tono={cal.acuerdo === null ? undefined : cal.acuerdo >= 0.7 ? 'ok' : 'aviso'} title="Cuántas veces la recomendación del revisor coincidió con lo que decidió una persona">
-          Acuerdo revisor y personas: {cal.acuerdo === null ? 'sin decisiones todavía' : formatearPorcentaje(cal.acuerdo)}
+        <Chip tono={cal.acuerdo === null ? undefined : cal.acuerdo >= 0.7 ? 'ok' : 'aviso'} title={tr("Cuántas veces la recomendación del revisor coincidió con lo que decidió una persona")}>
+          {tr("Acuerdo revisor y personas:")} {cal.acuerdo === null ? 'sin decisiones todavía' : formatearPorcentaje(cal.acuerdo)}
         </Chip>
-        <span className="meta">Las decisiones humanas de aceptar y descartar son la señal que calibra al juez del torneo.</span>
+        <span className="meta">{tr("Las decisiones humanas de aceptar y descartar son la señal que calibra al juez del torneo.")}</span>
       </div>
 
       {vista === 'lista' ? (
@@ -254,7 +255,7 @@ export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRos
         <div className="seccion">
           <label className="interruptor">
             <input type="checkbox" checked={soloMejor} onChange={(e) => setSoloMejor(e.target.checked)} />
-            Mostrar solo la mejor de cada cluster (para ver la diversidad, no la repetición)
+            {tr("Mostrar solo la mejor de cada cluster (para ver la diversidad, no la repetición)")}
           </label>
           {filas}
         </div>

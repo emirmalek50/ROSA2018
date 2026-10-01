@@ -38,6 +38,7 @@ import { bloqueosDe } from '../lib/priorizacion';
 import { rutaDe } from '../lib/ruta';
 import { atributosEnVuelo, useCalculoDiferido, useEnVuelo, useEsperaSenal } from '../lib/diferido';
 import { ESPERA_DOSSIER_MS, huellaDossier } from './Artefactos';
+import { tr } from '../lib/idioma';
 
 const TONO_ESTADO: Record<Hip['estado'], 'ok' | 'aviso' | 'mal' | 'acento' | undefined> = {
   propuesta: 'acento',
@@ -84,7 +85,7 @@ function TextoConFuertes({ texto, campo, como = 'p' }: { texto: string; campo: '
   tramos.forEach((t, i) => {
     partes.push(texto.slice(pos, t.inicio));
     partes.push(
-      <mark key={i} className="fuerte" title="Afirma con más seguridad de la que suele dar la evidencia. Considera un verbo más prudente.">
+      <mark key={i} className="fuerte" title={tr("Afirma con más seguridad de la que suele dar la evidencia. Considera un verbo más prudente.")}>
         {texto.slice(t.inicio, t.fin)}
       </mark>,
     );
@@ -130,7 +131,7 @@ function FilaCola({ h, ahora, href, horasEspera, estado }: { h: Hip; ahora: numb
             </Chip>
           )}
           {juicioPendiente && (
-            <Chip tono="aviso" title="La última pasada del Killer no fue un juicio: el modelo no respondió o su respuesta no se pudo leer. La decisión que se ve es la anterior; ROSA2018 repite la revisión en el siguiente paso o cuando la pidas.">
+            <Chip tono="aviso" title={tr("La última pasada del Killer no fue un juicio: el modelo no respondió o su respuesta no se pudo leer. La decisión que se ve es la anterior; ROSA2018 repite la revisión en el siguiente paso o cuando la pidas.")}>
               {juicioPendiente}
             </Chip>
           )}
@@ -138,8 +139,8 @@ function FilaCola({ h, ahora, href, horasEspera, estado }: { h: Hip; ahora: numb
           {h.candidata && bloqueos.length === 0 && <Chip tono="ok">Candidata</Chip>}
           {bloqueos.length > 0 && <span className="tono-mal">{bloqueos.length} {bloqueos.length === 1 ? 'bloqueo' : 'bloqueos'}</span>}
           {abiertos > 0 && <span className="tono-mal">{abiertos} {abiertos === 1 ? 'hallazgo abierto' : 'hallazgos abiertos'}</span>}
-          {retractadas.length > 0 && <span className="tono-mal">depende de una fuente retractada</span>}
-          <span>Iteración {h.iteracion}</span>
+          {retractadas.length > 0 && <span className="tono-mal">{tr("depende de una fuente retractada")}</span>}
+          <span>{tr("Iteración")} {h.iteracion}</span>
           {pendiente ? (
             <span className={tarde ? 'tono-mal' : ''} title={`Creada el ${new Date(h.creadaEn).toLocaleString('es-ES')}${tarde ? `; supera las ${horasEspera} h de la política de esperas` : ''}`}>
               esperando {formatearDuracion(espera)}
@@ -183,8 +184,8 @@ function AlcanceDelSupuesto({ s }: { s: Supuesto }) {
   return (
     <p className={`meta supuesto-alcance supuesto-alcance-${s.alcance}`}>
       {alcance}
-      {donde && <> · se respondería {donde}</>}
-      {s.cota && <>{alcance ? ' · ' : ''}Límite: {s.cota}</>}
+      {donde && <> {tr("· se respondería")} {donde}</>}
+      {s.cota && <>{alcance ? ' · ' : ''}{tr("Límite:")} {s.cota}</>}
     </p>
   );
 }
@@ -233,8 +234,8 @@ function FormularioHipotesis({ inv, onCerrar, irA }: { inv: Investigacion; onCer
       }}
     >
       <div>
-        <h3 style={{ fontSize: 15, fontWeight: 600 }}>Proponer una hipótesis</h3>
-        <p className="meta">Entra al torneo con el mismo Elo inicial que las de ROSA2018, marcada como tuya. En Co-Scientist la conjetura del experto acabó superando a las generadas.</p>
+        <h3 style={{ fontSize: 15, fontWeight: 600 }}>{tr("Proponer una hipótesis")}</h3>
+        <p className="meta">{tr("Entra al torneo con el mismo Elo inicial que las de ROSA2018, marcada como tuya. En Co-Scientist la conjetura del experto acabó superando a las generadas.")}</p>
       </div>
       {campo('titulo', 'Título', 1, 'La función renal sesga los umbrales de p-tau217 en cohortes latinoamericanas')}
       {campo('enunciado', 'Enunciado', 3)}
@@ -252,7 +253,7 @@ function FormularioHipotesis({ inv, onCerrar, irA }: { inv: Investigacion; onCer
       )}
       <div className="acciones">
         <button type="submit" className="btn btn-primario">
-          Meter al torneo
+          {tr("Meter al torneo")}
         </button>
         <button type="button" className="btn btn-fantasma" onClick={onCerrar}>
           Cancelar
@@ -328,22 +329,22 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
       <div>
         <div className="acciones" style={{ marginBottom: 8 }}>
           <Chip tono={TONO_ESTADO[h.estado]}>{ESTADO_HIPOTESIS[h.estado]}</Chip>
-          {h.origen === 'humana' && <Chip tono="acento">Propuesta por una persona</Chip>}
+          {h.origen === 'humana' && <Chip tono="acento">{tr("Propuesta por una persona")}</Chip>}
           {h.derivadaDe && (
             <a className="chip chip-borde" href={rutaDe(h.investigacionId, 'hipotesis', h.derivadaDe)}>
-              Derivada de otra hipótesis
+              {tr("Derivada de otra hipótesis")}
             </a>
           )}
           <span className="meta">Elo {h.elo} · {h.partidos.length} {h.partidos.length === 1 ? 'partido' : 'partidos'}</span>
-          <span className="meta">Iteración {h.iteracion}</span>
-          <span className="meta">Versión {h.version ?? 1}</span>
+          <span className="meta">{tr("Iteración")} {h.iteracion}</span>
+          <span className="meta">{tr("Versión")} {h.version ?? 1}</span>
           {h.decisionKiller && DECISION_KILLER[h.decisionKiller] && (
             <Chip tono={DECISION_KILLER[h.decisionKiller].tono} title={DECISION_KILLER[h.decisionKiller].nota}>
               Killer: {DECISION_KILLER[h.decisionKiller].etiqueta}
             </Chip>
           )}
           {juicioPendiente && (
-            <Chip tono="aviso" title="La última pasada del Killer no fue un juicio: el modelo no respondió o su respuesta no se pudo leer. La decisión que se ve es la anterior; ROSA2018 repite la revisión en el siguiente paso o cuando la pidas con «Pedir revisión».">
+            <Chip tono="aviso" title={tr("La última pasada del Killer no fue un juicio: el modelo no respondió o su respuesta no se pudo leer. La decisión que se ve es la anterior; ROSA2018 repite la revisión en el siguiente paso o cuando la pidas con «Pedir revisión».")}>
               {juicioPendiente}
             </Chip>
           )}
@@ -361,24 +362,24 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
 
       {retractadas.length > 0 && (
         <div className="aviso-retractada" role="alert">
-          Depende de {retractadas.length === 1 ? 'una fuente retractada' : `${retractadas.length} fuentes retractadas`}: {retractadas.map((f) => f.referencia).join(', ')}. No vale como evidencia y la hipótesis baja en el ranking.
+          Depende de {retractadas.length === 1 ? 'una fuente retractada' : `${retractadas.length} fuentes retractadas`}: {retractadas.map((f) => f.referencia).join(', ')}{tr(". No vale como evidencia y la hipótesis baja en el ranking.")}
         </div>
       )}
 
       <div className="acciones">
         <span className="meta">
-          Última revisión automática: {h.ultimaRevisionAutomatica ? <Momento t={h.ultimaRevisionAutomatica} ahora={ahora} /> : 'nunca'}. El silencio del revisor no es aprobación.
+          {tr("Última revisión automática:")} {h.ultimaRevisionAutomatica ? <Momento t={h.ultimaRevisionAutomatica} ahora={ahora} /> : 'nunca'}{tr(". El silencio del revisor no es aprobación.")}
         </span>
         <button type="button" className="btn btn-s" disabled={revisionEnVuelo} {...atributosEnVuelo(revisionEnVuelo)} onClick={envolverRevision(() => acciones.solicitarRevision(h.id))}>
-          Solicitar revisión ahora
+          {tr("Solicitar revisión ahora")}
         </button>
         <label className="interruptor" style={{ marginLeft: 'auto' }}>
           <input type="checkbox" checked={aCiegas} onChange={(e) => setACiegas(e.target.checked)} />
-          Revisar a ciegas (ocultar citas y código hasta decidir)
+          {tr("Revisar a ciegas (ocultar citas y código hasta decidir)")}
         </label>
       </div>
 
-      <p className="meta">Selecciona un tramo del texto para comentarlo. Los comentarios se agrupan y salen juntos a ROSA2018. Los verbos en ámbar afirman más de lo que la evidencia suele dar.</p>
+      <p className="meta">{tr("Selecciona un tramo del texto para comentarlo. Los comentarios se agrupan y salen juntos a ROSA2018. Los verbos en ámbar afirman más de lo que la evidencia suele dar.")}</p>
 
       {ancla && (
         <NuevoComentario
@@ -433,7 +434,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
       <Seccion titulo="Relevancia frente a significancia" nota="Kosmos confunde lo estadísticamente significativo con lo científicamente valioso. Aquí son dos escalas: ROSA2018 justifica la relevancia para el objetivo y tú la votas.">
         <div className="rejilla-2">
           <div className="tarjeta">
-            <p className="campo-etiqueta">Evidencia estadística</p>
+            <p className="campo-etiqueta">{tr("Evidencia estadística")}</p>
             <Chip tono={h.evidenciaEstadistica === 'fuerte' ? 'ok' : h.evidenciaEstadistica === 'debil' ? 'mal' : h.evidenciaEstadistica === 'moderada' ? 'aviso' : 'borde'}>
               {h.evidenciaEstadistica === 'no_aplica' ? 'No aplica' : h.evidenciaEstadistica.charAt(0).toUpperCase() + h.evidenciaEstadistica.slice(1)}
             </Chip>
@@ -442,16 +443,16 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             </p>
           </div>
           <div className="tarjeta">
-            <p className="campo-etiqueta">Relevancia para el objetivo</p>
+            <p className="campo-etiqueta">{tr("Relevancia para el objetivo")}</p>
             <p style={{ fontSize: 13, margin: '6px 0' }}>{h.relevancia.justificacion}</p>
-            <div className="segmentos" role="group" aria-label="Tu voto de relevancia">
+            <div className="segmentos" role="group" aria-label={tr("Tu voto de relevancia")}>
               {(['alta', 'media', 'baja'] as const).map((v) => (
                 <button key={v} type="button" aria-pressed={h.relevancia.votoHumano === v} onClick={() => acciones.votarRelevancia(h.id, v)}>
                   {v.charAt(0).toUpperCase() + v.slice(1)}
                 </button>
               ))}
             </div>
-            {h.evidenciaEstadistica === 'fuerte' && h.relevancia.votoHumano === 'baja' && <p className="tono-aviso" style={{ fontSize: 12.5, marginTop: 6 }}>Significativa pero irrelevante: un agujero de conejo. Cuenta en Calidad.</p>}
+            {h.evidenciaEstadistica === 'fuerte' && h.relevancia.votoHumano === 'baja' && <p className="tono-aviso" style={{ fontSize: 12.5, marginTop: 6 }}>{tr("Significativa pero irrelevante: un agujero de conejo. Cuenta en Calidad.")}</p>}
           </div>
         </div>
       </Seccion>
@@ -485,21 +486,21 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           </div>
           {h.novedad.genetica && (
             <div className="novedad-item">
-              <strong>Genética humana (GWAS Catalog, ClinVar)</strong>
+              <strong>{tr("Genética humana (GWAS Catalog, ClinVar)")}</strong>
               <Chip tono={h.novedad.genetica.estado === 'sin_vinculo' ? 'ok' : h.novedad.genetica.estado === 'vinculo_conocido' ? 'aviso' : 'borde'}>{h.novedad.genetica.estado === 'sin_vinculo' ? 'Sin vínculo genético' : h.novedad.genetica.estado === 'vinculo_conocido' ? 'Vínculo conocido' : 'No comprobado'}</Chip>
               <p>{h.novedad.genetica.detalle}</p>
             </div>
           )}
           {h.novedad.farmacos && (
             <div className="novedad-item">
-              <strong>Fármacos (ChEMBL, DGIdb)</strong>
+              <strong>{tr("Fármacos (ChEMBL, DGIdb)")}</strong>
               <Chip tono={h.novedad.farmacos.estado === 'farmacos_existentes' ? 'aviso' : h.novedad.farmacos.estado === 'sin_farmacos' ? 'ok' : 'borde'}>{h.novedad.farmacos.estado === 'farmacos_existentes' ? 'Diana abordable' : h.novedad.farmacos.estado === 'sin_farmacos' ? 'Sin fármacos' : 'No comprobado'}</Chip>
               <p>{h.novedad.farmacos.detalle}</p>
             </div>
           )}
           {h.novedad.datosPublicos && (
             <div className="novedad-item">
-              <strong>Datos públicos (GEO, CELLxGENE)</strong>
+              <strong>{tr("Datos públicos (GEO, CELLxGENE)")}</strong>
               <Chip tono={h.novedad.datosPublicos.estado === 'hay_datos' ? 'ok' : h.novedad.datosPublicos.estado === 'sin_datos' ? 'aviso' : 'borde'}>{h.novedad.datosPublicos.estado === 'hay_datos' ? 'Hay datos' : h.novedad.datosPublicos.estado === 'sin_datos' ? 'Sin datos públicos' : 'No comprobado'}</Chip>
               <p>{h.novedad.datosPublicos.detalle}</p>
               {h.novedad.datosPublicos.series.length > 0 && (
@@ -518,7 +519,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           )}
           {h.novedad.patentes && (
             <div className="novedad-item">
-              <strong>Patentes (vía Exa)</strong>
+              <strong>{tr("Patentes (vía Exa)")}</strong>
               <Chip tono={h.novedad.patentes.estado === 'sin_patente' ? 'ok' : h.novedad.patentes.estado === 'parcial' ? 'aviso' : h.novedad.patentes.estado === 'patente_relacionada' ? 'mal' : 'borde'}>
                 {h.novedad.patentes.estado === 'sin_patente' ? 'Sin patente cercana' : h.novedad.patentes.estado === 'parcial' ? 'Relación parcial' : h.novedad.patentes.estado === 'patente_relacionada' ? 'Ya patentado o muy cercano' : 'No comprobado'}
               </Chip>
@@ -537,7 +538,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           )}
           {h.novedad.financiacion && (
             <div className="novedad-item">
-              <strong>Proyectos financiados (vía Exa)</strong>
+              <strong>{tr("Proyectos financiados (vía Exa)")}</strong>
               <Chip tono={h.novedad.financiacion.estado === 'sin_proyecto' ? 'ok' : h.novedad.financiacion.estado === 'parcial' ? 'aviso' : h.novedad.financiacion.estado === 'proyecto_financiado' ? 'mal' : 'borde'}>
                 {h.novedad.financiacion.estado === 'sin_proyecto' ? 'Sin proyecto cercano' : h.novedad.financiacion.estado === 'parcial' ? 'Relación parcial' : h.novedad.financiacion.estado === 'proyecto_financiado' ? 'Ya financiado' : 'No comprobado'}
               </Chip>
@@ -555,7 +556,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             </div>
           )}
           <div className="novedad-item">
-            <strong>Precedente en la literatura</strong>
+            <strong>{tr("Precedente en la literatura")}</strong>
             <Chip tono={sinComprobar(h.novedad.precedente) ? 'borde' : h.novedad.precedente.estado === 'sin_precedente' ? 'ok' : h.novedad.precedente.estado === 'parcial' ? 'aviso' : 'mal'}>
               {sinComprobar(h.novedad.precedente) ? 'No comprobado' : h.novedad.precedente.estado === 'sin_precedente' ? 'Sin precedente' : h.novedad.precedente.estado === 'parcial' ? 'Precedente parcial' : 'Ya publicado'}
             </Chip>
@@ -574,7 +575,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           <p className="meta">
             {h.vigilancia.ultimaComprobacion ? (
               <>
-                Última comprobación <Momento t={h.vigilancia.ultimaComprobacion} ahora={ahora} />
+                {tr("Última comprobación")} <Momento t={h.vigilancia.ultimaComprobacion} ahora={ahora} />
               </>
             ) : (
               'Todavía sin comprobar'
@@ -584,7 +585,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           </p>
           {h.vigilancia.ultimoError && <p className="tono-aviso">{h.vigilancia.ultimoError}</p>}
           {h.vigilancia.nuevas.length === 0 ? (
-            <p className="meta">Nada nuevo desde la creación de la hipótesis.</p>
+            <p className="meta">{tr("Nada nuevo desde la creación de la hipótesis.")}</p>
           ) : (
             <ul className="lista-limpia">
               {h.vigilancia.nuevas.map((n) => (
@@ -656,11 +657,11 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           <table className="tabla">
             <thead>
               <tr>
-                <th>Iteración</th>
+                <th>{tr("Iteración")}</th>
                 <th>Rival</th>
                 <th>Resultado</th>
                 <th>Eje decisivo</th>
-                <th>Por qué</th>
+                <th>{tr("Por qué")}</th>
               </tr>
             </thead>
             <tbody>
@@ -675,7 +676,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                     </td>
                     <td>
                       {p.ejeDecisivo === 'solidez' ? 'Solidez' : p.ejeDecisivo}
-                      {p.porRegla && <span className="meta"> · por regla, sin juez</span>}
+                      {p.porRegla && <span className="meta"> {tr("· por regla, sin juez")}</span>}
                     </td>
                     <td className="meta">{p.resumenDebate}</td>
                   </tr>
@@ -705,7 +706,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             </span>
           </div>
         ) : (
-          <p className="meta">Sin replicar todavía.</p>
+          <p className="meta">{tr("Sin replicar todavía.")}</p>
         )}
       </Seccion>
 
@@ -743,11 +744,11 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             {(h.experimento.confirma || h.experimento.refuta) && (
               <div className="conclusion-columnas">
                 <div className="experimento-bloque criterio-ok">
-                  <h4>La confirmaría</h4>
+                  <h4>{tr("La confirmaría")}</h4>
                   <p>{h.experimento.confirma}</p>
                 </div>
                 <div className="experimento-bloque criterio-mal">
-                  <h4>La refutaría</h4>
+                  <h4>{tr("La refutaría")}</h4>
                   <p>{h.experimento.refuta}</p>
                 </div>
               </div>
@@ -763,13 +764,13 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                 )}
                 {h.experimento.tamanoMuestral && (
                   <div className="experimento-bloque">
-                    <h4>Tamaño muestral</h4>
+                    <h4>{tr("Tamaño muestral")}</h4>
                     <p>{h.experimento.tamanoMuestral}</p>
                   </div>
                 )}
                 {h.experimento.alternativa && (
                   <div className="experimento-bloque">
-                    <h4>Explicación alternativa y cómo se distingue</h4>
+                    <h4>{tr("Explicación alternativa y cómo se distingue")}</h4>
                     <p>{h.experimento.alternativa}</p>
                   </div>
                 )}
@@ -777,7 +778,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             )}
             {h.experimento.decisionQueCambia && (
               <div className="experimento-bloque">
-                <h4>Qué decisión cambia con el resultado</h4>
+                <h4>{tr("Qué decisión cambia con el resultado")}</h4>
                 <p>{h.experimento.decisionQueCambia}</p>
               </div>
             )}
@@ -787,13 +788,13 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             </div>
             {h.experimento.analisisPedido && h.experimento.estado === 'propuesto' && (
               <div className="experimento-bloque">
-                <h4>Con datos ya existentes</h4>
+                <h4>{tr("Con datos ya existentes")}</h4>
                 <p>{h.experimento.analisisPedido}</p>
               </div>
             )}
             {h.experimento.resultado && (
               <div className={`experimento-bloque resultado resultado-${h.experimento.resultado.veredicto}`}>
-                <h4>Resultado contra el prerregistro</h4>
+                <h4>{tr("Resultado contra el prerregistro")}</h4>
                 <div className="acciones">
                   <Chip tono={h.experimento.resultado.veredicto === 'confirma' ? 'ok' : h.experimento.resultado.veredicto === 'refuta' ? 'mal' : 'aviso'}>
                     {h.experimento.resultado.veredicto === 'confirma' ? 'Confirma la hipótesis' : h.experimento.resultado.veredicto === 'refuta' ? 'Refuta la hipótesis' : h.experimento.resultado.veredicto === 'inconcluso' ? 'Inconcluso' : 'No evaluable con estos datos'}
@@ -803,17 +804,17 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                       {RESULTADO_LABORATORIO[h.experimento.resultado.clasificacion].etiqueta}
                     </Chip>
                   )}
-                  {h.experimento.resultado.versionProbada !== undefined && h.experimento.resultado.compatibleConActual === false && <Chip tono="aviso" title="El resultado probó una versión anterior de la hipótesis">Probó la v{h.experimento.resultado.versionProbada}</Chip>}
+                  {h.experimento.resultado.versionProbada !== undefined && h.experimento.resultado.compatibleConActual === false && <Chip tono="aviso" title={tr("El resultado probó una versión anterior de la hipótesis")}>{tr("Probó la v")}{h.experimento.resultado.versionProbada}</Chip>}
                   <span className="meta">
                     {h.experimento.resultado.fichero} · <Momento t={h.experimento.resultado.fecha} ahora={ahora} />
                   </span>
                 </div>
                 <Dimensiones d={h.experimento.resultado.dimensiones} />
                 <p>{h.experimento.resultado.resultado}</p>
-                {h.experimento.resultado.accionTomada && <p className="meta">Qué hizo ROSA2018: {h.experimento.resultado.accionTomada}</p>}
+                {h.experimento.resultado.accionTomada && <p className="meta">{tr("Qué hizo ROSA2018:")} {h.experimento.resultado.accionTomada}</p>}
                 {h.experimento.resultado.hipotesisDerivadaId && (
                   <p className="meta">
-                    Hipótesis derivada:{' '}
+                    {tr("Hipótesis derivada:")}{' '}
                     <a className="enlace" href={rutaDe(h.investigacionId, 'hipotesis', h.experimento.resultado.hipotesisDerivadaId)}>
                       abrir
                     </a>
@@ -830,7 +831,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                   </ul>
                 )}
                 {h.experimento.resultado.limitaciones && <p className="meta">Limitaciones: {h.experimento.resultado.limitaciones}</p>}
-                {h.experimento.resultado.exploratorio && <p className="meta">Exploratorio, fuera del prerregistro: {h.experimento.resultado.exploratorio}</p>}
+                {h.experimento.resultado.exploratorio && <p className="meta">{tr("Exploratorio, fuera del prerregistro:")} {h.experimento.resultado.exploratorio}</p>}
               </div>
             )}
             <div className="acciones">
@@ -838,7 +839,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                 {h.experimento.estado === 'propuesto' ? 'Propuesto' : h.experimento.estado === 'asignado' ? `Asignado a ${h.experimento.laboratorio}` : h.experimento.estado === 'en_curso' ? 'En curso' : `Datos recibidos: ${h.experimento.ficheroDatos}`}
               </Chip>
               {h.experimento.prerregistradoEn && h.experimento.prerregistroArtefactoId && (
-                <a className="chip chip-ok" href={rutaDe(h.investigacionId, 'artefactos', h.experimento.prerregistroArtefactoId)} title="Hipótesis, protocolo y criterios congelados antes de los datos">
+                <a className="chip chip-ok" href={rutaDe(h.investigacionId, 'artefactos', h.experimento.prerregistroArtefactoId)} title={tr("Hipótesis, protocolo y criterios congelados antes de los datos")}>
                   Prerregistrado <Momento t={h.experimento.prerregistradoEn} ahora={ahora} />
                 </a>
               )}
@@ -855,7 +856,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             </div>
             {h.experimento.estado === 'propuesto' && (
               <div className="dirigir">
-                <input className="entrada" value={lab} placeholder="Laboratorio (por ejemplo FLENI, Buenos Aires)" onChange={(e) => setLab(e.target.value)} aria-label="Laboratorio" />
+                <input className="entrada" value={lab} placeholder={tr("Laboratorio (por ejemplo FLENI, Buenos Aires)")} onChange={(e) => setLab(e.target.value)} aria-label="Laboratorio" />
                 <button type="button" className="btn" disabled={lab.trim() === '' || laboratorioEnVuelo} {...atributosEnVuelo(laboratorioEnVuelo)} onClick={envolverLaboratorio(() => acciones.asignarExperimento(h.id, lab))}>
                   Asignar a laboratorio
                 </button>
@@ -864,24 +865,24 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             {(h.experimento.estado === 'asignado' || h.experimento.estado === 'datos_recibidos') && (
               <div className="seccion">
                 <p className="meta">
-                  Cuando lleguen los datos del laboratorio, súbelos aquí (CSV, TSV, JSON, texto o PDF, hasta 50 MB). ROSA2018 los resume sin ningún modelo, el juez los compara con los criterios congelados en el prerregistro y la conclusión se rehace con esa evidencia.
+                  {tr("Cuando lleguen los datos del laboratorio, súbelos aquí (CSV, TSV, JSON, texto o PDF, hasta 50 MB). ROSA2018 los resume sin ningún modelo, el juez los compara con los criterios congelados en el prerregistro y la conclusión se rehace con esa evidencia.")}
                 </p>
                 {h.experimento.datosSinteticos && h.experimento.ficheroDatos && (
-                  <Chip tono="aviso" title="La persona declaró al subirlos que son datos sintéticos o de prueba (o el nombre del fichero lo dice). Sirven para probar la pantalla y el flujo; nunca cuentan como observación ni suben el techo GRADE, y no entran al modelo de mundo.">
-                    Datos sintéticos o de prueba: no cuentan como evidencia
+                  <Chip tono="aviso" title={tr("La persona declaró al subirlos que son datos sintéticos o de prueba (o el nombre del fichero lo dice). Sirven para probar la pantalla y el flujo; nunca cuentan como observación ni suben el techo GRADE, y no entran al modelo de mundo.")}>
+                    {tr("Datos sintéticos o de prueba: no cuentan como evidencia")}
                   </Chip>
                 )}
                 <div className="campo">
-                  <label htmlFor="exp-fichero">Fichero de datos</label>
+                  <label htmlFor="exp-fichero">{tr("Fichero de datos")}</label>
                   <input id="exp-fichero" type="file" accept=".csv,.tsv,.txt,.json,.pdf,.md" onChange={(e) => setFicheroDatos(e.target.files?.[0] ?? null)} />
                 </div>
                 <div className="campo">
-                  <label htmlFor="exp-analisis">Qué análisis quieres (además de los criterios prerregistrados)</label>
-                  <input id="exp-analisis" className="entrada" value={analisis} placeholder="Tiempo hasta la primera alteración, por grupo genético" onChange={(e) => setAnalisis(e.target.value)} />
+                  <label htmlFor="exp-analisis">{tr("Qué análisis quieres (además de los criterios prerregistrados)")}</label>
+                  <input id="exp-analisis" className="entrada" value={analisis} placeholder={tr("Tiempo hasta la primera alteración, por grupo genético")} onChange={(e) => setAnalisis(e.target.value)} />
                 </div>
-                <label className="interruptor" title="Márcala si el fichero es inventado, simulado o de prueba. ROSA2018 lo etiqueta como sintético: se evalúa contra el prerregistro para probar el flujo, pero nunca cuenta como observación real, no sube el techo GRADE ni entra al modelo de mundo. Si el nombre del fichero dice «sintético», se marca solo.">
+                <label className="interruptor" title={tr("Márcala si el fichero es inventado, simulado o de prueba. ROSA2018 lo etiqueta como sintético: se evalúa contra el prerregistro para probar el flujo, pero nunca cuenta como observación real, no sube el techo GRADE ni entra al modelo de mundo. Si el nombre del fichero dice «sintético», se marca solo.")}>
                   <input type="checkbox" checked={datosSinteticos} onChange={(e) => setDatosSinteticos(e.target.checked)} />
-                  Estos datos son sintéticos o de prueba (nunca cuentan como evidencia)
+                  {tr("Estos datos son sintéticos o de prueba (nunca cuentan como evidencia)")}
                 </label>
                 <div className="acciones">
                   <button
@@ -904,7 +905,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                     {subiendo ? 'Subiendo...' : 'Subir datos y evaluar contra el prerregistro'}
                   </button>
                   {errorSubida && <span className="tono-mal">{errorSubida}</span>}
-                  {h.experimento.estado === 'datos_recibidos' && !h.experimento.resultado && <span className="meta">Datos recibidos; ROSA2018 los está evaluando.</span>}
+                  {h.experimento.estado === 'datos_recibidos' && !h.experimento.resultado && <span className="meta">{tr("Datos recibidos; ROSA2018 los está evaluando.")}</span>}
                 </div>
               </div>
             )}
@@ -930,7 +931,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         </ul>
         {h.revisionesHumanas.length > 0 && (
           <div className="seccion">
-            <p className="campo-etiqueta">Revisiones escritas por personas (entran al siguiente debate del torneo)</p>
+            <p className="campo-etiqueta">{tr("Revisiones escritas por personas (entran al siguiente debate del torneo)")}</p>
             {h.revisionesHumanas.map((r, i) => (
               <div key={i} className="mensaje mensaje-investigadora">
                 <header>
@@ -940,7 +941,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                   </span>
                 </header>
                 {r.supuestosCuestionados && <p>Supuestos cuestionados: {r.supuestosCuestionados}</p>}
-                {r.literaturaQueFalta && <p>Literatura que falta: {r.literaturaQueFalta}</p>}
+                {r.literaturaQueFalta && <p>{tr("Literatura que falta:")} {r.literaturaQueFalta}</p>}
                 {r.problemaExperimental && <p>Problema experimental: {r.problemaExperimental}</p>}
               </div>
             ))}
@@ -950,8 +951,8 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
 
       <Seccion titulo="Decisión" nota={cerrada ? 'Esta hipótesis ya se decidió. Se puede reabrir.' : aclarando ? 'ROSA2018 está aclarando lo que marcaste. Volverá a la cola.' : motivo ?? 'Nada impide aceptarla. Tu lectura decide.'}>
         <div className="campo">
-          <label htmlFor="nota-decision">Nota para ROSA2018 y para el historial</label>
-          <textarea id="nota-decision" value={nota} rows={2} onChange={(e) => setNota(e.target.value)} placeholder="Comprobable en FLENI; pedir al investigador clínico principal si la cohorte tiene genotipo de TREM2" />
+          <label htmlFor="nota-decision">{tr("Nota para ROSA2018 y para el historial")}</label>
+          <textarea id="nota-decision" value={nota} rows={2} onChange={(e) => setNota(e.target.value)} placeholder={tr("Comprobable en FLENI; pedir al investigador clínico principal si la cohorte tiene genotipo de TREM2")} />
         </div>
         <button type="button" className="enlace" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => setRevisionAbierta((v) => !v)}>
           {revisionAbierta ? 'Ocultar la revisión estructurada' : 'Escribir una revisión estructurada (entra al torneo como revisión, no solo como veredicto)'}
@@ -959,11 +960,11 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         {revisionAbierta && (
           <div className="rejilla-3">
             <div className="campo">
-              <label htmlFor="rev-sup">Supuestos que cuestionas</label>
+              <label htmlFor="rev-sup">{tr("Supuestos que cuestionas")}</label>
               <textarea id="rev-sup" rows={3} value={rev.supuestosCuestionados} onChange={(e) => setRev({ ...rev, supuestosCuestionados: e.target.value })} />
             </div>
             <div className="campo">
-              <label htmlFor="rev-lit">Literatura que falta</label>
+              <label htmlFor="rev-lit">{tr("Literatura que falta")}</label>
               <textarea id="rev-lit" rows={3} value={rev.literaturaQueFalta} onChange={(e) => setRev({ ...rev, literaturaQueFalta: e.target.value })} />
             </div>
             <div className="campo">
@@ -979,7 +980,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                 Aceptar
               </button>
               <button type="button" className="btn" disabled={decisionEnVuelo} {...atributosEnVuelo(decisionEnVuelo)} onClick={() => decidir('refinar', nota)}>
-                Pedir que la refine
+                {tr("Pedir que la refine")}
               </button>
               <Confirmar
                 etiqueta="No puedo juzgar"
@@ -1015,29 +1016,29 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           </button>
         }
       >
-        {esperaDossier.esperando && <p className="meta">Esperando al servidor: el dossier aparecerá en Artefactos y aquí saldrá su enlace.</p>}
+        {esperaDossier.esperando && <p className="meta">{tr("Esperando al servidor: el dossier aparecerá en Artefactos y aquí saldrá su enlace.")}</p>}
         {esperaDossier.agotada && (
           <p className="meta tono-aviso" role="status">
-            Sin respuesta del servidor en un minuto. Si el dossier no aparece en Artefactos, vuelve a pedirlo.
+            {tr("Sin respuesta del servidor en un minuto. Si el dossier no aparece en Artefactos, vuelve a pedirlo.")}
           </p>
         )}
         {h.dossierArtefactoId ? (
           <p className="meta">
-            Último dossier:{' '}
+            {tr("Último dossier:")}{' '}
             <a className="enlace" href={rutaDe(h.investigacionId, 'artefactos', h.dossierArtefactoId)}>
               abrir en Artefactos
             </a>
-            . Cada generación es una versión nueva; las anteriores se conservan.
+            {tr(". Cada generación es una versión nueva; las anteriores se conservan.")}
           </p>
         ) : (
-          <p className="meta">Sin dossier todavía.</p>
+          <p className="meta">{tr("Sin dossier todavía.")}</p>
         )}
       </Seccion>
 
       <Seccion detalle titulo="Exportar expediente" nota="Todo lo que hace falta para auditar la hipótesis fuera de ROSA2018: versiones, decisiones con fecha, trazas, cuadernos, fuentes.">
         <div className="dirigir">
-          <input className="entrada" value={aplicableA} placeholder="Aplicable a (cohorte, modelo, condición): por ejemplo portadores de APOE4 con genotipo de TREM2" onChange={(e) => setAplicableA(e.target.value)} aria-label="Aplicable a" />
-          <a className="btn" href={`/api/hipotesis/${encodeURIComponent(h.id)}/rocrate`} download={`rosa-${h.id}.crate.zip`} title="RO-Crate 1.2 (perfil Process Run Crate) con procedencia W3C PROV: la hipótesis, el dossier, las decisiones, las fuentes con su riesgo de sesgo, el código y resultado de cada análisis, el prerregistro y sus sellos RFC 3161. Se verifica con herramientas de terceros, sin ROSA2018.">
+          <input className="entrada" value={aplicableA} placeholder={tr("Aplicable a (cohorte, modelo, condición): por ejemplo portadores de APOE4 con genotipo de TREM2")} onChange={(e) => setAplicableA(e.target.value)} aria-label="Aplicable a" />
+          <a className="btn" href={`/api/hipotesis/${encodeURIComponent(h.id)}/rocrate`} download={`rosa-${h.id}.crate.zip`} title={tr("RO-Crate 1.2 (perfil Process Run Crate) con procedencia W3C PROV: la hipótesis, el dossier, las decisiones, las fuentes con su riesgo de sesgo, el código y resultado de cada análisis, el prerregistro y sus sellos RFC 3161. Se verifica con herramientas de terceros, sin ROSA2018.")}>
             Exportar RO-Crate (PROV)
           </a>
           <button type="button" className="btn" onClick={() => descargar(`${h.id}-expediente.json`, expediente(h, estado.hechos, aplicableA.trim() || 'sin limite declarado'), 'application/json')}>
@@ -1163,7 +1164,7 @@ export function Hipotesis({
         <div className="contenido">
           <p style={{ marginBottom: 14 }}>
             <a className="enlace" href={rutaDe(inv.id, 'hipotesis')}>
-              Volver a la cola
+              {tr("Volver a la cola")}
             </a>
           </p>
           <Detalle
@@ -1202,12 +1203,12 @@ export function Hipotesis({
             <button type="button" aria-pressed={filtro === 'todas'} onClick={() => setFiltro('todas')}>
               Todas
             </button>
-            <button type="button" aria-pressed={filtro === 'laboratorio'} onClick={() => setFiltro('laboratorio')} title="Hipótesis con experimento asignado, en curso o con datos, y candidatas que esperan laboratorio">
+            <button type="button" aria-pressed={filtro === 'laboratorio'} onClick={() => setFiltro('laboratorio')} title={tr("Hipótesis con experimento asignado, en curso o con datos, y candidatas que esperan laboratorio")}>
               Laboratorio
             </button>
           </div>
           <button type="button" className="btn btn-primario" onClick={() => setProponiendo((v) => !v)}>
-            Proponer hipótesis
+            {tr("Proponer hipótesis")}
           </button>
         </div>
       </div>
@@ -1215,7 +1216,7 @@ export function Hipotesis({
       {visibles.length === 0 ? (
         filtro === 'laboratorio' ? (
           <Vacio titulo="Nada en el laboratorio todavía" pasos={['El Killer deja avanzar una hipótesis y el torneo la coloca entre las candidatas (etapa Candidatas del hilo, en Ranking).', 'ROSA2018 le propone un experimento: protocolo, ensayo, controles y criterios de éxito y refutación.', 'Tú lo asignas a un laboratorio desde la ficha: el prerregistro se congela y se sella con un tercero.', 'El laboratorio devuelve los datos y ROSA2018 los juzga contra lo prerregistrado.']}>
-            Aquí aparecerán las hipótesis que lleguen a ese tramo.
+            {tr("Aquí aparecerán las hipótesis que lleguen a ese tramo.")}
           </Vacio>
         ) : (
         <Vacio titulo={filtro === 'pendientes' && propias.length > 0 ? 'Nada pendiente' : 'Todavía no hay hipótesis'} pasos={propias.length === 0 ? ['ROSA2018 busca literatura y verifica afirmaciones (etapas 2 y 3 del hilo).', 'Lo sostenido entra al modelo de mundo.', 'Con eso, ROSA2018 genera hipótesis y el Killer las juzga; las que quedan aparecen aquí, ordenadas por Elo.', 'Tú decides sobre cada una: aceptar, descartar o pedir que la refine.'] : undefined}>
@@ -1244,12 +1245,12 @@ export function Hipotesis({
                   <h3>{s.titulo}</h3>
                   <p className="meta">{s.enunciado}</p>
                   <div className="hip-meta">
-                    <Chip tono="borde">Idea desde la iteración {s.iteracion}</Chip>
+                    <Chip tono="borde">{tr("Idea desde la iteración")} {s.iteracion}</Chip>
                     <Chip tono="borde">{s.afirmaciones.length} {s.afirmaciones.length === 1 ? 'afirmación' : 'afirmaciones'}</Chip>
                     <Chip tono="borde">{s.fuentes.length} {s.fuentes.length === 1 ? 'fuente' : 'fuentes'}</Chip>
                     <span className="meta">Actualizada <Momento t={s.actualizadaEn} ahora={ahora} /></span>
                   </div>
-                  <p className="meta"><strong>Le falta para nacer:</strong> {s.falta}</p>
+                  <p className="meta"><strong>{tr("Le falta para nacer:")}</strong> {s.falta}</p>
                 </div>
               </div>
             ))}

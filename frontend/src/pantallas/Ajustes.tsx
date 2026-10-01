@@ -17,6 +17,7 @@ import { useTema, type Tema } from '../lib/theme';
 import { Correo } from '../componentes/Correo';
 import { CuentaActual, CuentasDelEquipo, useSesion } from '../componentes/Acceso';
 import '../ajustes.css';
+import { tr } from '../lib/idioma';
 
 const CATEGORIAS = [
   { id: 'general', nombre: 'General', descripcion: 'Tu cuenta y tu espacio', icono: IconUser, titulo: 'Un espacio a tu medida', nota: 'Tu cuenta, el equipo y la forma en que ves ROSA2018.' },
@@ -106,12 +107,12 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
     <div className="contenido ajustes">
       <header className="ajustes-cabecera">
         <div className="ajustes-emblema"><IconSettings size={25} /></div>
-        <div><h2>Ajustes</h2><p>Tu forma de trabajar con ROSA2018.</p></div>
+        <div><h2>Ajustes</h2><p>{tr("Tu forma de trabajar con ROSA2018.")}</p></div>
         <span className="ajustes-contexto">Alzheimer Project</span>
         <img className="ajustes-arbol" src="/arbol-marca.png" alt="" aria-hidden="true" />
       </header>
       <div className="ajustes-layout">
-        <nav className="ajustes-nav" aria-label="Categorías de ajustes">
+        <nav className="ajustes-nav" aria-label={tr("Categorías de ajustes")}>
           <div role="tablist" aria-label="Ajustes" aria-orientation="vertical" onKeyDown={(e) => {
             const indice = CATEGORIAS.findIndex((c) => c.id === categoria);
             let siguiente = indice;
@@ -131,7 +132,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               </button>
             ))}
           </div>
-          <p className="ajustes-nav-nota"><IconShieldCheck size={17} />ROSA2018 investiga.<br />Tú marcas los límites.</p>
+          <p className="ajustes-nav-nota"><IconShieldCheck size={17} />ROSA2018 investiga.<br />{tr("Tú marcas los límites.")}</p>
         </nav>
         <div className="ajustes-cuerpo">
           <header className="ajustes-intro"><h3>{actual.titulo}</h3><p>{actual.nota}</p></header>
@@ -156,7 +157,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                 ))}
               </div>
               <div className="ajustes-recorrido">
-                <div><strong>Vuelve a descubrir ROSA2018</strong><p>Un recorrido breve por tu espacio de investigación.</p></div>
+                <div><strong>Vuelve a descubrir ROSA2018</strong><p>{tr("Un recorrido breve por tu espacio de investigación.")}</p></div>
                 <button type="button" className="btn btn-s" onClick={() => { try { localStorage.removeItem('rosa.recorrido.v1'); } catch { /* sin almacenamiento */ } window.location.reload(); }}>
                   Ver recorrido
                 </button>
@@ -183,7 +184,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               </div>
               {sugerencias.length > 0 && (
                 <div className="aviso-muestra">
-                  ROSA2018 ha visto que has concedido {sugerencias.map((s) => `${s.veces} permisos de "${TIPO_PERMISO[s.tipo as keyof typeof TIPO_PERMISO] ?? s.tipo}"`).join(' y ')} con alcance amplio. Si quieres, sube esa clase a "actuar y avisar" en los controles de arriba.
+                  {tr("ROSA2018 ha visto que has concedido")} {sugerencias.map((s) => `${s.veces} permisos de "${TIPO_PERMISO[s.tipo as keyof typeof TIPO_PERMISO] ?? s.tipo}"`).join(' y ')} {tr("con alcance amplio. Si quieres, sube esa clase a \"actuar y avisar\" en los controles de arriba.")}
           </div>
         )}
       </Seccion>
@@ -192,7 +193,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
         <div className="tarjeta seccion">
           <div className="rejilla-3">
             <div className="campo">
-              <label htmlFor="pe-horas">Horas de espera</label>
+              <label htmlFor="pe-horas">{tr("Horas de espera")}</label>
               <input id="pe-horas" type="number" min={1} value={politica.horas} onChange={(e) => setPolitica({ ...politica, horas: Number(e.target.value) })} />
             </div>
             <div className="campo">
@@ -215,7 +216,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               Guardar
             </button>
             <span className="meta">
-              Hoy: si nadie decide en {estado.politicaEsperas.horas} h, {ACCION_ESPERA[estado.politicaEsperas.accion].toLowerCase()}
+              {tr("Hoy: si nadie decide en")} {estado.politicaEsperas.horas} h, {ACCION_ESPERA[estado.politicaEsperas.accion].toLowerCase()}
               {estado.politicaEsperas.accion === 'escalar' ? ` (${estado.politicaEsperas.escalarA})` : ''}.
             </span>
           </div>
@@ -224,7 +225,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
 
       <Seccion detalle titulo="Permisos concedidos" nota="Lo que has permitido con alcance mayor que una vez. Revocar hace que ROSA2018 vuelva a pedirlo con una tarjeta.">
         {estado.permisos.length === 0 ? (
-          <p className="meta">Sin permisos concedidos.</p>
+          <p className="meta">{tr("Sin permisos concedidos.")}</p>
         ) : (
           <div>
             {estado.permisos.map((p) => {
@@ -250,7 +251,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
           <div className="ajustes-panel" role="tabpanel" id="ajuste-panel-memoria" aria-labelledby="ajuste-tab-memoria" hidden={categoria !== 'memoria'} tabIndex={0}>
             <Seccion titulo="Memoria de ROSA2018 sobre ti" nota="Hechos cortos sobre la investigadora y sus preferencias. Aparte del modelo de mundo, que es de la investigación.">
               {estado.memoria.length === 0 ? (
-                <p className="meta">ROSA2018 no recuerda nada todavía.</p>
+                <p className="meta">{tr("ROSA2018 no recuerda nada todavía.")}</p>
               ) : (
                 <ul className="lista-limpia">
                   {estado.memoria.map((r) => (
@@ -262,7 +263,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
 
             <Seccion detalle titulo="Planes guardados" nota="Flujos que funcionaron, reutilizables. ROSA2018 propone usarlos cuando la tarea se parece (memoria de planes, como Magentic-UI).">
               {estado.planesGuardados.length === 0 ? (
-                <p className="meta">Sin planes guardados.</p>
+                <p className="meta">{tr("Sin planes guardados.")}</p>
               ) : (
                 <ul className="lista-limpia">
                   {estado.planesGuardados.map((p) => (
@@ -285,7 +286,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
             <Seccion detalle titulo="Criterios de revisión" nota="Los tuyos se suman a los integrados y no pueden debilitarlos. Las debilidades de la meta-revisión se inyectan aquí.">
               <div className="tarjeta">
                 <p className="campo-etiqueta" style={{ marginBottom: 8 }}>
-                  Integrados (no se pueden quitar)
+                  {tr("Integrados (no se pueden quitar)")}
                 </p>
                 <ul className="lista-limpia">
                   {CRITERIOS_INTEGRADOS.map((c) => (
@@ -306,7 +307,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                 ))}
               </ul>
               <div className="dirigir">
-                <textarea className="entrada" value={criterio} rows={1} placeholder="Un criterio nuevo: 'Toda cifra de eficacia lleva el nombre del ensayo'" onChange={(e) => setCriterio(e.target.value)} aria-label="Criterio nuevo" />
+                <textarea className="entrada" value={criterio} rows={1} placeholder={tr("Un criterio nuevo: 'Toda cifra de eficacia lleva el nombre del ensayo'")} onChange={(e) => setCriterio(e.target.value)} aria-label="Criterio nuevo" />
                 <button
                   type="button"
                   className="btn"
@@ -316,7 +317,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                     setCriterio('');
                   }}
                 >
-                  Añadir
+                  {tr("Añadir")}
                 </button>
               </div>
             </Seccion>
@@ -334,34 +335,34 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                   <div className="campo">
                     <label htmlFor="slack-canal">Canal</label>
                     <EntradaDiferida id="slack-canal" valor={avisos.slack.canal} onGuardar={(v) => acciones.actualizarAvisos({ ...avisos, slack: { ...avisos.slack, canal: v } })} />
-                    <small>La conexión con Slack se hará con un botón "Conectar con Slack" cuando ROSA2018 esté en su servidor; aquí solo se elige el canal.</small>
+                    <small>{tr("La conexión con Slack se hará con un botón \"Conectar con Slack\" cuando ROSA2018 esté en su servidor; aquí solo se elige el canal.")}</small>
                   </div>
                 )}
                 <label className="interruptor">
                   <input type="checkbox" checked={avisos.correo.activo} onChange={(e) => acciones.actualizarAvisos({ ...avisos, correo: { ...avisos.correo, activo: e.target.checked } })} />
                   Correo
                 </label>
-                <p>Los avisos llegan a la cuenta verificada que inició cada corrida. No se utiliza una dirección global.</p>
+                <p>{tr("Los avisos llegan a la cuenta verificada que inició cada corrida. No se utiliza una dirección global.")}</p>
                 <p className="campo-etiqueta">Avisar cuando</p>
                 <label className="interruptor">
                   <input type="checkbox" checked={avisos.cuando.hipotesisNueva} onChange={(e) => acciones.actualizarAvisos({ ...avisos, cuando: { ...avisos.cuando, hipotesisNueva: e.target.checked } })} />
-                  Hay una hipótesis nueva en la cola
+                  {tr("Hay una hipótesis nueva en la cola")}
                 </label>
                 <label className="interruptor">
                   <input type="checkbox" checked={avisos.cuando.permisoPendiente} onChange={(e) => acciones.actualizarAvisos({ ...avisos, cuando: { ...avisos.cuando, permisoPendiente: e.target.checked } })} />
-                  ROSA2018 espera un plan, un permiso o tiene una incidencia
+                  {tr("ROSA2018 espera un plan, un permiso o tiene una incidencia")}
                 </label>
                 <label className="interruptor">
                   <input type="checkbox" checked={avisos.cuando.corridaDetenida} onChange={(e) => acciones.actualizarAvisos({ ...avisos, cuando: { ...avisos.cuando, corridaDetenida: e.target.checked } })} />
-                  Una corrida se detiene, se pausa por presupuesto o termina
+                  {tr("Una corrida se detiene, se pausa por presupuesto o termina")}
                 </label>
                 <label className="interruptor">
                   <input type="checkbox" checked={avisos.cuando.resumenDiario} onChange={(e) => acciones.actualizarAvisos({ ...avisos, cuando: { ...avisos.cuando, resumenDiario: e.target.checked } })} />
-                  Resumen diario de estado (contadores y enlace)
+                  {tr("Resumen diario de estado (contadores y enlace)")}
                 </label>
                 {avisos.cuando.resumenDiario && ejemploDigest !== '' && (
                   <div>
-                    <p className="campo-etiqueta">Resumen ampliado solo en ROSA2018; el correo no incluye estos detalles</p>
+                    <p className="campo-etiqueta">{tr("Resumen ampliado solo en ROSA2018; el correo no incluye estos detalles")}</p>
                     <pre className="registro">{ejemploDigest}</pre>
                   </div>
                 )}
@@ -378,21 +379,21 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               <table className="tabla">
                 <tbody>
                   <tr>
-                    <td>Cerebro del bucle</td>
+                    <td>{tr("Cerebro del bucle")}</td>
                     <td className="mono">openai/gpt-6-astra</td>
                     <td>
                       <Chip tono="ok">Elegido</Chip>
                     </td>
                   </tr>
                   <tr>
-                    <td>Juez del verificador</td>
+                    <td>{tr("Juez del verificador")}</td>
                     <td className="mono">anthropic/claude-opus-5</td>
                     <td>
-                      <Chip tono="aviso">A confirmar frente a Astra con casos aprobados</Chip>
+                      <Chip tono="aviso">{tr("A confirmar frente a Astra con casos aprobados")}</Chip>
                     </td>
                   </tr>
                   <tr>
-                    <td>Alto volumen sin veto</td>
+                    <td>{tr("Alto volumen sin veto")}</td>
                     <td className="mono">anthropic/claude-sonnet-5</td>
                     <td>
                       <Chip tono="ok">Elegido</Chip>
@@ -402,7 +403,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                     <td>Reserva</td>
                     <td className="mono">anthropic/claude-fable-5.1</td>
                     <td>
-                      <Chip tono="mal">Fuera: filtros de doble uso en biología</Chip>
+                      <Chip tono="mal">{tr("Fuera: filtros de doble uso en biología")}</Chip>
                     </td>
                   </tr>
                 </tbody>

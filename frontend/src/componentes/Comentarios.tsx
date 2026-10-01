@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AnclaComentario, Comentario } from '../datos/tipos';
 import { IconMessage, IconPen, IconX } from './icons';
+import { tr } from '../lib/idioma';
 
 const TOPE = 1000;
 
@@ -56,7 +57,7 @@ export function NuevoComentario({ ancla, onGuardar, onCancelar }: { ancla: Ancla
         className="entrada"
         value={nota}
         maxLength={TOPE}
-        placeholder="Qué quieres decirle a ROSA2018 sobre este tramo"
+        placeholder={tr("Qué quieres decirle a ROSA2018 sobre este tramo")}
         onChange={(e) => setNota(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && !e.shiftKey && nota.trim() !== '') {
@@ -75,7 +76,7 @@ export function NuevoComentario({ ancla, onGuardar, onCancelar }: { ancla: Ancla
           Cancelar
         </button>
         <span className="meta" style={{ marginLeft: 'auto' }}>
-          Enter guarda, Shift+Enter salta de línea · {nota.length} / {TOPE}
+          {tr("Enter guarda, Shift+Enter salta de línea ·")} {nota.length} / {TOPE}
         </span>
       </div>
     </div>
@@ -140,7 +141,7 @@ export function BandejaComentarios({
           <IconMessage size={14} />
           {pendientes.length} {pendientes.length === 1 ? 'comentario pendiente' : 'comentarios pendientes'}
         </strong>
-        <span className="meta">Salen juntos con el siguiente mensaje</span>
+        <span className="meta">{tr("Salen juntos con el siguiente mensaje")}</span>
       </div>
       <ul className="lista-limpia">
         {pendientes.map((c) => (
@@ -148,7 +149,7 @@ export function BandejaComentarios({
         ))}
       </ul>
       <div className="dirigir">
-        <textarea className="entrada" value={mensaje} placeholder="Mensaje para ROSA2018 (opcional)" onChange={(e) => setMensaje(e.target.value)} rows={1} />
+        <textarea className="entrada" value={mensaje} placeholder={tr("Mensaje para ROSA2018 (opcional)")} onChange={(e) => setMensaje(e.target.value)} rows={1} />
         <button
           type="button"
           className="btn btn-primario"

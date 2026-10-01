@@ -21,6 +21,7 @@
 import type { ReactNode } from 'react';
 import { plural } from '../lib/formato';
 import { Chip } from './piezas';
+import { tr } from '../lib/idioma';
 
 export type ClaseAlternativa = 'causa_inversa' | 'confusor' | 'seleccion' | 'artefacto' | 'otra';
 
@@ -198,7 +199,7 @@ export function Alternativas({ h, vacio }: { h: ConAlternativas | null | undefin
   return (
     <div>
       <p className="meta">
-        {plural(lista.length, 'explicación alternativa', 'explicaciones alternativas')}. Cada una dice qué observación la separaría de la hipótesis: eso es lo que convierte una duda en un experimento.
+        {plural(lista.length, 'explicación alternativa', 'explicaciones alternativas')}{tr(". Cada una dice qué observación la separaría de la hipótesis: eso es lo que convierte una duda en un experimento.")}
         {delGrafo && ' Leídas del grafo causal que construyó el Killer; ahí no consta qué las distinguiría.'}
       </p>
       <ul className="supuestos">
@@ -213,12 +214,12 @@ export function Alternativas({ h, vacio }: { h: ConAlternativas | null | undefin
                   {desconocida && ` (${a.claseOriginal})`}
                 </Chip>
                 <span className="meta">{c.definicion}</span>
-                {a.claseInferida && a.clase !== 'otra' && <span className="meta">Clase inferida del texto por regla</span>}
-                {a.iteracion !== null && <span className="meta">Iteración {a.iteracion}</span>}
+                {a.claseInferida && a.clase !== 'otra' && <span className="meta">{tr("Clase inferida del texto por regla")}</span>}
+                {a.iteracion !== null && <span className="meta">{tr("Iteración")} {a.iteracion}</span>}
               </div>
               {a.texto && <p>{a.texto}</p>}
               <p className="meta">
-                <strong>Qué la distinguiría:</strong> {a.queLaDistinguiria || 'ROSA2018 no lo dejó escrito; sin eso la alternativa no se puede separar de la hipótesis en un experimento.'}
+                <strong>{tr("Qué la distinguiría:")}</strong> {a.queLaDistinguiria || 'ROSA2018 no lo dejó escrito; sin eso la alternativa no se puede separar de la hipótesis en un experimento.'}
               </p>
             </li>
           );

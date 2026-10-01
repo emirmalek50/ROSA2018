@@ -22,6 +22,7 @@ import { digest, loQueEspera } from '../lib/digest';
 import { ESTADO_CORRIDA, etiquetaCorrida, proponiendoPlan } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
+import { tr } from '../lib/idioma';
 
 const CABECERA_INICIO = {
   titulo: 'Investigaciones',
@@ -55,7 +56,7 @@ export function Inicio({ estado, ahora }: { estado: EstadoRosa; ahora: number })
           <p>{CABECERA_INICIO.descripcion}</p>
         </div>
         <a className="btn btn-primario" href="#/nueva">
-          Nueva investigación
+          {tr("Nueva investigación")}
         </a>
       </div>
 
@@ -71,11 +72,11 @@ export function Inicio({ estado, ahora }: { estado: EstadoRosa; ahora: number })
           pasos={['Escribes el objetivo, los límites y la condición de parada.', 'ROSA2018 propone la misión y el plan de la primera iteración; tú lo apruebas.', 'Busca literatura, verifica, actualiza el modelo de mundo y genera hipótesis.', 'Tú decides sobre las hipótesis; las candidatas van al laboratorio con prerregistro.']}
           accion={
             <a className="btn btn-primario" href="#/nueva">
-              Crear la primera investigación
+              {tr("Crear la primera investigación")}
             </a>
           }
         >
-          Una investigación es un objetivo con sus límites y su condición de parada. ROSA2018 corre dentro de ellos.
+          {tr("Una investigación es un objetivo con sus límites y su condición de parada. ROSA2018 corre dentro de ellos.")}
         </Vacio>
       ) : (
         <div className="inicio-rejilla" style={{ marginTop: 20 }}>
@@ -97,7 +98,7 @@ export function Inicio({ estado, ahora }: { estado: EstadoRosa; ahora: number })
                     <p>
                       {corrida.estado === 'en_marcha' && enCurso ? (
                         <>
-                          Iteración {corrida.iteracionActual}: <span className="shimmer-text">{enCurso.titulo.toLowerCase()}</span>
+                          {tr("Iteración")} {corrida.iteracionActual}: <span className="shimmer-text">{enCurso.titulo.toLowerCase()}</span>
                           {pistasVivas > 0 && ` (${pistasVivas} ${pistasVivas === 1 ? 'pista' : 'pistas'} en paralelo)`}
                         </>
                       ) : corrida.estado === 'esperando_plan' ? (

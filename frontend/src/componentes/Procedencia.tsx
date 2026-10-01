@@ -13,6 +13,7 @@ import { fechaCorta, tiempoRelativo } from '../lib/formato';
 import { IconExternal, IconX } from './icons';
 import { Chip, descargar } from './piezas';
 import { Revisor } from './Revisor';
+import { tr } from '../lib/idioma';
 
 export type PestanaProcedencia = 'mensajes' | 'codigo' | 'registro' | 'entorno' | 'revision' | 'fuentes';
 
@@ -153,11 +154,11 @@ export function Procedencia({
         )}
         {pestana === 'codigo' &&
           (p.codigo.trim() === '' ? (
-            <p className="meta">Esta hipótesis no ejecutó código propio.</p>
+            <p className="meta">{tr("Esta hipótesis no ejecutó código propio.")}</p>
           ) : (
             <>
               <p className="meta">
-                Script reproducible del paso que la genero. Si discrepa del registro, manda el registro.
+                {tr("Script reproducible del paso que la genero. Si discrepa del registro, manda el registro.")}
                 {celdaDestacada !== null && ` Celda ${celdaDestacada} destacada.`}
               </p>
               <pre className={`codigo ${celdaDestacada !== null ? 'codigo-destacado' : ''}`}>
@@ -170,7 +171,7 @@ export function Procedencia({
           ))}
         {pestana === 'registro' && (
           <>
-            <p className="meta">Cada comando que corrió, en orden. Es la fuente autoritativa.</p>
+            <p className="meta">{tr("Cada comando que corrió, en orden. Es la fuente autoritativa.")}</p>
             <pre className="registro">{p.registro.join('\n')}</pre>
           </>
         )}
@@ -183,7 +184,7 @@ export function Procedencia({
               <thead>
                 <tr>
                   <th>Paquete</th>
-                  <th>Versión</th>
+                  <th>{tr("Versión")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -199,7 +200,7 @@ export function Procedencia({
               <thead>
                 <tr>
                   <th>Modelo</th>
-                  <th>Vía</th>
+                  <th>{tr("Vía")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -216,12 +217,12 @@ export function Procedencia({
         {pestana === 'revision' && <Revisor hallazgos={hipotesis.hallazgos} />}
         {pestana === 'fuentes' &&
           (p.fuentes.length === 0 ? (
-            <p className="meta">Sin fuentes citadas.</p>
+            <p className="meta">{tr("Sin fuentes citadas.")}</p>
           ) : (
             <>
               <div className="acciones">
                 <Chip>{p.fuentes.length === 1 ? '1 fuente' : `${p.fuentes.length} fuentes`}</Chip>
-                <span className="meta">La página es la del visor de PDF, no la impresa al pie.</span>
+                <span className="meta">{tr("La página es la del visor de PDF, no la impresa al pie.")}</span>
               </div>
               <div className="acciones">
                 <span className="meta">Exportar:</span>

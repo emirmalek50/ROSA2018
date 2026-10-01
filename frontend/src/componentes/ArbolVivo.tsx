@@ -9,6 +9,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useMovimientoReducido } from '../lib/movimiento';
+import { tr } from '../lib/idioma';
 
 type Tipo = 'objetivo' | 'rama' | 'hipotesis' | 'hecho' | 'fuente' | 'experimento';
 
@@ -95,7 +96,7 @@ export function ArbolVivo({ className }: { className?: string }) {
   const porId = new Map(NODOS.map((n) => [n.id, n]));
   return (
     <div className={`arbol-vivo ${className ?? ''}`.trim()}>
-      <svg viewBox="0 0 360 420" role="img" aria-label="Árbol de conocimiento de ROSA2018: un objetivo, ramas, hipótesis y lo que las sostiene" className={reducido ? 'arbol-vivo-quieto' : ''}>
+      <svg viewBox="0 0 360 420" role="img" aria-label={tr("Árbol de conocimiento de ROSA2018: un objetivo, ramas, hipótesis y lo que las sostiene")} className={reducido ? 'arbol-vivo-quieto' : ''}>
         <defs>
           <radialGradient id="arbol-vivo-halo" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="currentColor" stopOpacity="0.55" />

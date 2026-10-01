@@ -24,6 +24,7 @@ import { construirArbol, enlaceDe, iteracionesDe, type Evidencia, type FiltroVer
 import { formatearEntero } from '../lib/formato';
 import { Cargando, Esqueleto } from './Esqueleto';
 import { Chip, Seccion } from './piezas';
+import { tr } from '../lib/idioma';
 
 const FILTROS: { clave: FiltroVeredicto; etiqueta: string }[] = [
   { clave: 'todas', etiqueta: 'Todas' },
@@ -183,7 +184,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
     return (
       <Seccion detalle titulo={TITULO} nota={NOTA}>
         <div className="acciones">
-          <span className="meta">No pude comprobar la cadena de evidencia: el servidor no respondió a tiempo.</span>
+          <span className="meta">{tr("No pude comprobar la cadena de evidencia: el servidor no respondió a tiempo.")}</span>
           <button type="button" className="btn btn-s" onClick={() => setIntento((i) => i + 1)}>
             Volver a pedir
           </button>
@@ -212,7 +213,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
           <div className="pestanas pestanas-s" role="tablist">
             {iteraciones.map((n) => (
               <button key={n} type="button" role="tab" aria-selected={n === actual} className={n === actual ? 'activa' : ''} onClick={() => setIteracion(n)}>
-                Iteración {n}
+                {tr("Iteración")} {n}
               </button>
             ))}
           </div>
@@ -240,12 +241,12 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
           <strong>
             <span className="tono-ok">{e.sostenidas}</span> · <span className="tono-aviso">{e.parciales + e.sinVerificar}</span> · <span className="tono-mal">{e.bloqueadas}</span>
           </strong>
-          <span>sostenidas · parciales o sin comprobar · bloqueadas</span>
+          <span>{tr("sostenidas · parciales o sin comprobar · bloqueadas")}</span>
         </div>
       </div>
 
       <div className="filtros-arbol">
-        <div className="pestanas pestanas-s" role="tablist" aria-label="Filtrar por veredicto">
+        <div className="pestanas pestanas-s" role="tablist" aria-label={tr("Filtrar por veredicto")}>
           {FILTROS.map((f) => (
             <button key={f.clave} type="button" role="tab" aria-selected={filtro === f.clave} className={filtro === f.clave ? 'activa' : ''} onClick={() => setFiltro(f.clave)}>
               {f.etiqueta}
@@ -265,7 +266,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
         </label>
       </div>
 
-      {arbol.nodos.length === 0 && <p className="meta">Esta iteración todavía no tiene consultas ni fuentes.</p>}
+      {arbol.nodos.length === 0 && <p className="meta">{tr("Esta iteración todavía no tiene consultas ni fuentes.")}</p>}
 
       <ul className="arbol" role="tree">
         {arbol.nodos.map((n) => {
@@ -290,7 +291,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
                   ) : (
                     <>
                       <strong>Otras fuentes</strong>
-                      <span className="arbol-detalle">Ensayos registrados y fuentes sin consulta anotada</span>
+                      <span className="arbol-detalle">{tr("Ensayos registrados y fuentes sin consulta anotada")}</span>
                     </>
                   )}
                 </span>
@@ -303,7 +304,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
               {abierta && n.consulta && <code className="arbol-consulta">{n.consulta.consulta}</code>}
               {abierta && (
                 <ul className="arbol-hijos" role="group">
-                  {n.fuentes.length === 0 && <li className="meta arbol-vacio">Ninguna fuente pasó el cribado de relevancia.</li>}
+                  {n.fuentes.length === 0 && <li className="meta arbol-vacio">{tr("Ninguna fuente pasó el cribado de relevancia.")}</li>}
                   {n.fuentes.map((f) => (
                     <Fuente key={f.fuente.id} nodo={f} abierta={abiertas.has(`f-${f.fuente.id}`)} onAlternar={() => alternar(`f-${f.fuente.id}`)} />
                   ))}
@@ -341,9 +342,9 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
             </Chip>
           )}
           {f.retraccion === 'retractado' && <Chip tono="mal">Retractado</Chip>}
-          {f.retraccion === 'preocupacion' && <Chip tono="aviso">Expresión de preocupación</Chip>}
+          {f.retraccion === 'preocupacion' && <Chip tono="aviso">{tr("Expresión de preocupación")}</Chip>}
           {f.retraccion === 'erratum' && <Chip tono="aviso">Erratum</Chip>}
-          <Chip tono="borde" title="Puntuación de relevancia del cribado, 0 a 10">
+          <Chip tono="borde" title={tr("Puntuación de relevancia del cribado, 0 a 10")}>
             relevancia {f.relevancia}
           </Chip>
           <Chip tono={f.textoCompleto ? 'acento' : 'borde'}>{f.textoCompleto ? `texto completo · ${f.fragmentos} fragmentos` : 'solo resumen'}</Chip>
@@ -362,12 +363,12 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
             )}
             {f.anio && <span>{f.anio}</span>}
             {f.modo === 'amplitud' && <Chip tono="acento" title={f.porque ? `Llegó por búsqueda en amplitud. Se conservó porque podría cambiar: ${f.porque}` : 'Llegó por búsqueda en amplitud'}>Amplitud</Chip>}
-            {nodo.tambienEn.length > 0 && <span>También la trajo la consulta {nodo.tambienEn.join(', ')}</span>}
+            {nodo.tambienEn.length > 0 && <span>{tr("También la trajo la consulta")} {nodo.tambienEn.join(', ')}</span>}
             {f.retraccionDetalle && <span>Crossref: {f.retraccionDetalle}</span>}
-            {!f.extraida && <span>Todavía sin extraer</span>}
+            {!f.extraida && <span>{tr("Todavía sin extraer")}</span>}
           </div>
           <ul className="arbol-afirmaciones" role="group">
-            {nodo.afirmaciones.length === 0 && <li className="meta arbol-vacio">Sin afirmaciones que pasen el filtro.</li>}
+            {nodo.afirmaciones.length === 0 && <li className="meta arbol-vacio">{tr("Sin afirmaciones que pasen el filtro.")}</li>}
             {nodo.afirmaciones.map((a) => {
               const v = VEREDICTO[a.veredicto];
               return (

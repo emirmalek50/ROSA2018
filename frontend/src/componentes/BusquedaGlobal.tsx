@@ -16,6 +16,7 @@ import { esTiempoAgotado, senalDeTope } from '../lib/diferido';
 import { Cargando, Esqueleto } from './Esqueleto';
 import { IconSearch, IconX } from './icons';
 import { Chip } from './piezas';
+import { tr } from '../lib/idioma';
 
 const TIPO: Record<Resultado['tipo'], string> = {
   hipotesis: 'Hipótesis',
@@ -119,7 +120,7 @@ export function BusquedaGlobal({ estado, investigacionId, abierta, onCerrar }: {
   };
   return (
     <div className="scrim scrim-visible" onClick={onCerrar} role="presentation">
-      <div className="busqueda" role="dialog" aria-label="Buscar en la investigación" onClick={(e) => e.stopPropagation()}>
+      <div className="busqueda" role="dialog" aria-label={tr("Buscar en la investigación")} onClick={(e) => e.stopPropagation()}>
         <div className="busqueda-entrada">
           <IconSearch size={15} />
           <input
@@ -151,7 +152,7 @@ export function BusquedaGlobal({ estado, investigacionId, abierta, onCerrar }: {
         </div>
         {q.trim().length >= 2 && (
           <ul className="busqueda-resultados">
-            {resultados.length === 0 && <li className="meta">Nada en esta investigación coincide con «{q}».</li>}
+            {resultados.length === 0 && <li className="meta">{tr("Nada en esta investigación coincide con «")}{q}».</li>}
             {resultados.map((r, i) => (
               <li key={`${r.tipo}-${r.titulo}-${i}`}>
                 <button type="button" className={`busqueda-item ${i === indice ? 'busqueda-activo' : ''}`} onMouseEnter={() => setIndice(i)} onClick={() => ir(r)}>
@@ -165,9 +166,9 @@ export function BusquedaGlobal({ estado, investigacionId, abierta, onCerrar }: {
         )}
         {(semanticos.length > 0 || buscandoSemantico || sinRespuesta) && (
           <div className="busqueda-semantica">
-            <p className="meta" style={{ margin: '8px 0 4px' }}>Por significado (índice semántico)</p>
+            <p className="meta" style={{ margin: '8px 0 4px' }}>{tr("Por significado (índice semántico)")}</p>
             {sinRespuesta && !buscandoSemantico && semanticos.length === 0 ? (
-              <p className="meta">No pude comprobar el índice por significado: el servidor no respondió a tiempo. Escribe otra vez para volver a intentarlo.</p>
+              <p className="meta">{tr("No pude comprobar el índice por significado: el servidor no respondió a tiempo. Escribe otra vez para volver a intentarlo.")}</p>
             ) : semanticos.length > 0 ? (
               <ul className="busqueda-resultados">
                 {semanticos.map((r) => {
@@ -197,7 +198,7 @@ export function BusquedaGlobal({ estado, investigacionId, abierta, onCerrar }: {
             )}
           </div>
         )}
-        <p className="meta busqueda-pie">Flechas para moverte, Enter para abrir, Escape para cerrar.</p>
+        <p className="meta busqueda-pie">{tr("Flechas para moverte, Enter para abrir, Escape para cerrar.")}</p>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import type { CeldaMapa, EjeMapa, HuecoMapa, MapaEnfermedad as Mapa } from '../d
 import { CERTEZA_EVIDENCIA } from '../lib/etiquetas';
 import { plural } from '../lib/formato';
 import { SoloDetalle } from './piezas';
+import { tr } from '../lib/idioma';
 
 /** Etiquetas de reserva, copiadas de rosa/mapa_enfermedad.py ETIQUETAS. Las
  *  que llegan con el mapa (mapa.etiquetas) mandan; estas cubren un mapa
@@ -151,9 +152,9 @@ function Ficha({ celda, mapa }: { celda: CeldaMapa; mapa: Mapa }) {
 export function MapaEnfermedad({ mapa }: { mapa: Mapa | null | undefined }) {
   if (!mapa || typeof mapa !== 'object') {
     return (
-      <article className="tarjeta mapa-enf" aria-label="Mapa de la enfermedad">
-        <h3 className="mapa-enf-cabecera">Mapa de la enfermedad</h3>
-        <p className="meta">Se calcula al cerrar la primera iteración: dónde cae la evidencia reunida por fase de la enfermedad, región del cerebro y tipo de célula, y qué combinaciones que nombra la misión siguen sin cubrir.</p>
+      <article className="tarjeta mapa-enf" aria-label={tr("Mapa de la enfermedad")}>
+        <h3 className="mapa-enf-cabecera">{tr("Mapa de la enfermedad")}</h3>
+        <p className="meta">{tr("Se calcula al cerrar la primera iteración: dónde cae la evidencia reunida por fase de la enfermedad, región del cerebro y tipo de célula, y qué combinaciones que nombra la misión siguen sin cubrir.")}</p>
       </article>
     );
   }
@@ -198,21 +199,21 @@ export function MapaEnfermedad({ mapa }: { mapa: Mapa | null | undefined }) {
   const hayRejilla = filas.length > 0 && columnas.length > 0;
 
   return (
-    <article className="tarjeta mapa-enf" aria-label="Mapa de la enfermedad">
+    <article className="tarjeta mapa-enf" aria-label={tr("Mapa de la enfermedad")}>
       <div className="mapa-enf-cabecera">
-        <h3>Mapa de la enfermedad</h3>
+        <h3>{tr("Mapa de la enfermedad")}</h3>
         <span className="meta">{iteracion ? `Calculado al cerrar la iteración ${iteracion}.` : 'Calculado a demanda.'}</span>
       </div>
       {resumen ? <p className="mapa-enf-resumen">{resumen}</p> : null}
       {(sinEjes > 0 || hipSinEjes > 0) && (
         <p className="aviso-muestra mapa-enf-aviso" role="status">
-          {[sinEjes > 0 ? plural(sinEjes, 'hecho') : '', hipSinEjes > 0 ? plural(hipSinEjes, 'hipótesis', 'hipótesis') : ''].filter(Boolean).join(' y ')} {sinEjes + hipSinEjes === 1 ? 'no se pudo situar' : 'no se pudieron situar'} en ningún eje: su texto no nombra fase, región ni tipo celular y la misión no {sinEjes + hipSinEjes === 1 ? 'lo' : 'los'} fija. {sinEjes + hipSinEjes === 1 ? 'No está en la rejilla, pero cuenta' : 'No están en la rejilla, pero cuentan'} en el modelo de mundo.
+          {[sinEjes > 0 ? plural(sinEjes, 'hecho') : '', hipSinEjes > 0 ? plural(hipSinEjes, 'hipótesis', 'hipótesis') : ''].filter(Boolean).join(' y ')} {sinEjes + hipSinEjes === 1 ? 'no se pudo situar' : 'no se pudieron situar'} {tr("en ningún eje: su texto no nombra fase, región ni tipo celular y la misión no")} {sinEjes + hipSinEjes === 1 ? 'lo' : 'los'} fija. {sinEjes + hipSinEjes === 1 ? 'No está en la rejilla, pero cuenta' : 'No están en la rejilla, pero cuentan'} {tr("en el modelo de mundo.")}
         </p>
       )}
       {huecos.length > 0 && (
         <div className="mapa-enf-huecos">
-          <p className="campo-etiqueta" title="Un hueco es una combinación de fase, región o tipo celular que la misión nombra y que ningún hecho ni hipótesis cubre por su propio contenido.">
-            Huecos de la misión sin cubrir ({huecos.length})
+          <p className="campo-etiqueta" title={tr("Un hueco es una combinación de fase, región o tipo celular que la misión nombra y que ningún hecho ni hipótesis cubre por su propio contenido.")}>
+            {tr("Huecos de la misión sin cubrir (")}{huecos.length})
           </p>
           <ul className="lista-limpia">
             {huecos.slice(0, 20).map((h, i) => (
@@ -230,7 +231,7 @@ export function MapaEnfermedad({ mapa }: { mapa: Mapa | null | undefined }) {
       <SoloDetalle resumen={hayRejilla ? `La rejilla: ${plural(celdas.length, 'celda')} con evidencia en ${plural(filas.length, 'fase')} y ${plural(columnas.length, 'región', 'regiones')}.` : 'La rejilla estadio x región aparece cuando haya hechos o hipótesis situados.'}>
         {niveles.length > 0 && (
           <p className="meta mapa-enf-niveles">
-            Nivel biológico al que habla la evidencia:{' '}
+            {tr("Nivel biológico al que habla la evidencia:")}{' '}
             {niveles.map(([n, v], i) => (
               <span key={n}>
                 {i > 0 ? ' · ' : ''}
@@ -247,7 +248,7 @@ export function MapaEnfermedad({ mapa }: { mapa: Mapa | null | undefined }) {
             <table className="tabla mapa-enf-rejilla">
               <thead>
                 <tr>
-                  <th title="Fase de la enfermedad (estadio) en filas; región del cerebro o compartimento en columnas.">Fase \ Región</th>
+                  <th title={tr("Fase de la enfermedad (estadio) en filas; región del cerebro o compartimento en columnas.")}>{tr("Fase \\ Región")}</th>
                   {columnas.map((r) => (
                     <th key={r || SIN} title={r ? `Región: ${etiquetaEje(mapa, 'region', r)}.` : 'Registros sin región identificada por su contenido ni por la misión.'}>
                       {etiquetaEje(mapa, 'region', r || null)}
@@ -284,7 +285,7 @@ export function MapaEnfermedad({ mapa }: { mapa: Mapa | null | undefined }) {
             </table>
           </div>
         ) : (
-          <p className="meta">Todavía no hay hechos ni hipótesis situados: la rejilla aparece en cuanto ROSA2018 reúna evidencia con fase, región o tipo celular.</p>
+          <p className="meta">{tr("Todavía no hay hechos ni hipótesis situados: la rejilla aparece en cuanto ROSA2018 reúna evidencia con fase, región o tipo celular.")}</p>
         )}
       </SoloDetalle>
     </article>
