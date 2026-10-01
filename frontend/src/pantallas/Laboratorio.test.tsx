@@ -851,8 +851,8 @@ describe('lo que va al laboratorio', () => {
   it('la dúplex marca el hueco de ADN y dice que es un esquema, no una estructura', async () => {
     const pares = Array.from({ length: 20 }, (_, k) => ({
       i: k + 1,
-      aso: 'ACGT'[k % 4],
-      arn: 'UGCA'[k % 4],
+      aso: 'ACGT'.charAt(k % 4),
+      arn: 'UGCA'.charAt(k % 4),
       quimica: (k < 5 || k >= 15 ? 'ala' : 'hueco') as 'ala' | 'hueco',
       z: k * 2.62,
       yAso: Math.sin((k * 32.7 * Math.PI) / 180),

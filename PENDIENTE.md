@@ -1224,3 +1224,35 @@ hacía caer en el mismo punto. Cada letra va por fuera de SU hebra.
 - **La química sigue siendo coocurrencia, no afinidad** (11 de 14 dianas llevan
   amiloide-beta y lecanemab).
 - **Ninguna estructura medida del PDB se dibuja todavía.**
+
+## Auditoría de integridad y rendimiento corregida (1 de octubre de 2026)
+
+- El resumen del laboratorio conserva estratos de diseño y calcula diferencias
+  descriptivas entre dos grupos. No sustituye un análisis ajustado o pareado:
+  cuando no reconoce el diseño lo declara no comprobable, sin inventar un p-valor.
+- Las entregas de archivos son inmutables. Una evaluación solo se aplica si la
+  entrega, el contrato y la versión de la hipótesis siguen siendo los evaluados.
+- Cualquier fallo de SQLite, incluido BEGIN, restaura la memoria desde disco.
+- El estado se persiste por claves en `estado_partes`, con versión en
+  `estado_meta`. La vista `estado` sigue entregando el JSON completo a lectores.
+  La migración es transaccional al abrir para escritura; un binario antiguo
+  obtiene rowcount cero en la vista y revierte por su control de versión.
+  No se debe ejecutar una versión antigua para escribir en una base migrada.
+- El análisis guarda código, resultado del sandbox, réplicas e interpretación
+  antes de continuar. Al reanudar conserva el plan y el cupo ya consumido.
+- Detección del runtime y hash de datos salen del bucle de eventos. Las versiones
+  se registran desde el entorno realmente ejecutado, sin sobrescribirlas con la
+  imagen tabular. Si la consulta falla no se guarda una caché de versiones falsas.
+- La estabilidad compara la misma medida entre semillas. Réplicas incompletas,
+  valores ausentes o no finitos son no comprobables y no reciben auditoría válida.
+- El límite de cifras también acota resultados por gen; conserva las claves
+  principales y cuenta lo omitido. Los valores no finitos del CSV se señalan.
+- El hook de altura cumple la convención de React; el fixture del dúplex usa
+  caracteres de tipo string para que TypeScript pueda verificarlo.
+
+Pruebas de regresión en `rosa/tests/test_bughunt_integridad.py`, con modelos
+simulados y bases temporales, incluidas reanudación tras reabrir SQLite y
+protección contra escrituras de un binario anterior. Sobre copias de 39,1 MB,
+diez mutaciones pequeñas: mediana de 64,9 a 41,9 ms; WAL de 79 MB a 165 KB.
+Sigue existiendo el coste de recorrer el estado para detectar cambios; se
+eliminó la reescritura de las claves que no cambian.

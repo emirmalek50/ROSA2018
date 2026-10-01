@@ -305,6 +305,8 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
             # Las deterministas criticas mandan: una fuga o un plan no cumplido invalidan aunque el juez dude.
             if any(c["comprobacion"] in ("fuga_de_datos", "coincide_con_plan", "estabilidad_semillas") and c["resultado"] == "falla" for c in deterministas):
                 veredicto = "no_valido"
+            elif any(c["comprobacion"] == "estabilidad_semillas" and c["resultado"] == "no_comprobable" for c in deterministas):
+                veredicto = "no_evaluable_computacionalmente"
             auditoria = {"veredicto": veredicto, "comprobaciones": comprobaciones, "motivo": au.motivo.strip(), "quien": ctx.modelos.juez.model, "fecha": P.ahora_ms()}
             run_plausible = bool(au.plausibilidad_verificada)
         except PresupuestoAgotado:
@@ -345,8 +347,7 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
     ctx.mutar(guardar, "ejecucion")
     estado_txt = res.estado if res.estado != "completado" else (interpretacion or {}).get("estado", "completado")
     pista.resultado(f"Ejecución {run['id']}: {estado_txt}" + (f"; auditoría {auditoria['veredicto']}" if auditoria else "") + (f". {res.error[-160:]}" if res.estado != "completado" else ""))
-    run.update(estado=res.estado, resultados=res.resultados, baseline=res.baseline, controlNegativo=res.control, interpretacion=interpretacion, auditoria=auditoria, error=res.error, runtime=res.runtime)
-    return run
+    return copy.deepcopy(next(r for r in ctx.e["ejecuciones"] if r["id"] == run["id"]))
 
 
 async def analizar_hipotesis(ctx, h: dict[str, Any], dataset_id: str, pregunta: str, pista: Pista) -> dict[str, Any] | None:

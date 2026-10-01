@@ -125,6 +125,9 @@ def _resumen_grupos(cabecera: list[str], filas: list[list[str]]) -> str:
     lineas = ["Descriptivos por estrato de diseño (no son pruebas de significación, equivalencia ni causalidad):"]
     for clave, fs in sorted(grupos.items()):
         lineas.append("Estrato " + "; ".join(f"{cabecera[i]}={v}" for i, v in zip(indices, clave)))
+        if len(fs) < 3:
+            lineas.append("Menos de tres observaciones: no se envían estadísticas que permitan reconstruir filas individuales.")
+            continue
         for j, col in enumerate(cabecera):
             if j in indices:
                 continue
@@ -133,6 +136,18 @@ def _resumen_grupos(cabecera: list[str], filas: list[list[str]]) -> str:
             if nums and len(nums) >= len(fs) * 0.6:
                 sd = statistics.stdev(nums) if len(nums) > 1 else None
                 lineas.append(f"- {col}: n={len(nums)}, media={statistics.fmean(nums):.8g}, mediana={statistics.median(nums):.8g}, sd={sd if sd is not None else 'no estimable'}, faltantes_o_inválidos={len(fs)-len(nums)}")
+    if len(indices) == 1 and len(grupos) == 2 and all(len(fs) >= 3 for fs in grupos.values()):
+        a, b = sorted(grupos)
+        for j, col in enumerate(cabecera):
+            if j in indices:
+                continue
+            na = [_numero(f[j]) for f in grupos[a] if j < len(f)]
+            nb = [_numero(f[j]) for f in grupos[b] if j < len(f)]
+            if na and nb and all(n is not None for n in na + nb):
+                va = [n for n in na if n is not None]
+                vb = [n for n in nb if n is not None]
+                diferencia = statistics.fmean(vb) - statistics.fmean(va)
+                lineas.append(f"Contraste descriptivo de {col}: media({b[0]}) - media({a[0]}) = {diferencia:.8g}. Sin ajuste, p-valor ni inferencia de equivalencia.")
     lineas.append("La comparación debe respetar emparejamientos y covariables del prerregistro. Sin su cálculo no se puede afirmar apoyo reproducido ni negativo interpretable solo con estos descriptivos.")
     return "\n".join(lineas)
 

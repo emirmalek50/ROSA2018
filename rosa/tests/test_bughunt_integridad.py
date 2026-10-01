@@ -25,6 +25,8 @@ def test_efectos_opuestos_no_pueden_recibir_el_mismo_resumen():
     assert 'grupo=control\n- medida: n=3, media=1,' in sa
     assert 'grupo=tratado\n- medida: n=3, media=10,' in sa
     assert 'no son pruebas de significación' in sa
+    assert 'media(tratado) - media(control) = 9' in sa
+    assert 'media(tratado) - media(control) = -9' in sb
 
 
 @pytest.mark.parametrize('valor', ['inf', '-inf', '1e999'])
@@ -134,7 +136,8 @@ def test_paquetes_corresponden_al_entorno(monkeypatch):
 
 
 @pytest.mark.parametrize('interrumpir', ['interpretar', 'auditar', 'reparar'])
-def test_reanuda_sin_repetir_sandbox_y_no_bloquea_event_loop(tmp_path, monkeypatch, interrumpir):
+@pytest.mark.parametrize('omitir_medida', [False, True])
+def test_reanuda_sin_repetir_sandbox_y_no_bloquea_event_loop(tmp_path, monkeypatch, interrumpir, omitir_medida):
     al, ids = _preparar()
     sup, ctx, _ = _supervisor(al, ids, {}, monkeypatch)
     ctx.programas = SimpleNamespace(codigo='codigo', interpretar='interpretar', auditar_analisis='auditar', reparar='reparar')
@@ -165,7 +168,8 @@ def test_reanuda_sin_repetir_sandbox_y_no_bloquea_event_loop(tmp_path, monkeypat
         ejecuciones.append(args[4])
         if interrumpir == 'reparar' and len(ejecuciones) == 1:
             return X.Resultado('error_tecnico', 'docker', error='fallo de prueba')
-        return X.Resultado('completado', 'docker', resultados={'p_valor': '.8'}, baseline={'p_valor': '.8'}, control={'p_valor': '.8'}, paquetes=paquetes)
+        cifras = {} if omitir_medida and args[4].endswith('-s2') else {'p_valor': '.8'}
+        return X.Resultado('completado', 'docker', resultados=cifras, baseline={'p_valor': '.8'}, control={'p_valor': '.8'}, paquetes=paquetes)
     monkeypatch.setattr(X, 'runtime_disponible', runtime)
     monkeypatch.setattr(X, 'ejecutar', ejecutar)
     pista = SimpleNamespace(accion=lambda *a: None, error=lambda *a: None, resultado=lambda *a: None)
@@ -181,6 +185,9 @@ def test_reanuda_sin_repetir_sandbox_y_no_bloquea_event_loop(tmp_path, monkeypat
         al.cerrar()
         ctx.almacen = Almacen(ruta_bd)
         resultado = await AN._correr_plan(ctx, plan, ds, ruta, '', ids['hip'], 'hipotesis', pista)
+        assert resultado['entorno']['paquetes'] == paquetes
+        if omitir_medida:
+            assert resultado['auditoria']['veredicto'] == 'no_evaluable_computacionalmente'
         assert resultado['estado'] == 'completado' and len(ejecuciones) == (4 if interrumpir == 'reparar' else 3)
         assert llamadas.count('codigo') == 1
         if interrumpir == 'auditar':
@@ -233,3 +240,9 @@ def test_plan_pendiente_no_se_replanifica_ni_cobra_otro_cupo(tmp_path, monkeypat
         assert not _hip(al, ids).get('_planAnalisisPendiente')
     finally:
         al.cerrar()
+
+
+def test_estratos_unitarios_no_revelan_medidas_individuales():
+    resumen = D._resumen_grupos(['grupo', 'medida'], [['control', '123.45'], ['tratado', '987.65']])
+    assert '123.45' not in resumen and '987.65' not in resumen
+    assert 'no se envían estadísticas' in resumen
