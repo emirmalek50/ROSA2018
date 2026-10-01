@@ -108,6 +108,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
         <div className="ajustes-emblema"><IconSettings size={25} /></div>
         <div><h2>Ajustes</h2><p>Tu forma de trabajar con ROSA2018.</p></div>
         <span className="ajustes-contexto">Alzheimer Project</span>
+        <img className="ajustes-arbol" src="/arbol-marca.png" alt="" aria-hidden="true" />
       </header>
       <div className="ajustes-layout">
         <nav className="ajustes-nav" aria-label="Categorías de ajustes">
@@ -137,7 +138,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
           <div className="ajustes-panel" role="tabpanel" id="ajuste-panel-general" aria-labelledby="ajuste-tab-general" hidden={categoria !== 'general'} tabIndex={0}>
             {sesion && (
               <Seccion titulo="Sesión" nota="La cuenta con la que has entrado en ROSA2018. Cerrar la sesión te devuelve a la pantalla de acceso; las investigaciones y sus corridas quedan en el servidor.">
-                <CuentaActual />
+                <div className="ajustes-identidad"><span className="ajustes-avatar" aria-hidden="true"><IconUser size={23} /></span><CuentaActual /></div>
                 <CuentasDelEquipo />
               </Seccion>
             )}
@@ -147,8 +148,8 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                 {(['claro', 'oscuro', 'sistema'] as Tema[]).map((t) => (
                   <button className="ajustes-tema" data-tema={t} key={t} type="button" aria-pressed={tema === t} onClick={() => setTema(t)}>
                     <span className="ajustes-miniatura" aria-hidden="true">
-                      <span className="ajustes-mini-lateral"><i /><i /><i /></span>
-                      <span className="ajustes-mini-contenido"><b /><i /><i /><span><i /><i /></span></span>
+                      <span className="ajustes-mini-lateral"><img src="/arbol-marca.png" alt="" /><i /><i /><i /></span>
+                      <span className="ajustes-mini-contenido"><b /><i /><i /><span><i /><i /></span><em><i /><i /><i /></em></span>
                     </span>
                     <span className="ajustes-tema-etiqueta">{t === 'sistema' ? 'Como el sistema' : t === 'claro' ? 'Claro' : 'Oscuro'}<span className="ajustes-tema-marca">{tema === t && <IconCheck size={13} />}</span></span>
                   </button>
