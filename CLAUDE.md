@@ -72,12 +72,31 @@ sin aprobar por un humano.
   `rosa/sintetico.py` (ensayo en seco), `rosa/ontologias.py` (entidades
   canonicas), `rosa/costes.py`, `rosa/rocrate.py` (RO-Crate con PROV),
   `rosa/parada.py`. Ver `INVESTIGACION-AI-SCIENTIST-2026.md`.
-  Del 30 de septiembre: `rosa/aso.py` (oligonucleótidos antisentido: gapmer
-  5-10-5 por regla desde la secuencia del transcrito) y `rosa/criba.py`
-  (cribado contra los 669.547 transcritos humanos de Ensembl, en procesos
-  hijos porque `bytes.find` no suelta el GIL; el transcriptoma son 225 MB en
-  `datos/_transcriptoma/`, que no se versiona, y sin él la pantalla dice «sin
-  cribar», nunca «limpio»). Ver `PENDIENTE.md`.
+  Del 30 de septiembre y el 1 de octubre, el diseño de oligos antisentido:
+  `rosa/aso.py` (gapmer 5-10-5 por regla desde la secuencia del transcrito;
+  la accesibilidad pesa en qué candidatos se eligen, y un CpG avisa en vez de
+  vetar porque la 5-metilcitosina de la arquitectura ya lo cubre),
+  `rosa/criba.py` (cribado contra los 669.547 transcritos humanos de Ensembl:
+  con BLAST tolera fallos y decide por si el HUECO de ADN encaja, que es lo
+  que lee la RNasa H1, con el azar MEDIDO sobre 300 secuencias aleatorias; sin
+  BLAST cae al barrido exacto, en procesos hijos porque `bytes.find` no suelta
+  el GIL), `rosa/plegado.py` (accesibilidad del sitio con RNAplfold de
+  ViennaRNA: si el ARN está abierto ahí o plegado sobre sí mismo) y
+  `rosa/duplex.py` (la geometría para dibujar la dúplex; es un esquema con los
+  parámetros publicados, NO una estructura, y por eso no lleva coordenadas
+  atómicas). Ver `PENDIENTE.md`.
+
+  Lo que hace falta en la máquina y NO se versiona (todo bajo `datos/`, que
+  está en `.gitignore`):
+  - `datos/_transcriptoma/cdna.fa.gz` y `ncrna.fa.gz`: 225 MB de Ensembl
+    GRCh38. Las URL están en `rosa/criba.py` (`DE_DONDE`).
+  - `datos/_transcriptoma/blastdb/` y `mapa.tsv`: el índice de BLAST y el mapa
+    de transcrito a gen y locus, que se construyen de esos dos ficheros.
+  - `datos/_herramientas/ncbi-blast-2.17.0+/`: el binario aarch64 de NCBI.
+  - `ViennaRNA` en el entorno (`uv pip install ViennaRNA`).
+  Sin cualquiera de ellos la pantalla dice «no pude comprobar» con su motivo,
+  nunca «limpio» ni «tapado». Falta un botón que los traiga: la persona
+  usuaria no abre la terminal.
 - `frontend/`: la interfaz web de ROSA2018 (React, Vite, TypeScript). Ver su
   `README.md`. `frontend/src/datos/almacen.ts` prueba el servidor al arrancar
   y, si no responde, cae a los datos de muestra con la corrida simulada.
