@@ -24,10 +24,18 @@ import { CASCARA } from './en/01-cascara';
 import { LABORATORIO } from './en/02-laboratorio';
 import { ETIQUETAS } from './en/03-etiquetas';
 import { ETIQUETAS2 } from './en/04-etiquetas';
+import { ETIQUETAS3 } from './en/05-etiquetas';
+import { FRASES } from './en/06-frases';
+import { FRASES2 } from './en/07-frases';
+import { FRASES3 } from './en/08-frases';
 
 export const EN: Record<string, string> = {
   ...CASCARA,
   ...LABORATORIO,
   ...ETIQUETAS,
   ...ETIQUETAS2,
+  ...ETIQUETAS3,
+  ...FRASES,
+  ...FRASES2,
+  ...FRASES3,
 };
