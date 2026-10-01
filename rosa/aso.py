@@ -56,6 +56,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from rosa import fiabilidad as FIABILIDAD
+
 # ---------------------------------------------------------------------------
 # La arquitectura: un gapmer 5-10-5 de 2'-MOE
 # ---------------------------------------------------------------------------
@@ -366,7 +368,7 @@ def _elegir(
 # una heurística sobre el número de candidatos: un transcrito corto puede dar
 # ocho de verdad, y adivinarlo por la cuenta lo rehacía en cada tic para
 # siempre.
-VERSION = 3
+VERSION = 4
 
 # Cuántos candidatos se diseñan. Sesenta y no ocho porque ese es el orden de
 # magnitud de un cribado primario de verdad: el protocolo de Ionis describe
@@ -414,6 +416,11 @@ def diseño(transcrito: dict[str, Any] | None, maximo: int = CUANTOS, accesibili
         "build": transcrito.get("build"),
         "version": VERSION,
         "quimica": QUIMICA,
+        # De qué fiarse y de qué no, en un sitio y viajando con el diseño. Lo
+        # pidió Emir el 1 de octubre de 2026 después de preguntar qué tan real
+        # era todo esto: «justifícalo en la interfaz para que el que lee lo
+        # sepa». Ver rosa/fiabilidad.py.
+        "fiabilidad": FIABILIDAD.ficha(),
         "queHace": QUE_HACE,
         "via": VIA,
         "candidatos": cands,

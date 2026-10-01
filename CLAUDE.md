@@ -84,14 +84,23 @@ sin aprobar por un humano.
   ViennaRNA: si el ARN está abierto ahí o plegado sobre sí mismo) y
   `rosa/duplex.py` (la geometría para dibujar la dúplex; es un esquema con los
   parámetros publicados, NO una estructura, y por eso no lleva coordenadas
-  atómicas). Ver `PENDIENTE.md`.
+  atómicas), `rosa/especie.py` (si el mismo oligo sirve en RATÓN, que es donde
+  se prueba primero; misma regla del hueco usada al revés, y el gen
+  equivalente se busca por el nombre, que es heurístico) y
+  `rosa/fiabilidad.py` (de qué fiarse y de qué no, por niveles: lo exacto, lo
+  modelado, la estadística y lo que decidió ROSA2018 y nadie ha validado; va a
+  la pantalla y al texto del pedido). Ver `PENDIENTE.md`.
 
   Lo que hace falta en la máquina y NO se versiona (todo bajo `datos/`, que
   está en `.gitignore`):
   - `datos/_transcriptoma/cdna.fa.gz` y `ncrna.fa.gz`: 225 MB de Ensembl
     GRCh38. Las URL están en `rosa/criba.py` (`DE_DONDE`).
-  - `datos/_transcriptoma/blastdb/` y `mapa.tsv`: el índice de BLAST y el mapa
-    de transcrito a gen y locus, que se construyen de esos dos ficheros.
+  - `datos/_transcriptoma/raton_cdna.fa.gz` y `raton_ncrna.fa.gz`: 156 MB del
+    ratón (GRCm39), para saber si el oligo se puede probar en animales. Las URL
+    están en `rosa/especie.py` (`DE_DONDE`).
+  - `datos/_transcriptoma/blastdb/` (humano y ratón), `mapa.tsv` y
+    `mapa_raton.tsv`: los índices de BLAST y los mapas de transcrito a gen y
+    locus, que se construyen de esos ficheros.
   - `datos/_herramientas/ncbi-blast-2.17.0+/`: el binario aarch64 de NCBI.
   - `ViennaRNA` en el entorno (`uv pip install ViennaRNA`).
   Sin cualquiera de ellos la pantalla dice «no pude comprobar» con su motivo,

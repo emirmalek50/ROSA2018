@@ -857,9 +857,37 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
     // reciba tiene que saber que «sin choque exacto» no es «seguro».
     ...(d.criba?.hecho ? ['  lo que este cribado NO cubre:', ...d.criba.limites.map((l) => `    - ${l.que}: ${l.porQue}`)] : []),
     '',
+    c.raton ? `SE PUEDE PROBAR EN RATÓN: ${c.raton.veredicto.toUpperCase()}` : '',
+    c.raton ? `  ${c.raton.porQue}` : '',
+    '',
     `El gen tiene ${d.transcritosDelGen} transcritos; este diseño va sobre el canónico. Cuál se baja no es lo mismo que cuánta se baja, y esa decisión es de quien dirige el experimento.`,
     '',
     'Lo generó ROSA2018 por regla a partir de la secuencia pública del transcrito. Es un CANDIDATO PARA CRIBAR EN EL LABORATORIO, no un fármaco: los filtros aplicados son estadística de experimentos pasados, no una predicción de que funcione.',
+    '',
+    // De qué fiarse y de qué no viaja con el pedido: quien lo reciba tiene
+    // que saber qué le están mandando, y eso no puede quedarse en la
+    // pantalla de quien lo generó.
+    ...(d.fiabilidad
+      ? [
+          '='.repeat(60),
+          'DE QUÉ FIARSE Y DE QUÉ NO',
+          '',
+          ...d.fiabilidad.niveles.flatMap((nv) => [
+            nv.titulo.toUpperCase(),
+            `  ${nv.resumen}`,
+            ...nv.cosas.map((x) => `  - ${x.que}: ${x.porQue}`),
+            '',
+          ]),
+          'LO QUE NO SE HA COMPROBADO',
+          ...d.fiabilidad.noComprobado.map((x) => `  - ${x.que}: ${x.porQue}`),
+          '',
+          'QUÉ ES ESTO',
+          `  ${d.fiabilidad.queEsEsto.es}`,
+          `  ${d.fiabilidad.queEsEsto.noEs}`,
+          `  ${d.fiabilidad.queEsEsto.comoSeUsa}`,
+          `  ${d.fiabilidad.queEsEsto.yLaPremisa}`,
+        ]
+      : []),
   ].join('\n');
 }
 
@@ -1221,6 +1249,127 @@ function FichaDuplex({ c }: { c: CandidatoAso }) {
   );
 }
 
+
+/* --------------------------------------------------------------------------
+   ¿Sirve en ratón?
+   --------------------------------------------------------------------------
+   Primero se prueba ahí. Un oligo que no encaja en el ARN del ratón no puede
+   ir a ningún experimento con animales tal cual: hay que diseñar un sustituto
+   contra la secuencia del ratón, probar ese, y aceptar que lo que se mide no
+   es exactamente la molécula que iría a la persona.
+
+   La regla es la misma que la del cribado de fuera de diana, usada al revés:
+   allí se pregunta dónde NO queremos que corte, aquí si cortará donde sí
+   queremos. Y la decide lo mismo, que el hueco de ADN encaje. */
+function FichaRaton({ c }: { c: CandidatoAso }) {
+  const r = c.raton;
+  if (!r) return null;
+  const clase = r.sirve === true ? 'aso-criba-bien' : r.sirve === false ? 'aso-criba-mal' : 'aso-criba-duda';
+  return (
+    <section className={`aso-criba ${clase}`}>
+      <h3>¿SE PUEDE PROBAR EN RATÓN?</h3>
+      <p className="aso-criba-titulo">
+        {r.veredicto === 'sirve tal cual'
+          ? 'Sí: la misma molécula sirve en ratón'
+          : r.veredicto === 'probablemente sirve, con menos fuerza'
+            ? 'Probablemente sí, con menos fuerza'
+            : r.veredicto === 'no sirve en ratón'
+              ? 'No: haría falta un oligo sustituto para el ratón'
+              : 'No se pudo comprobar'}
+      </p>
+      <p className="aso-criba-porque">{r.porQue}</p>
+      {r.ortologo ? (
+        <dl className="aso-criba-cuentas">
+          <div>
+            <dt>gen en ratón</dt>
+            <dd className="lab-mono">{r.ortologo}</dd>
+          </div>
+          {r.fallos !== null && r.fallos !== undefined ? (
+            <div>
+              <dt>letras que fallan</dt>
+              <dd className={r.fallos ? 'mal' : ''}>{r.fallos === 0 ? 'ninguna' : n(r.fallos)}</dd>
+            </div>
+          ) : null}
+          {r.falloEnElHueco !== undefined ? (
+            <div>
+              <dt>¿falla en el hueco?</dt>
+              <dd className={r.falloEnElHueco ? 'mal' : ''}>{r.falloEnElHueco ? 'sí, ahí no corta' : 'no'}</dd>
+            </div>
+          ) : null}
+          {r.transcritosQueEncajan ? (
+            <div>
+              <dt>transcritos del ratón</dt>
+              <dd>{n(r.transcritosQueEncajan)}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
+      <details className="aso-criba-limites">
+        <summary>Qué NO dice esto ({r.avisos.length})</summary>
+        <ul>
+          {r.avisos.map((a) => (
+            <li key={a.que}>
+              <b>{a.que}.</b> {a.porQue}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </section>
+  );
+}
+
+/* --------------------------------------------------------------------------
+   De qué fiarse y de qué no
+   --------------------------------------------------------------------------
+   Lo pidió Emir después de preguntar qué tan real era todo esto: que la
+   justificación esté en la pantalla y no en los comentarios del código, «para
+   que el que lee lo sepa».
+
+   El orden de los niveles no es casual: primero lo que se puede comprobar,
+   último lo que decidió ROSA2018 y nadie ha validado, que es lo que más fácil
+   sería callar. */
+const ETIQUETA_NIVEL: Record<string, string> = {
+  exacto: 'fia-exacto',
+  modelo: 'fia-modelo',
+  estadistica: 'fia-estadistica',
+  mio: 'fia-mio',
+};
+
+function Fiabilidad({ f }: { f: NonNullable<DisenoAso['fiabilidad']> }) {
+  return (
+    <section className="fia">
+      <h3>DE QUÉ FIARSE Y DE QUÉ NO</h3>
+      <p className="fia-que-es">
+        <b>Qué es esto:</b> {f.queEsEsto.es} <b>{f.queEsEsto.noEs}</b> {f.queEsEsto.comoSeUsa}
+      </p>
+      <p className="fia-premisa">{f.queEsEsto.yLaPremisa}</p>
+      <ol className="fia-niveles">
+        {f.niveles.map((nv) => (
+          <li key={nv.nivel} className={ETIQUETA_NIVEL[nv.nivel] ?? ''}>
+            <h4>{nv.titulo}</h4>
+            <p className="fia-resumen">{nv.resumen}</p>
+            <ul>
+              {nv.cosas.map((c) => (
+                <li key={c.que}>
+                  <b>{c.que}.</b> {c.porQue}
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
+      <h4 className="fia-falta-titulo">Lo que NO se ha comprobado</h4>
+      <ul className="fia-falta">
+        {f.noComprobado.map((c) => (
+          <li key={c.que}>
+            <b>{c.que}.</b> {c.porQue}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** Si el sitio del candidato está abierto o tapado, con el número crudo al lado. */
 function FichaSitio({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
   const s = c.sitio;
@@ -1280,6 +1429,30 @@ function FichaSitio({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
   );
 }
 
+/** El título y el color de un veredicto del cribado, en UN sitio.
+ *
+ *  Estaba duplicado en la ficha del candidato y en la tarjeta de la decisión,
+ *  y las dos veces que apareció un veredicto nuevo («sin parecido», «al borde
+ *  del azar») una de las dos copias se quedó atrás y el título decía «encaja
+ *  en otro gen» justo encima de un texto que decía lo contrario. Con una sola
+ *  función eso no puede volver a pasar. */
+function tituloCriba(v: string | undefined): { titulo: string; clase: 'bien' | 'mal' | 'duda' } {
+  switch (v) {
+    case 'descartado':
+      return { titulo: 'No se puede pedir: encaja en otro gen donde la RNasa H1 cortaría', clase: 'mal' };
+    case 'sin parecido':
+      return { titulo: 'Sin parecido peligroso en ningún otro ARN humano', clase: 'bien' };
+    case 'sin choque exacto':
+      return { titulo: 'Sin choque exacto en ningún otro ARN humano', clase: 'bien' };
+    case 'al borde del azar':
+      return { titulo: 'Se parece a otros genes, pero al borde de lo que da el azar', clase: 'duda' };
+    case 'revisar':
+      return { titulo: 'No aparece ni en su propio gen: hay que aclararlo', clase: 'duda' };
+    default:
+      return { titulo: 'Sin cribar contra el transcriptoma', clase: 'duda' };
+  }
+}
+
 /** El cribado de un candidato contra el transcriptoma humano entero.
  *
  * Es el bloque que decide si un candidato se puede pedir o no, así que enseña
@@ -1289,24 +1462,8 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
   const v = c.criba?.veredicto ?? (c.cribado ? "sin choque exacto" : "sin cribar");
   const cr = c.criba;
   const criba = d.criba;
-  // El veredicto manda el color y el título. Están todos los valores que puede
-  // tomar: con BLAST son «sin parecido» y «al borde del azar», y sin BLAST
-  // (solo barrido exacto) «sin choque exacto». Dejar uno fuera hacía que el
-  // título dijera «sin cribar» al lado de las cuentas de un cribado hecho.
-  const bien = v === "sin choque exacto" || v === "sin parecido";
-  const clase = v === "descartado" ? "aso-criba-mal" : bien ? "aso-criba-bien" : "aso-criba-duda";
-  const titulo =
-    v === "descartado"
-      ? "No se puede pedir: encaja en otro gen donde la RNasa H1 cortaría"
-      : v === "sin parecido"
-        ? "Sin parecido peligroso en ningún otro ARN humano"
-        : v === "sin choque exacto"
-          ? "Sin choque exacto en ningún otro ARN humano"
-          : v === "al borde del azar"
-            ? "Se parece a otros genes, pero al borde de lo que da el azar"
-            : v === "revisar"
-              ? "No aparece ni en su propio gen: hay que aclararlo"
-              : "Sin cribar contra el transcriptoma";
+  const { titulo, clase: cl } = tituloCriba(v);
+  const clase = `aso-criba-${cl}`;
   return (
     <section className={`aso-criba ${clase}`}>
       <h3>CRIBADO CONTRA EL TRANSCRIPTOMA HUMANO</h3>
@@ -1502,6 +1659,7 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
             </div>
 
             <FichaCriba c={c} d={d} />
+            <FichaRaton c={c} />
             <FichaSitio c={c} d={d} />
             <FichaDuplex c={c} />
 
@@ -1578,6 +1736,8 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
               <b>Cuál bajar no es lo mismo que cuánta bajar</b>, y esa es una decisión científica: ROSA2018 enseña las opciones y
               la toma una persona.
             </p>
+
+            {d.fiabilidad ? <Fiabilidad f={d.fiabilidad} /> : null}
 
             {d.candidatos.length > 1 ? (
               <>
@@ -2455,18 +2615,31 @@ function Decision({
         {/* El cribado del elegido va ANTES que el resto del pie: de todo lo que
             hay en esta tarjeta, es lo único que decide si esto se puede pedir
             hoy o no. */}
-        <p className={`lab-decision-criba lab-decision-criba-${o.criba?.veredicto === 'sin choque exacto' ? 'bien' : o.criba?.veredicto === 'descartado' ? 'mal' : 'duda'}`}>
-          <b>
-            {o.criba?.veredicto === 'sin choque exacto'
-              ? 'Cribado contra el transcriptoma: sin choque exacto.'
-              : o.criba?.veredicto === 'sin cribar'
-                ? 'Todavía sin cribar contra el transcriptoma.'
-                : o.criba?.veredicto === 'revisar'
-                  ? 'Cribado contra el transcriptoma: hay que revisarlo.'
-                  : 'Cribado contra el transcriptoma: encaja en otro gen.'}
-          </b>{' '}
-          {o.criba?.porQue ?? o.candidato.avisoCribado}
+        <p className={`lab-decision-criba lab-decision-criba-${tituloCriba(o.criba?.veredicto).clase}`}>
+          <b>{tituloCriba(o.criba?.veredicto).titulo}.</b> {o.criba?.porQue ?? o.candidato.avisoCribado}
         </p>
+        {/* La SEGUNDA respuesta. Primero se prueba en ratón, y el que más
+            evidencia tiene puede no servir ahí: son dos decisiones distintas
+            y se enseñan las dos en vez de esconder una en un peso. */}
+        {o.paraRaton ? (
+          <p className={`lab-decision-criba lab-decision-criba-${o.paraRaton.hay && !o.paraRaton.esElMismo ? 'duda' : o.paraRaton.hay ? 'bien' : 'mal'}`}>
+            <b>
+              {o.paraRaton.esElMismo
+                ? 'Y se puede probar en ratón tal cual.'
+                : o.paraRaton.hay
+                  ? `Para empezar por el ratón, el ${o.paraRaton.candidato?.secuencia ?? 'otro'}.`
+                  : 'Ninguno se puede probar en ratón tal cual.'}
+            </b>{' '}
+            {o.paraRaton.porQue}
+            {o.paraRaton.hay && !o.paraRaton.esElMismo ? (
+              <>
+                {' '}
+                <span className="lab-mono">{o.paraRaton.candidato?.secuencia}</span> ({n(o.paraRaton.cuantos)} de{' '}
+                {n(o.paraRaton.deCuantos)} sirven).
+              </>
+            ) : null}
+          </p>
+        ) : null}
         {o.frenteA.length ? (
           <p>
             <b>Frente a las que sí competían:</b>{' '}

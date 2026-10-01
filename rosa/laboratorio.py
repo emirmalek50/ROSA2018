@@ -1008,6 +1008,56 @@ def _terminos(d: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _mejor_para_raton(diana: dict[str, Any], elegido: dict[str, Any]) -> dict[str, Any] | None:
+    """El mejor candidato de los que sirven en ratón tal cual, si no es ya el
+    elegido.
+
+    Primero se prueba en el ratón. Un oligo que no encaja en el ARN del ratón
+    no puede ir a ningún experimento con animales tal cual: hay que diseñar un
+    sustituto contra la secuencia del ratón, probar ese, y aceptar que lo que
+    se mide no es exactamente la molécula que iría a la persona. Medido el 1
+    de octubre de 2026: de los 823 candidatos solo el 10 % servían, y el que
+    ROSA2018 mandaba no estaba entre ellos."""
+    cands = (diana.get("aso") or {}).get("candidatos") or []
+    sirven = [c for c in cands if (c.get("raton") or {}).get("sirve") and (c.get("criba") or {}).get("veredicto") != "descartado"]
+    cuantos = len(sirven)
+    if not cands:
+        return None
+    if not sirven:
+        return {
+            "hay": False,
+            "cuantos": 0,
+            "deCuantos": len(cands),
+            "porQue": (
+                f"Ninguno de los {len(cands)} candidatos de {diana['simbolo']} encaja en el ARN del ratón, así que "
+                "con ninguno se puede empezar por un experimento con animales tal cual: habría que diseñar un "
+                "oligo sustituto contra la secuencia del ratón."
+            ),
+        }
+    mejor = sirven[0]
+    ya_es = mejor["secuencia"] == elegido.get("secuencia")
+    return {
+        "hay": True,
+        "cuantos": cuantos,
+        "deCuantos": len(cands),
+        "esElMismo": ya_es,
+        "candidato": mejor,
+        "porQue": (
+            (
+                f"El que ROSA2018 mandaría sirve además en ratón, que es la situación cómoda: la misma molécula "
+                "vale para el experimento con animales y para la persona."
+            )
+            if ya_es
+            else (
+                f"El que ROSA2018 mandaría NO encaja en el ARN del ratón, así que con él no se puede empezar por un "
+                f"experimento con animales. De los {len(cands)} candidatos, {cuantos} sí sirven, y este es el mejor "
+                "de ellos. Son dos decisiones distintas y las dos se enseñan: cuál tiene más detrás, y con cuál se "
+                "puede empezar mañana."
+            )
+        ),
+    }
+
+
 def oligo_que_mandaria(dianas: list[dict[str, Any]]) -> dict[str, Any] | None:
     """De todo lo que ROSA2018 ha verificado, cuál apagaría y con qué oligo.
 
@@ -1095,4 +1145,15 @@ def oligo_que_mandaria(dianas: list[dict[str, Any]]) -> dict[str, Any] | None:
         # El estado del cribado del candidato elegido, arriba del todo: es lo
         # que decide si esto se puede pedir hoy o no.
         "criba": dict(candidato.get("criba") or {}),
+        "raton": dict(candidato.get("raton") or {}),
+        # Y la SEGUNDA respuesta: el mejor de los que se pueden probar en
+        # ratón tal cual.
+        #
+        # Va aparte y no metido en la puntuación a propósito. Poder probar en
+        # un animal no es una propiedad del oligo como la accesibilidad o los
+        # motivos: es una restricción práctica, y mezclarla en la misma
+        # cuenta con un peso que me inventaría yo haría la cuenta más opaca,
+        # no mejor. Se dan las dos respuestas y la persona elige, que es la
+        # regla de la casa.
+        "paraRaton": _mejor_para_raton(elegida, candidato),
     }

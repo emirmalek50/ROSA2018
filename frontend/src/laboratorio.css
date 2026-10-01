@@ -2734,3 +2734,121 @@
 .dup-que-es b {
   color: var(--lab-texto-2);
 }
+
+/* --- De qué fiarse y de qué no -------------------------------------------
+   El orden de los niveles no es casual y el color lo sigue: verde lo que se
+   puede comprobar, rojo lo que decidió ROSA2018 y nadie ha validado. Lo que
+   más fácil sería callar es lo que va más marcado. */
+.fia {
+  margin: 22px 0 6px;
+  padding: 17px 18px 15px;
+  border-radius: 14px;
+  border: 1px solid var(--lab-linea-fuerte);
+  background: rgba(255, 255, 255, 0.025);
+}
+.fia h3 {
+  margin: 0 0 11px;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--lab-texto-2);
+  font-weight: 600;
+}
+.fia-que-es {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--lab-texto-1, #e8e6ee);
+}
+.fia-que-es b {
+  color: var(--lab-ambar);
+}
+.fia-premisa {
+  margin: 0 0 16px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: rgba(240, 160, 48, 0.08);
+  border: 1px solid rgba(240, 160, 48, 0.26);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--lab-texto-2);
+}
+.fia-niveles {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 13px;
+}
+.fia-niveles > li {
+  padding: 12px 14px;
+  border-radius: 11px;
+  border-left: 3px solid var(--lab-linea-fuerte);
+  background: rgba(255, 255, 255, 0.018);
+}
+.fia-niveles h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.fia-resumen {
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--lab-texto-3);
+}
+.fia-niveles ul {
+  margin: 0;
+  padding: 0 0 0 17px;
+  display: grid;
+  gap: 6px;
+  font-size: 12.5px;
+  line-height: 1.62;
+  color: var(--lab-texto-2);
+}
+.fia-niveles ul b {
+  color: var(--lab-texto-1, #e8e6ee);
+}
+.fia-exacto {
+  border-left-color: var(--lab-verde);
+}
+.fia-exacto h4 {
+  color: var(--lab-verde);
+}
+.fia-modelo {
+  border-left-color: #6fb4e8;
+}
+.fia-modelo h4 {
+  color: #6fb4e8;
+}
+.fia-estadistica {
+  border-left-color: var(--lab-ambar);
+}
+.fia-estadistica h4 {
+  color: var(--lab-ambar);
+}
+/* El eslabón más flojo, marcado como tal. */
+.fia-mio {
+  border-left-color: #f07070;
+  background: rgba(240, 96, 96, 0.055);
+}
+.fia-mio h4 {
+  color: #f07070;
+}
+.fia-falta-titulo {
+  margin: 0 0 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lab-texto-2);
+}
+.fia-falta {
+  margin: 0;
+  padding: 0 0 0 17px;
+  display: grid;
+  gap: 6px;
+  font-size: 12.5px;
+  line-height: 1.62;
+  color: var(--lab-texto-3);
+}
+.fia-falta b {
+  color: var(--lab-texto-2);
+}

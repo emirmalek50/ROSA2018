@@ -39,6 +39,7 @@ from typing import Any, Awaitable, Callable
 from rosa import argumentacion as ARG
 from rosa import aso as ASO
 from rosa import criba as CRIBA
+from rosa import especie as ESPECIE
 from rosa import plegado as PLEGADO
 from rosa import comprobaciones as COMP
 from rosa import cuestiones as CU
@@ -1074,6 +1075,18 @@ class Supervisor:
             # pedir. Y tarda 145 s donde el barrido tarda 408. El barrido se
             # queda de respaldo para una máquina sin BLAST instalado.
             r = await (CRIBA.cribar_con_desajustes(faltan) if conblast["hay"] else CRIBA.cribar_aparte(faltan))
+            # Y si sirve en RATÓN, que es donde se prueba primero. Un oligo
+            # que no encaja en el ARN del ratón no puede ir a ningún
+            # experimento con animales tal cual: hay que diseñar un sustituto
+            # y aceptar que lo que se mide no es la molécula que iría a la
+            # persona. Medido el 1 de octubre de 2026: solo el 10 % de los 823
+            # candidatos sirven, y el que ROSA2018 mandaba NO estaba entre
+            # ellos.
+            rat = await ESPECIE.cribar_raton(faltan)
+            for sec, v in rat.get("porSecuencia", {}).items():
+                if sec in r["porSecuencia"]:
+                    r["porSecuencia"][sec]["raton"] = v
+            r["raton"] = {k: v for k, v in rat.items() if k != "porSecuencia"}
             vivas = {x["secuencia"] for x in pet}
             # Lo de antes que sigue en pie, más lo nuevo. Lo que ya no se
             # diseña se cae: si vuelve, se vuelve a cribar.

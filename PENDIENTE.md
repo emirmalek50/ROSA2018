@@ -1256,3 +1256,75 @@ protección contra escrituras de un binario anterior. Sobre copias de 39,1 MB,
 diez mutaciones pequeñas: mediana de 64,9 a 41,9 ms; WAL de 79 MB a 165 KB.
 Sigue existiendo el coste de recorrer el estado para detectar cambios; se
 eliminó la reescritura de las claves que no cambian.
+
+
+## El ratón, y lo que destapó (1 oct 2026)
+
+Emir: «haz la vaina de los ratones, porque recuerda que primero se prueba en
+ellos». Tenía razón en que faltaba: ROSA2018 proponía oligos sin comprobar en
+ningún sitio si se podían llegar a probar en un animal.
+
+`rosa/especie.py`, con el transcriptoma del ratón (GRCm39, 478.694 transcritos,
+156 MB) y la MISMA regla del hueco de `rosa/criba.py` usada al revés: allí se
+pregunta dónde NO queremos que corte, aquí si cortará donde sí queremos. Los
+823 candidatos en 105 s.
+
+**El resultado es el hallazgo del día:**
+
+| | |
+|---|---|
+| sirven tal cual | 44 (5,3 %) |
+| probablemente sirven, con menos fuerza | 41 (5,0 %) |
+| **no sirven en ratón** | **707 (85,9 %)** |
+| no se pudo comprobar | 31 (3,8 %) |
+
+Y lo que importa de verdad: **el candidato que ROSA2018 mandaba NO sirve en
+ratón.** Con esa molécula no se puede hacer ni un experimento con animales. En
+MAPT solo 4 de 60 sirven, y uno de ellos (el nº 6) es además el sitio MÁS
+accesible de todo el transcrito (0,863), justo el que el veto de CpG estaba
+tirando antes de arreglarlo.
+
+### Por qué NO se metió en la puntuación
+
+Se enseña como una SEGUNDA respuesta («el que mandaría» y «con cuál se puede
+empezar mañana») en vez de sumarse al mismo número. Poder probar en un animal
+no es una propiedad del oligo como la accesibilidad o los motivos: es una
+restricción práctica, y mezclarla en la misma cuenta con un peso inventado
+haría la cuenta más opaca, no mejor. Las dos decisiones se ven y las toma una
+persona.
+
+### La limitación que hay que arreglar
+
+El gen equivalente se busca POR EL NOMBRE (MAPT es Mapt en ratón). Falla en
+CA2, que en ratón se llama *Car2*: sale como «no pude comprobar», que al menos
+es honesto, pero es 1 de 17 dianas. Lo correcto es la homología de Ensembl
+(`/homology/symbol/human/{gen}?target_species=mouse`), una llamada por diana y
+cacheada en el estado.
+
+## La justificación en la pantalla (1 oct 2026)
+
+Emir preguntó lo único que importa de verdad: «¿qué tan real es la simulación?
+¿todo lo que dice es verdad? ¿literalmente se coge ese mismo ASO y se manda al
+laboratorio?». Y después: «todo lo que me dijiste tienes que justificarlo en la
+interfaz de rosa para que el que lee lo sepa».
+
+`rosa/fiabilidad.py` separa cuatro grados de verdad que en una pantalla se
+confunden con facilidad, y viaja con el diseño a la pantalla Y al texto que se
+copia para el proveedor:
+
+1. **Exacto**: la secuencia (está literalmente en el ARN de Ensembl), la
+   química del pedido, los filtros, el cribado de fuera de diana, el ratón.
+2. **Modelo**: la accesibilidad y el plegado dibujado (ViennaRNA es el
+   estándar, pero pliega una cadena desnuda en un tubo) y el esquema de la
+   dúplex.
+3. **Estadística** de experimentos pasados de OTROS oligos: los motivos y el
+   peso de la región.
+4. **Lo que decidió ROSA2018 y nadie ha validado**: los pesos que combinan todo
+   lo anterior. Va marcado en rojo porque es el eslabón más flojo y el que más
+   fácil sería callar. En claro: el CONJUNTO de candidatos es defendible, el
+   ORDEN entre ellos no está validado.
+
+Más «lo que no se ha comprobado» (pre-ARN con intrones, variantes de cada
+persona, que el orden sea el bueno, los efectos adversos de la química) y
+«qué es esto»: la entrada de un cribado primario, no un fármaco, y el número
+uno no es «el bueno».

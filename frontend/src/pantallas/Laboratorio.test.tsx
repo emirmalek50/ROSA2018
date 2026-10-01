@@ -723,7 +723,7 @@ describe('lo que va al laboratorio', () => {
     // La regla de ROSA2018: no poder comprobar no es un no, y desde luego no
     // es un sí. «Sin cribar» y «sin choque exacto» no se pueden confundir.
     await montar();
-    expect(texto()).toContain('Todavía sin cribar contra el transcriptoma');
+    expect(texto()).toContain('Sin cribar contra el transcriptoma');
     expect(texto()).not.toContain('sin choque exacto en ningún otro ARN humano');
   });
 
@@ -961,5 +961,82 @@ describe('lo que va al laboratorio', () => {
     // Y el oligo sí lleva T, porque es ADN en el hueco.
     const oligo = [...nodo.querySelectorAll('.dux-aso')].map((x) => x.textContent).join('');
     expect(oligo).toBe('CTCTCCCACTCCCACTTCTT');
+  });
+
+  it('dice si el oligo se puede probar en ratón, que es donde se prueba primero', async () => {
+    const c = {
+      ...DIANA.aso!.candidatos[0]!,
+      raton: {
+        comprobado: true, version: 1, simboloHumano: 'MAPT', ortologo: 'Mapt',
+        veredicto: 'no sirve en ratón' as const, sirve: false,
+        porQue: 'El oligo no encaja en el ARN de Mapt. Con esta misma molécula no se puede hacer ningún experimento con animales: habría que diseñar un oligo sustituto.',
+        fallos: null, avisos: [{ que: 'Encajar no es funcionar', porQue: 'dice que PUEDE cortar, no que el ratón sea buen modelo' }],
+      },
+    };
+    const aso = { ...DIANA.aso!, candidatos: [c] };
+    respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, aso }], oligoQueMandaria: null };
+    respuestas.oligos = aso;
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    expect(texto()).toContain('¿SE PUEDE PROBAR EN RATÓN?');
+    expect(texto()).toContain('haría falta un oligo sustituto');
+    expect(texto()).toContain('Mapt');
+    expect(texto()).toContain('Encajar no es funcionar');
+  });
+
+  it('no encontrar el gen del ratón NO se pinta como que no sirve', async () => {
+    // Pasa de verdad: CA2 en ratón se llama Car2.
+    const c = {
+      ...DIANA.aso!.candidatos[0]!,
+      raton: {
+        comprobado: true, version: 1, simboloHumano: 'CA2', ortologo: '',
+        veredicto: 'no pude comprobar' as const, sirve: null,
+        porQue: 'No encontré en el ratón ningún gen que se llame como CA2. NO quiere decir que el oligo no sirva: hay que mirarlo a mano.',
+        avisos: [],
+      },
+    };
+    const aso = { ...DIANA.aso!, candidatos: [c] };
+    respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, aso }], oligoQueMandaria: null };
+    respuestas.oligos = aso;
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    expect(texto()).toContain('No se pudo comprobar');
+    expect(texto()).toContain('NO quiere decir que el oligo no sirva');
+    expect(texto()).not.toContain('haría falta un oligo sustituto');
+  });
+
+  it('la pantalla dice de qué fiarse y de qué no, incluido lo que decidió ROSA2018', async () => {
+    // Lo pidió Emir: que la justificación esté en la interfaz y no en los
+    // comentarios del código. Lo que no puede faltar es el nivel «mío».
+    const aso = {
+      ...DIANA.aso!,
+      fiabilidad: {
+        version: 1,
+        niveles: [
+          { nivel: 'exacto' as const, titulo: 'Exacto: se puede comprobar', resumen: 'aritmética sobre secuencias reales', cosas: [{ que: 'La secuencia del oligo', porQue: 'está LITERALMENTE en el ARN de Ensembl' }] },
+          { nivel: 'mio' as const, titulo: 'Esto lo decidió ROSA2018, y nadie lo ha validado', resumen: 'el eslabón más flojo', cosas: [{ que: 'Los pesos', porQue: 'NADIE ha comprobado que esa combinación prediga potencia' }] },
+        ],
+        noComprobado: [{ que: 'El borrador largo del ARN', porQue: 'el corte sobre el pre-ARN no se mira' }],
+        queEsEsto: { es: 'La entrada de un cribado primario.', noEs: 'No es un fármaco.', comoSeUsa: 'Se prueban ochenta en células.', yLaPremisa: 'Que bajar esta proteína ayude es una HIPÓTESIS.' },
+      },
+    };
+    respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, aso }], oligoQueMandaria: null };
+    respuestas.oligos = aso;
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    expect(texto()).toContain('DE QUÉ FIARSE Y DE QUÉ NO');
+    // Lo que es exacto se dice que lo es.
+    expect(texto()).toContain('LITERALMENTE');
+    // Y lo que es una apuesta de ROSA2018 también, que es lo que más fácil
+    // sería callar.
+    expect(nodo.querySelector('.fia-mio')).not.toBeNull();
+    expect(texto()).toContain('nadie lo ha validado');
+    expect(texto()).toContain('NADIE ha comprobado');
+    // Qué es esto, y la premisa de arriba del todo.
+    expect(texto()).toContain('No es un fármaco');
+    expect(texto()).toContain('HIPÓTESIS');
   });
 });

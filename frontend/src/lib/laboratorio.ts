@@ -220,6 +220,19 @@ export interface OligoQueMandaria {
   frenteA: { simbolo: string; uniprot: string; puntos: number; porQueNo: string }[];
   fueraDeConcurso: Record<string, string[]>;
   queLaCambiaria: string;
+  /** Si el elegido sirve en ratón. */
+  raton?: EnRaton | null;
+  /** La SEGUNDA respuesta: el mejor de los que se pueden probar en ratón tal
+   *  cual. Va aparte y no metido en la puntuación a propósito: poder probar
+   *  en un animal es una restricción práctica, no una propiedad del oligo. */
+  paraRaton?: {
+    hay: boolean;
+    cuantos: number;
+    deCuantos: number;
+    esElMismo?: boolean;
+    candidato?: CandidatoAso;
+    porQue: string;
+  } | null;
   /** El cribado del candidato elegido, arriba del todo: es lo que decide si
    *  esto se puede pedir hoy o no. */
   criba: CribaCandidato;
@@ -276,6 +289,43 @@ export interface FalloDeFiltro {
  *  humanos de Ensembl (rosa/criba.py). Es coincidencia EXACTA y sobre ARN
  *  maduro: «sin choque exacto» quiere decir que no hay otro ARN con este tramo
  *  idéntico, que es bastante menos que «es seguro». */
+/** Si el mismo oligo sirve en el ratón, que es donde se prueba primero
+ *  (rosa/especie.py). Un oligo que no encaja en el ARN del ratón no puede ir
+ *  a ningún experimento con animales tal cual: hay que diseñar un sustituto
+ *  contra la secuencia del ratón y aceptar que lo que se mide no es
+ *  exactamente la molécula que iría a la persona. */
+export interface EnRaton {
+  comprobado: boolean;
+  version: number;
+  simboloHumano: string;
+  /** El gen equivalente en ratón. Se busca POR EL NOMBRE, que es heurístico. */
+  ortologo: string;
+  veredicto: "sirve tal cual" | "probablemente sirve, con menos fuerza" | "no sirve en ratón" | "no pude comprobar";
+  /** `null` cuando no se pudo comprobar: no es lo mismo que «no sirve». */
+  sirve: boolean | null;
+  porQue: string;
+  fallos?: number | null;
+  dondeFallan?: number[];
+  falloEnElHueco?: boolean;
+  transcritoDeRaton?: string;
+  transcritosQueEncajan?: number;
+  avisos: { que: string; porQue: string }[];
+}
+
+/** De qué se puede uno fiar en todo esto, por niveles (rosa/fiabilidad.py).
+ *  Lo pidió Emir después de preguntar qué tan real era la simulación. */
+export interface Fiabilidad {
+  version: number;
+  niveles: {
+    nivel: "exacto" | "modelo" | "estadistica" | "mio";
+    titulo: string;
+    resumen: string;
+    cosas: { que: string; porQue: string }[];
+  }[];
+  noComprobado: { que: string; porQue: string }[];
+  queEsEsto: { es: string; noEs: string; comoSeUsa: string; yLaPremisa: string };
+}
+
 export interface CribaCandidato {
   cribado: boolean;
   veredicto: "sin choque exacto" | "descartado" | "revisar" | "sin cribar" | "sin parecido" | "al borde del azar";
@@ -410,6 +460,8 @@ export interface CandidatoAso {
   /** Solo llega al pedir el panel completo (`oligosDe`), no en el muro: son
    *  unos seiscientos bytes por candidato y el muro sirve diecisiete dianas. */
   duplex?: Duplex;
+  /** Si el mismo oligo sirve en el ratón. */
+  raton?: EnRaton | null;
 }
 
 export interface DisenoAso {
@@ -445,6 +497,8 @@ export interface DisenoAso {
   ventanas: number;
   pasanFiltros: number;
   cribados: number;
+  /** De qué fiarse y de qué no. Viaja con el diseño a propósito. */
+  fiabilidad?: Fiabilidad;
   /** Si el diseño se hizo teniendo en cuenta la accesibilidad del sitio. */
   conAccesibilidad?: boolean;
   plegado?: {
