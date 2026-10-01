@@ -2493,6 +2493,10 @@ export interface PreguntaABases {
   iteraciones: number;
   quien: string;
   error: string | null;
+  /** La conversación a la que pertenece (1 de octubre de 2026). El servidor
+   *  le pasa al modelo los turnos anteriores del mismo hilo. Ausente en las
+   *  preguntas de antes, que hacen de hilo con su propio id. */
+  hilo?: string;
 }
 
 export interface SkillCatalogo {

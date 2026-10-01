@@ -675,7 +675,7 @@ def registrar_pregunta_bases(e: Estado, investigacion_id: str, pregunta: dict, a
     inv = _buscar(e["investigaciones"], investigacion_id)
     if not inv or not isinstance(pregunta, dict) or not pregunta.get("pregunta"):
         return False
-    inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}})
+    inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}, **({"hilo": str(pregunta["hilo"])[:40]} if pregunta.get("hilo") else {})})
     return True
 
 

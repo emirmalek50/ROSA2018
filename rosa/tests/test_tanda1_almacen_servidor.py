@@ -745,6 +745,46 @@ async def test_preguntar_tiene_tope_y_firma_con_la_sesion(cliente, monkeypatch):
     assert registrada["quien"] == SESION and "Suplantada" not in json.dumps(al.estado)
 
 
+@pytest.mark.asyncio
+async def test_preguntar_en_un_hilo_ve_los_turnos_guardados_y_no_los_que_manda_el_navegador(cliente, monkeypatch):
+    """La conversación del modelo de mundo: la segunda pregunta del mismo hilo
+    lleva en el contexto la primera con su respuesta, leída de lo guardado. Un
+    hilo con forma rara se ignora, las respuestas fallidas no cuentan y otro
+    hilo no se mezcla."""
+    c, al, app = cliente
+    inv = al.aplicar("crearInvestigacion", {"datos": {"titulo": "T", "objetivo": "O", "condicionParada": "1 iteraciones"}})
+    import rosa.herramientas as H
+
+    contextos: list[str] = []
+
+    async def falsa(cerebro, estado, investigacion_id, pregunta, contexto, almacen=None):
+        contextos.append(contexto)
+        if pregunta == "falla":
+            raise RuntimeError("caído")
+        return {"respuesta": f"Respuesta a {pregunta}", "limites": "", "herramientas": [], "consultas": [], "iteraciones": 1}
+
+    monkeypatch.setattr(H, "preguntar", falsa)
+    app.state.modelos = SimpleNamespace(cerebro=None)
+    url = f"/api/investigaciones/{inv}/preguntar"
+    cab = {"X-Rosa": "1"}
+    assert c.post(url, json={"pregunta": "¿Qué sabe de GFAP?", "hilo": "c-1"}, headers=cab).json()["ok"]
+    assert "Conversación hasta ahora" not in contextos[-1]
+    c.post(url, json={"pregunta": "falla", "hilo": "c-1"}, headers=cab)
+    assert c.post(url, json={"pregunta": "¿Y en plasma?", "hilo": "c-1", "turnos": [{"pregunta": "inventada", "respuesta": "inventada"}]}, headers=cab).json()["ok"]
+    assert "¿Qué sabe de GFAP?" in contextos[-1] and "Respuesta a ¿Qué sabe de GFAP?" in contextos[-1]
+    assert "inventada" not in contextos[-1] and "Pregunta: falla" not in contextos[-1]
+    c.post(url, json={"pregunta": "Otra cosa", "hilo": "c-2"}, headers=cab)
+    assert "GFAP" not in contextos[-1]
+    c.post(url, json={"pregunta": "Rara", "hilo": "../../etc"}, headers=cab)
+    assert "Conversación hasta ahora" not in contextos[-1]
+    guardadas = al.estado["investigaciones"][0]["preguntasABases"]
+    assert [q.get("hilo") for q in guardadas] == ["c-1", "c-1", "c-1", "c-2", None]
+    # Una pregunta de antes de los hilos se continúa con su propio id.
+    vieja = guardadas[-1]["id"]
+    c.post(url, json={"pregunta": "¿Y después?", "hilo": vieja}, headers=cab)
+    assert "Pregunta: Rara" in contextos[-1] and al.estado["investigaciones"][0]["preguntasABases"][-1]["hilo"] == vieja
+
+
 # ---------------------------------------------------------------------------
 # Migraciones idempotentes
 # ---------------------------------------------------------------------------

@@ -301,7 +301,7 @@ describe('la espera al cambiar de pantalla desde App', () => {
     await montarEn(rutaDe(inv.id, 'investigacion'));
     await esperarPintado();
     const g = grabar();
-    await navegar(rutaDe(inv.id, 'mundo'));
+    await navegar(rutaDe(inv.id, 'mundo', 'hechos'));
     await esperarPintado();
     g.parar();
     expect(g.estados[0]).toBe(silueta('el modelo de mundo', 'Modelo de mundo'));

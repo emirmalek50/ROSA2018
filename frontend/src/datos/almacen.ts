@@ -1090,11 +1090,14 @@ export const acciones = {
   },
   /** Una pregunta con herramientas (conectores, busqueda en el proyecto, modelo
    *  de mundo): la corre el servidor con el cerebro y la respuesta llega al
-   *  estado por SSE con sus consultas. Devuelve un error legible o null. */
-  preguntarALasBases: async (investigacionId: string, pregunta: string): Promise<string | null> => {
+   *  estado por SSE con sus consultas. Devuelve un error legible o null. Con
+   *  `hilo`, la pregunta sigue una conversación: el servidor lee los turnos
+   *  anteriores de lo ya guardado (el navegador solo manda el id). */
+  preguntarALasBases: async (investigacionId: string, pregunta: string, hilo?: string): Promise<string | null> => {
     if (modo !== 'servidor') return tr('Preguntar a las bases requiere el servidor de ROSA2018.');
     try {
-      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/preguntar`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ pregunta, quien: QUIEN }) });
+      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/preguntar`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ pregunta, quien: QUIEN, ...(hilo ? { hilo } : {}) }) });
+      if (r.status === 429) return tr('Hoy ya se llegó al tope de preguntas con búsqueda en publicaciones. Mañana vuelve a haber; mientras tanto, «Solo lo que ya sabe» responde al instante.');
       if (!r.ok) return `El servidor no pudo responder (${r.status}).`;
       const d = (await r.json()) as { ok: boolean; resultado?: { error?: string | null } };
       return d.ok ? null : d.resultado?.error ?? tr('La pregunta falló.');

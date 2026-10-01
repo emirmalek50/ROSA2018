@@ -34,6 +34,7 @@ from __future__ import annotations
 import asyncio
 import json
 import contextlib
+import re
 import copy
 import time
 import sys
@@ -107,6 +108,29 @@ async def _leer_acotado(fichero: UploadFile, maximo: int) -> bytes:
             raise HTTPException(413, f"El fichero supera los {maximo // (1024 * 1024)} MB")
         partes.append(trozo)
     return b"".join(partes)
+
+
+#: Cuántos turnos anteriores de la conversación ve el modelo, y hasta cuántos
+#: caracteres de cada respuesta. Bastan para resolver "¿y GFAP?" o "¿y en
+#: plasma?" sin inflar cada llamada con la conversación entera.
+TURNOS_PREVIOS = 3
+MAX_RESPUESTA_PREVIA = 900
+
+
+def _turnos_previos(inv: dict[str, Any], hilo: str) -> str:
+    """Las preguntas y respuestas anteriores del mismo hilo, de la más vieja a
+    la más nueva, como contexto para la pregunta nueva. Las fallidas no
+    cuentan: no dicen nada. Sin hilo, nada. Una pregunta guardada antes de
+    que hubiera hilos hace de hilo con su propio id: así se puede seguir
+    preguntando sobre ella."""
+    if not hilo:
+        return ""
+    previas = [q for q in inv.get("preguntasABases", []) or [] if isinstance(q, dict) and (q.get("hilo") or q.get("id")) == hilo and not q.get("error") and q.get("respuesta")]
+    previas = sorted(previas, key=lambda q: q.get("fecha") or 0)[-TURNOS_PREVIOS:]
+    if not previas:
+        return ""
+    turnos = "\n".join(f"Pregunta: {str(q.get('pregunta', ''))[:400]}\nRespuesta: {str(q.get('respuesta', ''))[:MAX_RESPUESTA_PREVIA]}" for q in previas)
+    return f"\n\nConversación hasta ahora (solo para entender a qué se refiere la pregunta nueva; no es una fuente y no se cita):\n{turnos}"
 
 
 def token_interno() -> str:
@@ -1043,6 +1067,14 @@ def crear_app(almacen: Almacen) -> FastAPI:
         if not inv or not pregunta:
             raise HTTPException(400, "Falta la pregunta o la investigación")
         quien = str(request.state.usuario or "servidor")[:80]
+        # La conversación (1 de octubre de 2026): un "¿Y GFAP?" solo se
+        # entiende con lo que se preguntó antes. El navegador manda el id del
+        # hilo, nunca el texto de los turnos: las preguntas y respuestas
+        # previas se leen de lo ya guardado, así que no se puede colar un
+        # turno inventado.
+        hilo = str(cuerpo.get("hilo") or "").strip()
+        hilo = hilo if re.fullmatch(r"[a-zA-Z0-9-]{1,40}", hilo) else ""
+        contexto_hilo = _turnos_previos(inv, hilo)
         hoy = time.strftime("%Y-%m-%d")
         cont = app.state.preguntas_hoy
         if cont["dia"] != hoy:
@@ -1054,11 +1086,13 @@ def crear_app(almacen: Almacen) -> FastAPI:
         app.state.modelos = modelos_
         async with app.state.semaforo_preguntas:
             try:
-                r = await asyncio.wait_for(H.preguntar(modelos_.cerebro, almacen.estado, investigacion_id, pregunta[:2000], f"Objetivo: {inv['objetivo']}. {_texto_mision(inv)}", almacen=almacen), timeout=600)
+                r = await asyncio.wait_for(H.preguntar(modelos_.cerebro, almacen.estado, investigacion_id, pregunta[:2000], f"Objetivo: {inv['objetivo']}. {_texto_mision(inv)}{contexto_hilo}", almacen=almacen), timeout=600)
                 r["pregunta"], r["quien"], r["error"] = pregunta[:2000], quien, None
             except Exception as ex:  # noqa: BLE001
                 print(f"preguntar con herramientas fallo: {type(ex).__name__}: {str(ex)[:300]}", file=sys.stderr)
                 r = {"pregunta": pregunta[:2000], "quien": quien, "respuesta": "", "limites": "", "herramientas": [], "consultas": [], "iteraciones": 0, "error": "El modelo o una herramienta no respondieron; el detalle está en el registro del servidor"}
+        if hilo:
+            r["hilo"] = hilo
         almacen.aplicar("registrarPreguntaBases", {"investigacion_id": investigacion_id, "pregunta": r})
         return {"ok": r.get("error") is None, "resultado": {k: v for k, v in r.items() if k != "consultas"} | {"consultas": len(r.get("consultas", []))}, "version": almacen.version}
 

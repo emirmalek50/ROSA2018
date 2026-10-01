@@ -67,7 +67,7 @@ describe('la aplicacion montada en el cliente', () => {
     const inv = base.investigaciones[0]!;
     localStorage.setItem('rosa.recorrido.v1', '1');
     await act(async () => aplicar(() => base));
-    const raiz = await montar(rutaDe(inv.id, 'mundo'));
+    const raiz = await montar(rutaDe(inv.id, 'mundo', 'hechos'));
     const tarjetas = raiz.querySelectorAll('.hecho').length;
     expect(tarjetas).toBeGreaterThan(0);
     await act(async () => aplicar(() => ({...base, investigaciones: []})));

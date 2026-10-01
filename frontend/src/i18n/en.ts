@@ -36,6 +36,7 @@ import { DOMINIO } from './en/13-dominio';
 import { DOMINIO2 } from './en/14-dominio';
 import { DOMINIO3 } from './en/15-dominio';
 import { ARBOL_ATLAS } from './en/16-arbol-atlas';
+import { MUNDO } from './en/17-mundo';
 
 export const EN: Record<string, string> = {
   ...CASCARA,
@@ -55,4 +56,5 @@ export const EN: Record<string, string> = {
   ...DOMINIO2,
   ...DOMINIO3,
   ...ARBOL_ATLAS,
+  ...MUNDO,
 };
