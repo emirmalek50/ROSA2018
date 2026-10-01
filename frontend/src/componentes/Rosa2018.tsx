@@ -1190,7 +1190,7 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
       <div className="rejilla-2">
         {campo('origen', tr('Origen (portal, laboratorio, publicación)'), tr('GEO GSE1297'))}
         {campo('version', tr('Versión del dataset'), tr('v1, 2004'))}
-        {campo('licencia', tr('Licencia o condiciones de uso'), tr('CC-BY 4.0; Allen Terms of Use'))}
+        {campo('licencia', tr('Licencia o condiciones de uso'), 'CC-BY 4.0; Allen Terms of Use')}
         {campo('permisos', tr('Permisos y acuerdo de uso (id, fecha)'), tr('DUC Synapse v8.2, aprobado 2026-09-01'))}
         {campo('cohorte', tr('Cohorte de origen'), 'ADNI')}
         {campo('restriccionIA', tr('Cláusula de IA del acuerdo (literal)'), tr('Use of AI tools must be described in your IDU'))}
@@ -2571,7 +2571,7 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
             </div>
           )}
           {negativo && (
-            <div className={negativoDestacado ? tr('experimento-bloque criterio-mal') : 'experimento-bloque'} data-lectura-negativo={negativoDestacado ? 'destacada' : 'discreta'}>
+            <div className={negativoDestacado ? 'experimento-bloque criterio-mal' : 'experimento-bloque'} data-lectura-negativo={negativoDestacado ? 'destacada' : 'discreta'}>
               <div className="acciones">
                 <strong style={{ fontSize: 13 }}>{tr("Qué dice el negativo")}</strong>
                 {rama && (

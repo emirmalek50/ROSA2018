@@ -1,0 +1,91 @@
+/** El catálogo entero, revisado por regla.
+ *
+ *  Buena parte de las traducciones las escribió un modelo (Opus 5, por el AI
+ *  Gateway, con las reglas del proyecto en el prompt). Un modelo acierta casi
+ *  siempre y falla en silencio, así que lo que se puede comprobar por regla
+ *  se comprueba aquí, sobre las entradas de verdad y no sobre una muestra.
+ *
+ *  Lo que NO comprueba, y hay que hacer a mano: si la traducción dice lo
+ *  mismo. Eso es revisión humana, y en las frases de GRADE y de los
+ *  veredictos del verificador una traducción mala no es una errata, es un
+ *  error científico. */
+import { describe, expect, it } from 'vitest';
+
+import { EN } from './en';
+
+const entradas = Object.entries(EN);
+
+describe('el catálogo en inglés', () => {
+  it('no está vacío ni tiene entradas vacías', () => {
+    expect(entradas.length).toBeGreaterThan(1000);
+    const vacias = entradas.filter(([, v]) => !v.trim());
+    expect(vacias, 'una entrada vacía borra el texto de la pantalla').toEqual([]);
+  });
+
+  it('no lleva guiones largos: es una regla del proyecto', () => {
+    const con = entradas.filter(([, v]) => v.includes('—')).map(([k]) => k);
+    expect(con.slice(0, 5)).toEqual([]);
+  });
+
+  it('los huecos con nombre son los mismos en los dos idiomas', () => {
+    // Un hueco que desaparece se lleva el dato: «Quedan 3 de 8» pasaría a
+    // «Remaining». Uno que se inventa sale literal en pantalla.
+    const huecos = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+    const malas = entradas.filter(([k, v]) => huecos(k).join(',') !== huecos(v).join(','));
+    expect(malas.slice(0, 5).map(([k, v]) => `${k} -> ${v}`)).toEqual([]);
+  });
+
+  it('«no pude comprobar» no se convierte en «no hay»', () => {
+    // La regla del proyecto: una fuente que no responde es «no pude
+    // comprobar», nunca «no hay». Son dos estados distintos y la interfaz
+    // los separa a propósito; una traducción que los junte la rompe.
+    const malas = entradas
+      .filter(([k]) => /no (?:pude|se pudo|pudo) comprobar/i.test(k))
+      .filter(([, v]) => !/could not (?:be )?(?:check|verif)/i.test(v) && !/unable to (?:check|verif)/i.test(v))
+      .map(([k, v]) => `${k.slice(0, 50)} -> ${v.slice(0, 50)}`);
+    expect(malas).toEqual([]);
+  });
+
+  it('la traducción no afirma más que el original', () => {
+    // ROSA2018 no demuestra: sostiene o no sostiene. Pero la regla es
+    // comparativa, no absoluta: la definición BEST de biomarcador
+    // diagnóstico dice «detecta o CONFIRMA la presencia de la enfermedad»,
+    // y traducirla por «confirms» es fiel. Lo que no vale es que el inglés
+    // afirme algo que el castellano no afirma.
+    const afirmaEN = /\b(?:proven|proves|confirmed|confirms|demonstrates|demonstrated|establishes)\b/i;
+    const afirmaES = /\b(?:demostrad|demuestra|confirmad|confirma|establece|prueba que)/i;
+    const malas = entradas
+      .filter(([k, v]) => afirmaEN.test(v) && !afirmaES.test(k))
+      .map(([k, v]) => `${k.slice(0, 40)} -> ${v.slice(0, 60)}`);
+    expect(malas.slice(0, 5)).toEqual([]);
+  });
+
+  it('no mete porcentajes de confianza que el original no tiene', () => {
+    const malas = entradas
+      .filter(([k, v]) => /\d+\s?%/.test(v) && !/\d+\s?%/.test(k))
+      .map(([k, v]) => `${k.slice(0, 40)} -> ${v.slice(0, 60)}`);
+    expect(malas.slice(0, 5)).toEqual([]);
+  });
+
+  it('conserva los símbolos de gen y de biomarcador', () => {
+    // GFAP traducido deja de nombrar la proteína. Se comprueban los que
+    // aparecen en la interfaz.
+    const simbolos = ['GFAP', 'NfL', 'NEFL', 'TREM2', 'APOE', 'p-tau217', 'p-tau181', 'MAPT', 'PSEN2', 'NLRP3'];
+    const malas: string[] = [];
+    for (const [k, v] of entradas) {
+      for (const s of simbolos) {
+        if (k.includes(s) && !v.includes(s)) malas.push(`${s}: ${k.slice(0, 44)} -> ${v.slice(0, 44)}`);
+      }
+    }
+    expect(malas.slice(0, 5)).toEqual([]);
+  });
+
+  it('ninguna traducción se quedó en castellano por descuido', () => {
+    // Señal barata: la ñ y los signos de apertura no existen en inglés. Una
+    // tilde sí puede aparecer (en un nombre propio), así que no se mira.
+    const malas = entradas
+      .filter(([k, v]) => /[ñ¿¡]/.test(v) && v === k)
+      .map(([k]) => k.slice(0, 60));
+    expect(malas.slice(0, 5)).toEqual([]);
+  });
+});

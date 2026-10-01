@@ -276,7 +276,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
       <div className="mec-chips">
         <button
           type="button"
-          className={verAmenazas ? tr('mec-chip mec-activo') : 'mec-chip'}
+          className={verAmenazas ? 'mec-chip mec-activo' : 'mec-chip'}
           aria-pressed={verAmenazas}
           onClick={() => cambiarAmenazas(!verAmenazas)}
         >
@@ -355,8 +355,8 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                         !sobre
                           ? 'mec-consenso'
                           : a.de === sobre || a.a === sobre
-                            ? tr('mec-consenso mec-encendida')
-                            : tr('mec-consenso mec-apagada')
+                            ? 'mec-consenso mec-encendida'
+                            : 'mec-consenso mec-apagada'
                       }
                       markerEnd="url(#mec-gris)"
                     >

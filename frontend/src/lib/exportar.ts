@@ -40,7 +40,7 @@ export function aRis(fuentes: Fuente[]): string {
       if (f.pagina !== null) lineas.push(`SP  - ${f.pagina}`);
       if (f.pmid) lineas.push(`AN  - ${f.pmid}`);
       lineas.push(`N1  - ROSA2018: ${f.retraccion ? 'RETRACTADO. ' : ''}${f.textoCompleto ? tr('texto completo') : tr('solo resumen')}`);
-      lineas.push(tr('ER  - '));
+      lineas.push('ER  - ');
       return lineas.join('\n');
     })
     .join('\n');

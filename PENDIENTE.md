@@ -1457,3 +1457,58 @@ Traducir bajo demanda con el modelo que ROSA2018 ya tiene, cacheando por hash
 del texto original, y solo cuando alguien en inglés mira ese contenido. A
 decidir: qué modelo, cuánto gasta y quién revisa la traducción, porque una
 mala traducción de la ciencia es un error científico y no una errata.
+
+### Lo que hay que saber antes de tocar la traducción (1 de octubre de 2026)
+
+Al envolver las 2.590 cadenas que el codemod de JSX no alcanzaba aparecieron
+cuatro trampas. Las tres primeras ya están resueltas y con prueba; la cuarta
+es una limitación que hay que tener presente.
+
+**1. Una cadena que se compara no se puede envolver.** `x === 'sostenida'`
+con `tr()` dentro deja de ser cierto en inglés, y no lo caza la suite, que
+corre en castellano, donde `tr()` devuelve lo mismo que recibe. El codemod
+(`frontend/.capturas/envolver.mjs`) hace una pasada previa sobre todo el
+árbol, recoge las 3.356 cadenas que se comparan en algún sitio y no las toca.
+Aun así se colaron por otros caminos: identificadores del grafo causal
+(`B:funcion renal`), los 118 alias con los que se reconoce una cohorte en un
+artículo (`Mount Sinai Brain Bank`), listas de palabras vacías, colores
+`rgba`, trazados SVG, valores CSS y la etiqueta `ER  - ` del formato RIS.
+Los saca `desenvolver.mjs`, `desenvolver_codigo.mjs`, `desenvolver_datos.mjs`
+y `desenvolver_css.mjs`. Lo defiende
+`frontend/src/lib/traduccion_segura.test.ts`, que es la única prueba de la
+suite que corre en inglés a propósito.
+
+**2. `tr()` en una constante de módulo se congela.** Se evalúa una vez, al
+importar el fichero, así que se queda con el idioma del arranque y no cambia
+al pulsar EN. Eran 1.231 cadenas. La solución es `traducido()`, un Proxy que
+traduce al LEER; ahora baja recursivamente (antes solo un nivel). Regla para
+quien siga: dentro de una función, `tr()`; en una constante de módulo,
+`traducido()` sobre la estructura entera.
+
+**3. Un Proxy no se puede clonar.** `structuredClone` de algo envuelto en
+`traducido()` lanza `DataCloneError`. Por eso existe `copiaTraducida()`, que
+devuelve una copia profunda y plana, y por eso `estadoDeMuestra()` la usa. El
+Proxy tampoco envuelve `RegExp`, `Date` ni `Map`: `patron.test(x)` dentro de
+un Proxy lanza, y el glosario guarda una `RegExp` por entrada.
+
+**4. Lo que se GUARDA no se traduce.** `QUIEN` («la persona responsable»)
+viaja al servidor como firmante de cada revisión y queda en el registro de
+auditoría; si cambiara con el idioma de la pantalla, la misma persona
+firmaría de dos maneras y el registro dejaría de poder agruparse. Se deja sin
+traducir y se traduciría al enseñarlo, que todavía no se hace. Mismo criterio
+para cualquier valor que acabe en el estado o en el registro.
+
+**El separador de los números sigue al idioma.** «1.171» leído en inglés es
+poco más de uno, no mil ciento setenta y uno. `formatearEntero` y el helper
+`coma()` de `frontend/src/lib/formato.ts` lo resuelven; los 19 sitios que
+hacían `.replace('.', ',')` a mano pasan por ahí.
+
+**El catálogo se genera con el modelo, no a mano.**
+`scripts/traducir_catalogo.py` traduce por el AI Gateway con Opus 5 y las
+reglas del proyecto en el prompt (terminología GRADE y de anatomía, «no pude
+comprobar» separado de «no hay», sin «proven» ni «confirmed», huecos `{n}`
+intactos). Rechaza lo que incumple esas reglas y es resumible: cada lote se
+escribe en `frontend/.capturas/traducciones.jsonl` nada más llegar. Lo que
+queda por hacer es la revisión humana de las frases que tocan una regla del
+proyecto (GRADE y los veredictos del verificador), que es donde una
+traducción mala es un error científico y no una errata.
