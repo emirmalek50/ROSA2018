@@ -106,6 +106,18 @@ describe('el catálogo en inglés', () => {
     expect(malas.slice(0, 6)).toEqual([]);
   });
 
+  it('el inglés es de Estados Unidos, que es a quien va dirigido', () => {
+    // Mezclar variantes se nota y queda descuidado. Los nombres propios se
+    // quedan como se llaman: el «Sydney Memory and Ageing Study» lleva
+    // Ageing porque así se llama el estudio, no porque se nos pasara.
+    const NOMBRES = /Ageing Study|Medical Research Council|Neuroimaging Initiative/;
+    const BRITANICO = /\b(?:randomis\w*|analys(?:ed|ing|e|es)|behaviou\w*|programme|colour\w*|grey|ageing|catalogue|licence|defence|centre|fibre|litre|metre|labelled|modelling|haemo\w*|oedema|organis(?:ed|ing|ation)|recognis\w*|normalis\w*|prioritis\w*|summaris\w*|standardis\w*|localis\w*)\b/i;
+    const malas = entradas
+      .filter(([, v]) => BRITANICO.test(v) && !NOMBRES.test(v))
+      .map(([k, v]) => `${k.slice(0, 36)} -> ${(v.match(BRITANICO) ?? [''])[0]}`);
+    expect(malas.slice(0, 6)).toEqual([]);
+  });
+
   it('ninguna traducción se quedó en castellano por descuido', () => {
     // Señal barata: la ñ y los signos de apertura no existen en inglés. Una
     // tilde sí puede aparecer (en un nombre propio), así que no se mira.

@@ -60,6 +60,8 @@ Reglas, por orden de importancia:
 
 5. REGISTRO: la interfaz tutea en castellano ("tu decisión"). En inglés, "your decision". Directo y llano, sin floreos.
 
+6. VARIANTE: inglés de Estados Unidos, que es a quien va dirigido. "randomized", "analyze", "behavior", "program", "color", "gray matter", "aging", "catalog", "center", "license". Los nombres propios se quedan como se llaman ("Sydney Memory and Ageing Study" lleva Ageing porque así se llama el estudio).
+
 Devuelves SOLO un objeto JSON: {"<original en castellano>": "<traducción al inglés>", ...}. Una entrada por cada cadena que te den, con la clave idéntica al original, carácter a carácter."""
 
 

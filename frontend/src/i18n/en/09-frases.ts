@@ -27,7 +27,7 @@ export const FRASES4: Record<string, string> = {
   'Bloqueadas con una versión anterior del verificador: hoy el verificador entero ya no las bloquearía': 'Blocked by an earlier version of the verifier: today the verifier as a whole would no longer block them',
   'Comprobable en FLENI; pedir al investigador clínico principal si la cohorte tiene genotipo de TREM2': 'Checkable at FLENI; ask the principal clinical investigator whether the cohort has a TREM2 genotype',
   'Localhost sirve solo en este equipo. Para acceso desde otros equipos necesitas un despliegue HTTPS.': 'Localhost only works on this machine. For access from other machines you need an HTTPS deployment.',
-  'Sin fichero: los datasets del catálogo no tienen libro de procedencia hasta que se sube el fichero.': 'No file: catalogue datasets have no provenance record until the file is uploaded.',
+  'Sin fichero: los datasets del catálogo no tienen libro de procedencia hasta que se sube el fichero.': 'No file: catalog datasets have no provenance record until the file is uploaded.',
   'Vigilar la literatura 30 días: ROSA2018 avisa de artículos nuevos que toquen una hipótesis aceptada': 'Watch the literature for 30 days: ROSA2018 flags new articles touching an accepted hypothesis',
   'Localhost solo funciona en el equipo que ejecuta ROSA2018. No incluyas tokens de acceso en esta URL.': 'Localhost only works on the machine running ROSA2018. Do not include access tokens in this URL.',
   'Sin paneles todavía. Se corre desde el servidor con el comando del README (cuesta llamadas al juez).': 'No panels yet. It is run from the server with the README command (it costs judge calls).',

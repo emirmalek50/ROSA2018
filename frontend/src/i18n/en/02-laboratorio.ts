@@ -29,7 +29,7 @@ export const LABORATORIO: Record<string, string> = {
   PARTES: 'PARTS',
   'Acerca la rueda del ratón sobre la proteína': 'Scroll the mouse wheel over the protein',
   'Modelo predicho, no medido: el color dice de qué tramos se fía.':
-    'A predicted model, not a measured one: the colour says which stretches it trusts.',
+    'A predicted model, not a measured one: the color says which stretches it trusts.',
   predicha: 'predicted',
   'PARA EL LABORATORIO': 'FOR THE LAB',
   copiar: 'copy',

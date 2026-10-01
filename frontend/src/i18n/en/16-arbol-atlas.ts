@@ -15,7 +15,7 @@ export const ARBOL_ATLAS: Record<string, string> = {
   'Hecho del modelo de mundo': 'World-model fact',
   'Pregunta abierta': 'Open question',
   'Resultado del laboratorio': 'Lab result',
-  'Área del programa': 'Programme area',
+  'Área del programa': 'Program area',
   'pertenece a': 'belongs to',
   'relación causal': 'causal relation',
   'rival en el torneo': 'rival in the tournament',
@@ -66,7 +66,7 @@ export const ARBOL_ATLAS: Record<string, string> = {
   'Puerta de entrada de la información hacia el hipocampo. Es donde empiezan los ovillos de tau (estadios I y II de Braak), antes de cualquier síntoma.':
     'The gateway for information into the hippocampus. It is where tau tangles begin (Braak stages I and II), before any symptom.',
   'Parte delantera del cerebro: planificar, decidir y controlar la conducta. Se afecta más tarde que las regiones de la memoria.':
-    'The front of the brain: planning, deciding and controlling behaviour. It is affected later than the memory regions.',
+    'The front of the brain: planning, deciding and controlling behavior. It is affected later than the memory regions.',
   'Lóbulo lateral que procesa el lenguaje, el oído y el reconocimiento de caras y objetos. La corteza temporal media es de las primeras zonas neocorticales donde llega la tau.':
     'The lateral lobe that processes language, hearing and the recognition of faces and objects. The middle temporal cortex is among the first neocortical areas tau reaches.',
   'Región superior y posterior que integra el espacio y la atención. Su atrofia es más marcada en las formas de inicio temprano.':
@@ -76,7 +76,7 @@ export const ARBOL_ATLAS: Record<string, string> = {
   'Parte posterior del cerebro, donde se procesa la visión. Suele conservarse hasta fases avanzadas, salvo en la variante visual (atrofia cortical posterior).':
     'The back of the brain, where vision is processed. It is usually spared until late stages, except in the visual variant (posterior cortical atrophy).',
   'Núcleo del lóbulo temporal medial que procesa el miedo y la emoción. Se afecta pronto y se relaciona con los síntomas de conducta.':
-    'A medial temporal lobe nucleus that processes fear and emotion. It is affected early and is linked to behavioural symptoms.',
+    'A medial temporal lobe nucleus that processes fear and emotion. It is affected early and is linked to behavioral symptoms.',
   'Núcleos profundos que regulan el movimiento, la motivación y el paso de la información sensorial (tálamo). Incluye el núcleo basal de Meynert, de donde sale la acetilcolina de la corteza que se pierde en el Alzheimer.':
     'Deep nuclei that regulate movement, motivation and the relay of sensory information (thalamus). They include the nucleus basalis of Meynert, the source of the cortical acetylcholine that is lost in Alzheimer.',
   'La parte más baja del encéfalo, que conecta con la médula. El locus coeruleus, fuente de noradrenalina, es donde se ha descrito tau anómala más temprano.':
@@ -98,9 +98,9 @@ export const ARBOL_ATLAS: Record<string, string> = {
   'Líquido que baña el cerebro y la médula; se obtiene por punción lumbar. Refleja de forma directa la bioquímica del cerebro (amiloide beta 42, tau total, p-tau181).':
     'The fluid that bathes the brain and spinal cord; it is obtained by lumbar puncture. It reflects the brain’s biochemistry directly (amyloid beta 42, total tau, p-tau181).',
   'La capa externa del cerebro en general, cuando la fuente no dice qué región concreta. No es un lugar: es una localización fallida, y por eso va en la bandeja de no localizados.':
-    'The outer layer of the brain in general, when the source does not say which specific region. It is not a place: it is a failed localisation, which is why it goes in the unlocated tray.',
+    'The outer layer of the brain in general, when the source does not say which specific region. It is not a place: it is a failed localization, which is why it goes in the unlocated tray.',
   'El cerebro en su conjunto, o sin región concreta en la fuente (una imagen global, un tejido sin especificar). No es un lugar: es una localización fallida, y por eso va en la bandeja de no localizados.':
-    'The brain as a whole, or with no specific region in the source (a global image, unspecified tissue). It is not a place: it is a failed localisation, which is why it goes in the unlocated tray.',
+    'The brain as a whole, or with no specific region in the source (a global image, unspecified tissue). It is not a place: it is a failed localization, which is why it goes in the unlocated tray.',
   'Región nueva del backend, sin definición en llano todavía.': 'A new region from the backend, with no plain-language definition yet.',
 
   // El atlas: tipos celulares.
@@ -177,9 +177,9 @@ export const ARBOL_ATLAS: Record<string, string> = {
   'La conexión a una base pública (PubMed, Open Targets, GEO...). Cada consulta queda registrada con lo que devolvió.':
     'The connection to a public database (PubMed, Open Targets, GEO...). Every query is logged with what it returned.',
   'La ficha de un dataset: de donde viene, con que licencia, si se puede usar con IA, su hash y que significa cada columna.':
-    'A dataset’s record: where it comes from, under what licence, whether it may be used with AI, its hash and what each column means.',
+    'A dataset’s record: where it comes from, under what license, whether it may be used with AI, its hash and what each column means.',
   'Antes de descubrir nada, ROSA2018 tiene que reproducir tres análisis ya publicados dentro de una tolerancia. Si no puede, un resultado nuevo no se distingue de un error.':
-    'Before discovering anything, ROSA2018 has to reproduce three already published analyses within a tolerance. If it cannot, a new result is indistinguishable from a bug.',
+    'Before discovering anything, ROSA2018 has to reproduce three already published analyzes within a tolerance. If it cannot, a new result is indistinguishable from a bug.',
   'Cuanto hace ROSA2018 sola en cada clase de acción: sugerir, preguntar antes o actuar. Nunca toma sola una decisión que toque el mundo real.':
     'How much ROSA2018 does on its own for each class of action: suggest, ask first, or act. It never takes a decision that touches the real world on its own.',
   'Cuanto de lo relevante estima ROSA2018 haber encontrado ya en la literatura sobre un tema.':
@@ -187,7 +187,7 @@ export const ARBOL_ATLAS: Record<string, string> = {
   'Una medida de evidencia acumulable prueba a prueba, alternativa al valor p, que permite seguir mirando sin inflar los falsos positivos.':
     'A measure of evidence that accumulates test by test, an alternative to the p-value, that allows continued looking without inflating false positives.',
   'Si la evidencia que se cita sostiene de verdad la hipótesis. La decide una regla sobre el registro, no un modelo: afirmaciones que su fuente no sostiene o cuya cita no resuelve, fuentes retractadas, análisis dados por no válidos, o descarte del Killer. Una hipótesis sin solidez pierde el partido del torneo sin que ningún modelo lo juzgue. Que algo esté sin verificar no quita solidez: eso es "no pude comprobar".':
-    'Whether the evidence cited really supports the hypothesis. A rule over the record decides it, not a model: claims their source does not support or whose citation does not resolve, retracted sources, analyses ruled not valid, or a Killer discard. A hypothesis without soundness loses its tournament match without any model judging it. Something being unverified does not remove soundness: that is "could not check".',
+    'Whether the evidence cited really supports the hypothesis. A rule over the record decides it, not a model: claims their source does not support or whose citation does not resolve, retracted sources, analyzes ruled not valid, or a Killer discard. A hypothesis without soundness loses its tournament match without any model judging it. Something being unverified does not remove soundness: that is "could not check".',
   'Autonomía': 'Autonomy',
   'Puerta de reproducción': 'Reproduction gate',
   'Riesgo de sesgo': 'Risk of bias',
@@ -223,7 +223,7 @@ export const ARBOL_ATLAS: Record<string, string> = {
   'Que el marcador se mida con precisión (variación del ensayo, lotes, muestras archivadas) y de forma comparable entre visitas, laboratorios, plataformas y compartimentos.':
     'That the marker is measured precisely (assay variation, batches, archived samples) and comparably across visits, laboratories, platforms and compartments.',
   'La validación analítica de cada ensayo y los estudios de armonización entre plataformas.':
-    'The analytical validation of each assay and the cross-platform harmonisation studies.',
+    'The analytical validation of each assay and the cross-platform harmonization studies.',
   'Intervalo de referencia': 'Reference interval',
   'Los límites de lo normal para cada marcador, sacados de personas sanas y amiloide-negativas que no son las del estudio, con el mismo ensayo de laboratorio y ajustados por edad y sexo.':
     'The limits of normal for each marker, taken from healthy, amyloid-negative people who are not those in the study, with the same laboratory assay and adjusted for age and sex.',
