@@ -97,3 +97,92 @@ def test_una_ventana_con_letras_ambiguas_no_entra():
     # Una N en la secuencia no se puede sintetizar ni contar como diana.
     cs = ASO.candidatos("N" * 30 + "CTCTCCCACTCCCACTTCTT" * 5)
     assert all("N" not in c["secuencia"] and "N" not in c["diana"] for c in cs)
+
+
+# ---------------------------------------------------------------------------
+# La dúplex (rosa/duplex.py)
+# ---------------------------------------------------------------------------
+
+
+def test_la_duplex_es_antiparalela_y_el_arn_va_de_5_a_3():
+    """Las dos cadenas van en sentidos contrarios, y el ARN de izquierda a
+    derecha se lee de 5' a 3', que es como se escribe.
+
+    La primera versión tenía las letras en un sentido y las etiquetas 5' y 3'
+    diciendo el contrario, que es de los errores que un biólogo ve al
+    instante."""
+    from rosa import duplex as DUPLEX
+
+    aso = "CTCTCCCACTCCCACTTCTT"
+    diana = ASO.complemento_inverso(aso)
+    d = DUPLEX.de_un_candidato(aso, diana, ASO.ALA, ASO.HUECO)
+    # El ARN, leído de izquierda a derecha, es el tramo tal cual.
+    assert "".join(p["arn"] for p in d["pares"]) == diana.replace("T", "U")
+    # Y el oligo, al revés: la columna 1 lleva su ÚLTIMA letra.
+    assert "".join(p["aso"] for p in d["pares"]) == aso[::-1]
+    assert d["pares"][0]["posAso"] == len(aso)
+    assert d["pares"][-1]["posAso"] == 1
+
+
+def test_el_arn_de_la_duplex_lleva_U_y_nunca_T():
+    """El ARN mensajero no tiene timina. El tramo diana viene del cDNA, que sí
+    se escribe con T, y por ahí se coló una T en la fila del ARN."""
+    from rosa import duplex as DUPLEX
+
+    aso = "AAAACCCCGGGGTTTTACGT"
+    d = DUPLEX.de_un_candidato(aso, ASO.complemento_inverso(aso), ASO.ALA, ASO.HUECO)
+    arn = "".join(p["arn"] for p in d["pares"])
+    assert "T" not in arn
+    assert "U" in arn
+    # El oligo sí lleva T: en el hueco es ADN.
+    assert "T" in "".join(p["aso"] for p in d["pares"])
+
+
+def test_cada_columna_de_la_duplex_empareja_de_verdad():
+    """Si una columna no empareja, el dibujo está mintiendo sobre el
+    mecanismo entero."""
+    from rosa import duplex as DUPLEX
+
+    comp = {"A": "U", "U": "A", "G": "C", "C": "G"}
+    for aso in ("CTCTCCCACTCCCACTTCTT", "AAAACCCCGGGGTTTTACGT", "GCGCATATGCGCATATGCGC"):
+        d = DUPLEX.de_un_candidato(aso, ASO.complemento_inverso(aso), ASO.ALA, ASO.HUECO)
+        for p in d["pares"]:
+            del_oligo = "U" if p["aso"] == "T" else p["aso"]
+            assert comp[p["arn"]] == del_oligo, f"la columna {p['i']} no empareja: {p['arn']} con {p['aso']}"
+
+
+def test_el_hueco_y_el_corte_van_en_columnas_del_dibujo():
+    """Y se CALCULAN, no se dan por hecho: con 5-10-5 salen los mismos números
+    porque es simétrica, pero una arquitectura asimétrica lo rompería en
+    silencio."""
+    from rosa import duplex as DUPLEX
+
+    aso = "A" * 20
+    d = DUPLEX.de_un_candidato(aso, ASO.complemento_inverso(aso), ASO.ALA, ASO.HUECO)
+    assert d["hueco"] == [6, 15]
+    assert d["huecoEnElOligo"] == [6, 15]
+    # Las columnas del hueco son exactamente las de química «hueco».
+    c = [p["i"] for p in d["pares"] if p["quimica"] == "hueco"]
+    assert [min(c), max(c)] == d["hueco"]
+    assert len(c) == ASO.HUECO
+    # Con una arquitectura asimétrica las columnas YA NO coinciden con las
+    # posiciones del oligo, y es justo lo que hay que no romper.
+    d2 = DUPLEX.de_un_candidato("A" * 20, "T" * 20, 3, 14)
+    c2 = [p["i"] for p in d2["pares"] if p["quimica"] == "hueco"]
+    assert [min(c2), max(c2)] == d2["hueco"]
+    assert d2["huecoEnElOligo"] == [4, 17]
+
+
+def test_la_duplex_dice_que_NO_es_una_estructura_resuelta():
+    """Se intentó generar un PDB para el visor 3D y hubo que tirarlo: los
+    parámetros publicados dan la forma de la hélice, no dónde está cada átomo,
+    y ponerlos habría sido inventarlos."""
+    from rosa import duplex as DUPLEX
+
+    d = DUPLEX.de_un_candidato("A" * 20, "T" * 20, ASO.ALA, ASO.HUECO)
+    assert len(d["avisos"]) == 3
+    textos = " ".join(a["que"] + a["porQue"] for a in d["avisos"])
+    assert "no una estructura resuelta" in textos.lower()
+    assert "inventar" in textos.lower()
+    # Y ninguna coordenada atómica.
+    assert "pdb" not in d

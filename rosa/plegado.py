@@ -39,7 +39,7 @@ from __future__ import annotations
 
 from typing import Any
 
-VERSION = 1
+VERSION = 2
 
 # El tramo cuya accesibilidad se mide: el del oligo.
 LARGO = 20
@@ -149,12 +149,30 @@ def de_un_sitio(perf: list[float] | None, posicion: int) -> dict[str, Any] | Non
     }
 
 
-def dibujo(cdna: str, desde: int, hasta: int) -> dict[str, Any] | None:
-    """El plegado de un trozo del ARN alrededor del sitio, para dibujarlo.
+# Cuántas letras del ARN entran en el dibujo, alrededor del sitio del oligo.
+#
+# Ciento cuarenta era lo de antes, cuando el dibujo eran arcos sin letras. Con
+# las letras grandes (que es lo que pidió el compañero de Emir el 1 de octubre
+# de 2026: «poner en grande el conjunto de letras del arn, que se enfoque mas
+# en eso») ciento cuarenta no se leen. Noventa y seis es lo que cabe
+# reconociendo cada letra, y sigue siendo bastante contexto para que el
+# plegado local salga parecido al de verdad.
+VENTANA_DIBUJO = 96
 
-    Se devuelve la estructura en notación de paréntesis (cada letra es `.` si
-    está libre y `(` o `)` si está emparejada con otra), que es lo que la
-    pantalla necesita para pintar la horquilla y marcar dónde cae el oligo."""
+
+def dibujo(cdna: str, desde: int, hasta: int, sitio: tuple[int, int] | None = None) -> dict[str, Any] | None:
+    """El plegado de un trozo del ARN, con la POSICIÓN de cada letra para
+    poder dibujarlo como se dibuja de verdad.
+
+    Las coordenadas salen de `naview_xy_coordinates` de ViennaRNA, que es la
+    disposición clásica del campo (la de RNAplot y la de casi cualquier figura
+    de estructura secundaria que se haya publicado): los tallos quedan como
+    escaleras y los bucles como círculos, sin que las ramas se pisen. Aquí no
+    se inventa ninguna geometría, se usa la de la herramienta.
+
+    Se devuelve también la estructura en notación de paréntesis y los pares ya
+    resueltos, que es lo que hace falta para pintar las barras entre letras
+    emparejadas."""
     if not cdna:
         return None
     try:
@@ -167,15 +185,41 @@ def dibujo(cdna: str, desde: int, hasta: int) -> dict[str, Any] | None:
     if len(trozo) < 6:
         return None
     est, energia = RNA.fold(trozo)
+    crudas = RNA.naview_xy_coordinates(est)
+    # El último punto que devuelve es relleno, no un nucleótido.
+    xs = [float(crudas[i].X) for i in range(len(trozo))]
+    ys = [float(crudas[i].Y) for i in range(len(trozo))]
+    minx, maxx = min(xs), max(xs)
+    miny, maxy = min(ys), max(ys)
+    ancho = max(1e-6, maxx - minx)
+    alto = max(1e-6, maxy - miny)
+    s0, s1 = sitio if sitio else (0, -1)
+    emparejada = {i for par in _pares(est) for i in par}
+    letras = []
+    for i, letra in enumerate(trozo, 1):
+        pos = a + i - 1   # la posición en el transcrito entero
+        letras.append({
+            "i": i,
+            "pos": pos,
+            "letra": letra,
+            # Normalizadas a 0..1 para que la pantalla las escale a su gusto.
+            # El eje Y se invierte porque en SVG crece hacia abajo.
+            "x": round((xs[i - 1] - minx) / ancho, 5),
+            "y": round(1.0 - (ys[i - 1] - miny) / alto, 5),
+            "emparejada": i in emparejada,
+            "enElSitio": s0 <= pos <= s1,
+        })
     return {
         "desde": a,
         "hasta": b,
         "secuencia": trozo,
         "estructura": est,
         "energia": round(float(energia), 2),
-        # Cada par, para que la pantalla pueda dibujar los arcos sin tener que
-        # interpretar los paréntesis.
         "pares": _pares(est),
+        "letras": letras,
+        # La proporción del dibujo, para que no salga estirado.
+        "proporcion": round(ancho / alto, 4) if alto else 1.0,
+        "disposicion": "naview (ViennaRNA)",
     }
 
 
@@ -191,4 +235,4 @@ def _pares(estructura: str) -> list[list[int]]:
     return sorted(pares)
 
 
-__all__ = ["ABIERTO", "ALCANCE", "AVISOS", "LARGO", "MEDIO", "VENTANA", "VERSION", "como_se_lee", "de_un_sitio", "dibujo", "etiqueta", "hay_viennarna", "perfil"]
+__all__ = ["ABIERTO", "ALCANCE", "AVISOS", "LARGO", "MEDIO", "VENTANA", "VENTANA_DIBUJO", "VERSION", "como_se_lee", "de_un_sitio", "dibujo", "etiqueta", "hay_viennarna", "perfil"]

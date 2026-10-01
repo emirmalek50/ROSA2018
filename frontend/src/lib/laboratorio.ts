@@ -346,21 +346,27 @@ export interface Duplex {
   version: number;
   aso: string;
   diana: string;
+  /** Una columna por par, con el ARN leído de 5' a 3' de izquierda a derecha,
+   *  que es como se escribe. El oligo, debajo, va entonces de 3' a 5': una
+   *  dúplex es ANTIPARALELA. */
   pares: {
+    /** La columna, de 1 a 20, en el sentido del ARN. */
     i: number;
-    aso: string;
     arn: string;
+    aso: string;
+    /** En qué posición del OLIGO cae esta columna (de 1 a 20, de 5' a 3'). */
+    posAso: number;
     quimica: "ala" | "hueco";
-    /** Avance a lo largo del eje, en ángstroms. */
+    /** Avance a lo largo del eje de la hélice, en ángstroms. */
     z: number;
-    /** Seno del giro: es lo que da el aspecto de doble hélice al proyectarla. */
-    yAso: number;
-    yArn: number;
-    /** Por delante o por detrás del eje, para dibujar bien el cruce. */
-    delanteAso: boolean;
+    giro: number;
   }[];
+  /** En COLUMNAS del dibujo, no en posiciones del oligo. Con la arquitectura
+   *  5-10-5 salen los mismos números porque es simétrica, pero el backend lo
+   *  calcula en vez de darlo por hecho. */
   alas: [number, number][];
   hueco: [number, number];
+  huecoEnElOligo: [number, number];
   /** Dónde corta la RNasa H1. No es un punto exacto: corta dentro del tramo
    *  que reconoce, y eso es el hueco. */
   dondeCorta: [number, number];
@@ -458,9 +464,29 @@ export interface DisenoAso {
       desde: number;
       hasta: number;
       secuencia: string;
+      /** Notación de paréntesis: `.` libre, `(` y `)` emparejada. */
       estructura: string;
       energia: number;
       pares: [number, number][];
+      /** Una entrada por nucleótido, con su sitio en el dibujo. Las
+       *  coordenadas salen de `naview_xy_coordinates` de ViennaRNA, que es la
+       *  disposición clásica del campo (tallos como escaleras, bucles como
+       *  círculos, sin que las ramas se pisen), normalizadas a 0..1. */
+      letras: {
+        /** Posición dentro del trozo dibujado, en base uno. */
+        i: number;
+        /** Posición en el transcrito entero. */
+        pos: number;
+        letra: string;
+        x: number;
+        y: number;
+        emparejada: boolean;
+        /** Si cae en el tramo al que va el oligo. */
+        enElSitio: boolean;
+      }[];
+      /** Ancho partido por alto, para que el dibujo no salga estirado. */
+      proporcion: number;
+      disposicion: string;
     } | null;
     dibujoDe?: string;
     dibujoSitio?: [number, number];

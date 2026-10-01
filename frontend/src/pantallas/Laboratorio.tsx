@@ -927,153 +927,242 @@ function MapaTranscrito({ d, activo, alElegir }: { d: DisenoAso; activo: number;
 
 
 /* --------------------------------------------------------------------------
-   El ARN plegado, y si el sitio del oligo está abierto
+   El ARN, con sus letras
    --------------------------------------------------------------------------
    Un ARN mensajero no es una cinta estirada: se dobla sobre sí mismo y forma
    horquillas. Si el tramo de veinte letras al que va el oligo está emparejado
    dentro de una de esas horquillas, el oligo no entra, por buenas que sean
    sus letras.
 
-   Se dibuja como un arco por cada par de letras emparejadas, que es la forma
-   estándar de enseñar una estructura secundaria de ARN sin tener que resolver
-   un dibujo en dos dimensiones. La altura del arco dice lo lejos que están
-   las dos letras: los arcos altos son horquillas largas. */
-function Horquilla({ d, sitio }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['dibujo']>; sitio?: [number, number] }) {
-  const n = d.secuencia.length;
-  const ancho = 760;
-  const alto = 150;
-  const x = (i: number) => ((i - 0.5) / n) * ancho;
-  const sDesde = sitio ? sitio[0] - d.desde + 1 : 0;
-  const sHasta = sitio ? sitio[1] - d.desde + 1 : 0;
-  const maxLuz = Math.max(1, ...d.pares.map(([a, b]) => b - a));
+   Antes esto eran arcos, sin una sola letra. El 1 de octubre de 2026 el
+   compañero de Emir pidió lo contrario: que mandaran las letras del ARN, en
+   grande. Así que se dibuja el ARN como se dibuja de verdad, un nucleótido
+   una letra, en el sitio que le toca.
+
+   Las coordenadas NO son inventadas: vienen de `naview_xy_coordinates` de
+   ViennaRNA, que es la disposición clásica del campo (la de RNAplot y la de
+   casi cualquier figura de estructura secundaria publicada). Los tallos salen
+   como escaleras y los bucles como círculos, sin que las ramas se pisen. */
+
+const COLOR_LETRA: Record<string, string> = { A: 'arn-a', U: 'arn-u', G: 'arn-g', C: 'arn-c' };
+
+function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['dibujo']> }) {
+  const [sobre, fijarSobre] = useState<number | null>(null);
+  const letras = d.letras ?? [];
+  if (!letras.length) return null;
+
+  // El lienzo se ajusta a la proporción del plegado para que no salga
+  // estirado: un ARN con un tallo largo es alto y estrecho, y forzarlo a un
+  // cuadrado deformaría los bucles.
+  const base = 760;
+  const ancho = d.proporcion >= 1 ? base : base * Math.max(0.42, d.proporcion);
+  const alto = d.proporcion >= 1 ? base / d.proporcion : base;
+  const m = 24;
+  const X = (v: number) => m + v * (ancho - 2 * m);
+  const Y = (v: number) => m + v * (alto - 2 * m);
+  const porI = new Map(letras.map((l) => [l.i, l]));
+  const enElSitio = letras.filter((l) => l.enElSitio);
+  const aAbrir = enElSitio.filter((l) => l.emparejada).length;
+  const act = sobre !== null ? porI.get(sobre) : null;
+
   return (
-    <svg className="rna-arcos" viewBox={`0 0 ${ancho} ${alto + 26}`} role="img" aria-label="Estructura del ARN alrededor del sitio del oligo">
-      {/* El tramo al que va el oligo, de fondo. */}
-      {sitio ? (
-        <rect x={x(sDesde) - 1} y={0} width={x(sHasta) - x(sDesde) + 2} height={alto + 14} className="rna-sitio" rx="3" />
-      ) : null}
-      {/* Un arco por cada par. */}
-      {d.pares.map(([a, b]) => {
-        const h = alto * (0.18 + 0.82 * Math.sqrt((b - a) / maxLuz));
-        const enElSitio = sitio ? (a >= sDesde && a <= sHasta) || (b >= sDesde && b <= sHasta) : false;
-        return (
+    <figure className="arn">
+      <svg
+        className="arn-svg"
+        viewBox={`0 0 ${ancho.toFixed(0)} ${alto.toFixed(0)}`}
+        role="img"
+        aria-label={`El ARN entre las posiciones ${d.desde} y ${d.hasta}, plegado, con el tramo del oligo marcado`}
+        onMouseLeave={() => fijarSobre(null)}
+      >
+        {/* El esqueleto: la cadena, de una letra a la siguiente. */}
+        <path
+          className="arn-cadena"
+          d={letras.map((l, k) => `${k ? 'L' : 'M'} ${X(l.x).toFixed(1)} ${Y(l.y).toFixed(1)}`).join(' ')}
+        />
+        {/* El tramo del oligo, por encima del esqueleto: es el hilo que hay
+            que dejar libre. */}
+        {enElSitio.length > 1 ? (
           <path
-            key={`${a}-${b}`}
-            d={`M ${x(a)} ${alto} Q ${(x(a) + x(b)) / 2} ${alto - h} ${x(b)} ${alto}`}
-            className={`rna-arco${enElSitio ? ' rna-arco-sitio' : ''}`}
+            className="arn-cadena-sitio"
+            d={enElSitio.map((l, k) => `${k ? 'L' : 'M'} ${X(l.x).toFixed(1)} ${Y(l.y).toFixed(1)}`).join(' ')}
           />
-        );
-      })}
-      {/* La cadena. */}
-      <line x1="0" y1={alto} x2={ancho} y2={alto} className="rna-cadena" />
-      {sitio ? (
-        <text x={(x(sDesde) + x(sHasta)) / 2} y={alto + 21} className="rna-etiqueta" textAnchor="middle">
-          aquí va el oligo
-        </text>
-      ) : null}
-    </svg>
+        ) : null}
+        {/* Los pares: cada barra es un emparejamiento que mantiene cerrada la
+            horquilla. Las que caen en el sitio del oligo van encendidas,
+            porque son justo las que hay que abrir. */}
+        {(d.pares ?? []).map(([a, b]) => {
+          const la = porI.get(a);
+          const lb = porI.get(b);
+          if (!la || !lb) return null;
+          const dentro = la.enElSitio || lb.enElSitio;
+          return (
+            <line
+              key={`${a}-${b}`}
+              x1={X(la.x)}
+              y1={Y(la.y)}
+              x2={X(lb.x)}
+              y2={Y(lb.y)}
+              className={`arn-par${dentro ? ' arn-par-sitio' : ''}`}
+            />
+          );
+        })}
+        {/* Y las letras, que es de lo que va todo esto. */}
+        {letras.map((l) => (
+          <g
+            key={l.i}
+            className={`arn-n${l.enElSitio ? ' arn-n-sitio' : ''}${sobre === l.i ? ' arn-n-sobre' : ''}`}
+            onMouseEnter={() => fijarSobre(l.i)}
+          >
+            <circle cx={X(l.x)} cy={Y(l.y)} r={l.enElSitio ? 11.5 : 9.5} className="arn-disco" />
+            <text x={X(l.x)} y={Y(l.y)} className={`arn-letra ${COLOR_LETRA[l.letra] ?? ''}`} textAnchor="middle" dominantBaseline="central">
+              {l.letra}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <figcaption className="arn-pie">
+        <p className="arn-pie-cuenta">
+          {act ? (
+            <>
+              <b className="lab-mono">{act.letra}</b> en la posición <b>{n(act.pos)}</b> del transcrito ·{' '}
+              {act.emparejada ? 'emparejada' : 'libre'}
+              {act.enElSitio ? ' · dentro del tramo del oligo' : ''}
+            </>
+          ) : (
+            <>
+              <b>{n(aAbrir)}</b> de las {n(enElSitio.length)} letras del tramo están emparejadas: son las que el oligo
+              tiene que abrir para entrar. Pasa el ratón por una letra para verla.
+            </>
+          )}
+        </p>
+        <p className="arn-pie-nota">
+          El ARN entre las posiciones {n(d.desde)} y {n(d.hasta)}, plegado sobre sí mismo ({dec(d.energia, 1)} kcal/mol).
+          Cada letra es un nucleótido en el sitio que le toca; las barras son emparejamientos. Disposición{' '}
+          {d.disposicion}.
+        </p>
+      </figcaption>
+    </figure>
   );
 }
 
 
 /* --------------------------------------------------------------------------
-   La dúplex: el oligo emparejado con su ARN
+   La dúplex: el ARN y el oligo encajando, letra por letra
    --------------------------------------------------------------------------
-   Es la pieza que explica por qué la arquitectura es 5-10-5 y no veinte
-   letras iguales. Se dibujan los dos esqueletos como la hélice que forman de
-   verdad (los parámetros de giro y subida vienen del backend, medidos para
-   una dúplex híbrida de ARN con ADN) y los pares que los unen. Las alas de
-   2'-MOE van de un color y el hueco de ADN de otro, porque la RNasa H1 solo
-   reconoce el hueco: ahí corta, en las alas no.
+   Antes esto era una doble hélice con las letras de reparto, pequeñas. El 1 de
+   octubre de 2026 el compañero de Emir pidió que mandaran las letras del ARN y
+   que se vieran en grande, así que se dio la vuelta: ahora el ARN es la fila
+   de arriba y en grande, el oligo encaja debajo, y entre los dos van las
+   barras del emparejamiento.
 
-   NO se dibujan átomos. Los parámetros publicados dan la forma de la hélice,
-   no las coordenadas de cada base, y dibujarlas sería inventarlas. */
+   Lo que explica, y es lo que no se entiende leyendo veinte letras seguidas:
+   por qué la arquitectura es 5-10-5. Las alas de 2'-MOE agarran, pero la
+   RNasa H1 no las reconoce; solo ve el hueco de ADN del centro, y ahí corta.
+   El hueco va encendido y el corte marcado.
+
+   Los números de la hélice (giro 32,7 grados y subida 2,62 Å por par) vienen
+   del backend, medidos para una dúplex híbrida de ARN con ADN. No se dibujan
+   átomos: los parámetros dan la forma, no dónde está cada átomo de cada base,
+   y dibujarlos sería inventarlos. */
 function Duplex({ d }: { d: DuplexT }) {
-  const n = d.pares.length;
-  const ancho = 820;
-  const alto = 190;
-  const medio = alto / 2;
-  const amplitud = alto * 0.33;
-  const x = (i: number) => 26 + ((i - 1) / Math.max(1, n - 1)) * (ancho - 52);
-  const y = (v: number) => medio - v * amplitud;
-  const cam = (sel: (p: DuplexT['pares'][number]) => number) =>
-    d.pares.map((p, k) => `${k ? 'L' : 'M'} ${x(p.i).toFixed(1)} ${y(sel(p)).toFixed(1)}`).join(' ');
+  const [sobre, fijarSobre] = useState<number | null>(null);
+  const n2 = d.pares.length;
+  const paso = 40;
+  const ancho = 52 + n2 * paso;
+  const yArn = 46;
+  const yAso = 132;
+  const X = (i: number) => 36 + (i - 0.5) * paso;
   const [c1, c2] = d.dondeCorta;
+  const act = sobre !== null ? d.pares.find((p) => p.i === sobre) : null;
   return (
-    <figure className="dup">
-      <svg className="dup-svg" viewBox={`0 0 ${ancho} ${alto}`} role="img" aria-label="Esquema de la dúplex del oligo con su ARN">
-        {/* El hueco de ADN, de fondo: es la parte que la enzima reconoce. */}
-        <rect x={x(d.hueco[0]) - 7} y={6} width={x(d.hueco[1]) - x(d.hueco[0]) + 14} height={alto - 12} className="dup-hueco" rx="6" />
-        {/* Los pares. El color dice la química del lado del oligo. */}
-        {d.pares.map((p) => (
-          <line
-            key={p.i}
-            x1={x(p.i)}
-            y1={y(p.yAso)}
-            x2={x(p.i)}
-            y2={y(p.yArn)}
-            className={`dup-par dup-par-${p.quimica}${p.delanteAso ? '' : ' dup-detras'}`}
+    <figure className="dux">
+      <div className="dux-marco">
+        <svg
+          className="dux-svg"
+          viewBox={`0 0 ${ancho} 196`}
+          role="img"
+          aria-label="El ARN de la diana con el oligo encajando debajo"
+          onMouseLeave={() => fijarSobre(null)}
+        >
+          {/* El hueco de ADN, de fondo: es lo único que la RNasa H1 reconoce. */}
+          <rect
+            x={X(d.hueco[0]) - paso / 2}
+            y={18}
+            width={(d.hueco[1] - d.hueco[0] + 1) * paso}
+            height={150}
+            className="dux-hueco"
+            rx="10"
           />
-        ))}
-        {/* Los dos esqueletos. */}
-        <path d={cam((p) => p.yAso)} className="dup-hebra dup-hebra-aso" />
-        <path d={cam((p) => p.yArn)} className="dup-hebra dup-hebra-arn" />
-        {/* Las letras, cada una POR FUERA de su propia hebra.
-            No vale poner siempre la del oligo arriba: en cada cruce las
-            hebras se intercambian, y entonces las dos letras caen en el mismo
-            punto y no se lee ninguna. El signo lo decide quién va por encima
-            en ese par. */}
-        {n <= 24
-          ? d.pares.map((p) => {
-              const asoArriba = p.yAso > p.yArn;
-              return (
-                <g key={`l${p.i}`}>
-                  <text
-                    x={x(p.i)}
-                    y={y(p.yAso) + (asoArriba ? -9 : 17)}
-                    className={`dup-letra dup-letra-${p.quimica}`}
-                    textAnchor="middle"
-                  >
-                    {p.aso}
-                  </text>
-                  <text
-                    x={x(p.i)}
-                    y={y(p.yArn) + (asoArriba ? 17 : -9)}
-                    className="dup-letra dup-letra-arn"
-                    textAnchor="middle"
-                  >
-                    {p.arn}
-                  </text>
-                </g>
-              );
-            })
-          : null}
-        {/* Dónde corta la RNasa H1. */}
-        <path
-          d={`M ${x(c1)} ${alto - 8} L ${x(c2)} ${alto - 8}`}
-          className="dup-corte"
-          markerStart="url(#dup-f)"
-          markerEnd="url(#dup-f)"
-        />
-        <defs>
-          <marker id="dup-f" viewBox="0 0 6 6" refX="3" refY="3" markerWidth="5" markerHeight="5">
-            <circle cx="3" cy="3" r="2.4" className="dup-corte-punto" />
-          </marker>
-        </defs>
-      </svg>
-      <figcaption className="dup-pie">
-        <span className="dup-clave">
-          <i className="dup-c-ala" /> alas de 2&apos;-MOE
-        </span>
-        <span className="dup-clave">
-          <i className="dup-c-hueco" /> hueco de ADN
-        </span>
-        <span className="dup-clave">
-          <i className="dup-c-arn" /> el ARN de la diana
-        </span>
-        <span className="dup-clave">
-          <i className="dup-c-corte" /> aquí corta la RNasa H1
-        </span>
+          {/* Las dos cadenas, de fondo. */}
+          <line x1={20} y1={yArn} x2={ancho - 20} y2={yArn} className="dux-hebra dux-hebra-arn" />
+          <line x1={20} y1={yAso} x2={ancho - 20} y2={yAso} className="dux-hebra dux-hebra-aso" />
+          {d.pares.map((p) => (
+            <g
+              key={p.i}
+              className={`dux-col${sobre === p.i ? ' dux-col-sobre' : ''}`}
+              onMouseEnter={() => fijarSobre(p.i)}
+            >
+              {/* La barra del emparejamiento. */}
+              <line x1={X(p.i)} y1={yArn + 15} x2={X(p.i)} y2={yAso - 15} className={`dux-par dux-par-${p.quimica}`} />
+              {/* La letra del ARN, que es la que manda. */}
+              <text x={X(p.i)} y={yArn} className="dux-arn" textAnchor="middle" dominantBaseline="central">
+                {p.arn}
+              </text>
+              {/* Y la del oligo, debajo. */}
+              <text x={X(p.i)} y={yAso} className={`dux-aso dux-aso-${p.quimica}`} textAnchor="middle" dominantBaseline="central">
+                {p.aso}
+              </text>
+            </g>
+          ))}
+          {/* Los extremos, que en biología no son decoración: dicen en qué
+              sentido se lee cada cadena, y una dúplex es antiparalela. */}
+          <text x={16} y={yArn} className="dux-extremo" textAnchor="end" dominantBaseline="central">
+            5&apos;
+          </text>
+          <text x={ancho - 16} y={yArn} className="dux-extremo" textAnchor="start" dominantBaseline="central">
+            3&apos;
+          </text>
+          <text x={16} y={yAso} className="dux-extremo" textAnchor="end" dominantBaseline="central">
+            3&apos;
+          </text>
+          <text x={ancho - 16} y={yAso} className="dux-extremo" textAnchor="start" dominantBaseline="central">
+            5&apos;
+          </text>
+          {/* Dónde corta la RNasa H1. */}
+          <path d={`M ${X(c1)} ${178} L ${X(c2)} ${178}`} className="dux-corte" />
+          <text x={(X(c1) + X(c2)) / 2} y={192} className="dux-corte-texto" textAnchor="middle">
+            aquí corta la RNasa H1
+          </text>
+        </svg>
+      </div>
+      <figcaption className="dux-pie">
+        <p className="dux-pie-cuenta">
+          {act ? (
+            <>
+              ARN <b className="lab-mono">{act.arn}</b> con oligo <b className="lab-mono">{act.aso}</b> · letra{' '}
+              <b>{act.posAso}</b> del oligo ·{' '}
+              {act.quimica === 'hueco' ? 'en el hueco de ADN, que es donde corta' : "en un ala de 2'-MOE, que la enzima no reconoce"}
+            </>
+          ) : (
+            <>
+              Arriba el ARN de la diana leído de 5&apos; a 3&apos;, abajo el oligo, que va al revés porque una
+              dúplex es antiparalela. Las{' '}
+              <b>{n(d.hueco[1] - d.hueco[0] + 1)} del centro</b> son el hueco de ADN: lo único que la RNasa H1
+              reconoce. Pasa el ratón por una columna.
+            </>
+          )}
+        </p>
+        <div className="dux-claves">
+          <span className="dux-clave">
+            <i className="dux-c-arn" /> el ARN de la diana
+          </span>
+          <span className="dux-clave">
+            <i className="dux-c-ala" /> alas de 2&apos;-MOE
+          </span>
+          <span className="dux-clave">
+            <i className="dux-c-hueco" /> hueco de ADN
+          </span>
+        </div>
       </figcaption>
     </figure>
   );
@@ -1174,12 +1263,7 @@ function FichaSitio({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
       </dl>
       {pl.dibujo ? (
         <>
-          <Horquilla d={pl.dibujo} sitio={pl.dibujoSitio} />
-          <p className="aso-criba-como">
-            El ARN entre las posiciones {n(pl.dibujo.desde)} y {n(pl.dibujo.hasta)}, plegado sobre sí mismo
-({dec(pl.dibujo.energia, 1)} kcal/mol). Cada arco une dos letras emparejadas; cuanto más alto, más lejos están.
-            Los arcos resaltados tocan el tramo del oligo: son los que hay que abrir para que entre.
-          </p>
+          <ArnPlegado d={pl.dibujo} />
         </>
       ) : null}
       <details className="aso-criba-limites">

@@ -905,6 +905,13 @@ class Supervisor:
                     d["uniprot"] not in guardadas
                     or not guardadas[d["uniprot"]].get("comprobado", True)
                     or ((guardadas[d["uniprot"]].get("diseño") or {}).get("version") or 0) < ASO.VERSION
+                    # Y también cuando cambian las reglas del PLEGADO, que es
+                    # otra dependencia: la accesibilidad decide qué candidatos
+                    # se eligen, así que una regla nueva ahí deja el diseño
+                    # viejo igual que una regla nueva de ASO. Sin esto había
+                    # que subir ASO.VERSION para cambiar el plegado, que es
+                    # conflar dos cosas distintas.
+                    or (((guardadas[d["uniprot"]].get("diseño") or {}).get("plegado") or {}).get("version") or 0) < PLEGADO.VERSION
                 )
             ),
             None,
@@ -987,9 +994,14 @@ class Supervisor:
         mejor = max(cands, key=lambda c: (c.get("sitio") or {}).get("accesibilidad", -1.0), default=None)
         if mejor and mejor.get("sitio"):
             pos = int(mejor["posicion"])
-            dis["plegado"]["dibujo"] = PLEGADO.dibujo(str(ficha.get("cdna") or ""), pos - 60, pos + 79)
+            # La ventana se centra en el sitio del oligo. Estrecha a propósito:
+            # el dibujo lleva una letra por nucleótido y con ciento cuarenta no
+            # se leen.
+            margen = (PLEGADO.VENTANA_DIBUJO - ASO.LARGO) // 2
+            sitio = (pos, pos + ASO.LARGO - 1)
+            dis["plegado"]["dibujo"] = PLEGADO.dibujo(str(ficha.get("cdna") or ""), pos - margen, pos + ASO.LARGO - 1 + margen, sitio)
             dis["plegado"]["dibujoDe"] = mejor["secuencia"]
-            dis["plegado"]["dibujoSitio"] = [pos, pos + ASO.LARGO - 1]
+            dis["plegado"]["dibujoSitio"] = list(sitio)
 
     def _criba_si_toca(self) -> None:
         """Lanza el cribado de los candidatos antisentido contra el transcriptoma

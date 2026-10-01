@@ -809,7 +809,17 @@ describe('lo que va al laboratorio', () => {
         hecho: true, version: 1, ventana: 80, alcance: 40, motivo: '',
         avisos: [{ que: 'Es un modelo, no una medida', porQue: 'un sitio accesible funciona más a menudo, no siempre' }],
         mejorDelTranscrito: 0.8628, posicionMejor: 4585, medianaDelTranscrito: 0.0001, abiertos: 13,
-        dibujo: { desde: 100, hasta: 160, secuencia: 'A'.repeat(61), estructura: '.'.repeat(61), energia: -21.2, pares: [[2, 60], [3, 59], [12, 30]] as [number, number][] },
+        dibujo: {
+          desde: 100, hasta: 160, secuencia: 'AUGC'.repeat(15) + 'A', estructura: '((' + '.'.repeat(57) + '))',
+          energia: -21.2, pares: [[1, 61], [2, 60]] as [number, number][],
+          letras: Array.from({ length: 61 }, (_, k) => ({
+            i: k + 1, pos: 100 + k, letra: 'AUGC'[k % 4]!,
+            x: (k % 10) / 9, y: Math.floor(k / 10) / 6,
+            emparejada: k < 2 || k > 58,
+            enElSitio: 100 + k >= 120 && 100 + k <= 139,
+          })),
+          proporcion: 1.5, disposicion: 'naview (ViennaRNA)',
+        },
         dibujoSitio: [120, 139] as [number, number],
       },
     };
@@ -818,12 +828,17 @@ describe('lo que va al laboratorio', () => {
     await montar();
     await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
     await pulsar(nodo.querySelector('.lab-abrir-aso')!);
-    expect(nodo.querySelector('.rna-arcos')).not.toBeNull();
-    expect(nodo.querySelectorAll('.rna-arco').length).toBe(3);
-    // El que toca el tramo del oligo (120 a 139 sobre un dibujo que empieza
-    // en 100: posiciones 21 a 40) va resaltado.
-    expect(nodo.querySelectorAll('.rna-arco-sitio').length).toBe(1);
+    // Lo que pidió el compañero de Emir: que manden las letras del ARN.
+    expect(nodo.querySelector('.arn-svg')).not.toBeNull();
+    expect(nodo.querySelectorAll('.arn-letra').length).toBe(61);
+    // Las veinte del tramo del oligo (120 a 139) van encendidas y más grandes.
+    expect(nodo.querySelectorAll('.arn-n-sitio').length).toBe(20);
+    // Y cada letra lleva su color, para reconocerla de un vistazo.
+    expect(nodo.querySelectorAll('.arn-a').length).toBeGreaterThan(0);
+    expect(nodo.querySelectorAll('.arn-u').length).toBeGreaterThan(0);
     expect(texto()).toContain('El tramo está a medias');
+    // Cuántas hay que abrir, que es el dato que importa de todo el dibujo.
+    expect(texto()).toContain('tiene que abrir para entrar');
     // Decimales con coma, que es la regla del proyecto.
     expect(texto()).toContain('0,0938');
     expect(texto()).not.toContain('0.0938');
@@ -845,7 +860,7 @@ describe('lo que va al laboratorio', () => {
     await pulsar(nodo.querySelector('.lab-abrir-aso')!);
     expect(texto()).toContain('No se pudo calcular');
     expect(texto()).toContain('No quiere decir que esté tapado');
-    expect(nodo.querySelector('.rna-arcos')).toBeNull();
+    expect(nodo.querySelector('.arn-svg')).toBeNull();
   });
 
   it('la dúplex marca el hueco de ADN y dice que es un esquema, no una estructura', async () => {
@@ -854,16 +869,15 @@ describe('lo que va al laboratorio', () => {
       aso: 'ACGT'.charAt(k % 4),
       arn: 'UGCA'.charAt(k % 4),
       quimica: (k < 5 || k >= 15 ? 'ala' : 'hueco') as 'ala' | 'hueco',
+      posAso: 20 - k,
       z: k * 2.62,
-      yAso: Math.sin((k * 32.7 * Math.PI) / 180),
-      yArn: -Math.sin((k * 32.7 * Math.PI) / 180),
-      delanteAso: Math.cos((k * 32.7 * Math.PI) / 180) >= 0,
+      giro: (k * 32.7) % 360,
     }));
     const c = {
       ...DIANA.aso!.candidatos[0]!,
       duplex: {
         version: 1, aso: 'A'.repeat(20), diana: 'T'.repeat(20), pares,
-        alas: [[1, 5], [16, 20]] as [number, number][], hueco: [6, 15] as [number, number], dondeCorta: [7, 14] as [number, number],
+        alas: [[1, 5], [16, 20]] as [number, number][], hueco: [6, 15] as [number, number], dondeCorta: [7, 14] as [number, number], huecoEnElOligo: [6, 15] as [number, number], dianaEnAdn: 'T'.repeat(20),
         queEs: { ala: "2'-MOE", hueco: 'ADN, es lo ÚNICO que la RNasa H1 reconoce', arn: 'el ARN de la diana' },
         avisos: [{ que: 'No es una estructura resuelta', porQue: 'nadie ha cristalizado este oligo con este ARN' }],
         largoAngstroms: 49.8, vueltas: 1.73, giroPorPar: 32.7, subidaPorPar: 2.62, surcoMenor: 9.5,
@@ -877,27 +891,30 @@ describe('lo que va al laboratorio', () => {
     await montar();
     await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
     await pulsar(nodo.querySelector('.lab-abrir-aso')!);
-    expect(nodo.querySelectorAll('.dup-par').length).toBe(20);
+    expect(nodo.querySelectorAll('.dux-par').length).toBe(20);
     // Diez de los veinte pares son el hueco de ADN, que es lo que corta.
-    expect(nodo.querySelectorAll('.dup-par-hueco').length).toBe(10);
+    expect(nodo.querySelectorAll('.dux-par-hueco').length).toBe(10);
+    // El ARN manda: hay una letra de ARN por par, y es la más grande.
+    expect(nodo.querySelectorAll('.dux-arn').length).toBe(20);
+    expect(nodo.querySelectorAll('.dux-aso').length).toBe(20);
     expect(texto()).toContain('la RNasa H1 necesita ver ADN de verdad');
     // Lo que NO es: no se puede vender un esquema como una estructura.
     expect(texto()).toContain('No es una estructura resuelta');
     expect(texto()).toContain('49,8 Å');
   });
 
-  it('las letras de la dúplex no se pisan en los cruces de las hebras', async () => {
-    // En cada cruce las dos hebras se intercambian; poniendo siempre la letra
-    // del oligo arriba, las dos caían en el mismo punto y no se leía ninguna.
-    const pares = Array.from({ length: 20 }, (_, k) => {
-      const a = (k * 32.7 * Math.PI) / 180;
-      return { i: k + 1, aso: 'A', arn: 'T', quimica: 'ala' as const, z: k * 2.62, yAso: Math.sin(a), yArn: -Math.sin(a), delanteAso: Math.cos(a) >= 0 };
-    });
+  it('la dúplex dice el sentido de cada cadena, que es antiparalela', async () => {
+    // Los 5' y 3' no son decoración: una dúplex es antiparalela, y sin eso el
+    // dibujo diría que las dos cadenas se leen igual.
+    const pares = Array.from({ length: 20 }, (_, k) => ({
+      i: k + 1, aso: 'A', arn: 'U', quimica: (k < 5 || k >= 15 ? 'ala' : 'hueco') as 'ala' | 'hueco',
+      posAso: 20 - k, z: k * 2.62, giro: (k * 32.7) % 360,
+    }));
     const c = {
       ...DIANA.aso!.candidatos[0]!,
       duplex: {
         version: 1, aso: 'A'.repeat(20), diana: 'T'.repeat(20), pares,
-        alas: [[1, 5], [16, 20]] as [number, number][], hueco: [6, 15] as [number, number], dondeCorta: [7, 14] as [number, number],
+        alas: [[1, 5], [16, 20]] as [number, number][], hueco: [6, 15] as [number, number], dondeCorta: [7, 14] as [number, number], huecoEnElOligo: [6, 15] as [number, number], dianaEnAdn: 'T'.repeat(20),
         queEs: { ala: 'a', hueco: 'b', arn: 'c' }, avisos: [],
         largoAngstroms: 49.8, vueltas: 1.73, giroPorPar: 32.7, subidaPorPar: 2.62, surcoMenor: 9.5,
         porQueHibrida: 'x', porQueSoloElHueco: 'y',
@@ -909,16 +926,40 @@ describe('lo que va al laboratorio', () => {
     await montar();
     await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
     await pulsar(nodo.querySelector('.lab-abrir-aso')!);
-    const letras = [...nodo.querySelectorAll('.dup-letra')].map((x) => ({
-      x: Number(x.getAttribute('x')),
-      y: Number(x.getAttribute('y')),
+    const extremos = [...nodo.querySelectorAll('.dux-extremo')].map((x) => x.textContent);
+    expect(extremos).toEqual(["5'", "3'", "3'", "5'"]);
+  });
+
+  it('la fila del ARN va en alfabeto de ARN: con U, nunca con T', async () => {
+    // El ARN mensajero no tiene timina. Enseñar una T en la fila del ARN es
+    // un error que cualquiera que sepa biología ve de un vistazo, y se coló
+    // porque el tramo diana viene del cDNA, que sí se escribe con T.
+    const pares = 'GAGAGGGUGAGGGUGAAGAA'.split('').map((arn, k) => ({
+      i: k + 1, aso: 'CTCTCCCACTCCCACTTCTT'[k]!, arn,
+      quimica: (k < 5 || k >= 15 ? 'ala' : 'hueco') as 'ala' | 'hueco',
+      posAso: 20 - k, z: k * 2.62, giro: (k * 32.7) % 360,
     }));
-    expect(letras.length).toBe(40);
-    // En cada columna las dos letras tienen que estar separadas de verdad.
-    for (let k = 0; k < 20; k++) {
-      const col = letras.filter((l) => Math.abs(l.x - letras[k * 2]!.x) < 0.01);
-      expect(col.length).toBe(2);
-      expect(Math.abs(col[0]!.y - col[1]!.y)).toBeGreaterThan(14);
-    }
+    const c = {
+      ...DIANA.aso!.candidatos[0]!,
+      duplex: {
+        version: 1, aso: 'CTCTCCCACTCCCACTTCTT', diana: 'GAGAGGGUGAGGGUGAAGAA', pares,
+        alas: [[1, 5], [16, 20]] as [number, number][], hueco: [6, 15] as [number, number], dondeCorta: [7, 14] as [number, number], huecoEnElOligo: [6, 15] as [number, number], dianaEnAdn: 'T'.repeat(20),
+        queEs: { ala: 'a', hueco: 'b', arn: 'c' }, avisos: [],
+        largoAngstroms: 49.8, vueltas: 1.73, giroPorPar: 32.7, subidaPorPar: 2.62, surcoMenor: 9.5,
+        porQueHibrida: 'x', porQueSoloElHueco: 'y',
+      },
+    };
+    const aso = { ...DIANA.aso!, candidatos: [c] };
+    respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, aso }], oligoQueMandaria: null };
+    respuestas.oligos = aso;
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    const arn = [...nodo.querySelectorAll('.dux-arn')].map((x) => x.textContent).join('');
+    expect(arn).toBe('GAGAGGGUGAGGGUGAAGAA');
+    expect(arn).not.toContain('T');
+    // Y el oligo sí lleva T, porque es ADN en el hueco.
+    const oligo = [...nodo.querySelectorAll('.dux-aso')].map((x) => x.textContent).join('');
+    expect(oligo).toBe('CTCTCCCACTCCCACTTCTT');
   });
 });
