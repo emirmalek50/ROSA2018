@@ -2375,7 +2375,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
         </footer>
       </aside>
 
-      <div className={`lab-capa lab-leyenda${nivel > 1 ? ' lab-fuera' : ''}`}>
+      <div className={`lab-capa lab-leyenda${nivel > 0 ? ' lab-fuera' : ''}`}>
         <b>CONFIANZA DEL MODELO</b>
         <div>
           <i style={{ background: '#0053D6' }} /> muy alta, más de 90
@@ -2391,10 +2391,10 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
         </div>
       </div>
 
-      <div className="lab-mando">
+      <div className={`lab-capa lab-mando${nivel > 0 ? ' lab-fuera' : ''}`} aria-hidden={nivel > 0}>
         <div className="lab-niveles">
           {['LÁMINA', 'PARTES', 'ÁTOMOS'].map((t, i) => (
-            <button key={t} type="button" aria-current={nivel === i} onClick={() => irANivel(i)}>
+            <button key={t} type="button" tabIndex={nivel > 0 ? -1 : 0} aria-current={nivel === i} onClick={() => irANivel(i)}>
               {t}
             </button>
           ))}

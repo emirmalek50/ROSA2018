@@ -1084,6 +1084,22 @@ describe('lo que va al laboratorio', () => {
 
 
 describe('la ficha visual y sus gráficas', () => {
+  it('oculta ficha, niveles y confianza juntos al acercar y los recupera al alejar', async () => {
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    for (const nivel of [1, 2, 0]) {
+      visor.nivel = nivel;
+      await act(async () => {
+        visor.dibujar?.();
+        await new Promise((r) => setTimeout(r, 20));
+      });
+      for (const selector of ['.lab-hoja', '.lab-mando', '.lab-leyenda']) {
+        expect(nodo.querySelector(selector)!.classList.contains('lab-fuera')).toBe(nivel > 0);
+      }
+      expect(nodo.querySelector('.lab-mando button')!.getAttribute('tabindex')).toBe(nivel > 0 ? '-1' : '0');
+    }
+  });
+
   it('mantiene el conflicto del contrato fuera de la zona desplazable', async () => {
     respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, hojaDePedido: { ...DIANA.hojaDePedido, contradiceLaIntervencion: true } }] };
     await montar();
