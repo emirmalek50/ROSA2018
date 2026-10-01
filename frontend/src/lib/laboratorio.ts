@@ -278,7 +278,7 @@ export interface FalloDeFiltro {
  *  idéntico, que es bastante menos que «es seguro». */
 export interface CribaCandidato {
   cribado: boolean;
-  veredicto: "sin choque exacto" | "descartado" | "revisar" | "sin cribar";
+  veredicto: "sin choque exacto" | "descartado" | "revisar" | "sin cribar" | "sin parecido" | "al borde del azar";
   /** En cuántos transcritos de su propio gen encaja. */
   propios: number;
   /** Los genes ajenos donde encaja idéntico, cortados en cuarenta. */
@@ -294,6 +294,85 @@ export interface CribaCandidato {
   genesMismoSitio: number;
   transcritosMismoSitio: number;
   porQue: string;
+  /** Solo cuando se cribó con BLAST, que además de los choques exactos
+   *  encuentra los encajes con fallos. */
+  cribadoConDesajustes?: boolean;
+  /** El hueco de ADN del gapmer (posiciones 6 a 15), que es lo que lee la
+   *  RNasa H1. Un fallo DENTRO del hueco impide el corte; uno en las alas,
+   *  no, y por eso la regla mira dónde cae el fallo y no cuántos hay. */
+  huecoDesde?: number;
+  huecoHasta?: number;
+  /** Genes ajenos donde el hueco encaja perfecto, por fallos en las alas. */
+  porFallos?: Record<string, string[]>;
+  cuantosPorFallos?: Record<string, number>;
+  /** Genes parecidos donde el fallo cae DENTRO del hueco: ahí no corta. */
+  conFalloEnElHueco?: number;
+  peorFallos?: number | null;
+  /** El azar MEDIDO: qué fracción de `nuloN` secuencias al azar tienen un
+   *  encaje de ese nivel. Viaja a la pantalla para que nadie tenga que
+   *  fiarse de la regla. */
+  nulo?: Record<string, number>;
+  nuloN?: number;
+}
+
+/** Si el ARN está abierto en ese sitio o plegado sobre sí mismo (rosa/plegado.py).
+ *  Un oligo no entra en un tramo que está emparejado dentro de una horquilla,
+ *  por buenas que sean sus veinte letras. Se calcula con RNAplfold de
+ *  ViennaRNA: el modelo de Turner sobre una ventana deslizante. */
+export interface SitioDelCandidato {
+  /** Probabilidad de que las veinte letras estén libres A LA VEZ. */
+  accesibilidad: number;
+  etiqueta: "abierto" | "medio" | "tapado";
+  comoSeLee: string;
+  /** En qué percentil cae dentro de SU transcrito. Importa más que el número
+   *  absoluto: 0,05 es malo en un ARN suelto y bueno en uno muy plegado. */
+  percentil: number;
+  mejorDelTranscrito: number;
+  posicionMejor: number;
+  medianaDelTranscrito: number;
+  ventana: number;
+  alcance: number;
+  version: number;
+}
+
+/** La geometría para dibujar la dúplex del oligo con su ARN (rosa/duplex.py).
+ *
+ *  Es un ESQUEMA con los parámetros publicados de una hélice híbrida de ARN
+ *  con ADN (giro 32,7 grados y subida 2,62 Å por par), no una estructura
+ *  resuelta: no hay coordenadas atómicas porque los parámetros dan la forma de
+ *  la hélice, no dónde está cada átomo de cada base, y dibujar esos átomos
+ *  sería inventarlos. */
+export interface Duplex {
+  version: number;
+  aso: string;
+  diana: string;
+  pares: {
+    i: number;
+    aso: string;
+    arn: string;
+    quimica: "ala" | "hueco";
+    /** Avance a lo largo del eje, en ángstroms. */
+    z: number;
+    /** Seno del giro: es lo que da el aspecto de doble hélice al proyectarla. */
+    yAso: number;
+    yArn: number;
+    /** Por delante o por detrás del eje, para dibujar bien el cruce. */
+    delanteAso: boolean;
+  }[];
+  alas: [number, number][];
+  hueco: [number, number];
+  /** Dónde corta la RNasa H1. No es un punto exacto: corta dentro del tramo
+   *  que reconoce, y eso es el hueco. */
+  dondeCorta: [number, number];
+  queEs: { ala: string; hueco: string; arn: string };
+  avisos: { que: string; porQue: string }[];
+  largoAngstroms: number;
+  vueltas: number;
+  giroPorPar: number;
+  subidaPorPar: number;
+  surcoMenor: number;
+  porQueHibrida: string;
+  porQueSoloElHueco: string;
 }
 
 export interface CandidatoAso {
@@ -319,6 +398,12 @@ export interface CandidatoAso {
   cribado: boolean;
   avisoCribado: string;
   criba: CribaCandidato;
+  /** Si el ARN está abierto en ese sitio. `null` es «no se pudo calcular»
+   *  (sin ViennaRNA), no «está tapado». */
+  sitio?: SitioDelCandidato | null;
+  /** Solo llega al pedir el panel completo (`oligosDe`), no en el muro: son
+   *  unos seiscientos bytes por candidato y el muro sirve diecisiete dianas. */
+  duplex?: Duplex;
 }
 
 export interface DisenoAso {
@@ -354,6 +439,32 @@ export interface DisenoAso {
   ventanas: number;
   pasanFiltros: number;
   cribados: number;
+  /** Si el diseño se hizo teniendo en cuenta la accesibilidad del sitio. */
+  conAccesibilidad?: boolean;
+  plegado?: {
+    hecho: boolean;
+    version: number;
+    ventana: number;
+    alcance: number;
+    motivo: string;
+    avisos: { que: string; porQue: string }[];
+    mejorDelTranscrito?: number;
+    posicionMejor?: number;
+    medianaDelTranscrito?: number;
+    abiertos?: number;
+    /** El plegado alrededor del mejor candidato, en notación de paréntesis,
+     *  con los pares ya resueltos para poder dibujar los arcos. */
+    dibujo?: {
+      desde: number;
+      hasta: number;
+      secuencia: string;
+      estructura: string;
+      energia: number;
+      pares: [number, number][];
+    } | null;
+    dibujoDe?: string;
+    dibujoSitio?: [number, number];
+  };
   /** Cuántos quedaron fuera por encajar idéntico en otro gen. */
   descartadosPorCriba?: number;
   limpios?: number;

@@ -2431,3 +2431,198 @@
 .lab-decision-criba-duda b {
   color: var(--lab-ambar);
 }
+
+/* --- El ARN plegado -------------------------------------------------------
+   Un arco por cada par de letras emparejadas. Es la forma estándar de enseñar
+   una estructura secundaria sin resolver un dibujo en dos dimensiones: la
+   altura del arco dice lo lejos que están las dos letras. */
+.rna-arcos {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 14px 0 10px;
+  overflow: visible;
+}
+.rna-cadena {
+  stroke: var(--lab-linea-fuerte);
+  stroke-width: 1.5;
+}
+.rna-arco {
+  fill: none;
+  stroke: rgba(150, 160, 200, 0.42);
+  stroke-width: 1.1;
+}
+.rna-arco-sitio {
+  stroke: var(--lab-ambar);
+  stroke-width: 1.7;
+}
+.rna-sitio {
+  fill: rgba(240, 160, 48, 0.1);
+  stroke: rgba(240, 160, 48, 0.4);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.rna-etiqueta {
+  fill: var(--lab-ambar);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+/* El reparto de fallos por dónde caen, con el azar medido al lado. */
+.aso-fallos {
+  margin: 12px 0 10px;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--lab-linea);
+}
+.aso-fallos-que {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  line-height: 1.62;
+  color: var(--lab-texto-2);
+}
+.aso-fallos-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 9px;
+}
+.aso-fallos-tabla thead th {
+  text-align: left;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lab-texto-3);
+  font-weight: 600;
+  padding: 0 10px 5px 0;
+  border-bottom: 1px solid var(--lab-linea);
+}
+.aso-fallos-tabla tbody th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--lab-texto-2);
+  padding: 5px 10px 5px 0;
+  white-space: nowrap;
+}
+.aso-fallos-tabla td {
+  padding: 5px 10px 5px 0;
+  color: var(--lab-texto-3);
+  vertical-align: top;
+}
+.aso-fallos-tabla td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.aso-fallos-mal th,
+.aso-fallos-mal td {
+  color: #f07070;
+}
+
+/* --- La dúplex del oligo con su ARN --------------------------------------
+   Los dos esqueletos con la forma de la hélice de verdad (giro y subida
+   medidos) y los pares que los unen. El color dice la química, porque es lo
+   que decide dónde corta la RNasa H1. NO hay átomos: los parámetros dan la
+   forma, no las coordenadas de cada base. */
+.dup {
+  margin: 14px 0 12px;
+}
+.dup-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.dup-hueco {
+  fill: rgba(110, 231, 168, 0.075);
+  stroke: rgba(110, 231, 168, 0.3);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+.dup-hebra {
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.dup-hebra-aso {
+  stroke: #a98cf0;
+}
+.dup-hebra-arn {
+  stroke: #6fb4e8;
+}
+.dup-par {
+  stroke-width: 1.6;
+}
+.dup-par-ala {
+  stroke: rgba(169, 140, 240, 0.5);
+}
+.dup-par-hueco {
+  stroke: rgba(110, 231, 168, 0.72);
+  stroke-width: 2.1;
+}
+.dup-detras {
+  opacity: 0.42;
+}
+.dup-letra {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
+.dup-letra-ala {
+  fill: #a98cf0;
+}
+.dup-letra-hueco {
+  fill: #6ee7a8;
+}
+.dup-letra-arn {
+  fill: #6fb4e8;
+}
+.dup-corte {
+  stroke: var(--lab-ambar);
+  stroke-width: 1.6;
+  stroke-dasharray: 2 3;
+}
+.dup-corte-punto {
+  fill: var(--lab-ambar);
+}
+.dup-pie {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 18px;
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--lab-texto-3);
+}
+.dup-clave {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dup-clave i {
+  width: 11px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.dup-c-ala {
+  background: #a98cf0;
+}
+.dup-c-hueco {
+  background: #6ee7a8;
+}
+.dup-c-arn {
+  background: #6fb4e8;
+}
+.dup-c-corte {
+  background: var(--lab-ambar);
+}
+.dup-que-es {
+  margin: 10px 0 8px;
+  padding: 0 0 0 17px;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--lab-texto-3);
+}
+.dup-que-es b {
+  color: var(--lab-texto-2);
+}

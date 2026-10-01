@@ -12,6 +12,10 @@ from __future__ import annotations
 import csv
 import io
 import json
+import math
+import os
+import tempfile
+import uuid
 import re
 import statistics
 from pathlib import Path
@@ -41,10 +45,21 @@ def ruta_de(hipotesis_id: str, fichero: str) -> Path | None:
 def guardar(hipotesis_id: str, nombre: str, contenido: bytes) -> Path:
     if len(contenido) > MAX_BYTES:
         raise ValueError("El fichero supera los 200 MB")
-    ruta = ruta_de(hipotesis_id, nombre)
+    original = nombre_seguro(Path(nombre).stem)[:65] + nombre_seguro(Path(nombre).suffix) if Path(nombre).suffix else nombre_seguro(nombre)[:80]
+    # El identificador va antes del nombre: conserva la extensión y la marca de sintético.
+    ruta = ruta_de(hipotesis_id, f"{uuid.uuid4().hex}-{original}")
     assert ruta is not None
     ruta.parent.mkdir(parents=True, exist_ok=True)
-    ruta.write_bytes(contenido)
+    fd, temporal = tempfile.mkstemp(dir=ruta.parent, prefix=".entrega-")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(contenido)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporal, ruta)
+    finally:
+        if os.path.exists(temporal):
+            os.unlink(temporal)
     return ruta
 
 
@@ -59,9 +74,17 @@ def _numero(v: str) -> float | None:
     elif "," in t:
         return None
     try:
-        return float(t)
+        n = float(t)
+        return n if math.isfinite(n) else None
     except ValueError:
         return None
+
+
+def _no_finito(v: str) -> bool:
+    try:
+        return not math.isfinite(float(v.strip())) and v.strip().lower() not in ("nan", "na", "")
+    except ValueError:
+        return False
 
 
 def _ic_mediana(nums: list[float], remuestras: int = 2000) -> tuple[float, float]:
@@ -83,13 +106,47 @@ def _ic_mediana(nums: list[float], remuestras: int = 2000) -> tuple[float, float
     return (medianas[int(0.025 * remuestras)], medianas[max(0, int(0.975 * remuestras) - 1)])
 
 
+def _resumen_grupos(cabecera: list[str], filas: list[list[str]]) -> str:
+    """Conserva las relaciones grupo-medida sin enviar observaciones individuales.
+
+    Solo estratifica por columnas de diseño reconocibles, nunca identificadores.
+    Son descriptivos; no sustituyen un contraste ajustado o pareado prerregistrado.
+    """
+    patron = r"^(grupo|group|brazo|arm|tratamiento|treatment|condicion|condición|condition|visita|visit|tiempo|time|sexo|sex|lote|batch)$"
+    indices = [i for i, c in enumerate(cabecera) if re.fullmatch(patron, c.strip(), re.I)]
+    if not indices:
+        return "Contraste entre grupos: no comprobable sin columnas de diseño identificadas. Los marginales no permiten inferir dirección, efecto ni equivalencia."
+    grupos: dict[tuple[str, ...], list[list[str]]] = {}
+    for fila in filas:
+        clave = tuple(fila[i].strip() if i < len(fila) else "(faltante)" for i in indices)
+        if clave not in grupos and len(grupos) >= 64:
+            return "Contraste entre grupos: no comprobable en este resumen (más de 64 estratos). Requiere el análisis prerregistrado en el sandbox."
+        grupos.setdefault(clave, []).append(fila)
+    lineas = ["Descriptivos por estrato de diseño (no son pruebas de significación, equivalencia ni causalidad):"]
+    for clave, fs in sorted(grupos.items()):
+        lineas.append("Estrato " + "; ".join(f"{cabecera[i]}={v}" for i, v in zip(indices, clave)))
+        for j, col in enumerate(cabecera):
+            if j in indices:
+                continue
+            valores = [_numero(f[j]) for f in fs if j < len(f)]
+            nums = [v for v in valores if v is not None]
+            if nums and len(nums) >= len(fs) * 0.6:
+                sd = statistics.stdev(nums) if len(nums) > 1 else None
+                lineas.append(f"- {col}: n={len(nums)}, media={statistics.fmean(nums):.8g}, mediana={statistics.median(nums):.8g}, sd={sd if sd is not None else 'no estimable'}, faltantes_o_inválidos={len(fs)-len(nums)}")
+    lineas.append("La comparación debe respetar emparejamientos y covariables del prerregistro. Sin su cálculo no se puede afirmar apoyo reproducido ni negativo interpretable solo con estos descriptivos.")
+    return "\n".join(lineas)
+
+
 def _resumen_tabla(cabecera: list[str], filas: list[list[str]]) -> str:
     lineas = [f"Tabla: {len(filas)} filas, {len(cabecera)} columnas."]
     for i, col in enumerate(cabecera):
         valores = [f[i] if i < len(f) else "" for f in filas]
         nums = [n for n in (_numero(v) for v in valores) if n is not None]
         faltan = sum(1 for v in valores if not v.strip() or v.strip().lower() in ("na", "nan", "null", "none", "n/a"))
-        if len(nums) >= max(3, len(valores) * 0.6):
+        no_finitos = sum(1 for v in valores if _no_finito(v))
+        if no_finitos:
+            lineas.append(f"- {col}: {no_finitos} valores no finitos excluidos del cálculo; revisar el archivo.")
+        if len(nums) >= max(2, (len(valores) - no_finitos) * 0.6):
             media = statistics.fmean(nums)
             sd = statistics.pstdev(nums) if len(nums) > 1 else 0.0
             ordenados = sorted(nums)
@@ -116,6 +173,7 @@ def _resumen_tabla(cabecera: list[str], filas: list[list[str]]) -> str:
                 # personas. No se enumeran: solo cardinalidad y longitudes.
                 longs = [len(k) for k in distintos]
                 lineas.append(f"- {col} (texto o identificador): {len(distintos)} valores distintos (no se enumeran), longitud {min(longs)} a {max(longs)} caracteres; faltantes={faltan}")
+    lineas.append(_resumen_grupos(cabecera, filas))
     return "\n".join(lineas)
 
 

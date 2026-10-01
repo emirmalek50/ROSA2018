@@ -61,6 +61,7 @@ import orjson
 from rosa import config
 from rosa.estado import acciones as A
 from rosa.estado import plantilla as P
+from rosa.estado.persistencia import preparar
 
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS estado (
@@ -262,6 +263,7 @@ class Almacen:
             self._con.execute("PRAGMA busy_timeout=30000")
             if not self.solo_lectura:
                 self._con.executescript(ESQUEMA)
+                preparar(self._con)
                 # Bases anteriores al encadenado de hashes y a la columna del actor: se añaden las columnas.
                 columnas = {fila[1] for fila in self._con.execute("PRAGMA table_info(acciones)")}
                 for col in ("hash", "hash_anterior", "actor"):
@@ -317,6 +319,7 @@ class Almacen:
             return estado
         self.version = fila[0]
         estado = json.loads(fila[1])
+        self._persistidas = {k: volcar_json(v) for k, v in estado.items()}
         if migrar:
             # Campos nuevos que un estado guardado con una version anterior no tenga.
             for k, v in P.estado_inicial().items():
@@ -324,7 +327,7 @@ class Almacen:
             _migrar(estado)
         return estado
 
-    def _serializar(self) -> tuple[bytes, list[str]]:
+    def _serializar(self, componer: bool = True) -> tuple[bytes, list[str]]:
         """El JSON del estado y las claves de primer nivel que cambiaron desde
         la última escritura. Se serializa por clave (mismo coste que entero) para
         poder decir en el registro que toco cada mutación del bucle y para que el
@@ -333,22 +336,29 @@ class Almacen:
         anteriores = getattr(self, "_partes", {})
         cambiaron = [k for k, v in partes.items() if anteriores.get(k) != v] + [k for k in anteriores if k not in partes]
         self._partes = partes
-        return b"{" + b",".join(volcar_json(k) + b":" + v for k, v in partes.items()) + b"}", cambiaron
+        return (b"{" + b",".join(volcar_json(k) + b":" + v for k, v in partes.items()) + b"}" if componer else b""), cambiaron
 
     def _guardar(self, texto: bytes, version_anterior: int) -> None:
-        """Escribe el estado solo si la versión en disco sigue siendo la que este
-        proceso conocía. Si otro proceso escribió entre medias, la fila no casa,
-        no se toca nada y se lanza `EscritorObsoleto` (S-01): antes se pisaba en
-        silencio y la decisión del otro proceso desaparecía. El JSON llega en
-        bytes UTF-8 (orjson) y se guarda como TEXTO con `CAST`, sin decodificarlo
-        en Python: la columna sigue siendo texto para cualquier lector."""
-        cur = self._con.execute("UPDATE estado SET version=?, json=CAST(? AS TEXT), actualizado_en=? WHERE clave='rosa' AND version=?", (self.version, texto, P.ahora_ms(), version_anterior))
+        """Control optimista de versión y escritura de las claves modificadas.
+
+        La vista SQL `estado` sigue sirviendo el JSON completo. Cada parte y la
+        auditoría se confirman en la misma transacción; no se reescriben las
+        corridas históricas cuando solo cambia otra clave.
+        """
+        cur = self._con.execute("UPDATE estado_meta SET version=?, actualizado_en=? WHERE clave='rosa' AND version=?", (self.version, P.ahora_ms(), version_anterior))
         if cur.rowcount != 1:
             en_disco = self._con.execute("SELECT version FROM estado WHERE clave='rosa'").fetchone()
             raise EscritorObsoleto(
                 f"Otro proceso escribió sobre {self.ruta.name}: en disco está la versión {en_disco[0] if en_disco else 'desconocida'} y este proceso "
                 f"creía tener la {version_anterior}. Este proceso deja de escribir para no pisar el estado; hay que cerrarlo y arrancar una sola ROSA2018."
             )
+
+        persistidas = getattr(self, "_persistidas", {})
+        for k in persistidas.keys() - self._partes.keys():
+            self._con.execute("DELETE FROM estado_partes WHERE estado='rosa' AND clave=?", (k,))
+        for k, v in self._partes.items():
+            if persistidas.get(k) != v:
+                self._con.execute("INSERT INTO estado_partes VALUES ('rosa', ?, CAST(? AS TEXT)) ON CONFLICT(estado, clave) DO UPDATE SET json=excluded.json", (k, v))
 
     # -- lectura -----------------------------------------------------------
 
@@ -470,7 +480,7 @@ class Almacen:
                 resultado = fn(self.estado)
                 if resultado is False:
                     return False
-                texto, cambiaron = self._serializar()
+                texto, cambiaron = self._serializar(componer=False)
                 # Registro solo de anadir encadenado: cada fila lleva el hash de la
                 # anterior. Borrar o alterar una fila rompe la cadena desde ahi
                 # (verificar_cadena). Las mutaciones del bucle, que no traen argumentos,
@@ -488,21 +498,24 @@ class Almacen:
                 # bueno.
                 self._recargar_desde_disco()
                 raise
-            self._con.execute("BEGIN IMMEDIATE")
             try:
+                self._con.execute("BEGIN IMMEDIATE")
                 version_anterior = self.version
                 self.version = version_nueva
                 self._guardar(texto, version_anterior)
                 self._con.execute("INSERT INTO acciones(t, nombre, args, resultado, version, hash, hash_anterior, actor) VALUES (?,?,?,?,?,?,?,?)", (t, nombre, args_json, res_json, version_nueva, h, self._ultimo_hash, actor or None))
                 self._con.execute("COMMIT")
             except Exception as ex:
-                self._con.execute("ROLLBACK")
+                if self._con.in_transaction:
+                    self._con.execute("ROLLBACK")
                 self.version = version_nueva - 1
                 # La línea base ya describe un estado que no llegó al disco: la
                 # próxima escritura tiene que contar como cambiadas todas las claves,
                 # o lo que tocó esta mutación no se volvería a marcar para el
                 # navegador ni para el registro.
                 self._partes = {}
+                if not isinstance(ex, EscritorObsoleto):
+                    self._recargar_desde_disco()
                 if isinstance(ex, EscritorObsoleto):
                     # Fallo ruidoso y definitivo: este almacén no vuelve a escribir. La
                     # memoria vuelve a lo que hay en disco (lo que escribió el otro
@@ -524,6 +537,7 @@ class Almacen:
                         except Exception as ex2:  # noqa: BLE001
                             print(f"Un aviso de almacén obsoleto falló: {ex2!r}", file=sys.stderr, flush=True)
                 raise
+            self._persistidas = self._partes.copy()
             self._ultimo_hash = h
             for k in cambiaron:
                 self._cambio_en[k] = version_nueva

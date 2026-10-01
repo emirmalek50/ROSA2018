@@ -39,6 +39,7 @@ from typing import Any, Awaitable, Callable
 from rosa import argumentacion as ARG
 from rosa import aso as ASO
 from rosa import criba as CRIBA
+from rosa import plegado as PLEGADO
 from rosa import comprobaciones as COMP
 from rosa import cuestiones as CU
 from rosa import laboratorio as LAB
@@ -702,6 +703,8 @@ class Supervisor:
                 pista = ctx.pista(None, "modelo", f"Análisis pedido: {h['titulo'][:60]}", "Sandbox")
                 try:
                     await AN.analizar_hipotesis(ctx, h, p["datasetId"], p.get("pregunta", ""), pista)
+                except PresupuestoAgotado:
+                    pista.fallar("Presupuesto agotado: el análisis conserva sus resultados y queda pendiente")
                 except ModeloSinRespuesta as ex:
                     # El modelo no respondió: la petición sigue en pie y se hace cuando vuelva.
                     pista.fallar(f"Interrumpido: {ex.modelo if hasattr(ex, 'modelo') else 'el modelo'} no respondió; el análisis pedido sigue en pie y se hace cuando vuelva")
@@ -915,7 +918,23 @@ class Supervisor:
         # pantalla: recorrer los transcritos de las diecisiete dianas costaba
         # dos segundos por petición, y el resultado no cambia nunca porque un
         # transcrito es el que es.
-        ficha["diseño"] = ASO.diseño(ficha) if ficha.get("cdna") else None
+        # La accesibilidad del sitio ANTES de diseñar, no después: si el ARN
+        # está plegado sobre sí mismo ahí, el oligo no entra, y eso tiene que
+        # pesar en QUÉ sesenta ventanas se eligen y no solo en cómo se
+        # enseñan. La primera medición fue clara: de los sesenta candidatos de
+        # MAPT elegidos sin esto, solo dos pasaban de 0,1 de accesibilidad, el
+        # número uno estaba en 0,013 y el mejor sitio del transcrito (0,863)
+        # no estaba ni en la lista.
+        #
+        # Va aquí y no al pintar la pantalla porque necesita el cDNA entero,
+        # que se tira unas líneas más abajo. En un hilo porque ViennaRNA es C
+        # y sí suelta el GIL, al revés que `bytes.find` del cribado. Se calcula
+        # el perfil de TODAS las posiciones de una vez, que cuesta lo mismo que
+        # una (0,7 s en un transcrito de siete mil letras).
+        perfil = await asyncio.to_thread(PLEGADO.perfil, str(ficha.get("cdna") or "")) if ficha.get("cdna") else None
+        ficha["diseño"] = ASO.diseño(ficha, accesibilidad=perfil) if ficha.get("cdna") else None
+        if ficha.get("diseño"):
+            self._plegar(ficha, perfil)
         # El cDNA ya no hace falta guardarlo: son casi siete mil nucleótidos
         # por diana en un estado que se copia y se sirve entero.
         ficha.pop("cdna", None)
@@ -932,6 +951,45 @@ class Supervisor:
             return True
 
         self.almacen.mutar(fn, "secuencias")
+
+    @staticmethod
+    def _plegar(ficha: dict[str, Any], perf: list[float] | None) -> None:
+        """Mete la accesibilidad del sitio en cada candidato del diseño.
+
+        Sin ViennaRNA instalado no se inventa nada: el campo se queda a None y
+        la pantalla dice que no se pudo comprobar, que no es lo mismo que
+        decir que el sitio está tapado."""
+        dis = ficha["diseño"]
+        dis["plegado"] = {
+            "hecho": perf is not None,
+            "version": PLEGADO.VERSION,
+            "ventana": PLEGADO.VENTANA,
+            "alcance": PLEGADO.ALCANCE,
+            "avisos": PLEGADO.AVISOS,
+            "motivo": "" if perf is not None else "ViennaRNA no está instalado, así que no se pudo calcular si el sitio está abierto. No quiere decir que esté tapado.",
+        }
+        if perf is None:
+            for c in dis.get("candidatos") or []:
+                c["sitio"] = None
+            return
+        dis["plegado"]["mejorDelTranscrito"] = round(max(perf), 4)
+        dis["plegado"]["posicionMejor"] = perf.index(max(perf)) + 1
+        dis["plegado"]["medianaDelTranscrito"] = round(sorted(perf)[len(perf) // 2], 5)
+        abiertos = 0
+        for c in dis.get("candidatos") or []:
+            c["sitio"] = PLEGADO.de_un_sitio(perf, int(c.get("posicion") or 0))
+            if c["sitio"] and c["sitio"]["etiqueta"] == "abierto":
+                abiertos += 1
+        dis["plegado"]["abiertos"] = abiertos
+        # El dibujo de la horquilla alrededor del mejor candidato abierto, o
+        # del primero si ninguno lo está: es lo que se pinta en la pantalla.
+        cands = dis.get("candidatos") or []
+        mejor = max(cands, key=lambda c: (c.get("sitio") or {}).get("accesibilidad", -1.0), default=None)
+        if mejor and mejor.get("sitio"):
+            pos = int(mejor["posicion"])
+            dis["plegado"]["dibujo"] = PLEGADO.dibujo(str(ficha.get("cdna") or ""), pos - 60, pos + 79)
+            dis["plegado"]["dibujoDe"] = mejor["secuencia"]
+            dis["plegado"]["dibujoSitio"] = [pos, pos + ASO.LARGO - 1]
 
     def _criba_si_toca(self) -> None:
         """Lanza el cribado de los candidatos antisentido contra el transcriptoma
@@ -956,8 +1014,9 @@ class Supervisor:
         guardada = guardada if isinstance(guardada, dict) else {}
         if guardada.get("huella") == huella and guardada.get("version") == CRIBA.VERSION:
             return
+        conblast = CRIBA.hay_blast()
         t = CRIBA.transcriptoma()
-        if not t["hay"]:
+        if not t["hay"] and not conblast["hay"]:
             # Sin los ficheros NO se criba, y eso se guarda tal cual. «No pude
             # comprobar» no es «está limpio»: la pantalla tiene que poder
             # decir cuál de las dos cosas es.
@@ -997,7 +1056,12 @@ class Supervisor:
             return
 
         async def correr() -> None:
-            r = await CRIBA.cribar_aparte(faltan)
+            # BLAST si está: encuentra TODO lo que encuentra el barrido exacto
+            # (comprobado, los mismos trece choques) y además los encajes con
+            # fallos, que es lo que de verdad decide si un oligo se puede
+            # pedir. Y tarda 145 s donde el barrido tarda 408. El barrido se
+            # queda de respaldo para una máquina sin BLAST instalado.
+            r = await (CRIBA.cribar_con_desajustes(faltan) if conblast["hay"] else CRIBA.cribar_aparte(faltan))
             vivas = {x["secuencia"] for x in pet}
             # Lo de antes que sigue en pie, más lo nuevo. Lo que ya no se
             # diseña se cae: si vuelve, se vuelve a cribar.
@@ -1005,7 +1069,8 @@ class Supervisor:
             r["huella"] = huella
             r["fecha"] = P.ahora_ms()
             r["transcriptoma"] = t
-            r["motivo"] = ""
+            r["conDesajustes"] = conblast["hay"]
+            r["motivo"] = "" if conblast["hay"] else conblast["motivo"]
 
             def fn(e2: dict[str, Any], r: dict[str, Any] = r) -> bool:
                 e2["criba"] = r
@@ -1013,7 +1078,8 @@ class Supervisor:
 
             self.almacen.mutar(fn, "criba")
             fuera = sum(1 for v in r["porSecuencia"].values() if v.get("veredicto") == "descartado")
-            print(f"Cribado antisentido: {len(faltan)} candidatos nuevos contra {r['transcritos']:,} transcritos en {r['segundos']} s; {fuera} de {len(r['porSecuencia'])} descartados por encajar en otro gen".replace(",", "."), flush=True)
+            como = "con BLAST, tolerando fallos" if conblast["hay"] else "solo coincidencia exacta"
+            print(f"Cribado antisentido ({como}): {len(faltan)} candidatos nuevos en {r.get('segundos')} s; {fuera} de {len(r['porSecuencia'])} descartados por encajar en otro gen", flush=True)
 
         self._lanzar_fondo("criba", correr, tope=900)
 
@@ -1629,7 +1695,10 @@ class Supervisor:
 
         from rosa.dossier import APRENDIZAJE_POR_RESULTADO
 
+        h = copy.deepcopy(h)
         x = h["experimento"]
+        # Identidad de la entrega y del contrato antes de cualquier await.
+        contrato = {k: v for k, v in x.items() if k != "resultado"}
         ruta = D.ruta_de(h["id"], x.get("ficheroDatos") or "")
         ahora = P.ahora_ms()
         derivada_texto = None
@@ -1711,6 +1780,8 @@ class Supervisor:
             y = next((z for z in e["hipotesis"] if z["id"] == h["id"]), None)
             if not y or not y.get("experimento"):
                 return False
+            if y.get("_resultadoEvaluado") or y.get("version", 1) != h.get("version", 1) or {k: v for k, v in y["experimento"].items() if k != "resultado"} != contrato:
+                return False  # Otra entrega o enmienda llegó mientras respondía el juez.
             y["experimento"]["resultado"] = resultado
             y["_resultadoEvaluado"] = True
             fecha_txt = datetime.fromtimestamp(ahora / 1000).strftime("%d/%m/%Y")
@@ -1772,7 +1843,8 @@ class Supervisor:
             y["ruta"] = _ruta_segura(e, y)
             return True
 
-        self.almacen.mutar(fn, "resultado_experimento")
+        if self.almacen.mutar(fn, "resultado_experimento") is False:
+            return
         y = next((z for z in self.almacen.estado["hipotesis"] if z["id"] == h["id"]), None)
         if y:
             await self._concluir_hipotesis(ctx, y)

@@ -236,3 +236,134 @@ def test_pegar_marca_sin_cribar_lo_que_todavia_no_paso():
     veredictos = [c["criba"]["veredicto"] for c in r["candidatos"]]
     assert veredictos == ["sin choque exacto", "sin cribar"]
     assert r["cribados"] == 1 and r["limpios"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Cribado tolerante a desajustes (BLAST)
+# ---------------------------------------------------------------------------
+
+
+def test_btop_dice_donde_falla_no_solo_cuantos():
+    # Es la base de toda la regla: la RNasa H1 corta según DÓNDE caiga el
+    # fallo, no según cuántos haya.
+    assert CRIBA.fallos_de_btop("20") == []
+    assert CRIBA.fallos_de_btop("10AG9") == [11]
+    assert CRIBA.fallos_de_btop("5CT4GA9") == [6, 11]
+    assert CRIBA.fallos_de_btop("AG19") == [1]
+    assert CRIBA.fallos_de_btop("19AG") == [20]
+
+
+def test_el_hueco_son_las_diez_del_centro():
+    # Si en rosa/aso.py cambia la arquitectura 5-10-5, esto cambia solo.
+    from rosa import aso as ASO
+
+    assert CRIBA.HUECO_DESDE == ASO.ALA + 1
+    assert CRIBA.HUECO_HASTA == ASO.ALA + ASO.HUECO
+    assert (CRIBA.HUECO_DESDE, CRIBA.HUECO_HASTA) == (6, 15)
+    assert CRIBA.en_el_hueco([6]) and CRIBA.en_el_hueco([15]) and CRIBA.en_el_hueco([10])
+    # Las alas no.
+    assert not CRIBA.en_el_hueco([1, 5, 16, 20])
+
+
+def test_un_fallo_en_las_ALAS_descarta_y_uno_en_el_HUECO_no():
+    """El corazón de la regla, y lo que la separa de contar fallos.
+
+    La RNasa H1 no lee las veinte letras: reconoce la dúplex de ADN con ARN
+    que forma el hueco de diez del centro. Con el hueco perfecto corta aunque
+    fallen las alas; con un fallo dentro del hueco, no."""
+    CRIBA._MAPA_CACHE = {
+        "T_MIO": ("MAPT", "17", 100, 200, "1"),
+        "T_OTRO": ("OTRO", "3", 500, 600, "1"),
+    }
+    try:
+        # Falla una letra, en el ALA: el hueco encaja -> descartado.
+        v = CRIBA._veredicto_blast("MAPT", [("T_MIO", 0, []), ("T_OTRO", 1, [2])])
+        assert v["veredicto"] == "descartado"
+        assert "hueco de ADN encaja PERFECTO" in v["porQue"]
+        assert "OTRO" in v["porQue"]
+        # La misma letra de fallo, pero DENTRO del hueco: no corta ahí.
+        v2 = CRIBA._veredicto_blast("MAPT", [("T_MIO", 0, []), ("T_OTRO", 1, [10])])
+        assert v2["veredicto"] == "sin parecido"
+        assert v2["conFalloEnElHueco"] == 1
+    finally:
+        CRIBA._MAPA_CACHE = None
+
+
+def test_dos_fallos_en_las_alas_avisan_pero_no_descartan():
+    """Porque a dos fallos el azar ya da encajes.
+
+    Medido, no supuesto: 300 secuencias de veinte letras al azar por la misma
+    tubería dan un 2,7 % con un encaje así, frente al 0,7 % de uno o cero.
+    Descartar por eso sería descartar por ruido."""
+    CRIBA._MAPA_CACHE = {"T_MIO": ("GFAP", "17", 1, 99, "1"), "T_OTRO": ("AJENO", "5", 1, 99, "1")}
+    try:
+        v = CRIBA._veredicto_blast("GFAP", [("T_MIO", 0, []), ("T_OTRO", 2, [2, 19])])
+        assert v["veredicto"] == "al borde del azar"
+        assert "no descarta" in v["porQue"]
+        # Y el nulo viaja con el resultado, para que nadie tenga que fiarse.
+        assert v["nulo"]["2"] == CRIBA.NULO[2]
+        assert v["nuloN"] == 300
+    finally:
+        CRIBA._MAPA_CACHE = None
+
+
+def test_tres_fallos_es_ruido_y_se_dice_con_el_numero():
+    CRIBA._MAPA_CACHE = {"T_MIO": ("C3", "19", 1, 99, "1"), "T_OTRO": ("AJENO", "5", 1, 99, "1")}
+    try:
+        v = CRIBA._veredicto_blast("C3", [("T_MIO", 0, []), ("T_OTRO", 3, [1, 2, 20])])
+        assert v["veredicto"] == "sin parecido"
+        assert "6,3 %" in v["porQue"]
+    finally:
+        CRIBA._MAPA_CACHE = None
+
+
+def test_el_filtro_de_locus_tambien_vale_con_BLAST():
+    # El fallo de PSEN2: un gen sin nombre anotado encima del mismo tramo no
+    # es un fuera de diana. Sin esto salían 51 choques exactos donde hay 13.
+    CRIBA._MAPA_CACHE = {
+        "T_MIO": ("PSEN2", "1", 226870616, 226896098, "1"),
+        "T_SIN_NOMBRE": ("", "1", 226870184, 226983855, "1"),
+    }
+    try:
+        v = CRIBA._veredicto_blast("PSEN2", [("T_MIO", 0, []), ("T_SIN_NOMBRE", 0, [])])
+        assert v["veredicto"] == "sin parecido"
+        assert v["genesFuera"] == 0
+        assert v["genesMismoSitio"] == 1
+    finally:
+        CRIBA._MAPA_CACHE = None
+
+
+def test_el_veredicto_de_blast_tiene_las_mismas_claves_que_el_exacto():
+    """BLAST sustituye al barrido cuando está, así que la pantalla no puede
+    tener que preguntar de cuál de los dos viene el veredicto."""
+    CRIBA._MAPA_CACHE = {"T": ("X", "1", 1, 9, "1")}
+    try:
+        b = CRIBA._veredicto_blast("X", [("T", 0, [])])
+    finally:
+        CRIBA._MAPA_CACHE = None
+    e = CRIBA._veredicto("X", [("T", "X", "protein_coding", ("1", 1, 9, "1"))])
+    assert set(e) <= set(b), f"a BLAST le faltan: {set(e) - set(b)}"
+
+
+def test_sin_blast_se_dice_y_no_se_finge():
+    t = CRIBA.hay_blast()
+    assert set(t) >= {"hay", "programa", "indice", "motivo"}
+    if not t["hay"]:
+        assert "Falta" in t["motivo"] and "no descarta" in t["motivo"]
+
+
+def test_el_cribado_devuelve_la_version_del_MODULO_no_la_de_blast():
+    """Si no, el bucle no reconoce su propio resultado y recriba sin parar.
+
+    Pasó el 1 de octubre de 2026: `cribar_con_desajustes` devolvía
+    VERSION_BLAST (1) donde el bucle compara contra VERSION (2), así que tras
+    158 s de BLAST volvía a empezar. Es el mismo modo de fallo que la
+    heurística de contar candidatos, por otra puerta."""
+    import asyncio
+
+    r = asyncio.run(CRIBA.cribar_con_desajustes([]))
+    assert r["version"] == CRIBA.VERSION
+    assert r["versionBlast"] == CRIBA.VERSION_BLAST
+    # Y el barrido exacto, igual.
+    r2 = asyncio.run(CRIBA.cribar_aparte([]))
+    assert r2["version"] == CRIBA.VERSION

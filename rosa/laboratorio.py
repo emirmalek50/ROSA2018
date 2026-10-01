@@ -34,6 +34,8 @@ from typing import Any
 
 from rosa import aso as ASO
 from rosa import criba as CRIBA
+from rosa import duplex as DUPLEX
+from rosa import plegado as PLEGADO
 
 # El nombre y el formato del modelo de AlphaFold. La versión la confirma el
 # conector; esta es la de reserva para construir la URL sin consultar.
@@ -471,6 +473,7 @@ def dianas_y_descartes(e: dict[str, Any], inv_id: str | None = None) -> tuple[li
         # al final. Sin eso `oligo_que_mandaria` cogería el número uno sin
         # saber si es uno de los que hay que descartar.
         d["aso"] = CRIBA.pegar(e, dict(dis)) if isinstance(dis, dict) else None
+        _refrescar_prosa(d["aso"])
         d["asoSinComprobar"] = bool(guardada) and not comprobada and d["direccion"]["asoEncaja"]
     # El orden lo manda lo que SE PUEDE MANDAR, y después el peso de la
     # evidencia. Ordenar solo por evidencia ponía arriba las cuatro proteínas
@@ -852,6 +855,23 @@ def aligerar(dianas: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return dianas
 
 
+def _refrescar_prosa(dis: dict[str, Any] | None) -> None:
+    """Rehace las frases del sitio a partir del número guardado.
+
+    La prosa NO debería estar congelada en el almacén: solo el dato. Un cambio
+    de redacción (o de los decimales a coma, que es la regla del proyecto)
+    obligaba si no a rehacer el diseño de las diecisiete dianas, con su
+    llamada a Ensembl y su plegado, para cambiar una frase."""
+    if not isinstance(dis, dict):
+        return
+    for c in dis.get("candidatos") or []:
+        sitio = c.get("sitio") if isinstance(c, dict) else None
+        if isinstance(sitio, dict) and isinstance(sitio.get("accesibilidad"), (int, float)):
+            a = float(sitio["accesibilidad"])
+            sitio["comoSeLee"] = PLEGADO.como_se_lee(a)
+            sitio["etiqueta"] = PLEGADO.etiqueta(a)
+
+
 def oligos_de(e: dict[str, Any], uniprot: str, inv_id: str | None = None) -> dict[str, Any] | None:
     """Los sesenta candidatos de oligo de una diana, con su diseño entero.
 
@@ -866,7 +886,24 @@ def oligos_de(e: dict[str, Any], uniprot: str, inv_id: str | None = None) -> dic
         if not guardada.get("comprobado", True) or not direccion_de(d)["asoEncaja"]:
             return None
         dis = guardada.get("diseño")
-        return CRIBA.pegar(e, dict(dis)) if isinstance(dis, dict) else None
+        if not isinstance(dis, dict):
+            return None
+        r = CRIBA.pegar(e, dict(dis))
+        _refrescar_prosa(r)
+        # La dúplex va SOLO aquí, en el panel que se abre a petición, y no en
+        # el muro: son unos seiscientos bytes por candidato y el muro sirve
+        # diecisiete dianas de golpe. Se calcula al pedirla porque es
+        # geometría pura (no hay nada que guardar: de la secuencia salen
+        # siempre las mismas coordenadas).
+        if r:
+            for c in r.get("candidatos") or []:
+                # El tramo diana se DERIVA y no se lee del candidato: es por
+                # construcción el complemento inverso del oligo, y un diseño
+                # guardado de una versión anterior puede no traer el campo.
+                sec = str(c.get("secuencia") or "")
+                if len(sec) == ASO.LARGO:
+                    c["duplex"] = DUPLEX.de_un_candidato(sec, ASO.complemento_inverso(sec), ASO.ALA, ASO.HUECO)
+        return r
     return None
 
 

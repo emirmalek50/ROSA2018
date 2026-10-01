@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { acciones } from '../datos/almacen';
 import { AvisoMuestra } from '../componentes/piezas';
-import type { CandidatoAso, CompuestoDeLaboratorio, DianaDeLaboratorio, DisenoAso, ExperimentoDeDiana, Laboratorio as Datos, OligoQueMandaria, QuimicaDeDiana } from '../lib/laboratorio';
+import type { CandidatoAso, Duplex as DuplexT, CompuestoDeLaboratorio, DianaDeLaboratorio, DisenoAso, ExperimentoDeDiana, Laboratorio as Datos, OligoQueMandaria, QuimicaDeDiana } from '../lib/laboratorio';
 import type { Residuo, Visor } from '../lib/visorMolecular';
 import '../laboratorio.css';
 
@@ -83,6 +83,9 @@ const PRUEBA: Record<string, string> = {
    laboratorio: decidir si una mutación va a cambiar algo. */
 /** Números con el separador de miles en castellano. */
 const n = (x: number) => x.toLocaleString('es');
+
+/** Un decimal con coma, que es como se escribe en castellano. */
+const dec = (x: number, d: number) => x.toFixed(d).replace('.', ',');
 
 const AMINOACIDOS: Record<string, { carga: 'positiva' | 'negativa' | 'sin carga'; polar: boolean; nota: string }> = {
   ALA: { carga: 'sin carga', polar: false, nota: 'pequeño y sin reactividad; el cambio de referencia cuando se quiere quitar una cadena lateral sin meter otra cosa' },
@@ -922,6 +925,277 @@ function MapaTranscrito({ d, activo, alElegir }: { d: DisenoAso; activo: number;
 }
 
 
+
+/* --------------------------------------------------------------------------
+   El ARN plegado, y si el sitio del oligo está abierto
+   --------------------------------------------------------------------------
+   Un ARN mensajero no es una cinta estirada: se dobla sobre sí mismo y forma
+   horquillas. Si el tramo de veinte letras al que va el oligo está emparejado
+   dentro de una de esas horquillas, el oligo no entra, por buenas que sean
+   sus letras.
+
+   Se dibuja como un arco por cada par de letras emparejadas, que es la forma
+   estándar de enseñar una estructura secundaria de ARN sin tener que resolver
+   un dibujo en dos dimensiones. La altura del arco dice lo lejos que están
+   las dos letras: los arcos altos son horquillas largas. */
+function Horquilla({ d, sitio }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['dibujo']>; sitio?: [number, number] }) {
+  const n = d.secuencia.length;
+  const ancho = 760;
+  const alto = 150;
+  const x = (i: number) => ((i - 0.5) / n) * ancho;
+  const sDesde = sitio ? sitio[0] - d.desde + 1 : 0;
+  const sHasta = sitio ? sitio[1] - d.desde + 1 : 0;
+  const maxLuz = Math.max(1, ...d.pares.map(([a, b]) => b - a));
+  return (
+    <svg className="rna-arcos" viewBox={`0 0 ${ancho} ${alto + 26}`} role="img" aria-label="Estructura del ARN alrededor del sitio del oligo">
+      {/* El tramo al que va el oligo, de fondo. */}
+      {sitio ? (
+        <rect x={x(sDesde) - 1} y={0} width={x(sHasta) - x(sDesde) + 2} height={alto + 14} className="rna-sitio" rx="3" />
+      ) : null}
+      {/* Un arco por cada par. */}
+      {d.pares.map(([a, b]) => {
+        const h = alto * (0.18 + 0.82 * Math.sqrt((b - a) / maxLuz));
+        const enElSitio = sitio ? (a >= sDesde && a <= sHasta) || (b >= sDesde && b <= sHasta) : false;
+        return (
+          <path
+            key={`${a}-${b}`}
+            d={`M ${x(a)} ${alto} Q ${(x(a) + x(b)) / 2} ${alto - h} ${x(b)} ${alto}`}
+            className={`rna-arco${enElSitio ? ' rna-arco-sitio' : ''}`}
+          />
+        );
+      })}
+      {/* La cadena. */}
+      <line x1="0" y1={alto} x2={ancho} y2={alto} className="rna-cadena" />
+      {sitio ? (
+        <text x={(x(sDesde) + x(sHasta)) / 2} y={alto + 21} className="rna-etiqueta" textAnchor="middle">
+          aquí va el oligo
+        </text>
+      ) : null}
+    </svg>
+  );
+}
+
+
+/* --------------------------------------------------------------------------
+   La dúplex: el oligo emparejado con su ARN
+   --------------------------------------------------------------------------
+   Es la pieza que explica por qué la arquitectura es 5-10-5 y no veinte
+   letras iguales. Se dibujan los dos esqueletos como la hélice que forman de
+   verdad (los parámetros de giro y subida vienen del backend, medidos para
+   una dúplex híbrida de ARN con ADN) y los pares que los unen. Las alas de
+   2'-MOE van de un color y el hueco de ADN de otro, porque la RNasa H1 solo
+   reconoce el hueco: ahí corta, en las alas no.
+
+   NO se dibujan átomos. Los parámetros publicados dan la forma de la hélice,
+   no las coordenadas de cada base, y dibujarlas sería inventarlas. */
+function Duplex({ d }: { d: DuplexT }) {
+  const n = d.pares.length;
+  const ancho = 820;
+  const alto = 190;
+  const medio = alto / 2;
+  const amplitud = alto * 0.33;
+  const x = (i: number) => 26 + ((i - 1) / Math.max(1, n - 1)) * (ancho - 52);
+  const y = (v: number) => medio - v * amplitud;
+  const cam = (sel: (p: DuplexT['pares'][number]) => number) =>
+    d.pares.map((p, k) => `${k ? 'L' : 'M'} ${x(p.i).toFixed(1)} ${y(sel(p)).toFixed(1)}`).join(' ');
+  const [c1, c2] = d.dondeCorta;
+  return (
+    <figure className="dup">
+      <svg className="dup-svg" viewBox={`0 0 ${ancho} ${alto}`} role="img" aria-label="Esquema de la dúplex del oligo con su ARN">
+        {/* El hueco de ADN, de fondo: es la parte que la enzima reconoce. */}
+        <rect x={x(d.hueco[0]) - 7} y={6} width={x(d.hueco[1]) - x(d.hueco[0]) + 14} height={alto - 12} className="dup-hueco" rx="6" />
+        {/* Los pares. El color dice la química del lado del oligo. */}
+        {d.pares.map((p) => (
+          <line
+            key={p.i}
+            x1={x(p.i)}
+            y1={y(p.yAso)}
+            x2={x(p.i)}
+            y2={y(p.yArn)}
+            className={`dup-par dup-par-${p.quimica}${p.delanteAso ? '' : ' dup-detras'}`}
+          />
+        ))}
+        {/* Los dos esqueletos. */}
+        <path d={cam((p) => p.yAso)} className="dup-hebra dup-hebra-aso" />
+        <path d={cam((p) => p.yArn)} className="dup-hebra dup-hebra-arn" />
+        {/* Las letras, cada una POR FUERA de su propia hebra.
+            No vale poner siempre la del oligo arriba: en cada cruce las
+            hebras se intercambian, y entonces las dos letras caen en el mismo
+            punto y no se lee ninguna. El signo lo decide quién va por encima
+            en ese par. */}
+        {n <= 24
+          ? d.pares.map((p) => {
+              const asoArriba = p.yAso > p.yArn;
+              return (
+                <g key={`l${p.i}`}>
+                  <text
+                    x={x(p.i)}
+                    y={y(p.yAso) + (asoArriba ? -9 : 17)}
+                    className={`dup-letra dup-letra-${p.quimica}`}
+                    textAnchor="middle"
+                  >
+                    {p.aso}
+                  </text>
+                  <text
+                    x={x(p.i)}
+                    y={y(p.yArn) + (asoArriba ? 17 : -9)}
+                    className="dup-letra dup-letra-arn"
+                    textAnchor="middle"
+                  >
+                    {p.arn}
+                  </text>
+                </g>
+              );
+            })
+          : null}
+        {/* Dónde corta la RNasa H1. */}
+        <path
+          d={`M ${x(c1)} ${alto - 8} L ${x(c2)} ${alto - 8}`}
+          className="dup-corte"
+          markerStart="url(#dup-f)"
+          markerEnd="url(#dup-f)"
+        />
+        <defs>
+          <marker id="dup-f" viewBox="0 0 6 6" refX="3" refY="3" markerWidth="5" markerHeight="5">
+            <circle cx="3" cy="3" r="2.4" className="dup-corte-punto" />
+          </marker>
+        </defs>
+      </svg>
+      <figcaption className="dup-pie">
+        <span className="dup-clave">
+          <i className="dup-c-ala" /> alas de 2&apos;-MOE
+        </span>
+        <span className="dup-clave">
+          <i className="dup-c-hueco" /> hueco de ADN
+        </span>
+        <span className="dup-clave">
+          <i className="dup-c-arn" /> el ARN de la diana
+        </span>
+        <span className="dup-clave">
+          <i className="dup-c-corte" /> aquí corta la RNasa H1
+        </span>
+      </figcaption>
+    </figure>
+  );
+}
+
+/** La dúplex con su explicación y sus avisos. */
+function FichaDuplex({ c }: { c: CandidatoAso }) {
+  const d = c.duplex;
+  if (!d) return null;
+  return (
+    <section className="aso-criba">
+      <h3>CÓMO QUEDA PEGADO AL ARN</h3>
+      <p className="aso-criba-porque">{d.porQueSoloElHueco}</p>
+      <Duplex d={d} />
+      <dl className="aso-criba-cuentas">
+        <div>
+          <dt>largo de la dúplex</dt>
+          <dd>{dec(d.largoAngstroms, 1)} Å</dd>
+        </div>
+        <div>
+          <dt>vueltas de hélice</dt>
+          <dd>{dec(d.vueltas, 2)}</dd>
+        </div>
+        <div>
+          <dt>giro por par</dt>
+          <dd>{dec(d.giroPorPar, 1)}°</dd>
+        </div>
+        <div>
+          <dt>surco menor</dt>
+          <dd>~{dec(d.surcoMenor, 1)} Å</dd>
+        </div>
+      </dl>
+      <p className="aso-criba-como">{d.porQueHibrida}</p>
+      <ul className="dup-que-es">
+        <li>
+          <b>Alas:</b> {d.queEs.ala}
+        </li>
+        <li>
+          <b>Hueco:</b> {d.queEs.hueco}
+        </li>
+        <li>
+          <b>ARN:</b> {d.queEs.arn}
+        </li>
+      </ul>
+      <details className="aso-criba-limites">
+        <summary>Qué es y qué NO es este dibujo ({d.avisos.length})</summary>
+        <ul>
+          {d.avisos.map((a) => (
+            <li key={a.que}>
+              <b>{a.que}.</b> {a.porQue}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </section>
+  );
+}
+
+/** Si el sitio del candidato está abierto o tapado, con el número crudo al lado. */
+function FichaSitio({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
+  const s = c.sitio;
+  const pl = d.plegado;
+  if (!pl) return null;
+  if (!pl.hecho || !s) {
+    return (
+      <section className="aso-criba aso-criba-duda">
+        <h3>¿ESTÁ ABIERTO EL SITIO?</h3>
+        <p className="aso-criba-titulo">No se pudo calcular</p>
+        <p className="aso-criba-porque">{pl.motivo || 'Falta el cálculo del plegado. No quiere decir que el sitio esté tapado.'}</p>
+      </section>
+    );
+  }
+  const clase = s.etiqueta === 'abierto' ? 'aso-criba-bien' : s.etiqueta === 'medio' ? 'aso-criba-duda' : 'aso-criba-mal';
+  return (
+    <section className={`aso-criba ${clase}`}>
+      <h3>¿ESTÁ ABIERTO EL SITIO EN EL ARN?</h3>
+      <p className="aso-criba-titulo">
+        {s.etiqueta === 'abierto' ? 'El tramo está abierto' : s.etiqueta === 'medio' ? 'El tramo está a medias' : 'El tramo está tapado'}
+      </p>
+      <p className="aso-criba-porque">{s.comoSeLee}</p>
+      <dl className="aso-criba-cuentas">
+        <div>
+          <dt>accesibilidad</dt>
+          <dd>{dec(s.accesibilidad, 4)}</dd>
+        </div>
+        <div>
+          <dt>en su transcrito</dt>
+          <dd>mejor que el {s.percentil.toFixed(0)} %</dd>
+        </div>
+        <div>
+          <dt>el mejor sitio que hay</dt>
+          <dd>{dec(s.mejorDelTranscrito, 3)} en la posición {n(s.posicionMejor)}</dd>
+        </div>
+        <div>
+          <dt>mediana del transcrito</dt>
+          <dd>{dec(s.medianaDelTranscrito, 4)}</dd>
+        </div>
+      </dl>
+      {pl.dibujo ? (
+        <>
+          <Horquilla d={pl.dibujo} sitio={pl.dibujoSitio} />
+          <p className="aso-criba-como">
+            El ARN entre las posiciones {n(pl.dibujo.desde)} y {n(pl.dibujo.hasta)}, plegado sobre sí mismo
+({dec(pl.dibujo.energia, 1)} kcal/mol). Cada arco une dos letras emparejadas; cuanto más alto, más lejos están.
+            Los arcos resaltados tocan el tramo del oligo: son los que hay que abrir para que entre.
+          </p>
+        </>
+      ) : null}
+      <details className="aso-criba-limites">
+        <summary>Qué NO dice este cálculo ({pl.avisos.length})</summary>
+        <ul>
+          {pl.avisos.map((a) => (
+            <li key={a.que}>
+              <b>{a.que}.</b> {a.porQue}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </section>
+  );
+}
+
 /** El cribado de un candidato contra el transcriptoma humano entero.
  *
  * Es el bloque que decide si un candidato se puede pedir o no, así que enseña
@@ -931,15 +1205,24 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
   const v = c.criba?.veredicto ?? (c.cribado ? "sin choque exacto" : "sin cribar");
   const cr = c.criba;
   const criba = d.criba;
-  const clase = v === "descartado" ? "aso-criba-mal" : v === "sin choque exacto" ? "aso-criba-bien" : "aso-criba-duda";
+  // El veredicto manda el color y el título. Están todos los valores que puede
+  // tomar: con BLAST son «sin parecido» y «al borde del azar», y sin BLAST
+  // (solo barrido exacto) «sin choque exacto». Dejar uno fuera hacía que el
+  // título dijera «sin cribar» al lado de las cuentas de un cribado hecho.
+  const bien = v === "sin choque exacto" || v === "sin parecido";
+  const clase = v === "descartado" ? "aso-criba-mal" : bien ? "aso-criba-bien" : "aso-criba-duda";
   const titulo =
     v === "descartado"
-      ? "No se puede pedir: encaja idéntico en otro gen"
-      : v === "sin choque exacto"
-        ? "Sin choque exacto en ningún otro ARN humano"
-        : v === "revisar"
-          ? "No aparece ni en su propio gen: hay que aclararlo"
-          : "Sin cribar contra el transcriptoma";
+      ? "No se puede pedir: encaja en otro gen donde la RNasa H1 cortaría"
+      : v === "sin parecido"
+        ? "Sin parecido peligroso en ningún otro ARN humano"
+        : v === "sin choque exacto"
+          ? "Sin choque exacto en ningún otro ARN humano"
+          : v === "al borde del azar"
+            ? "Se parece a otros genes, pero al borde de lo que da el azar"
+            : v === "revisar"
+              ? "No aparece ni en su propio gen: hay que aclararlo"
+              : "Sin cribar contra el transcriptoma";
   return (
     <section className={`aso-criba ${clase}`}>
       <h3>CRIBADO CONTRA EL TRANSCRIPTOMA HUMANO</h3>
@@ -976,6 +1259,52 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
           <b>Mismo sitio del cromosoma con otro nombre:</b> {cr.mismoSitioOtroNombre.join(", ")}. No es un fuera de
           diana: es el mismo tramo transcrito con otra etiqueta de Ensembl.
         </p>
+      ) : null}
+      {cr?.cribadoConDesajustes ? (
+        <div className="aso-fallos">
+          <p className="aso-fallos-que">
+            Esto no cuenta fallos, mira <b>dónde caen</b>. La RNasa H1 no lee las veinte letras: reconoce la dúplex
+            que forma el <b>hueco de ADN</b> (las posiciones {cr.huecoDesde} a {cr.huecoHasta}). Con el hueco perfecto
+            corta aunque fallen las alas; con un fallo dentro del hueco, no.
+          </p>
+          <table className="aso-fallos-tabla">
+            <thead>
+              <tr>
+                <th>fallos en las alas</th>
+                <th>genes ajenos donde cortaría</th>
+                <th>al azar</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[0, 1, 2, 3, 4].map((k) => {
+                const cuantos = cr.cuantosPorFallos?.[String(k)] ?? 0;
+                const az = cr.nulo?.[String(k)];
+                return (
+                  <tr key={k} className={cuantos && k <= 1 ? 'aso-fallos-mal' : ''}>
+                    <th>{k === 0 ? 'ninguno (idéntico)' : k === 1 ? '1' : k}</th>
+                    <td className="lab-mono">
+                      {cuantos ? `${n(cuantos)}: ${(cr.porFallos?.[String(k)] ?? []).slice(0, 5).join(', ')}${cuantos > 5 ? '…' : ''}` : '—'}
+                    </td>
+                    <td>{az !== undefined ? `${dec(az * 100, 1)} %` : ''}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="aso-criba-como">
+            La columna «al azar» es el porcentaje de {n(cr.nuloN ?? 300)} secuencias de veinte letras <b>al azar</b>,
+            con el mismo reparto de G y C, que tienen un encaje de ese nivel al pasar por esta misma tubería. Está aquí
+            para que no haya que fiarse de la regla: por debajo del 1 % un encaje dice algo, por encima del 5 % es lo
+            que pasa solo.
+            {cr.conFalloEnElHueco ? (
+              <>
+                {' '}
+                Hay además {n(cr.conFalloEnElHueco)} gen(es) parecidos donde el fallo cae <b>dentro</b> del hueco: ahí
+                la RNasa H1 no corta.
+              </>
+            ) : null}
+          </p>
+        </div>
       ) : null}
       {criba?.hecho ? (
         <>
@@ -1089,6 +1418,8 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
             </div>
 
             <FichaCriba c={c} d={d} />
+            <FichaSitio c={c} d={d} />
+            <FichaDuplex c={c} />
 
             <h3>DÓNDE CAE EN EL ARN</h3>
             <MapaTranscrito d={d} activo={cual} alElegir={fijarCual} />
@@ -1234,7 +1565,7 @@ interface Medido {
  *  Se mide, no se resta un número fijo: la cabecera y el hilo del proceso miden
  *  distinto según la investigación y según si hay avisos, y con un `calc` fijo
  *  quedaba una franja del color del fondo por debajo del cuadro. */
-function usarAltoHastaAbajo(ref: React.RefObject<HTMLElement | null>): number | null {
+function useAltoHastaAbajo(ref: React.RefObject<HTMLElement | null>): number | null {
   const [alto, fijarAlto] = useState<number | null>(null);
   useEffect(() => {
     const medir = () => {
@@ -1261,7 +1592,7 @@ function usarAltoHastaAbajo(ref: React.RefObject<HTMLElement | null>): number | 
 
 function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaboratorio; abrirAso?: boolean; alVolver: () => void }) {
   const marco = useRef<HTMLDivElement | null>(null);
-  const altoLamina = usarAltoHastaAbajo(marco);
+  const altoLamina = useAltoHastaAbajo(marco);
   const caja = useRef<HTMLDivElement | null>(null);
   const visorRef = useRef<Visor | null>(null);
   const [medido, fijarMedido] = useState<Medido | null>(null);

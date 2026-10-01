@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -220,10 +221,15 @@ def _parsear(salida: str) -> tuple[dict[str, str], dict[str, str], dict[str, str
         if m:
             destino = {"RESULTADO": resultados, "BASELINE": baseline, "CONTROL": control}[m.group(1)]
             clave = m.group(2)
-            if len(destino) >= MAX_CIFRAS and clave not in destino and not any(clave.startswith(c) for c in CLAVES_PRIORITARIAS):
+            if len(destino) >= MAX_CIFRAS and clave not in destino and clave not in CLAVES_PRIORITARIAS:
                 destino.setdefault("_omitidas", "0")
                 destino["_omitidas"] = str(int(destino["_omitidas"]) + 1)
                 continue
+            if clave not in destino and len([k for k in destino if k != "_omitidas"]) >= MAX_CIFRAS:
+                expulsable = next((k for k in destino if k not in CLAVES_PRIORITARIAS and k != "_omitidas"), None)
+                if expulsable is not None:
+                    del destino[expulsable]
+                    destino["_omitidas"] = str(int(destino.get("_omitidas", "0")) + 1)
             destino[clave] = m.group(3).strip()[:120]
             continue
         m = re.match(r"^NO_EVALUABLE\s*(.*)$", l)
@@ -243,11 +249,13 @@ def versiones_imagen(runtime: str, entorno: str = "tabular") -> list[dict[str, s
         datos = json.loads(r.stdout.strip().splitlines()[-1]) if r.returncode == 0 and r.stdout.strip() else {}
     except Exception:  # noqa: BLE001
         datos = {}
+    if not isinstance(datos, dict) or not datos:
+        return [{"nombre": "imagen", "version": imagen}, {"nombre": "versiones", "version": "no comprobadas"}]
     _VERSIONES[imagen] = [{"nombre": "imagen", "version": imagen}] + [{"nombre": k, "version": v} for k, v in sorted(datos.items()) if k.lower() in ("python", "pandas", "numpy", "scipy", "statsmodels", "scanpy", "anndata", "h5py", "matplotlib", "leidenalg", "igraph")]
     return _VERSIONES[imagen]
 
 
-def _paquetes(runtime: str) -> list[dict[str, str]]:
+def _paquetes(runtime: str, entorno: str = "tabular") -> list[dict[str, str]]:
     if runtime == "local_sintetico":
         salida = []
         for p in PAQUETES_SANDBOX:
@@ -257,7 +265,7 @@ def _paquetes(runtime: str) -> list[dict[str, str]]:
             except Exception:  # noqa: BLE001
                 salida.append({"nombre": p, "version": "no instalado"})
         return salida
-    return [{"nombre": "imagen", "version": IMAGEN}]
+    return versiones_imagen(runtime, entorno) if runtime in ("docker", "container") else []
 
 
 def _cola(ruta: Path, maximo: int) -> str:
@@ -291,6 +299,7 @@ def ejecutar(codigo: str, ruta_datos: Path, semilla: int, sintetico: bool, id_ej
     """Corre el script contra el fichero. Bloqueante: llamarlo desde un hilo.
     `entorno` elige la imagen (tabular o celula_unica); `ficheros_extra` son
     modulos de skills que se copian al directorio de trabajo para importarlos."""
+    nombre_entorno = entorno
     runtime, motivo = runtime_disponible(sintetico)
     if runtime == "ninguno":
         return Resultado(estado="no_ejecutado", runtime="ninguno", error=motivo)
@@ -362,10 +371,10 @@ def ejecutar(codigo: str, ruta_datos: Path, semilla: int, sintetico: bool, id_ej
         salida = stdout[-12000:]
         error = _cola(f_err, 4000)
         if r.returncode != 0:
-            return Resultado(estado="error_tecnico", runtime=runtime, salida=salida, error=error or f"Código de salida {r.returncode}", codigo_salida=r.returncode, duracion_s=duracion, resultados=resultados, baseline=baseline, control=control, no_evaluable=no_evaluable, paquetes=_paquetes(runtime))
+            return Resultado(estado="error_tecnico", runtime=runtime, salida=salida, error=error or f"Código de salida {r.returncode}", codigo_salida=r.returncode, duracion_s=duracion, resultados=resultados, baseline=baseline, control=control, no_evaluable=no_evaluable, paquetes=_paquetes(runtime, nombre_entorno))
         if not resultados and not no_evaluable:
-            return Resultado(estado="error_tecnico", runtime=runtime, salida=salida, error="El script término sin imprimir ninguna línea RESULTADO ni NO_EVALUABLE: no cumplio el contrato de salida.", codigo_salida=0, duracion_s=duracion, paquetes=_paquetes(runtime))
-        return Resultado(estado="completado", runtime=runtime, salida=salida, error=error, codigo_salida=0, duracion_s=duracion, resultados=resultados, baseline=baseline, control=control, no_evaluable=no_evaluable, paquetes=_paquetes(runtime))
+            return Resultado(estado="error_tecnico", runtime=runtime, salida=salida, error="El script término sin imprimir ninguna línea RESULTADO ni NO_EVALUABLE: no cumplio el contrato de salida.", codigo_salida=0, duracion_s=duracion, paquetes=_paquetes(runtime, nombre_entorno))
+        return Resultado(estado="completado", runtime=runtime, salida=salida, error=error, codigo_salida=0, duracion_s=duracion, resultados=resultados, baseline=baseline, control=control, no_evaluable=no_evaluable, paquetes=_paquetes(runtime, nombre_entorno))
     finally:
         shutil.rmtree(trabajo, ignore_errors=True)
         if salida_dir:
@@ -431,15 +440,30 @@ def _p_min(cifras: dict[str, Any]) -> float | None:
 def estabilidad_entre_semillas(plan: dict[str, Any], res: Resultado, repeticiones: list[dict[str, Any]] | None) -> dict[str, str]:
     """Comprobación crítica: el p-valor principal debe caer del mismo lado del
     alfa con todas las semillas. Sin repeticiones completadas, no comprobable."""
-    hechas = [r for r in (repeticiones or []) if r.get("estado") == "completado"]
-    if not hechas:
-        return {"comprobacion": "estabilidad_semillas", "resultado": "no_comprobable", "detalle": "Sin repeticiones con otra semilla completadas"}
+    hechas = list(repeticiones or [])
+    def desconocido(detalle: str) -> dict[str, str]:
+        return {"comprobacion": "estabilidad_semillas", "resultado": "no_comprobable", "detalle": detalle}
+    if not hechas or any(r.get("estado") != "completado" for r in hechas):
+        return desconocido("Faltan réplicas completadas; no se puede comprobar la estabilidad")
+    claves = [k for k in res.resultados if re.search(r"^p(_|val|$)", k, re.I)]
+    principal = plan.get("pPrincipal")
+    if principal:
+        claves = [principal]
+    if not claves:
+        return desconocido("El código no imprimió p-valores identificables")
     alpha = float(plan.get("alpha") or 0.05)
-    p0 = _p_min(res.resultados)
-    if p0 is None:
-        return {"comprobacion": "estabilidad_semillas", "resultado": "no_comprobable", "detalle": "El código no imprimió ningún p-valor (RESULTADO p_...)"}
-    lados = [(r.get("semilla"), _p_min(r.get("resultados") or {})) for r in hechas]
-    cruzan = [f"semilla {s}: p = {p:g}" for s, p in lados if p is not None and (p < alpha) != (p0 < alpha)]
+    if not math.isfinite(alpha) or not 0 < alpha < 1:
+        return desconocido("Alfa no válido")
+    cruzan = []
+    for clave in claves:
+        try:
+            valores = [float(str(c[clave]).replace(",", ".")) for c in [res.resultados, *(r.get("resultados") or {} for r in hechas)]]
+        except (KeyError, TypeError, ValueError):
+            return desconocido(f"Falta {clave} o no es numérico en alguna réplica")
+        if any(not math.isfinite(v) or not 0 <= v <= 1 for v in valores):
+            return desconocido(f"{clave} contiene un p-valor no válido")
+        if any((p < alpha) != (valores[0] < alpha) for p in valores[1:]):
+            cruzan.append(clave)
     if cruzan:
-        return {"comprobacion": "estabilidad_semillas", "resultado": "falla", "detalle": f"p = {p0:g} con la semilla del plan; con otras semillas cruza el alfa {alpha:g} ({'; '.join(cruzan)})"}
-    return {"comprobacion": "estabilidad_semillas", "resultado": "pasa", "detalle": f"p del mismo lado del alfa {alpha:g} en {len(hechas) + 1} semillas"}
+        return {"comprobacion": "estabilidad_semillas", "resultado": "falla", "detalle": f"Cruzan el alfa {alpha:g} entre semillas: {', '.join(cruzan)}"}
+    return {"comprobacion": "estabilidad_semillas", "resultado": "pasa", "detalle": f"Las mismas medidas permanecen del mismo lado del alfa {alpha:g} en {len(hechas) + 1} semillas"}

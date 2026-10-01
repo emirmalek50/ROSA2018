@@ -26,6 +26,8 @@ tolerancia fijada antes, y la puerta se abre al superar las requeridas.
 from __future__ import annotations
 
 import asyncio
+import copy
+from dataclasses import asdict
 import re
 import traceback
 from datetime import datetime, timezone
@@ -179,25 +181,33 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
     proc = ds["procedencia"]
     sintetico = bool(proc.get("sintetico"))
     ruta_en_sandbox = f"/datos/{ruta.name}"
-    runtime, _ = X.runtime_disponible(sintetico)
+    runtime, _ = await asyncio.to_thread(X.runtime_disponible, sintetico)
     if runtime == "local_sintetico":
         ruta_en_sandbox = str(ruta.resolve())
     skills = SK.para_texto(_texto_plan(plan) + " " + esquema[:1500] + " " + ds.get("nombre", ""))
     entorno = plan.get("entorno") or SK.entorno_de(skills)
     ficheros = SK.scripts_de(skills)
-    pista.accion(f"Escribiendo el código del plan {plan['hashPlan']} (semilla {plan['semilla']})" + (f"; skills: {', '.join(s_['nombre'] for s_ in skills)}" if skills else "") + f"; entorno {entorno}")
-    pred = await ctx.llamar("cerebro", ctx.programas.codigo, plan=_texto_plan(plan), esquema_datos=esquema, ruta_datos=ruta_en_sandbox, semilla=plan["semilla"], skills=SK.texto_para_prompt(skills))
-    codigo = _limpiar_codigo(pred.codigo)
-    run = P.nueva_ejecucion(ctx.investigacion_id, hipotesis_id, plan["id"], tipo, codigo, plan["semilla"], plan["hashDatos"], P.ahora_ms())
-    run["hashPlan"] = plan["hashPlan"]
-    run["estado"] = "en_curso"
-    run["skills"] = [s_["nombre"] for s_ in skills]
-    run["entorno"] = {"python": run.get("entorno", {}).get("python", ""), "paquetes": X.versiones_imagen(runtime, entorno) if runtime in ("docker", "container") else X._paquetes(runtime), "imagen": entorno}
-    ctx.mutar(lambda e: e.setdefault("ejecuciones", []).append(run) or True, "ejecucion")
-    res = None
+    run = copy.deepcopy(next((r for r in ctx.e.get("ejecuciones", []) if r.get("planId") == plan["id"] and r.get("hashPlan") == plan["hashPlan"]), None))
+    if run is None:
+        pista.accion(f"Escribiendo el código del plan {plan['hashPlan']}")
+        pred = await ctx.llamar("cerebro", ctx.programas.codigo, plan=_texto_plan(plan), esquema_datos=esquema, ruta_datos=ruta_en_sandbox, semilla=plan["semilla"], skills=SK.texto_para_prompt(skills))
+        codigo = _limpiar_codigo(pred.codigo)
+        run = P.nueva_ejecucion(ctx.investigacion_id, hipotesis_id, plan["id"], tipo, codigo, plan["semilla"], plan["hashDatos"], P.ahora_ms())
+        run.update(hashPlan=plan["hashPlan"], estado="en_curso", skills=[x["nombre"] for x in skills])
+        run["entorno"] = {"python": "", "paquetes": [], "imagen": entorno}
+        ctx.mutar(lambda e: e.setdefault("ejecuciones", []).append(copy.deepcopy(run)) or True, "ejecucion")
+    codigo = run["codigo"]
+    if run.get("fin"):
+        return run
+
+    def checkpoint(**campos):
+        run.update(copy.deepcopy(campos))
+        ctx.mutar(lambda e: _actualizar_run(e, run["id"], copy.deepcopy(campos)), "ejecucion_checkpoint")
+
+    res = X.Resultado(**run["_resultadoSandbox"]) if run.get("_resultadoSandbox") else None
     # El sello de congelacion se comprueba, no se cree: el plan tiene que seguir
     # correspondiendo a su hash y el fichero de datos al hash con el que se planifico.
-    bloqueo = _verificar_congelado(plan, ruta)
+    bloqueo = await asyncio.to_thread(_verificar_congelado, plan, ruta)
     if bloqueo:
         pista.error(bloqueo)
         res = X.Resultado(estado="no_ejecutado", runtime=runtime, error=bloqueo)
@@ -205,12 +215,14 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
     # dataset (columnas, tipos, rangos) antes de tocar los datos reales. Detecta
     # variables mal nombradas o pruebas inaplicables sin gastar la ejecucion real
     # ni el presupuesto de reparacion sobre ella. Sus cifras no cuentan.
-    if not bloqueo and not sintetico:
+    if not bloqueo and not sintetico and res is None and not run.get("ensayoSeco"):
         codigo, run["ensayoSeco"] = await _ensayo_en_seco(ctx, plan, codigo, ruta, esquema, run["id"], entorno, ficheros, pista)
         ctx.mutar(lambda e: _actualizar_run(e, run["id"], {"ensayoSeco": run["ensayoSeco"], "codigo": codigo}), "ensayo_seco")
-    for intento in range(0 if bloqueo else MAX_REPARACIONES + 1):
+    for intento in range(int(run.get("_intento", 0)), 0 if bloqueo or (res and res.estado != "error_tecnico") else MAX_REPARACIONES + 1):
         pista.accion(f"Ejecutando en el sandbox ({runtime}), intento {intento + 1}")
-        res = await asyncio.to_thread(X.ejecutar, codigo, ruta, plan["semilla"], sintetico, run["id"], entorno, ficheros)
+        if res is None:
+            res = await asyncio.to_thread(X.ejecutar, codigo, ruta, plan["semilla"], sintetico, run["id"], entorno, ficheros)
+            checkpoint(_resultadoSandbox=asdict(res), codigo=codigo, _intento=intento)
         if res.estado in ("completado", "no_ejecutado", "tiempo_agotado"):
             break
         if intento < MAX_REPARACIONES:
@@ -218,6 +230,8 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
             try:
                 p2 = await ctx.llamar("cerebro", ctx.programas.reparar, plan=_texto_plan(plan), codigo=codigo, error=res.error[-1500:] or res.salida[-800:], esquema_datos=esquema)
                 codigo = _limpiar_codigo(p2.codigo_corregido)
+                checkpoint(codigo=codigo, _resultadoSandbox=None, _intento=intento + 1)
+                res = None
             except PresupuestoAgotado:
                 raise
             except VIG.ModeloSinRespuesta:
@@ -229,23 +243,26 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
     # Repeticiones con otras semillas si el plan tiene aleatoriedad (permutacion,
     # bootstrap, barajado): tres corridas, como pide CORE-Bench, para ver si la
     # cifra se mueve. Se cambia la semilla en el codigo y en el entorno.
-    repeticiones: list[dict[str, Any]] = []
+    repeticiones: list[dict[str, Any]] = copy.deepcopy(run.get("repeticiones") or [])
     # Tres semillas siempre que el análisis sea evaluable (antes solo si una expresión
     # regular olía aleatoriedad): la estabilidad entre semillas es una comprobación
     # crítica del auditor, y la puerta de reproducción no se abre con una corrida afortunada.
     if res.estado == "completado" and not res.no_evaluable:
         for extra in (1, 2):
             semilla2 = plan["semilla"] + extra
+            if any(r.get("semilla") == semilla2 for r in repeticiones):
+                continue
             codigo2 = _cambiar_semilla(codigo, plan["semilla"], semilla2)
             pista.accion(f"Repetición con semilla {semilla2}")
             r2 = await asyncio.to_thread(X.ejecutar, codigo2, ruta, semilla2, sintetico, run["id"] + f"-s{extra}", entorno, ficheros)
             repeticiones.append({"semilla": semilla2, "estado": r2.estado, "resultados": r2.resultados if r2.estado == "completado" else {}})
-    interpretacion = None
+            checkpoint(repeticiones=repeticiones)
+    interpretacion = run.get("_interpretacionGuardada")
     # Interpretación por regla: el estado (efecto detectado, sin efecto detectable, no
     # evaluable) sale de comparar las cifras con el alfa y el umbral congelados y del
     # control negativo; el juez redacta y el auditor audita. Reproducible por cualquiera.
     regla = interpretacion_por_regla(plan, res, repeticiones) if res.estado == "completado" else None
-    if res.estado == "completado":
+    if res.estado == "completado" and interpretacion is None:
         if res.no_evaluable:
             interpretacion = {"estado": "no_evaluable", "resumen": f"El análisis no se pudo evaluar con estos datos: {res.no_evaluable}"}
         else:
@@ -268,6 +285,7 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
                 raise  # el juez no responde: no se escribe "no evaluable"; el análisis se retoma cuando vuelva
             except Exception as ex:  # noqa: BLE001
                 interpretacion = {"estado": "no_evaluable", "resumen": f"El juez no pudo interpretar las cifras: {str(ex)[:120]}"}
+    checkpoint(_interpretacionGuardada=interpretacion)
     auditoria = None
     deterministas = X.comprobaciones_deterministas(codigo, plan, res, repeticiones) if res.estado == "completado" else []
     if res.estado == "completado" and interpretacion and interpretacion["estado"] != "no_evaluable":
@@ -339,6 +357,7 @@ async def analizar_hipotesis(ctx, h: dict[str, Any], dataset_id: str, pregunta: 
     inv = ctx.inv()
     ds, ruta = _dataset_de(e, ctx.investigacion_id, dataset_id)
     ahora = P.ahora_ms()
+    plan_pendiente = next((p for p in e.get("planesAnalisis", []) if p["id"] == h.get("_planAnalisisPendiente") and p["datasetId"] == dataset_id), None)
     motivo_bloqueo = None
     if not ds or ruta is None:
         motivo_bloqueo = "El dataset no tiene fichero en el servidor: subelo desde Objetivo y datos."
@@ -353,7 +372,7 @@ async def analizar_hipotesis(ctx, h: dict[str, Any], dataset_id: str, pregunta: 
         else:
             corrida = ctx.corrida()
             usadas = corrida.get("_evaluacionesCostosas", 0)
-            if usadas >= politicas.MAX_EVALUACIONES_COSTOSAS:
+            if usadas >= politicas.MAX_EVALUACIONES_COSTOSAS and plan_pendiente is None:
                 motivo_bloqueo = f"Se alcanzó el tope de {politicas.MAX_EVALUACIONES_COSTOSAS} evaluaciones costosas por corrida (política)."
     if motivo_bloqueo:
         run = P.nueva_ejecucion(ctx.investigacion_id, h["id"], "sin-plan", "hipotesis", "", 0, (ds or {}).get("procedencia", {}).get("hash", "") if ds else "", ahora)
@@ -375,55 +394,58 @@ async def analizar_hipotesis(ctx, h: dict[str, Any], dataset_id: str, pregunta: 
         return None
     proc = ds["procedencia"]
     esquema = await asyncio.to_thread(D.esquema_para_modelo, ruta, proc, bool(proc.get("permiteLlmTerceros")))
-    prediccion = (h.get("tarjeta") or {}).get("prediccionFalsable") or h["enunciado"]
-    pista.accion(f"Congelando el plan de análisis sobre {ds['nombre']} (solo esquema, sin filas)")
-    skills_plan = SK.para_texto(T.hipotesis_texto(h) + " " + (pregunta or "") + " " + esquema[:1500] + " " + ds.get("nombre", ""))
-    pp = await ctx.llamar("cerebro", ctx.programas.planificar, hipotesis=T.hipotesis_texto(h), prediccion_falsable=prediccion, pregunta_pedida=pregunta or "", esquema_datos=esquema, limites="; ".join(inv["limites"]) or "Ninguno", skills=SK.texto_para_prompt(skills_plan))
-    p = pp.plan
-    # Linaje: el último plan de la misma hipótesis es el padre; se anota qué cambia
-    # (otro dataset = réplica de la receta; otra prueba = variante del método).
-    padre = max((x for x in ctx.e.get("planesAnalisis", []) if x.get("hipotesisId") == h["id"]), key=lambda x: x.get("congeladoEn") or 0, default=None)
-    plan = P.nuevo_plan_analisis(
-        ctx.investigacion_id,
-        h["id"],
-        dataset_id,
-        P.ahora_ms(),
-        tipo=p.tipo if p.tipo != "reproduccion" else "confirmatorio",
-        pregunta=p.pregunta.strip(),
-        variables=list(p.variables)[:12],
-        poblacion=p.poblacion.strip(),
-        preprocesado=list(p.preprocesado)[:10],
-        prueba=p.prueba.strip(),
-        hipotesisNula=p.hipotesis_nula.strip(),
-        hipotesisAlternativa=p.hipotesis_alternativa.strip(),
-        alpha=float(p.alpha),
-        direccionEsperada=p.direccion_esperada.strip(),
-        tamanoEfectoMinimo=p.tamano_efecto_minimo.strip(),
-        baseline=p.baseline.strip(),
-        controlNegativo=p.control_negativo.strip(),
-        correccionMultiplicidad=p.correccion_multiplicidad.strip(),
-        umbralEfecto=p.umbral_efecto.strip(),
-        criterioNoEvaluable=p.criterio_no_evaluable.strip(),
-        siConfirma=(getattr(p, "si_confirma", "") or "").strip(),
-        siRefuta=(getattr(p, "si_refuta", "") or "").strip(),
-        siNoEvaluable=(getattr(p, "si_no_evaluable", "") or "").strip(),
-        planPadre=(padre or {}).get("id"),
-        cambioRespectoAlPadre=cambio_respecto_al_padre(padre, dataset_id, p.prueba.strip(), ds.get("nombre", "")) if padre else "",
-        entorno=getattr(p, "entorno", "tabular") or "tabular",
-        semilla=12345,
-        hashDatos=proc["hash"],
-        autor=ctx.modelos.cerebro.model,
-    )
+    plan = plan_pendiente
+    if plan is None:
+        prediccion = (h.get("tarjeta") or {}).get("prediccionFalsable") or h["enunciado"]
+        pista.accion(f"Congelando el plan de análisis sobre {ds['nombre']} (solo esquema, sin filas)")
+        skills_plan = SK.para_texto(T.hipotesis_texto(h) + " " + (pregunta or "") + " " + esquema[:1500] + " " + ds.get("nombre", ""))
+        pp = await ctx.llamar("cerebro", ctx.programas.planificar, hipotesis=T.hipotesis_texto(h), prediccion_falsable=prediccion, pregunta_pedida=pregunta or "", esquema_datos=esquema, limites="; ".join(inv["limites"]) or "Ninguno", skills=SK.texto_para_prompt(skills_plan))
+        p = pp.plan
+        # Linaje: el último plan de la misma hipótesis es el padre; se anota qué cambia
+        # (otro dataset = réplica de la receta; otra prueba = variante del método).
+        padre = max((x for x in ctx.e.get("planesAnalisis", []) if x.get("hipotesisId") == h["id"]), key=lambda x: x.get("congeladoEn") or 0, default=None)
+        plan = P.nuevo_plan_analisis(
+            ctx.investigacion_id,
+            h["id"],
+            dataset_id,
+            P.ahora_ms(),
+            tipo=p.tipo if p.tipo != "reproduccion" else "confirmatorio",
+            pregunta=p.pregunta.strip(),
+            variables=list(p.variables)[:12],
+            poblacion=p.poblacion.strip(),
+            preprocesado=list(p.preprocesado)[:10],
+            prueba=p.prueba.strip(),
+            hipotesisNula=p.hipotesis_nula.strip(),
+            hipotesisAlternativa=p.hipotesis_alternativa.strip(),
+            alpha=float(p.alpha),
+            direccionEsperada=p.direccion_esperada.strip(),
+            tamanoEfectoMinimo=p.tamano_efecto_minimo.strip(),
+            baseline=p.baseline.strip(),
+            controlNegativo=p.control_negativo.strip(),
+            correccionMultiplicidad=p.correccion_multiplicidad.strip(),
+            umbralEfecto=p.umbral_efecto.strip(),
+            criterioNoEvaluable=p.criterio_no_evaluable.strip(),
+            siConfirma=(getattr(p, "si_confirma", "") or "").strip(),
+            siRefuta=(getattr(p, "si_refuta", "") or "").strip(),
+            siNoEvaluable=(getattr(p, "si_no_evaluable", "") or "").strip(),
+            planPadre=(padre or {}).get("id"),
+            cambioRespectoAlPadre=cambio_respecto_al_padre(padre, dataset_id, p.prueba.strip(), ds.get("nombre", "")) if padre else "",
+            entorno=getattr(p, "entorno", "tabular") or "tabular",
+            semilla=12345,
+            hashDatos=proc["hash"],
+            autor=ctx.modelos.cerebro.model,
+        )
 
-    def congelar(e2: dict[str, Any]) -> bool:
-        e2.setdefault("planesAnalisis", []).append(plan)
-        c = next(x for x in e2["corridas"] if x["id"] == ctx.corrida_id)
-        c["_evaluacionesCostosas"] = c.get("_evaluacionesCostosas", 0) + 1
-        return True
+        def congelar(e2: dict[str, Any]) -> bool:
+            e2.setdefault("planesAnalisis", []).append(plan)
+            next(y for y in e2["hipotesis"] if y["id"] == h["id"])["_planAnalisisPendiente"] = plan["id"]
+            c = next(x for x in e2["corridas"] if x["id"] == ctx.corrida_id)
+            c["_evaluacionesCostosas"] = c.get("_evaluacionesCostosas", 0) + 1
+            return True
 
-    ctx.mutar(congelar, "plan_analisis")
-    pista.resultado(f"Plan congelado {plan['hashPlan']}: {plan['prueba'][:80]}")
-    await _sellar_plan(ctx, plan, pista)
+        ctx.mutar(congelar, "plan_analisis")
+        pista.resultado(f"Plan congelado {plan['hashPlan']}: {plan['prueba'][:80]}")
+        await _sellar_plan(ctx, plan, pista)
     run = await _correr_plan(ctx, plan, ds, ruta, esquema, h["id"], "hipotesis", pista)
     ahora = P.ahora_ms()
     valido = run.get("auditoria") and run["auditoria"]["veredicto"] == "valido" and run.get("interpretacion") and run["interpretacion"]["estado"] in ("efecto_detectado", "sin_efecto_detectable")
@@ -434,6 +456,7 @@ async def analizar_hipotesis(ctx, h: dict[str, Any], dataset_id: str, pregunta: 
             return False
         y.setdefault("ejecuciones", []).append(run["id"])
         y.pop("_analisisPedido", None)
+        y.pop("_planAnalisisPendiente", None)
         y["coste"]["analisis"] = round(y["coste"]["analisis"] + 1.5, 2)
         y["procedencia"]["registro"].append(f"{datetime.fromtimestamp(ahora / 1000, tz=timezone.utc).isoformat()} análisis in silico {run['id']}: {run['estado']}" + (f", {run['interpretacion']['estado']}" if run.get("interpretacion") else "") + (f", auditoría {run['auditoria']['veredicto']}" if run.get("auditoria") else ""))
         if valido:
@@ -493,20 +516,26 @@ async def reproducir(ctx, rep: dict[str, Any], pista: Pista) -> None:
     proc = ds["procedencia"]
     esquema = await asyncio.to_thread(D.esquema_para_modelo, ruta, proc, bool(proc.get("permiteLlmTerceros")))
     ctx.mutar(lambda e2: _estado_rep(e2, rep["id"], "en_curso", None, None, None), "reproduccion")
-    pista.accion(f"Plan de reproducción de {rep['referencia']}: {rep['descripcion'][:100]}")
-    pp = await ctx.llamar(
-        "cerebro",
-        ctx.programas.planificar,
-        hipotesis=f"Reproducir el análisis publicado: {rep['referencia']} ({rep['doi'] or 'sin DOI'}). {rep['descripcion']}",
-        prediccion_falsable=f"La cifra publicada es {rep['cifraPublicada']} = {rep['valorPublicado']}. El script debe imprimir RESULTADO valor_reproducido=<número> con la misma definición.",
-        pregunta_pedida=f"Calcular exactamente: {rep['cifraPublicada']}",
-        esquema_datos=esquema,
-        limites="Reproducción: mismos criterios que la publicación; ninguna variante nueva",
-        skills=SK.texto_para_prompt(SK.para_texto("reproducción cifra publicada " + rep["descripcion"] + " " + esquema[:1500] + " " + ds.get("nombre", ""))),
-    )
-    p = pp.plan
-    plan = P.nuevo_plan_analisis(ctx.investigacion_id, None, rep["datasetId"], P.ahora_ms(), tipo="reproduccion", pregunta=p.pregunta.strip(), variables=list(p.variables)[:12], poblacion=p.poblacion.strip(), preprocesado=list(p.preprocesado)[:10], prueba=p.prueba.strip(), hipotesisNula=p.hipotesis_nula.strip(), hipotesisAlternativa=p.hipotesis_alternativa.strip(), alpha=float(p.alpha), direccionEsperada=p.direccion_esperada.strip(), tamanoEfectoMinimo=p.tamano_efecto_minimo.strip(), baseline=p.baseline.strip(), controlNegativo=p.control_negativo.strip(), correccionMultiplicidad=p.correccion_multiplicidad.strip(), umbralEfecto=f"|valor_reproducido - {rep['valorPublicado']}| <= {rep['tolerancia']} * |{rep['valorPublicado']}|", criterioNoEvaluable=p.criterio_no_evaluable.strip(), semilla=12345, hashDatos=proc["hash"], autor=ctx.modelos.cerebro.model, reproduccionId=rep["id"], entorno=getattr(p, "entorno", "tabular") or "tabular")
-    ctx.mutar(lambda e2: e2.setdefault("planesAnalisis", []).append(plan) or True, "plan_analisis")
+    plan = next((p for p in ctx.e.get("planesAnalisis", []) if p["id"] == rep.get("planId") and p["datasetId"] == rep["datasetId"]), None)
+    if plan is None:
+        pista.accion(f"Plan de reproducción de {rep['referencia']}: {rep['descripcion'][:100]}")
+        pp = await ctx.llamar(
+            "cerebro",
+            ctx.programas.planificar,
+            hipotesis=f"Reproducir el análisis publicado: {rep['referencia']} ({rep['doi'] or 'sin DOI'}). {rep['descripcion']}",
+            prediccion_falsable=f"La cifra publicada es {rep['cifraPublicada']} = {rep['valorPublicado']}. El script debe imprimir RESULTADO valor_reproducido=<número> con la misma definición.",
+            pregunta_pedida=f"Calcular exactamente: {rep['cifraPublicada']}",
+            esquema_datos=esquema,
+            limites="Reproducción: mismos criterios que la publicación; ninguna variante nueva",
+            skills=SK.texto_para_prompt(SK.para_texto("reproducción cifra publicada " + rep["descripcion"] + " " + esquema[:1500] + " " + ds.get("nombre", ""))),
+        )
+        p = pp.plan
+        plan = P.nuevo_plan_analisis(ctx.investigacion_id, None, rep["datasetId"], P.ahora_ms(), tipo="reproduccion", pregunta=p.pregunta.strip(), variables=list(p.variables)[:12], poblacion=p.poblacion.strip(), preprocesado=list(p.preprocesado)[:10], prueba=p.prueba.strip(), hipotesisNula=p.hipotesis_nula.strip(), hipotesisAlternativa=p.hipotesis_alternativa.strip(), alpha=float(p.alpha), direccionEsperada=p.direccion_esperada.strip(), tamanoEfectoMinimo=p.tamano_efecto_minimo.strip(), baseline=p.baseline.strip(), controlNegativo=p.control_negativo.strip(), correccionMultiplicidad=p.correccion_multiplicidad.strip(), umbralEfecto=f"|valor_reproducido - {rep['valorPublicado']}| <= {rep['tolerancia']} * |{rep['valorPublicado']}|", criterioNoEvaluable=p.criterio_no_evaluable.strip(), semilla=12345, hashDatos=proc["hash"], autor=ctx.modelos.cerebro.model, reproduccionId=rep["id"], entorno=getattr(p, "entorno", "tabular") or "tabular")
+        def congelar_rep(e2):
+            e2.setdefault("planesAnalisis", []).append(plan)
+            _estado_rep(e2, rep["id"], "en_curso", plan["id"], None, None)
+            return True
+        ctx.mutar(congelar_rep, "plan_analisis")
     run = await _correr_plan(ctx, plan, ds, ruta, esquema, None, "reproduccion", pista)
     valor = _valor_reproducido(run.get("resultados", {})) if run["estado"] == "completado" else None
     if run["estado"] != "completado":

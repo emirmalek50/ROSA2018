@@ -1101,3 +1101,126 @@ ROSA2018 en otra máquina tiene que descargarlos; las URL están en
 `rosa/criba.py` (`DE_DONDE`) y sin ellos la pantalla dice «sin cribar» con el
 motivo, nunca «limpio». Falta un botón que los traiga: la persona usuaria no
 abre la terminal.
+
+## El cribado con fallos, y el azar medido (1 oct 2026)
+
+Con BLAST instalado (binario aarch64 de NCBI en `datos/_herramientas/`, que no
+se versiona) el cribado deja de ser solo coincidencia exacta. El índice se
+construye en 45 s y pasar los 823 candidatos cuesta 157 s, frente a los 408 s
+del barrido exacto y los minutos POR candidato que cuesta encolar en el
+servicio del NCBI.
+
+**Validación cruzada**: BLAST encuentra los MISMOS 13 choques exactos que el
+barrido de `bytes.find`. Dos implementaciones independientes, mismo resultado.
+
+### Tres cosas que había que medir, no suponer
+
+1. **BLAST busca en las dos hebras y solo una existe.** La hebra de atrás de un
+   transcrito no es un ARN de la célula. Sin `-strand plus` salían 97 choques
+   exactos donde hay 13.
+2. **`word_size` 7 pierde los encajes de 3 fallos.** Con m fallos el trozo
+   idéntico más largo puede ser `ceil((20-m)/(m+1))`: 10 para m=1, 6 para m=2,
+   5 para m=3. Comprobado mutando 3 letras del sitio de MAPT: con 7 no
+   encuentra MAPT, con 6 y con 5 encuentra sus 43 transcritos. Se usa 6, que
+   garantiza el rango que decide (hasta 2 fallos). Con 5 el barrido tarda 13
+   minutos y da 7 MB de ruido.
+3. **El azar se midió.** La cuenta teórica decía 2,3 encajes esperados por
+   candidato a dos fallos, y era falsa porque el transcriptoma no son 1.480
+   millones de letras DISTINTAS (los transcritos de un gen se solapan). Se
+   pasaron 300 secuencias de veinte letras AL AZAR por la misma tubería:
+
+   | peor encaje ajeno con el hueco perfecto | al azar | candidatos reales |
+   |---|---|---|
+   | exacto | 0,7 % | 1,7 % |
+   | 1 fallo en las alas | 0,7 % | 1,9 % |
+   | 2 fallos en las alas | 2,7 % | 7,2 % |
+   | 3 fallos | 6,3 % | 11,6 % |
+
+   Incluso al azar, el 15 % de las secuencias tienen algún encaje ajeno con el
+   hueco perfecto: tener uno no dice nada por sí solo.
+
+### La regla es mecanística, no un recuento
+
+La RNasa H1 no lee las veinte letras: reconoce la dúplex de ADN con ARN que
+forma el HUECO de diez del centro. Con el hueco perfecto corta aunque fallen
+las alas; con un fallo dentro del hueco, no. Así que se descarta por choque
+exacto o por un fallo en las alas (0,7 % al azar los dos), se avisa a dos
+(2,7 %, al borde) y de tres en adelante es ruido. El nulo medido viaja a la
+pantalla: así nadie tiene que fiarse de la regla.
+
+Resultado: **32 de 823 descartados**, frente a 13 solo con coincidencia exacta.
+
+### Un fallo que habría quemado CPU para siempre
+
+`cribar_con_desajustes` devolvía `VERSION_BLAST` (1) donde el bucle compara
+contra `VERSION` (2), así que tras 158 s de BLAST el bucle no reconocía su
+propio resultado y volvía a empezar. Es el mismo modo de fallo que la
+heurística de contar candidatos, por otra puerta. Hay test.
+
+## Accesibilidad del sitio: el orden estaba casi invertido (1 oct 2026)
+
+`rosa/plegado.py`, con RNAplfold de ViennaRNA (modelo de Turner sobre ventana
+deslizante): la probabilidad de que las veinte letras del sitio estén libres a
+la vez. Cuesta 0,7 s por transcrito, se calcula en el bucle.
+
+La primera medición en MAPT, con los candidatos elegidos SIN esto:
+- de 60, solo **2** con accesibilidad ≥ 0,1;
+- el candidato nº1, el que ROSA2018 mandaría, en **0,013**;
+- el mejor sitio del transcrito (posición 4585, **0,863**) no estaba en la
+  lista;
+- y el más accesible de los 60 era el **nº60**, el último.
+
+Dos cambios, los dos con su medición:
+
+1. **La accesibilidad pesa en QUÉ sesenta se eligen**, no solo en cómo se
+   enseñan (`ASO.PESO_ACCESIBILIDAD = 6`). Seis porque los motivos van de 0 a
+   6, así que un sitio completamente abierto vale lo mismo que seis motivos
+   buenos; y porque barriendo el peso de 0 a 12 los candidatos abiertos pasan
+   de 1 a 13 y ahí se aplana (con 8 son 14, con 12 también). Se aplica sobre
+   la raíz cuadrada porque la distribución está pegada a cero: la mediana de
+   todas las ventanas de MAPT es 0,0001.
+2. **El filtro de CpG pasó de veto a aviso con penalización** para uno (dos o
+   más siguen vetando). Vetaba cualquiera, y eso tiraba los SEIS sitios más
+   accesibles del ARN de MAPT por tener un solo CpG. El motivo del filtro es
+   que los CpG sin metilar activan TLR9, pero la arquitectura que ROSA2018
+   especifica lleva 5-metilcitosina en todas las citosinas, que es justamente
+   esa mitigación y la de los tres gapmers aprobados. Vetar por un riesgo que
+   la propia química del diseño ya cubre era tirar la mejor respuesta por nada.
+
+Resultado en MAPT: de 2 candidatos abiertos a **13**, y el nº1 pasa de 0,013 a
+0,094 (percentil 96 de su transcrito).
+
+Lo que el cálculo NO dice, y viaja a la pantalla: es un modelo y no una medida;
+en la célula el ARN va vestido de proteínas, que abren unos sitios y cierran
+otros; y el plegado es local (ventana de 80), no de punta a punta.
+
+## La dúplex: por qué NO se hizo en 3D
+
+Se intentó generar un PDB para el visor Mol* que ya tiene la pantalla, y hubo
+que tirarlo. Los parámetros publicados de una dúplex híbrida de ARN con ADN
+dan la FORMA de la hélice (giro 32,7°, subida 2,62 Å, radio del esqueleto), no
+dónde está cada átomo de cada base. Poner esos átomos habría sido inventarlos.
+
+`rosa/duplex.py` da las coordenadas para dibujar lo que sí se sabe: los dos
+esqueletos con la forma real de la hélice y los pares que los unen, con las
+alas de 2'-MOE de un color y el hueco de ADN de otro. La pantalla lo pinta en
+SVG y dice que es un esquema. Sirve para ver por qué la arquitectura es 5-10-5
+y por qué la RNasa H1 solo corta en el hueco, que es justo lo que no se
+entiende leyendo veinte letras.
+
+De paso, un detalle de dibujo que solo se ve al mirarlo: en cada cruce las dos
+hebras se intercambian, así que poner siempre la letra del oligo arriba las
+hacía caer en el mismo punto. Cada letra va por fuera de SU hebra.
+
+## Lo que sigue faltando
+
+- **El pre-ARN.** El cribado sigue siendo sobre ARN maduro. El corte promiscuo
+  de la RNasa H1 sobre el borrador largo con sus intrones es el mecanismo
+  conocido de hepatotoxicidad de los gapmers (Burel et al., Nucleic Acids Res
+  44:2093, 2016). Pide el genoma con su anotación (~880 MB, las dos hebras).
+- **Variantes en el sitio diana.** Una variante común haría que el oligo no
+  pegara en parte de la población. ROSA2018 tiene conectores de variantes y
+  aquí no se usan.
+- **La química sigue siendo coocurrencia, no afinidad** (11 de 14 dianas llevan
+  amiloide-beta y lecanemab).
+- **Ninguna estructura medida del PDB se dibuja todavía.**

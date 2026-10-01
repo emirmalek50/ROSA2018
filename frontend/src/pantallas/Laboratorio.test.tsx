@@ -750,7 +750,7 @@ describe('lo que va al laboratorio', () => {
     await montar();
     await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
     await pulsar(nodo.querySelector('.lab-abrir-aso')!);
-    expect(texto()).toContain('No se puede pedir: encaja idéntico en otro gen');
+    expect(texto()).toContain('No se puede pedir: encaja en otro gen donde la RNasa H1 cortaría');
     // El número exacto, no el de la lista cortada: decir «3 genes» donde son
     // 1.263 sería mentir por omisión.
     expect(texto()).toContain('1263');
@@ -787,5 +787,138 @@ describe('lo que va al laboratorio', () => {
     expect(texto()).toContain('669.547');
     // Nunca «seguro».
     expect(texto()).not.toContain('es seguro');
+  });
+
+  it('la horquilla del ARN se dibuja y marca el tramo del oligo', async () => {
+    // Un oligo no entra en un tramo emparejado dentro de una horquilla, por
+    // buenas que sean sus veinte letras. Los arcos resaltados son los que hay
+    // que abrir.
+    const c = {
+      ...DIANA.aso!.candidatos[0]!,
+      sitio: {
+        accesibilidad: 0.0938, etiqueta: 'medio' as const,
+        comoSeLee: 'El tramo está a medias: libre entero 9,4 de cada 100 veces.',
+        percentil: 95.7, mejorDelTranscrito: 0.8628, posicionMejor: 4585,
+        medianaDelTranscrito: 0.0001, ventana: 80, alcance: 40, version: 1,
+      },
+    };
+    const aso = {
+      ...DIANA.aso!,
+      candidatos: [c],
+      plegado: {
+        hecho: true, version: 1, ventana: 80, alcance: 40, motivo: '',
+        avisos: [{ que: 'Es un modelo, no una medida', porQue: 'un sitio accesible funciona más a menudo, no siempre' }],
+        mejorDelTranscrito: 0.8628, posicionMejor: 4585, medianaDelTranscrito: 0.0001, abiertos: 13,
+        dibujo: { desde: 100, hasta: 160, secuencia: 'A'.repeat(61), estructura: '.'.repeat(61), energia: -21.2, pares: [[2, 60], [3, 59], [12, 30]] as [number, number][] },
+        dibujoSitio: [120, 139] as [number, number],
+      },
+    };
+    respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, aso }], oligoQueMandaria: null };
+    respuestas.oligos = aso;
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    expect(nodo.querySelector('.rna-arcos')).not.toBeNull();
+    expect(nodo.querySelectorAll('.rna-arco').length).toBe(3);
+    // El que toca el tramo del oligo (120 a 139 sobre un dibujo que empieza
+    // en 100: posiciones 21 a 40) va resaltado.
+    expect(nodo.querySelectorAll('.rna-arco-sitio').length).toBe(1);
+    expect(texto()).toContain('El tramo está a medias');
+    // Decimales con coma, que es la regla del proyecto.
+    expect(texto()).toContain('0,0938');
+    expect(texto()).not.toContain('0.0938');
+    // Y lo que el cálculo NO dice.
+    expect(texto()).toContain('Es un modelo, no una medida');
+  });
+
+  it('sin ViennaRNA se dice que no se pudo calcular, no que esté tapado', async () => {
+    // La regla de ROSA2018: no poder comprobar no es un no.
+    const aso = {
+      ...DIANA.aso!,
+      candidatos: [{ ...DIANA.aso!.candidatos[0]!, sitio: null }],
+      plegado: { hecho: false, version: 1, ventana: 80, alcance: 40, avisos: [], motivo: 'ViennaRNA no está instalado, así que no se pudo calcular si el sitio está abierto. No quiere decir que esté tapado.' },
+    };
+    respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, aso }], oligoQueMandaria: null };
+    respuestas.oligos = aso;
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    expect(texto()).toContain('No se pudo calcular');
+    expect(texto()).toContain('No quiere decir que esté tapado');
+    expect(nodo.querySelector('.rna-arcos')).toBeNull();
+  });
+
+  it('la dúplex marca el hueco de ADN y dice que es un esquema, no una estructura', async () => {
+    const pares = Array.from({ length: 20 }, (_, k) => ({
+      i: k + 1,
+      aso: 'ACGT'[k % 4],
+      arn: 'UGCA'[k % 4],
+      quimica: (k < 5 || k >= 15 ? 'ala' : 'hueco') as 'ala' | 'hueco',
+      z: k * 2.62,
+      yAso: Math.sin((k * 32.7 * Math.PI) / 180),
+      yArn: -Math.sin((k * 32.7 * Math.PI) / 180),
+      delanteAso: Math.cos((k * 32.7 * Math.PI) / 180) >= 0,
+    }));
+    const c = {
+      ...DIANA.aso!.candidatos[0]!,
+      duplex: {
+        version: 1, aso: 'A'.repeat(20), diana: 'T'.repeat(20), pares,
+        alas: [[1, 5], [16, 20]] as [number, number][], hueco: [6, 15] as [number, number], dondeCorta: [7, 14] as [number, number],
+        queEs: { ala: "2'-MOE", hueco: 'ADN, es lo ÚNICO que la RNasa H1 reconoce', arn: 'el ARN de la diana' },
+        avisos: [{ que: 'No es una estructura resuelta', porQue: 'nadie ha cristalizado este oligo con este ARN' }],
+        largoAngstroms: 49.8, vueltas: 1.73, giroPorPar: 32.7, subidaPorPar: 2.62, surcoMenor: 9.5,
+        porQueHibrida: 'no es ni de forma B ni de forma A',
+        porQueSoloElHueco: 'la RNasa H1 necesita ver ADN de verdad',
+      },
+    };
+    const aso = { ...DIANA.aso!, candidatos: [c] };
+    respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, aso }], oligoQueMandaria: null };
+    respuestas.oligos = aso;
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    expect(nodo.querySelectorAll('.dup-par').length).toBe(20);
+    // Diez de los veinte pares son el hueco de ADN, que es lo que corta.
+    expect(nodo.querySelectorAll('.dup-par-hueco').length).toBe(10);
+    expect(texto()).toContain('la RNasa H1 necesita ver ADN de verdad');
+    // Lo que NO es: no se puede vender un esquema como una estructura.
+    expect(texto()).toContain('No es una estructura resuelta');
+    expect(texto()).toContain('49,8 Å');
+  });
+
+  it('las letras de la dúplex no se pisan en los cruces de las hebras', async () => {
+    // En cada cruce las dos hebras se intercambian; poniendo siempre la letra
+    // del oligo arriba, las dos caían en el mismo punto y no se leía ninguna.
+    const pares = Array.from({ length: 20 }, (_, k) => {
+      const a = (k * 32.7 * Math.PI) / 180;
+      return { i: k + 1, aso: 'A', arn: 'T', quimica: 'ala' as const, z: k * 2.62, yAso: Math.sin(a), yArn: -Math.sin(a), delanteAso: Math.cos(a) >= 0 };
+    });
+    const c = {
+      ...DIANA.aso!.candidatos[0]!,
+      duplex: {
+        version: 1, aso: 'A'.repeat(20), diana: 'T'.repeat(20), pares,
+        alas: [[1, 5], [16, 20]] as [number, number][], hueco: [6, 15] as [number, number], dondeCorta: [7, 14] as [number, number],
+        queEs: { ala: 'a', hueco: 'b', arn: 'c' }, avisos: [],
+        largoAngstroms: 49.8, vueltas: 1.73, giroPorPar: 32.7, subidaPorPar: 2.62, surcoMenor: 9.5,
+        porQueHibrida: 'x', porQueSoloElHueco: 'y',
+      },
+    };
+    const aso = { ...DIANA.aso!, candidatos: [c] };
+    respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, aso }], oligoQueMandaria: null };
+    respuestas.oligos = aso;
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    const letras = [...nodo.querySelectorAll('.dup-letra')].map((x) => ({
+      x: Number(x.getAttribute('x')),
+      y: Number(x.getAttribute('y')),
+    }));
+    expect(letras.length).toBe(40);
+    // En cada columna las dos letras tienen que estar separadas de verdad.
+    for (let k = 0; k < 20; k++) {
+      const col = letras.filter((l) => Math.abs(l.x - letras[k * 2]!.x) < 0.01);
+      expect(col.length).toBe(2);
+      expect(Math.abs(col[0]!.y - col[1]!.y)).toBeGreaterThan(14);
+    }
   });
 });

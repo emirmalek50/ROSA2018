@@ -66,7 +66,12 @@ from typing import Any
 # id del transcrito, símbolo del gen, biotipo, y (cromosoma, inicio, fin, hebra)
 Golpe = tuple[str, str, str, tuple[str, int, int, str]]
 
-VERSION = 1
+# 2: el cribado pasa a hacerse con BLAST cuando está (tolera fallos y es más
+# rápido), y el veredicto se decide por si el HUECO de ADN encaja, no por
+# contar fallos. Subir esto rehace el cribado entero.
+# 3: el resultado guarda contra cuántos transcritos se comparó. Sin eso la
+# pantalla decía «comparado contra 0 transcritos», que es peor que callarlo.
+VERSION = 3
 
 # Los dos ficheros de Ensembl. El de cDNA trae lo codificante, los pseudogenes
 # y los intrones retenidos; el de ncRNA trae los 195.143 lncRNA, que en cerebro
@@ -476,3 +481,384 @@ LIMITES = [
 
 if __name__ == "__main__":
     json.dump(cribar(json.load(sys.stdin)), sys.stdout)
+
+
+# ---------------------------------------------------------------------------
+# Cribado tolerante a desajustes, con BLAST
+# ---------------------------------------------------------------------------
+#
+# Por qué hace falta y por qué el criterio no es «cuántos fallos» (30 de
+# septiembre de 2026). El cribado exacto de arriba encuentra los choques
+# perfectos, pero un oligo se pega también donde falla una o dos letras, y ahí
+# la RNasa H1 corta igual. Para eso está BLAST, que con el transcriptoma
+# indexado tarda 243 s en pasar los 787 candidatos, no los minutos por
+# candidato que cuesta el servicio del NCBI.
+#
+# Al medirlo salieron dos cosas que cambian el criterio entero:
+#
+# 1. **BLAST busca en las dos hebras y solo una existe.** La hebra de atrás de
+#    un transcrito no es un ARN de la célula, así que un encaje ahí no es un
+#    fuera de diana. Sin `-strand plus` salían 97 candidatos con choque
+#    exacto en otro gen donde el barrido exacto encontraba 13.
+#
+# 2. **A dos fallos, el azar ya da encajes.** La cuenta es directa: hay
+#    C(20,2)·3² = 1.710 maneras de fallar en dos letras, o sea un encaje cada
+#    643 millones de posiciones, y el transcriptoma tiene 1.480 millones. Son
+#    2,3 encajes esperados POR AZAR y por candidato (a tres fallos, 41).
+#    Descartar por eso sería descartar a casi todos por ruido.
+#
+# Así que el criterio es MECANÍSTICO y no un recuento. La RNasa H1 no lee las
+# veinte letras: reconoce la dúplex de ADN con ARN que forma el HUECO de diez
+# del centro. Si el hueco encaja perfecto, corta, aunque fallen las alas de
+# 2'-MOE; si el fallo cae dentro del hueco, no. Por eso:
+#
+#   - choque exacto en otro gen          -> descartado (0 esperados por azar)
+#   - hueco perfecto y fallos solo en las alas -> descartado (ahí sí corta)
+#   - fallos dentro del hueco            -> se cuenta y se enseña, no descarta
+#
+# El hueco son las posiciones 6 a 15 del oligo. Como se busca el complemento
+# inverso y la arquitectura es simétrica (5-10-5), son también las posiciones
+# 6 a 15 de la consulta, que es lo que devuelve BLAST.
+
+VERSION_BLAST = 1
+
+# El hueco, tomado de la arquitectura de rosa/aso.py para que no se puedan
+# desincronizar: si allí cambia el 5-10-5, aquí cambia solo.
+from rosa.aso import ALA as _ALA, HUECO as _HUECO, LARGO as _LARGO  # noqa: E402
+
+LARGO_OLIGO = _LARGO
+HUECO_DESDE = _ALA + 1           # 6
+HUECO_HASTA = _ALA + _HUECO      # 15
+
+# Lo que se pide a BLAST. Cada uno está aquí por una razón medida:
+#   -word_size 6   : con 7 se pierden los encajes de 3 fallos (comprobado:
+#                    mutando 3 letras del sitio de MAPT, con 7 no encuentra
+#                    MAPT y con 6 encuentra los 43 transcritos). Con m fallos
+#                    el trozo idéntico más largo puede ser ceil((20-m)/(m+1)),
+#                    o sea 6 para m=2, que es el rango que decide.
+#   -penalty -1    : con el -3 de por defecto BLAST no extiende a través de
+#                    los fallos y devuelve encajes truncados, no de largo 20.
+#   -ungapped      : una dúplex de oligo no hace bultos útiles.
+#   -dust no       : sin esto BLAST enmascara las zonas repetitivas de la
+#                    consulta, que es justo donde están los Alu que hay que
+#                    cazar.
+#   -strand plus   : ver arriba.
+#   -qcov_hsp_perc 100 : solo encajes que cubren el oligo entero.
+ARGS_BLAST = (
+    "-task", "blastn-short", "-word_size", "6", "-penalty", "-1", "-reward", "1",
+    "-ungapped", "-dust", "no", "-soft_masking", "false", "-strand", "plus",
+    "-qcov_hsp_perc", "100", "-evalue", "5000", "-max_target_seqs", "50000",
+)
+
+BLAST = CARPETA.parent / "_herramientas" / "ncbi-blast-2.17.0+" / "bin"
+BASE_BLAST = CARPETA / "blastdb" / "humano"
+MAPA = CARPETA / "mapa.tsv"
+
+
+def hay_blast() -> dict[str, Any]:
+    """Si están el programa y el índice. Sin ellos no se criba con desajustes,
+    y eso se dice: es «no pude comprobar», no «no hay fuera de diana»."""
+    exe = BLAST / "blastn"
+    falta = []
+    if not exe.exists():
+        falta.append(f"el programa blastn en {BLAST}")
+    if not (CARPETA / "blastdb" / "humano.nsq").exists():
+        falta.append(f"el índice de BLAST en {CARPETA / 'blastdb'}")
+    if not MAPA.exists():
+        falta.append(f"el mapa de transcritos en {MAPA}")
+    return {
+        "hay": not falta,
+        "programa": str(exe),
+        "indice": str(BASE_BLAST),
+        "motivo": "" if not falta else "Falta " + ", ".join(falta) + ". Sin eso solo se criba coincidencia exacta, y eso no descarta encajar con uno o dos fallos.",
+    }
+
+
+def fallos_de_btop(btop: str) -> list[int]:
+    """De la cadena de BLAST a las posiciones (base uno) donde falla.
+
+    `btop` alterna números (letras iguales seguidas) con pares de letras
+    (consulta y sujeto) donde difieren: «10AG9» son diez iguales, luego una A
+    en la consulta frente a una G, luego nueve iguales."""
+    pos: list[int] = []
+    i = 0
+    donde = 0
+    while i < len(btop):
+        if btop[i].isdigit():
+            j = i
+            while j < len(btop) and btop[j].isdigit():
+                j += 1
+            donde += int(btop[i:j])
+            i = j
+        else:
+            donde += 1
+            pos.append(donde)
+            i += 2
+    return pos
+
+
+def en_el_hueco(fallos: list[int]) -> bool:
+    """Si algún fallo cae dentro del hueco de ADN, que es lo que lee la RNasa H1."""
+    return any(HUECO_DESDE <= p <= HUECO_HASTA for p in fallos)
+
+
+def _mapa() -> dict[str, tuple[str, str, int, int, str]]:
+    """Transcrito -> (gen, cromosoma, inicio, fin, hebra), de la cabecera FASTA.
+
+    Se lee del fichero que se genera una vez; son 669.547 líneas y tarda un
+    segundo, así que se guarda en memoria entre llamadas."""
+    global _MAPA_CACHE
+    if _MAPA_CACHE is None:
+        m: dict[str, tuple[str, str, int, int, str]] = {}
+        with MAPA.open(encoding="utf-8") as f:
+            for linea in f:
+                c = linea.rstrip("\n").split("\t")
+                if len(c) >= 6:
+                    m[c[0]] = (c[1], c[2], int(c[3] or 0), int(c[4] or 0), c[5])
+        _MAPA_CACHE = m
+    return _MAPA_CACHE
+
+
+_MAPA_CACHE: dict[str, tuple[str, str, int, int, str]] | None = None
+
+
+# El NULO, medido y no supuesto (30 de septiembre de 2026).
+#
+# La cuenta teórica del azar decía que a dos fallos habría 2,3 encajes
+# esperados por candidato. Era falsa: el transcriptoma no son mil quinientos
+# millones de letras DISTINTAS, porque los transcritos de un mismo gen se
+# solapan. Así que el azar se midió: 300 secuencias de veinte letras al azar
+# con el mismo reparto de G y C, por la misma tubería de BLAST y la misma
+# regla del hueco. Resultado, el porcentaje de secuencias AL AZAR cuyo peor
+# encaje ajeno con el hueco perfecto es de ese nivel.
+#
+# Lo que esto cambia: incluso al azar, el 15 % de las secuencias tienen algún
+# encaje ajeno con el hueco perfecto. Tener uno no dice nada por sí solo. Lo
+# que dice algo es tenerlo con cero o un fallo, que al azar pasa el 0,7 % de
+# las veces.
+#
+# Estos números viajan a la pantalla a propósito: así nadie tiene que fiarse
+# de la regla, puede ver contra qué se compara.
+NULO = {
+    0: 0.007,   # encaje exacto en otro gen
+    1: 0.007,   # un fallo, y en las alas
+    2: 0.027,   # dos fallos, y en las alas
+    3: 0.063,
+    4: 0.047,
+}
+NULO_N = 300
+
+# Hasta cuántos fallos en las ALAS se descarta. Dos y no tres: a dos fallos el
+# azar ya da un 2,7 %, y de tres en adelante (6,3 %) es ruido.
+FALLOS_QUE_DESCARTAN = 1
+FALLOS_QUE_AVISAN = 2
+
+
+def _coma(x: float, d: int = 1) -> str:
+    """Un número con coma decimal, que es como se escribe en castellano."""
+    return f"{x:.{d}f}".replace(".", ",")
+
+
+def _veredicto_blast(propio: str, golpes: list[tuple[str, int, list[int]]]) -> dict[str, Any]:
+    """De los encajes de BLAST al veredicto, por la regla del hueco.
+
+    `golpes` son (transcrito, número de fallos, posiciones de los fallos).
+
+    La regla no cuenta fallos: mira DÓNDE caen. La RNasa H1 no lee las veinte
+    letras, reconoce la dúplex de ADN con ARN que forma el hueco de diez del
+    centro. Si el hueco encaja perfecto corta, aunque fallen las alas; si el
+    fallo cae dentro del hueco, no. Y el umbral de cuántos fallos en las alas
+    cuentan sale del NULO medido, no de una corazonada.
+
+    Devuelve las MISMAS claves que `_veredicto` (el barrido exacto) más el
+    detalle de los desajustes, porque BLAST encuentra todo lo que encuentra el
+    barrido (comprobado: los mismos trece choques exactos) y cuando está,
+    manda. Así ni `pegar` ni la pantalla tienen que preguntar de cuál vienen."""
+    mapa = _mapa()
+    propios = [g for g in golpes if mapa.get(g[0], ("",))[0] == propio]
+    # El tramo de cromosoma del propio gen, para no contar como ajeno un ARN
+    # anotado encima del mismo sitio con otro nombre (el caso de PSEN2: sin
+    # esto salían 51 choques exactos donde hay 13).
+    mio: dict[tuple[str, str], tuple[int, int]] = {}
+    for tid, _, _ in propios:
+        _, cr, a, b, h = mapa[tid]
+        if not cr:
+            continue
+        x, y = mio.get((cr, h), (a, b))
+        mio[(cr, h)] = (min(x, a), max(y, b))
+
+    def es_ajeno(tid: str) -> bool:
+        m = mapa.get(tid)
+        if not m:
+            return False
+        gen, cr, a, b, h = m
+        if gen == propio:
+            return False
+        r = mio.get((cr, h))
+        return not (cr and r and a <= r[1] and b >= r[0])
+
+    def mismo_sitio(tid: str) -> bool:
+        m = mapa.get(tid)
+        return bool(m and m[0] != propio and not es_ajeno(tid))
+
+    # Genes ajenos donde el HUECO encaja perfecto, agrupados por fallos en las
+    # alas. Un gen cuenta por su MEJOR encaje: si pega exacto en uno de sus
+    # transcritos, da igual que en otro pegue con tres fallos.
+    corta: dict[int, set[str]] = {}
+    tapado: set[str] = set()   # el fallo cae en el hueco: ahí no corta
+    for tid, n, donde in golpes:
+        if not es_ajeno(tid):
+            continue
+        gen = mapa[tid][0] or "(sin símbolo)"
+        if n and en_el_hueco(donde):
+            tapado.add(gen)
+        else:
+            corta.setdefault(n, set()).add(gen)
+    visto: set[str] = set()
+    for n in sorted(corta):
+        corta[n] -= visto
+        visto |= corta[n]
+    tapado -= visto
+
+    peor = min((n for n, g in corta.items() if g), default=None)
+    exactos = sorted(corta.get(0, set()))
+    base: dict[str, Any] = {
+        "cribado": True,
+        "propios": len(propios),
+        "fuera": exactos[:LIMITE_GENES],
+        "genesFuera": len(exactos),
+        "transcritosFuera": sum(1 for tid, n, _ in golpes if n == 0 and es_ajeno(tid)),
+        "mismoSitioOtroNombre": sorted({mapa[t[0]][0] or "(sin nombre en Ensembl)" for t in golpes if t[1] == 0 and mismo_sitio(t[0])})[:LIMITE_GENES],
+        "genesMismoSitio": len({mapa[t[0]][0] for t in golpes if t[1] == 0 and mismo_sitio(t[0])}),
+        "transcritosMismoSitio": sum(1 for t in golpes if t[1] == 0 and mismo_sitio(t[0])),
+        # Lo propio del cribado con desajustes.
+        "cribadoConDesajustes": True,
+        "versionBlast": VERSION_BLAST,
+        "huecoDesde": HUECO_DESDE,
+        "huecoHasta": HUECO_HASTA,
+        "porFallos": {str(n): sorted(g)[:LIMITE_GENES] for n, g in sorted(corta.items()) if g},
+        "cuantosPorFallos": {str(n): len(g) for n, g in sorted(corta.items()) if g},
+        "conFalloEnElHueco": len(tapado),
+        "peorFallos": peor,
+        "nulo": {str(k): v for k, v in NULO.items()},
+        "nuloN": NULO_N,
+    }
+
+    def listo(veredicto: str, texto: str) -> dict[str, Any]:
+        # `porQue` repite el texto: es el mismo hallazgo contado una vez, y la
+        # pantalla ya lee `porQue`.
+        return {**base, "veredicto": veredicto, "veredictoDesajustes": veredicto, "porQue": texto, "porQueDesajustes": texto}
+
+    if peor is None:
+        extra = (
+            f" Se parece a {len(tapado)} gen(es), pero en todos el fallo cae DENTRO del hueco, que es lo que la "
+            "RNasa H1 necesita perfecto para cortar."
+            if tapado
+            else ""
+        )
+        return listo("sin parecido", "No hay ningún otro ARN humano donde este oligo encaje entero con el hueco de ADN perfecto." + extra)
+
+    genes = sorted(corta[peor])
+    cuantos = len(genes)
+    azar = _coma(NULO.get(peor, 0.1) * 100)
+    lista = ", ".join(genes[:6]) + ("..." if cuantos > 6 else "")
+    if peor == 0:
+        return listo("descartado", (
+            f"Encaja IDÉNTICO en {cuantos} gen(es) que no son {propio} ({lista}). Ahí la RNasa H1 corta igual. "
+            f"Al azar solo el {azar} % de las secuencias de veinte letras tienen un encaje así."
+        ))
+    if peor <= FALLOS_QUE_DESCARTAN:
+        return listo("descartado", (
+            f"En {cuantos} gen(es) ajenos ({lista}) el hueco de ADN encaja PERFECTO y solo falla {peor} letra de las "
+            "alas. La RNasa H1 no lee las veinte: reconoce la dúplex que forma el hueco, así que ahí corta. "
+            f"Al azar solo el {azar} % de las secuencias tienen un encaje así, o sea que esto no es ruido."
+        ))
+    if peor <= FALLOS_QUE_AVISAN:
+        return listo("al borde del azar", (
+            f"En {cuantos} gen(es) ({lista}) el hueco encaja perfecto con {peor} fallos en las alas. Al azar ya le "
+            f"pasa al {azar} % de las secuencias, así que está en el límite de lo que se puede distinguir del ruido: "
+            "se cuenta y se enseña, no descarta."
+        ))
+    return listo("sin parecido", (
+        f"El parecido más cercano en otro gen tiene {peor} fallos en las alas, y al azar eso le pasa al {azar} % de "
+        "las secuencias: es lo esperable en un transcriptoma de este tamaño, no una señal."
+    ))
+
+
+async def cribar_con_desajustes(peticion: list[dict[str, str]]) -> dict[str, Any]:
+    """Pasa los candidatos por BLAST contra el transcriptoma indexado.
+
+    En subproceso, como el cribado exacto, pero aquí es por otra razón: BLAST
+    ES un programa aparte. Tarda 145 s con los 787 candidatos, frente a los
+    minutos POR candidato que cuesta encolar en el servicio del NCBI.
+
+    Sin BLAST o sin índice no se inventa nada: se devuelve el motivo y la
+    pantalla dice que no se pudo cribar con desajustes, que no es lo mismo que
+    decir que no hay fuera de diana."""
+    t = hay_blast()
+    if not peticion or not t["hay"]:
+        # `version` es la del MÓDULO, que es la que mira el bucle para saber si
+        # hay que rehacer. Devolver aquí VERSION_BLAST hacía que el bucle no
+        # reconociera nunca su propio resultado y recribara en cada vuelta,
+        # que es el mismo modo de fallo que ya costó una vez con la heurística
+        # de contar candidatos.
+        return {"version": VERSION, "versionBlast": VERSION_BLAST, "porSecuencia": {}, "motivo": t["motivo"], "hecho": False}
+
+    import tempfile
+
+    t0 = time.perf_counter()
+    with tempfile.NamedTemporaryFile("w", suffix=".fa", delete=False) as f:
+        for i, p in enumerate(peticion):
+            # Se busca el tramo del ARN, que es el complemento inverso del
+            # oligo. Y solo la hebra de delante: la de atrás de un transcrito
+            # no es un ARN que exista en la célula.
+            f.write(f">{i}\n{_complemento_inverso(p['secuencia'])}\n")
+        consulta = f.name
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            str(BLAST / "blastn"), *ARGS_BLAST,
+            "-db", str(BASE_BLAST), "-query", consulta,
+            "-num_threads", str(PROCESOS),
+            "-outfmt", "6 qseqid sseqid length mismatch btop",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            salida, error = await proc.communicate()
+        except (asyncio.CancelledError, Exception):
+            # Igual que los hijos del cribado exacto: un BLAST de dos minutos
+            # no puede quedarse vivo cuando se para el servidor.
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await proc.wait()
+            raise
+        if proc.returncode != 0:
+            raise RuntimeError(f"BLAST falló: {error.decode('utf-8', 'replace')[:400]}")
+    finally:
+        with contextlib.suppress(OSError):
+            Path(consulta).unlink()
+
+    por_q: dict[int, list[tuple[str, int, list[int]]]] = {}
+    for linea in salida.decode("utf-8", "replace").splitlines():
+        c = linea.split("\t")
+        if len(c) < 5 or c[2] != str(LARGO_OLIGO):
+            continue
+        n = int(c[3])
+        por_q.setdefault(int(c[0]), []).append((c[1], n, fallos_de_btop(c[4]) if n else []))
+    fuera = {}
+    for i, p in enumerate(peticion):
+        fuera[p["secuencia"]] = _veredicto_blast(p["gen"], por_q.get(i, []))
+    return {
+        "version": VERSION,
+        "versionBlast": VERSION_BLAST,
+        "hecho": True,
+        "motivo": "",
+        "segundos": round(time.perf_counter() - t0, 1),
+        "programa": "blastn 2.17.0+",
+        # Contra cuántos se comparó. Sale del mapa, que es el índice de lo que
+        # hay en la base de BLAST. Sin esto la pantalla decía «comparado
+        # contra 0 transcritos», que es peor que no decir nada.
+        "transcritos": len(_mapa()),
+        "ficheros": list(FICHEROS),
+        "porSecuencia": fuera,
+    }

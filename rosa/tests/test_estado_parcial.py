@@ -254,7 +254,7 @@ def test_tras_recargar_desde_disco_cuenta_todo_como_cambiado():
     al.cerrar()
 
 
-def test_si_la_escritura_falla_lo_que_toco_se_vuelve_a_marcar(monkeypatch):
+def test_si_la_escritura_falla_se_descarta_y_no_se_cuela_despues(monkeypatch):
     al = _almacen()
     al.aplicar("anadirCriterio", {"texto": "base"})
     v = al.version
@@ -273,13 +273,12 @@ def test_si_la_escritura_falla_lo_que_toco_se_vuelve_a_marcar(monkeypatch):
     al.aplicar("anadirCriterio", {"texto": "la siguiente sí"})
     _, cuerpo, parcial = al.instantanea_desde(v)
     recibido = json.loads(cuerpo)
-    # La hipótesis que se quedó en memoria viaja con la siguiente escritura buena
-    # (aquí como estado entero: tras el fallo, todas las claves cuentan como cambiadas).
-    assert recibido["hipotesis"][-1]["titulo"] == "en memoria sin guardar"
+    # Una operación rechazada no puede colarse con otra escritura independiente.
+    assert recibido["hipotesis"] == []
     con = sqlite3.connect(al.ruta)
     en_disco = json.loads(con.execute("SELECT json FROM estado").fetchone()[0])
     con.close()
-    assert en_disco["hipotesis"][-1]["titulo"] == "en memoria sin guardar"
+    assert en_disco["hipotesis"] == []
     al.cerrar()
 
 

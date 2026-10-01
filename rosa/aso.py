@@ -173,17 +173,37 @@ def evaluar(aso: str) -> dict[str, Any]:
     malos = sum(aso.count(m) for m in MOTIVOS_MALOS)
 
     fallos: list[dict[str, str]] = []
+    # Los avisos NO bloquean: penalizan y se ven. La diferencia importa,
+    # porque un veto de más es tan malo como uno de menos y no se nota igual.
+    avisos: list[dict[str, str]] = []
     if not GC_MIN <= gc <= GC_MAX:
         fallos.append({
             "filtro": "proporción de G y C",
             "motivo": f"{gc * 100:.0f} %, fuera de la banda de {GC_MIN * 100:.0f} a {GC_MAX * 100:.0f}",
             "porQue": "por debajo el encaje es demasiado flojo y por encima demasiado pegajoso, que trae consigo tolerar desajustes",
         })
-    if cpg:
+    # UN CpG avisa; dos o más vetan.
+    #
+    # Antes vetaba cualquiera, y el 30 de septiembre de 2026 se vio lo que
+    # costaba: los SEIS sitios más accesibles del ARN de MAPT (accesibilidad
+    # 0,86 frente al 0,09 del candidato que ROSA2018 mandaría, nueve veces
+    # mejor) quedaban fuera por tener un solo CpG. El motivo del filtro es que
+    # los CpG sin metilar imitan ADN bacteriano y activan el receptor TLR9,
+    # pero la arquitectura que ROSA2018 especifica lleva 5-metilcitosina en
+    # TODAS las citosinas, que es justamente la mitigación de eso, y es la de
+    # los tres gapmers aprobados. Vetar por un riesgo que la propia química
+    # del diseño ya cubre era tirar la mejor respuesta por nada.
+    if cpg >= 2:
         fallos.append({
             "filtro": "dinucleótidos CpG",
             "motivo": f"tiene {cpg}",
-            "porQue": "los CpG sin metilar imitan ADN bacteriano y activan el receptor TLR9; la 5-metilcitosina de la arquitectura ya lo atenúa, pero evitarlos de entrada es mejor",
+            "porQue": "los CpG sin metilar imitan ADN bacteriano y activan el receptor TLR9; con uno la 5-metilcitosina de la arquitectura basta, con dos o más ya no se asume",
+        })
+    elif cpg == 1:
+        avisos.append({
+            "filtro": "dinucleótidos CpG",
+            "motivo": "tiene 1",
+            "porQue": "los CpG sin metilar activan el receptor TLR9, pero la arquitectura lleva 5-metilcitosina en todas las citosinas, que es la mitigación estándar y la de los tres gapmers aprobados. Cuenta en contra, no descarta.",
         })
     if g4:
         fallos.append({
@@ -214,6 +234,7 @@ def evaluar(aso: str) -> dict[str, Any]:
         "motivosMalos": malos,
         "pasa": not fallos,
         "fallos": fallos,
+        "avisos": avisos,
     }
 
 
@@ -233,7 +254,34 @@ def _region(pos: int, largo_cdna: int, inicio_cds: int | None, fin_cds: int | No
     return "región codificante"
 
 
-def _escanear(cdna: str, inicio_cds: int | None = None, fin_cds: int | None = None) -> tuple[list[tuple[float, int, str, dict[str, Any]]], int]:
+# Cuánto pesa que el sitio esté abierto, frente a los motivos y la región.
+#
+# Seis, por dos razones que coinciden. La de principio: los motivos van de 0 a
+# 6 puntos, así que con peso 6 un sitio completamente abierto vale lo mismo
+# que un candidato con seis motivos buenos, y ninguno de los dos tapa al otro.
+# Ninguno predice potencia por sí solo y el campo trata los dos como criterios
+# de primer orden, así que dejar la accesibilidad de desempate (que es lo que
+# pasaba con peso 2) no se sostiene.
+#
+# La empírica: barriendo el peso de 0 a 12 sobre el ARN de MAPT, los
+# candidatos con el sitio abierto pasan de 1 de 60 (peso 0) a 13 (peso 6) y
+# ahí se aplana: con 8 son 14 y con 12 también. La rodilla está en 6, o sea
+# que no es un número al filo.
+#
+# Se aplica sobre la RAÍZ CUADRADA y no sobre el número crudo porque la
+# distribución está pegada a cero: la mediana de todas las ventanas de MAPT es
+# 0,0001 y el mejor sitio 0,863. Con el crudo, la diferencia entre 0,001 y
+# 0,05, que es la que de verdad separa candidatos, desaparecía.
+PESO_ACCESIBILIDAD = 6.0
+
+# Lo que resta un CpG, que avisa pero no veta. Uno y medio: bastante para que
+# entre dos sitios parecidos gane el que no lo tiene, poco para que no tape
+# una diferencia grande de accesibilidad (que es justo el caso que destapó el
+# problema en MAPT).
+PENALIZACION_CPG = 1.5
+
+
+def _escanear(cdna: str, inicio_cds: int | None = None, fin_cds: int | None = None, accesibilidad: list[float] | None = None) -> tuple[list[tuple[float, int, str, dict[str, Any]]], int]:
     """Recorre el transcrito UNA vez y devuelve lo que pasa los filtros y
     cuántas ventanas se miraron. Recorrerlo dos veces costaba veintiocho
     segundos por visita con las diecisiete dianas."""
@@ -251,6 +299,9 @@ def _escanear(cdna: str, inicio_cds: int | None = None, fin_cds: int | None = No
         # Motivos más región. Ni uno ni otro predicen potencia: los dos salen
         # de medir experimentos pasados, y así se dice en la pantalla.
         punto = m["motivosBuenos"] - m["motivosMalos"] + PESO_REGION.get(_region(i + 1, len(cdna), inicio_cds, fin_cds), 0.0)
+        if accesibilidad is not None and i < len(accesibilidad):
+            punto += PESO_ACCESIBILIDAD * (accesibilidad[i] ** 0.5)
+        punto -= PENALIZACION_CPG * m["cpg"]
         puntuados.append((punto, i, aso, m))
     puntuados.sort(key=lambda x: (-x[0], x[1]))
     return puntuados, ventanas
@@ -262,6 +313,7 @@ def candidatos(
     separacion: int = 60,
     inicio_cds: int | None = None,
     fin_cds: int | None = None,
+    accesibilidad: list[float] | None = None,
 ) -> list[dict[str, Any]]:
     """Los mejores candidatos sobre un transcrito, por las reglas publicadas.
 
@@ -274,7 +326,7 @@ def candidatos(
     cdna = (cdna or "").upper()
     if len(cdna) < LARGO:
         return []
-    puntuados, _ = _escanear(cdna, inicio_cds, fin_cds)
+    puntuados, _ = _escanear(cdna, inicio_cds, fin_cds, accesibilidad)
     return _elegir(puntuados, cdna, maximo, separacion, inicio_cds, fin_cds)
 
 
@@ -314,7 +366,7 @@ def _elegir(
 # una heurística sobre el número de candidatos: un transcrito corto puede dar
 # ocho de verdad, y adivinarlo por la cuenta lo rehacía en cada tic para
 # siempre.
-VERSION = 2
+VERSION = 3
 
 # Cuántos candidatos se diseñan. Sesenta y no ocho porque ese es el orden de
 # magnitud de un cribado primario de verdad: el protocolo de Ionis describe
@@ -328,7 +380,7 @@ CUANTOS = 60
 EN_EL_MURO = 8
 
 
-def diseño(transcrito: dict[str, Any] | None, maximo: int = CUANTOS) -> dict[str, Any] | None:
+def diseño(transcrito: dict[str, Any] | None, maximo: int = CUANTOS, accesibilidad: list[float] | None = None) -> dict[str, Any] | None:
     """El diseño completo para una diana, a partir de lo que trajo el conector.
 
     Devuelve None cuando no hay secuencia: es «no pude comprobar», no «no se
@@ -342,7 +394,7 @@ def diseño(transcrito: dict[str, Any] | None, maximo: int = CUANTOS) -> dict[st
     fin = transcrito.get("finCds")
     inicio_cds = ini if isinstance(ini, int) else None
     fin_cds = fin if isinstance(fin, int) else None
-    puntuados, ventanas = _escanear(cdna, inicio_cds, fin_cds)
+    puntuados, ventanas = _escanear(cdna, inicio_cds, fin_cds, accesibilidad)
     # La separación se adapta al transcrito: con sesenta candidatos y sesenta
     # nucleótidos entre cada uno harían falta 3.600 nt, y hay transcritos de
     # 2.300. Sin esto, en los cortos salían muchos menos de los pedidos.
@@ -368,6 +420,7 @@ def diseño(transcrito: dict[str, Any] | None, maximo: int = CUANTOS) -> dict[st
         "separacionUsada": separacion,
         "ventanas": ventanas,
         "pasanFiltros": len(puntuados),
+        "conAccesibilidad": accesibilidad is not None,
         "cribados": sum(1 for c in cands if c["cribado"]),
     }
 
