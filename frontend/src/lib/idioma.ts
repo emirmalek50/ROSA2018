@@ -121,3 +121,50 @@ export function trp(es: string, valores: Record<string, string | number>): strin
 export function cobertura(): { total: number; traducidas: number } {
   return { total: Object.keys(EN).length, traducidas: Object.keys(EN).length };
 }
+
+/** Un mapa de etiquetas que se traduce AL LEERLO.
+ *
+ *  Por qué un Proxy y no envolver a quien lo usa (1 de octubre de 2026).
+ *  `src/lib/etiquetas.ts` son 83 mapas de consulta (`ESTADO_CORRIDA[x]`,
+ *  `TIPO_PISTA[y]`...) con 314 cadenas visibles, y los leen las pantallas
+ *  desde cientos de sitios. Envolver cada lectura sería tocar todos esos
+ *  sitios y olvidarse de alguno; traducir al definir el mapa tampoco vale,
+ *  porque el módulo se evalúa una vez al arrancar y el idioma se cambia
+ *  después.
+ *
+ *  Con el Proxy, el mapa se define en castellano (que sigue siendo el
+ *  original y la clave del catálogo) y devuelve la traducción en el momento
+ *  de leerlo, que es cuando se pinta. Vale para valores de texto y para los
+ *  mapas cuyo valor es un objeto con textos dentro, que los hay.
+ *
+ *  Lo que NO hace, a propósito: no toca las claves ni los valores que no son
+ *  texto. Un identificador traducido sería un fallo, no una traducción. */
+export function traducido<T extends object>(mapa: T): T {
+  const cache = new Map<string, unknown>();
+  let paraIdioma: Idioma = idioma;
+  return new Proxy(mapa, {
+    get(objetivo, clave, receptor) {
+      const v = Reflect.get(objetivo, clave, receptor);
+      if (typeof clave === 'symbol') return v;
+      if (idioma === 'es') return v;
+      if (paraIdioma !== idioma) {
+        cache.clear();
+        paraIdioma = idioma;
+      }
+      if (typeof v === 'string') return tr(v);
+      // Un nivel de anidamiento: los mapas cuyo valor es {etiqueta, nota...}.
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        const k = String(clave);
+        if (!cache.has(k)) {
+          const copia: Record<string, unknown> = {};
+          for (const [kk, vv] of Object.entries(v as Record<string, unknown>)) {
+            copia[kk] = typeof vv === 'string' ? tr(vv) : vv;
+          }
+          cache.set(k, copia);
+        }
+        return cache.get(k);
+      }
+      return v;
+    },
+  });
+}

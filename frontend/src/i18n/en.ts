@@ -32,6 +32,9 @@ import { FRASES4 } from './en/09-frases';
 import { FRASES5 } from './en/10-frases';
 import { FRASES6 } from './en/11-frases';
 import { FRASES7, ULTIMAS } from './en/12-frases';
+import { DOMINIO } from './en/13-dominio';
+import { DOMINIO2 } from './en/14-dominio';
+import { DOMINIO3 } from './en/15-dominio';
 
 export const EN: Record<string, string> = {
   ...CASCARA,
@@ -47,4 +50,7 @@ export const EN: Record<string, string> = {
   ...FRASES6,
   ...FRASES7,
   ...ULTIMAS,
+  ...DOMINIO,
+  ...DOMINIO2,
+  ...DOMINIO3,
 };

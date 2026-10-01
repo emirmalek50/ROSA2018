@@ -6,6 +6,8 @@
  * en castellano y no un identificador inventado. */
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { negacionesDe } from '../datos/acciones';
+import { AMPLITUD } from './etiquetas';
 import { fijarIdioma, idiomaActual, tr, trc, trp } from './idioma';
 
 describe('el idioma de la interfaz', () => {
@@ -59,5 +61,68 @@ describe('el idioma de la interfaz', () => {
     expect(idiomaActual()).toBe('en');
     fijarIdioma('es');
     expect(idiomaActual()).toBe('es');
+  });
+});
+
+describe('los mapas de etiquetas traducidos al leerlos', () => {
+  beforeEach(() => fijarIdioma('es'));
+
+  it('traduce el valor plano y también el anidado {etiqueta, nota}', () => {
+    fijarIdioma('en');
+    expect(AMPLITUD.equilibrada.etiqueta).toBe('Balanced');
+    expect(AMPLITUD.equilibrada.nota).toContain('A third of the queries');
+    // Lo que no es texto se queda igual: un porcentaje no se traduce.
+    expect(AMPLITUD.equilibrada.fraccion).toBe('34 %');
+  });
+
+  it('en castellano devuelve el objeto original, sin copiarlo', () => {
+    expect(AMPLITUD.enfocada.etiqueta).toBe('Enfocada');
+  });
+
+  it('también traduce al recorrer el mapa, no solo al leer una clave', () => {
+    // Es como lo consumen los desplegables: Object.entries, no mapa.clave.
+    fijarIdioma('en');
+    const etiquetas = Object.values(AMPLITUD).map((v) => v.etiqueta);
+    expect(etiquetas).toContain('Balanced');
+    expect(etiquetas).not.toContain('Equilibrada');
+    const porClave = Object.entries(AMPLITUD).map(([k, v]) => `${k}:${v.etiqueta}`);
+    expect(porClave).toContain('amplia:Broad');
+  });
+
+  it('al cambiar de idioma no devuelve lo cacheado del idioma anterior', () => {
+    fijarIdioma('en');
+    expect(AMPLITUD.amplia.etiqueta).toBe('Broad');
+    fijarIdioma('es');
+    expect(AMPLITUD.amplia.etiqueta).toBe('Amplia');
+    fijarIdioma('en');
+    expect(AMPLITUD.amplia.etiqueta).toBe('Broad');
+  });
+});
+
+describe('lo que NO se traduce porque no es texto', () => {
+  // En `etiquetas.ts` y `acciones.ts` conviven con el texto visible unas
+  // listas de palabras que sirven para COMPARAR texto: palabras vacías,
+  // negaciones, verbos causales, números escritos. Si alguien «termina» la
+  // traducción metiéndolas en el catálogo, la comparación deja de encontrar
+  // las palabras y la detección de duplicados y de negaciones falla en
+  // silencio, que es el peor modo de fallo. Esta prueba lo impide.
+  const NO_SON_TEXTO = [
+    'nunca jamás tampoco ninguna ningún ninguno never neither nor none without',
+    'mediate mediates depend depends upstream downstream',
+    'NFD',
+    'NFKD',
+  ];
+
+  it('las listas de palabras para comparar texto no están en el catálogo', () => {
+    fijarIdioma('en');
+    for (const lista of NO_SON_TEXTO) {
+      expect(tr(lista), `«${lista.slice(0, 40)}» no se traduce: es dato, no texto`).toBe(lista);
+    }
+  });
+
+  it('la negación se sigue detectando en inglés, que es para lo que están', () => {
+    fijarIdioma('en');
+    expect([...negacionesDe('esto nunca pasa')]).toContain('nunca');
+    expect([...negacionesDe('this never happens')]).toContain('never');
   });
 });
