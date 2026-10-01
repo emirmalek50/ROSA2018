@@ -1009,72 +1009,52 @@ def _terminos(d: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _mejor_para_animales(diana: dict[str, Any], elegido: dict[str, Any]) -> dict[str, Any] | None:
-    """El mejor candidato de los que se pueden probar en animales, si no es ya
-    el elegido.
+    """El mejor candidato de los que se pueden probar en un roedor.
 
-    Lo que piden los reguladores no son tres especies, son DOS: un roedor y un
-    no roedor (ICH M3(R2), borrador de la FDA de 2024). Ratón y rata son los
-    dos roedores, así que hace falta UNO; el macaco es el no roedor y además
-    el único donde la vía es la de la clínica. Se prefiere el que cubre las
-    dos casillas, y si no hay, el que cubra alguna.
+    Para investigar se prueba en lo que haga falta, y lo normal son roedores:
+    si el oligo encaja en el ARN del ratón o de la rata, el experimento se
+    hace con esta misma molécula y se puede empezar mañana. Si no, hay que
+    diseñar un sustituto contra la secuencia del animal, que es trabajo de más
+    y mide algo que no es exactamente lo que iría a la persona.
 
-    Medido el 1 de octubre de 2026 sobre 823 candidatos: en macaco sirven 411,
-    en ratón 85 y en rata 81, y solo 80 cubren el paquete entero. Los roedores
-    son el cuello de botella, no el mono."""
+    Medido el 1 de octubre de 2026 sobre 823 candidatos: encajan unos 85 en
+    ratón y 81 en rata, o sea el 10 %. Es poco, y por eso vale la pena
+    enseñarlo aparte en vez de esconderlo en la puntuación."""
     cands = (diana.get("aso") or {}).get("candidatos") or []
     if not cands:
         return None
     vivos = [c for c in cands if (c.get("criba") or {}).get("veredicto") != "descartado"]
-
-    def grado(c: dict[str, Any]) -> int:
-        e = c.get("especies") or {}
-        if e.get("tieneRoedor") and e.get("tieneNoRoedor"):
-            return 0
-        if e.get("tieneRoedor") or e.get("tieneNoRoedor"):
-            return 1
-        return 2
-
-    completos = [c for c in vivos if grado(c) == 0]
-    parciales = [c for c in vivos if grado(c) == 1]
-    mejor = (completos or parciales or [None])[0]
-    if mejor is None:
+    sirven = [c for c in vivos if (c.get("especies") or {}).get("sePuedeProbar")]
+    if not sirven:
         return {
             "hay": False,
-            "completos": 0,
-            "parciales": 0,
+            "cuantos": 0,
             "deCuantos": len(cands),
             "porQue": (
-                f"Ninguno de los {len(cands)} candidatos de {diana['simbolo']} se puede probar tal cual en ninguna "
-                "de las especies donde hay que hacerlo. No cierra el camino (la FDA acepta oligos sustitutos "
-                "específicos de especie), pero es diseñar y caracterizar moléculas aparte para la toxicología."
+                f"Ninguno de los {len(cands)} candidatos de {diana['simbolo']} encaja en el ARN de un roedor, así "
+                "que con ninguno se puede empezar por un experimento con animales tal cual. Es lo normal y no "
+                "cierra el camino: habría que diseñar un oligo sustituto contra la secuencia del animal."
             ),
         }
+    mejor = sirven[0]
     e = mejor.get("especies") or {}
     ya_es = mejor["secuencia"] == elegido.get("secuencia")
     return {
         "hay": True,
-        "completo": grado(mejor) == 0,
-        "completos": len(completos),
-        "parciales": len(parciales),
+        "cuantos": len(sirven),
         "deCuantos": len(cands),
         "esElMismo": ya_es,
         "candidato": mejor,
         "sirveEn": e.get("sirvenEn") or [],
         "porQue": (
-            (
-                "El que ROSA2018 mandaría cubre además la toxicología entera con la misma molécula: sirve en un "
-                "roedor y en el macaco. Es la situación cómoda y no la normal."
-            )
-            if ya_es and grado(mejor) == 0
-            else (
-                "El que ROSA2018 mandaría ya se puede probar en animales, aunque no cubra las dos casillas."
-            )
+            "El que ROSA2018 mandaría encaja además en un roedor, así que el experimento con animales se hace con "
+            "esta misma molécula."
             if ya_es
             else (
-                f"El que ROSA2018 mandaría no se puede probar en animales tal cual. De los {len(cands)} candidatos, "
-                f"{len(completos)} cubren el paquete entero (un roedor y el no roedor) y {len(parciales)} cubren "
-                "una sola casilla. Este es el mejor. Son dos decisiones distintas y las dos se enseñan: cuál tiene "
-                "más evidencia detrás, y con cuál se puede empezar mañana."
+                f"El que ROSA2018 mandaría no encaja en ningún roedor, así que con él no se puede empezar por un "
+                f"experimento con animales. De los {len(cands)} candidatos, {len(sirven)} sí encajan y este es el "
+                "mejor. Son dos decisiones distintas y las dos se enseñan: cuál tiene más evidencia detrás, y con "
+                "cuál se puede empezar mañana."
             )
         ),
     }

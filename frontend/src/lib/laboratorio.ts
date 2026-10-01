@@ -227,9 +227,7 @@ export interface OligoQueMandaria {
    *  animal es una restricción práctica, no una propiedad del oligo. */
   paraAnimales?: {
     hay: boolean;
-    completo?: boolean;
-    completos: number;
-    parciales: number;
+    cuantos: number;
     deCuantos: number;
     esElMismo?: boolean;
     candidato?: CandidatoAso;
@@ -297,14 +295,13 @@ export interface FalloDeFiltro {
 export interface EnUnaEspecie {
   comprobado: boolean;
   version: number;
-  clave: "raton" | "rata" | "macaco";
+  clave: "raton" | "rata";
   nombre: string;
   latin: string;
-  /** Lo que piden los reguladores es UN roedor y UN no roedor, no tres
-   *  especies: el papel importa tanto como la especie. */
-  papel: "roedor" | "no roedor";
-  /** Cómo se administra ahí, que para un oligo del sistema nervioso central
-   *  no es un detalle: solo en el macaco la vía es la de la clínica. */
+  papel: "roedor";
+  /** Cómo se administra ahí: en el ratón por el ventrículo cerebral y en la
+   *  rata por catéter intratecal. Ninguna es la punción lumbar de la clínica,
+   *  y eso hay que saberlo al leer el resultado. */
   via: string;
   simboloHumano: string;
   /** El gen equivalente. Se busca POR EL NOMBRE, que es heurístico. */
@@ -320,21 +317,22 @@ export interface EnUnaEspecie {
   transcritosQueEncajan?: number;
 }
 
-/** El veredicto de conjunto sobre dónde se puede probar el oligo.
+/** El veredicto de conjunto: ¿se puede empezar el experimento con ESTA
+ *  misma molécula, o hay que diseñar un oligo sustituto para el animal?
  *
- *  No es «sirve en las tres»: lo que piden ICH M3(R2) y el borrador de la FDA
- *  de 2024 es toxicología en DOS especies, un roedor y un no roedor. Ratón y
- *  rata son los dos roedores, así que hace falta uno de los dos. */
+ *  Para investigar se prueba en lo que haga falta y lo normal son roedores.
+ *  No hay nada que cumplir aquí: lo de «dos especies» es de mucho después, al
+ *  presentar para meterlo en personas. */
 export interface EnLasEspecies {
-  veredicto: "paquete completo" | "falta el no roedor" | "falta el roedor" | "hacen falta sustitutos";
+  veredicto: "se puede probar" | "hace falta un sustituto" | "no pude comprobar";
   porQue: string;
   sirvenEn: string[];
   noSirvenEn: string[];
-  tieneRoedor: boolean;
-  tieneNoRoedor: boolean;
+  sinComprobar: string[];
+  sePuedeProbar: boolean;
   cuantas: number;
   deCuantas: number;
-  marco: { queSePide: string; elNoRoedor: string; yEnElCerebro: string; siNoSirve: string };
+  marco: { paraInvestigar: string; siNoEncaja: string };
   avisos: { que: string; porQue: string }[];
   porEspecie: Record<string, EnUnaEspecie>;
 }
@@ -574,8 +572,8 @@ export interface DisenoAso {
   };
   /** Cuántos quedaron fuera por encajar idéntico en otro gen. */
   descartadosPorCriba?: number;
-  /** Cuántos cubren el paquete regulatorio entero (un roedor y el no roedor). */
-  conPaqueteCompleto?: number;
+  /** Cuántos se podrían probar en un roedor tal cual. */
+  seProbarianEnRoedor?: number;
   limpios?: number;
   criba?: {
     hecho: boolean;

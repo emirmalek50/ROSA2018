@@ -84,12 +84,10 @@ sin aprobar por un humano.
   ViennaRNA: si el ARN está abierto ahí o plegado sobre sí mismo) y
   `rosa/duplex.py` (la geometría para dibujar la dúplex; es un esquema con los
   parámetros publicados, NO una estructura, y por eso no lleva coordenadas
-  atómicas), `rosa/especie.py` (en qué ESPECIES se puede probar el mismo oligo:
-  ratón, rata y macaco cangrejero. Lo que piden los reguladores no son tres
-  especies sino DOS, un roedor y un no roedor, y para un oligo del sistema
-  nervioso central el macaco es además el único con la vía de la clínica.
-  Misma regla del hueco usada al revés, y el gen equivalente se busca por el
-  nombre, que es heurístico) y
+  atómicas), `rosa/especie.py` (si el mismo oligo se puede probar en un ROEDOR,
+  ratón o rata, que es donde se investiga; misma regla del hueco usada al
+  revés, y el gen equivalente se busca por el nombre, que es heurístico y
+  falla en CA2, que en ratón es Car2) y
   `rosa/fiabilidad.py` (de qué fiarse y de qué no, por niveles: lo exacto, lo
   modelado, la estadística y lo que decidió ROSA2018 y nadie ha validado; va a
   la pantalla y al texto del pedido). Ver `PENDIENTE.md`.
@@ -98,13 +96,12 @@ sin aprobar por un humano.
   está en `.gitignore`):
   - `datos/_transcriptoma/cdna.fa.gz` y `ncrna.fa.gz`: 225 MB de Ensembl
     GRCh38. Las URL están en `rosa/criba.py` (`DE_DONDE`).
-  - Los transcriptomas de las tres especies de prueba, para saber dónde se
-    puede probar el oligo: ratón (`raton_*.fa.gz`, GRCm39, 156 MB), rata
-    (`rata_*.fa.gz`, GRCr8, 57 MB) y macaco cangrejero (`macaco_*.fa.gz`,
-    Macaca_fascicularis_6.0, 33 MB). Las URL están en `rosa/especie.py`
+  - Los transcriptomas de los roedores, para saber si el oligo se puede
+    probar en un animal: ratón (`raton_*.fa.gz`, GRCm39, 156 MB) y rata
+    (`rata_*.fa.gz`, GRCr8, 57 MB). Las URL están en `rosa/especie.py`
     (`ESPECIES[clave]["de"]`).
-  - `datos/_transcriptoma/blastdb/` (humano, ratón, rata y macaco) y los
-    mapas `mapa.tsv`, `mapa_raton.tsv`, `mapa_rata.tsv` y `mapa_macaco.tsv`:
+  - `datos/_transcriptoma/blastdb/` (humano, ratón y rata) y los mapas
+    `mapa.tsv`, `mapa_raton.tsv` y `mapa_rata.tsv`:
     los índices de BLAST y los mapas de transcrito a gen y locus, que se
     construyen de esos ficheros.
   - `datos/_herramientas/ncbi-blast-2.17.0+/`: el binario aarch64 de NCBI.

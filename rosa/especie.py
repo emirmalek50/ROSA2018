@@ -1,33 +1,25 @@
-"""¿Sirve el mismo oligo en las especies donde hay que probarlo?
+"""¿Se puede probar el mismo oligo en un roedor? Porque es donde se prueba.
 
-Por qué esto existe (1 de octubre de 2026). Emir: «haz la vaina de los
-ratones, porque recuerda que primero se prueba en ellos». Y al día siguiente,
-de su compañero: «para que un ASO sea bueno, debe servir en las tres especies,
-humanos, ratones y ratas».
+Por qué esto existe. Emir: «haz la vaina de los ratones, porque recuerda que
+primero se prueba en ellos». Faltaba de verdad: ROSA2018 proponía oligos sin
+comprobar en ningún sitio si se podían llegar a probar en un animal.
 
-Lo investigué antes de darlo por bueno, porque la idea es correcta pero el
-marco real es otro, y conviene que la pantalla diga el de verdad:
+El problema es concreto. Un oligo antisentido se diseña contra una secuencia
+de veinte letras del ARN HUMANO. El ratón y la rata tienen su propia versión
+del mismo gen, y su secuencia no es la misma: cambia lo bastante como para que
+el oligo casi nunca encaje igual. Si no encaja, con ESA molécula no se puede
+hacer el experimento: hay que diseñar aparte un «oligo sustituto» contra la
+secuencia del animal, probar ese, y aceptar que lo que se mide no es
+exactamente la molécula que iría a la persona. Es trabajo de más, no un muro.
 
-- Lo que piden los reguladores NO son tres especies, son DOS: un roedor y un
-  NO roedor (ICH M3(R2), y el borrador de la FDA de 2024 sobre seguridad no
-  clínica de oligonucleótidos). El ratón y la rata son los dos roedores, así
-  que hace falta UNO de los dos, no los dos.
-- El no roedor es casi siempre el macaco cangrejero (Macaca fascicularis), por
-  su homología con la persona y porque se considera predictivo de la toxicidad
-  humana. El minipig está validado como alternativa.
-- Y para un oligo del sistema nervioso central, que es el caso de ROSA2018, el
-  macaco es además el único donde la vía es la MISMA que en la clínica: en el
-  ratón se inyecta en el ventrículo y en la rata por catéter, pero la punción
-  lumbar intratecal solo se hace igual en el macaco. Es la vía del nusinersén
-  y la del tofersén, y las dos pasaron por roedor más macaco.
-- Que el oligo humano NO funcione en roedores es LO NORMAL, no un fallo del
-  diseño, y está previsto: la FDA acepta explícitamente un «oligo sustituto»
-  específico de especie, de la misma química, para la toxicología. Es trabajo
-  y dinero de más, no un muro.
-
-Así que esto no dice «sirve o no sirve». Dice con qué especies se puede usar
-LA MISMA molécula y dónde haría falta un sustituto, que es la pregunta que de
-verdad cambia el plan y el presupuesto.
+Qué especies, y por qué solo estas (1 de octubre de 2026). Se llegó a montar
+también el macaco cangrejero, porque es el no roedor que pide el expediente
+regulatorio para ir a personas. Se quitó por decisión de Emir, y con razón
+para lo que es esto: un macaco cuesta decenas de miles de dólares, no se van a
+hacer experimentos con uno, y ROSA2018 es una herramienta de INVESTIGACIÓN.
+Para investigar se prueba en lo que haga falta y lo normal son roedores; lo de
+«dos especies» solo aplica mucho después, al presentar para meterlo en
+personas, y eso está a años de aquí.
 
 La regla por especie es la MISMA que la del cribado de fuera de diana
 (`rosa/criba.py`), usada al revés. Allí se pregunta dónde NO queremos que
@@ -36,11 +28,12 @@ la RNasa H1 no lee las veinte letras, reconoce la dúplex que forma el HUECO de
 diez del centro. Con el hueco perfecto corta aunque fallen las alas (con menos
 afinidad); con un fallo dentro del hueco, no.
 
-Cómo se encuentra el gen equivalente: por el nombre. En roedores se escribe
-con la primera letra en mayúscula (MAPT es Mapt) y en macaco suele conservar
-el de la persona. Es una heurística: hay genes que se llaman distinto y genes
-humanos que la otra especie no tiene. Cuando el nombre no aparece se dice «no
-pude encontrar el equivalente», que no es lo mismo que «no sirve».
+Cómo se encuentra el gen equivalente: por el nombre, que en roedores se
+escribe con la primera letra en mayúscula (MAPT es Mapt). Es una heurística y
+vale para la enorme mayoría, pero NO siempre: hay genes que se llaman distinto
+y genes humanos que el roedor ni tiene (CA2 en ratón es Car2). Cuando el
+nombre no aparece se dice «no pude encontrar el equivalente», que no es lo
+mismo que «no sirve».
 """
 
 from __future__ import annotations
@@ -64,7 +57,7 @@ from rosa.criba import (
     fallos_de_btop,
 )
 
-VERSION = 2
+VERSION = 4
 
 # Las especies, con su papel en el paquete regulatorio. El papel importa tanto
 # como la especie: lo que se pide es UN roedor y UN no roedor, no tres.
@@ -99,24 +92,6 @@ ESPECIES: dict[str, dict[str, Any]] = {
             "rata_ncrna.fa.gz": "https://ftp.ensembl.org/pub/current_fasta/rattus_norvegicus/ncrna/Rattus_norvegicus.GRCr8.ncrna.fa.gz",
         },
     },
-    "macaco": {
-        "clave": "macaco",
-        # En los informes y en la industria se le llama siempre «cynomolgus» (o
-        # «cyno»); el nombre en castellano es macaco cangrejero. Van los dos
-        # porque quien lea la pantalla puede conocer solo uno.
-        "nombre": "macaco cangrejero (cynomolgus)",
-        "latin": "Macaca fascicularis",
-        "ensamblado": "Macaca_fascicularis_6.0",
-        "papel": "no roedor",
-        "ficheros": ("macaco_cdna.fa.gz", "macaco_ncrna.fa.gz"),
-        "base": "macaco",
-        "mapa": "mapa_macaco.tsv",
-        "via": "es la ÚNICA de las tres donde la vía es la misma que en la clínica: punción lumbar intratecal. Es la que usaron el nusinersén y el tofersén",
-        "de": {
-            "macaco_cdna.fa.gz": "https://ftp.ensembl.org/pub/current_fasta/macaca_fascicularis/cdna/Macaca_fascicularis.Macaca_fascicularis_6.0.cdna.all.fa.gz",
-            "macaco_ncrna.fa.gz": "https://ftp.ensembl.org/pub/current_fasta/macaca_fascicularis/ncrna/Macaca_fascicularis.Macaca_fascicularis_6.0.ncrna.fa.gz",
-        },
-    },
 }
 
 # Hasta cuántos fallos en las ALAS se acepta que el oligo siga sirviendo. Dos,
@@ -125,27 +100,22 @@ ESPECIES: dict[str, dict[str, Any]] = {
 # floja para fiarse.
 ALAS_MAX = 2
 
-# Lo que de verdad piden los reguladores, para que la pantalla no repita el
-# mito de «tienen que ser las tres».
+# El encuadre. Importa acertarlo, porque la primera versión lo erró dos veces:
+# puso el marco REGULATORIO delante cuando ROSA2018 es una herramienta de
+# INVESTIGACIÓN, y metió el macaco, que ni se va a usar (cuesta decenas de
+# miles de dólares) ni hace falta para investigar.
+#
+# Para investigar se prueba en lo que haga falta, y lo normal son roedores. No
+# hay nada que cumplir aquí.
 EL_MARCO = {
-    "queSePide": (
-        "Toxicología en DOS especies: un roedor y un no roedor (ICH M3(R2), y el borrador de la FDA de 2024 sobre "
-        "seguridad no clínica de oligonucleótidos). No son tres, y el ratón y la rata son los dos roedores: hace "
-        "falta UNO de los dos, no los dos."
+    "paraInvestigar": (
+        "Para investigar basta con poder probarlo en un roedor, y es lo que se hace: no hay ningún requisito que "
+        "cumplir, se prueba en lo que haga falta para contestar la pregunta."
     ),
-    "elNoRoedor": (
-        "Casi siempre el macaco cangrejero, por su homología con la persona y porque se considera predictivo de la "
-        "toxicidad humana. El minipig está validado como alternativa."
-    ),
-    "yEnElCerebro": (
-        "Para un oligo del sistema nervioso central el macaco es además el único donde la vía es la MISMA que en la "
-        "clínica: punción lumbar intratecal. En el ratón se inyecta en el ventrículo y en la rata por catéter. Es la "
-        "vía del nusinersén y la del tofersén, y las dos pasaron por roedor más macaco."
-    ),
-    "siNoSirve": (
-        "Que el oligo humano no funcione en roedores es LO NORMAL y está previsto: la FDA acepta explícitamente un "
-        "«oligo sustituto» específico de especie, de la misma química, para la toxicología. Es trabajo y dinero de "
-        "más, no un muro."
+    "siNoEncaja": (
+        "Que el oligo humano no encaje en el roedor es LO NORMAL. Se resuelve diseñando un oligo sustituto contra "
+        "la secuencia del animal, de la misma química, y teniendo en cuenta que lo que se mide ahí no es "
+        "exactamente la molécula que iría a la persona. Es trabajo de más, no un muro."
     ),
 }
 
@@ -159,8 +129,12 @@ AVISOS = [
         "porQue": "Que la secuencia encaje dice que el oligo PUEDE cortar ese ARN. No dice que el animal sea un buen modelo de la enfermedad, ni que lo que pase ahí vaya a pasar en una persona.",
     },
     {
-        "que": "No servir en una especie no es un muro",
-        "porQue": "Es lo normal, y se resuelve con un oligo sustituto específico de esa especie, de la misma química, que la FDA acepta para la toxicología. Cuesta trabajo y dinero; no cierra el camino.",
+        "que": "Esto es para investigar",
+        "porQue": "Se prueba en lo que haga falta para contestar la pregunta, y lo normal son roedores. Mucho más adelante, para meterlo en personas, se piden además otras especies; eso está a años de aquí y no cambia nada de lo que se decide hoy.",
+    },
+    {
+        "que": "No encajar en una especie no es un muro",
+        "porQue": "Es lo normal, y se resuelve con un oligo sustituto específico de esa especie, de la misma química. Cuesta trabajo; no cierra el camino.",
     },
     {
         "que": "Esto no sustituye a la toxicología",
@@ -292,45 +266,38 @@ def _veredicto(clave: str, simbolo_humano: str, golpes: list[tuple[str, int, lis
 
 
 def juntar(por_especie: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    """El veredicto de conjunto, con el marco regulatorio de verdad.
-
-    No es «sirve en las tres». Lo que se pide es un roedor y un no roedor, así
-    que lo que importa es si hay AL MENOS UNO de cada."""
-    roedores = [v for v in por_especie.values() if v.get("papel") == "roedor" and v.get("sirve")]
-    no_roedores = [v for v in por_especie.values() if v.get("papel") == "no roedor" and v.get("sirve")]
+    """El veredicto de conjunto: ¿se puede empezar el experimento con esta
+    misma molécula, o hay que diseñar un sustituto?"""
     sirven = [v for v in por_especie.values() if v.get("sirve")]
     faltan = [v for v in por_especie.values() if v.get("sirve") is False]
-    tiene_roedor, tiene_no_roedor = bool(roedores), bool(no_roedores)
-    if tiene_roedor and tiene_no_roedor:
-        v, por = "paquete completo", (
-            f"Con esta MISMA molécula se puede hacer la toxicología entera: sirve en {roedores[0]['nombre']} "
-            f"(el roedor) y en {no_roedores[0]['nombre']} (el no roedor), que es lo que piden ICH M3(R2) y la FDA. "
-            "Es la situación cómoda y no la normal."
+    sin_mirar = [v for v in por_especie.values() if v.get("sirve") is None]
+    if sirven:
+        v = "se puede probar"
+        por = (
+            f"Se puede empezar mañana: encaja en {' y '.join(x['nombre'] for x in sirven)}, así que el experimento "
+            "con animales se hace con ESTA misma molécula."
         )
-    elif tiene_roedor:
-        v, por = "falta el no roedor", (
-            f"Sirve en {roedores[0]['nombre']}, así que el roedor está cubierto, pero no en el macaco. Para el no "
-            "roedor haría falta un oligo sustituto, y además el macaco es el único donde la vía es la misma que en "
-            "la clínica (punción lumbar intratecal)."
-        )
-    elif tiene_no_roedor:
-        v, por = "falta el roedor", (
-            "Sirve en el macaco, que es el no roedor y el que da la vía de la clínica, pero en ningún roedor. Para "
-            "el roedor haría falta un oligo sustituto."
+    elif faltan:
+        v = "hace falta un sustituto"
+        por = (
+            "No encaja en el ARN de ningún roedor, así que con esta molécula no se puede empezar por un "
+            "experimento con animales. Es lo normal y no cierra el camino: se diseña un oligo sustituto contra la "
+            "secuencia del animal, de la misma química, sabiendo que lo que se mide ahí no es exactamente lo que "
+            "iría a la persona."
         )
     else:
-        v, por = "hacen falta sustitutos", (
-            "No sirve tal cual en ninguna de las especies donde hay que probarlo. No cierra el camino (es lo normal "
-            "y la FDA acepta oligos sustitutos específicos de especie), pero es diseñar y caracterizar moléculas "
-            "aparte para la toxicología."
+        v = "no pude comprobar"
+        por = (
+            "No se pudo encontrar el gen equivalente en ninguna de las especies, así que esto hay que mirarlo a "
+            "mano. No quiere decir que el oligo no sirva."
         )
     return {
         "veredicto": v,
         "porQue": por,
         "sirvenEn": [x["nombre"] for x in sirven],
         "noSirvenEn": [x["nombre"] for x in faltan],
-        "tieneRoedor": tiene_roedor,
-        "tieneNoRoedor": tiene_no_roedor,
+        "sinComprobar": [x["nombre"] for x in sin_mirar],
+        "sePuedeProbar": bool(sirven),
         "cuantas": len(sirven),
         "deCuantas": len(por_especie),
         "marco": EL_MARCO,

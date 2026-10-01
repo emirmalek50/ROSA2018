@@ -109,85 +109,56 @@ def test_sin_el_transcriptoma_de_una_especie_se_dice_y_no_se_finge():
 
 
 # ---------------------------------------------------------------------------
-# El veredicto de conjunto: lo que piden los reguladores no son tres especies
+# El veredicto de conjunto: ¿se puede empezar con ESTA molécula?
 # ---------------------------------------------------------------------------
 
 
-def _esp(clave: str, papel: str, sirve: bool | None) -> dict[str, Any]:
-    return {"clave": clave, "nombre": clave, "papel": papel, "sirve": sirve}
+def _esp(clave: str, sirve: bool | None) -> dict[str, Any]:
+    return {"clave": clave, "nombre": clave, "papel": "roedor", "sirve": sirve}
 
 
-def test_un_roedor_y_el_no_roedor_son_el_paquete_completo():
-    """Lo que piden ICH M3(R2) y la FDA son DOS especies, un roedor y un no
-    roedor. No tres: ratón y rata son los dos roedores y hace falta uno."""
-    v = E.juntar({
-        "raton": _esp("raton", "roedor", True),
-        "rata": _esp("rata", "roedor", False),
-        "macaco": _esp("macaco", "no roedor", True),
-    })
-    assert v["veredicto"] == "paquete completo"
-    assert v["tieneRoedor"] and v["tieneNoRoedor"]
-    # Y con solo DOS de las tres, que es justo lo que se quería probar.
-    assert v["cuantas"] == 2
+def test_encajar_en_un_roedor_basta_para_empezar():
+    """Para investigar se prueba en lo que haga falta y lo normal son
+    roedores: con uno que encaje, el experimento se hace con esta molécula."""
+    v = E.juntar({"raton": _esp("raton", True), "rata": _esp("rata", False)})
+    assert v["veredicto"] == "se puede probar"
+    assert v["sePuedeProbar"] is True
+    assert "empezar mañana" in v["porQue"]
+    assert v["sirvenEn"] == ["raton"]
 
 
-def test_servir_en_los_dos_roedores_no_basta_sin_el_no_roedor():
-    v = E.juntar({
-        "raton": _esp("raton", "roedor", True),
-        "rata": _esp("rata", "roedor", True),
-        "macaco": _esp("macaco", "no roedor", False),
-    })
-    assert v["veredicto"] == "falta el no roedor"
-    # Y se dice por qué el macaco importa el doble en el cerebro.
-    assert "punción lumbar" in v["porQue"] or "la vía es la misma que en" in v["porQue"]
-
-
-def test_el_macaco_solo_deja_el_roedor_sin_cubrir():
-    v = E.juntar({
-        "raton": _esp("raton", "roedor", False),
-        "rata": _esp("rata", "roedor", False),
-        "macaco": _esp("macaco", "no roedor", True),
-    })
-    assert v["veredicto"] == "falta el roedor"
-    assert v["tieneNoRoedor"] and not v["tieneRoedor"]
-
-
-def test_no_servir_en_ninguna_NO_es_un_muro():
-    """Es lo normal, y la FDA acepta oligos sustitutos específicos de especie.
-    Decirlo como si fuera el final del camino sería mentir."""
-    v = E.juntar({
-        "raton": _esp("raton", "roedor", False),
-        "macaco": _esp("macaco", "no roedor", False),
-    })
-    assert v["veredicto"] == "hacen falta sustitutos"
-    assert "no cierra el camino" in v["porQue"].lower() or "No cierra el camino" in v["porQue"]
+def test_no_encajar_en_ninguno_pide_sustituto_y_NO_es_un_muro():
+    v = E.juntar({"raton": _esp("raton", False), "rata": _esp("rata", False)})
+    assert v["veredicto"] == "hace falta un sustituto"
+    assert v["sePuedeProbar"] is False
+    assert "no cierra el camino" in v["porQue"]
     assert "sustituto" in v["porQue"]
 
 
-def test_el_marco_regulatorio_viaja_con_el_veredicto():
-    """Para que la pantalla no repita el mito de «tienen que ser las tres»."""
-    v = E.juntar({"macaco": _esp("macaco", "no roedor", True)})
-    m = v["marco"]
-    assert "DOS especies" in m["queSePide"]
-    assert "un roedor y un no roedor" in m["queSePide"]
-    assert "macaco" in m["elNoRoedor"]
-    # Y lo del cerebro, que es nuestro caso.
-    assert "intratecal" in m["yEnElCerebro"]
-    assert "sustituto" in m["siNoSirve"]
+def test_sin_gen_equivalente_es_no_pude_comprobar():
+    """Pasa de verdad: CA2 en ratón se llama Car2."""
+    v = E.juntar({"raton": _esp("raton", None), "rata": _esp("rata", None)})
+    assert v["veredicto"] == "no pude comprobar"
+    assert "No quiere decir que el oligo no sirva" in v["porQue"]
 
 
-def test_las_tres_especies_tienen_su_papel_y_su_via():
+def test_el_encuadre_es_de_INVESTIGACION_y_no_de_expediente():
+    """Se erró dos veces: poniendo el marco regulatorio delante, y metiendo el
+    macaco, que ni se va a usar ni hace falta para investigar."""
+    v = E.juntar({"raton": _esp("raton", True)})
+    assert "no hay ningún requisito que cumplir" in v["marco"]["paraInvestigar"].lower()
+    assert "LO NORMAL" in v["marco"]["siNoEncaja"]
+    # Y que no vuelva a colarse un primate.
+    assert "macaco" not in str(E.ESPECIES).lower()
+
+
+def test_solo_roedores_y_los_dos_con_su_via():
+    assert set(E.ESPECIES) == {"raton", "rata"}
     for clave, esp in E.ESPECIES.items():
-        assert esp["papel"] in ("roedor", "no roedor"), clave
-        assert esp["via"], clave
-        assert esp["latin"] and esp["ensamblado"], clave
-    # Dos roedores y un no roedor.
-    papeles = [e["papel"] for e in E.ESPECIES.values()]
-    assert papeles.count("roedor") == 2
-    assert papeles.count("no roedor") == 1
+        assert esp["papel"] == "roedor", clave
+        assert esp["via"] and esp["latin"] and esp["ensamblado"], clave
 
 
-def test_en_primates_el_gen_se_llama_como_en_persona():
-    # En roedores la primera en mayúscula; en macaco suele conservarse.
+def test_en_roedores_el_gen_lleva_la_primera_en_mayuscula():
     assert E.nombres_posibles("MAPT", "roedor")[0] == "Mapt"
-    assert E.nombres_posibles("MAPT", "no roedor")[0] == "MAPT"
+    assert E.nombres_posibles("GFAP")[0] == "Gfap"

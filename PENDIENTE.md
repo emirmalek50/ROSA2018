@@ -1330,55 +1330,55 @@ persona, que el orden sea el bueno, los efectos adversos de la química) y
 uno no es «el bueno».
 
 
-## Las especies: lo que de verdad se pide no son tres (1 oct 2026)
+## Las especies: ratón y rata, y por qué NO el macaco (1 oct 2026)
 
-El compañero de Emir: «para que un ASO sea bueno, debe servir en las tres
-especies, humanos, ratones y ratas». La idea es correcta (la cobertura de
-especies importa, y mucho) pero el marco real es otro y la pantalla dice el de
-verdad:
+Dos correcciones seguidas, y las dos del compañero de Emir y de Emir, y las
+dos acertadas. Vale la pena dejarlas escritas porque el error fue de encuadre,
+que es el que más caro sale.
 
-- Lo que piden ICH M3(R2) y el borrador de la FDA de 2024 sobre seguridad no
-  clínica de oligonucleótidos es toxicología en **DOS** especies: un roedor y
-  un **NO roedor**. Ratón y rata son los dos roedores, así que hace falta UNO
-  de los dos, no los dos.
-- El no roedor es casi siempre el **macaco cangrejero** (*Macaca
-  fascicularis*, el «cynomolgus» de los informes), por su homología con la
-  persona y porque se considera predictivo de la toxicidad humana. El minipig
-  está validado como alternativa.
-- Y para un oligo del sistema nervioso central, que es nuestro caso, el macaco
-  importa el doble: es el **único de los tres donde la vía es la misma que en
-  la clínica** (punción lumbar intratecal). En el ratón se inyecta en el
-  ventrículo y en la rata por catéter. Es la vía del nusinersén y la del
-  tofersén, y las dos pasaron por roedor más macaco.
-- Que el oligo humano no funcione en roedores es **lo normal y está
-  previsto**: la FDA acepta explícitamente un «oligo sustituto» específico de
-  especie, de la misma química. Es trabajo y dinero de más, no un muro.
+**Primero** dijo: «para que un ASO sea bueno, debe servir en las tres especies,
+humanos, ratones y ratas». Lo investigué y encontré que el marco regulatorio
+real es otro: toxicología en DOS especies, un roedor y un NO roedor (ICH
+M3(R2) y el borrador de la FDA de 2024), y el no roedor suele ser el macaco
+cangrejero, que además es el único con la vía de la clínica para un oligo del
+sistema nervioso central. Monté las tres.
 
-Por eso el veredicto no es «sirve en las tres» sino «paquete completo / falta
-el no roedor / falta el roedor / hacen falta sustitutos».
+**Y ahí estaba mi error**: puse el marco REGULATORIO delante en una
+herramienta de INVESTIGACIÓN. Ellos lo corrigieron: «eso no es así, se prueba
+con roedores si te da la gana», y «por qué macaco, saca el macaco de ahí, eso
+cuesta mucho dinero». Tenían razón las dos veces. Para investigar se prueba en
+lo que haga falta y lo normal son roedores; lo de dos especies solo aplica
+mucho después, al presentar para meterlo en personas, y eso está a años de
+donde está esto. Un macaco cuesta entre 30.000 y 60.000 dólares.
 
-### Medido sobre los 823 candidatos (157 s contra las tres)
+Así que quedan **ratón y rata**, y el veredicto es la pregunta práctica: ¿se
+puede empezar el experimento con ESTA molécula, o hay que diseñar un
+sustituto?
 
-| especie | papel | sirven |
-|---|---|---|
-| macaco cangrejero | no roedor | **411** (50 %) |
-| ratón | roedor | 85 (10 %) |
-| rata | roedor | 81 (10 %) |
+### Lo medido, que sigue valiendo
 
-En las tres a la vez: 47. Con el **paquete regulatorio completo** (un roedor y
-el no roedor): **80** (9,7 %).
+Sobre los 823 candidatos: encajan 85 en ratón y 81 en rata, o sea el 10 %. Y
+el candidato que ROSA2018 mandaba NO estaba entre ellos. En MAPT sirven 4 de
+60, y uno de ellos es además el sitio más accesible de todo el transcrito
+(0,863).
 
-El macaco es el fácil, como era de esperar por cercanía evolutiva; **los
-roedores son el cuello de botella**. Eso cambia el consejo práctico: si un
-candidato sirve en un roedor, vale mucho más de lo que su puntuación dice.
+(Del macaco, por si alguna vez hace falta: encajaban 411 de 823, el 50 %. Es
+el pariente cercano y se nota. Pero los roedores son el cuello de botella, y
+son los que hacen falta.)
 
-### Lo que sigue pendiente aquí
+### Lo que queda pendiente
 
-El gen equivalente se busca por el NOMBRE, y falla en CA2 (en ratón *Car2*).
-Lo correcto es la homología de Ensembl
-(`/homology/symbol/human/{gen}?target_species={especie}`), una llamada por
-diana y especie, cacheada. Con tres especies el fallo se multiplica por tres,
-así que ahora pesa más que ayer.
+El gen equivalente se busca por el NOMBRE (Mapt, Gfap), y falla en CA2, que en
+ratón se llama *Car2*: sale como «no pude comprobar», que es honesto, pero es
+1 de 17 dianas. Lo correcto es la homología de Ensembl
+(`/homology/symbol/human/{gen}?target_species=mouse`), una llamada por diana y
+especie, cacheada en el estado.
+
+Y si algún día hiciera falta un no roedor, la respuesta barata está
+investigada: el **minipig** está validado para oligos de esta clase (mismo
+perfil de toxicidad que el macaco, algo más sensible en riñón, ningún órgano
+diana nuevo) y cuesta unos 6.500 dólares frente a los 30.000-60.000 del
+macaco. El conejo son 150-400 y es el estándar para toxicología reproductiva.
 
 ## Por qué sigue habiendo investigación sobre ASO si las secuencias son públicas
 

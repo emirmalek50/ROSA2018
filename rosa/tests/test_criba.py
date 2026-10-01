@@ -377,14 +377,14 @@ def test_lo_de_las_especies_sube_al_candidato_y_no_se_queda_dentro_del_cribado()
         "cribado": True, "veredicto": "sin parecido", "porQue": "bien", "propios": 3,
         "fuera": [], "genesFuera": 0, "transcritosFuera": 0, "mismoSitioOtroNombre": [],
         "genesMismoSitio": 0, "transcritosMismoSitio": 0,
-        "especies": {"veredicto": "paquete completo", "tieneRoedor": True, "tieneNoRoedor": True, "sirvenEn": ["ratón", "macaco"]},
+        "especies": {"veredicto": "se puede probar", "sePuedeProbar": True, "sirvenEn": ["ratón"]},
     }}}}
     r = CRIBA.pegar(e, {"candidatos": [{"secuencia": "A" * 20}, {"secuencia": "C" * 20}]})
     assert r is not None
     c0 = r["candidatos"][0]
-    assert c0["especies"]["veredicto"] == "paquete completo"
+    assert c0["especies"]["veredicto"] == "se puede probar"
     # Y no duplicado dentro del cribado.
     assert "especies" not in c0["criba"]
     # El que no se cribó no se inventa un veredicto de especies.
     assert r["candidatos"][1]["especies"] is None
-    assert r["conPaqueteCompleto"] == 1
+    assert r["seProbarianEnRoedor"] == 1

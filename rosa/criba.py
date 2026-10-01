@@ -73,9 +73,10 @@ Golpe = tuple[str, str, str, tuple[str, int, int, str]]
 # pantalla decía «comparado contra 0 transcritos», que es peor que callarlo.
 # 4: cada candidato lleva además si sirve en RATÓN, que es donde se prueba
 # primero (rosa/especie.py). Subir esto rehace el cribado entero.
-# 5: cada candidato lleva en qué ESPECIES se puede probar (ratón, rata y
-# macaco), no solo el ratón. Subir esto rehace el cribado entero.
-VERSION = 5
+# 6: el veredicto de especies se reencuadra para INVESTIGACIÓN (lo que decide
+# es si se puede probar en un roedor) y se quita el macaco. Subir esto rehace
+# el cribado entero.
+VERSION = 6
 
 # Los dos ficheros de Ensembl. El de cDNA trae lo codificante, los pseudogenes
 # y los intrones retenidos; el de ncRNA trae los 195.143 lncRNA, que en cerebro
@@ -457,7 +458,7 @@ def pegar(e: dict[str, Any], diseño: dict[str, Any] | None) -> dict[str, Any] |
     fuera["cribados"] = sum(1 for x in cands if x["cribado"])
     fuera["descartadosPorCriba"] = sum(1 for x in cands if x["criba"].get("veredicto") == "descartado")
     fuera["limpios"] = sum(1 for x in cands if x["criba"].get("veredicto") == "sin choque exacto")
-    fuera["conPaqueteCompleto"] = sum(1 for x in cands if (x.get("especies") or {}).get("veredicto") == "paquete completo")
+    fuera["seProbarianEnRoedor"] = sum(1 for x in cands if (x.get("especies") or {}).get("sePuedeProbar"))
     fuera["criba"] = {
         "hecho": bool(c.get("porSecuencia")),
         "fecha": c.get("fecha"),

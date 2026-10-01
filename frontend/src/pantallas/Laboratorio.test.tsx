@@ -963,11 +963,11 @@ describe('lo que va al laboratorio', () => {
     expect(oligo).toBe('CTCTCCCACTCCCACTTCTT');
   });
 
-  it('dice en qué especies se puede probar, con el papel de cada una', async () => {
-    // Lo que piden los reguladores es un roedor y un no roedor, no tres
-    // especies. La pantalla tiene que decir el marco de verdad.
-    const esp = (clave: 'raton' | 'rata' | 'macaco', nombre: string, latin: string, papel: 'roedor' | 'no roedor', sirve: boolean | null, orto: string) => ({
-      comprobado: true, version: 2, clave, nombre, latin, papel,
+  it('dice si se puede probar en un roedor, que es la pregunta práctica', async () => {
+    // Si encaja, el experimento se hace con ESTA molécula. Si no, hay que
+    // diseñar un sustituto, que es trabajo de más.
+    const esp = (clave: 'raton' | 'rata', nombre: string, latin: string, sirve: boolean | null, orto: string) => ({
+      comprobado: true, version: 4, clave, nombre, latin, papel: 'roedor' as const,
       via: `cómo se administra en ${nombre}`, simboloHumano: 'MAPT', ortologo: orto,
       veredicto: (sirve ? 'sirve tal cual' : sirve === false ? 'no sirve' : 'no pude comprobar') as 'sirve tal cual' | 'no sirve' | 'no pude comprobar',
       sirve, porQue: `qué pasa en ${nombre}`,
@@ -975,21 +975,18 @@ describe('lo que va al laboratorio', () => {
     const c = {
       ...DIANA.aso!.candidatos[0]!,
       especies: {
-        veredicto: 'falta el no roedor' as const,
-        porQue: 'Sirve en ratón, así que el roedor está cubierto, pero no en el macaco.',
-        sirvenEn: ['ratón'], noSirvenEn: ['macaco cangrejero (cynomolgus)'],
-        tieneRoedor: true, tieneNoRoedor: false, cuantas: 1, deCuantas: 3,
+        veredicto: 'se puede probar' as const,
+        porQue: 'Se puede empezar mañana: encaja en ratón.',
+        sirvenEn: ['ratón'], noSirvenEn: ['rata'], sinComprobar: [],
+        sePuedeProbar: true, cuantas: 1, deCuantas: 2,
         marco: {
-          queSePide: 'Toxicología en DOS especies: un roedor y un no roedor.',
-          elNoRoedor: 'Casi siempre el macaco cangrejero.',
-          yEnElCerebro: 'El macaco es el único donde la vía es la de la clínica.',
-          siNoSirve: 'La FDA acepta un oligo sustituto específico de especie.',
+          paraInvestigar: 'Para investigar basta con poder probarlo en un roedor, y no hay ningún requisito que cumplir.',
+          siNoEncaja: 'Que no encaje es LO NORMAL y se resuelve con un oligo sustituto.',
         },
         avisos: [{ que: 'Encajar no es funcionar', porQue: 'dice que PUEDE cortar' }],
         porEspecie: {
-          raton: esp('raton', 'ratón', 'Mus musculus', 'roedor', true, 'Mapt'),
-          rata: esp('rata', 'rata', 'Rattus norvegicus', 'roedor', false, 'Mapt'),
-          macaco: esp('macaco', 'macaco cangrejero (cynomolgus)', 'Macaca fascicularis', 'no roedor', false, 'MAPT'),
+          raton: esp('raton', 'ratón', 'Mus musculus', true, 'Mapt'),
+          rata: esp('rata', 'rata', 'Rattus norvegicus', false, 'Mapt'),
         },
       },
     };
@@ -999,15 +996,15 @@ describe('lo que va al laboratorio', () => {
     await montar();
     await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
     await pulsar(nodo.querySelector('.lab-abrir-aso')!);
-    expect(texto()).toContain('¿DÓNDE SE PUEDE PROBAR ESTE OLIGO?');
-    // Las tres, con su nombre latino y su papel.
-    expect(nodo.querySelectorAll('.esp-tabla tbody tr').length).toBe(3);
+    expect(texto()).toContain('¿SE PUEDE PROBAR EN UN ROEDOR?');
+    expect(texto()).toContain('el experimento se hace con esta misma molécula');
+    // Las dos, con su nombre latino.
+    expect(nodo.querySelectorAll('.esp-tabla tbody tr').length).toBe(2);
     expect(texto()).toContain('Mus musculus');
-    expect(texto()).toContain('Macaca fascicularis');
-    expect(texto()).toContain('no roedor');
-    // Y el marco de verdad: DOS especies, no tres.
-    expect(texto()).toContain('un roedor y un no roedor');
-    // Que no servir no es un muro.
+    expect(texto()).toContain('Rattus norvegicus');
+    // Nada de primates: se quitó a propósito, cuestan demasiado.
+    expect(texto()).not.toContain('macaco');
+    // Y que no encaje no es un muro.
     expect(texto()).toContain('oligo sustituto');
   });
 
@@ -1016,13 +1013,13 @@ describe('lo que va al laboratorio', () => {
     const c = {
       ...DIANA.aso!.candidatos[0]!,
       especies: {
-        veredicto: 'hacen falta sustitutos' as const, porQue: 'No sirve tal cual en ninguna.',
-        sirvenEn: [], noSirvenEn: [], tieneRoedor: false, tieneNoRoedor: false, cuantas: 0, deCuantas: 3,
-        marco: { queSePide: 'a', elNoRoedor: 'b', yEnElCerebro: 'c', siNoSirve: 'd' },
+        veredicto: 'no pude comprobar' as const, porQue: 'No se pudo encontrar el gen equivalente.',
+        sirvenEn: [], noSirvenEn: [], sinComprobar: ['ratón'], sePuedeProbar: false, cuantas: 0, deCuantas: 2,
+        marco: { paraInvestigar: 'a', siNoEncaja: 'b' },
         avisos: [],
         porEspecie: {
           raton: {
-            comprobado: true, version: 2, clave: 'raton' as const, nombre: 'ratón', latin: 'Mus musculus',
+            comprobado: true, version: 4, clave: 'raton' as const, nombre: 'ratón', latin: 'Mus musculus',
             papel: 'roedor' as const, via: 'ventrículo', simboloHumano: 'CA2', ortologo: '',
             veredicto: 'no pude comprobar' as const, sirve: null,
             porQue: 'No encontré en ratón ningún gen que se llame como CA2. NO quiere decir que el oligo no sirva.',
@@ -1036,7 +1033,7 @@ describe('lo que va al laboratorio', () => {
     await montar();
     await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
     await pulsar(nodo.querySelector('.lab-abrir-aso')!);
-    expect(texto()).toContain('no pude comprobar');
+    expect(texto()).toContain('No se pudo comprobar');
     expect(texto()).toContain('NO quiere decir que el oligo no sirva');
     expect(nodo.querySelector('.esp-duda')).not.toBeNull();
   });
