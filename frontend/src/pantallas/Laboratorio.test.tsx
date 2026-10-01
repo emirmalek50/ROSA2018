@@ -471,10 +471,10 @@ describe('lo que va al laboratorio', () => {
     await montar();
     await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
     expect(visor.cargados).toContain('https://alphafold.ebi.ac.uk/files/AF-P10636-F1-model_v6.cif');
-    expect(texto()).toContain('PARA EL LABORATORIO');
+    expect(texto()).toContain('Para el laboratorio');
     expect(texto()).toContain('UniProt P10636');
     expect(texto()).toContain('neuronas de iPSC humanas');
-    expect(texto()).toContain('QUÉ LA REFUTARÍA');
+    expect(texto()).toContain('Qué la refutaría');
   });
 
   it('el experimento entero se puede abrir desde la lámina, con su protocolo y su química', async () => {
@@ -836,9 +836,19 @@ describe('lo que va al laboratorio', () => {
     // Y cada letra lleva su color, para reconocerla de un vistazo.
     expect(nodo.querySelectorAll('.arn-a').length).toBeGreaterThan(0);
     expect(nodo.querySelectorAll('.arn-u').length).toBeGreaterThan(0);
+    expect(texto()).toContain('tiene que abrir para entrar');
+    const coordenadas = [...nodo.querySelectorAll('.arn-letra')].map(el => [el.getAttribute('x'), el.getAttribute('y')]);
+    await pulsar(nodo.querySelector('[aria-label="Acercar ARN"]')!);
+    expect(nodo.querySelector('.arn-escala')!.getAttribute('style')).toContain('150%');
+    expect([...nodo.querySelectorAll('.arn-letra')].map(el => [el.getAttribute('x'), el.getAttribute('y')])).toEqual(coordenadas);
+    await pulsar(nodo.querySelector('.arn-n')!);
+    expect(nodo.querySelector('.arn-pie-cuenta')!.textContent).toContain('posición');
+    expect(nodo.querySelector('.arn-n-pareja')).not.toBeNull();
+    await act(async () => nodo.querySelector('.arn-svg')!.dispatchEvent(new MouseEvent('mouseout', { bubbles: true })));
+
     expect(texto()).toContain('El tramo está a medias');
     // Cuántas hay que abrir, que es el dato que importa de todo el dibujo.
-    expect(texto()).toContain('tiene que abrir para entrar');
+    expect(nodo.querySelector('.arn-pie-nota')!.textContent).toContain('Cada letra es un nucleótido');
     // Decimales con coma, que es la regla del proyecto.
     expect(texto()).toContain('0,0938');
     expect(texto()).not.toContain('0.0938');
@@ -1069,5 +1079,40 @@ describe('lo que va al laboratorio', () => {
     // Qué es esto, y la premisa de arriba del todo.
     expect(texto()).toContain('No es un fármaco');
     expect(texto()).toContain('HIPÓTESIS');
+  });
+});
+
+
+describe('la ficha visual y sus gráficas', () => {
+  it('mantiene el conflicto del contrato fuera de la zona desplazable', async () => {
+    respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, hojaDePedido: { ...DIANA.hojaDePedido, contradiceLaIntervencion: true } }] };
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    const alerta = nodo.querySelector('.lab-hoja-alerta')!;
+    expect(alerta.textContent).toContain('Esta ficha no es un pedido');
+    expect(alerta.closest('.lab-hoja-cuerpo')).toBeNull();
+    expect(nodo.querySelector('.lab-hoja-estado')!.textContent).toContain('Contrato por revisar');
+    expect(nodo.querySelector('.lab-hoja-acciones .lab-abrir-aso')).not.toBeNull();
+    await pulsar(nodo.querySelector('.lab-hoja-toggle')!);
+    expect(nodo.querySelector('.lab-hoja-toggle')!.getAttribute('aria-expanded')).toBe('true');
+    await pulsar(nodo.querySelector('.lab-hoja-toggle')!);
+    expect(nodo.querySelector('.lab-hoja-toggle')!.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('el mapa selecciona por teclado otro candidato y actualiza el diseño', async () => {
+    const primero = DIANA.aso!.candidatos[0]!;
+    const aso = { ...DIANA.aso!, candidatos: [primero, { ...primero, posicion: 1800, hasta: 1819, gc: .55 }] };
+    respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, aso }] };
+    respuestas.oligos = aso;
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    const puntos = nodo.querySelectorAll<SVGGElement>('.aso-punto');
+    expect(puntos).toHaveLength(2);
+    expect(puntos[1]!.getAttribute('aria-label')).toContain('G y C 55 por ciento');
+    await act(async () => puntos[0]!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
+    expect(nodo.querySelector('.aso-punto-activo')!.getAttribute('aria-label')).toContain('posición 1800');
+    expect(nodo.querySelector('.aso-mapa-seleccion')!.textContent).toContain('55 %');
+    expect(texto()).toContain('EL CANDIDATO 2 DE 2');
   });
 });

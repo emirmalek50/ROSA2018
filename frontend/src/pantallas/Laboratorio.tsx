@@ -928,34 +928,37 @@ function Secuencia({ c, grande = false }: { c: CandidatoAso; grande?: boolean })
  *  Sin esto, «posición 3230» no le dice nada a nadie: con esto se ve que los
  *  candidatos vienen de sitios distintos del ARN y no de la misma región. */
 function MapaTranscrito({ d, activo, alElegir }: { d: DisenoAso; activo: number; alElegir: (i: number) => void }) {
+  const c = d.candidatos[activo];
+  const ancho = 720, alto = 250, izq = 56, der = 28, arriba = 28, abajo = 44;
+  const x = (pos: number) => izq + (pos - 1) / Math.max(1, d.largo - 1) * (ancho - izq - der);
+  const y = (gc: number) => arriba + (1 - gc) * (alto - arriba - abajo);
   return (
-    <div className="aso-mapa">
-      <div className="aso-regla">
-        {d.candidatos.map((c, i) => (
-          <button
-            key={c.posicion}
-            type="button"
-            className={`aso-marca${i === activo ? ' aso-marca-activa' : ''}`}
-            style={{ left: `${(c.posicion / d.largo) * 100}%` }}
-            onClick={() => alElegir(i)}
-            aria-label={`Candidato en la posición ${c.posicion}`}
-            title={`Candidato ${i + 1}, posición ${c.posicion}`}
-          >
-            <i>{i + 1}</i>
-          </button>
-        ))}
+    <figure className="aso-mapa aso-mapa-datos">
+      <header><div><strong>Un transcrito, distintos sitios de unión</strong><p>Cada punto es un candidato. Selecciónalo para inspeccionarlo.</p></div><span>{n(d.candidatos.length)} candidatos</span></header>
+      <div className="aso-mapa-lienzo">
+        <svg viewBox={`0 0 ${ancho} ${alto}`} role="group" aria-label="Candidatos por posición en el transcrito y proporción de G y C">
+          <rect x={izq} y={y(.6)} width={ancho - izq - der} height={y(.4) - y(.6)} className="aso-mapa-banda" />
+          {[0, .2, .4, .6, .8, 1].map(v => <g key={v}><line x1={izq} x2={ancho-der} y1={y(v)} y2={y(v)} className="aso-mapa-rejilla" /><text x={izq-10} y={y(v)+4} textAnchor="end">{Math.round(v*100)} %</text></g>)}
+          {[1, Math.round(d.largo / 2), d.largo].map(pos => <text key={pos} x={x(pos)} y={alto-18} textAnchor={pos===1?'start':pos===d.largo?'end':'middle'}>{n(pos)} nt</text>)}
+          {c && <line x1={x(c.posicion)} x2={x(c.posicion)} y1={arriba} y2={alto-abajo} className="aso-mapa-guia" />}
+          {d.candidatos.map((candidato, i) => <g key={candidato.posicion} role="button" tabIndex={i===activo?0:-1} aria-pressed={i===activo} aria-label={`Candidato ${i+1}, posición ${candidato.posicion}, G y C ${Math.round(candidato.gc*100)} por ciento`} className={`aso-punto${i===activo?' aso-punto-activo':''}`} onClick={() => alElegir(i)} onKeyDown={e=>{
+            if(e.key==='Enter'||e.key===' '){e.preventDefault();alElegir(i);}
+            else if(['ArrowRight','ArrowLeft','Home','End'].includes(e.key)){
+              e.preventDefault();const siguiente=e.key==='Home'?0:e.key==='End'?d.candidatos.length-1:(i+(e.key==='ArrowRight'?1:d.candidatos.length-1))%d.candidatos.length;
+              alElegir(siguiente);(e.currentTarget.parentElement?.querySelectorAll<SVGGElement>('.aso-punto')[siguiente])?.focus();
+            }
+          }}>
+            <circle cx={x(candidato.posicion)} cy={y(candidato.gc)} r={14} className="aso-punto-hit" />
+            <circle cx={x(candidato.posicion)} cy={y(candidato.gc)} r={i===activo?7:4.5} className="aso-punto-dato" />
+            <title>{`Candidato ${i+1}: ${n(candidato.posicion)} a ${n(candidato.hasta)} nt; G y C ${Math.round(candidato.gc*100)} %`}</title>
+          </g>)}
+        </svg>
       </div>
-      <div className="aso-regla-pies">
-        <span>1</span>
-        <span>
-          {d.transcrito} · {d.largo.toLocaleString('es')} nt
-        </span>
-        <span>{d.largo.toLocaleString('es')}</span>
-      </div>
-    </div>
+      <figcaption><span><i /> Banda del filtro: 40 a 60 % de G y C</span><span>{d.transcrito}</span></figcaption>
+      {c && <div className="aso-mapa-seleccion" aria-live="polite"><strong>Candidato {activo+1}</strong><span>{n(c.posicion)} a {n(c.hasta)} nt</span><span>{Math.round(c.gc*100)} % de G y C</span></div>}
+    </figure>
   );
 }
-
 
 
 /* --------------------------------------------------------------------------
@@ -980,6 +983,7 @@ const COLOR_LETRA: Record<string, string> = { A: 'arn-a', U: 'arn-u', G: 'arn-g'
 
 function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['dibujo']> }) {
   const [sobre, fijarSobre] = useState<number | null>(null);
+  const [zoom, fijarZoom] = useState(1);
   const letras = d.letras ?? [];
   if (!letras.length) return null;
 
@@ -996,13 +1000,17 @@ function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['d
   const enElSitio = letras.filter((l) => l.enElSitio);
   const aAbrir = enElSitio.filter((l) => l.emparejada).length;
   const act = sobre !== null ? porI.get(sobre) : null;
+  const parActivo = (d.pares ?? []).find(([a, b]) => a === sobre || b === sobre);
+  const parejaActiva = parActivo?.find(i => i !== sobre);
 
   return (
     <figure className="arn">
+      <div className="lab-grafica-barra"><div><strong>Estructura secundaria del ARN</strong><span>Tramo del oligo resaltado en ámbar</span></div><div className="lab-grafica-zoom" role="group" aria-label="Ampliación del ARN"><button type="button" aria-label="Alejar ARN" disabled={zoom <= 1} onClick={() => fijarZoom(Math.max(1, zoom - .5))}>−</button><output>{Math.round(zoom * 100)} %</output><button type="button" aria-label="Acercar ARN" disabled={zoom >= 3} onClick={() => fijarZoom(Math.min(3, zoom + .5))}>+</button></div></div>
+      <div className="arn-ventana" tabIndex={0} aria-label="Gráfica desplazable del ARN"><div className="arn-escala" style={{ width: `${zoom * 100}%` }}>
       <svg
         className="arn-svg"
         viewBox={`0 0 ${ancho.toFixed(0)} ${alto.toFixed(0)}`}
-        role="img"
+        role="group"
         aria-label={`El ARN entre las posiciones ${d.desde} y ${d.hasta}, plegado, con el tramo del oligo marcado`}
         onMouseLeave={() => fijarSobre(null)}
       >
@@ -1034,7 +1042,7 @@ function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['d
               y1={Y(la.y)}
               x2={X(lb.x)}
               y2={Y(lb.y)}
-              className={`arn-par${dentro ? ' arn-par-sitio' : ''}`}
+              className={`arn-par${dentro ? ' arn-par-sitio' : ''}${a === sobre || b === sobre ? ' arn-par-activo' : ''}`}
             />
           );
         })}
@@ -1042,7 +1050,11 @@ function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['d
         {letras.map((l) => (
           <g
             key={l.i}
-            className={`arn-n${l.enElSitio ? ' arn-n-sitio' : ''}${sobre === l.i ? ' arn-n-sobre' : ''}`}
+            className={`arn-n${l.enElSitio ? ' arn-n-sitio' : ''}${sobre === l.i ? ' arn-n-sobre' : ''}${parejaActiva === l.i ? ' arn-n-pareja' : ''}`}
+            role="button" tabIndex={sobre === l.i || (sobre === null && l.i === letras[0]?.i) ? 0 : -1}
+            aria-label={`${l.letra}, posición ${l.pos}, ${l.emparejada ? 'emparejada' : 'libre'}${l.enElSitio ? ', tramo del oligo' : ''}`}
+            onFocus={() => fijarSobre(l.i)} onClick={() => fijarSobre(l.i)}
+            onKeyDown={e => { if(e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const indice=letras.indexOf(l); const siguiente=(indice+(e.key==='ArrowRight'?1:letras.length-1))%letras.length; (e.currentTarget.parentElement?.querySelectorAll<SVGGElement>('.arn-n')[siguiente])?.focus(); } else if(e.key==='Enter'||e.key===' ') {e.preventDefault(); fijarSobre(l.i);} }}
             onMouseEnter={() => fijarSobre(l.i)}
           >
             <circle cx={X(l.x)} cy={Y(l.y)} r={l.enElSitio ? 11.5 : 9.5} className="arn-disco" />
@@ -1052,6 +1064,7 @@ function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['d
           </g>
         ))}
       </svg>
+      </div></div>
       <figcaption className="arn-pie">
         <p className="arn-pie-cuenta">
           {act ? (
@@ -1063,7 +1076,7 @@ function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['d
           ) : (
             <>
               <b>{n(aAbrir)}</b> de las {n(enElSitio.length)} letras del tramo están emparejadas: son las que el oligo
-              tiene que abrir para entrar. Pasa el ratón por una letra para verla.
+              tiene que abrir para entrar. Selecciona una letra para inspeccionarla; usa las flechas para recorrer la cadena.
             </>
           )}
         </p>
@@ -1108,11 +1121,13 @@ function Duplex({ d }: { d: DuplexT }) {
   const act = sobre !== null ? d.pares.find((p) => p.i === sobre) : null;
   return (
     <figure className="dux">
-      <div className="dux-marco">
+      <div className="lab-grafica-barra"><div><strong>Encuentro del ARN y el oligo</strong><span>Dos cadenas antiparalelas, base a base</span></div><span className="lab-grafica-modelo">Esquema molecular</span></div>
+      <p className="lab-grafica-desplazar">Desliza la figura para recorrer las dos cadenas.</p>
+      <div className="dux-marco" tabIndex={0} aria-label="Gráfica desplazable de la dúplex">
         <svg
           className="dux-svg"
           viewBox={`0 0 ${ancho} 196`}
-          role="img"
+          role="group"
           aria-label="El ARN de la diana con el oligo encajando debajo"
           onMouseLeave={() => fijarSobre(null)}
         >
@@ -1132,10 +1147,17 @@ function Duplex({ d }: { d: DuplexT }) {
             <g
               key={p.i}
               className={`dux-col${sobre === p.i ? ' dux-col-sobre' : ''}`}
+              role="button" tabIndex={sobre === p.i || (sobre === null && p.i === d.pares[0]?.i) ? 0 : -1}
+              aria-label={`Par ${p.i}: ARN ${p.arn}, oligo ${p.aso}, ${p.quimica === 'hueco' ? 'hueco de ADN' : "ala de 2′-MOE"}`}
+              onClick={() => fijarSobre(p.i)} onFocus={() => fijarSobre(p.i)}
+              onKeyDown={e => {if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault(); const indice=d.pares.indexOf(p);const siguiente=(indice+(e.key==='ArrowRight'?1:d.pares.length-1))%d.pares.length;(e.currentTarget.parentElement?.querySelectorAll<SVGGElement>('.dux-col')[siguiente])?.focus();} else if(e.key==='Enter'||e.key===' '){e.preventDefault();fijarSobre(p.i);}}}
               onMouseEnter={() => fijarSobre(p.i)}
             >
               {/* La barra del emparejamiento. */}
               <line x1={X(p.i)} y1={yArn + 15} x2={X(p.i)} y2={yAso - 15} className={`dux-par dux-par-${p.quimica}`} />
+              <circle cx={X(p.i)} cy={yArn} r={16} className="dux-base-arn" />
+              <circle cx={X(p.i)} cy={yAso} r={13} className="dux-base-aso" />
+              <text x={X(p.i)} y={8} className="dux-indice" textAnchor="middle">{p.i}</text>
               {/* La letra del ARN, que es la que manda. */}
               <text x={X(p.i)} y={yArn} className="dux-arn" textAnchor="middle" dominantBaseline="central">
                 {p.arn}
@@ -1180,7 +1202,7 @@ function Duplex({ d }: { d: DuplexT }) {
               Arriba el ARN de la diana leído de 5&apos; a 3&apos;, abajo el oligo, que va al revés porque una
               dúplex es antiparalela. Las{' '}
               <b>{n(d.hueco[1] - d.hueco[0] + 1)} del centro</b> son el hueco de ADN: lo único que la RNasa H1
-              reconoce. Pasa el ratón por una columna.
+              reconoce. Selecciona un par o recórrelos con las flechas del teclado.
             </>
           )}
         </p>
@@ -1892,6 +1914,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
   const abajoRef = useRef<HTMLDivElement | null>(null);
   const [fallo, fijarFallo] = useState<string | null>(null);
   const [verExperimento, fijarVerExperimento] = useState(false);
+  const [hojaAbierta, fijarHojaAbierta] = useState(false);
   // Se puede llegar con el panel ya abierto desde el muro (#/…/aso).
   const [verAso, fijarVerAso] = useState(abrirAso);
   // La parte abierta y sus residuos. Se guardan juntos porque los residuos se
@@ -2316,97 +2339,41 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
         Acerca la rueda del ratón sobre la proteína
       </p>
 
-      <div className={`lab-capa lab-hoja${nivel > 0 ? ' lab-fuera' : ''}`}>
-        <h3>
-          {hoja.sinExperimento ? 'LO QUE SE SABE' : 'PARA EL LABORATORIO'}{' '}
-          <Copiar texto={hojaComoTexto(diana)} que="la hoja de pedido" />
-        </h3>
-        {diana.aso?.candidatos.length ? (
-          <button type="button" className="lab-abrir-experimento lab-abrir-aso" onClick={() => fijarVerAso(true)}>
-            Ver los {diana.aso.candidatosEnTotal ?? diana.aso.candidatos.length} oligonucleótidos que cortarían su producción
-            <i aria-hidden="true">→</i>
-          </button>
-        ) : null}
-        <button type="button" className="lab-abrir-experimento" onClick={() => fijarVerExperimento(true)}>
-          {hoja.sinExperimento ? 'Ver la evidencia y la química' : 'Ver el experimento entero'}
-          <i aria-hidden="true">→</i>
-        </button>
-        {hoja.sinExperimento ? (
-          /* Sin experimento propuesto, lo que hay que mandar es la evidencia:
-             qué se sabe ya de esta proteína y de dónde sale. Rellenar una hoja
-             de pedido aquí sería inventarse un protocolo. */
-          <div className="lab-sabido">
-            {diana.loQueSeSabe.length ? (
-              diana.loQueSeSabe.map((x, i) => (
-                <div key={i}>
-                  <dt>{x.tema.toUpperCase()}</dt>
-                  <dd className="lab-recorta">{x.enunciado}</dd>
-                  {x.referencia ? <cite>{x.referencia}</cite> : null}
-                </div>
-              ))
-            ) : (
-              <p className="lab-faltan">Las afirmaciones que la nombran no han dejado todavía un enunciado sostenido con cita.</p>
-            )}
-            <p className="lab-faltan">
-              Ninguna hipótesis propone un experimento sobre ella. Esto no es una hoja de pedido: es lo que ROSA2018 sabe, para
-              decidir si merece uno.
-            </p>
-          </div>
-        ) : null}
-        <dl hidden={hoja.sinExperimento}>
-          <div>
-            <dt>IDENTIFICADOR</dt>
-            <dd className="lab-mono">{hoja.identificador}</dd>
-          </div>
-          {hoja.queSeHace ? (
-            <div>
-              <dt>QUÉ SE HACE</dt>
-              <dd className="lab-recorta">{hoja.queSeHace}</dd>
-            </div>
-          ) : null}
-          {hoja.contradiceLaIntervencion ? (
-            <div className="lab-aviso-contrato">
-              <dt>OJO</dt>
-              <dd>
-                La intervención habla de un experimento de banco, pero el contrato prerregistrado dice que lo que se hace es
-                revisar lo ya publicado. Esta hoja no es un pedido para un laboratorio.
-              </dd>
-            </div>
-          ) : null}
-          {hoja.sistema ? (
-            <div>
-              <dt>SISTEMA</dt>
-              <dd>{SISTEMA[hoja.sistema] ?? hoja.sistema}</dd>
-            </div>
-          ) : null}
-          {hoja.refuta ? (
-            <div className="lab-refuta">
-              <dt>QUÉ LA REFUTARÍA</dt>
-              <dd className="lab-recorta">{hoja.refuta}</dd>
-            </div>
-          ) : null}
-          {hoja.controles ? (
-            <div>
-              <dt>CONTROLES</dt>
-              <dd className="lab-recorta">{hoja.controles}</dd>
-            </div>
-          ) : null}
-        </dl>
-        {hoja.faltan.length ? <p className="lab-faltan">El contrato de esta hipótesis todavía no dice: {hoja.faltan.join(', ')}.</p> : null}
-        {hoja.otrosExperimentos.length ? (
-          <p className="lab-faltan">
-            Hay {hoja.otrosExperimentos.length === 1 ? 'otro experimento propuesto' : `otros ${hoja.otrosExperimentos.length} experimentos propuestos`} sobre
-            esta diana. No se funden con este: cada uno tiene sus controles y su criterio de refutación, y «copiar» se los lleva
-            todos.
+      {!hayPanel && <button type="button" className={`lab-hoja-toggle${nivel > 0 ? ' lab-fuera' : ''}`} aria-expanded={hojaAbierta} aria-controls="ficha-laboratorio" onClick={() => fijarHojaAbierta(!hojaAbierta)}>
+        {hojaAbierta ? 'Cerrar ficha' : 'Para el laboratorio'}
+      </button>}
+      <aside id="ficha-laboratorio" aria-label="Para el laboratorio" className={`lab-capa lab-hoja${nivel > 0 ? ' lab-fuera' : ''}${hojaAbierta ? ' lab-hoja-abierta' : ''}`}>
+        <header className="lab-hoja-cabecera">
+          <div className="lab-hoja-titulo"><h3>{hoja.sinExperimento ? 'Lo que se sabe' : 'Para el laboratorio'}</h3><Copiar texto={hojaComoTexto(diana)} que="la hoja de pedido" /></div>
+          <div className="lab-hoja-identidad"><strong>{diana.simbolo}</strong><span>{hoja.identificador}</span></div>
+          <p className="lab-hoja-estado" data-alerta={hoja.contradiceLaIntervencion || hoja.sinExperimento}>
+            <i aria-hidden="true" />{hoja.contradiceLaIntervencion ? 'Contrato por revisar' : hoja.sinExperimento ? 'Sin experimento propuesto' : 'Experimento propuesto'}
           </p>
-        ) : null}
-        {diana.investigaciones.length ? (
-          <p className="lab-de-donde">
-            De {diana.investigaciones.length === 1 ? 'la investigación' : 'las investigaciones'}{' '}
-            {diana.investigaciones.map((i) => i.titulo).join(' · ')}
-          </p>
-        ) : null}
-      </div>
+        </header>
+        {hoja.contradiceLaIntervencion && <div className="lab-hoja-alerta" role="note"><strong>La intervención y el contrato no coinciden</strong><p>Se propone un experimento de banco, pero el contrato indica revisar lo publicado. Esta ficha no es un pedido para un laboratorio.</p></div>}
+        <div className="lab-hoja-cuerpo" tabIndex={0} aria-label="Detalles de la ficha">
+          {hoja.sinExperimento ? <div className="lab-sabido">
+            {diana.loQueSeSabe.length ? diana.loQueSeSabe.map((x, i) => <div key={i}><h4>{x.tema}</h4><p>{x.enunciado}</p>{x.referencia && <cite>{x.referencia}</cite>}</div>) : <p className="lab-faltan">Las afirmaciones que la nombran no han dejado todavía un enunciado sostenido con cita.</p>}
+            <p className="lab-faltan">Ninguna hipótesis propone un experimento sobre ella. Esta evidencia permite decidir si merece uno.</p>
+          </div> : <>
+            {hoja.queSeHace && <section className="lab-hoja-propuesta"><h4>Qué se propone</h4><p>{hoja.queSeHace}</p></section>}
+            {hoja.sistema && <p className="lab-hoja-sistema"><span>Sistema experimental</span><strong>{SISTEMA[hoja.sistema] ?? hoja.sistema}</strong></p>}
+            {hoja.refuta && <section className="lab-hoja-refutacion"><h4>Qué la refutaría</h4><p>{hoja.refuta}</p></section>}
+            {hoja.controles && <section className="lab-hoja-controles"><h4>Controles</h4><p>{hoja.controles}</p></section>}
+          </>}
+          {hoja.faltan.length > 0 && <p className="lab-faltan">El contrato todavía no dice: {hoja.faltan.join(', ')}.</p>}
+          <details className="lab-hoja-origen"><summary>De dónde viene la evidencia <span>{diana.investigaciones.length} {diana.investigaciones.length === 1 ? 'investigación' : 'investigaciones'}</span></summary>
+            <p>{n(diana.hechos)} afirmaciones; {n(diana.sabidos)} sostenidas. {n(diana.fuentes)} fuentes.</p>
+            {diana.investigaciones.map((inv) => <div className="lab-origen-fila" key={inv.id}><span>{inv.titulo}</span><b>{n(inv.hechos)}</b><meter min={0} max={Math.max(1, ...diana.investigaciones.map(x => x.hechos))} value={inv.hechos} aria-label={`Afirmaciones de ${inv.titulo}`} /></div>)}
+            <small>Las barras comparan el número de afirmaciones por investigación, no su certeza.</small>
+          </details>
+          {hoja.otrosExperimentos.length > 0 && <p className="lab-faltan">Hay {hoja.otrosExperimentos.length} {hoja.otrosExperimentos.length === 1 ? 'experimento adicional' : 'experimentos adicionales'}. Cada uno conserva sus controles y su criterio de refutación. Copiar incluye todos.</p>}
+        </div>
+        <footer className="lab-hoja-acciones">
+          {diana.aso?.candidatos.length ? <button type="button" className="lab-abrir-experimento lab-abrir-aso" onClick={() => fijarVerAso(true)}><span className="lab-hoja-numero">{n(diana.aso.candidatosEnTotal ?? diana.aso.candidatos.length)}</span><span><strong>Explorar oligonucleótidos</strong><small>Candidatos para reducir la producción</small></span><span aria-hidden="true">↗</span></button> : null}
+          <button type="button" className="lab-abrir-experimento" onClick={() => fijarVerExperimento(true)}>{hoja.sinExperimento ? 'Ver la evidencia y la química' : 'Ver el experimento entero'}<span aria-hidden="true">↗</span></button>
+        </footer>
+      </aside>
 
       <div className={`lab-capa lab-leyenda${nivel > 1 ? ' lab-fuera' : ''}`}>
         <b>CONFIANZA DEL MODELO</b>
