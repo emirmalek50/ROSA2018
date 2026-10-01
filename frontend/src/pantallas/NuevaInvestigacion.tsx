@@ -19,7 +19,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
   const [titulo, setTitulo] = useState('');
   const [objetivo, setObjetivo] = useState('');
   const [relevancia, setRelevancia] = useState('');
-  const [limites, setLimites] = useState('Solo literatura publicada y bases curadas: sin datos de pacientes.\nIgnorar artículos retractados o con expresión de preocupación.');
+  const [limites, setLimites] = useState(tr('Solo literatura publicada y bases curadas: sin datos de pacientes.\nIgnorar artículos retractados o con expresión de preocupación.'));
   const [parada, setParada] = useState('');
   const [revisores, setRevisores] = useState('');
   const [heredar, setHeredar] = useState<string>('');
@@ -47,7 +47,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
       mision: verMision ? { poblacion: mision.poblacion, etapa: mision.etapa, celulaTejido: mision.celulaTejido, mecanismo: mision.mecanismo, tipoIntervencion: mision.tipoIntervencion, capacidadesLaboratorio: mision.capacidades.split('\n') } : undefined,
     });
     if (id === null) {
-      setError('Faltan el título, el objetivo o la condición de parada. Sin condición de parada la corrida no sabe cuando terminar.');
+      setError(tr('Faltan el título, el objetivo o la condición de parada. Sin condición de parada la corrida no sabe cuando terminar.'));
       return;
     }
     irA(rutaDe(id, 'corrida'));
@@ -98,14 +98,14 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
         <div className="campo">
           <label htmlFor="n-parada">{tr("Condición de parada")}</label>
           <input id="n-parada" value={parada} onChange={(e) => setParada(e.target.value)} placeholder={tr("3 iteraciones, o 72 horas, lo que ocurra primero")} />
-          <p className="meta">{parada.trim() ? textoAutomatizacion(partesAutomatizadas(parada)) : 'ROSA2018 para sola cuando se cumple una cifra: iteraciones, minutos u horas de corrida, o llamadas al modelo. El resto de la frase lo lee para planificar, pero la decisión de parar por otro motivo es tuya.'}</p>
+          <p className="meta">{parada.trim() ? textoAutomatizacion(partesAutomatizadas(parada)) : tr('ROSA2018 para sola cuando se cumple una cifra: iteraciones, minutos u horas de corrida, o llamadas al modelo. El resto de la frase lo lee para planificar, pero la decisión de parar por otro motivo es tuya.')}</p>
         </div>
         <div className="campo">
           <label htmlFor="n-revisores">{tr("Quien revisa (separados por coma)")}</label>
           <input id="n-revisores" value={revisores} onChange={(e) => setRevisores(e.target.value)} placeholder={tr("la persona responsable, Compañero, el investigador clínico principal")} />
         </div>
 
-        <Seccion titulo="Configuración que ROSA2018 leerá" nota="Propuesta a partir del objetivo. Es lo que alimenta la generación, la revisión y los debates del torneo. Edítala si no encaja.">
+        <Seccion titulo={tr("Configuración que ROSA2018 leerá")} nota={tr("Propuesta a partir del objetivo. Es lo que alimenta la generación, la revisión y los debates del torneo. Edítala si no encaja.")}>
           <div className="campo">
             <label htmlFor="n-pref">Preferencias</label>
             <textarea id="n-pref" value={configEfectiva.preferencias} rows={2} onChange={(e) => setConfig({ ...configEfectiva, preferencias: e.target.value })} />
@@ -128,11 +128,11 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
         </Seccion>
 
         <Seccion
-          titulo="Misión (opcional)"
-          nota="El objetivo puede ser amplio: ROSA2018 propone el marco (población, etapa, célula o tejido, mecanismo, tipo de intervención, capacidades del laboratorio) y las áreas por donde empezar, y tu lo apruebas con el primer plan. Si ya lo tienes claro, escribelo aquí y queda aprobado por ti."
+          titulo={tr("Misión (opcional)")}
+          nota={tr("El objetivo puede ser amplio: ROSA2018 propone el marco (población, etapa, célula o tejido, mecanismo, tipo de intervención, capacidades del laboratorio) y las áreas por donde empezar, y tu lo apruebas con el primer plan. Si ya lo tienes claro, escribelo aquí y queda aprobado por ti.")}
           acciones={
             <button type="button" className="btn btn-s" onClick={() => setVerMision((v) => !v)}>
-              {verMision ? 'Dejar que ROSA2018 la proponga' : 'Escribirla yo'}
+              {verMision ? tr('Dejar que ROSA2018 la proponga') : tr('Escribirla yo')}
             </button>
           }
         >
@@ -140,12 +140,12 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
             <div className="rejilla-2">
               {(
                 [
-                  ['poblacion', 'Población', 'Adultos con deterioro cognitivo leve, amiloide positivos'],
+                  ['poblacion', tr('Población'), tr('Adultos con deterioro cognitivo leve, amiloide positivos')],
                   ['etapa', 'Etapa', 'Prodromica'],
-                  ['celulaTejido', 'Célula o tejido', 'Astrocitos; plasma'],
-                  ['mecanismo', 'Mecanismo', 'Reactividad astrocitaria'],
-                  ['tipoIntervencion', 'Tipo de intervención o resultado', 'Biomarcador de progresión'],
-                  ['capacidades', 'Capacidades del laboratorio (una por línea)', 'Inmunoensayo Simoa en plasma'],
+                  ['celulaTejido', 'Célula o tejido', tr('Astrocitos; plasma')],
+                  ['mecanismo', 'Mecanismo', tr('Reactividad astrocitaria')],
+                  ['tipoIntervencion', tr('Tipo de intervención o resultado'), tr('Biomarcador de progresión')],
+                  ['capacidades', tr('Capacidades del laboratorio (una por línea)'), tr('Inmunoensayo Simoa en plasma')],
                 ] as const
               ).map(([k, label, marcador]) => (
                 <div className="campo" key={k}>
@@ -158,11 +158,11 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
         </Seccion>
 
         <Seccion
-          titulo="Sensibilidad al fraseo"
-          nota="Edison admite que las direcciones de Kosmos cambian con la redacción del objetivo. Antes de gastar, mira que primeras tareas propondría ROSA2018 con tres redacciones."
+          titulo={tr("Sensibilidad al fraseo")}
+          nota={tr("Edison admite que las direcciones de Kosmos cambian con la redacción del objetivo. Antes de gastar, mira que primeras tareas propondría ROSA2018 con tres redacciones.")}
           acciones={
             <button type="button" className="btn btn-s" disabled={objetivo.trim() === ''} onClick={() => setVerParafrasis((v) => !v)}>
-              {verParafrasis ? 'Ocultar' : 'Probar tres paráfrasis'}
+              {verParafrasis ? 'Ocultar' : tr('Probar tres paráfrasis')}
             </button>
           }
         >
@@ -213,7 +213,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
           <a className="btn btn-fantasma" href="#/">
             Cancelar
           </a>
-          {avisos.length > 0 && objetivo.trim() !== '' && <Chip tono="aviso">{avisos.length} {avisos.length === 1 ? 'aviso sobre el objetivo' : 'avisos sobre el objetivo'}</Chip>}
+          {avisos.length > 0 && objetivo.trim() !== '' && <Chip tono="aviso">{avisos.length} {avisos.length === 1 ? tr('aviso sobre el objetivo') : tr('avisos sobre el objetivo')}</Chip>}
         </div>
       </form>
     </div>

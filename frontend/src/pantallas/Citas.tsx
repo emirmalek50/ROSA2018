@@ -89,7 +89,7 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
       {pendiente && reg ? (
         <>
           <p role="status">{avanceDeRecuperacion(reg)}</p>
-          {reg.fase === 'juez' && reg.total > 0 && <progress value={reg.revisadas} max={reg.total} aria-label="Afirmaciones vueltas a juzgar" />}
+          {reg.fase === 'juez' && reg.total > 0 && <progress value={reg.revisadas} max={reg.total} aria-label={tr("Afirmaciones vueltas a juzgar")} />}
         </>
       ) : cuenta === 'sin_respuesta' ? (
         <p className="nota" role="status">
@@ -98,9 +98,9 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
       ) : n > 0 && datos ? (
         <>
           <p>
-            {plural(datos.bloqueosViejos, 'afirmación de esta investigación sigue bloqueada', 'afirmaciones de esta investigación siguen bloqueadas')} {tr("por reglas del verificador que ya no valen")}
-            {datos.sinJuez ? `, y ${plural(datos.sinJuez, 'se quedó sin juez', 'se quedaron sin juez')}` : ''}{tr(". Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.")}
-            {datos.corridasVivas ? ' Hay una corrida trabajando en esta investigación: empezará cuando pare.' : ''}
+            {plural(datos.bloqueosViejos, tr('afirmación de esta investigación sigue bloqueada'), tr('afirmaciones de esta investigación siguen bloqueadas'))} {tr("por reglas del verificador que ya no valen")}
+            {datos.sinJuez ? `, y ${plural(datos.sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez'))}` : ''}{tr(". Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.")}
+            {datos.corridasVivas ? tr(' Hay una corrida trabajando en esta investigación: empezará cuando pare.') : ''}
           </p>
           <button type="button" className="btn btn-s btn-primario" onClick={() => void pedir()} {...atributosEnVuelo(enVuelo)}>
             {enVuelo ? 'Pidiendo...' : `Recuperar las ${formatearEntero(n)}`}
@@ -111,7 +111,7 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
         <div className="citas-recuperar-informe">
           <p className="meta">
             {tr("Última recuperación, pedida el")} {fechaCorta(reg.pedidaEn)} por {reg.quien}
-            {reg.corridaId ? ' (una sola corrida)' : ''}:
+            {reg.corridaId ? tr(' (una sola corrida)') : ''}:
           </p>
           {reg.estado === 'fallida' ? (
             <p>{avanceDeRecuperacion(reg)}</p>
@@ -197,7 +197,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   const recuperar = envolver(async () => {
     setRecuperacion(null);
     await acciones.pedirRecuperacionCitas(inv.id, corridaId);
-    setRecuperacion('Pedida: se hace en segundo plano. El avance se ve arriba, en «Recuperación de citas», y la lista se recarga sola al terminar.');
+    setRecuperacion(tr('Pedida: se hace en segundo plano. El avance se ve arriba, en «Recuperación de citas», y la lista se recarga sola al terminar.'));
   });
 
   const afirmaciones = useMemo(() => {
@@ -225,12 +225,12 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
           <h2>Citas</h2>
-          <p>{AYUDA}</p>
+          <p>{tr(AYUDA)}</p>
           <p className="meta">
-            {META}
-            {resumen ? ` En esta corrida, ${plural(resumen.conPagina, 'afirmación resuelve', 'afirmaciones resuelven')} a página exacta de ${resumen.total}.` : ''}
+            {tr(META)}
+            {resumen ? ` En esta corrida, ${plural(resumen.conPagina, tr('afirmación resuelve'), tr('afirmaciones resuelven'))} a página exacta de ${resumen.total}.` : ''}
             {resumen && (resumen.bloqueosViejos ?? 0) > 0
-              ? ` ${plural(resumen.bloqueosViejos, 'afirmación quedó bloqueada', 'afirmaciones quedaron bloqueadas')} con una versión anterior del verificador y hoy el verificador ya no ${resumen.bloqueosViejos === 1 ? 'la bloquearía' : 'las bloquearía'}.` +
+              ? ` ${plural(resumen.bloqueosViejos, tr('afirmación quedó bloqueada'), tr('afirmaciones quedaron bloqueadas'))} con una versión anterior del verificador y hoy el verificador ya no ${resumen.bloqueosViejos === 1 ? tr('la bloquearía') : tr('las bloquearía')}.` +
                 ((resumen.bloqueadasConCitaEnOrden ?? 0) > resumen.bloqueosViejos
                   ? ` Otras ${(resumen.bloqueadasConCitaEnOrden ?? 0) - resumen.bloqueosViejos} tienen la cita en orden pero siguen bloqueadas por otra comprobación.`
                   : '')
@@ -241,7 +241,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
           <div className="acciones">
             <label className="citas-selector">
               Corrida{' '}
-              <select value={corridaId} onChange={(e) => setCorridaId(e.target.value)} aria-label="Elegir corrida">
+              <select value={corridaId} onChange={(e) => setCorridaId(e.target.value)} aria-label={tr("Elegir corrida")}>
                 {corridas.map((c) => (
                   <option key={c.id} value={c.id}>
                     Corrida {c.numero}
@@ -276,7 +276,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
           <section className="citas-col" aria-label={tr("Afirmaciones de la corrida")}>
             <header>
               <h3>Afirmaciones</h3>
-              <div className="citas-filtros" role="group" aria-label="Filtrar afirmaciones">
+              <div className="citas-filtros" role="group" aria-label={tr("Filtrar afirmaciones")}>
                 <button type="button" className="atlas-chip" aria-pressed={filtro === 'todas'} onClick={() => setFiltro('todas')}>
                   Todas <span className="atlas-cifra">{resumen?.total ?? 0}</span>
                 </button>
@@ -395,7 +395,7 @@ function Senales({ hoy, clase, localizador }: { hoy: ComprobacionDeHoy; clase: F
         </span>
         <span>
           <b>{tr("El pasaje está ahí, literal.")}</b>{' '}
-          {hoy.literal ? 'Entero y en orden, tras normalizar tipografía y números de línea.' : hoy.resuelve ? 'Falta un tramo del pasaje en la fuente.' : 'No se pudo comprobar: la cita no resuelve.'}
+          {hoy.literal ? tr('Entero y en orden, tras normalizar tipografía y números de línea.') : hoy.resuelve ? tr('Falta un tramo del pasaje en la fuente.') : tr('No se pudo comprobar: la cita no resuelve.')}
         </span>
       </li>
     </ul>
@@ -447,7 +447,7 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
             {tr("Texto leído")}
           </button>
           <button type="button" className={vista === 'pagina' ? 'activo' : ''} onClick={() => cambiarVista('pagina')} aria-pressed={vista === 'pagina'}>
-            {ficha.pagina !== null ? `Página ${ficha.pagina} del PDF` : 'Página del PDF'}
+            {ficha.pagina !== null ? `Página ${ficha.pagina} del PDF` : tr('Página del PDF')}
           </button>
         </div>
       )}
@@ -478,7 +478,7 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
       <div className="citas-barra">
         {ficha.conPdf ? (
           <button type="button" className="btn btn-s btn-primario" onClick={() => cambiarVista('pagina')}>
-            {ficha.pagina !== null ? `Ver la cita marcada en la página ${ficha.pagina}` : 'Ver la cita marcada en la página'}
+            {ficha.pagina !== null ? `Ver la cita marcada en la página ${ficha.pagina}` : tr('Ver la cita marcada en la página')}
           </button>
         ) : (
           alPasaje && (

@@ -58,7 +58,7 @@ async function api(ruta: string, datos?: object) {
     throw new Error(
       control.signal.aborted
         ? `ROSA2018 no respondió en ${ESPERA_ACCESO_MS / 1000} segundos. Recarga la página y vuelve a intentarlo; si sigue igual, puede que tu red bloquee este enlace.`
-        : 'No se pudo conectar con ROSA2018. Comprueba que el enlace es el correcto y que el equipo que lo comparte está encendido.',
+        : tr('No se pudo conectar con ROSA2018. Comprueba que el enlace es el correcto y que el equipo que lo comparte está encendido.'),
     );
   } finally {
     window.clearTimeout(reloj);
@@ -69,9 +69,9 @@ async function api(ruta: string, datos?: object) {
   } catch {
     // Una página que no es de ROSA2018: el aviso de seguridad del túnel, un error
     // del proxy o un enlace caducado. No se enseña el error técnico del navegador.
-    throw new Error('El enlace no devolvió una respuesta de ROSA2018. Recarga la página; si ves un aviso de seguridad del túnel, acéptalo y vuelve a intentarlo.');
+    throw new Error(tr('El enlace no devolvió una respuesta de ROSA2018. Recarga la página; si ves un aviso de seguridad del túnel, acéptalo y vuelve a intentarlo.'));
   }
-  if (!r.ok) throw new Error(typeof json.detail === 'string' ? json.detail : 'No se pudo completar el acceso');
+  if (!r.ok) throw new Error(typeof json.detail === 'string' ? json.detail : tr('No se pudo completar el acceso'));
   return json;
 }
 
@@ -91,7 +91,7 @@ export function CuentasDelEquipo() {
     let vivo = true;
     api('solicitudes')
       .then((r: { cuentas: CuentaEquipo[] }) => vivo && setCuentas(r.cuentas))
-      .catch((e: unknown) => vivo && setError(e instanceof Error ? e.message : 'No se pudieron leer las cuentas'));
+      .catch((e: unknown) => vivo && setError(e instanceof Error ? e.message : tr('No se pudieron leer las cuentas')));
     return () => {
       vivo = false;
     };
@@ -104,7 +104,7 @@ export function CuentasDelEquipo() {
       const r: { cuentas: CuentaEquipo[] } = await api('decidir', { correo, estado });
       setCuentas(r.cuentas);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo guardar');
+      setError(e instanceof Error ? e.message : tr('No se pudo guardar'));
     } finally {
       setOcupada(null);
     }
@@ -138,12 +138,12 @@ export function CuentasDelEquipo() {
       )}
       {resto.length > 0 && (
         <details>
-          <summary>{resto.length} {resto.length === 1 ? 'cuenta decidida' : 'cuentas decididas'}</summary>
+          <summary>{resto.length} {resto.length === 1 ? tr('cuenta decidida') : tr('cuentas decididas')}</summary>
           <ul className="cuentas-lista">
             {resto.map((c) => (
               <li key={c.correo}>
                 <span>
-                  <strong>{c.correo}</strong> <small>{c.estado === 'activa' ? 'con acceso' : 'rechazada'}{c.aprobadaPor ? ` por ${c.aprobadaPor}` : ''}</small>
+                  <strong>{c.correo}</strong> <small>{c.estado === 'activa' ? tr('con acceso') : 'rechazada'}{c.aprobadaPor ? ` por ${c.aprobadaPor}` : ''}</small>
                 </span>
                 {c.estado === 'activa' && (
                   <button type="button" className="btn btn-fantasma btn-s" disabled={ocupada === c.correo} onClick={() => void decidir(c.correo, 'rechazada')}>
@@ -167,7 +167,7 @@ export function CuentaActual() {
   return (
     <div className="cuenta-actual">
       <strong>{sesion.correo}</strong>
-      <small>{sesion.administrador ? 'Cuenta administradora: puede conectar el correo de esta instalación.' : 'Cuenta del equipo, sin permisos de administración.'}</small>
+      <small>{sesion.administrador ? tr('Cuenta administradora: puede conectar el correo de esta instalación.') : tr('Cuenta del equipo, sin permisos de administración.')}</small>
       <button
         type="button"
         className="btn btn-fantasma btn-s"
@@ -176,7 +176,7 @@ export function CuentaActual() {
             await api('salir', {});
             window.location.assign('/');
           } catch {
-            setError('No se pudo cerrar la sesión. Inténtalo de nuevo.');
+            setError(tr('No se pudo cerrar la sesión. Inténtalo de nuevo.'));
           }
         }}
       >
@@ -243,7 +243,7 @@ export function Acceso({ children }: { children: ReactNode }) {
         }
         if (vivo) setSesion(s);
       } catch {
-        if (vivo) setMensaje('No se puede conectar con ROSA2018. Comprueba que el servidor está encendido y recarga esta página.');
+        if (vivo) setMensaje(tr('No se puede conectar con ROSA2018. Comprueba que el servidor está encendido y recarga esta página.'));
       }
     };
     void cargar();
@@ -262,7 +262,7 @@ export function Acceso({ children }: { children: ReactNode }) {
       await api('entrar', { correo, contrasena });
       window.location.assign('/');
     } catch (e) {
-      setMensaje(e instanceof Error ? e.message : 'No se pudo iniciar sesión');
+      setMensaje(e instanceof Error ? e.message : tr('No se pudo iniciar sesión'));
     } finally {
       setOcupado(false);
     }
@@ -272,7 +272,7 @@ export function Acceso({ children }: { children: ReactNode }) {
     setMensaje('');
     setAviso('');
     if (contrasena !== repetida) {
-      setMensaje('Las dos contraseñas no coinciden.');
+      setMensaje(tr('Las dos contraseñas no coinciden.'));
       return;
     }
     setOcupado(true);
@@ -283,7 +283,7 @@ export function Acceso({ children }: { children: ReactNode }) {
       setContrasena('');
       setRepetida('');
     } catch (e) {
-      setMensaje(e instanceof Error ? e.message : 'No se pudo enviar la solicitud');
+      setMensaje(e instanceof Error ? e.message : tr('No se pudo enviar la solicitud'));
     } finally {
       setOcupado(false);
     }
@@ -315,7 +315,7 @@ export function Acceso({ children }: { children: ReactNode }) {
 
   return (
     <main className="acceso">
-      <section className="acceso-identidad" aria-label="Alzheimer Project">
+      <section className="acceso-identidad" aria-label={tr("Alzheimer Project")}>
         <div className="acceso-identidad-marca">
           <img src="/arbol-marca.png" width={56} height={56} alt={tr("Árbol de Alzheimer Project")} />
           <p>Alzheimer Project</p>
@@ -329,15 +329,15 @@ export function Acceso({ children }: { children: ReactNode }) {
         <ArbolVivo />
       </section>
 
-      <section className="acceso-lado" aria-label="Acceso a ROSA2018">
+      <section className="acceso-lado" aria-label={tr("Acceso a ROSA2018")}>
         <motion.div className="acceso-tarjeta" initial={entrada} animate={{ opacity: 1, y: 0 }} transition={transicion}>
           <div className="acceso-marca">
             ROSA2018
           </div>
 
           <motion.div key="formulario" initial={entrada} animate={{ opacity: 1, y: 0 }} transition={transicion}>
-            <h2>{registrando ? 'Pide tu cuenta' : 'Continúa tu investigación'}</h2>
-            <p>{registrando ? 'Con tu correo de Alzheimer Project. Quien administra ROSA2018 la aprobará.' : 'Inicia sesión con tu cuenta de Alzheimer Project.'}</p>
+            <h2>{registrando ? tr('Pide tu cuenta') : tr('Continúa tu investigación')}</h2>
+            <p>{registrando ? tr('Con tu correo de Alzheimer Project. Quien administra ROSA2018 la aprobará.') : tr('Inicia sesión con tu cuenta de Alzheimer Project.')}</p>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -356,13 +356,13 @@ export function Acceso({ children }: { children: ReactNode }) {
                   required
                   maxLength={200}
                   pattern="[^@\s]+@[aA][lL][zZ][hH][eE][iI][mM][eE][rR][pP][rR][oO][jJ][eE][cC][tT]\.[cC][oO][mM]"
-                  title="Usa tu cuenta @alzheimerproject.com"
+                  title={tr("Usa tu cuenta @alzheimerproject.com")}
                   placeholder={`tu.nombre@${DOMINIO}`}
                   value={correo}
                   onChange={(e) => setCorreo(e.target.value)}
                 />
               </div>
-              <label htmlFor="acceso-contrasena">{registrando ? 'Elige una contraseña (al menos 10 caracteres)' : 'Contraseña'}</label>
+              <label htmlFor="acceso-contrasena">{registrando ? tr('Elige una contraseña (al menos 10 caracteres)') : tr('Contraseña')}</label>
               <input
                 id="acceso-contrasena"
                 type="password"
@@ -380,7 +380,7 @@ export function Acceso({ children }: { children: ReactNode }) {
                 </>
               )}
               <button className="btn acceso-continuar" disabled={ocupado}>
-                {ocupado ? (registrando ? 'Enviando…' : 'Iniciando sesión…') : registrando ? 'Pedir cuenta' : 'Iniciar sesión'}
+                {ocupado ? (registrando ? 'Enviando…' : tr('Iniciando sesión…')) : registrando ? tr('Pedir cuenta') : tr('Iniciar sesión')}
                 {!ocupado && <IconoFlecha />}
               </button>
             </form>
@@ -393,7 +393,7 @@ export function Acceso({ children }: { children: ReactNode }) {
                 setAviso('');
               }}
             >
-              {registrando ? 'Ya tengo cuenta: iniciar sesión' : '¿No tienes cuenta? Pídela con tu correo del proyecto'}
+              {registrando ? tr('Ya tengo cuenta: iniciar sesión') : tr('¿No tienes cuenta? Pídela con tu correo del proyecto')}
             </button>
             <p className="acceso-privacidad">
               Acceso exclusivo para <span className="acceso-dominio">@{DOMINIO}</span>{tr(". Los avisos de tus corridas llegarán a esta misma cuenta.")}
@@ -472,9 +472,9 @@ export function Instalacion({ onGuardar }: { onGuardar: () => Promise<void> }) {
             await api('configuracion', datos);
             setClave('');
             await onGuardar();
-            setMensaje('Conexión guardada. Solicita tu enlace con el formulario de arriba.');
+            setMensaje(tr('Conexión guardada. Solicita tu enlace con el formulario de arriba.'));
           } catch (error) {
-            setMensaje(error instanceof Error ? error.message : 'No se pudo guardar');
+            setMensaje(error instanceof Error ? error.message : tr('No se pudo guardar'));
           } finally {
             setOcupado(false);
           }

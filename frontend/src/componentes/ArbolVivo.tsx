@@ -9,7 +9,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { useMovimientoReducido } from '../lib/movimiento';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 type Tipo = 'objetivo' | 'rama' | 'hipotesis' | 'hecho' | 'fuente' | 'experimento';
 
@@ -73,14 +73,14 @@ const ENLACES: [string, string, 'rama' | 'sostiene' | 'cita' | 'experimento'][] 
 
 /** Las etapas del proceso, en el orden en que se iluminan. `nodos` y
  *  `enlaces` dicen qué parte del árbol se enciende en cada una. */
-export const ETAPAS_VIVAS: { clave: string; titulo: string; frase: string; nodos: (n: Nodo) => boolean; enlaces: (t: string) => boolean }[] = [
+export const ETAPAS_VIVAS: { clave: string; titulo: string; frase: string; nodos: (n: Nodo) => boolean; enlaces: (t: string) => boolean }[] = traducido([
   { clave: 'objetivo', titulo: 'Un objetivo', frase: 'Todo empieza en el tronco: la pregunta que el equipo quiere responder.', nodos: (n) => n.tipo === 'objetivo', enlaces: () => false },
   { clave: 'literatura', titulo: 'Literatura', frase: 'ROSA2018 lee PubMed, Europe PMC y los registros de ensayos; cada consulta queda anotada con su fecha.', nodos: (n) => n.tipo === 'fuente', enlaces: (t) => t === 'cita' },
   { clave: 'verificar', titulo: 'Verificación', frase: 'Cada afirmación se contrasta con el pasaje literal de su fuente antes de contar como hecho.', nodos: (n) => n.tipo === 'hecho' || n.tipo === 'fuente', enlaces: (t) => t === 'cita' },
   { clave: 'mundo', titulo: 'Modelo de mundo', frase: 'Lo que resiste entra como hecho con su procedencia; lo abierto queda como pregunta.', nodos: (n) => n.tipo === 'hecho', enlaces: (t) => t === 'sostiene' },
   { clave: 'hipotesis', titulo: 'Hipótesis y Killer', frase: 'ROSA2018 propone hipótesis y el Killer las somete a quince comprobaciones. Las que quedan, las decide una persona.', nodos: (n) => n.tipo === 'hipotesis' || n.tipo === 'rama', enlaces: (t) => t === 'rama' },
   { clave: 'laboratorio', titulo: 'Laboratorio', frase: 'La candidata se prerregistra, se sella con un tercero y vuelve del laboratorio con datos que actualizan la certeza.', nodos: (n) => n.tipo === 'experimento' || n.id === 'h5', enlaces: (t) => t === 'experimento' },
-];
+]);
 
 const INTERVALO_MS = 3400;
 

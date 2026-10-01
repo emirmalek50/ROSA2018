@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { negacionesDe } from '../datos/acciones';
 import { AMPLITUD } from './etiquetas';
-import { fijarIdioma, idiomaActual, tr, trc, trp } from './idioma';
+import { copiaTraducida, fijarIdioma, idiomaActual, tr, traducido, trc, trp } from './idioma';
 
 // `fijarIdioma` escribe en localStorage, y el modulo lo lee al importarse.
 // Si una prueba deja «en» puesto, el siguiente fichero de pruebas arranca en
@@ -109,6 +109,69 @@ describe('los mapas de etiquetas traducidos al leerlos', () => {
     expect(AMPLITUD.amplia.etiqueta).toBe('Amplia');
     fijarIdioma('en');
     expect(AMPLITUD.amplia.etiqueta).toBe('Broad');
+  });
+});
+
+describe('el Proxy baja hasta el fondo, pero no envuelve lo que no debe', () => {
+  it('traduce a cualquier profundidad, no solo un nivel', () => {
+    const hondo = traducido({
+      a: { b: { c: { d: [{ e: 'Al laboratorio' }] } } },
+      lista: ['Ajustes', { x: 'Al laboratorio' }],
+    });
+    fijarIdioma('en');
+    expect(hondo.a.b.c.d[0]?.e).toBe('To the lab');
+    expect(hondo.lista[0]).toBe('Settings');
+    expect((hondo.lista[1] as { x: string }).x).toBe('To the lab');
+  });
+
+  it('deja en paz una RegExp, una Date y un Map', () => {
+    // Un Proxy sobre una RegExp lanza al llamar .test(): el metodo lee
+    // ranuras internas que el Proxy no tiene. El glosario guarda una RegExp
+    // en cada entrada, asi que esto romperia el glosario entero.
+    const r = /\bElo\b/;
+    const f = new Date(0);
+    const m = new Map([['k', 'Ajustes']]);
+    const o = traducido({ patron: r, fecha: f, mapa: m, texto: 'Ajustes' });
+    fijarIdioma('en');
+    expect(() => o.patron.test('Elo')).not.toThrow();
+    expect(o.patron.test('Elo')).toBe(true);
+    expect(() => o.fecha.getTime()).not.toThrow();
+    expect(o.mapa.get('k')).toBe('Ajustes');
+    expect(o.texto).toBe('Settings');
+  });
+
+  it('un array envuelto se sigue comportando como un array', () => {
+    const a = traducido(['Ajustes', 'Al laboratorio']);
+    fijarIdioma('en');
+    expect(Array.isArray(a)).toBe(true);
+    expect(a.length).toBe(2);
+    expect(a.map((x) => x)).toEqual(['Settings', 'To the lab']);
+    expect([...a]).toEqual(['Settings', 'To the lab']);
+  });
+});
+
+describe('una constante de modulo reacciona al cambio de idioma', () => {
+  // Esto es lo que NO hacia tr(). Una constante se evalua una vez, al
+  // importar el fichero: `const X = [{ e: tr('Al laboratorio') }]` se queda
+  // con el idioma del arranque y no cambia al pulsar EN. El Proxy traduce al
+  // LEER, asi que la misma constante sirve para los dos idiomas.
+  const CONGELADA = [{ etiqueta: tr('Al laboratorio') }];
+  const VIVA = traducido([{ etiqueta: 'Al laboratorio' }]);
+
+  it('con tr() se congela; con traducido() cambia', () => {
+    fijarIdioma('en');
+    expect(CONGELADA[0]?.etiqueta).toBe('Al laboratorio');
+    expect(VIVA[0]?.etiqueta).toBe('To the lab');
+    fijarIdioma('es');
+    expect(VIVA[0]?.etiqueta).toBe('Al laboratorio');
+  });
+
+  it('el Proxy no se puede clonar, y por eso existe copiaTraducida', () => {
+    fijarIdioma('en');
+    expect(() => structuredClone(VIVA)).toThrow();
+    const plano = copiaTraducida(VIVA);
+    expect(plano[0]?.etiqueta).toBe('To the lab');
+    expect(() => structuredClone(plano)).not.toThrow();
   });
 });
 

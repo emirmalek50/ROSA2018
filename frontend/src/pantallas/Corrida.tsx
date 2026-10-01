@@ -57,8 +57,8 @@ function anchoDeTexto(texto: string): number {
  *  163 a 220 px de cabecera) y el botón de la derecha en gris; debajo, el
  *  panel. Sin corrida, la silueta genérica del panel. */
 export function EsqueletoCorrida({ corrida }: { corrida: CorridaTipo | null }) {
-  if (!corrida) return <EsqueletoPantalla variante="panel" rotulo="la corrida" margenSuperior={16} />;
-  const notas: string[] = [`Iteración ${corrida.iteracionActual}`, 'Empezó hace 3 días', ...(corrida.terminadaEn !== null ? ['Terminó hace 2 días'] : []), '2 h 15 min de trabajo'];
+  if (!corrida) return <EsqueletoPantalla variante="panel" rotulo={tr("la corrida")} margenSuperior={16} />;
+  const notas: string[] = [`Iteración ${corrida.iteracionActual}`, tr('Empezó hace 3 días'), ...(corrida.terminadaEn !== null ? [tr('Terminó hace 2 días')] : []), tr('2 h 15 min de trabajo')];
   if ((corrida.gasto.usdReal !== undefined && corrida.gasto.usdReal !== null) || (corrida.gasto.usd ?? 0) > 0) notas.push('12,40 $ facturados');
   if (corrida.motivoCierre) notas.push(corrida.motivoCierre);
   if (corrida.metrica && resumenMetrica(corrida.metrica)) notas.push(`Balance: ${resumenMetrica(corrida.metrica)}`);
@@ -67,7 +67,7 @@ export function EsqueletoCorrida({ corrida }: { corrida: CorridaTipo | null }) {
   return (
     <EsqueletoPantalla
       variante="panel"
-      rotulo="la corrida"
+      rotulo={tr("la corrida")}
       margenSuperior={16}
       cabecera={{
         titulo: `Corrida ${corrida.numero}`,
@@ -99,8 +99,8 @@ export function Corrida({ inv, estado, ahora, irA }: PropsCorrida) {
       <div className="contenido">
         <AvisoMuestra conexion={estado.conexion} />
         <Vacio
-          titulo="Esta investigación no tiene corridas"
-          pasos={['ROSA2018 lee el objetivo y los límites y propone el plan de la iteración 1.', 'Tú apruebas el plan (puedes reordenar, quitar o añadir pasos).', 'Cada paso se ejecuta con sus pistas en paralelo; aquí ves cada consulta a cada base.', 'Al cerrar la iteración, ROSA2018 resume en llano lo que encontró y lo que te espera.']}
+          titulo={tr("Esta investigación no tiene corridas")}
+          pasos={[tr('ROSA2018 lee el objetivo y los límites y propone el plan de la iteración 1.'), tr('Tú apruebas el plan (puedes reordenar, quitar o añadir pasos).'), tr('Cada paso se ejecuta con sus pistas en paralelo; aquí ves cada consulta a cada base.'), tr('Al cerrar la iteración, ROSA2018 resume en llano lo que encontró y lo que te espera.')]}
           accion={
             estado.conexion === 'muestra' ? undefined : (
               <button type="button" className="btn btn-primario" onClick={() => acciones.iniciarCorrida(inv.id)}>
@@ -109,7 +109,7 @@ export function Corrida({ inv, estado, ahora, irA }: PropsCorrida) {
             )
           }
         >
-          {estado.conexion === 'muestra' ? 'Cuando ROSA2018 esté conectada, aquí se arranca la primera con el objetivo y los límites definidos.' : 'ROSA2018 arranca la corrida con el objetivo y los límites definidos, propone el plan de la primera iteración y espera tu aprobación.'}
+          {estado.conexion === 'muestra' ? tr('Cuando ROSA2018 esté conectada, aquí se arranca la primera con el objetivo y los límites definidos.') : tr('ROSA2018 arranca la corrida con el objetivo y los límites definidos, propone el plan de la primera iteración y espera tu aprobación.')}
         </Vacio>
       </div>
     );
@@ -146,13 +146,13 @@ function NuevaCorrida({ inv, anterior }: { inv: Investigacion; anterior: Corrida
       }}
     >
       <p className="meta">
-        {tr("Cuánto debe durar esta corrida como mucho. Se detiene con lo que llegue primero. Deja todo vacío para que solo mande la condición de la investigación: «")}{inv.condicionParada || 'sin condición declarada'}».
+        {tr("Cuánto debe durar esta corrida como mucho. Se detiene con lo que llegue primero. Deja todo vacío para que solo mande la condición de la investigación: «")}{inv.condicionParada || tr('sin condición declarada')}».
       </p>
       <div className="nueva-corrida-campos">
         <div className="campo">
           <label className="campo-etiqueta" htmlFor="nueva-corrida-tiempo">Tiempo</label>
           <div className="nueva-corrida-duracion">
-            <input id="nueva-corrida-tiempo" type="number" inputMode="decimal" min={b.unidadTiempo === 'minutos' ? 1 : b.unidadTiempo === 'dias' ? 1 / 1440 : 1 / 60} max={b.unidadTiempo === 'minutos' ? 20160 : b.unidadTiempo === 'dias' ? 14 : 336} step="any" placeholder="por ejemplo 2" value={b.horas} onChange={campo('horas')} />
+            <input id="nueva-corrida-tiempo" type="number" inputMode="decimal" min={b.unidadTiempo === 'minutos' ? 1 : b.unidadTiempo === 'dias' ? 1 / 1440 : 1 / 60} max={b.unidadTiempo === 'minutos' ? 20160 : b.unidadTiempo === 'dias' ? 14 : 336} step="any" placeholder={tr("por ejemplo 2")} value={b.horas} onChange={campo('horas')} />
             <select aria-label={tr("Unidad de tiempo")} value={b.unidadTiempo ?? 'horas'} onChange={(e) => setB((x) => ({ ...x, unidadTiempo: e.target.value as ParadaBorrador['unidadTiempo'] }))}>
               <option value="minutos">Minutos</option>
               <option value="horas">Horas</option>
@@ -162,7 +162,7 @@ function NuevaCorrida({ inv, anterior }: { inv: Investigacion; anterior: Corrida
         </div>
         <label className="campo">
           <span className="campo-etiqueta">Iteraciones</span>
-          <input type="number" inputMode="numeric" min={1} step={1} placeholder="por ejemplo 6" value={b.iteraciones} onChange={campo('iteraciones')} />
+          <input type="number" inputMode="numeric" min={1} step={1} placeholder={tr("por ejemplo 6")} value={b.iteraciones} onChange={campo('iteraciones')} />
         </label>
         <label className="campo nueva-corrida-certeza">
           <span className="campo-etiqueta">{tr("Parar al llegar a certeza")}</span>
@@ -179,7 +179,7 @@ function NuevaCorrida({ inv, anterior }: { inv: Investigacion; anterior: Corrida
         </label>
         <label className="campo">
           <span className="campo-etiqueta">{tr("Iteraciones sin avance")}</span>
-          <input type="number" inputMode="numeric" min={1} step={1} placeholder="por ejemplo 3" value={b.sinCambio} onChange={campo('sinCambio')} />
+          <input type="number" inputMode="numeric" min={1} step={1} placeholder={tr("por ejemplo 3")} value={b.sinCambio} onChange={campo('sinCambio')} />
           <small>{tr("Para si N iteraciones seguidas no suben ninguna hipótesis de certeza ni añaden hechos.")}</small>
         </label>
         <label className="campo nueva-corrida-texto">
@@ -190,7 +190,7 @@ function NuevaCorrida({ inv, anterior }: { inv: Investigacion; anterior: Corrida
       </div>
       <div className="acciones">
         <button type="submit" className="btn btn-primario">
-          <IconPlay size={13} /> {parada ? `Empezar: se detiene con ${resumenParada(parada)}` : 'Empezar sin parada propia'}
+          <IconPlay size={13} /> {parada ? `Empezar: se detiene con ${resumenParada(parada)}` : tr('Empezar sin parada propia')}
         </button>
         <button type="button" className="btn" onClick={() => { setAbierto(false); setB(borradorDe(anterior) ?? BORRADOR_VACIO); }}>
           Cancelar
@@ -274,7 +274,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
         reclaman={pendientes.length + incidenciasPendientes.length}
         usd={costeDeLaCorrida(corrida.gasto)}
         etiqueta={etiquetaCorrida(corrida, iteracion)}
-        relojParado={viva && enEspera ? 'en espera de una persona' : viva && esperandoModelo ? 'esperando al modelo' : null}
+        relojParado={viva && enEspera ? tr('en espera de una persona') : viva && esperandoModelo ? tr('esperando al modelo') : null}
         acciones={
           <>
             {!viva && estado.conexion !== 'muestra' && <NuevaCorrida inv={inv} anterior={corrida.parada ?? null} />}
@@ -294,8 +294,8 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                 peligro
                 clase="btn-vivo"
                 disabled={corridaEnVuelo}
-                pregunta="La corrida se detiene y no se reanuda: lo que hay en el modelo de mundo y en la cola se conserva. Para seguir habría que arrancar una corrida nueva."
-                pedirTexto={{ etiqueta: 'Por qué se detiene', marcador: 'Hay que revisar la cola antes de seguir gastando' }}
+                pregunta={tr("La corrida se detiene y no se reanuda: lo que hay en el modelo de mundo y en la cola se conserva. Para seguir habría que arrancar una corrida nueva.")}
+                pedirTexto={{ etiqueta: tr('Por qué se detiene'), marcador: tr('Hay que revisar la cola antes de seguir gastando') }}
                 extra={
                   <label className="interruptor">
                     <input type="checkbox" checked={vigilar} onChange={(e) => setVigilar(e.target.checked)} />
@@ -355,7 +355,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
       })()}
 
       {incidenciasPendientes.length > 0 && (
-        <Seccion titulo={incidenciasPendientes.length === 1 ? 'Algo impide seguir' : `${incidenciasPendientes.length} cosas impiden seguir`} nota="Un modelo que se negó o un conector caducado no matan la corrida en silencio: aparecen aquí con la alternativa que ROSA2018 propone.">
+        <Seccion titulo={incidenciasPendientes.length === 1 ? tr('Algo impide seguir') : `${incidenciasPendientes.length} cosas impiden seguir`} nota={tr("Un modelo que se negó o un conector caducado no matan la corrida en silencio: aparecen aquí con la alternativa que ROSA2018 propone.")}>
           {incidenciasPendientes.map((i) => (
             <IncidenciaPendiente key={i.id} incidencia={i} ahora={ahora} />
           ))}
@@ -364,8 +364,8 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
 
       {pendientes.length > 0 && (
         <Seccion
-          titulo={pendientes.length === 1 ? 'ROSA2018 necesita tu permiso' : `ROSA2018 necesita tu permiso (${pendientes.length})`}
-          nota={`La aprobación va antes del efecto: nada de esto ocurre hasta que respondas. Si nadie decide en ${estado.politicaEsperas.horas} h: ${estado.politicaEsperas.accion === 'recordar' ? 'se recuerda' : estado.politicaEsperas.accion === 'escalar' ? `se escala a ${estado.politicaEsperas.escalarA}` : estado.politicaEsperas.accion === 'detener' ? 'la corrida se detiene con seguridad' : 'la corrida continúa y queda registrado'} (se cambia en Ajustes).`}
+          titulo={pendientes.length === 1 ? tr('ROSA2018 necesita tu permiso') : `ROSA2018 necesita tu permiso (${pendientes.length})`}
+          nota={`La aprobación va antes del efecto: nada de esto ocurre hasta que respondas. Si nadie decide en ${estado.politicaEsperas.horas} h: ${estado.politicaEsperas.accion === 'recordar' ? tr('se recuerda') : estado.politicaEsperas.accion === 'escalar' ? `se escala a ${estado.politicaEsperas.escalarA}` : estado.politicaEsperas.accion === 'detener' ? tr('la corrida se detiene con seguridad') : tr('la corrida continúa y queda registrado')} (se cambia en Ajustes).`}
           acciones={
             seleccion.size > 1 ? (
               <div className="acciones">
@@ -422,11 +422,11 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
 
       <div className="rejilla-2" style={{ marginTop: 28, alignItems: 'start' }}>
         <div className="seccion" style={{ gridColumn: '1 / -1' }}>
-          <SoloDetalle resumen={`Gasto: ${formatearEntero(corrida.gasto.llamadas)} llamadas al modelo, ${formatearEntero(corrida.gasto.articulosLeidos)} artículos leídos, ${formatearDuracion(segundosDeCorrida * 1000) || '0 s'} de trabajo${viva && enEspera ? ' (en espera de una persona)' : viva && esperandoModelo ? ' (esperando al modelo)' : ''}${textoCoste(corrida.gasto).corto ? `, ${textoCoste(corrida.gasto).corto}` : ''}.`}>
+          <SoloDetalle resumen={`Gasto: ${formatearEntero(corrida.gasto.llamadas)} llamadas al modelo, ${formatearEntero(corrida.gasto.articulosLeidos)} artículos leídos, ${formatearDuracion(segundosDeCorrida * 1000) || '0 s'} de trabajo${viva && enEspera ? tr(' (en espera de una persona)') : viva && esperandoModelo ? tr(' (esperando al modelo)') : ''}${textoCoste(corrida.gasto).corto ? `, ${textoCoste(corrida.gasto).corto}` : ''}.`}>
           <div className="gasto">
             <div className="gasto-item" title={tr("Tiempo de trabajo: reloj de pared menos la espera a una persona y las pausas del proceso; es lo que se compara con el tope en horas.")}>
               <strong>{formatearDuracion(segundosDeCorrida * 1000) || '0 s'}</strong>
-              <span>{viva && enEspera ? 'de trabajo · en espera de una persona' : viva && esperandoModelo ? 'de trabajo · esperando al modelo' : 'de trabajo'}</span>
+              <span>{viva && enEspera ? tr('de trabajo · en espera de una persona') : viva && esperandoModelo ? tr('de trabajo · esperando al modelo') : tr('de trabajo')}</span>
             </div>
             {textoCoste(corrida.gasto).corto && (
               <div className="gasto-item" title={textoCoste(corrida.gasto).title}>
@@ -459,7 +459,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
             <div className="gasto-item" title={tr("Cuánto del contexto del cerebro está ocupado y cuántas veces se ha resumido el historial. Explica por qué ROSA2018 puede 'olvidar' tras días.")}>
               <strong>{formatearPorcentaje(contextoPct)}</strong>
               <span>
-                contexto ocupado · {corrida.contexto.compactaciones} {corrida.contexto.compactaciones === 1 ? 'compactación' : 'compactaciones'}
+                contexto ocupado · {corrida.contexto.compactaciones} {corrida.contexto.compactaciones === 1 ? tr('compactación') : 'compactaciones'}
               </span>
               <Barra fraccion={contextoPct} tono={contextoPct > 0.8 ? 'aviso' : undefined} />
             </div>
@@ -472,7 +472,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
       </div>
 
       {inv.mision && !inv.mision.aprobadaEn && viva && (
-        <Seccion titulo="La misión espera tu aprobación" nota="ROSA2018 propuso el marco de la investigación a partir de tu objetivo (población, etapa, célula o tejido, mecanismo, tipo de intervención, capacidades del laboratorio y presupuesto). Aprobar el primer plan la aprueba tal como está; si quieres corregirla, hazlo aquí o en Objetivo y datos.">
+        <Seccion titulo={tr("La misión espera tu aprobación")} nota={tr("ROSA2018 propuso el marco de la investigación a partir de tu objetivo (población, etapa, célula o tejido, mecanismo, tipo de intervención, capacidades del laboratorio y presupuesto). Aprobar el primer plan la aprueba tal como está; si quieres corregirla, hazlo aquí o en Objetivo y datos.")}>
           <FormularioMision inv={inv} compacto />
         </Seccion>
       )}
@@ -482,13 +482,13 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
       <PreguntaDeCampana corrida={corrida} />
 
       {corrida.traspasoRecibido && (
-        <Seccion detalle titulo="Lo que hereda de la corrida anterior" nota="El traspaso ejecutable: cómo terminó la corrida anterior, su balance, la pregunta que trabajó, las hipótesis que el Killer cerró y por qué, las consultas hechas y las debilidades no atendidas. El planificador lo lee antes de proponer el primer plan.">
+        <Seccion detalle titulo={tr("Lo que hereda de la corrida anterior")} nota={tr("El traspaso ejecutable: cómo terminó la corrida anterior, su balance, la pregunta que trabajó, las hipótesis que el Killer cerró y por qué, las consultas hechas y las debilidades no atendidas. El planificador lo lee antes de proponer el primer plan.")}>
           <pre className="traspaso">{corrida.traspasoRecibido}</pre>
         </Seccion>
       )}
 
       {viva && proponiendoPlan(corrida, iteracion) && (
-        <Seccion titulo={`Iteración ${iteracion ? iteracion.numero + 1 : corrida.iteracionActual}`} nota="ROSA2018 escribe el plan">
+        <Seccion titulo={`Iteración ${iteracion ? iteracion.numero + 1 : corrida.iteracionActual}`} nota={tr("ROSA2018 escribe el plan")}>
           <div className="tarjeta">
             <p>
               <span className="shimmer-text">{tr("ROSA2018 está proponiendo el plan de esta iteración")}</span>
@@ -507,8 +507,8 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
             iteracion.terminadaEn
               ? `Terminada`
               : iteracion.planAprobado
-                ? `Empezó`
-                : `Plan propuesto, sin aprobar`
+                ? tr(`Empezó`)
+                : tr(`Plan propuesto, sin aprobar`)
           }
           acciones={
             <span className="meta" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -567,7 +567,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
       )}
 
       {procesosVivos.length > 0 && (
-        <Seccion detalle titulo="Cómputo en marcha" nota="Cada proceso vivo. Detenerlo con una indicación se la pasa a ROSA2018 como paso del plan (por ejemplo: rehazlo con menos memoria).">
+        <Seccion detalle titulo={tr("Cómputo en marcha")} nota={tr("Cada proceso vivo. Detenerlo con una indicación se la pasa a ROSA2018 como paso del plan (por ejemplo: rehazlo con menos memoria).")}>
           <table className="tabla">
             <thead>
               <tr>
@@ -606,7 +606,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
 
       <Seccion
         detalle titulo="Búsqueda de la corrida"
-        nota="El flujo de la búsqueda (identificados, cribados, leídos a texto completo, usados) y las consultas exactas con fecha: la estrategia reproducible que pide cualquier revisor."
+        nota={tr("El flujo de la búsqueda (identificados, cribados, leídos a texto completo, usados) y las consultas exactas con fecha: la estrategia reproducible que pide cualquier revisor.")}
         acciones={
           <div className="acciones">
             <button type="button" className="btn btn-s" disabled={prismaEnVuelo} {...atributosEnVuelo(prismaEnVuelo)} title={tr("Descarga el flujo en PRISMA 2020 (variables oficiales del diagrama, ítems 6, 7, 8, 16a y 16b), la extensión para revisiones vivas y la declaración de la IA usada, en JSON y en Markdown. Sin ningún modelo: sale del registro.")} onClick={envolverPrisma(() => acciones.exportarPrisma(corrida.id))}>
@@ -622,8 +622,8 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
           {[
             ['Identificados', corrida.busqueda.identificados],
             ['Cribados', corrida.busqueda.cribados],
-            ['Texto completo', corrida.busqueda.textoCompleto],
-            ['Usados en hipótesis', corrida.busqueda.usados],
+            [tr('Texto completo'), corrida.busqueda.textoCompleto],
+            [tr('Usados en hipótesis'), corrida.busqueda.usados],
           ].map(([et, n], i) => (
             <div key={et} className="prisma-caja">
               <strong>{formatearEntero(Number(n))}</strong>
@@ -669,19 +669,19 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
       </Seccion>
 
       {anteriores.length > 0 && (
-        <Seccion titulo="Iteraciones anteriores" nota="Volver a un punto abre una iteración nueva con el plan de esa (y, si quieres, el modelo de mundo como estaba). Bifurcar crea una investigación hermana desde ahí.">
+        <Seccion titulo={tr("Iteraciones anteriores")} nota={tr("Volver a un punto abre una iteración nueva con el plan de esa (y, si quieres, el modelo de mundo como estaba). Bifurcar crea una investigación hermana desde ahí.")}>
           <div className="iteraciones-lista">
             {anteriores.map((it) => (
               <div key={it.id} className="iteracion-fila iteracion-fila-acciones">
                 <strong>#{it.numero}</strong>
                 <div>
-                  <span>{it.resumen || 'Sin resumen'}</span>
+                  <span>{it.resumen || tr('Sin resumen')}</span>
                   <RevisionDeRegistro r={it.revisionRegistro} compacto />
                   {it.plan.some((p) => p.estado === 'fallido') && (
                     <>
                       {' '}
                       <Chip tono="mal">
-                        {it.plan.filter((p) => p.estado === 'fallido').length} {it.plan.filter((p) => p.estado === 'fallido').length === 1 ? 'paso fallido' : 'pasos fallidos'}
+                        {it.plan.filter((p) => p.estado === 'fallido').length} {it.plan.filter((p) => p.estado === 'fallido').length === 1 ? tr('paso fallido') : tr('pasos fallidos')}
                       </Chip>
                     </>
                   )}
@@ -690,7 +690,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                 <div className="acciones">
                   {viva && it.terminadaEn !== null && (
                     <Confirmar
-                      etiqueta="Volver aquí"
+                      etiqueta={tr("Volver aquí")}
                       clase="btn-s"
                       pregunta={`Se abre una iteración nueva con el plan de la ${it.numero} y se cierra la actual. Elige qué restaurar.`}
                       extra={<VolverOpciones onElegir={(que) => acciones.volverAIteracion(it.id, que)} />}
@@ -698,10 +698,10 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                     />
                   )}
                   <Confirmar
-                    etiqueta="Bifurcar desde aquí"
+                    etiqueta={tr("Bifurcar desde aquí")}
                     clase="btn-s"
                     pregunta={`Se crea una investigación hermana partiendo del estado de la iteración ${it.numero}. La original sigue igual.`}
-                    pedirTexto={{ etiqueta: 'Nombre de la rama (di para qué es)', marcador: 'Hipótesis rival desde este punto' }}
+                    pedirTexto={{ etiqueta: tr('Nombre de la rama (di para qué es)'), marcador: tr('Hipótesis rival desde este punto') }}
                     onConfirmar={(motivo) => {
                       const id = acciones.bifurcarInvestigacion(inv.id, `${motivo} (desde la iteración ${it.numero})`);
                       if (id) irA(rutaDe(id, 'corrida'));
@@ -716,7 +716,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
 
       {(resueltas.length > 0 || incidencias.some((i) => i.estado === 'resuelta')) && (
         <Seccion
-          detalle titulo="Permisos e incidencias ya respondidos"
+          detalle titulo={tr("Permisos e incidencias ya respondidos")}
           acciones={
             <button type="button" className="btn btn-fantasma btn-s" onClick={() => setVerResueltas((v) => !v)}>
               {verResueltas ? 'Ocultar' : `Ver ${resueltas.length + incidencias.filter((i) => i.estado === 'resuelta').length}`}
@@ -841,7 +841,7 @@ export function textoCoste(g: Pick<CorridaTipo['gasto'], 'usd' | 'usdReal' | 'us
   const real = typeof g.usdReal === 'number' && Number.isFinite(g.usdReal) ? g.usdReal : null;
   const estimado = typeof g.usd === 'number' && Number.isFinite(g.usd) ? g.usd : null;
   if (real !== null) {
-    const nota = g.usdEsEstimado ? ' (alguna llamada llegó sin coste del gateway y se estimó por tokens)' : '';
+    const nota = g.usdEsEstimado ? tr(' (alguna llamada llegó sin coste del gateway y se estimó por tokens)') : '';
     return {
       corto: `${usd(real)} facturados por el gateway${estimado !== null ? ` (estimado por tokens: ${usd(estimado)})` : ''}`,
       principal: usd(real),
@@ -850,7 +850,7 @@ export function textoCoste(g: Pick<CorridaTipo['gasto'], 'usd' | 'usdReal' | 'us
     };
   }
   if (estimado !== null && estimado > 0) {
-    return { corto: `${usd(estimado)} estimados por tokens`, principal: usd(estimado), etiqueta: 'estimados por tokens (el servidor no guardó la factura del gateway)', title: 'Estimación con la tabla de precios de ROSA2018 a partir de los tokens; la factura real la da el AI Gateway y esta corrida no la trae guardada.' };
+    return { corto: `${usd(estimado)} estimados por tokens`, principal: usd(estimado), etiqueta: tr('estimados por tokens (el servidor no guardó la factura del gateway)'), title: tr('Estimación con la tabla de precios de ROSA2018 a partir de los tokens; la factura real la da el AI Gateway y esta corrida no la trae guardada.') };
   }
   return { corto: '', principal: '', etiqueta: '', title: '' };
 }

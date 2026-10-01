@@ -2,6 +2,7 @@
 // rosa/acuerdo.py para pintar el conjunto dorado sin pedirlo al servidor.
 
 import type { CasoDorado } from '../datos/tipos';
+import { tr } from './idioma';
 
 export function kappaCohen(a: string[], b: string[]): number | null {
   const n = a.length;
@@ -24,9 +25,9 @@ export function kappaCohen(a: string[], b: string[]): number | null {
 }
 
 export function interpretarKappa(k: number | null): string {
-  if (k === null) return 'sin datos';
-  if (k < 0) return 'peor que el azar';
-  if (k >= 0.81) return 'casi perfecto';
+  if (k === null) return tr('sin datos');
+  if (k < 0) return tr('peor que el azar');
+  if (k >= 0.81) return tr('casi perfecto');
   if (k >= 0.61) return 'sustancial';
   if (k >= 0.41) return 'moderado';
   if (k >= 0.21) return 'regular';

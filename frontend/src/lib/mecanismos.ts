@@ -22,6 +22,7 @@
 // que hay, y por eso se enseña en vez de esconderse.
 
 import type { GrafoCausal, Hipotesis } from '../datos/tipos';
+import { traducido, tr } from './idioma';
 
 /** Los tramos de la enfermedad, en el orden en que ocurren. Es el mismo
  *  orden que `CAPAS` en `rosa/causal.py`, que es donde se decide. */
@@ -30,14 +31,14 @@ export type Capa = (typeof CAPAS)[number] | 'otros';
 
 /** El rótulo de cada columna. Los identificadores van sin tilde; el texto que
  *  se lee, con ella. */
-export const TITULO_CAPA: Record<Capa, string> = {
+export const TITULO_CAPA: Record<Capa, string> = traducido({
   factores: 'FACTORES',
   patologia: 'PATOLOGÍA',
   dano: 'DAÑO',
   marcadores: 'MARCADORES',
   desenlace: 'DESENLACE',
   otros: 'OTROS',
-};
+});
 
 /** Compatibilidad con los grafos calculados ANTES del 22 de septiembre de
  *  2026, que no traen `capa` en el nodo. Los nuevos la traen del servidor
@@ -59,12 +60,12 @@ const CAPA_DE_RESPALDO: Record<string, Capa> = {
 
 /** Cómo se escribe un nodo cuyo identificador va sin tilde. Solo para grafos
  *  viejos: los nuevos traen la etiqueta hecha desde `rosa/causal.py`. */
-const ETIQUETA_DE_RESPALDO: Record<string, string> = {
+const ETIQUETA_DE_RESPALDO: Record<string, string> = traducido({
   neurodegeneracion: 'neurodegeneración',
   cognicion: 'cognición',
   neuroinflamacion: 'neuroinflamación',
   'funcion renal': 'función renal',
-};
+});
 
 /** Sin tildes. Se usa para IDENTIFICAR, nunca para enseñar. */
 export function sinTildes(texto: string): string {
@@ -256,13 +257,13 @@ export function supuestosAgregados(hipotesis: Hipotesis[]): SupuestoAgregado[] {
 
 /** Las cuatro clases de amenaza, con su nombre en llano. El rol viene del
  *  servidor como `alternativa_<clase>`. */
-export const CLASE_AMENAZA: Record<string, string> = {
+export const CLASE_AMENAZA: Record<string, string> = traducido({
   alternativa_confusor: 'Confusor',
   alternativa_causa_inversa: 'Causa inversa',
   alternativa_artefacto: 'Artefacto de medida',
   alternativa_seleccion: 'Sesgo de selección',
   alternativa_otra: 'Otra explicación',
-};
+});
 
 export interface Amenaza {
   id: string;
@@ -286,7 +287,7 @@ export function amenazasDe(grafo: GrafoCausal | null | undefined): Amenaza[] {
     .filter((n) => typeof n.rol === 'string' && n.rol.startsWith('alternativa_'))
     .map((n) => ({
       id: n.id,
-      clase: CLASE_AMENAZA[n.rol] ?? 'Otra explicación',
+      clase: CLASE_AMENAZA[n.rol] ?? tr('Otra explicación'),
       texto: n.etiqueta ?? '',
       hacia: [...new Set(aristas.filter((a) => a.de === n.id).map((a) => a.a))],
     }));
@@ -300,7 +301,7 @@ export function actoresDe(grafo: GrafoCausal | null | undefined): { exposicion: 
 }
 
 /** Cómo se lee un veredicto de identificación, con su explicación. */
-export const EN_LLANO_IDENTIFICACION: Record<string, { titulo: string; que: string }> = {
+export const EN_LLANO_IDENTIFICACION: Record<string, { titulo: string; que: string }> = traducido({
   identificable: {
     titulo: 'Efecto identificable',
     que: 'Con la evidencia que hay se puede estimar el efecto sin que lo confunda otra causa.',
@@ -313,7 +314,7 @@ export const EN_LLANO_IDENTIFICACION: Record<string, { titulo: string; que: stri
     titulo: 'Sin resolver',
     que: 'No hay con qué separar el efecto de sus explicaciones alternativas.',
   },
-};
+});
 
 /** El veredicto de identificación, por regla y no por modelo.
  *

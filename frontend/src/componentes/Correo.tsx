@@ -18,19 +18,19 @@ import { useEffect, useState } from 'react';
 import { cabeceras } from '../datos/almacen';
 import { atributosEnVuelo, senalDeTope, useEnVuelo } from '../lib/diferido';
 import { Cargando, Esqueleto, EsqueletoTexto } from './Esqueleto';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 type Configuracion = { remitente: string; url: string; hora: number; zona: string; proveedor: 'resend' | 'smtp'; smtpServidor: string; smtpPuerto: number; smtpUsuario: string };
 type EstadoCorreo = Configuracion & {
   claveGuardada: boolean; configurado: boolean; administrador: boolean; error: string | null;
   historial: { id: string; tipo: string; destinatario: string; estado: string; creado: number; intentos: number; error: string | null }[];
 };
-const ETIQUETAS: Record<string, string> = { pendiente: 'En cola / reintentó', aceptado: 'Aceptado por el proveedor', fallido: 'No confirmado', cancelado: 'Cancelado' };
+const ETIQUETAS: Record<string, string> = traducido({ pendiente: 'En cola / reintentó', aceptado: 'Aceptado por el proveedor', fallido: 'No confirmado', cancelado: 'Cancelado' });
 
 async function pedir(ruta = '', cuerpo?: object) {
   const r = await fetch(`/api/correo${ruta}`, { method: cuerpo ? 'POST' : 'GET', headers: cabeceras(), cache: 'no-store', ...(cuerpo ? { body: JSON.stringify(cuerpo) } : {}), ...senalDeTope() });
   const datos = await r.json();
-  if (!r.ok) throw new Error(typeof datos.detail === 'string' ? datos.detail : 'No se pudo conectar el correo');
+  if (!r.ok) throw new Error(typeof datos.detail === 'string' ? datos.detail : tr('No se pudo conectar el correo'));
   return datos;
 }
 
@@ -74,7 +74,7 @@ function EsqueletoCorreo({ forma }: { forma: FormaCorreo }) {
   return (
     <Cargando
       activo
-      rotulo="la configuración del correo"
+      rotulo={tr("la configuración del correo")}
       esqueleto={
         <div aria-hidden="true">
           {campos.map((ancho, i) => (
@@ -124,7 +124,7 @@ export function Correo({ servidor }: { servidor: boolean }) {
           setEstado(datos);
           setForm((anterior) => anterior ?? { remitente: datos.remitente, url: datos.url, hora: datos.hora, zona: datos.zona, proveedor: datos.proveedor ?? 'resend', smtpServidor: datos.smtpServidor ?? 'smtp.gmail.com', smtpPuerto: datos.smtpPuerto ?? 587, smtpUsuario: datos.smtpUsuario ?? '' });
         }
-      } catch { if (vivo) setMensaje('No se pudo cargar el servicio de correo. Comprueba que el backend está actualizado.'); }
+      } catch { if (vivo) setMensaje(tr('No se pudo cargar el servicio de correo. Comprueba que el backend está actualizado.')); }
     };
     void cargar();
     const intervalo = window.setInterval(() => void cargar(), 5000);
@@ -137,11 +137,11 @@ export function Correo({ servidor }: { servidor: boolean }) {
       setClave('');
       setEstado(await pedir());
       setMensaje(texto);
-    } catch (e) { setMensaje(e instanceof Error ? e.message : 'No se pudo completar la operación'); }
+    } catch (e) { setMensaje(e instanceof Error ? e.message : tr('No se pudo completar la operación')); }
   }
-  const guardar = envolverGuardar(() => (form ? ejecutar('/configuracion', { ...form, clave }, 'Configuración guardada. Puedes enviar una prueba.') : undefined));
-  const probar = envolverPrueba(() => ejecutar('/prueba', {}, 'Prueba en cola. El historial mostrará si el proveedor la acepta.'));
-  const desconectar = envolverDesconectar(() => ejecutar('/configuracion', { borrarClave: true }, 'Conexión eliminada y correos pendientes cancelados.'));
+  const guardar = envolverGuardar(() => (form ? ejecutar('/configuracion', { ...form, clave }, tr('Configuración guardada. Puedes enviar una prueba.')) : undefined));
+  const probar = envolverPrueba(() => ejecutar('/prueba', {}, tr('Prueba en cola. El historial mostrará si el proveedor la acepta.')));
+  const desconectar = envolverDesconectar(() => ejecutar('/configuracion', { borrarClave: true }, tr('Conexión eliminada y correos pendientes cancelados.')));
   if (!servidor) return <p>{tr("El correo real solo está disponible con el servidor conectado, no en el modo de muestra.")}</p>;
   return <div className="tarjeta seccion">
     <h3>{tr("Envío real por correo")}</h3>
@@ -156,8 +156,8 @@ export function Correo({ servidor }: { servidor: boolean }) {
             <div className="campo"><label htmlFor="correo-smtp-puerto">{tr("Puerto (587 con STARTTLS, 465 con TLS)")}</label><input id="correo-smtp-puerto" type="number" min={1} max={65535} required value={form.smtpPuerto} onChange={(e) => setForm({ ...form, smtpPuerto: Number(e.target.value) })} /></div>
             <div className="campo"><label htmlFor="correo-smtp-usuario">{tr("Usuario (la cuenta que envía)")}</label><input id="correo-smtp-usuario" type="email" required value={form.smtpUsuario} onChange={(e) => setForm({ ...form, smtpUsuario: e.target.value })} /></div>
           </>}
-          <div className="campo"><label htmlFor="correo-remitente">{form.proveedor === 'smtp' ? 'Correo remitente (la misma cuenta o un alias suyo)' : 'Correo remitente (dominio verificado en Resend)'}</label><input id="correo-remitente" type="email" required value={form.remitente} onChange={(e) => setForm({ ...form, remitente: e.target.value })} placeholder="rosa@tu-dominio.com" /></div>
-          <div className="campo"><label htmlFor="correo-clave">{form.proveedor === 'smtp' ? 'Contraseña de aplicación' : 'Clave de Resend'} {estado.claveGuardada ? '(guardada; deja vacío para conservarla)' : ''}</label><input id="correo-clave" type="password" autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} /></div>
+          <div className="campo"><label htmlFor="correo-remitente">{form.proveedor === 'smtp' ? tr('Correo remitente (la misma cuenta o un alias suyo)') : tr('Correo remitente (dominio verificado en Resend)')}</label><input id="correo-remitente" type="email" required value={form.remitente} onChange={(e) => setForm({ ...form, remitente: e.target.value })} placeholder="rosa@tu-dominio.com" /></div>
+          <div className="campo"><label htmlFor="correo-clave">{form.proveedor === 'smtp' ? tr('Contraseña de aplicación') : 'Clave de Resend'} {estado.claveGuardada ? tr('(guardada; deja vacío para conservarla)') : ''}</label><input id="correo-clave" type="password" autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} /></div>
           <div className="campo"><label htmlFor="correo-url">{tr("Dirección web para abrir ROSA2018 desde el correo")}</label><input id="correo-url" type="url" required value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /><small>{tr("Localhost solo funciona en el equipo que ejecuta ROSA2018. No incluyas tokens de acceso en esta URL.")}</small></div>
           <div className="campo"><label htmlFor="correo-hora">{tr("Hora del resumen diario (0 a 23)")}</label><input id="correo-hora" type="number" min={0} max={23} required value={form.hora} onChange={(e) => setForm({ ...form, hora: Number(e.target.value) })} /></div>
           <div className="campo"><label htmlFor="correo-zona">Zona horaria</label><input id="correo-zona" required value={form.zona} onChange={(e) => setForm({ ...form, zona: e.target.value })} /></div>

@@ -32,6 +32,7 @@ import { estadoDeMuestra } from './datos/muestra';
 import type { CeldaMapa, EstadoRosa, Investigacion, MapaEnfermedad } from './datos/tipos';
 import { rutaDe } from './lib/ruta';
 import { Atlas } from './pantallas/Atlas';
+import { copiaTraducida } from './lib/idioma';
 
 beforeAll(() => {
   class IO {
@@ -139,8 +140,11 @@ function mapaMinimo(idsHechos: string[]): MapaEnfermedad {
     resumen: '',
     fecha: Date.UTC(2026, 8, 12, 10, 0, 0),
     iteracion: 1,
-    etiquetas: ETIQUETAS_MAPA,
-    definiciones: DEFINICIONES_MAPA,
+    // copiaTraducida: en produccion estas dos llegan del servidor como JSON
+    // plano. Aqui salen de las constantes de la interfaz, que son Proxies
+    // de `traducido()` y no se pueden clonar; el test clona el mapa.
+    etiquetas: copiaTraducida(ETIQUETAS_MAPA),
+    definiciones: copiaTraducida(DEFINICIONES_MAPA),
   };
 }
 

@@ -3,6 +3,7 @@
 
 import type { ParadaCorrida } from '../datos/tipos';
 import type { CondicionAutomatizada } from '../datos/tipos';
+import { tr } from './idioma';
 
 export function partesAutomatizadas(texto: string): CondicionAutomatizada {
   const t = (texto ?? '').toLowerCase();
@@ -38,7 +39,7 @@ export function textoAutomatizacion(p: CondicionAutomatizada): string {
   if (p.iteraciones !== null) medibles.push(`${p.iteraciones} iteraciones`);
   if (p.tiempo) medibles.push(`${p.tiempo} de corrida`);
   if (p.llamadas !== null) medibles.push(`${p.llamadas} llamadas`);
-  if (medibles.length === 0) return 'ROSA2018 no puede medir esta condición: la corrida sigue hasta que la detengas o hasta agotar el presupuesto de la misión.';
+  if (medibles.length === 0) return tr('ROSA2018 no puede medir esta condición: la corrida sigue hasta que la detengas o hasta agotar el presupuesto de la misión.');
   let frase = `ROSA2018 para sola al llegar a ${medibles.join(' o ')} (y al agotar el presupuesto de la misión)`;
   if (p.resto) frase += `. El resto ("${p.resto.slice(0, 80)}") lo decides tú con el botón de detener`;
   return `${frase}.`;
@@ -107,10 +108,10 @@ export function borradorDe(p: ParadaCorrida | null | undefined): ParadaBorrador 
 }
 
 function horasTexto(h: number): string {
-  if (h >= 24 && Number.isInteger(h / 24)) return `${h / 24} ${h === 24 ? 'día' : 'días'}`;
+  if (h >= 24 && Number.isInteger(h / 24)) return `${h / 24} ${h === 24 ? 'día' : tr('días')}`;
   if (h < 1) {
     const m = Math.round(h * 60);
-    return m === 1 ? '1 minuto' : `${m} minutos`;
+    return m === 1 ? tr('1 minuto') : `${m} minutos`;
   }
   return `${h} ${h === 1 ? 'hora' : 'horas'}`;
 }
@@ -120,13 +121,13 @@ export function resumenParada(p: ParadaCorrida | null | undefined): string {
   if (!p) return '';
   const partes: string[] = [];
   if (p.horas) partes.push(horasTexto(p.horas));
-  if (p.iteraciones) partes.push(`${p.iteraciones} ${p.iteraciones === 1 ? 'iteración' : 'iteraciones'}`);
+  if (p.iteraciones) partes.push(`${p.iteraciones} ${p.iteraciones === 1 ? tr('iteración') : 'iteraciones'}`);
   if (p.llamadas) partes.push(`${p.llamadas} llamadas al modelo`);
   if (p.certeza) {
     const n = p.cuantas ?? 1;
     partes.push(n > 1 ? `${n} hipótesis en certeza ${p.certeza}` : `una hipótesis en certeza ${p.certeza}`);
   }
-  if (p.sinCambio) partes.push(`${p.sinCambio} ${p.sinCambio === 1 ? 'iteración' : 'iteraciones'} sin avance`);
+  if (p.sinCambio) partes.push(`${p.sinCambio} ${p.sinCambio === 1 ? tr('iteración') : 'iteraciones'} sin avance`);
   if (p.texto) partes.push(`«${p.texto}»`);
   if (partes.length === 0) return '';
   if (partes.length === 1) return partes[0] ?? '';

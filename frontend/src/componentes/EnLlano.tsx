@@ -7,12 +7,12 @@ import type { ConclusionHipotesis, ResumenLlano, ViabilidadPrueba } from '../dat
 import { CERTEZA_EVIDENCIA, DIRECCION_EVIDENCIA, FACTOR_CERTEZA } from '../lib/etiquetas';
 import { Chip } from './piezas';
 import { Momento, Seccion } from './piezas';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: ResumenLlano | null | undefined; numero: number; abierta?: boolean }) {
   if (resumen === undefined) return null;
   return (
-    <Seccion titulo={`Qué encontró ROSA2018 en la iteración ${numero}`} nota="Contado en lenguaje corriente, con cada término técnico definido al final. El detalle con citas, veredictos y pistas está más abajo.">
+    <Seccion titulo={`Qué encontró ROSA2018 en la iteración ${numero}`} nota={tr("Contado en lenguaje corriente, con cada término técnico definido al final. El detalle con citas, veredictos y pistas está más abajo.")}>
       {resumen === null ? (
         <p className="meta">{tr("ROSA2018 no pudo escribir el resumen de esta iteración (el modelo no respondió). El resumen técnico está en las iteraciones anteriores.")}</p>
       ) : (
@@ -92,7 +92,7 @@ export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: R
                 {tr("Evidencia buscada hasta el")} <Momento t={resumen.alDia.fechaBusqueda} ahora={Date.now()} />.
               </>
             ) : (
-              'Sin consultas nuevas en esta iteración.'
+              tr('Sin consultas nuevas en esta iteración.')
             )}{' '}
             {resumen.alDia?.fuentesSinRespuesta.length ? `No respondieron: ${resumen.alDia.fuentesSinRespuesta.join('; ')}.` : ''}
           </p>
@@ -115,13 +115,13 @@ export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: R
   );
 }
 
-const VEREDICTO_VIABILIDAD: Record<ViabilidadPrueba['estado'], { etiqueta: string; tono: 'ok' | 'aviso' | 'mal' | 'borde' }> = {
+const VEREDICTO_VIABILIDAD: Record<ViabilidadPrueba['estado'], { etiqueta: string; tono: 'ok' | 'aviso' | 'mal' | 'borde' }> = traducido({
   viable: { etiqueta: 'Sí, con estos ensayos', tono: 'ok' },
   limitada: { etiqueta: 'Solo en parte', tono: 'aviso' },
   inviable: { etiqueta: 'No con estos ensayos', tono: 'mal' },
   no_comprobable: { etiqueta: 'No pude comprobarlo', tono: 'borde' },
   sin_ensayos_nombrados: { etiqueta: 'La prueba no nombra ensayos', tono: 'borde' },
-};
+});
 
 /** ¿Se puede hacer la prueba con los ensayos que nombra? ROSA2018 lo lee en los
  *  criterios de elegibilidad de ClinicalTrials.gov (rosa/viabilidad.py): un ensayo
@@ -187,7 +187,7 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
   if (conclusion === undefined) return null;
   if (conclusion === null) {
     return (
-      <Seccion titulo="Conclusión de ROSA2018">
+      <Seccion titulo={tr("Conclusión de ROSA2018")}>
         <p className="meta">{tr("ROSA2018 todavía no escribió su conclusión sobre esta hipótesis. La escribe al crearla y la rehace al cerrar cada iteración con la evidencia que le haya llegado desde entonces.")}</p>
       </Seccion>
     );
@@ -197,8 +197,8 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
   const b = conclusion.base;
   return (
     <Seccion
-      titulo="Conclusión de ROSA2018"
-      nota="Dos cosas distintas, como en GRADE: cuanto se puede fiar uno de la evidencia reunida (certeza) y hacia donde apunta (dirección). Ninguna dice si la hipótesis es cierta: eso lo decide un experimento. Se rehace al cerrar cada iteración: lo que ROSA2018 lee después de nacer la hipótesis se le suma (a favor, indirecto o en contra) y la certeza se recalcula."
+      titulo={tr("Conclusión de ROSA2018")}
+      nota={tr("Dos cosas distintas, como en GRADE: cuanto se puede fiar uno de la evidencia reunida (certeza) y hacia donde apunta (dirección). Ninguna dice si la hipótesis es cierta: eso lo decide un experimento. Se rehace al cerrar cada iteración: lo que ROSA2018 lee después de nacer la hipótesis se le suma (a favor, indirecto o en contra) y la certeza se recalcula.")}
       acciones={
         <span className="meta">
           {tr("Iteración")} {conclusion.iteracion} · <Momento t={conclusion.fecha} ahora={ahora} />
@@ -213,7 +213,7 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
           <Chip tono={d.tono}>{d.etiqueta}</Chip>
           <span className="meta">
             Se apoya en {b.sostenidas} de {b.afirmaciones} {tr("afirmaciones sostenidas, de")} {b.fuentes} {b.fuentes === 1 ? 'fuente' : 'fuentes'}
-            {b.interpretaciones > 0 ? `; ${b.interpretaciones} ${b.interpretaciones === 1 ? 'es interpretación' : 'son interpretaciones'}, no datos` : ''}.
+            {b.interpretaciones > 0 ? `; ${b.interpretaciones} ${b.interpretaciones === 1 ? tr('es interpretación') : tr('son interpretaciones')}, no datos` : ''}.
           </span>
         </div>
         <p className="meta">{g.nota}</p>
@@ -239,7 +239,7 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
         <p className="conclusion-enunciado">{conclusion.enunciado}</p>
         {conclusion.cambio && (
           <p className="meta">
-            {tr("Cambio respecto a la iteración")} {conclusion.cambio.de.iteracion ?? '?'}: antes {conclusion.cambio.de.certeza ? CERTEZA_EVIDENCIA[conclusion.cambio.de.certeza].etiqueta.toLowerCase() : 'sin certeza'} y {conclusion.cambio.de.direccion ? DIRECCION_EVIDENCIA[conclusion.cambio.de.direccion].etiqueta.toLowerCase() : 'sin dirección'}. {conclusion.cambio.motivo}
+            {tr("Cambio respecto a la iteración")} {conclusion.cambio.de.iteracion ?? '?'}: antes {conclusion.cambio.de.certeza ? CERTEZA_EVIDENCIA[conclusion.cambio.de.certeza].etiqueta.toLowerCase() : tr('sin certeza')} y {conclusion.cambio.de.direccion ? DIRECCION_EVIDENCIA[conclusion.cambio.de.direccion].etiqueta.toLowerCase() : tr('sin dirección')}. {conclusion.cambio.motivo}
           </p>
         )}
         <p className="conclusion-texto">{conclusion.conclusion}</p>

@@ -55,7 +55,7 @@ import { acotarCamara, camaraInicial, distanciaEncuadre, ESPERA_GIRO_MS, paso3d,
 import { ajusteLienzo, construirEscena, dibujar, nodoBajoPuntero, Paleta, registrarEscena, RESPALDOS_PALETA, type Escena, type EstiloNodo, type Trazo } from '../lib/lienzo_arbol';
 import { useCalculoDiferido } from '../lib/diferido';
 import { useMovimientoReducido } from '../lib/movimiento';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 const COLOR: Record<TipoNodo, string> = {
   objetivo: 'var(--accent)',
   rama: 'var(--accent-soft-2)',
@@ -103,7 +103,7 @@ function guardarVista(v: Vista): void {
 /** Qué es cada tipo de nodo, dicho en llano para la leyenda (petición de Emir, 16 de
  *  septiembre de 2026: la leyenda tiene que explicar los colores como se explican en
  *  una conversación, no listar nombres y recuentos). */
-const DEFINICION_TIPO: Record<TipoNodo, string> = {
+const DEFINICION_TIPO: Record<TipoNodo, string> = traducido({
   objetivo: 'Objetivo (el tronco): la pregunta de la investigación. Es estructura, no evidencia.',
   rama: 'Rama: una familia de mecanismo; agrupa las hipótesis que hablan del mismo mecanismo biológico.',
   area: 'Área del programa: una línea de trabajo que agrupa investigaciones. Estructura, no evidencia.',
@@ -117,7 +117,7 @@ const DEFINICION_TIPO: Record<TipoNodo, string> = {
   ejecucion: 'Análisis in silico: un análisis que ROSA2018 corrió sobre datos públicos y pasó la auditoría.',
   dataset: 'Conjunto de datos público usado en un análisis.',
   laboratorio: 'Resultado del laboratorio: lo que devolvió el experimento.',
-};
+});
 /** Paleta por familia de mecanismo (el cluster de cada hipótesis): en el modo por
  *  tipo, las hipótesis y su rama comparten el color de su familia, así el árbol
  *  enseña de un vistazo qué mecanismos compiten. Diez tonos distinguibles en tema
@@ -127,12 +127,12 @@ const PALETA_CLUSTER = ['var(--grafo-cluster-0)', 'var(--grafo-cluster-1)', 'var
  *  más cerca de la medición (0 = la medición misma) y más claro a cada salto.
  *  Los tokens viven en styles.css con pasos propios para el tema oscuro. */
 const ESCALA_DATO = ['var(--grafo-dato-0)', 'var(--grafo-dato-1)', 'var(--grafo-dato-2)', 'var(--grafo-dato-3)'];
-const NOMBRE_ESCALA = ['La medición misma (0 saltos)', 'A 1 salto de una medición', 'A 2 saltos', 'A 3 saltos o más'];
+const NOMBRE_ESCALA = traducido(['La medición misma (0 saltos)', 'A 1 salto de una medición', 'A 2 saltos', 'A 3 saltos o más']);
 /** Segunda escala, en ámbar, para lo que no tiene medición propia pero sí literatura
  *  leída detrás (una fuente con su texto, no solo citada): más intenso cuanto más cerca
  *  de la fuente. Sin ella, una investigación solo de literatura salía toda gris. */
 const ESCALA_LIT = ['var(--grafo-lit-1)', 'var(--grafo-lit-2)', 'var(--grafo-lit-3)'];
-const NOMBRE_ESCALA_LIT = ['Solo literatura, a 1 salto de una fuente leída', 'Solo literatura, a 2 saltos', 'Solo literatura, a 3 saltos o más'];
+const NOMBRE_ESCALA_LIT = traducido(['Solo literatura, a 1 salto de una fuente leída', 'Solo literatura, a 2 saltos', 'Solo literatura, a 3 saltos o más']);
 const COLOR_SIN_DATO = 'var(--grafo-dato-nulo)';
 /** Escalón de la escala para un nodo: 0 a 3, o 'nulo' si no hay camino al dato. */
 function escalonDato(n: NodoArbol): number | 'nulo' {
@@ -250,7 +250,7 @@ function SiluetaArbol({ conexion }: { conexion: EstadoRosa['conexion'] }) {
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
           <h2>{tr("Árbol de la investigación")}</h2>
-          <p>{AYUDA}</p>
+          <p>{tr(AYUDA)}</p>
         </div>
         {/* Los mandos reales, deshabilitados: son chrome fijo, no contenido que llega, y así la cabecera mide exactamente lo mismo que con el árbol. */}
         <div className="acciones" aria-hidden="true">
@@ -288,11 +288,11 @@ function SiluetaArbol({ conexion }: { conexion: EstadoRosa['conexion'] }) {
               n.de === undefined ? null : <line key={i} x1={SILUETA_NODOS[n.de]!.x} y1={SILUETA_NODOS[n.de]!.y} x2={n.x} y2={n.y} stroke="var(--esqueleto-base)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />,
             )}
           </svg>
-          <span data-esqueleto="tronco" style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }}>
+          <span data-esqueleto="tronco" style={{ position: 'absolute', left: '50%', top: '50%', transform: tr('translate(-50%, -50%)') }}>
             <Esqueleto ancho={76} alto={54} radio={38} />
           </span>
           {SILUETA_NODOS.slice(1).map((n, i) => (
-            <span key={i} data-esqueleto="nodo" style={{ position: 'absolute', left: `${n.x}%`, top: `${n.y}%`, transform: 'translate(-50%, -50%)' }}>
+            <span key={i} data-esqueleto="nodo" style={{ position: 'absolute', left: `${n.x}%`, top: `${n.y}%`, transform: tr('translate(-50%, -50%)') }}>
               <Esqueleto ancho={n.d} alto={n.d} radio={n.d / 2} />
             </span>
           ))}
@@ -326,7 +326,7 @@ const ROTULO_ARBOL = 'el árbol de la investigación';
  *  refresco en caliente de Vite. */
 export function EsqueletoArbol({ conexion }: { conexion: EstadoRosa['conexion'] }) {
   return (
-    <Cargando activo rotulo={ROTULO_ARBOL} esqueleto={<SiluetaArbol conexion={conexion} />}>
+    <Cargando activo rotulo={tr(ROTULO_ARBOL)} esqueleto={<SiluetaArbol conexion={conexion} />}>
       {null}
     </Cargando>
   );
@@ -347,7 +347,7 @@ export function Arbol({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   const listo = valor !== null && valor.invId === inv.id;
   const grafo = listo ? valor.grafo : grafoTrivial;
   return (
-    <Cargando activo={grafo === null} rotulo={ROTULO_ARBOL} esqueleto={<SiluetaArbol conexion={estado.conexion} />}>
+    <Cargando activo={grafo === null} rotulo={tr(ROTULO_ARBOL)} esqueleto={<SiluetaArbol conexion={estado.conexion} />}>
       {grafo !== null && <ArbolMontado inv={inv} estado={estado} grafo={grafo} />}
     </Cargando>
   );
@@ -411,7 +411,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
     return ctx2d;
   };
   const paleta = useRef(new Paleta(typeof document === 'undefined' ? null : document.documentElement, RESPALDOS_PALETA));
-  const fuente = useRef('system-ui, sans-serif');
+  const fuente = useRef(tr('system-ui, sans-serif'));
   /** Escala y desplazamiento del lienzo lógico (900 por 560) dentro del canvas real. */
   const ajuste = useRef({ escala: 1, dx: 0, dy: 0, anchoPx: 0, altoPx: 0 });
   const ctx = useRef<Contexto | null>(null);
@@ -567,7 +567,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
     const raiz = document.documentElement;
     const leerFuente = () => {
       const f = typeof getComputedStyle === 'function' ? getComputedStyle(raiz).getPropertyValue('--font-sans').trim() : '';
-      fuente.current = f || 'system-ui, sans-serif';
+      fuente.current = f || tr('system-ui, sans-serif');
     };
     leerFuente();
     const refrescar = () => {
@@ -578,7 +578,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
     };
     const observador = typeof MutationObserver === 'function' ? new MutationObserver(refrescar) : null;
     observador?.observe(raiz, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
-    const medio = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+    const medio = typeof matchMedia === 'function' ? matchMedia(tr('(prefers-color-scheme: dark)')) : null;
     medio?.addEventListener?.('change', refrescar);
     return () => {
       observador?.disconnect();
@@ -874,7 +874,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
     return (
       <div className="contenido">
         <AvisoMuestra conexion={estado.conexion} />
-        <Vacio titulo="El árbol todavía no tiene ramas" pasos={['El tronco es el objetivo; ya está.', 'Cuando ROSA2018 busque literatura y verifique afirmaciones, aparecerán los hechos y las fuentes.', 'Cada hipótesis será una hoja en la rama de su cluster de mecanismo, unida a lo que la sostiene.', 'El experimento que llegue al laboratorio será el fruto.']}>
+        <Vacio titulo={tr("El árbol todavía no tiene ramas")} pasos={[tr('El tronco es el objetivo; ya está.'), tr('Cuando ROSA2018 busque literatura y verifique afirmaciones, aparecerán los hechos y las fuentes.'), tr('Cada hipótesis será una hoja en la rama de su cluster de mecanismo, unida a lo que la sostiene.'), tr('El experimento que llegue al laboratorio será el fruto.')]}>
           {tr("Aquí se ve toda la investigación conectada: qué sostiene a qué, qué comparte una entidad con qué, y qué rivaliza con qué.")}
         </Vacio>
       </div>
@@ -893,7 +893,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
           <h2>{tr("Árbol de la investigación")}</h2>
-          <p>{AYUDA}</p>
+          <p>{tr(AYUDA)}</p>
         </div>
         <div className="acciones">
           <div className="segmentos" role="group" aria-label={tr("Vista del árbol")}>
@@ -924,7 +924,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
 
       <div className="grafo-marco">
         <div>
-          <canvas ref={lienzoRef} className="grafo" data-vista={vista3d ? '3d' : 'plana'} role="img" aria-label={`Árbol de ${inv.titulo}${vista3d ? ' en tres dimensiones' : ''}: ${nodosVisibles.length} nodos y ${enlacesVisibles.length} enlaces visibles`} onPointerDown={empezarArrastre} onPointerMove={mover} onPointerUp={soltar} onPointerCancel={soltar} onPointerLeave={salir} onDoubleClick={dobleClic} />
+          <canvas ref={lienzoRef} className="grafo" data-vista={vista3d ? '3d' : 'plana'} role="img" aria-label={`Árbol de ${inv.titulo}${vista3d ? tr(' en tres dimensiones') : ''}: ${nodosVisibles.length} nodos y ${enlacesVisibles.length} enlaces visibles`} onPointerDown={empezarArrastre} onPointerMove={mover} onPointerUp={soltar} onPointerCancel={soltar} onPointerLeave={salir} onDoubleClick={dobleClic} />
           {/* La misma información para el teclado y los lectores de pantalla: un botón por
               nodo visible. Llevan las clases grafo-nodo y grafo-<tipo> que tenían las esferas
               del SVG: son los nodos en el árbol de accesibilidad y así los localizan los tests. */}
@@ -983,12 +983,12 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
                   <ul className="grafo-leyenda">
                     {ESCALA_DATO.map((c, i) => (
                       <li key={`d${i}`}>
-                        <span className="grafo-punto" style={{ background: c }} aria-hidden="true" /> {NOMBRE_ESCALA[i]}{i === 0 ? ': verde azulado intenso. Cuanto más claro, más lejos del dato.' : '.'}
+                        <span className="grafo-punto" style={{ background: c }} aria-hidden="true" /> {NOMBRE_ESCALA[i]}{i === 0 ? tr(': verde azulado intenso. Cuanto más claro, más lejos del dato.') : '.'}
                       </li>
                     ))}
                     {ESCALA_LIT.map((c, i) => (
                       <li key={`l${i}`}>
-                        <span className="grafo-punto" style={{ background: c }} aria-hidden="true" /> {NOMBRE_ESCALA_LIT[i]}{i === 0 ? ': ámbar. ROSA2018 lo sostiene con artículos, nunca lo ha medido; cuanto más intenso, más cerca de una fuente leída.' : '.'}
+                        <span className="grafo-punto" style={{ background: c }} aria-hidden="true" /> {NOMBRE_ESCALA_LIT[i]}{i === 0 ? tr(': ámbar. ROSA2018 lo sostiene con artículos, nunca lo ha medido; cuanto más intenso, más cerca de una fuente leída.') : '.'}
                       </li>
                     ))}
                     <li>
@@ -1044,7 +1044,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
       </div>
       <div className="grafo-tiempo">
         <button type="button" className="btn btn-s" aria-pressed={hasta === grafo.iteracionMax} onClick={() => setHasta(grafo.iteracionMax)}>
-          {hasta === grafo.iteracionMax ? 'En vivo' : 'Volver al presente'}
+          {hasta === grafo.iteracionMax ? tr('En vivo') : tr('Volver al presente')}
         </button>
         <label htmlFor="grafo-iteracion">
           {tr("Cómo creció: hasta la iteración")} <strong>{hasta}</strong> de {grafo.iteracionMax}

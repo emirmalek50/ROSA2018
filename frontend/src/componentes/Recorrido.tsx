@@ -8,10 +8,11 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { ETAPAS } from './HiloDelProceso';
 import { useMovimientoReducido } from '../lib/movimiento';
+import { traducido } from '../lib/idioma';
 
 const CLAVE = 'rosa.recorrido.v1';
 
-export const PASOS: { titulo: string; texto: string; pista: string; etapa: number | null }[] = [
+export const PASOS: { titulo: string; texto: string; pista: string; etapa: number | null }[] = traducido([
   {
     titulo: 'ROSA2018 investiga; tú decides',
     texto: 'ROSA2018 lee la literatura, extrae afirmaciones y las verifica contra el pasaje literal, actualiza un modelo de mundo con procedencia, genera hipótesis y las somete a un Killer de quince comprobaciones. Nada entra al modelo de mundo ni llega al laboratorio sin pasar por ti.',
@@ -42,7 +43,7 @@ export const PASOS: { titulo: string; texto: string; pista: string; etapa: numbe
     pista: 'Cmd K (o Ctrl K) busca en toda la investigación. Este recorrido vuelve desde el botón ? de la cabecera.',
     etapa: null,
   },
-];
+]);
 
 export function recorridoVisto(): boolean {
   try {

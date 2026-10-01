@@ -13,18 +13,18 @@ import { fechaCorta, tiempoRelativo } from '../lib/formato';
 import { IconExternal, IconX } from './icons';
 import { Chip, descargar } from './piezas';
 import { Revisor } from './Revisor';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 export type PestanaProcedencia = 'mensajes' | 'codigo' | 'registro' | 'entorno' | 'revision' | 'fuentes';
 
-const PESTANAS: { clave: PestanaProcedencia; etiqueta: string }[] = [
+const PESTANAS: { clave: PestanaProcedencia; etiqueta: string }[] = traducido([
   { clave: 'mensajes', etiqueta: 'Mensajes' },
   { clave: 'codigo', etiqueta: 'Código' },
   { clave: 'registro', etiqueta: 'Registro' },
   { clave: 'entorno', etiqueta: 'Entorno' },
   { clave: 'revision', etiqueta: 'Revisión' },
   { clave: 'fuentes', etiqueta: 'Fuentes' },
-];
+]);
 
 const DE: Record<Hipotesis['procedencia']['mensajes'][number]['de'], string> = {
   rosa: 'ROSA2018',
@@ -68,8 +68,8 @@ export function TarjetaFuente({ f, ahora }: { f: Fuente; ahora: number }) {
         <span className="acciones" style={{ gap: 6 }}>
           <Chip tono="borde">{TIPO_ESTUDIO[f.tipoEstudio]}</Chip>
           <Escalera nivel={f.nivelEvidencia} />
-          <Chip tono={f.textoCompleto ? undefined : 'aviso'} title={f.textoCompleto ? 'ROSA2018 leyo el texto completo' : 'ROSA2018 solo leyó el resumen: la verificación vale menos'}>
-            {f.textoCompleto ? 'texto completo' : 'solo resumen'}
+          <Chip tono={f.textoCompleto ? undefined : 'aviso'} title={f.textoCompleto ? tr('ROSA2018 leyo el texto completo') : tr('ROSA2018 solo leyó el resumen: la verificación vale menos')}>
+            {f.textoCompleto ? tr('texto completo') : tr('solo resumen')}
           </Chip>
           <span className="meta">
             {TIPO_FUENTE[f.tipo]}
@@ -97,7 +97,7 @@ export function TarjetaFuente({ f, ahora }: { f: Fuente; ahora: number }) {
             {f.nct} <IconExternal />
           </a>
         )}
-        <span className="meta">{f.retraccionComprobadaEn !== null ? `retractación comprobada ${tiempoRelativo(f.retraccionComprobadaEn, ahora)}` : 'retractacion sin comprobar'}</span>
+        <span className="meta">{f.retraccionComprobadaEn !== null ? `retractación comprobada ${tiempoRelativo(f.retraccionComprobadaEn, ahora)}` : tr('retractacion sin comprobar')}</span>
       </footer>
     </article>
   );
@@ -125,11 +125,11 @@ export function Procedencia({
     <aside className="cajon" aria-label="Procedencia">
       <div className="cajon-cabecera">
         <h3>Procedencia · {hipotesis.titulo}</h3>
-        <button type="button" className="btn btn-fantasma btn-icono" aria-label="Cerrar procedencia" onClick={onCerrar}>
+        <button type="button" className="btn btn-fantasma btn-icono" aria-label={tr("Cerrar procedencia")} onClick={onCerrar}>
           <IconX size={14} />
         </button>
       </div>
-      <div className="pestanas" role="tablist" style={{ padding: '0 20px' }}>
+      <div className="pestanas" role="tablist" style={{ padding: tr('0 20px') }}>
         {PESTANAS.map((t) => (
           <button key={t.clave} role="tab" type="button" aria-selected={pestana === t.clave} onClick={() => setPestana(t.clave)}>
             {t.etiqueta}
@@ -221,7 +221,7 @@ export function Procedencia({
           ) : (
             <>
               <div className="acciones">
-                <Chip>{p.fuentes.length === 1 ? '1 fuente' : `${p.fuentes.length} fuentes`}</Chip>
+                <Chip>{p.fuentes.length === 1 ? tr('1 fuente') : `${p.fuentes.length} fuentes`}</Chip>
                 <span className="meta">{tr("La página es la del visor de PDF, no la impresa al pie.")}</span>
               </div>
               <div className="acciones">

@@ -6,18 +6,18 @@
 // tiempo. Las cifras las pone una regla; aquí solo se enseñan. Los avisos van
 // primero porque son lo que hay que mirar.
 import type { EstadoIndicador, FaseIndicador, IndicadorMetodo, TableroMetodo as Tablero } from '../datos/tipos';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
-const FASE: Record<FaseIndicador, string> = {
+const FASE: Record<FaseIndicador, string> = traducido({
   busqueda: 'búsqueda',
   cribado: 'cribado',
   killer: 'Killer',
   equipo: 'equipo de hipótesis',
   conectores: 'conectores',
   bucle: 'bucle',
-};
+});
 
-const ESTADO: Record<EstadoIndicador, string> = { aviso: 'Aviso', bien: 'Bien', sin_datos: 'Sin datos' };
+const ESTADO: Record<EstadoIndicador, string> = traducido({ aviso: 'Aviso', bien: 'Bien', sin_datos: 'Sin datos' });
 
 const ORDEN: Record<EstadoIndicador, number> = { aviso: 0, bien: 1, sin_datos: 2 };
 
@@ -58,11 +58,11 @@ export function TableroMetodo({ tablero }: { tablero: Tablero | null | undefined
   const avisos = indicadores.filter((i) => i.estado === 'aviso').length;
   // Sin número de iteración es el que el bucle calcula al arrancar para las
   // investigaciones que aún no lo tenían: decir "al cerrar" sería falso.
-  const cuando = typeof tablero.iteracion === 'number' ? `al cerrar la iteración ${tablero.iteracion}` : 'con lo que había al arrancar ROSA2018; se rehace al cerrar la próxima iteración';
+  const cuando = typeof tablero.iteracion === 'number' ? `al cerrar la iteración ${tablero.iteracion}` : tr('con lo que había al arrancar ROSA2018; se rehace al cerrar la próxima iteración');
   return (
     <article className="tarjeta metodo" aria-label={tr("Cómo está investigando ROSA2018")}>
       <p className="metodo-resumen">
-        {avisos === 0 ? 'Ningún aviso' : avisos === 1 ? '1 aviso' : `${avisos} avisos`} de {indicadores.length} indicadores, calculado {cuando}.
+        {avisos === 0 ? tr('Ningún aviso') : avisos === 1 ? tr('1 aviso') : `${avisos} avisos`} de {indicadores.length} indicadores, calculado {cuando}.
       </p>
       <ul className="metodo-lista">
         {ordenados.map((i) => (

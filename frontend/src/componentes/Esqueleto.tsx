@@ -36,6 +36,7 @@
 // `--esqueleto-base` y `--esqueleto-brillo` (tema claro y oscuro).
 
 import { cloneElement, isValidElement, type CSSProperties, type ReactNode } from 'react';
+import { tr } from '../lib/idioma';
 
 type PropsEsqueleto = {
   /** Ancho CSS (número en píxeles o cadena con unidad). Por defecto, 100%. */
@@ -261,7 +262,7 @@ type PropsPantalla = PropsCuerpo &
  *  filas va a pintar (`filas`, que el estado ya sabe) y de qué forma
  *  (`forma` tarjetas para el ranking y la cola, tabla para lo demás), o un
  *  cuerpo propio (`children`). */
-export function EsqueletoPantalla({ variante, rotulo = 'la pantalla', ...resto }: PropsPantalla): JSX.Element {
+export function EsqueletoPantalla({ variante, rotulo = tr('la pantalla'), ...resto }: PropsPantalla): JSX.Element {
   return (
     <div className={`contenido esqueleto-pantalla esqueleto-pantalla-${variante}`} role="status" aria-busy="true">
       <span className="sr-only">Cargando {rotulo}</span>

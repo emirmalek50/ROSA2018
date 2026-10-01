@@ -29,12 +29,12 @@ import { AMBITO_LECCION, AMPLITUD, CLASIFICACION_DATOS, ESTADO_CORRIDA, ESTADO_I
 import { coma, formatearDuracion } from '../lib/formato';
 import { partesAutomatizadas, textoAutomatizacion } from '../lib/parada';
 import { rutaDe } from '../lib/ruta';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 /** Catalogo de datos del Alzheimer, como el de Biomni-AD. Acceso abierto o
  *  controlado; lo controlado pasa por acuerdo de uso y, si hay personas, por
  *  desidentificacion y comite. */
-const CATALOGO: { nombre: string; descripcion: string; acceso: 'abierto' | 'controlado'; tamanoMb: number; columnas: number; clasificacion: Dataset['clasificacion'] }[] = [
+const CATALOGO: { nombre: string; descripcion: string; acceso: 'abierto' | 'controlado'; tamanoMb: number; columnas: number; clasificacion: Dataset['clasificacion'] }[] = traducido([
   { nombre: 'NIAGADS GenomicsDB (GWAS)', descripcion: '69 conjuntos de estadísticas GWAS, 150 millones de variantes anotadas.', acceso: 'abierto', tamanoMb: 2_400, columnas: 12, clasificacion: 'publico' },
   { nombre: 'ADSP (WGS/WES)', descripcion: 'Secuenciación completa del Alzheimer Disease Sequencing Project.', acceso: 'controlado', tamanoMb: 900_000, columnas: 40, clasificacion: 'personas' },
   { nombre: 'SEA-AD (Allen Institute)', descripcion: 'Single-nucleus de corteza en envejecimiento y Alzheimer.', acceso: 'abierto', tamanoMb: 18_000, columnas: 30, clasificacion: 'publico' },
@@ -42,7 +42,7 @@ const CATALOGO: { nombre: string; descripcion: string; acceso: 'abierto' | 'cont
   { nombre: 'ssREAD', descripcion: 'Atlas de single-cell y espacial de Alzheimer.', acceso: 'abierto', tamanoMb: 12_000, columnas: 25, clasificacion: 'publico' },
   { nombre: 'OASIS-4', descripcion: 'Imagen y clínica longitudinal.', acceso: 'controlado', tamanoMb: 60_000, columnas: 80, clasificacion: 'personas' },
   { nombre: 'GEO (expresión, RNA-Seq)', descripcion: 'Conjuntos de expresión públicos, por accession.', acceso: 'abierto', tamanoMb: 500, columnas: 20, clasificacion: 'publico' },
-];
+]);
 
 function TarjetaDataset({ d, inv }: { d: Dataset; inv: Inv }) {
   const limpio = d.columnasSinDiccionario === 0 && d.valoresCentinela === 0 && d.nombresDuplicados === 0;
@@ -57,7 +57,7 @@ function TarjetaDataset({ d, inv }: { d: Dataset; inv: Inv }) {
             {d.descripcion} · {d.tamanoMb >= 1000 ? `${coma((d.tamanoMb / 1000).toFixed(1))} GB` : `${d.tamanoMb} MB`} · {d.columnas} columnas
           </p>
         </div>
-        <Chip tono={d.estado === 'aprobado' ? 'ok' : d.estado === 'rechazado' ? 'mal' : 'aviso'}>{d.estado === 'aprobado' ? 'Contrato aprobado' : d.estado === 'rechazado' ? 'Rechazado' : 'Comprobación pendiente'}</Chip>
+        <Chip tono={d.estado === 'aprobado' ? 'ok' : d.estado === 'rechazado' ? 'mal' : 'aviso'}>{d.estado === 'aprobado' ? tr('Contrato aprobado') : d.estado === 'rechazado' ? 'Rechazado' : tr('Comprobación pendiente')}</Chip>
       </div>
       <div className="comprobacion-datos">
         <div className={d.columnasSinDiccionario > 0 ? 'mal' : 'ok'}>
@@ -96,7 +96,7 @@ function TarjetaDataset({ d, inv }: { d: Dataset; inv: Inv }) {
         </label>
         {d.estado === 'pendiente' && (
           <div className="acciones">
-            <button type="button" className="btn btn-primario btn-s" disabled={!limpio} title={limpio ? '' : 'Primero corrige o documenta lo que falta'} onClick={() => acciones.decidirDataset(inv.id, d.id, 'aprobado')}>
+            <button type="button" className="btn btn-primario btn-s" disabled={!limpio} title={limpio ? '' : tr('Primero corrige o documenta lo que falta')} onClick={() => acciones.decidirDataset(inv.id, d.id, 'aprobado')}>
               {tr("Aprobar contrato de datos")}
             </button>
             <button type="button" className="btn btn-s" onClick={() => acciones.decidirDataset(inv.id, d.id, 'rechazado')}>
@@ -122,13 +122,13 @@ function QueToca({ inv, corridas, irA }: { inv: Inv; corridas: EstadoRosa['corri
   const puerta = inv.puertaReproduccion;
   const pendientes = inv.datasets.filter((d) => d.estado === 'pendiente').length;
   const tareas: { texto: string; accion: () => void; etiqueta: string }[] = [];
-  if (inv.mision && !inv.mision.aprobadaEn) tareas.push({ texto: 'ROSA2018 propuso la misión (población, etapa, mecanismo, presupuesto). Falta que la apruebes o la corrijas.', accion: () => ir('mision'), etiqueta: 'Ver la misión' });
-  if (pendientes > 0) tareas.push({ texto: `${pendientes} ${pendientes === 1 ? 'dataset espera' : 'datasets esperan'} que completes su libro de procedencia y lo apruebes.`, accion: () => ir('datos'), etiqueta: 'Ver los datos' });
-  if (puerta && puerta.estado === 'bloqueada') tareas.push({ texto: `La puerta de reproducción está bloqueada (${puerta.superadas} de ${puerta.requeridas}): hasta abrirla, ningún análisis con datos cuenta como descubrimiento.`, accion: () => ir('puerta'), etiqueta: 'Ver la puerta' });
-  if (corridas.length === 0) tareas.push({ texto: 'Esta investigación no tiene corridas: ROSA2018 todavía no ha empezado a trabajar en ella.', accion: () => irA(rutaDe(inv.id, 'corrida')), etiqueta: 'Arrancar la primera corrida' });
+  if (inv.mision && !inv.mision.aprobadaEn) tareas.push({ texto: tr('ROSA2018 propuso la misión (población, etapa, mecanismo, presupuesto). Falta que la apruebes o la corrijas.'), accion: () => ir('mision'), etiqueta: tr('Ver la misión') });
+  if (pendientes > 0) tareas.push({ texto: `${pendientes} ${pendientes === 1 ? tr('dataset espera') : tr('datasets esperan')} que completes su libro de procedencia y lo apruebes.`, accion: () => ir('datos'), etiqueta: tr('Ver los datos') });
+  if (puerta && puerta.estado === 'bloqueada') tareas.push({ texto: `La puerta de reproducción está bloqueada (${puerta.superadas} de ${puerta.requeridas}): hasta abrirla, ningún análisis con datos cuenta como descubrimiento.`, accion: () => ir('puerta'), etiqueta: tr('Ver la puerta') });
+  if (corridas.length === 0) tareas.push({ texto: tr('Esta investigación no tiene corridas: ROSA2018 todavía no ha empezado a trabajar en ella.'), accion: () => irA(rutaDe(inv.id, 'corrida')), etiqueta: 'Arrancar la primera corrida' });
   return (
     <div className={`quetoca ${tareas.length === 0 ? 'quetoca-vacio' : ''}`} role="status">
-      <strong>{tareas.length === 0 ? 'Nada te espera aquí.' : tareas.length === 1 ? 'Te espera una cosa:' : `Te esperan ${tareas.length} cosas:`}</strong>
+      <strong>{tareas.length === 0 ? tr('Nada te espera aquí.') : tareas.length === 1 ? tr('Te espera una cosa:') : `Te esperan ${tareas.length} cosas:`}</strong>
       {tareas.length === 0 ? (
         <span className="meta"> {tr("El objetivo, la misión y los datos están en orden. Lo demás de esta pantalla es consulta.")}</span>
       ) : (
@@ -171,12 +171,12 @@ export function motivoEsperaHumana(corridas: EstadoRosa['corridas']): string {
   if (!corrida) return '';
   const motivo =
     corrida.estado === 'esperando_aprobacion'
-      ? 'la corrida espera tu aprobación del plan'
+      ? tr('la corrida espera tu aprobación del plan')
       : corrida.estado === 'pausada_por_presupuesto'
-        ? 'la corrida se pausó por presupuesto y espera que lo amplíes'
+        ? tr('la corrida se pausó por presupuesto y espera que lo amplíes')
         : corrida.estado === 'pausada'
-          ? 'la corrida está pausada y espera que la reanudes'
-          : 'la corrida espera a una persona';
+          ? tr('la corrida está pausada y espera que la reanudes')
+          : tr('la corrida espera a una persona');
   return `Las cuatro piezas se calculan al cerrar la primera iteración; ${motivo}.`;
 }
 
@@ -198,7 +198,7 @@ export function EsqueletoInvestigacion({ inv }: { inv: Inv }) {
   return (
     <EsqueletoPantalla
       variante="ficha"
-      rotulo="la investigación"
+      rotulo={tr("la investigación")}
       cabecera={{
         titulo: inv.titulo,
         descripcion: (
@@ -289,8 +289,8 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         </div>
         <Confirmar
           etiqueta="Bifurcar"
-          pregunta="Se crea una investigación nueva con el mismo objetivo y una copia del modelo de mundo. La original sigue igual."
-          pedirTexto={{ etiqueta: 'Nombre de la rama (di para que es)', marcador: 'Secuencia GFAP-NfL solo en Alzheimer familiar' }}
+          pregunta={tr("Se crea una investigación nueva con el mismo objetivo y una copia del modelo de mundo. La original sigue igual.")}
+          pedirTexto={{ etiqueta: tr('Nombre de la rama (di para que es)'), marcador: tr('Secuencia GFAP-NfL solo en Alzheimer familiar') }}
           onConfirmar={(motivo) => {
             const id = acciones.bifurcarInvestigacion(inv.id, motivo);
             if (id) irA(rutaDe(id, 'corrida'));
@@ -307,7 +307,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         </div>
         <div className="tarjeta seccion">
           <h3 style={{ fontSize: 13, fontWeight: 600 }}>{tr("Qué cuenta como relevante")}</h3>
-          <p>{inv.relevancia || 'Sin definir. ROSA2018 perseguira todo lo que parezca significativo.'}</p>
+          <p>{inv.relevancia || tr('Sin definir. ROSA2018 perseguira todo lo que parezca significativo.')}</p>
         </div>
         <div className="tarjeta seccion">
           <h3 style={{ fontSize: 13, fontWeight: 600 }}>{tr("Límites")}</h3>
@@ -332,7 +332,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         </div>
       </div>
 
-      <Seccion id="mision" titulo="Misión" nota="El marco que fija el programa antes de la primera corrida (etapa 0 de ROSA2018): a quién aplica, en qué etapa, en qué célula o tejido, qué mecanismo, qué tipo de resultado se busca, qué puede hacer el laboratorio y con qué presupuesto. ROSA2018 propone; una persona aprueba. Debajo, las áreas de investigación que ROSA2018 comparó para elegir por dónde empezar.">
+      <Seccion id="mision" titulo="Misión" nota={tr("El marco que fija el programa antes de la primera corrida (etapa 0 de ROSA2018): a quién aplica, en qué etapa, en qué célula o tejido, qué mecanismo, qué tipo de resultado se busca, qué puede hacer el laboratorio y con qué presupuesto. ROSA2018 propone; una persona aprueba. Debajo, las áreas de investigación que ROSA2018 comparó para elegir por dónde empezar.")}>
         {inv.mision === undefined || inv.mision === null ? <p className="meta">{tr("ROSA2018 propondrá la misión al arrancar la primera corrida. También puedes escribirla tú: arriba a la derecha, \"Editar\".")}</p> : null}
         <FormularioMision inv={inv} corridas={corridas} />
       </Seccion>
@@ -343,8 +343,8 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
       <ConocimientoOperativoDelLaboratorio inv={inv} />
 
       <Seccion
-        titulo="Configuración que ROSA2018 lee"
-        nota="Preferencias, atributos deseables y restricciones: alimentan la generación, cada revisión y cada debate del torneo. Se versiona con la investigación."
+        titulo={tr("Configuración que ROSA2018 lee")}
+        nota={tr("Preferencias, atributos deseables y restricciones: alimentan la generación, cada revisión y cada debate del torneo. Se versiona con la investigación.")}
         acciones={
           editando ? (
             <>
@@ -390,7 +390,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
           <div className="rejilla-3">
             <div className="tarjeta">
               <p className="campo-etiqueta">Preferencias</p>
-              <p style={{ fontSize: 13, marginTop: 6 }}>{inv.configuracion.preferencias || 'Sin definir'}</p>
+              <p style={{ fontSize: 13, marginTop: 6 }}>{inv.configuracion.preferencias || tr('Sin definir')}</p>
             </div>
             <div className="tarjeta">
               <p className="campo-etiqueta">Atributos deseables</p>
@@ -431,10 +431,10 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
 
       <Seccion id="datos"
         titulo="Datos"
-        nota="Antes de una corrida larga, la comprobación de datos: columnas sin diccionario, valores centinela y nombres duplicados contaminaron horas de una corrida de Kosmos. Nada se aprueba con esos contadores en rojo."
+        nota={tr("Antes de una corrida larga, la comprobación de datos: columnas sin diccionario, valores centinela y nombres duplicados contaminaron horas de una corrida de Kosmos. Nada se aprueba con esos contadores en rojo.")}
         acciones={
           <button type="button" className="btn btn-s" onClick={() => setVerCatalogo((v) => !v)}>
-            {verCatalogo ? 'Ocultar catálogo' : 'Catálogo de datos del Alzheimer'}
+            {verCatalogo ? tr('Ocultar catálogo') : tr('Catálogo de datos del Alzheimer')}
           </button>
         }
       >
@@ -499,20 +499,20 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
       <Seccion
         id="programa"
         titulo="Programa"
-        nota="La vista de programa de ROSA2018: lo que la investigación aporta al conjunto, no a una hipótesis. Cuatro piezas, calculadas por regla al cerrar cada iteración. Aprendizaje: si las predicciones que ROSA2018 dejó escritas antes de mirar los datos (prerregistro) acertaron, cuánto tarda cada hipótesis en recibir una decisión y si se reutiliza lo heredado de otras investigaciones. Mapa de la ruta terapéutica: por cada diana, cuáles de los ocho pasos entre un mecanismo y un beneficio para una persona están cubiertos. Mapa de la enfermedad: dónde cae la evidencia por fase, región del cerebro y tipo de célula, y qué huecos nombra la misión. Datasets del programa: los conjuntos de datos públicos que ROSA2018 encontró, con su acceso. Los campos que aún no se han calculado lo dicen."
+        nota={tr("La vista de programa de ROSA2018: lo que la investigación aporta al conjunto, no a una hipótesis. Cuatro piezas, calculadas por regla al cerrar cada iteración. Aprendizaje: si las predicciones que ROSA2018 dejó escritas antes de mirar los datos (prerregistro) acertaron, cuánto tarda cada hipótesis en recibir una decisión y si se reutiliza lo heredado de otras investigaciones. Mapa de la ruta terapéutica: por cada diana, cuáles de los ocho pasos entre un mecanismo y un beneficio para una persona están cubiertos. Mapa de la enfermedad: dónde cae la evidencia por fase, región del cerebro y tipo de célula, y qué huecos nombra la misión. Datasets del programa: los conjuntos de datos públicos que ROSA2018 encontró, con su acceso. Los campos que aún no se han calculado lo dicen.")}
       >
         {esperaHumana !== '' && <p className="meta esqueleto-nota">{esperaHumana}</p>}
         <div className="programa">
-          <Cargando activo={esperaPrograma && !inv.cifrasAprendizaje} rotulo="las cifras de aprendizaje" esqueleto={<SiluetaPrograma clase="cifras-ap" titulo="Aprendizaje" forma="texto" />}>
+          <Cargando activo={esperaPrograma && !inv.cifrasAprendizaje} rotulo={tr("las cifras de aprendizaje")} esqueleto={<SiluetaPrograma clase="cifras-ap" titulo="Aprendizaje" forma="texto" />}>
             <CifrasAprendizaje cifras={inv.cifrasAprendizaje ?? null} />
           </Cargando>
-          <Cargando activo={esperaPrograma && !inv.mapaRuta} rotulo="el mapa de la ruta terapéutica" esqueleto={<SiluetaPrograma clase="mapa-ruta" titulo="Mapa de la ruta terapéutica" forma="tabla" />}>
+          <Cargando activo={esperaPrograma && !inv.mapaRuta} rotulo={tr("el mapa de la ruta terapéutica")} esqueleto={<SiluetaPrograma clase="mapa-ruta" titulo="Mapa de la ruta terapéutica" forma="tabla" />}>
             <MapaRuta mapa={inv.mapaRuta ?? null} estado={estado} />
           </Cargando>
-          <Cargando activo={esperaPrograma && !inv.mapaEnfermedad} rotulo="el mapa de la enfermedad" esqueleto={<SiluetaPrograma clase="mapa-enf" titulo="Mapa de la enfermedad" forma="rejilla" />}>
+          <Cargando activo={esperaPrograma && !inv.mapaEnfermedad} rotulo={tr("el mapa de la enfermedad")} esqueleto={<SiluetaPrograma clase="mapa-enf" titulo="Mapa de la enfermedad" forma="rejilla" />}>
             <MapaEnfermedad mapa={inv.mapaEnfermedad ?? null} />
           </Cargando>
-          <Cargando activo={esperaPrograma && (estado.datasetsPrograma ?? []).length === 0} rotulo="los datasets del programa" esqueleto={<SiluetaPrograma clase="dsp" titulo="Datasets del programa" forma="tabla" />}>
+          <Cargando activo={esperaPrograma && (estado.datasetsPrograma ?? []).length === 0} rotulo={tr("los datasets del programa")} esqueleto={<SiluetaPrograma clase="dsp" titulo="Datasets del programa" forma="tabla" />}>
             <DatasetsPrograma key={inv.id} datasets={estado.datasetsPrograma ?? []} investigacionId={inv.id} />
           </Cargando>
         </div>
@@ -520,7 +520,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
 
       <Seccion
         titulo="Cómo está investigando ROSA2018"
-        nota="El tablero del método: cifras calculadas por regla sobre lo que ROSA2018 dejó escrito mientras trabajaba, sin gastar ninguna llamada. Es lo que un jefe de laboratorio mira antes de opinar. No decide nada: al terminar cada corrida lo lee el revisor del arnés, que propone cambios, y los cambios los decide una persona."
+        nota={tr("El tablero del método: cifras calculadas por regla sobre lo que ROSA2018 dejó escrito mientras trabajaba, sin gastar ninguna llamada. Es lo que un jefe de laboratorio mira antes de opinar. No decide nada: al terminar cada corrida lo lee el revisor del arnés, que propone cambios, y los cambios los decide una persona.")}
       >
         <TableroMetodo tablero={inv.metodo ?? null} />
       </Seccion>
@@ -529,7 +529,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
       <Cuestiones inv={inv} estado={estado} />
       {(() => {
         return lecciones.length > 0 ? (
-          <Seccion detalle titulo={`Lo que ROSA2018 aprendió a no repetir (${lecciones.length})`} nota="Lecciones generadas por regla al cerrar cada iteración: pasos que fallaron, consultas que no rindieron, bases que no respondieron, hipótesis cerradas por el Killer y por qué, ideas retiradas del vivero, análisis sin efecto. Cada paso las lee antes de actuar; una lección repetida pesa más.">
+          <Seccion detalle titulo={`Lo que ROSA2018 aprendió a no repetir (${lecciones.length})`} nota={tr("Lecciones generadas por regla al cerrar cada iteración: pasos que fallaron, consultas que no rindieron, bases que no respondieron, hipótesis cerradas por el Killer y por qué, ideas retiradas del vivero, análisis sin efecto. Cada paso las lee antes de actuar; una lección repetida pesa más.")}>
             <ul className="lista-limpia lecciones">
               {lecciones.slice(0, 40).map((l) => (
                 <li key={l.id} className="leccion">
@@ -547,7 +547,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         ) : null;
       })()}
 
-      <Seccion detalle titulo="Corridas" nota="Cada corrida es un arranque del bucle con estas instrucciones.">
+      <Seccion detalle titulo="Corridas" nota={tr("Cada corrida es un arranque del bucle con estas instrucciones.")}>
         {corridas.length === 0 ? (
           <p className="meta">{tr("Sin corridas todavía.")}</p>
         ) : (
@@ -593,7 +593,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
   );
 }
 
-const ORIGEN_CUESTION: Record<Cuestion['origen']['tipo'], string> = {
+const ORIGEN_CUESTION: Record<Cuestion['origen']['tipo'], string> = traducido({
   pregunta_modelo: 'pregunta del modelo de mundo',
   killer: 'lo pidió el Killer',
   revisor: 'hallazgo del revisor',
@@ -602,14 +602,14 @@ const ORIGEN_CUESTION: Record<Cuestion['origen']['tipo'], string> = {
   analisis: 'análisis',
   laboratorio: 'laboratorio',
   escalera: 'peldaño de la escalera de certeza',
-};
+});
 
-const ORIGEN_TAREA: Record<string, string> = {
+const ORIGEN_TAREA: Record<string, string> = traducido({
   paso: 'lo vio un paso de la corrida',
   revisor: 'lo vio el revisor de registro al cerrar',
   regla: 'lo detectó una regla',
   persona: 'la abriste tú',
-};
+});
 
 /** La cola de triaje: trabajo que ROSA2018 pidió abrir al ver algo que el plan no
  *  cubría. Cada propuesta pasa por un triaje por regla que la acepta o la rechaza,
@@ -623,14 +623,14 @@ export function ColaDeTriaje({ inv, estado }: { inv: Inv; estado: EstadoRosa }) 
   const vivas = todas.filter((t) => ['propuesta', 'aceptada', 'programada'].includes(t.estado)).sort((a, b) => b.veces - a.veces || a.creadaEn - b.creadaEn);
   const cerradas = todas.filter((t) => ['hecha', 'rechazada', 'caducada'].includes(t.estado)).sort((a, b) => b.creadaEn - a.creadaEn);
   return (
-    <Seccion detalle titulo={`Cola de trabajo que ROSA2018 pidió abrir (${vivas.length})`} nota="Cuando un paso ve algo que el plan no cubría, lo pide aquí en vez de perderlo. Una regla decide si entra, y si no entra dice por qué. Lo que entra lo programa el plan de la iteración siguiente, que tiene que explicar por escrito cada tarea que deja fuera.">
+    <Seccion detalle titulo={`Cola de trabajo que ROSA2018 pidió abrir (${vivas.length})`} nota={tr("Cuando un paso ve algo que el plan no cubría, lo pide aquí en vez de perderlo. Una regla decide si entra, y si no entra dice por qué. Lo que entra lo programa el plan de la iteración siguiente, que tiene que explicar por escrito cada tarea que deja fuera.")}>
       {vivas.length === 0 && <p className="meta">{tr("Nada en la cola. Es lo normal: ROSA2018 solo pide abrir trabajo cuando ve algo concreto.")}</p>}
       <ul className="lista-limpia cuestiones">
         {vivas.slice(0, 20).map((t) => (
           <li key={t.id} className="cuestion">
             <div>
               <Chip tono={t.estado === 'programada' ? 'ok' : t.estado === 'aceptada' ? 'acento' : 'borde'}>
-                {t.estado === 'programada' ? 'En el plan' : t.estado === 'aceptada' ? 'Esperando plan' : 'Propuesta'}
+                {t.estado === 'programada' ? tr('En el plan') : t.estado === 'aceptada' ? tr('Esperando plan') : 'Propuesta'}
               </Chip>{' '}
               <span>{t.queHaria}</span>
               <div className="meta">
@@ -646,7 +646,7 @@ export function ColaDeTriaje({ inv, estado }: { inv: Inv; estado: EstadoRosa }) 
             </div>
             {t.estado !== 'programada' && (
               <span className="acciones">
-                <Confirmar etiqueta="Rechazar" pregunta="La tarea sale de la cola y no se vuelve a proponer igual." pedirTexto={{ etiqueta: 'Motivo', marcador: 'Ya lo sabemos por el estudio X' }} onConfirmar={(m) => acciones.decidirTarea(t.id, 'rechazada', m)} />
+                <Confirmar etiqueta="Rechazar" pregunta={tr("La tarea sale de la cola y no se vuelve a proponer igual.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('Ya lo sabemos por el estudio X') }} onConfirmar={(m) => acciones.decidirTarea(t.id, 'rechazada', m)} />
               </span>
             )}
           </li>
@@ -707,7 +707,7 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
   const cerradas = todas.filter((c) => c.estado !== 'abierta').sort((a, b) => (b.resueltaEn ?? b.actualizadaEn) - (a.resueltaEn ?? a.actualizadaEn));
   const titulo = (id: string) => estado.hipotesis.find((h) => h.id === id)?.titulo ?? id;
   return (
-    <Seccion detalle titulo={`Cuestiones abiertas (${abiertas.length})`} nota="Lo que la investigación tiene pendiente de responder, con su origen y lo que lo resolvería. ROSA2018 las abre desde las preguntas del modelo de mundo, lo que pide el Killer y el peldaño siguiente de cada hipótesis; las cierra cuando un hecho nuevo las responde. Tú puedes abrir, resolver o descartar.">
+    <Seccion detalle titulo={`Cuestiones abiertas (${abiertas.length})`} nota={tr("Lo que la investigación tiene pendiente de responder, con su origen y lo que lo resolvería. ROSA2018 las abre desde las preguntas del modelo de mundo, lo que pide el Killer y el peldaño siguiente de cada hipótesis; las cierra cuando un hecho nuevo las responde. Tú puedes abrir, resolver o descartar.")}>
       {abiertas.length === 0 && <p className="meta">{tr("Ninguna cuestión abierta todavía.")}</p>}
       <ul className="lista-limpia cuestiones">
         {abiertas.slice(0, 40).map((c) => (
@@ -722,8 +722,8 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
               </div>
             </div>
             <span className="acciones">
-              <Confirmar etiqueta="Resuelta" pregunta="La cuestión queda resuelta y deja de guiar la búsqueda." pedirTexto={{ etiqueta: 'Con qué se resolvió', marcador: 'El estudio X lo responde' }} onConfirmar={(m) => acciones.resolverCuestion(c.id, m)} />
-              <Confirmar etiqueta="Descartar" pregunta="La cuestión se descarta con un motivo y no se vuelve a plantear." pedirTexto={{ etiqueta: 'Motivo', marcador: 'No es pertinente para el objetivo' }} onConfirmar={(m) => acciones.descartarCuestion(c.id, m)} />
+              <Confirmar etiqueta="Resuelta" pregunta={tr("La cuestión queda resuelta y deja de guiar la búsqueda.")} pedirTexto={{ etiqueta: tr('Con qué se resolvió'), marcador: tr('El estudio X lo responde') }} onConfirmar={(m) => acciones.resolverCuestion(c.id, m)} />
+              <Confirmar etiqueta="Descartar" pregunta={tr("La cuestión se descarta con un motivo y no se vuelve a plantear.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('No es pertinente para el objetivo') }} onConfirmar={(m) => acciones.descartarCuestion(c.id, m)} />
             </span>
           </li>
         ))}
@@ -746,7 +746,7 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
       </form>
       {cerradas.length > 0 && (
         <button type="button" className="btn btn-s" onClick={() => setVerResueltas((v) => !v)}>
-          {verResueltas ? 'Ocultar' : 'Ver'} {cerradas.length} {cerradas.length === 1 ? 'resuelta o descartada' : 'resueltas o descartadas'}
+          {verResueltas ? 'Ocultar' : 'Ver'} {cerradas.length} {cerradas.length === 1 ? tr('resuelta o descartada') : tr('resueltas o descartadas')}
         </button>
       )}
       {verResueltas && (
@@ -761,7 +761,7 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
                 </div>
               </div>
               <span className="acciones">
-                <button type="button" className="btn btn-s" onClick={() => acciones.reabrirCuestion(c.id, 'reabierta por una persona')}>
+                <button type="button" className="btn btn-s" onClick={() => acciones.reabrirCuestion(c.id, tr('reabierta por una persona'))}>
                   Reabrir
                 </button>
               </span>

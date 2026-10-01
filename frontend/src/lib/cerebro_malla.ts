@@ -23,7 +23,8 @@
 // en texto pesa varias veces más y el navegador tendría que convertir número a
 // número; así los bytes pasan tal cual a la tarjeta.
 
-export interface Malla {
+
+import { tr } from './idioma';export interface Malla {
   posiciones: Float32Array;
   normales: Float32Array;
   indices: Uint32Array;
@@ -68,19 +69,19 @@ const texto = (v: DataView, desde: number, largo: number): string => {
 /** Lee una malla del formato R2M1. Lanza MallaInvalida si los bytes no cuadran,
  *  para que la pantalla pueda decirlo en vez de pintar basura. */
 export function leerMalla(buffer: ArrayBuffer): Malla {
-  if (buffer.byteLength < CABECERA) throw new MallaInvalida('El fichero de la malla está cortado: no llega ni a la cabecera.');
+  if (buffer.byteLength < CABECERA) throw new MallaInvalida(tr('El fichero de la malla está cortado: no llega ni a la cabecera.'));
   const v = new DataView(buffer);
-  if (texto(v, 0, 4) !== MARCA) throw new MallaInvalida('El fichero no lleva la marca R2M1: no es una malla de ROSA2018.');
+  if (texto(v, 0, 4) !== MARCA) throw new MallaInvalida(tr('El fichero no lleva la marca R2M1: no es una malla de ROSA2018.'));
   const vertices = v.getUint32(4, true);
   const triangulos = v.getUint32(8, true);
-  if (!vertices || !triangulos) throw new MallaInvalida('La malla viene sin vértices o sin triángulos.');
+  if (!vertices || !triangulos) throw new MallaInvalida(tr('La malla viene sin vértices o sin triángulos.'));
   const bytes = CABECERA + vertices * 12 * 2 + triangulos * 12;
   if (buffer.byteLength < bytes) throw new MallaInvalida(`La malla dice tener ${vertices} vértices y ${triangulos} triángulos, que son ${bytes} bytes, pero el fichero trae ${buffer.byteLength}.`);
   const posiciones = new Float32Array(buffer.slice(CABECERA, CABECERA + vertices * 12));
   const normales = new Float32Array(buffer.slice(CABECERA + vertices * 12, CABECERA + vertices * 24));
   const indices = new Uint32Array(buffer.slice(CABECERA + vertices * 24, CABECERA + vertices * 24 + triangulos * 12));
   for (let i = 0; i < indices.length; i++) {
-    if (indices[i]! >= vertices) throw new MallaInvalida('La malla apunta a un vértice que no existe.');
+    if (indices[i]! >= vertices) throw new MallaInvalida(tr('La malla apunta a un vértice que no existe.'));
   }
   return { posiciones, normales, indices, vertices, triangulos };
 }

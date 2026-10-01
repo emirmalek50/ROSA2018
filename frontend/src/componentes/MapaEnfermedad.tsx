@@ -11,12 +11,12 @@ import type { CeldaMapa, EjeMapa, HuecoMapa, MapaEnfermedad as Mapa } from '../d
 import { CERTEZA_EVIDENCIA } from '../lib/etiquetas';
 import { plural } from '../lib/formato';
 import { SoloDetalle } from './piezas';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 /** Etiquetas de reserva, copiadas de rosa/mapa_enfermedad.py ETIQUETAS. Las
  *  que llegan con el mapa (mapa.etiquetas) mandan; estas cubren un mapa
  *  servido a demanda, que no las trae. */
-export const ETIQUETAS_MAPA: Record<EjeMapa, Record<string, string>> = {
+export const ETIQUETAS_MAPA: Record<EjeMapa, Record<string, string>> = traducido({
   estadio: {
     preclinica: 'preclínica',
     prodromica_dcl: 'prodrómica o DCL',
@@ -57,10 +57,10 @@ export const ETIQUETAS_MAPA: Record<EjeMapa, Record<string, string>> = {
     inmune_periferico: 'célula inmune periférica (linfocito, monocito, macrófago)',
   },
   nivel: { molecular: 'molecular', celular: 'celular', tisular: 'tisular', clinico: 'clínico' },
-};
+});
 
 /** Definiciones de reserva (rosa/mapa_enfermedad.py DEFINICIONES_ESTADIO y DEFINICIONES_NIVEL). */
-export const DEFINICIONES_MAPA: { estadio: Record<string, string>; nivel: Record<string, string> } = {
+export const DEFINICIONES_MAPA: { estadio: Record<string, string>; nivel: Record<string, string> } = traducido({
   estadio: {
     preclinica: 'biomarcadores alterados sin síntomas cognitivos',
     prodromica_dcl: 'deterioro cognitivo leve, síntomas sin demencia',
@@ -74,7 +74,7 @@ export const DEFINICIONES_MAPA: { estadio: Record<string, string>; nivel: Record
     tisular: 'regiones, atrofia, imagen y neuropatología',
     clinico: 'pacientes, cognición, escalas, diagnóstico y ensayos',
   },
-};
+});
 
 const ORDEN_ESTADIO = ['preclinica', 'prodromica_dcl', 'demencia_leve', 'demencia_moderada_grave', 'autosomico_dominante'];
 const ORDEN_NIVEL = ['molecular', 'celular', 'tisular', 'clinico'];
@@ -83,13 +83,13 @@ const SIN = 'sin situar';
 /** La etiqueta visible de un valor de un eje: la que trae el mapa, si no la de
  *  reserva, si no la clave tal cual. Con null, "sin situar". */
 export function etiquetaEje(mapa: Mapa | null | undefined, eje: EjeMapa, valor: string | null | undefined): string {
-  if (valor === null || valor === undefined || valor === '') return SIN;
+  if (valor === null || valor === undefined || valor === '') return tr(SIN);
   const propias = mapa?.etiquetas && typeof mapa.etiquetas === 'object' ? mapa.etiquetas[eje] : undefined;
   return (propias && typeof propias === 'object' && typeof propias[valor] === 'string' && propias[valor]) || ETIQUETAS_MAPA[eje][valor] || valor;
 }
 
 function definicion(mapa: Mapa | null | undefined, eje: 'estadio' | 'nivel', valor: string | null): string | undefined {
-  if (valor === null) return eje === 'estadio' ? 'Registros con fase de la enfermedad sin identificar por su contenido ni por la misión.' : undefined;
+  if (valor === null) return eje === 'estadio' ? tr('Registros con fase de la enfermedad sin identificar por su contenido ni por la misión.') : undefined;
   const propias = mapa?.definiciones && typeof mapa.definiciones === 'object' ? mapa.definiciones[eje] : undefined;
   return (propias && typeof propias === 'object' && typeof propias[valor] === 'string' && propias[valor]) || DEFINICIONES_MAPA[eje][valor];
 }
@@ -130,7 +130,7 @@ function Ficha({ celda, mapa }: { celda: CeldaMapa; mapa: Mapa }) {
   const certezaMotivo = texto(celda.certezaMotivo);
   const porMision = cuentaDe(celda.porMision);
   const titulo = [
-    `${tipo === SIN ? 'Sin tipo celular' : tipo}: ${plural(hechos, 'hecho')}, ${plural(hipotesis, 'hipótesis', 'hipótesis')}${preguntas ? `, ${plural(preguntas, 'pregunta abierta', 'preguntas abiertas')} (no cuentan como cobertura)` : ''}.`,
+    `${tipo === tr(SIN) ? tr('Sin tipo celular') : tipo}: ${plural(hechos, 'hecho')}, ${plural(hipotesis, 'hipótesis', 'hipótesis')}${preguntas ? `, ${plural(preguntas, tr('pregunta abierta'), tr('preguntas abiertas'))} (no cuentan como cobertura)` : ''}.`,
     certeza ? `Certeza máxima: ${certeza.etiqueta.toLowerCase()}${certezaMotivo ? ` (${certezaMotivo})` : ''}.` : 'Sin conclusión con certeza GRADE todavía.',
     cohortes.length ? `Cohortes: ${cohortes.join(', ')}.` : '',
     porMision ? `${porMision} situados aquí solo por heredar los ejes de la misión.` : '',
@@ -139,7 +139,7 @@ function Ficha({ celda, mapa }: { celda: CeldaMapa; mapa: Mapa }) {
     .join(' ');
   return (
     <div className={`mapa-enf-ficha ${certeza ? `mapa-enf-certeza-${certeza.tono}` : ''}`} title={titulo}>
-      <span className="mapa-enf-ficha-tipo">{tipo === SIN ? 'sin tipo celular' : tipo}</span>
+      <span className="mapa-enf-ficha-tipo">{tipo === tr(SIN) ? 'sin tipo celular' : tipo}</span>
       <span className="mapa-enf-ficha-cifras">
         {hechos} h · {hipotesis} hip
       </span>
@@ -202,12 +202,12 @@ export function MapaEnfermedad({ mapa }: { mapa: Mapa | null | undefined }) {
     <article className="tarjeta mapa-enf" aria-label={tr("Mapa de la enfermedad")}>
       <div className="mapa-enf-cabecera">
         <h3>{tr("Mapa de la enfermedad")}</h3>
-        <span className="meta">{iteracion ? `Calculado al cerrar la iteración ${iteracion}.` : 'Calculado a demanda.'}</span>
+        <span className="meta">{iteracion ? `Calculado al cerrar la iteración ${iteracion}.` : tr('Calculado a demanda.')}</span>
       </div>
       {resumen ? <p className="mapa-enf-resumen">{resumen}</p> : null}
       {(sinEjes > 0 || hipSinEjes > 0) && (
         <p className="aviso-muestra mapa-enf-aviso" role="status">
-          {[sinEjes > 0 ? plural(sinEjes, 'hecho') : '', hipSinEjes > 0 ? plural(hipSinEjes, 'hipótesis', 'hipótesis') : ''].filter(Boolean).join(' y ')} {sinEjes + hipSinEjes === 1 ? 'no se pudo situar' : 'no se pudieron situar'} {tr("en ningún eje: su texto no nombra fase, región ni tipo celular y la misión no")} {sinEjes + hipSinEjes === 1 ? 'lo' : 'los'} fija. {sinEjes + hipSinEjes === 1 ? 'No está en la rejilla, pero cuenta' : 'No están en la rejilla, pero cuentan'} {tr("en el modelo de mundo.")}
+          {[sinEjes > 0 ? plural(sinEjes, 'hecho') : '', hipSinEjes > 0 ? plural(hipSinEjes, 'hipótesis', 'hipótesis') : ''].filter(Boolean).join(' y ')} {sinEjes + hipSinEjes === 1 ? tr('no se pudo situar') : tr('no se pudieron situar')} {tr("en ningún eje: su texto no nombra fase, región ni tipo celular y la misión no")} {sinEjes + hipSinEjes === 1 ? 'lo' : 'los'} fija. {sinEjes + hipSinEjes === 1 ? tr('No está en la rejilla, pero cuenta') : tr('No están en la rejilla, pero cuentan')} {tr("en el modelo de mundo.")}
         </p>
       )}
       {huecos.length > 0 && (
@@ -218,17 +218,17 @@ export function MapaEnfermedad({ mapa }: { mapa: Mapa | null | undefined }) {
           <ul className="lista-limpia">
             {huecos.slice(0, 20).map((h, i) => (
               <li key={i} className="mapa-enf-hueco">
-                <span className="chip chip-aviso">{[h.estadio ? etiquetaEje(mapa, 'estadio', h.estadio) : '', h.region ? etiquetaEje(mapa, 'region', h.region) : '', h.tipoCelular ? etiquetaEje(mapa, 'tipoCelular', h.tipoCelular) : ''].filter(Boolean).join(' · ') || 'sin ejes'}</span>
+                <span className="chip chip-aviso">{[h.estadio ? etiquetaEje(mapa, 'estadio', h.estadio) : '', h.region ? etiquetaEje(mapa, 'region', h.region) : '', h.tipoCelular ? etiquetaEje(mapa, 'tipoCelular', h.tipoCelular) : ''].filter(Boolean).join(' · ') || tr('sin ejes')}</span>
                 <span className="meta">
-                  {texto(h.motivo) || 'La misión la nombra y ningún hecho ni hipótesis la cubre por su propio contenido.'}
-                  {cuentaDe(h.heredanDeMision) ? ` ${plural(cuentaDe(h.heredanDeMision), 'registro la hereda', 'registros la heredan')} de la misión sin nombrarla.` : ''}
+                  {texto(h.motivo) || tr('La misión la nombra y ningún hecho ni hipótesis la cubre por su propio contenido.')}
+                  {cuentaDe(h.heredanDeMision) ? ` ${plural(cuentaDe(h.heredanDeMision), tr('registro la hereda'), tr('registros la heredan'))} de la misión sin nombrarla.` : ''}
                 </span>
               </li>
             ))}
           </ul>
         </div>
       )}
-      <SoloDetalle resumen={hayRejilla ? `La rejilla: ${plural(celdas.length, 'celda')} con evidencia en ${plural(filas.length, 'fase')} y ${plural(columnas.length, 'región', 'regiones')}.` : 'La rejilla estadio x región aparece cuando haya hechos o hipótesis situados.'}>
+      <SoloDetalle resumen={hayRejilla ? `La rejilla: ${plural(celdas.length, 'celda')} con evidencia en ${plural(filas.length, 'fase')} y ${plural(columnas.length, tr('región'), 'regiones')}.` : tr('La rejilla estadio x región aparece cuando haya hechos o hipótesis situados.')}>
         {niveles.length > 0 && (
           <p className="meta mapa-enf-niveles">
             {tr("Nivel biológico al que habla la evidencia:")}{' '}
@@ -250,7 +250,7 @@ export function MapaEnfermedad({ mapa }: { mapa: Mapa | null | undefined }) {
                 <tr>
                   <th title={tr("Fase de la enfermedad (estadio) en filas; región del cerebro o compartimento en columnas.")}>{tr("Fase \\ Región")}</th>
                   {columnas.map((r) => (
-                    <th key={r || SIN} title={r ? `Región: ${etiquetaEje(mapa, 'region', r)}.` : 'Registros sin región identificada por su contenido ni por la misión.'}>
+                    <th key={r || tr(SIN)} title={r ? `Región: ${etiquetaEje(mapa, 'region', r)}.` : tr('Registros sin región identificada por su contenido ni por la misión.')}>
                       {etiquetaEje(mapa, 'region', r || null)}
                     </th>
                   ))}
@@ -258,7 +258,7 @@ export function MapaEnfermedad({ mapa }: { mapa: Mapa | null | undefined }) {
               </thead>
               <tbody>
                 {filas.map((e) => (
-                  <tr key={e || SIN}>
+                  <tr key={e || tr(SIN)}>
                     <th scope="row" title={definicion(mapa, 'estadio', e || null)}>
                       {etiquetaEje(mapa, 'estadio', e || null)}
                     </th>
@@ -266,7 +266,7 @@ export function MapaEnfermedad({ mapa }: { mapa: Mapa | null | undefined }) {
                       const fichas = enCelda(e, r);
                       const hs = huecosEn(e, r);
                       return (
-                        <td key={r || SIN} className={`mapa-enf-celda ${hs.length > 0 ? 'mapa-enf-celda-hueco' : ''} ${fichas.length === 0 && hs.length === 0 ? 'mapa-enf-celda-vacia' : ''}`} title={hs.length > 0 ? hs.map((h) => texto(h.motivo)).filter(Boolean).join(' ') || undefined : undefined}>
+                        <td key={r || tr(SIN)} className={`mapa-enf-celda ${hs.length > 0 ? 'mapa-enf-celda-hueco' : ''} ${fichas.length === 0 && hs.length === 0 ? 'mapa-enf-celda-vacia' : ''}`} title={hs.length > 0 ? hs.map((h) => texto(h.motivo)).filter(Boolean).join(' ') || undefined : undefined}>
                           {fichas.map((c, i) => (
                             <Ficha key={`${clave(c.tipoCelular)}-${i}`} celda={c} mapa={mapa} />
                           ))}

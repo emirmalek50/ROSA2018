@@ -6,9 +6,9 @@ import { useMemo } from 'react';
 import type { Corrida } from '../datos/tipos';
 import { resumenMetrica, serieDeProgreso } from '../lib/progreso';
 import { Seccion } from './piezas';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
-const PELDANO = ['muy baja', 'baja', 'moderada', 'alta'];
+const PELDANO = traducido(['muy baja', 'baja', 'moderada', 'alta']);
 
 export function GraficaProgreso({ corridas }: { corridas: Corrida[] }) {
   const puntos = useMemo(() => serieDeProgreso(corridas), [corridas]);
@@ -41,10 +41,10 @@ export function GraficaProgreso({ corridas }: { corridas: Corrida[] }) {
   const marcaFallidos = (f: number) => (f <= 3 ? '×'.repeat(f) : `×${f}`);
   return (
     <Seccion
-      titulo="Progreso de la investigación"
-      nota="Cada punto es una iteración cerrada, de todas las corridas seguidas. La línea morada suma los peldaños de certeza (muy baja 0, baja 1, moderada 2, alta 3) de las hipótesis vivas; la gris, los hechos acumulados. Abajo, en rojo, lo que falló en cada iteración. Las rayas verticales marcan un cambio de versión de ROSA2018. Es la vara: si la línea morada no sube, ROSA2018 lee pero no avanza."
+      titulo={tr("Progreso de la investigación")}
+      nota={tr("Cada punto es una iteración cerrada, de todas las corridas seguidas. La línea morada suma los peldaños de certeza (muy baja 0, baja 1, moderada 2, alta 3) de las hipótesis vivas; la gris, los hechos acumulados. Abajo, en rojo, lo que falló en cada iteración. Las rayas verticales marcan un cambio de versión de ROSA2018. Es la vara: si la línea morada no sube, ROSA2018 lee pero no avanza.")}
     >
-      <svg className="grafica-progreso" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Progreso: ${ultimo.peldanosTotales} peldaños de certeza tras ${n} iteraciones${maxReal === 0 ? '; ninguna hipótesis ha subido todavía' : ''}`}>
+      <svg className="grafica-progreso" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Progreso: ${ultimo.peldanosTotales} peldaños de certeza tras ${n} iteraciones${maxReal === 0 ? tr('; ninguna hipótesis ha subido todavía') : ''}`}>
         {[0, 0.5, 1].map((f) => (
           <line key={f} className="gp-rejilla" x1={ml} x2={W - mr} y1={yPeld(f * maxPeld)} y2={yPeld(f * maxPeld)} />
         ))}

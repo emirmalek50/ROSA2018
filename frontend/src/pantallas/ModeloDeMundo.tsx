@@ -65,8 +65,8 @@ function TarjetaHecho({ h, ahora, fuentes, porId }: { h: HechoMundo; ahora: numb
       <div className="hecho-cabecera">
         <Chip tono={h.tipo === 'hipotesis' ? 'acento' : undefined}>{TIPO_HECHO[h.tipo]}</Chip>
         {h.tema !== TIPO_HECHO[h.tipo] && <Chip tono="borde">{h.tema}</Chip>}
-        <Chip tono={h.origen === 'fuente' ? undefined : 'aviso'} title={h.origen === 'fuente' ? 'Lo dice la fuente citada' : 'Lo infiere ROSA2018; no es una cita'}>
-          {h.origen === 'fuente' ? 'Dice la fuente' : 'Inferencia de ROSA2018'}
+        <Chip tono={h.origen === 'fuente' ? undefined : 'aviso'} title={h.origen === 'fuente' ? tr('Lo dice la fuente citada') : tr('Lo infiere ROSA2018; no es una cita')}>
+          {h.origen === 'fuente' ? tr('Dice la fuente') : tr('Inferencia de ROSA2018')}
         </Chip>
       </div>
       <p>{h.enunciado}</p>
@@ -98,7 +98,7 @@ function TarjetaHecho({ h, ahora, fuentes, porId }: { h: HechoMundo; ahora: numb
             {tr("Pendiente de revisar")}
           </Chip>{' '}
           {h.pendienteRevision.detalle}{' '}
-          <button type="button" className="btn btn-s" onClick={() => acciones.atenderPendiente('hecho', h.id, 'revisado en el modelo de mundo')}>
+          <button type="button" className="btn btn-s" onClick={() => acciones.atenderPendiente('hecho', h.id, tr('revisado en el modelo de mundo'))}>
             {tr("Ya lo revisé")}
           </button>
         </p>
@@ -106,7 +106,7 @@ function TarjetaHecho({ h, ahora, fuentes, porId }: { h: HechoMundo; ahora: numb
       <span className="meta">
         <Momento t={h.actualizadoEn} ahora={ahora} />
         {h.historial.length > 1 && ` · ${h.historial.length} movimientos`}
-        {(h.afirmacionIds?.length ?? 0) > 0 && ` · ${h.afirmacionIds!.length} ${h.afirmacionIds!.length === 1 ? 'afirmación lo sostiene' : 'afirmaciones lo sostienen'}`}
+        {(h.afirmacionIds?.length ?? 0) > 0 && ` · ${h.afirmacionIds!.length} ${h.afirmacionIds!.length === 1 ? tr('afirmación lo sostiene') : tr('afirmaciones lo sostienen')}`}
       </span>
     </div>
   );
@@ -134,7 +134,7 @@ function ColumnaDeHechos({ col, lista, conFiltro, ahora, fuentes, porId }: { col
         {ESTADO_HECHO[col]} <span className="nav-cuenta">{lista.length}</span>
       </h3>
       {lista.length === 0 ? (
-        <p className="meta">{tr("Nada aquí")}{conFiltro ? ' con este filtro' : ''}.</p>
+        <p className="meta">{tr("Nada aquí")}{conFiltro ? tr(' con este filtro') : ''}.</p>
       ) : (
         <>
           <ListaAnimada className="mundo-tarjetas" como="ul">
@@ -161,10 +161,10 @@ function EnlacesDelHecho({ h, porId }: { h: HechoMundo; porId?: Map<string, Hech
   const nombre = (id: string) => porId?.get(id)?.enunciado.slice(0, 90) ?? id;
   type Fila = { etiqueta: string; ids: string[]; tono: 'ok' | 'mal' | 'aviso' | 'borde' };
   const todas: Fila[] = [
-    { etiqueta: 'Sustituye a', ids: h.sustituyeA ?? [], tono: 'borde' },
-    { etiqueta: 'Sustituido por', ids: h.sustituidoPor ? [h.sustituidoPor] : [], tono: 'aviso' },
-    { etiqueta: 'Responde a', ids: h.resuelveA ?? [], tono: 'ok' },
-    { etiqueta: 'Choca con', ids: h.contradiceA ?? [], tono: 'mal' },
+    { etiqueta: tr('Sustituye a'), ids: h.sustituyeA ?? [], tono: 'borde' },
+    { etiqueta: tr('Sustituido por'), ids: h.sustituidoPor ? [h.sustituidoPor] : [], tono: 'aviso' },
+    { etiqueta: tr('Responde a'), ids: h.resuelveA ?? [], tono: 'ok' },
+    { etiqueta: tr('Choca con'), ids: h.contradiceA ?? [], tono: 'mal' },
   ];
   const filas = todas.filter((f) => f.ids.length > 0);
   if (filas.length === 0) return null;
@@ -229,7 +229,7 @@ function SiluetaMundo() {
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
           <h2>{TITULO}</h2>
-          <p>{DESCRIPCION}</p>
+          <p>{tr(DESCRIPCION)}</p>
         </div>
         <div className="filtros" aria-hidden="true">
           <div className="segmentos" role="group" aria-label="Vista">
@@ -283,7 +283,7 @@ export function ModeloDeMundo({ inv, estado, ahora }: { inv: Investigacion; esta
   return (
     <div className="contenido contenido-ancho">
       <AvisoMuestra conexion={estado.conexion} />
-      <Cargando activo={esperando} rotulo="el modelo de mundo" esqueleto={<SiluetaMundo />}>
+      <Cargando activo={esperando} rotulo={tr("el modelo de mundo")} esqueleto={<SiluetaMundo />}>
         {base !== null && <CuerpoMundo inv={inv} estado={estado} ahora={ahora} base={base} />}
       </Cargando>
     </div>
@@ -312,7 +312,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
           <h2>{TITULO}</h2>
-          <p>{DESCRIPCION}</p>
+          <p>{tr(DESCRIPCION)}</p>
         </div>
         <div className="filtros">
           <div className="segmentos" role="group" aria-label="Vista">
@@ -338,7 +338,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
       <div className="acciones" style={{ marginBottom: 16 }}>
         {contrastados > 0 && (
           <Chip tono="aviso">
-            {contrastados} {contrastados === 1 ? 'hecho con citas que lo contrastan' : 'hechos con citas que los contrastan'}
+            {contrastados} {contrastados === 1 ? tr('hecho con citas que lo contrastan') : tr('hechos con citas que los contrastan')}
           </Chip>
         )}
         <button type="button" className="btn btn-s" onClick={() => acciones.recomprobarRetracciones(inv.id)}>
@@ -348,7 +348,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
       </div>
 
       {coberturas.length > 0 && (
-        <Seccion detalle titulo="Cobertura de la búsqueda por tema" nota={`Cuánto de lo relevante se estima encontrado (curva de descubrimiento). Por debajo del ${Math.round(COBERTURA_MINIMA * 100)} % una "ausencia refutada" se degrada a "sin verificar".`}>
+        <Seccion detalle titulo={tr("Cobertura de la búsqueda por tema")} nota={`Cuánto de lo relevante se estima encontrado (curva de descubrimiento). Por debajo del ${Math.round(COBERTURA_MINIMA * 100)} % una "ausencia refutada" se degrada a "sin verificar".`}>
           <div className="coberturas">
             {coberturas.map((c) => {
               const faltan = faltanParaCobertura(c, 0.9);
@@ -384,7 +384,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
 
       <PreguntarALasBases inv={inv} ahora={ahora} />
 
-      <Seccion titulo="Preguntar al modelo de mundo" nota="Responde solo con lo que hay dentro, citando los nodos. Si no hay nada, lo dice y no lo inventa.">
+      <Seccion titulo={tr("Preguntar al modelo de mundo")} nota={tr("Responde solo con lo que hay dentro, citando los nodos. Si no hay nada, lo dice y no lo inventa.")}>
         <div className="dirigir">
           <input
             className="entrada"
@@ -408,7 +408,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
             </header>
             {respuesta.respuesta}
             {respuesta.citas.length > 0 && (
-              <ul className="citas-comprobables" aria-label="Fuentes citadas">
+              <ul className="citas-comprobables" aria-label={tr("Fuentes citadas")}>
                 {respuesta.citas.map((c) => (
                   <li key={c.fuenteId}>
                     <strong>{c.referencia}</strong>
@@ -433,7 +433,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
       </Seccion>
 
       {vista === 'cambios' ? (
-        <Seccion titulo="Qué cambió desde tu última visita" nota="Movimientos entre sabido, abierto y descartado, con quién los decidió y por qué.">
+        <Seccion titulo={tr("Qué cambió desde tu última visita")} nota={tr("Movimientos entre sabido, abierto y descartado, con quién los decidió y por qué.")}>
           {movimientos.length === 0 ? (
             <p className="meta">{tr("Nada se movió desde tu última visita.")}</p>
           ) : (
@@ -443,7 +443,7 @@ function CuerpoMundo({ inv, estado, ahora, base }: { inv: Investigacion; estado:
                   <div>
                     <div className="acciones" style={{ gap: 6 }}>
                       {x.m.de !== null && <Chip>{ESTADO_HECHO[x.m.de]}</Chip>}
-                      <span className="meta">{x.m.de !== null ? 'a' : 'nuevo en'}</span>
+                      <span className="meta">{x.m.de !== null ? 'a' : tr('nuevo en')}</span>
                       <Chip tono={x.m.a === 'sabido' ? 'ok' : x.m.a === 'descartado' ? 'mal' : 'acento'}>{ESTADO_HECHO[x.m.a]}</Chip>
                       <Chip tono={x.m.quien === 'Rosa' ? undefined : 'borde'}>{nombreActor(x.m.quien)}</Chip>
                     </div>

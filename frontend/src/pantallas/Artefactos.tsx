@@ -27,7 +27,7 @@ import { TIPO_ARTEFACTO } from '../lib/etiquetas';
 import { ProcedenciaDeArtefacto } from '../componentes/Rosa2018';
 import { aBibtex, aCsv, aRis } from '../lib/exportar';
 import { rutaDe } from '../lib/ruta';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 /** Cuánto espera el botón del dossier a que el servidor lo devuelva por el
  *  canal en vivo antes de darse por vencido y decirlo. */
@@ -47,7 +47,7 @@ function trasElPintado(): Promise<void> {
 /** Un botón que descarga un fichero armado en el momento. Va en vuelo desde el
  *  clic hasta que el navegador recibe el fichero, y mientras tanto ignora los
  *  clics repetidos (una descarga, no dos). */
-function BotonDescarga({ etiqueta, nombre, tipo, construir, disabled, className = 'btn btn-s' }: { etiqueta: string; nombre: string; tipo?: string; construir: () => string; disabled?: boolean; className?: string }) {
+function BotonDescarga({ etiqueta, nombre, tipo, construir, disabled, className = tr('btn btn-s') }: { etiqueta: string; nombre: string; tipo?: string; construir: () => string; disabled?: boolean; className?: string }) {
   const [enVuelo, envolver] = useEnVuelo();
   const bajar = envolver(async () => {
     await trasElPintado();
@@ -81,14 +81,14 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
             {a.nombre}
           </h2>
           <p>
-            {TIPO_ARTEFACTO[a.tipo]} · {a.versiones.length} {a.versiones.length === 1 ? 'versión' : 'versiones'}
+            {TIPO_ARTEFACTO[a.tipo]} · {a.versiones.length} {a.versiones.length === 1 ? tr('versión') : 'versiones'}
           </p>
         </div>
         <div className="acciones">
           {a.tipo === 'dossier' ? (
             <>
               <DescargarDossierWord a={a} n={version.n} muestra={estado.conexion === 'muestra'} />
-              <BotonDescarga className="btn btn-s" etiqueta="Texto (.md)" nombre={a.nombre} construir={() => version.contenido} />
+              <BotonDescarga className="btn btn-s" etiqueta={tr("Texto (.md)")} nombre={a.nombre} construir={() => version.contenido} />
             </>
           ) : (
             <BotonDescarga className="btn" etiqueta={`Descargar v${version.n}`} nombre={a.nombre} construir={() => version.contenido} />
@@ -110,7 +110,7 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
         {a.versiones.length > 1 && (
           <>
             <span className="meta">Comparar con</span>
-            <select className="entrada" style={{ width: 'auto', minHeight: 30 }} value={contra ?? ''} onChange={(e) => setContra(e.target.value === '' ? null : Number(e.target.value))} aria-label="Comparar con">
+            <select className="entrada" style={{ width: 'auto', minHeight: 30 }} value={contra ?? ''} onChange={(e) => setContra(e.target.value === '' ? null : Number(e.target.value))} aria-label={tr("Comparar con")}>
               <option value="">{tr("Sin comparar")}</option>
               {a.versiones
                 .filter((v) => v.n !== n)
@@ -165,7 +165,7 @@ function DescargarDossierWord({ a, n, muestra }: { a: Artefacto; n: number; mues
   });
   return (
     <>
-      <button type="button" className="btn btn-primario" disabled={muestra} title={muestra ? 'Con datos de muestra no hay servidor que lo arme' : 'PDF con el diseño del Alzheimer Project'} {...atributosEnVuelo(bajando)} onClick={() => void bajar()}>
+      <button type="button" className="btn btn-primario" disabled={muestra} title={muestra ? tr('Con datos de muestra no hay servidor que lo arme') : tr('PDF con el diseño del Alzheimer Project')} {...atributosEnVuelo(bajando)} onClick={() => void bajar()}>
         Descargar v{n} (PDF)
       </button>
       {aviso && (
@@ -208,7 +208,7 @@ function DocumentoControladoPanel({ a, estado }: { a: Artefacto; estado: EstadoR
       setAviso(await acciones.descargarDocumento(h.id, version, `${doc!.id}_${version}.pdf`));
     })();
   return (
-    <section className="doc-control" aria-label="Documento controlado">
+    <section className="doc-control" aria-label={tr("Documento controlado")}>
       <div className="doc-control-cab">
         <div>
           <h3>Documento controlado{doc ? ` · ${doc.id}` : ''}</h3>
@@ -225,7 +225,7 @@ function DocumentoControladoPanel({ a, estado }: { a: Artefacto; estado: EstadoR
                 <span className="meta">
                   {v.fecha} · {v.iniciales} · dossier v{v.versionArtefacto}
                 </span>
-                <Chip tono={v.controlado ? 'ok' : 'aviso'}>{v.controlado ? '8 de 8 comprobaciones' : `${v.comprobaciones.filter((c) => c.ok).length} de 8 comprobaciones`}</Chip>
+                <Chip tono={v.controlado ? 'ok' : 'aviso'}>{v.controlado ? tr('8 de 8 comprobaciones') : `${v.comprobaciones.filter((c) => c.ok).length} de 8 comprobaciones`}</Chip>
                 <button type="button" className="btn btn-s" disabled={muestra} {...atributosEnVuelo(bajando)} onClick={() => bajar(v.version)}>
                   Descargar PDF {v.version}
                 </button>
@@ -249,11 +249,11 @@ function DocumentoControladoPanel({ a, estado }: { a: Artefacto; estado: EstadoR
             style={{ width: 340, maxWidth: '100%' }}
             maxLength={80}
             value={valor}
-            placeholder={h.nombreCorto === undefined ? 'ROSA2018 está resumiendo el título...' : 'Escríbelo: un resumen del título'}
+            placeholder={h.nombreCorto === undefined ? tr('ROSA2018 está resumiendo el título...') : tr('Escríbelo: un resumen del título')}
             onChange={(e) => setNombre(e.target.value)}
           />
-          <button type="button" className="btn btn-s btn-primario" disabled={!limpio || muestra} title={muestra ? 'Con datos de muestra no hay servidor que lo emita' : 'El servidor le da su código AP-HYP (la primera vez) y la versión siguiente'} {...atributosEnVuelo(enviando)} onClick={() => void emitir()}>
-            {doc ? `Emitir ${`v${String(versiones.length + 1).padStart(2, '0')}`}` : 'Emitir documento controlado'}
+          <button type="button" className="btn btn-s btn-primario" disabled={!limpio || muestra} title={muestra ? tr('Con datos de muestra no hay servidor que lo emita') : tr('El servidor le da su código AP-HYP (la primera vez) y la versión siguiente')} {...atributosEnVuelo(enviando)} onClick={() => void emitir()}>
+            {doc ? `Emitir ${`v${String(versiones.length + 1).padStart(2, '0')}`}` : tr('Emitir documento controlado')}
           </button>
           {propuesto && nombre === null && <span className="meta">{tr("Resumen del título propuesto por ROSA2018; puedes cambiarlo.")}</span>}
         </div>
@@ -294,7 +294,7 @@ function GenerarDossier({ estado, hipotesis }: { estado: EstadoRosa; hipotesis: 
   // El viaje del POST al servidor también cuenta: la acción devuelve su promesa.
   const [enviando, envolverEnvio] = useEnVuelo();
   const pedido = enviando || espera.esperando;
-  const aviso = espera.agotada ? 'Sin respuesta del servidor en un minuto. Si el dossier no aparece abajo, vuelve a pedirlo.' : null;
+  const aviso = espera.agotada ? tr('Sin respuesta del servidor en un minuto. Si el dossier no aparece abajo, vuelve a pedirlo.') : null;
   const pedir = envolverEnvio(() => {
     if (!elegida || pedido) return;
     setPedidaId(elegida.id);
@@ -319,8 +319,8 @@ function GenerarDossier({ estado, hipotesis }: { estado: EstadoRosa; hipotesis: 
               </option>
             ))}
           </select>
-          <button type="button" className="btn btn-s" disabled={!elegida || muestra} title={muestra ? 'Con datos de muestra no hay servidor que lo arme' : 'El servidor arma el dossier con lo que hay en el estado, sin ningún modelo, y lo guarda aquí como artefacto'} {...atributosEnVuelo(pedido)} onClick={() => void pedir()}>
-            {elegida?.dossierArtefactoId ? 'Regenerar dossier' : 'Generar dossier'}
+          <button type="button" className="btn btn-s" disabled={!elegida || muestra} title={muestra ? tr('Con datos de muestra no hay servidor que lo arme') : tr('El servidor arma el dossier con lo que hay en el estado, sin ningún modelo, y lo guarda aquí como artefacto')} {...atributosEnVuelo(pedido)} onClick={() => void pedir()}>
+            {elegida?.dossierArtefactoId ? tr('Regenerar dossier') : tr('Generar dossier')}
           </button>
           {pedido && <span className="meta">{tr("Esperando al servidor: el dossier aparecerá en la lista.")}</span>}
           {aviso && (
@@ -352,10 +352,10 @@ function derivarArtefactos(estado: EstadoRosa, invId: string) {
   return { invId, propios, hipotesis, fuentes };
 }
 
-const CABECERA_ARTEFACTOS = {
+const CABECERA_ARTEFACTOS = traducido({
   titulo: 'Artefactos',
   descripcion: 'Lo que ROSA2018 guarda en cada iteración: informes, tablas, el estado del modelo de mundo. Cada guardado con el mismo nombre es una versión nueva.',
-};
+});
 /** Medido en Chromium a 1440 px: cada tarjeta de artefacto mide entre 202 y 248 px. */
 const ALTO_ARTEFACTO = 224;
 
@@ -364,7 +364,7 @@ const ALTO_ARTEFACTO = 224;
  *  dossier (30 px) y una tarjeta por artefacto (el estado ya sabe cuántos). */
 export function EsqueletoArtefactos({ tarjetas }: { tarjetas: number }) {
   return (
-    <EsqueletoPantalla variante="lista" rotulo="los artefactos" margenSuperior={16} cabecera={CABECERA_ARTEFACTOS} acciones={<Esqueleto className="esqueleto-entrada" />}>
+    <EsqueletoPantalla variante="lista" rotulo={tr("los artefactos")} margenSuperior={16} cabecera={CABECERA_ARTEFACTOS} acciones={<Esqueleto className="esqueleto-entrada" />}>
       <div className="acciones" style={{ marginBottom: 16 }} aria-hidden="true">
         <Esqueleto alto={12} ancho={300} />
         <Esqueleto className="esqueleto-boton-s" ancho={72} />
@@ -396,7 +396,7 @@ export function Artefactos({ inv, estado, ahora, detalleId }: { inv: Investigaci
   // canal en vivo se conserva lo calculado hasta que llega lo nuevo. Cuántas
   // tarjetas habrá lo sabe el estado sin derivar nada.
   if (base === null || base.invId !== inv.id) {
-    if (detalleId) return <EsqueletoPantalla variante="ficha" rotulo="el artefacto" />;
+    if (detalleId) return <EsqueletoPantalla variante="ficha" rotulo={tr("el artefacto")} />;
     return <EsqueletoArtefactos tarjetas={estado.artefactos.filter((a) => a.investigacionId === inv.id).length} />;
   }
   const { propios, hipotesis, fuentes } = base;
@@ -413,11 +413,11 @@ export function Artefactos({ inv, estado, ahora, detalleId }: { inv: Investigaci
           <h2>{CABECERA_ARTEFACTOS.titulo}</h2>
           <p>{CABECERA_ARTEFACTOS.descripcion}</p>
         </div>
-        <input className="entrada" style={{ maxWidth: 300 }} value={busqueda} placeholder="Buscar artefactos" onChange={(e) => setBusqueda(e.target.value)} aria-label="Buscar artefactos" />
+        <input className="entrada" style={{ maxWidth: 300 }} value={busqueda} placeholder={tr("Buscar artefactos")} onChange={(e) => setBusqueda(e.target.value)} aria-label={tr("Buscar artefactos")} />
       </div>
       <div className="acciones" style={{ marginBottom: 16 }}>
         <span className="meta">
-          {fuentes.length} {fuentes.length === 1 ? 'fuente citada' : 'fuentes citadas'} {tr("en la investigación. Exportar:")}
+          {fuentes.length} {fuentes.length === 1 ? tr('fuente citada') : tr('fuentes citadas')} {tr("en la investigación. Exportar:")}
         </span>
         <BotonDescarga etiqueta="BibTeX" disabled={fuentes.length === 0} nombre={`rosa-${inv.id}-fuentes-${fecha}.bib`} construir={() => aBibtex(fuentes)} />
         <BotonDescarga etiqueta="RIS" disabled={fuentes.length === 0} nombre={`rosa-${inv.id}-fuentes-${fecha}.ris`} construir={() => aRis(fuentes)} />
@@ -425,7 +425,7 @@ export function Artefactos({ inv, estado, ahora, detalleId }: { inv: Investigaci
       </div>
       <GenerarDossier estado={estado} hipotesis={hipotesis} />
       {visibles.length === 0 ? (
-        <Vacio titulo="Sin artefactos">{tr("Nada coincide con la búsqueda.")}</Vacio>
+        <Vacio titulo={tr("Sin artefactos")}>{tr("Nada coincide con la búsqueda.")}</Vacio>
       ) : (
         <div className="artefactos-rejilla">
           {visibles.map((a) => {

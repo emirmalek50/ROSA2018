@@ -3,6 +3,7 @@
 
 import type { Afirmacion, EstadoHipotesis, HallazgoRevisor, Hipotesis } from '../datos/tipos';
 import { VEREDICTO } from './etiquetas';
+import { tr } from './idioma';
 
 /** Orden de la cola: primero lo que espera a una persona. */
 const PRIORIDAD_COLA: Record<EstadoHipotesis, number> = {
@@ -72,7 +73,7 @@ function cuenta(afirmaciones: Afirmacion[], veredicto: Afirmacion['veredicto']):
  *  sobria; sin_verificar se dice como aviso, nunca como aprobado. */
 export function resumirVerificacion(afirmaciones: Afirmacion[]): ResumenVerificacion {
   const total = afirmaciones.length;
-  if (total === 0) return { total: 0, sostenidas: 0, bloqueantes: 0, frase: 'Sin afirmaciones que verificar', tono: 'vacio' };
+  if (total === 0) return { total: 0, sostenidas: 0, bloqueantes: 0, frase: tr('Sin afirmaciones que verificar'), tono: 'vacio' };
   const sostenidas = cuenta(afirmaciones, 'sostenida');
   const bloqueantes = afirmaciones.filter((a) => VEREDICTO[a.veredicto].bloquea).length;
   const otraEntidad = afirmaciones.filter((a) => a.entidadDistinta).length;
@@ -120,11 +121,11 @@ export function hallazgosVisibles(hallazgos: HallazgoRevisor[], mostrarTodo: boo
  *  abiertos del revisor. Devuelve el motivo si no se puede. */
 export function motivoNoAceptable(h: Pick<Hipotesis, 'afirmaciones' | 'hallazgos' | 'comprobacion'>): string | null {
   const bloqueantes = h.afirmaciones.filter((a) => VEREDICTO[a.veredicto].bloquea).length;
-  if (bloqueantes > 0) return `${bloqueantes} ${bloqueantes === 1 ? 'afirmación bloquea' : 'afirmaciones bloquean'} la aceptación: hay que corregirlas o quitarlas`;
+  if (bloqueantes > 0) return `${bloqueantes} ${bloqueantes === 1 ? tr('afirmación bloquea') : tr('afirmaciones bloquean')} la aceptación: hay que corregirlas o quitarlas`;
   const abiertos = h.hallazgos.filter((x) => x.estado === 'abierto').length;
-  if (abiertos > 0) return `${abiertos} ${abiertos === 1 ? 'hallazgo del revisor sigue abierto' : 'hallazgos del revisor siguen abiertos'}`;
+  if (abiertos > 0) return `${abiertos} ${abiertos === 1 ? tr('hallazgo del revisor sigue abierto') : tr('hallazgos del revisor siguen abiertos')}`;
   if (h.comprobacion.biomarcador.trim() === '' && h.comprobacion.cohorte.trim() === '') {
-    return 'La hipótesis no dice con que biomarcador ni con que cohorte se comprobaría';
+    return tr('La hipótesis no dice con que biomarcador ni con que cohorte se comprobaría');
   }
   return null;
 }

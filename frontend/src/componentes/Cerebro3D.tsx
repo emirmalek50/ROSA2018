@@ -192,12 +192,12 @@ function satelites(): Satelite[] {
     forma, tejido, rotulo,
   });
   return [
-    con('retina', 'Retina (globo ocular)', ojos, 'retina', true),
-    con('retina', 'Retina (globo ocular)', iris, 'iris', false),
-    con('retina', 'Retina (globo ocular)', pupila, 'pupila', false),
-    con('retina', 'Retina (globo ocular)', nervios, 'nervio', false),
-    con('plasma', 'Sangre y plasma', sangre, 'plasma', true),
-    con('intestino_microbiota', 'Intestino y microbiota', intestino, 'intestino_microbiota', true),
+    con('retina', tr('Retina (globo ocular)'), ojos, 'retina', true),
+    con('retina', tr('Retina (globo ocular)'), iris, 'iris', false),
+    con('retina', tr('Retina (globo ocular)'), pupila, 'pupila', false),
+    con('retina', tr('Retina (globo ocular)'), nervios, 'nervio', false),
+    con('plasma', tr('Sangre y plasma'), sangre, 'plasma', true),
+    con('intestino_microbiota', tr('Intestino y microbiota'), intestino, 'intestino_microbiota', true),
   ];
 }
 
@@ -864,8 +864,8 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
   // con sus medidas y el aviso dentro: la maqueta no salta y la silueta de
   // espera sigue midiendo lo que el contenido (regla de los esqueletos).
   const respaldo = estado === 'sin_modelo' || estado === 'sin_webgl' || estado === 'error';
-  const aviso = estado === 'sin_webgl' ? 'Este navegador no puede dibujar el cerebro en tres dimensiones. Puedes consultar toda la evidencia en «Vista 2D».'
-    : estado === 'sin_modelo' ? 'El modelo anatómico del cerebro todavía no está instalado en esta copia. La evidencia está entera en «Vista 2D».'
+  const aviso = estado === 'sin_webgl' ? tr('Este navegador no puede dibujar el cerebro en tres dimensiones. Puedes consultar toda la evidencia en «Vista 2D».')
+    : estado === 'sin_modelo' ? tr('El modelo anatómico del cerebro todavía no está instalado en esta copia. La evidencia está entera en «Vista 2D».')
     : `No se pudo cargar el modelo del cerebro. ${detalle}`;
   const credito = indice?.atribucion ? `${indice.atribucion.replace(/\.\s*$/, '')}. ` : '';
   const porClave = new Map(atlas.regiones.map((r) => [r.clave, r]));
@@ -957,7 +957,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         </ul>
       )}
       <p className="meta">{credito}{tr("Las estructuras se encienden con la evidencia reunida: el color va por cohortes. El ojo, la gota de sangre y el intestino son cuerpos esquemáticos, no anatomía medida. Arrastra para girar el cerebro y pulsa una estructura para leer lo que hay sobre ella.")}</p>
-      <p className="atlas-3d-lectura" aria-live="polite">{apuntada ? `${nombre ?? apuntada.etiqueta}: ${apuntada.conteo} registros · ${apuntada.cohortes.length} cohortes nombradas por sus hipótesis${apuntada.discordia.length ? ' · Discordia entre hechos' : ''}` : 'Señala una estructura para ver sus cifras y abrir su ficha.'}</p>
+      <p className="atlas-3d-lectura" aria-live="polite">{apuntada ? `${nombre ?? apuntada.etiqueta}: ${apuntada.conteo} registros · ${apuntada.cohortes.length} cohortes nombradas por sus hipótesis${apuntada.discordia.length ? tr(' · Discordia entre hechos') : ''}` : tr('Señala una estructura para ver sus cifras y abrir su ficha.')}</p>
     </section>
   );
 }

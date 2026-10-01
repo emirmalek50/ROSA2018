@@ -11,44 +11,44 @@ import { useState } from 'react';
 import type { AccesoDatasetPrograma, DatasetPrograma, FuenteDatasetPrograma, Id, TipoDatasetPrograma } from '../datos/tipos';
 import { formatearEntero } from '../lib/formato';
 import { Chip } from './piezas';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 /** Etiquetas visibles, copiadas de rosa/datasets_programa.py ETIQUETA_FUENTE,
  *  ETIQUETA_TIPO y ETIQUETA_ACCESO. Las claves se comparan con el servidor y
  *  van sin tilde; el texto que se lee lleva las suyas. */
-export const ETIQUETA_FUENTE: Record<FuenteDatasetPrograma, string> = {
+export const ETIQUETA_FUENTE: Record<FuenteDatasetPrograma, string> = traducido({
   geo: 'GEO',
   cellxgene: 'CELLxGENE',
   synapse: 'Synapse',
   arrayexpress: 'ArrayExpress',
   expression_atlas: 'Expression Atlas',
   manual: 'manual',
-};
+});
 
-export const ETIQUETA_TIPO: Record<TipoDatasetPrograma, string> = {
+export const ETIQUETA_TIPO: Record<TipoDatasetPrograma, string> = traducido({
   bulk: 'expresión en tejido (bulk)',
   celula_unica: 'célula única',
   proteomica: 'proteómica',
   genetica: 'genética',
   imagen: 'imagen',
   otro: 'otro',
-};
+});
 
-export const ETIQUETA_ACCESO: Record<AccesoDatasetPrograma, string> = {
+export const ETIQUETA_ACCESO: Record<AccesoDatasetPrograma, string> = traducido({
   abierto: 'abierto',
   registro: 'con registro',
   controlado: 'controlado (el proyecto no lo pide)',
   desconocido: 'acceso sin comprobar',
-};
+});
 
-const DEFINICION_FUENTE: Record<FuenteDatasetPrograma, string> = {
+const DEFINICION_FUENTE: Record<FuenteDatasetPrograma, string> = traducido({
   geo: 'Gene Expression Omnibus (NCBI): repositorio público de datos de expresión génica, por número de serie GSE.',
   cellxgene: 'CELLxGENE Discover (Chan Zuckerberg Initiative): colecciones públicas de célula única.',
   synapse: 'Synapse (Sage Bionetworks): plataforma que aloja, entre otros, los datos del AD Knowledge Portal; parte es de acceso controlado.',
   arrayexpress: 'ArrayExpress (EMBL-EBI): archivo europeo de experimentos de expresión.',
   expression_atlas: 'Expression Atlas (EMBL-EBI): expresión por gen y condición, reprocesada de forma uniforme.',
   manual: 'Subido por una persona a esta instalación de ROSA2018.',
-};
+});
 
 const TONO_ACCESO: Record<AccesoDatasetPrograma, 'ok' | 'aviso' | 'mal' | 'borde'> = {
   abierto: 'ok',
@@ -57,12 +57,12 @@ const TONO_ACCESO: Record<AccesoDatasetPrograma, 'ok' | 'aviso' | 'mal' | 'borde
   desconocido: 'borde',
 };
 
-const DEFINICION_ACCESO: Record<AccesoDatasetPrograma, string> = {
+const DEFINICION_ACCESO: Record<AccesoDatasetPrograma, string> = traducido({
   abierto: 'Se descarga sin pedir permiso a nadie.',
   registro: 'Hace falta una cuenta gratuita, sin comité ni acuerdo de uso.',
   controlado: 'Exige un acuerdo de uso de datos y a menudo un comité. ROSA2018 trabaja solo con datos públicos: este conjunto se registra para que conste que existe, no se propone para análisis con datos individuales.',
   desconocido: 'La regla no encontró en la ficha ninguna palabra que dijera cómo se accede: no pude comprobar, que no es lo mismo que abierto.',
-};
+});
 
 const texto = (x: unknown): string => (typeof x === 'string' ? x.trim() : typeof x === 'number' && Number.isFinite(x) ? String(x) : '');
 /** Un recuento: número no negativo, o texto con solo dígitos (registro antiguo); lo demás es null, "sin comprobar". */
@@ -97,7 +97,7 @@ function textoN(d: DatasetPrograma): string {
   if (muestras !== null) partes.push(`${formatearEntero(muestras)} muestras`);
   if (donantes !== null) partes.push(`${formatearEntero(donantes)} donantes`);
   if (celulas !== null) partes.push(`${formatearEntero(celulas)} células`);
-  return partes.length > 0 ? partes.join(' · ') : 'sin comprobar';
+  return partes.length > 0 ? partes.join(' · ') : tr('sin comprobar');
 }
 
 function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id }) {
@@ -111,9 +111,9 @@ function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id 
   const accession = texto(d.accession) || 'sin accession';
   // Solo un enlace http(s) real se pinta como enlace; lo demás (número, javascript:) no.
   const url = typeof d.url === 'string' && /^https?:\/\//i.test(d.url.trim()) ? d.url.trim() : '';
-  const tejido = [texto(d.tejido), texto(d.region)].filter(Boolean).join(' · ') || 'sin comprobar';
-  const estadio = texto(d.estadio) || 'sin comprobar';
-  const titulo = texto(d.titulo) || 'sin título';
+  const tejido = [texto(d.tejido), texto(d.region)].filter(Boolean).join(' · ') || tr('sin comprobar');
+  const estadio = texto(d.estadio) || tr('sin comprobar');
+  const titulo = texto(d.titulo) || tr('sin título');
   return (
     <li className={`dsp-fila ${acceso === 'controlado' ? 'dsp-controlado' : ''} ${usado ? 'dsp-usado' : ''}`}>
       <div className="dsp-cabecera">
@@ -127,7 +127,7 @@ function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id 
         )}
         <Chip tono={TONO_ACCESO[acceso]} title={DEFINICION_ACCESO[acceso]}>{ETIQUETA_ACCESO[acceso]}</Chip>
         {usado && <Chip tono="acento" title={tr("Alguna corrida de esta investigación lo consultó o lo analizó.")}>usado aquí</Chip>}
-        {!usado && usadoEn > 0 && <Chip title={tr("Lo usó otra investigación de este programa.")}>usado en {usadoEn} {usadoEn === 1 ? 'investigación' : 'investigaciones'}</Chip>}
+        {!usado && usadoEn > 0 && <Chip title={tr("Lo usó otra investigación de este programa.")}>usado en {usadoEn} {usadoEn === 1 ? tr('investigación') : 'investigaciones'}</Chip>}
       </div>
       <p className="dsp-titulo">{titulo}</p>
       <dl className="dsp-datos">
@@ -217,7 +217,7 @@ export function DatasetsPrograma({ datasets, investigacionId }: { datasets: Data
         <>
           <p className="meta dsp-resumen">
             {visibles.length} {visibles.length === 1 ? 'dataset' : 'datasets'}
-            {verTodos ? ' en todo el programa' : ' usados en esta investigación'}
+            {verTodos ? tr(' en todo el programa') : tr(' usados en esta investigación')}
             {controlados > 0 ? `; ${controlados} de acceso controlado (el proyecto no lo pide)` : ''}.
           </p>
           <ul className="lista-limpia dsp-lista">

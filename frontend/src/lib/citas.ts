@@ -11,6 +11,7 @@
 import type { RecuperacionCitas } from '../datos/tipos';
 import { certezaDe } from './etiquetas';
 import { formatearEntero, plural } from './formato';
+import { traducido, tr } from './idioma';
 
 export type ClaseCita = 'pagina' | 'seccion' | 'resumen' | 'web' | 'otro';
 
@@ -167,7 +168,7 @@ export function trozosDeTexto(texto: string, tramos: readonly TramoCita[]): Troz
 /** Las señales de una ficha que viene de un servidor anterior, que todavía no
  *  las manda: se dice que no se pudieron comprobar, en vez de romper la
  *  pantalla o de inventar un sí. */
-export const SIN_COMPROBAR: ComprobacionDeHoy = { resuelve: false, motivoResuelve: 'Este servidor todavía no comprueba la cita al abrir la ficha.', literal: false, falta: null, localizadorAdmitido: false, disponible: false };
+export const SIN_COMPROBAR: ComprobacionDeHoy = traducido({ resuelve: false, motivoResuelve: 'Este servidor todavía no comprueba la cita al abrir la ficha.', literal: false, falta: null, localizadorAdmitido: false, disponible: false });
 
 /** Las señales de una respuesta, con su respaldo si no vienen. */
 export function senalesDe(hoy: ComprobacionDeHoy | undefined | null): ComprobacionDeHoy {
@@ -281,11 +282,11 @@ export function enLlanoLaClase(clase: ClaseCita, localizador: string): string {
     case 'seccion':
       return `${localizador}, sin número de página`;
     case 'resumen':
-      return 'resumen, sin número de página';
+      return tr('resumen, sin número de página');
     case 'web':
       return `${localizador}, sin número de página`;
     default:
-      return localizador || 'sin localizador';
+      return localizador || tr('sin localizador');
   }
 }
 
@@ -351,15 +352,15 @@ export function recuentoDeRecuperacion(reg: Pick<RecuperacionCitas, 'recuento'>)
 export function avanceDeRecuperacion(reg: RecuperacionCitas): string {
   switch (reg.estado) {
     case 'pedida':
-      return 'Pedida. Empieza en unos segundos y va en segundo plano: puedes seguir usando ROSA2018.';
+      return tr('Pedida. Empieza en unos segundos y va en segundo plano: puedes seguir usando ROSA2018.');
     case 'en_espera':
-      return reg.motivo || 'Esperando a que pare la corrida que está trabajando en esta investigación.';
+      return reg.motivo || tr('Esperando a que pare la corrida que está trabajando en esta investigación.');
     case 'en_curso':
-      if (reg.fase === 'enlazar') return `Enlazando a las hipótesis lo que salió sostenido: ${plural(reg.enlazadas, 'afirmación', 'afirmaciones')} a ${plural(reg.hipotesisConEvidencia.length, 'hipótesis', 'hipótesis')} por ahora.`;
+      if (reg.fase === 'enlazar') return `Enlazando a las hipótesis lo que salió sostenido: ${plural(reg.enlazadas, tr('afirmación'), 'afirmaciones')} a ${plural(reg.hipotesisConEvidencia.length, 'hipótesis', 'hipótesis')} por ahora.`;
       if (reg.fase === 'conclusiones') return `Rehaciendo las conclusiones de ${plural(reg.hipotesisConEvidencia.length, 'hipótesis', 'hipótesis')} que ganaron evidencia: ${formatearEntero(reg.reconcluidas.length)} hechas.`;
       return `Volviendo a juzgar con el verificador de hoy: ${formatearEntero(reg.revisadas)} de ${formatearEntero(reg.total)} (${recuentoDeRecuperacion(reg)}). ${plural(reg.llamadas, 'llamada', 'llamadas')} a modelos hasta ahora.`;
     case 'fallida':
-      return `No terminó: ${reg.motivo || 'motivo desconocido'}. Lo ya juzgado se conserva; se puede pedir otra vez y sigue donde quedó.`;
+      return `No terminó: ${reg.motivo || tr('motivo desconocido')}. Lo ya juzgado se conserva; se puede pedir otra vez y sigue donde quedó.`;
     default:
       return '';
   }
@@ -367,14 +368,14 @@ export function avanceDeRecuperacion(reg: RecuperacionCitas): string {
 
 /** El informe de una recuperación terminada, frase a frase. */
 export function informeDeRecuperacion(reg: RecuperacionCitas): string[] {
-  const lineas = [`${plural(reg.revisadas, 'afirmación vuelta a juzgar', 'afirmaciones vueltas a juzgar')}: ${recuentoDeRecuperacion(reg)}.`];
-  lineas.push(`${plural(reg.enlazadas, 'afirmación enlazada', 'afirmaciones enlazadas')} a ${plural(reg.hipotesisConEvidencia.length, 'hipótesis', 'hipótesis')}.`);
-  if (reg.nacidas.length) lineas.push(`${plural(reg.nacidas.length, 'idea del vivero nació', 'ideas del vivero nacieron')} como hipótesis al llegar a certeza baja.`);
+  const lineas = [`${plural(reg.revisadas, tr('afirmación vuelta a juzgar'), tr('afirmaciones vueltas a juzgar'))}: ${recuentoDeRecuperacion(reg)}.`];
+  lineas.push(`${plural(reg.enlazadas, tr('afirmación enlazada'), tr('afirmaciones enlazadas'))} a ${plural(reg.hipotesisConEvidencia.length, 'hipótesis', 'hipótesis')}.`);
+  if (reg.nacidas.length) lineas.push(`${plural(reg.nacidas.length, tr('idea del vivero nació'), tr('ideas del vivero nacieron'))} como hipótesis al llegar a certeza baja.`);
   const cambios = reg.reconcluidas.filter((x) => x.antes !== x.despues);
-  lineas.push(`${plural(reg.reconcluidas.length, 'conclusión rehecha', 'conclusiones rehechas')}${cambios.length ? `, ${plural(cambios.length, 'cambió', 'cambiaron')} de certeza:` : ', ninguna cambió de certeza.'}`);
+  lineas.push(`${plural(reg.reconcluidas.length, tr('conclusión rehecha'), tr('conclusiones rehechas'))}${cambios.length ? `, ${plural(cambios.length, tr('cambió'), 'cambiaron')} de certeza:` : tr(', ninguna cambió de certeza.')}`);
   for (const x of cambios) {
-    const antes = x.antes ? certezaDe(x.antes).etiqueta.toLowerCase() : 'sin conclusión';
-    const despues = x.despues ? certezaDe(x.despues).etiqueta.toLowerCase() : 'sin conclusión';
+    const antes = x.antes ? certezaDe(x.antes).etiqueta.toLowerCase() : tr('sin conclusión');
+    const despues = x.despues ? certezaDe(x.despues).etiqueta.toLowerCase() : tr('sin conclusión');
     lineas.push(`«${x.titulo}»: de ${antes} a ${despues}.`);
   }
   for (const n of reg.notas) lineas.push(n);

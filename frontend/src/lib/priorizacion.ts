@@ -11,10 +11,11 @@
 
 import type { Bloqueo, EstadoRosa, Hipotesis } from '../datos/tipos';
 import { veredictoDe } from './etiquetas';
+import { traducido } from './idioma';
 
 export const MAX_CANDIDATOS = 3;
 
-export const ETIQUETA_BLOQUEO: Record<Bloqueo, string> = {
+export const ETIQUETA_BLOQUEO: Record<Bloqueo, string> = traducido({
   trazabilidad_insuficiente: 'Trazabilidad insuficiente',
   datos_no_autorizados: 'Datos no autorizados',
   analisis_invalido: 'Análisis inválido según el auditor',
@@ -23,9 +24,9 @@ export const ETIQUETA_BLOQUEO: Record<Bloqueo, string> = {
   fuente_retractada: 'Depende de una fuente retractada',
   revision_registro_abierta: 'Hallazgo grave del revisor sin atender',
   dependencia_pendiente: 'Depende de algo que cambió y no se revisó',
-};
+});
 
-export const EXPLICACION_BLOQUEO: Record<Bloqueo, string> = {
+export const EXPLICACION_BLOQUEO: Record<Bloqueo, string> = traducido({
   trazabilidad_insuficiente: 'No hay afirmaciones sostenidas por su fuente, o alguna afirmación está bloqueada (cita que no resuelve, dato de otra entidad, ausencia desmentida, o un veredicto que esta versión de la interfaz no conoce y por tanto no puede dar por bueno).',
   datos_no_autorizados: 'Algún análisis usó un dataset sin contrato aprobado o sin autorización de uso con IA.',
   analisis_invalido: 'El auditor independiente (Killer II) dio por no válido el último análisis con datos.',
@@ -34,7 +35,7 @@ export const EXPLICACION_BLOQUEO: Record<Bloqueo, string> = {
   fuente_retractada: 'Una de sus fuentes está retractada.',
   revision_registro_abierta: 'El revisor de registro encontró algo grave (un identificador que no está en el registro, una ejecución afirmada y no completada, un recuento que no cuadra) en el dossier o en la última iteración cerrada, y nadie lo atendió todavía.',
   dependencia_pendiente: 'Algo de lo que depende cambió (una fuente se retractó, un hecho del modelo de mundo fue sustituido o contradicho) y ROSA2018 todavía no volvió a concluirla ni una persona la revisó.',
-};
+});
 
 type Estado = Pick<EstadoRosa, 'investigaciones' | 'planesAnalisis' | 'ejecuciones' | 'hipotesis'> & Partial<Pick<EstadoRosa, 'artefactos' | 'corridas' | 'iteraciones'>>;
 
@@ -147,7 +148,7 @@ interface EntradaCohorte {
  *  los ensayos de fase 2 y 3 que entraron ese día por M-03). Si allí entra una
  *  cohorte nueva, hay que copiarla aquí; el test priorizacion.cohortes.test.ts
  *  compara las dos reglas sobre el estado real y avisa si se desincronizan. */
-const CATALOGO_COHORTES: EntradaCohorte[] = [
+const CATALOGO_COHORTES: EntradaCohorte[] = traducido([
   { id: 'cohorte:adni', etiqueta: 'ADNI', alias: ["Alzheimer's Disease Neuroimaging Initiative", 'ADNI-1', 'ADNI-2', 'ADNI-3', 'ADNI-GO', 'ADNI-DOD'] },
   { id: 'cohorte:j_adni', etiqueta: 'J-ADNI', alias: ['Japanese ADNI', "Japanese Alzheimer's Disease Neuroimaging Initiative"] },
   { id: 'cohorte:biofinder', etiqueta: 'BioFINDER', alias: ['Swedish BioFINDER', 'BioFINDER-1', 'BioFINDER-2', 'Biomarkers For Identifying Neurodegenerative Disorders Early and Reliably'] },
@@ -206,7 +207,7 @@ const CATALOGO_COHORTES: EntradaCohorte[] = [
   { id: 'cohorte:betula', etiqueta: 'Betula', alias: ['Betula study', 'Betula project', 'Betula cohort'], busca: false },
   { id: 'cohorte:abc_ds', etiqueta: 'ABC-DS', alias: ['Alzheimer Biomarker Consortium-Down Syndrome', "Alzheimer's Biomarkers Consortium-Down Syndrome"] },
   { id: 'cohorte:cable', etiqueta: 'CABLE', alias: ["Chinese Alzheimer's Biomarker and LifestylE"] },
-];
+]);
 
 /** Palabras que no distinguen una cohorte (rosa/metodos.py _GENERICOS_COHORTE). */
 const GENERICOS_COHORTE = new Set(['cohorte', 'cohort', 'study', 'estudio', 'longitudinal', 'portadores', 'familias', 'alzheimer', 'disease', 'enfermedad', 'mutaciones', 'carriers', 'participantes', 'pacientes', 'et', 'al', 'the', 'of', 'de', 'del', 'la', 'los', 'las', 'con', 'and', 'familial', 'autosomal', 'dominant', 'autosómico', 'dominante', 'ensayo', 'ensayos', 'trial', 'trials']);

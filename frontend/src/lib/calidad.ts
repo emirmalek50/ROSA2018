@@ -4,6 +4,7 @@
 
 import type { Corrida, Fuente, Hipotesis, TipoEstudio } from '../datos/tipos';
 import { VEREDICTO } from './etiquetas';
+import { tr } from './idioma';
 
 /* ---------------------------------------------------------------------
    Calibracion revisor frente a persona
@@ -118,13 +119,13 @@ export function resumenEvidencia(fuentes: Fuente[]): string {
   const n = { sistematica: 0, ensayo: 0, observacional: 0, preclinico: 0, otro: 0 };
   for (const f of fuentes) n[GRUPO[f.tipoEstudio]]++;
   const piezas = [
-    n.sistematica > 0 && `${n.sistematica} ${n.sistematica === 1 ? 'revisión sistemática' : 'revisiones sistemáticas'}`,
-    n.ensayo > 0 && `${n.ensayo} ${n.ensayo === 1 ? 'ensayo aleatorizado' : 'ensayos aleatorizados'}`,
+    n.sistematica > 0 && `${n.sistematica} ${n.sistematica === 1 ? tr('revisión sistemática') : tr('revisiones sistemáticas')}`,
+    n.ensayo > 0 && `${n.ensayo} ${n.ensayo === 1 ? tr('ensayo aleatorizado') : tr('ensayos aleatorizados')}`,
     n.observacional > 0 && `${n.observacional} ${n.observacional === 1 ? 'observacional' : 'observacionales'}`,
     n.preclinico > 0 && `${n.preclinico} ${n.preclinico === 1 ? 'preclinico' : 'preclinicos'}`,
-    n.otro > 0 && `${n.otro} ${n.otro === 1 ? 'otra fuente' : 'otras fuentes'}`,
+    n.otro > 0 && `${n.otro} ${n.otro === 1 ? tr('otra fuente') : tr('otras fuentes')}`,
   ].filter((p): p is string => typeof p === 'string');
-  if (piezas.length === 0) return 'sin fuentes';
+  if (piezas.length === 0) return tr('sin fuentes');
   return `sostenida por ${piezas.join(', ')}`;
 }
 

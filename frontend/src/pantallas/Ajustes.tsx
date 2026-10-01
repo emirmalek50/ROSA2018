@@ -17,26 +17,26 @@ import { useTema, type Tema } from '../lib/theme';
 import { Correo } from '../componentes/Correo';
 import { CuentaActual, CuentasDelEquipo, useSesion } from '../componentes/Acceso';
 import '../ajustes.css';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
-const CATEGORIAS = [
+const CATEGORIAS = traducido([
   { id: 'general', nombre: 'General', descripcion: 'Tu cuenta y tu espacio', icono: IconUser, titulo: 'Un espacio a tu medida', nota: 'Tu cuenta, el equipo y la forma en que ves ROSA2018.' },
   { id: 'autonomia', nombre: 'Autonomía', descripcion: 'Decisiones y permisos', icono: IconGauge, titulo: 'Tú decides hasta dónde', nota: 'Define cuándo ROSA2018 actúa y cuándo necesita tu criterio.' },
   { id: 'memoria', nombre: 'Memoria y criterio', descripcion: 'Preferencias y revisión', icono: IconBulb, titulo: 'Lo que ROSA2018 aprende de ti', nota: 'Revisa sus recuerdos, reutiliza planes y afina tus criterios de investigación.' },
   { id: 'avisos', nombre: 'Avisos', descripcion: 'Canales y novedades', icono: IconMessage, titulo: 'Al tanto, a tu manera', nota: 'Elige qué novedades quieres recibir mientras ROSA2018 investiga.' },
   { id: 'herramientas', nombre: 'Herramientas', descripcion: 'Fuentes, métodos y modelos', icono: IconGlobe, titulo: 'Las piezas de la investigación', nota: 'Explora las fuentes, los métodos y los modelos disponibles para ROSA2018.' },
   { id: 'seguridad', nombre: 'Seguridad', descripcion: 'Políticas y trazabilidad', icono: IconShieldCheck, titulo: 'El control sigue contigo', nota: 'Consulta las políticas, la integridad del registro y la copia del estado.' },
-] as const;
+] as const);
 type Categoria = typeof CATEGORIAS[number]['id'];
 
-const CRITERIOS_INTEGRADOS = [
+const CRITERIOS_INTEGRADOS = traducido([
   'Toda afirmación lleva una cita que resuelve a la página exacta del dato.',
   'Un identificador (NCT, DOI, PMID) que no aparece en el fragmento citado no se sostiene.',
   'Un dato de otra entidad (otro fármaco, cohorte, estudio) se marca aunque la cifra sea real.',
   'Una declaración de ausencia desmentida por el corpus se bloquea.',
   'Nada se aprueba por omisión: sin veredicto es "sin verificar".',
   'Una "ausencia refutada" solo vale si la búsqueda del tema ha convergido.',
-];
+]);
 
 /** Un campo de texto que guarda al salir (o con Enter), no en cada tecla:
  *  cada guardado es una acción que viaja al servidor y queda en el registro. */
@@ -77,7 +77,7 @@ function Recuerdo({ id, texto }: { id: string; texto: string }) {
         }}
         aria-label="Recuerdo"
       />
-      <button type="button" className="btn btn-fantasma btn-icono" aria-label="Borrar recuerdo" onClick={() => acciones.borrarRecuerdo(id)}>
+      <button type="button" className="btn btn-fantasma btn-icono" aria-label={tr("Borrar recuerdo")} onClick={() => acciones.borrarRecuerdo(id)}>
         <IconTrash size={14} />
       </button>
     </li>
@@ -138,13 +138,13 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
           <header className="ajustes-intro"><h3>{actual.titulo}</h3><p>{actual.nota}</p></header>
           <div className="ajustes-panel" role="tabpanel" id="ajuste-panel-general" aria-labelledby="ajuste-tab-general" hidden={categoria !== 'general'} tabIndex={0}>
             {sesion && (
-              <Seccion titulo="Sesión" nota="La cuenta con la que has entrado en ROSA2018. Cerrar la sesión te devuelve a la pantalla de acceso; las investigaciones y sus corridas quedan en el servidor.">
+              <Seccion titulo="Sesión" nota={tr("La cuenta con la que has entrado en ROSA2018. Cerrar la sesión te devuelve a la pantalla de acceso; las investigaciones y sus corridas quedan en el servidor.")}>
                 <div className="ajustes-identidad"><span className="ajustes-avatar" aria-hidden="true"><IconUser size={23} /></span><CuentaActual /></div>
                 <CuentasDelEquipo />
               </Seccion>
             )}
 
-            <Seccion titulo="Apariencia" nota="Elige cómo quieres ver tu espacio. Se guarda en este navegador.">
+            <Seccion titulo="Apariencia" nota={tr("Elige cómo quieres ver tu espacio. Se guarda en este navegador.")}>
               <div className="ajustes-temas" role="group" aria-label="Tema">
                 {(['claro', 'oscuro', 'sistema'] as Tema[]).map((t) => (
                   <button className="ajustes-tema" data-tema={t} key={t} type="button" aria-pressed={tema === t} onClick={() => setTema(t)}>
@@ -152,7 +152,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                       <span className="ajustes-mini-lateral"><img src="/arbol-marca.png" alt="" /><i /><i /><i /></span>
                       <span className="ajustes-mini-contenido"><b /><i /><i /><span><i /><i /></span><em><i /><i /><i /></em></span>
                     </span>
-                    <span className="ajustes-tema-etiqueta">{t === 'sistema' ? 'Como el sistema' : t === 'claro' ? 'Claro' : 'Oscuro'}<span className="ajustes-tema-marca">{tema === t && <IconCheck size={13} />}</span></span>
+                    <span className="ajustes-tema-etiqueta">{t === 'sistema' ? tr('Como el sistema') : t === 'claro' ? 'Claro' : 'Oscuro'}<span className="ajustes-tema-marca">{tema === t && <IconCheck size={13} />}</span></span>
                   </button>
                 ))}
               </div>
@@ -166,7 +166,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
 
           </div>
           <div className="ajustes-panel" role="tabpanel" id="ajuste-panel-autonomia" aria-labelledby="ajuste-tab-autonomia" hidden={categoria !== 'autonomia'} tabIndex={0}>
-            <Seccion titulo="Autonomía por clase de acción" nota="Elige una opción para cada acción. Los cambios se envían al seleccionar; los límites de la investigación siguen vigentes.">
+            <Seccion titulo={tr("Autonomía por clase de acción")} nota={tr("Elige una opción para cada acción. Los cambios se envían al seleccionar; los límites de la investigación siguen vigentes.")}>
               <div className="ajustes-autonomia">
                 {(Object.keys(CLASE_ACCION) as ClaseAccion[]).map((c) => (
                   <fieldset className="ajustes-regla" key={c}>
@@ -189,7 +189,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
         )}
       </Seccion>
 
-      <Seccion titulo="Qué pasa con una decisión que nadie toma" nota="En una corrida de días la cola envejece. Esto lo decide una persona, nunca la interfaz por accidente.">
+      <Seccion titulo={tr("Qué pasa con una decisión que nadie toma")} nota={tr("En una corrida de días la cola envejece. Esto lo decide una persona, nunca la interfaz por accidente.")}>
         <div className="tarjeta seccion">
           <div className="rejilla-3">
             <div className="campo">
@@ -223,7 +223,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
         </div>
       </Seccion>
 
-      <Seccion detalle titulo="Permisos concedidos" nota="Lo que has permitido con alcance mayor que una vez. Revocar hace que ROSA2018 vuelva a pedirlo con una tarjeta.">
+      <Seccion detalle titulo={tr("Permisos concedidos")} nota={tr("Lo que has permitido con alcance mayor que una vez. Revocar hace que ROSA2018 vuelva a pedirlo con una tarjeta.")}>
         {estado.permisos.length === 0 ? (
           <p className="meta">{tr("Sin permisos concedidos.")}</p>
         ) : (
@@ -239,7 +239,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                       {i ? ` · ${i.titulo}` : ''} · <Momento t={p.concedidoEn} ahora={ahora} />
                     </small>
                   </div>
-                  <Confirmar etiqueta="Revocar" pregunta="ROSA2018 dejará de tener este acceso y lo pedirá de nuevo si lo necesita." onConfirmar={() => acciones.revocarPermiso(p.id)} />
+                  <Confirmar etiqueta="Revocar" pregunta={tr("ROSA2018 dejará de tener este acceso y lo pedirá de nuevo si lo necesita.")} onConfirmar={() => acciones.revocarPermiso(p.id)} />
                 </div>
               );
             })}
@@ -249,7 +249,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
 
           </div>
           <div className="ajustes-panel" role="tabpanel" id="ajuste-panel-memoria" aria-labelledby="ajuste-tab-memoria" hidden={categoria !== 'memoria'} tabIndex={0}>
-            <Seccion titulo="Memoria de ROSA2018 sobre ti" nota="Hechos cortos sobre la investigadora y sus preferencias. Aparte del modelo de mundo, que es de la investigación.">
+            <Seccion titulo={tr("Memoria de ROSA2018 sobre ti")} nota={tr("Hechos cortos sobre la investigadora y sus preferencias. Aparte del modelo de mundo, que es de la investigación.")}>
               {estado.memoria.length === 0 ? (
                 <p className="meta">{tr("ROSA2018 no recuerda nada todavía.")}</p>
               ) : (
@@ -261,7 +261,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               )}
             </Seccion>
 
-            <Seccion detalle titulo="Planes guardados" nota="Flujos que funcionaron, reutilizables. ROSA2018 propone usarlos cuando la tarea se parece (memoria de planes, como Magentic-UI).">
+            <Seccion detalle titulo={tr("Planes guardados")} nota={tr("Flujos que funcionaron, reutilizables. ROSA2018 propone usarlos cuando la tarea se parece (memoria de planes, como Magentic-UI).")}>
               {estado.planesGuardados.length === 0 ? (
                 <p className="meta">{tr("Sin planes guardados.")}</p>
               ) : (
@@ -274,7 +274,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                           {p.pasos.join(' → ')} · usado {p.vecesUsado} {p.vecesUsado === 1 ? 'vez' : 'veces'}, {p.exitos} con éxito
                         </p>
                       </div>
-                      <button type="button" className="btn btn-fantasma btn-icono" aria-label="Borrar plan guardado" onClick={() => acciones.borrarPlanGuardado(p.id)}>
+                      <button type="button" className="btn btn-fantasma btn-icono" aria-label={tr("Borrar plan guardado")} onClick={() => acciones.borrarPlanGuardado(p.id)}>
                         <IconTrash size={14} />
                       </button>
                     </li>
@@ -283,7 +283,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               )}
             </Seccion>
 
-            <Seccion detalle titulo="Criterios de revisión" nota="Los tuyos se suman a los integrados y no pueden debilitarlos. Las debilidades de la meta-revisión se inyectan aquí.">
+            <Seccion detalle titulo={tr("Criterios de revisión")} nota={tr("Los tuyos se suman a los integrados y no pueden debilitarlos. Las debilidades de la meta-revisión se inyectan aquí.")}>
               <div className="tarjeta">
                 <p className="campo-etiqueta" style={{ marginBottom: 8 }}>
                   {tr("Integrados (no se pueden quitar)")}
@@ -300,14 +300,14 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                 {estado.criteriosRevision.map((c, i) => (
                   <li key={c}>
                     <span>{c}</span>
-                    <button type="button" className="btn btn-fantasma btn-icono" aria-label="Quitar criterio" onClick={() => acciones.borrarCriterio(i, c)}>
+                    <button type="button" className="btn btn-fantasma btn-icono" aria-label={tr("Quitar criterio")} onClick={() => acciones.borrarCriterio(i, c)}>
                       <IconTrash size={14} />
                     </button>
                   </li>
                 ))}
               </ul>
               <div className="dirigir">
-                <textarea className="entrada" value={criterio} rows={1} placeholder={tr("Un criterio nuevo: 'Toda cifra de eficacia lleva el nombre del ensayo'")} onChange={(e) => setCriterio(e.target.value)} aria-label="Criterio nuevo" />
+                <textarea className="entrada" value={criterio} rows={1} placeholder={tr("Un criterio nuevo: 'Toda cifra de eficacia lleva el nombre del ensayo'")} onChange={(e) => setCriterio(e.target.value)} aria-label={tr("Criterio nuevo")} />
                 <button
                   type="button"
                   className="btn"
@@ -325,7 +325,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
             <RegistroAprendizaje estado={estado} ahora={ahora} />
           </div>
           <div className="ajustes-panel" role="tabpanel" id="ajuste-panel-avisos" aria-labelledby="ajuste-tab-avisos" hidden={categoria !== 'avisos'} tabIndex={0}>
-            <Seccion titulo="Avisos" nota="El bucle trabaja cuando nadie mira. Estos ajustes son de tu cuenta; el correo lleva contadores y un enlace, sin datos sensibles.">
+            <Seccion titulo="Avisos" nota={tr("El bucle trabaja cuando nadie mira. Estos ajustes son de tu cuenta; el correo lleva contadores y un enlace, sin datos sensibles.")}>
               <div className="tarjeta seccion">
                 <label className="interruptor">
                   <input type="checkbox" checked={avisos.slack.activo} onChange={(e) => acciones.actualizarAvisos({ ...avisos, slack: { ...avisos.slack, activo: e.target.checked } })} />
@@ -375,7 +375,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
             <Conectores conectores={estado.conectores} />
             <Skills skills={estado.skills} />
             <RegistroMetodos metodos={estado.metodos} ahora={ahora} />
-            <Seccion detalle titulo="Modelos de ROSA2018" nota="Piezas intercambiables dentro de ROSA2018, todas por el AI Gateway de Vercel. Se cambian por la métrica, no por el precio. Si un modelo no responde, ROSA2018 registra la incidencia y reintenta sin sustituir al cerebro por el modelo de volumen.">
+            <Seccion detalle titulo={tr("Modelos de ROSA2018")} nota={tr("Piezas intercambiables dentro de ROSA2018, todas por el AI Gateway de Vercel. Se cambian por la métrica, no por el precio. Si un modelo no responde, ROSA2018 registra la incidencia y reintenta sin sustituir al cerebro por el modelo de volumen.")}>
               <table className="tabla">
                 <tbody>
                   <tr>

@@ -48,26 +48,26 @@ export function queHaceAhora(corrida: Corrida, iteracion: Iteracion | null): { t
   const enCurso = iteracion?.plan.find((p) => p.estado === 'en_curso') ?? null;
   if (corrida.estado === 'esperando_plan' || (iteracion && !iteracion.planAprobado && !iteracion.terminadaEn)) {
     return iteracion && !iteracion.planAprobado && iteracion.plan.length > 0
-      ? { titulo: 'El plan espera tu aprobación', detalle: `${iteracion.plan.length} pasos propuestos para la iteración ${iteracion.numero}.` }
-      : { titulo: 'Escribiendo el plan de la iteración', detalle: 'Dos o tres llamadas al cerebro; suele tardar uno o dos minutos.' };
+      ? { titulo: tr('El plan espera tu aprobación'), detalle: `${iteracion.plan.length} pasos propuestos para la iteración ${iteracion.numero}.` }
+      : { titulo: tr('Escribiendo el plan de la iteración'), detalle: tr('Dos o tres llamadas al cerebro; suele tardar uno o dos minutos.') };
   }
-  if (corrida.estado === 'esperando_aprobacion') return { titulo: 'ROSA2018 necesita tu permiso', detalle: 'Nada de lo pedido ocurre hasta que respondas.' };
-  if (corrida.estado === 'pausada_por_presupuesto') return { titulo: 'Se acabó el tope de llamadas', detalle: corrida.presupuesto.motivoPausa || 'Amplía el tope para que siga.' };
-  if (corrida.estado === 'esperando_modelo') return { titulo: 'Esperando a que el modelo vuelva', detalle: 'ROSA2018 reintenta sola con el mismo modelo; el reloj no corre.' };
-  if (corrida.estado === 'pausada') return { titulo: 'En pausa', detalle: corrida.motivoPausaPropia || 'Reanuda cuando quieras; el reloj no corre.' };
-  if (corrida.estado === 'detenida') return { titulo: 'Corrida detenida', detalle: corrida.motivoCierre || 'No se reanuda: para seguir hay que arrancar una nueva.' };
-  if (corrida.estado === 'terminada') return { titulo: 'Corrida terminada', detalle: corrida.motivoCierre || 'Se cumplió su condición de parada.' };
+  if (corrida.estado === 'esperando_aprobacion') return { titulo: tr('ROSA2018 necesita tu permiso'), detalle: tr('Nada de lo pedido ocurre hasta que respondas.') };
+  if (corrida.estado === 'pausada_por_presupuesto') return { titulo: tr('Se acabó el tope de llamadas'), detalle: corrida.presupuesto.motivoPausa || tr('Amplía el tope para que siga.') };
+  if (corrida.estado === 'esperando_modelo') return { titulo: tr('Esperando a que el modelo vuelva'), detalle: tr('ROSA2018 reintenta sola con el mismo modelo; el reloj no corre.') };
+  if (corrida.estado === 'pausada') return { titulo: tr('En pausa'), detalle: corrida.motivoPausaPropia || tr('Reanuda cuando quieras; el reloj no corre.') };
+  if (corrida.estado === 'detenida') return { titulo: tr('Corrida detenida'), detalle: corrida.motivoCierre || tr('No se reanuda: para seguir hay que arrancar una nueva.') };
+  if (corrida.estado === 'terminada') return { titulo: tr('Corrida terminada'), detalle: corrida.motivoCierre || tr('Se cumplió su condición de parada.') };
   if (enCurso) {
     const vivas = (iteracion?.pistas ?? []).filter((p) => p.pasoId === enCurso.id && p.estado === 'en_curso');
     const detalle = vivas.length === 0
-      ? enCurso.detalle || 'En marcha.'
+      ? enCurso.detalle || tr('En marcha.')
       : vivas.length === 1
         ? `${vivas[0]!.titulo}`
         : `${vivas.length} pistas a la vez: ${vivas.slice(0, 2).map((p) => p.titulo).join('; ')}${vivas.length > 2 ? '…' : ''}`;
     return { titulo: enCurso.titulo, detalle };
   }
-  if (iteracion && !iteracion.terminadaEn) return { titulo: 'Entre pasos', detalle: 'Guardando lo del paso anterior y preparando el siguiente.' };
-  return { titulo: 'En marcha', detalle: 'Cerrando la iteración.' };
+  if (iteracion && !iteracion.terminadaEn) return { titulo: tr('Entre pasos'), detalle: tr('Guardando lo del paso anterior y preparando el siguiente.') };
+  return { titulo: 'En marcha', detalle: tr('Cerrando la iteración.') };
 }
 
 /** Una cifra que rueda hasta su valor y no baila: los dígitos van en cifra
@@ -217,7 +217,7 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
       )}
 
       <div className="vivo-vitales">
-        <Vital nombre="llamadas al modelo" title={`${formatearEntero(corrida.gasto.llamadas)} de ${formatearEntero(tope)} autorizadas`}>
+        <Vital nombre={tr("llamadas al modelo")} title={`${formatearEntero(corrida.gasto.llamadas)} de ${formatearEntero(tope)} autorizadas`}>
           <Cifra valor={corrida.gasto.llamadas} />
         </Vital>
         {usd !== null && (
@@ -225,7 +225,7 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
             <Cifra valor={usd} decimales={2} sufijo=" USD" />
           </Vital>
         )}
-        <Vital nombre="artículos leídos">
+        <Vital nombre={tr("artículos leídos")}>
           <Cifra valor={corrida.gasto.articulosLeidos} />
         </Vital>
         <Vital
@@ -244,7 +244,7 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
             <path d="M8 4.8v3.6M8 10.8v.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
           </svg>
           <span>
-            <strong>{reclaman === 1 ? 'Una cosa espera tu respuesta' : `${reclaman} cosas esperan tu respuesta`}</strong>{tr(". Hasta que decidas, ROSA2018 no sigue por ahí.")}
+            <strong>{reclaman === 1 ? tr('Una cosa espera tu respuesta') : `${reclaman} cosas esperan tu respuesta`}</strong>{tr(". Hasta que decidas, ROSA2018 no sigue por ahí.")}
           </span>
         </motion.div>
       )}

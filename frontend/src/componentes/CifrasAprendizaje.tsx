@@ -10,18 +10,18 @@ import type { ReactNode } from 'react';
 import type { AgregadoAcierto, CasoPrerregistrado, CifrasAprendizaje as Cifras, ReutilizacionHeredada, TiempoHastaDecision } from '../datos/tipos';
 import { CERTEZA_EVIDENCIA } from '../lib/etiquetas';
 import { coma, formatearEntero, formatearPorcentaje, plural } from '../lib/formato';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 /** Glosario de reserva, copiado de rosa/cifras_aprendizaje.py GLOSARIO; el
  *  que llega con las cifras manda, este cubre un registro que no lo traiga. */
-export const GLOSARIO_CIFRAS: Record<string, string> = {
+export const GLOSARIO_CIFRAS: Record<string, string> = traducido({
   prerregistro: 'lo que ROSA2018 deja por escrito antes de mirar los datos: qué espera ver y qué hará según salga',
   acierto: "el resultado cayó del lado que el prerregistro llamó 'confirma'",
   decision: 'cada juicio registrado sobre una hipótesis: del Killer (killer_1, killer_2), de la priorización, de una persona o del retorno del laboratorio',
   mediana: 'el valor del medio: la mitad de los casos queda por debajo',
   p90: 'el valor por debajo del cual queda el 90 % de los casos',
   hecho_heredado: 'un hecho del modelo de mundo copiado de otra investigación al crear esta',
-};
+});
 
 /** Qué palabras del texto llevan cada término del glosario (la clave del
  *  glosario va sin tilde porque se compara con el servidor). */
@@ -34,20 +34,20 @@ const PATRONES_TERMINO: [string, RegExp][] = [
   ['hecho_heredado', /\bhechos? heredad\w*/i],
 ];
 
-const ETAPA: Record<string, string> = {
+const ETAPA: Record<string, string> = traducido({
   killer_1: 'Killer 1 (antes de gastar)',
   killer_2: 'Killer 2 (auditoría del análisis)',
   priorizacion: 'priorización',
   persona: 'persona',
   retorno: 'retorno del laboratorio',
-};
+});
 
-const CLASE_CASO: Record<CasoPrerregistrado['clase'], { etiqueta: string; tono: 'ok' | 'mal' | 'borde' | 'aviso' }> = {
+const CLASE_CASO: Record<CasoPrerregistrado['clase'], { etiqueta: string; tono: 'ok' | 'mal' | 'borde' | 'aviso' }> = traducido({
   acierto: { etiqueta: 'Acierto', tono: 'ok' },
   fallo: { etiqueta: 'Fallo', tono: 'mal' },
   sin_direccion: { etiqueta: 'Sin dirección', tono: 'borde' },
   no_evaluable: { etiqueta: 'No evaluable', tono: 'aviso' },
-};
+});
 
 /** Envuelve la primera aparición de cada término del glosario en un span con
  *  la definición como tooltip. Cada término se explica una vez por texto. */
@@ -107,7 +107,7 @@ function Cifra({ titulo, definicion, valor, nota, regla, detalle, hayDetalle }: 
       <p className="cifra-ap-valor">{valor}</p>
       <p className="meta">{nota}</p>
       <details className="cifra-ap-detalle">
-        <summary>{tr("Cómo se calcula")}{hayDetalle ? ' y el detalle' : ''}</summary>
+        <summary>{tr("Cómo se calcula")}{hayDetalle ? tr(' y el detalle') : ''}</summary>
         <p className="meta cifra-ap-regla">{regla}</p>
         {hayDetalle ? detalle : <p className="meta">{tr("Sin casos que detallar todavía.")}</p>}
       </details>
@@ -116,8 +116,8 @@ function Cifra({ titulo, definicion, valor, nota, regla, detalle, hayDetalle }: 
 }
 
 function notaAcierto(a: AgregadoAcierto): string {
-  if (!cuenta(a.casos)) return 'Ninguna predicción prerregistrada con resultado todavía.';
-  const partes = [`${plural(cuenta(a.aciertos), 'acierto')} de ${plural(cuenta(a.conDireccion), 'predicción con dirección', 'predicciones con dirección')}`];
+  if (!cuenta(a.casos)) return tr('Ninguna predicción prerregistrada con resultado todavía.');
+  const partes = [`${plural(cuenta(a.aciertos), 'acierto')} de ${plural(cuenta(a.conDireccion), tr('predicción con dirección'), tr('predicciones con dirección'))}`];
   if (cuenta(a.sinDireccion)) partes.push(`${cuenta(a.sinDireccion)} sin dirección declarada (no entran en la tasa)`);
   if (cuenta(a.noEvaluables)) partes.push(`${cuenta(a.noEvaluables)} no evaluables`);
   return `${partes.join('; ')}.`;
@@ -125,16 +125,16 @@ function notaAcierto(a: AgregadoAcierto): string {
 
 function notaTiempo(t: TiempoHastaDecision): string {
   const abiertas = cuenta(t.abiertasSinDecision);
-  if (!cuenta(t.casos)) return abiertas ? `${plural(abiertas, 'hipótesis viva', 'hipótesis vivas')} sin ninguna decisión todavía (${textoHoras(t.abiertasSinDecisionHoras)} esperando).` : 'Ninguna hipótesis tiene todavía una decisión registrada.';
-  const partes = [`p90 ${textoHoras(t.p90Horas)}`, `${plural(cuenta(t.casos), 'decisión', 'decisiones')} sobre ${plural(cuenta(t.hipotesis), 'hipótesis', 'hipótesis')}`];
+  if (!cuenta(t.casos)) return abiertas ? `${plural(abiertas, tr('hipótesis viva'), tr('hipótesis vivas'))} sin ninguna decisión todavía (${textoHoras(t.abiertasSinDecisionHoras)} esperando).` : tr('Ninguna hipótesis tiene todavía una decisión registrada.');
+  const partes = [`p90 ${textoHoras(t.p90Horas)}`, `${plural(cuenta(t.casos), tr('decisión'), 'decisiones')} sobre ${plural(cuenta(t.hipotesis), 'hipótesis', 'hipótesis')}`];
   if (abiertas) partes.push(`${abiertas} vivas sin decidir`);
   return `${partes.join(' · ')}.`;
 }
 
 function notaReutilizacion(r: ReutilizacionHeredada): string {
   const heredados = cuenta(r.hechosHeredados);
-  if (!heredados) return 'Esta investigación no heredó hechos de otra.';
-  return `${plural(cuenta(r.usados), 'hecho heredado usado', 'hechos heredados usados')} de ${formatearEntero(heredados)}; ${plural(cuenta(r.hipotesisConHerencia), 'hipótesis viva', 'hipótesis vivas')} de ${cuenta(r.hipotesisVivas)} se apoyan en alguno.`;
+  if (!heredados) return tr('Esta investigación no heredó hechos de otra.');
+  return `${plural(cuenta(r.usados), tr('hecho heredado usado'), tr('hechos heredados usados'))} de ${formatearEntero(heredados)}; ${plural(cuenta(r.hipotesisConHerencia), tr('hipótesis viva'), tr('hipótesis vivas'))} de ${cuenta(r.hipotesisVivas)} se apoyan en alguno.`;
 }
 
 /** La tarjeta "Aprendizaje" de la vista de programa. `cifras` en null o
@@ -171,7 +171,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
     <article className="tarjeta cifras-ap" aria-label="Aprendizaje">
       <div className="cifras-ap-cabecera">
         <h3>Aprendizaje</h3>
-        <span className="meta">{cuenta(cifras.iteracion) ? `Calculado al cerrar la iteración ${cuenta(cifras.iteracion)}.` : 'Calculado a demanda.'}</span>
+        <span className="meta">{cuenta(cifras.iteracion) ? `Calculado al cerrar la iteración ${cuenta(cifras.iteracion)}.` : tr('Calculado a demanda.')}</span>
       </div>
       {frases.length > 0 ? (
         <div className="cifras-ap-texto">
@@ -212,9 +212,9 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
                   <ul className="lista-limpia cifra-ap-casos">
                     {detalleAcierto.slice(0, 30).map((c, i) => (
                       <li key={`${texto(c.planId) || texto(c.ejecucionId) || texto(c.hipotesisId) || i}-${i}`}>
-                        <span className={`chip chip-${CLASE_CASO[c.clase]?.tono ?? 'borde'}`}>{CLASE_CASO[c.clase]?.etiqueta ?? (texto(c.clase) || 'sin clase')}</span>
+                        <span className={`chip chip-${CLASE_CASO[c.clase]?.tono ?? 'borde'}`}>{CLASE_CASO[c.clase]?.etiqueta ?? (texto(c.clase) || tr('sin clase'))}</span>
                         <span>
-                          {c.fuente === 'laboratorio' ? 'Laboratorio' : 'Análisis'}
+                          {c.fuente === 'laboratorio' ? 'Laboratorio' : tr('Análisis')}
                           {texto(c.hipotesisId) ? ` · ${texto(c.hipotesisId)}` : ''}
                           {texto(c.direccionEsperada) ? ` · esperaba: ${texto(c.direccionEsperada)}` : ''}
                           {texto(c.resultado) ? ` · salió: ${texto(c.resultado)}` : ''}
@@ -230,7 +230,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
         )}
         {t && (
           <Cifra
-            titulo="Tiempo hasta decidir"
+            titulo={tr("Tiempo hasta decidir")}
             definicion={`Decisión: ${glosario.decision}. Mediana: ${glosario.mediana}. p90: ${glosario.p90}.`}
             valor={textoHoras(t.medianaHoras) === 'todavía no se puede medir' ? 'todavía no se puede medir' : `${textoHoras(t.medianaHoras)} de mediana`}
             nota={notaTiempo(t)}
@@ -244,7 +244,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
                       <li key={etapa}>
                         <span>{ETAPA[etapa] ?? etapa}</span>
                         <span className="meta">
-                          {plural(cuenta(v?.casos), 'decisión', 'decisiones')} · mediana {textoHoras(v?.medianaHoras)}
+                          {plural(cuenta(v?.casos), tr('decisión'), 'decisiones')} · mediana {textoHoras(v?.medianaHoras)}
                         </span>
                       </li>
                     ))}
@@ -261,7 +261,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
         )}
         {r && (
           <Cifra
-            titulo="Reutilización de lo heredado"
+            titulo={tr("Reutilización de lo heredado")}
             definicion={`Hecho heredado: ${glosario.hecho_heredado}.`}
             valor={!cuenta(r.hechosHeredados) ? 'no aplica' : textoTasa(r.tasa)}
             nota={notaReutilizacion(r)}
@@ -271,8 +271,8 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
               <ul className="lista-limpia cifra-ap-casos">
                 {detalleReut.slice(0, 30).map((d, i) => (
                   <li key={`${texto(d.hechoId) || i}-${i}`}>
-                    <span className={`chip ${Array.isArray(d.usadoPor) && d.usadoPor.length > 0 ? 'chip-ok' : 'chip-borde'}`}>{Array.isArray(d.usadoPor) && d.usadoPor.length > 0 ? 'Usado' : 'Sin usar'}</span>
-                    <span>{texto(d.tema) || texto(d.hechoId) || 'hecho sin tema'}</span>
+                    <span className={`chip ${Array.isArray(d.usadoPor) && d.usadoPor.length > 0 ? 'chip-ok' : 'chip-borde'}`}>{Array.isArray(d.usadoPor) && d.usadoPor.length > 0 ? 'Usado' : tr('Sin usar')}</span>
+                    <span>{texto(d.tema) || texto(d.hechoId) || tr('hecho sin tema')}</span>
                     <span className="meta">{texto(d.motivo)}</span>
                   </li>
                 ))}

@@ -4,6 +4,7 @@
 // escribe siempre, y asi la paleta oscura vive una sola vez.
 
 import { useEffect, useState } from 'react';
+import { tr } from './idioma';
 
 export type Tema = 'sistema' | 'claro' | 'oscuro';
 
@@ -34,7 +35,7 @@ export function guardarTema(tema: Tema): void {
 
 export function resolverTema(tema: Tema): 'claro' | 'oscuro' {
   if (tema !== 'sistema') return tema;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'oscuro' : 'claro';
+  return window.matchMedia(tr('(prefers-color-scheme: dark)')).matches ? 'oscuro' : 'claro';
 }
 
 export function aplicarTema(tema: Tema): void {
@@ -45,7 +46,7 @@ export function aplicarTema(tema: Tema): void {
 }
 
 export function observarSistema(): void {
-  const consulta = window.matchMedia('(prefers-color-scheme: dark)');
+  const consulta = window.matchMedia(tr('(prefers-color-scheme: dark)'));
   consulta.addEventListener('change', () => {
     if (leerTema() === 'sistema') aplicarTema('sistema');
   });

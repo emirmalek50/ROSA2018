@@ -19,20 +19,20 @@
 import type { EsperaModelo, EstadoCorrida, Incidencia, RolModelo, SaludModelo } from '../datos/tipos';
 import { formatearDuracion } from '../lib/formato';
 import { IconPlay } from './icons';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 /** Nombres legibles de los modelos del gateway; los demás se enseñan tal cual. */
-export const NOMBRES_MODELOS: Readonly<Record<string, string>> = {
+export const NOMBRES_MODELOS: Readonly<Record<string, string>> = traducido({
   'openai/gpt-6-astra': 'GPT-6 Astra',
   'anthropic/claude-opus-5': 'Claude Opus 5',
   'anthropic/claude-sonnet-5': 'Claude Sonnet 5',
-};
+});
 
 /** Orden fijo de los roles en la franja; los que el servidor añada y esta
  *  versión no conozca van detrás, con su clave. */
 export const ORDEN_ROLES: readonly RolModelo[] = ['cerebro', 'juez', 'volumen', 'replica'];
 
-export const NOMBRE_ROL: Readonly<Record<RolModelo, string>> = { cerebro: 'cerebro', juez: 'juez', volumen: 'volumen', replica: 'réplica' };
+export const NOMBRE_ROL: Readonly<Record<RolModelo, string>> = traducido({ cerebro: 'cerebro', juez: 'juez', volumen: 'volumen', replica: 'réplica' });
 
 /** Intentos seguidos con el mismo modelo antes de que la corrida pase a
  *  `esperando_modelo` (MAX_INTENTOS en rosa/vigilante_modelos.py). */
@@ -41,11 +41,11 @@ export const MAX_INTENTOS = 4;
 export type TonoSalud = 'ok' | 'aviso' | 'mal';
 
 /** Qué significa cada color, para el title del punto y para la leyenda. */
-export const SIGNIFICADO_ESTADO: Readonly<Record<SaludModelo['estado'], { etiqueta: string; tono: TonoSalud; explicacion: string }>> = {
+export const SIGNIFICADO_ESTADO: Readonly<Record<SaludModelo['estado'], { etiqueta: string; tono: TonoSalud; explicacion: string }>> = traducido({
   ok: { etiqueta: 'responde', tono: 'ok', explicacion: 'Verde: la última llamada a este modelo terminó bien. Entre paréntesis, cuánto tardó en responder.' },
   lento: { etiqueta: 'tarda en responder', tono: 'aviso', explicacion: 'Ámbar: un intento no respondió a tiempo. ROSA2018 espera unos segundos y reintenta con el mismo modelo; no lo cambia por otro.' },
   sin_respuesta: { etiqueta: 'sin respuesta', tono: 'mal', explicacion: 'Rojo: varios intentos seguidos sin respuesta. ROSA2018 sondea el gateway cada minuto y retoma sola cuando el modelo vuelve; nunca cambia de modelo (el cerebro es GPT-6 Astra y el juez Claude Opus 5, por regla).' },
-};
+});
 
 function num(x: unknown): x is number {
   return typeof x === 'number' && Number.isFinite(x) && x > 0;
@@ -56,7 +56,7 @@ function num(x: unknown): x is number {
  *  está en la tabla se enseña tal cual; sin id, "el modelo". */
 export function nombreDeModelo(modelo: unknown): string {
   const id = typeof modelo === 'string' ? modelo.trim() : '';
-  if (!id) return 'el modelo';
+  if (!id) return tr('el modelo');
   const limpio = id.startsWith('openai/') && id.split('/').length >= 3 ? id.slice('openai/'.length) : id;
   return NOMBRES_MODELOS[limpio] ?? NOMBRES_MODELOS[id] ?? id;
 }
@@ -103,7 +103,7 @@ export function textoSalud(rol: string, s: SaludModelo, ahora: number): string {
     let hace = '';
     if (num(s.ultimaRespuestaEn)) {
       const dif = ahora - s.ultimaRespuestaEn;
-      hace = dif < 1000 ? ', última respuesta hace un momento' : `, última respuesta hace ${formatearDuracion(dif)}`;
+      hace = dif < 1000 ? tr(', última respuesta hace un momento') : `, última respuesta hace ${formatearDuracion(dif)}`;
     }
     const latencia = num(s.ultimaLatenciaMs) ? ` (${formatearDuracion(s.ultimaLatenciaMs)})` : '';
     return `${quien}: responde${hace}${latencia}`;
@@ -142,13 +142,13 @@ export interface PropsVigilante {
  *  solo tardan (ámbar, y los estados que esta versión no conoce). Un modelo
  *  lento no se resume como caído: la fila de al lado diría lo contrario. */
 export function resumenDeSalud(filas: { rol: string; s: SaludModelo }[]): string {
-  if (filas.length === 0) return 'todavía sin medir';
+  if (filas.length === 0) return tr('todavía sin medir');
   const sinRespuesta = filas.filter((f) => f.s.estado === 'sin_respuesta').length;
   const lentos = filas.length - sinRespuesta - filas.filter((f) => f.s.estado === 'ok').length;
   const cuenta = (n: number, uno: string, varios: string) => (n === 1 ? `uno ${uno}` : `${n} ${varios}`);
-  if (sinRespuesta === 0 && lentos === 0) return 'todos responden';
-  if (sinRespuesta === 0) return cuenta(lentos, 'tarda en responder', 'tardan en responder');
-  const caidos = cuenta(sinRespuesta, 'no responde', 'no responden');
+  if (sinRespuesta === 0 && lentos === 0) return tr('todos responden');
+  if (sinRespuesta === 0) return cuenta(lentos, tr('tarda en responder'), tr('tardan en responder'));
+  const caidos = cuenta(sinRespuesta, tr('no responde'), tr('no responden'));
   if (lentos === 0) return `${caidos}; ROSA2018 reintenta sola`;
   return `${caidos} y ${cuenta(lentos, 'tarda', 'tardan')}; ROSA2018 reintenta sola`;
 }
@@ -170,7 +170,7 @@ export function VigilanteModelos({ salud, incidencias = [], estadoCorrida, esper
       <div className="vigilante-cabecera">
         <h3>Modelos</h3>
         <span className="meta" title={tr("Los modelos de lenguaje del AI Gateway que ROSA2018 usa, por rol: el cerebro planifica y razona (GPT-6 Astra), el juez verifica (Claude Opus 5), el volumen lee y extrae en masa (Claude Sonnet 5). Cuando uno no responde, ROSA2018 reintenta con el mismo; no lo cambia por otro.")}>
-          {viva ? resumenDeSalud(filas) : 'la corrida está cerrada; la salud de los modelos se enseña en la corrida viva'}
+          {viva ? resumenDeSalud(filas) : tr('la corrida está cerrada; la salud de los modelos se enseña en la corrida viva')}
         </span>
       </div>
       {!viva ? null : filas.length === 0 ? (
@@ -193,7 +193,7 @@ export function VigilanteModelos({ salud, incidencias = [], estadoCorrida, esper
         <ul className="vigilante-incidencias" aria-label={tr("Incidencias que ROSA2018 resuelve sola")}>
           {automaticas.map((i) => (
             <li key={i.id} title={i.detalle}>
-              <span className="chip chip-aviso">{viva ? 'resolviéndose solo' : 'quedó abierta al cerrar la corrida'}</span>
+              <span className="chip chip-aviso">{viva ? tr('resolviéndose solo') : tr('quedó abierta al cerrar la corrida')}</span>
               <span>
                 {i.titulo}
                 {num(i.creadaEn) && ahora - i.creadaEn >= 1000 ? ` · desde hace ${formatearDuracion(ahora - i.creadaEn)}` : ''}
@@ -210,11 +210,11 @@ export function VigilanteModelos({ salud, incidencias = [], estadoCorrida, esper
  *  última vez y el botón para no esperar al próximo sondeo. */
 export function AvisoEsperandoModelo({ espera, ahora, onReintentar }: { espera: EsperaModelo | null | undefined; ahora: number; onReintentar?: () => void }) {
   const nombre = nombreDeModelo(espera?.modelo);
-  const ultima = num(espera?.ultimoSondeo) ? `última comprobación ${horaCorta(espera?.ultimoSondeo)}` : num(espera?.proximoSondeo) ? `primera comprobación a las ${horaCorta(espera?.proximoSondeo)}` : 'todavía sin comprobación registrada';
+  const ultima = num(espera?.ultimoSondeo) ? `última comprobación ${horaCorta(espera?.ultimoSondeo)}` : num(espera?.proximoSondeo) ? `primera comprobación a las ${horaCorta(espera?.proximoSondeo)}` : tr('todavía sin comprobación registrada');
   const detalles: string[] = [];
-  if (num(espera?.desde)) detalles.push(`sin respuesta desde las ${horaCorta(espera?.desde)} (${formatearDuracion(Math.max(1000, ahora - (espera?.desde ?? ahora))) || 'un momento'})`);
+  if (num(espera?.desde)) detalles.push(`sin respuesta desde las ${horaCorta(espera?.desde)} (${formatearDuracion(Math.max(1000, ahora - (espera?.desde ?? ahora))) || tr('un momento')})`);
   if (typeof espera?.intentos === 'number' && espera.intentos > 0) detalles.push(`${espera.intentos} ${espera.intentos === 1 ? 'intento' : 'intentos'} con ${nombre}`);
-  detalles.push('el reloj de trabajo no corre mientras espera');
+  detalles.push(tr('el reloj de trabajo no corre mientras espera'));
   return (
     <div className="vigilante-aviso" role="status">
       <div className="vigilante-aviso-texto">

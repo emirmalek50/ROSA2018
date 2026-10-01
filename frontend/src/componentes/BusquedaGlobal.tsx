@@ -16,16 +16,16 @@ import { esTiempoAgotado, senalDeTope } from '../lib/diferido';
 import { Cargando, Esqueleto } from './Esqueleto';
 import { IconSearch, IconX } from './icons';
 import { Chip } from './piezas';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
-const TIPO: Record<Resultado['tipo'], string> = {
+const TIPO: Record<Resultado['tipo'], string> = traducido({
   hipotesis: 'Hipótesis',
   hecho: 'Modelo de mundo',
   fuente: 'Fuente',
   artefacto: 'Artefacto',
   iteracion: 'Iteración',
   evento: 'Evento',
-};
+});
 
 /** Tres filas con la silueta de un resultado por significado (.busqueda-item:
  *  chip, título y similitud), del mismo alto que las reales. */
@@ -33,7 +33,7 @@ function EsqueletoSemantico() {
   return (
     <Cargando
       activo
-      rotulo="los resultados por significado"
+      rotulo={tr("los resultados por significado")}
       esqueleto={
         <ul className="busqueda-resultados" aria-hidden="true">
           {[76, 58, 68].map((ancho, i) => (
@@ -126,7 +126,7 @@ export function BusquedaGlobal({ estado, investigacionId, abierta, onCerrar }: {
           <input
             ref={entrada}
             value={q}
-            placeholder={investigacionId ? 'Buscar hipótesis, hechos, fuentes, artefactos, iteraciones' : 'Abre una investigación para buscar dentro'}
+            placeholder={investigacionId ? tr('Buscar hipótesis, hechos, fuentes, artefactos, iteraciones') : tr('Abre una investigación para buscar dentro')}
             disabled={investigacionId === null}
             onChange={(e) => {
               setQ(e.target.value);
@@ -166,7 +166,7 @@ export function BusquedaGlobal({ estado, investigacionId, abierta, onCerrar }: {
         )}
         {(semanticos.length > 0 || buscandoSemantico || sinRespuesta) && (
           <div className="busqueda-semantica">
-            <p className="meta" style={{ margin: '8px 0 4px' }}>{tr("Por significado (índice semántico)")}</p>
+            <p className="meta" style={{ margin: tr('8px 0 4px') }}>{tr("Por significado (índice semántico)")}</p>
             {sinRespuesta && !buscandoSemantico && semanticos.length === 0 ? (
               <p className="meta">{tr("No pude comprobar el índice por significado: el servidor no respondió a tiempo. Escribe otra vez para volver a intentarlo.")}</p>
             ) : semanticos.length > 0 ? (
@@ -185,7 +185,7 @@ export function BusquedaGlobal({ estado, investigacionId, abierta, onCerrar }: {
                           }
                         }}
                       >
-                        <Chip>{r.tipo === 'hecho' ? 'Hecho' : r.tipo === 'hipotesis' ? 'Hipótesis' : 'Fuente'}</Chip>
+                        <Chip>{r.tipo === 'hecho' ? 'Hecho' : r.tipo === 'hipotesis' ? tr('Hipótesis') : 'Fuente'}</Chip>
                         <span className="busqueda-titulo">{r.texto.slice(0, 120)}</span>
                         <span className="meta">similitud {r.similitud.toFixed(2)}</span>
                       </button>

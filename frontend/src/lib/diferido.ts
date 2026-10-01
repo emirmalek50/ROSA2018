@@ -16,6 +16,7 @@
 // silueta gris a contenido, no de contenido a nada.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { tr } from './idioma';
 
 /** Programa `fn` para después del siguiente pintado. Devuelve la función que
  *  lo cancela. Sin `requestAnimationFrame` (Node, pruebas sin DOM) encadena
@@ -72,7 +73,7 @@ export function useCalculoDiferido<T>(calcular: () => T, deps: unknown[]): Resul
         const valor = calcularRef.current();
         if (vivo) setEstado({ valor, version, error: null });
       } catch (error) {
-        if (vivo) setEstado((actual) => ({ ...actual, version, error: error ?? new Error('El cálculo falló sin detalle') }));
+        if (vivo) setEstado((actual) => ({ ...actual, version, error: error ?? new Error(tr('El cálculo falló sin detalle')) }));
       }
     });
     return () => {

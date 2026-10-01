@@ -25,16 +25,16 @@ export function Presupuesto({ corrida, onAmpliar }: { corrida: Corrida; onAmplia
         </span>
       </div>
       <Barra fraccion={p.fraccion} marcas={corrida.presupuesto.alertas} tono={tono} />
-      <p className="meta" style={{ margin: '6px 0 0' }}>
+      <p className="meta" style={{ margin: tr('6px 0 0') }}>
         {tr("Cuenta todas las llamadas al modelo de la corrida: el plan, los pasos de cada iteración y el juez. El presupuesto que aparece en cada iteración cuenta solo las llamadas de sus pasos, por eso es más pequeño.")}
       </p>
       <div className="acciones" style={{ justifyContent: 'space-between' }}>
         <span className="meta">
           {pausada
-            ? 'Tope alcanzado: la corrida está pausada, no muerta. Amplia el tope para seguir.'
+            ? tr('Tope alcanzado: la corrida está pausada, no muerta. Amplia el tope para seguir.')
             : p.msHastaTope !== null
               ? `Al ritmo actual llegas al tope en ${formatearDuracion(p.msHastaTope)}. Una pregunta pendiente tiene prioridad sobre el tope.`
-              : 'Sin ritmo medible todavía.'}
+              : tr('Sin ritmo medible todavía.')}
         </span>
         {corrida.presupuesto.avisadas.map((a) => (
           <Chip key={a} tono={a >= 0.8 ? 'mal' : 'aviso'}>
@@ -45,7 +45,7 @@ export function Presupuesto({ corrida, onAmpliar }: { corrida: Corrida; onAmplia
       <div className="dirigir">
         <input className="entrada entrada-s" type="number" min={corrida.gasto.llamadas + 1} step={100} value={nuevo} onChange={(e) => setNuevo(e.target.value)} aria-label={tr("Nuevo tope de llamadas")} style={{ maxWidth: 160 }} />
         <button type="button" className={`btn ${pausada ? 'btn-primario' : ''}`} disabled={!(Number(nuevo) > corrida.gasto.llamadas)} onClick={() => onAmpliar(Number(nuevo))}>
-          {pausada ? 'Ampliar y reanudar' : 'Ampliar tope'}
+          {pausada ? tr('Ampliar y reanudar') : tr('Ampliar tope')}
         </button>
       </div>
     </div>

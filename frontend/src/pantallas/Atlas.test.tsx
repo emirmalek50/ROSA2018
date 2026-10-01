@@ -29,6 +29,7 @@ import type { CeldaMapa, Corrida, EstadoRosa, HechoMundo, Hipotesis, Investigaci
 import { NOMBRE_CORTO, VISTA } from '../lib/atlas_dibujo';
 import { rutaDe } from '../lib/ruta';
 import { Atlas, EsqueletoAtlas, ROTULO_ATLAS } from './Atlas';
+import { copiaTraducida } from '../lib/idioma';
 
 vi.mock('motion/react', async (original) => ({ ...(await original<typeof import('motion/react')>()), useReducedMotion: () => true }));
 
@@ -91,8 +92,11 @@ function mapaReal(): MapaEnfermedad {
     resumen: '9 hechos y 3 hipótesis situados en 4 celdas (estadio, región y tipo celular). Regiones: sangre, plasma y suero (compartimento periférico) 8, líquido cefalorraquídeo (LCR) 2, cerebro (sin región concreta) 2. Sin situar: 3 hechos y 0 hipótesis.',
     fecha: FECHA,
     iteracion: 2,
-    etiquetas: ETIQUETAS_MAPA,
-    definiciones: DEFINICIONES_MAPA,
+    // copiaTraducida: en produccion estas dos llegan del servidor como JSON
+    // plano. Aqui salen de las constantes de la interfaz, que son Proxies
+    // de `traducido()` y no se pueden clonar; el test clona el mapa.
+    etiquetas: copiaTraducida(ETIQUETAS_MAPA),
+    definiciones: copiaTraducida(DEFINICIONES_MAPA),
   };
 }
 

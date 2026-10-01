@@ -33,6 +33,7 @@
 
 import type { Grafo, NodoArbol, Posicion, TipoEnlace, TipoNodo } from './arbol';
 import { niebla, ordenarPorProfundidad, proyectar, type Camara, type Posicion3 } from './arbol3d';
+import { traducido } from './idioma';
 
 /** Radio base de cada tipo de nodo, en unidades del lienzo. */
 export const RADIO: Record<TipoNodo, number> = { objetivo: 22, rama: 13, area: 12, hipotesis: 11, hecho: 7, pregunta: 7, fuente: 5, entidad: 6, experimento: 12, afirmacion: 6, ejecucion: 9, dataset: 8, laboratorio: 12 };
@@ -301,7 +302,7 @@ export class Paleta {
 }
 
 /** Colores de respaldo para cuando el token no se puede leer (tests sin navegador). */
-export const RESPALDOS_PALETA: Record<string, string> = { '--text': '#1c1917', '--text-2': '#78716c', '--text-3': '#a5a19c', '--bg': '#faf9f7', '--surface': '#ffffff', '--accent': '#5b2aa8', '--border-strong': 'rgba(0, 0, 0, 0.14)' };
+export const RESPALDOS_PALETA: Record<string, string> = traducido({ '--text': '#1c1917', '--text-2': '#78716c', '--text-3': '#a5a19c', '--bg': '#faf9f7', '--surface': '#ffffff', '--accent': '#5b2aa8', '--border-strong': 'rgba(0, 0, 0, 0.14)' });
 
 const guionA = (g: string | null): number[] => (g ? g.split(/\s+/).map(Number).filter((v) => Number.isFinite(v)) : []);
 

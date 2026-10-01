@@ -213,11 +213,11 @@ function enumerar(partes: string[]): string {
 /** Qué dice la cobertura de un hueco, en llano, con sus cifras y concordando
  *  el verbo con cuántas menciones hay ("1 fuente leída la nombra", "3 la nombran"). */
 function fraseCobertura(r: RegionAtlas, conFiltros: boolean): string {
-  const filtros = conFiltros ? ' con los filtros puestos' : '';
+  const filtros = conFiltros ? tr(' con los filtros puestos') : '';
   if (r.cobertura === 'buscada_sin_hallazgo') {
     const total = r.menciones.consultas + r.menciones.fuentes + r.preguntas.length;
-    const partes = [r.menciones.consultas > 0 ? plural(r.menciones.consultas, 'consulta de búsqueda', 'consultas de búsqueda') : '', r.menciones.fuentes > 0 ? plural(r.menciones.fuentes, 'fuente leída', 'fuentes leídas') : '', r.preguntas.length > 0 ? plural(r.preguntas.length, 'pregunta abierta', 'preguntas abiertas') : ''].filter(Boolean);
-    const verbo = total === 1 ? 'la nombra y no produjo ningún hecho ni hipótesis situados aquí' : 'la nombran y ninguna produjo un hecho ni una hipótesis situados aquí';
+    const partes = [r.menciones.consultas > 0 ? plural(r.menciones.consultas, tr('consulta de búsqueda'), tr('consultas de búsqueda')) : '', r.menciones.fuentes > 0 ? plural(r.menciones.fuentes, tr('fuente leída'), tr('fuentes leídas')) : '', r.preguntas.length > 0 ? plural(r.preguntas.length, tr('pregunta abierta'), tr('preguntas abiertas')) : ''].filter(Boolean);
+    const verbo = total === 1 ? tr('la nombra y no produjo ningún hecho ni hipótesis situados aquí') : tr('la nombran y ninguna produjo un hecho ni una hipótesis situados aquí');
     return `Buscada sin hallazgo: ${enumerar(partes)} de esta investigación ${verbo}${filtros}.`;
   }
   return `No buscada: ninguna consulta hecha ni fuente leída de esta investigación nombra esta región${filtros}. No significa que no haya nada publicado, solo que ROSA2018 no lo ha buscado ni situado aún.`;
@@ -230,7 +230,7 @@ function Leyenda({ atlas, conFiltros }: { atlas: DatosAtlas; conFiltros: boolean
   const extremos =
     atlas.cohortesMax > 0
       ? `ámbar tenue, 0 cohortes; ámbar pleno, ${plural(atlas.cohortesMax, 'cohorte')} (el máximo de este mapa, en escala logarítmica)`
-      : `${conFiltros ? 'con estos filtros ' : ''}ninguna región con registros tiene cohortes nombradas, así que todas van en ámbar tenue y nada llega al ámbar pleno`;
+      : `${conFiltros ? tr('con estos filtros ') : ''}ninguna región con registros tiene cohortes nombradas, así que todas van en ámbar tenue y nada llega al ámbar pleno`;
   return (
     <ul className="atlas-leyenda" aria-label={tr("Cómo leer el atlas")}>
       <li>
@@ -305,7 +305,7 @@ function Leyenda({ atlas, conFiltros }: { atlas: DatosAtlas; conFiltros: boolean
  *  - El botón "Abrir en el árbol" es un `span` con las clases reales del
  *    botón, inerte (atlas.css lo atenúa como a un botón deshabilitado): mide
  *    igual que el enlace del contenido sin ser un enlace. */
-export function EsqueletoAtlas({ conexion, rotulo = ROTULO_ATLAS }: { conexion?: EstadoConexion; rotulo?: string } = {}): JSX.Element {
+export function EsqueletoAtlas({ conexion, rotulo = tr(ROTULO_ATLAS) }: { conexion?: EstadoConexion; rotulo?: string } = {}): JSX.Element {
   return (
     <div className="contenido contenido-ancho atlas-esqueleto">
       {conexion !== undefined && <AvisoMuestra conexion={conexion} />}
@@ -314,8 +314,8 @@ export function EsqueletoAtlas({ conexion, rotulo = ROTULO_ATLAS }: { conexion?:
         <div className="pantalla-cabecera" style={{ marginTop: 16 }} aria-hidden="true">
           <div>
             <h2>{tr("Atlas de la enfermedad")}</h2>
-            <p>{AYUDA_ATLAS}</p>
-            <p className="meta">{META_ATLAS}</p>
+            <p>{tr(AYUDA_ATLAS)}</p>
+            <p className="meta">{tr(META_ATLAS)}</p>
           </div>
           <div className="acciones">
             <span className="btn btn-s atlas-esqueleto-boton">{tr("Abrir en el árbol")}</span>
@@ -445,7 +445,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
     return (
       <div className="contenido">
         <AvisoMuestra conexion={estado.conexion} />
-        <Vacio titulo="El atlas todavía no tiene evidencia situada" accion={<a className="btn btn-s" href={rutaDe(inv.id, 'arbol')}>{tr("Abrir en el árbol")}</a>}>
+        <Vacio titulo={tr("El atlas todavía no tiene evidencia situada")} accion={<a className="btn btn-s" href={rutaDe(inv.id, 'arbol')}>{tr("Abrir en el árbol")}</a>}>
           {tr("ROSA2018 dibuja el atlas al cerrar la primera iteración de esta investigación: sitúa cada hecho por región del cerebro, estadio de la enfermedad y tipo de célula.")}
         </Vacio>
       </div>
@@ -509,7 +509,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
     // Un hueco no dice "0 · 0 hechos, 0 hipótesis · 0 cohortes": dice que es un hueco y si alguien lo buscó.
     const cifra =
       (focoDatos?.conteo ?? 0) === 0
-        ? `hueco: sin evidencia situada (${focoDatos?.cobertura === 'buscada_sin_hallazgo' ? 'buscada sin hallazgo' : 'no buscada'})`
+        ? `hueco: sin evidencia situada (${focoDatos?.cobertura === 'buscada_sin_hallazgo' ? tr('buscada sin hallazgo') : tr('no buscada')})`
         : `${focoDatos?.conteo ?? 0} · ${plural(focoDatos?.hechos.length ?? 0, 'hecho')}, ${plural(focoDatos?.hipotesis.length ?? 0, 'hipótesis', 'hipótesis')} · ${plural(focoDatos?.cohortes.length ?? 0, 'cohorte')}`;
     const ancho = Math.max(nombre.length, cifra.length) * 6.6 + 20;
     const alto = 40;
@@ -535,10 +535,10 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
           <h2>{tr("Atlas de la enfermedad")}</h2>
-          <p>{AYUDA_ATLAS}</p>
+          <p>{tr(AYUDA_ATLAS)}</p>
           <p className="meta">
-            {META_ATLAS}
-            {atlas.hechosNuevos > 0 ? ` ${plural(atlas.hechosNuevos, 'hecho nuevo espera', 'hechos nuevos esperan')} a la siguiente iteración para situarse.` : ''}
+            {tr(META_ATLAS)}
+            {atlas.hechosNuevos > 0 ? ` ${plural(atlas.hechosNuevos, tr('hecho nuevo espera'), tr('hechos nuevos esperan'))} a la siguiente iteración para situarse.` : ''}
           </p>
         </div>
         <div className="acciones">
@@ -559,7 +559,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
             Todas
           </button>
           {base.estadios.map((e) => (
-            <button key={e.clave || 'sin'} type="button" className="atlas-chip" aria-pressed={estadio === e.clave} onClick={() => setEstadio((actual) => (actual === e.clave ? null : e.clave))} title={base.definiciones.estadio?.[e.clave] ?? (e.clave === '' ? 'Registros con región o célula pero sin fase identificada por su contenido ni por la misión.' : undefined)}>
+            <button key={e.clave || 'sin'} type="button" className="atlas-chip" aria-pressed={estadio === e.clave} onClick={() => setEstadio((actual) => (actual === e.clave ? null : e.clave))} title={base.definiciones.estadio?.[e.clave] ?? (e.clave === '' ? tr('Registros con región o célula pero sin fase identificada por su contenido ni por la misión.') : undefined)}>
               {e.etiqueta} <span className="atlas-cifra">{e.conteo}</span>
             </button>
           ))}
@@ -585,7 +585,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
           {vista3d ? (hayModeloCerebro()
             ? <Cerebro3D key={inv.id} atlas={atlas} seleccion={seleccion} seleccionar={seleccionar} />
             : <Atlas3D key={inv.id} atlas={atlas} seleccion={seleccion} seleccionar={seleccionar} />) : <div className={`atlas-lienzo${reducido ? ' atlas-sin-movimiento' : ''}`}>
-            <svg className="atlas-figura" viewBox={`0 0 ${VISTA.ancho} ${VISTA.alto}`} role="group" aria-label={`Atlas de ${inv.titulo}: corte sagital del cerebro con ${plural(conEvidencia, 'región', 'regiones')} con evidencia de ${DIBUJADAS.length}`}>
+            <svg className="atlas-figura" viewBox={`0 0 ${VISTA.ancho} ${VISTA.alto}`} role="group" aria-label={`Atlas de ${inv.titulo}: corte sagital del cerebro con ${plural(conEvidencia, tr('región'), 'regiones')} con evidencia de ${DIBUJADAS.length}`}>
               <defs>
                 <clipPath id="atlas-recorte">
                   <path d={RECORTE_HEMISFERIO} />
@@ -638,9 +638,9 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                   const discordia = datosRegion?.discordia.length ?? 0;
                   const clases = ['atlas-region', `atlas-capa-${capa}`, conteo === 0 ? `atlas-hueco ${buscada ? 'atlas-buscada' : 'atlas-no-buscada'}` : nivel > 0 ? `atlas-resplandor-${nivel}` : '', seleccion === r.clave ? 'atlas-seleccionada' : '', foco === r.clave ? 'atlas-foco' : '', discordia > 0 ? 'atlas-con-discordia' : ''].filter(Boolean).join(' ');
                   const nombre = datosRegion?.etiqueta ?? ETIQUETAS_MAPA.region[r.clave] ?? nombreCorto(r.clave, datosRegion);
-                  const hueco = conteo === 0 ? `; hueco: sin evidencia situada todavía (${buscada ? 'buscada sin hallazgo' : 'no buscada'})` : '';
-                  const choque = discordia > 0 ? `; discordia: ${plural(discordia, 'hecho choca', 'hechos chocan')} con otro hecho` : '';
-                  const etiquetaAccesible = `${nombre}: ${fraseConteo(datosRegion)}; ${plural(cohortes, 'cohorte distinta', 'cohortes distintas')}${hueco}${choque}`;
+                  const hueco = conteo === 0 ? `; hueco: sin evidencia situada todavía (${buscada ? tr('buscada sin hallazgo') : tr('no buscada')})` : '';
+                  const choque = discordia > 0 ? `; discordia: ${plural(discordia, tr('hecho choca'), tr('hechos chocan'))} con otro hecho` : '';
+                  const etiquetaAccesible = `${nombre}: ${fraseConteo(datosRegion)}; ${plural(cohortes, tr('cohorte distinta'), tr('cohortes distintas'))}${hueco}${choque}`;
                   const oyentes = {
                     onClick: () => seleccionar(r.clave),
                     onPointerEnter: () => setFoco(r.clave),
@@ -733,16 +733,16 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
           </div>}
           <p className="atlas-honesta">
             <strong>{fraseHonesta(atlas)}</strong>
-            {conFiltros ? ' (con los filtros puestos).' : '.'}
+            {conFiltros ? tr(' (con los filtros puestos).') : '.'}
           </p>
           <section className="atlas-bandeja" aria-label={tr("No localizados")}>
             <h4>
               {tr("No localizados")} <span className="atlas-cifra">{atlas.noLocalizados.conteo}</span>
             </h4>
             <p className="meta">
-              {atlas.noLocalizados.conteo > 0 ? `${plural(atlas.noLocalizados.conteo, 'registro')} (${plural(atlas.noLocalizados.hechos, 'hecho')}, ${plural(atlas.noLocalizados.hipotesis, 'hipótesis', 'hipótesis')}) cuya fuente dice «cerebro» o «corteza» sin más. ` : 'Ningún registro cayó en «cerebro» o «corteza» sin región. '}
-              {TEXTO_BANDEJA}
-              {atlas.noLocalizados.tambienSituados > 0 ? ` ${plural(atlas.noLocalizados.tambienSituados, 'registro de estos está', 'registros de estos están')} además en alguna región localizada (la sangre, por ejemplo) y cuentan allí.` : ''}
+              {atlas.noLocalizados.conteo > 0 ? `${plural(atlas.noLocalizados.conteo, 'registro')} (${plural(atlas.noLocalizados.hechos, 'hecho')}, ${plural(atlas.noLocalizados.hipotesis, 'hipótesis', 'hipótesis')}) cuya fuente dice «cerebro» o «corteza» sin más. ` : tr('Ningún registro cayó en «cerebro» o «corteza» sin región. ')}
+              {tr(TEXTO_BANDEJA)}
+              {atlas.noLocalizados.tambienSituados > 0 ? ` ${plural(atlas.noLocalizados.tambienSituados, tr('registro de estos está'), tr('registros de estos están'))} además en alguna región localizada (la sangre, por ejemplo) y cuentan allí.` : ''}
             </p>
             <ul>
               {bandeja.map((r) => (
@@ -775,23 +775,23 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
         <aside className="grafo-panel atlas-panel">
           {sel ? (
             <>
-              <Chip tono={selNoLocalizada ? 'aviso' : 'acento'}>{selNoLocalizada ? 'No localizado' : selDibujo?.exterior ? 'Compartimento' : selDibujo?.capa === 'fondo' ? 'Capa' : 'Región'}</Chip>
+              <Chip tono={selNoLocalizada ? 'aviso' : 'acento'}>{selNoLocalizada ? tr('No localizado') : selDibujo?.exterior ? 'Compartimento' : selDibujo?.capa === 'fondo' ? 'Capa' : tr('Región')}</Chip>
               <h3>{sel.etiqueta}</h3>
               {sel.definicion && <p className="meta">{sel.definicion}</p>}
-              {selNoLocalizada && <p className="atlas-hueco-aviso">{tr("Localización fallida, no un lugar:")} {TEXTO_BANDEJA} {tr("Estos registros no se pintan en la figura.")}</p>}
+              {selNoLocalizada && <p className="atlas-hueco-aviso">{tr("Localización fallida, no un lugar:")} {tr(TEXTO_BANDEJA)} {tr("Estos registros no se pintan en la figura.")}</p>}
               {sel.conteo === 0 ? (
                 <p className="atlas-hueco-aviso">{tr("Hueco: sin evidencia situada todavía.")} {fraseCobertura(sel, conFiltros)}</p>
               ) : (
                 <div className="atlas-cifras">
                   <span>{plural(sel.hechos.length, 'hecho')}</span>
                   <span>{plural(sel.hipotesis.length, 'hipótesis', 'hipótesis')}</span>
-                  {sel.preguntas.length > 0 && <span>{plural(sel.preguntas.length, 'pregunta abierta', 'preguntas abiertas')}</span>}
+                  {sel.preguntas.length > 0 && <span>{plural(sel.preguntas.length, tr('pregunta abierta'), tr('preguntas abiertas'))}</span>}
                 </div>
               )}
               {sel.sinResolver > 0 && (
                 <p className="meta">
                   {/* El mapa es una instantánea del cierre de la iteración; después los hechos se sustituyen o se descartan. Las cifras los cuentan (cuadran con el backend), las listas no pueden traerlos. */}
-                  {sel.sinResolver === 1 ? 'Uno de ellos ya no está' : `${sel.sinResolver} de ellos ya no están`} {tr("en el modelo de mundo (sustituidos o descartados después de calcular el mapa): cuentan en las cifras y no aparecen en las listas de abajo.")}
+                  {sel.sinResolver === 1 ? tr('Uno de ellos ya no está') : `${sel.sinResolver} de ellos ya no están`} {tr("en el modelo de mundo (sustituidos o descartados después de calcular el mapa): cuentan en las cifras y no aparecen en las listas de abajo.")}
                 </p>
               )}
               {sel.conteo > 0 && !selNoLocalizada && (
@@ -799,7 +799,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                   {/* Las cohortes salen SOLO de las afirmaciones de las hipótesis (rosa/mapa_enfermedad.py): un hecho que nombra ADNI no cuenta. Se dice tal cual, sin afirmar nada sobre los hechos. */}
                   {sel.cohortes.length > 0 ? (
                     <>
-                      <strong>{plural(sel.cohortes.length, 'cohorte distinta', 'cohortes distintas')}</strong> {tr("nombran sus hipótesis (su color):")} <ListaCohortes nombres={sel.cohortes} />.
+                      <strong>{plural(sel.cohortes.length, tr('cohorte distinta'), tr('cohortes distintas'))}</strong> {tr("nombran sus hipótesis (su color):")} <ListaCohortes nombres={sel.cohortes} />.
                     </>
                   ) : sel.hipotesis.length > 0 ? (
                     <>
@@ -819,7 +819,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
               )}
               {sel.discordia.length > 0 && (
                 <div className="atlas-discordia-aviso">
-                  <strong>Discordia:</strong> {plural(sel.discordia.length, 'hecho de esta región choca', 'hechos de esta región chocan')} {tr("con otro hecho del modelo de mundo sin sustituirlo. La dirección de las citas no se usa para esta marca.")}
+                  <strong>Discordia:</strong> {plural(sel.discordia.length, tr('hecho de esta región choca'), tr('hechos de esta región chocan'))} {tr("con otro hecho del modelo de mundo sin sustituirlo. La dirección de las citas no se usa para esta marca.")}
                   {discordiaSel.length > 0 && (
                     <ul>
                       {discordiaSel.map((h) => {
@@ -881,7 +881,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                     ))}
                   </ul>
                   <a className="btn btn-s" href={rutaDe(inv.id, 'mundo')}>
-                    {hechosSel.length > HECHOS_EN_PANEL ? `Ver los ${hechosSel.length} en el modelo de mundo` : 'Ver en el modelo de mundo'}
+                    {hechosSel.length > HECHOS_EN_PANEL ? `Ver los ${hechosSel.length} en el modelo de mundo` : tr('Ver en el modelo de mundo')}
                   </a>
                 </>
               )}
@@ -910,12 +910,12 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
               )}
               <ul className="atlas-lista">
                 <li>
-                  <strong>{plural(conEvidencia, 'región', 'regiones')}</strong> con evidencia de {DIBUJADAS.length}; {plural(hechosSituados, 'hecho')} y {plural(hipotesisSituadas, 'hipótesis', 'hipótesis')} en la figura{conFiltros ? ' con los filtros puestos' : ''}.
+                  <strong>{plural(conEvidencia, tr('región'), 'regiones')}</strong> con evidencia de {DIBUJADAS.length}; {plural(hechosSituados, 'hecho')} y {plural(hipotesisSituadas, 'hipótesis', 'hipótesis')} en la figura{conFiltros ? tr(' con los filtros puestos') : ''}.
                 </li>
                 <li>{fraseHonesta(atlas)}.</li>
                 {atlas.noLocalizados.conteo > 0 && (
                   <li>
-                    <strong>{plural(atlas.noLocalizados.conteo, 'registro no localizado', 'registros no localizados')}</strong> {tr("(«cerebro» o «corteza» sin región): en la bandeja bajo la figura, no en la anatomía.")}
+                    <strong>{plural(atlas.noLocalizados.conteo, tr('registro no localizado'), tr('registros no localizados'))}</strong> {tr("(«cerebro» o «corteza» sin región): en la bandeja bajo la figura, no en la anatomía.")}
                   </li>
                 )}
                 {atlas.sinRegion > 0 && (
@@ -926,7 +926,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 )}
                 {atlas.discordantes > 0 && (
                   <li>
-                    <strong>{plural(atlas.discordantes, 'hecho en discordia', 'hechos en discordia')}</strong> {tr("en la figura (chocan con otro hecho): las regiones con borde punteado rojo.")}
+                    <strong>{plural(atlas.discordantes, tr('hecho en discordia'), tr('hechos en discordia'))}</strong> {tr("en la figura (chocan con otro hecho): las regiones con borde punteado rojo.")}
                   </li>
                 )}
                 {atlas.sinEjes > 0 && (
@@ -935,7 +935,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                   </li>
                 )}
                 {atlas.hipotesisSinEjes > 0 && <li>{plural(atlas.hipotesisSinEjes, 'hipótesis', 'hipótesis')} sin situar.</li>}
-                {atlas.heredados > 0 && <li>{plural(atlas.heredados, 'hecho heredado', 'hechos heredados')} {tr("de otra investigación, ya situados.")}</li>}
+                {atlas.heredados > 0 && <li>{plural(atlas.heredados, tr('hecho heredado'), tr('hechos heredados'))} {tr("de otra investigación, ya situados.")}</li>}
                 {atlas.iteracionOrdinal !== null ? (
                   <li className="meta">{tr("Mapa calculado al cerrar la iteración")} {atlas.iteracionOrdinal} de {iteracionMax}{tr(". Se recalcula al cerrar cada iteración.")}</li>
                 ) : atlas.iteracion !== null ? (
@@ -943,7 +943,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 ) : (
                   <li className="meta">{tr("Se recalcula al cerrar cada iteración.")}</li>
                 )}
-                {atlas.hechosNuevos > 0 && <li className="meta">{plural(atlas.hechosNuevos, 'hecho nuevo', 'hechos nuevos')} {tr("en el modelo de mundo desde entonces, todavía sin situar: ROSA2018 los sitúa al cerrar la iteración.")}</li>}
+                {atlas.hechosNuevos > 0 && <li className="meta">{plural(atlas.hechosNuevos, tr('hecho nuevo'), tr('hechos nuevos'))} {tr("en el modelo de mundo desde entonces, todavía sin situar: ROSA2018 los sitúa al cerrar la iteración.")}</li>}
               </ul>
               {atlas.huecos.length > 0 && (
                 <>
@@ -970,7 +970,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
 
       <div className="grafo-tiempo">
         <button type="button" className="btn btn-s" aria-pressed={enVivo} onClick={() => setHasta(null)}>
-          {enVivo ? 'En vivo' : 'Volver al presente'}
+          {enVivo ? tr('En vivo') : tr('Volver al presente')}
         </button>
         <label htmlFor="atlas-iteracion">
           {tr("Cómo creció: hasta la iteración")} <strong>{hastaVisible}</strong> de {iteracionMax}
@@ -978,7 +978,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
         <input id="atlas-iteracion" type="range" min={1} max={iteracionMax} value={hastaVisible} onChange={(e) => moverHasta(Number(e.target.value))} />
         {/* El espacio separa "de 14" de "1 región" para el lector de pantalla y el portapapeles; en el flex no se pinta. */}{' '}
         <span className="meta">
-          {plural(conEvidencia, 'región', 'regiones')} con evidencia · {plural(hechosSituados, 'hecho')} en la figura
+          {plural(conEvidencia, tr('región'), 'regiones')} con evidencia · {plural(hechosSituados, 'hecho')} en la figura
         </span>
       </div>
     </div>

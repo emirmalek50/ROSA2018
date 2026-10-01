@@ -133,7 +133,7 @@ export function calcularRanking(estado: EstadoRosa, invId: string): RankingCalcu
     .map((h) => {
       const b = bloqueosDe(estado, h);
       const pendiente = killerPendienteDe(h);
-      const motivo = b.length > 0 ? '' : pendiente ? `${pendiente}: la decisión que consta no es un juicio nuevo` : h.decisionKiller !== 'avanzar' ? (h.decisionKiller ? `El Killer decidió: ${(DECISION_KILLER[h.decisionKiller]?.etiqueta ?? String(h.decisionKiller)).toLowerCase()}` : 'El Killer todavía no la juzgó') : 'Sin bloqueos, pero otras puntúan más o repiten su cluster';
+      const motivo = b.length > 0 ? '' : pendiente ? `${pendiente}: la decisión que consta no es un juicio nuevo` : h.decisionKiller !== 'avanzar' ? (h.decisionKiller ? `El Killer decidió: ${(DECISION_KILLER[h.decisionKiller]?.etiqueta ?? String(h.decisionKiller)).toLowerCase()}` : tr('El Killer todavía no la juzgó')) : tr('Sin bloqueos, pero otras puntúan más o repiten su cluster');
       return { h, bloqueos: b, motivo };
     });
   return { invId, estado, propias, lista, cal, clusters, cands, noCands };
@@ -154,11 +154,11 @@ const MAX_FILAS_SILUETA = 40;
  *  pantalla y las dos deben tener la misma forma (App.esqueleto.test.tsx). */
 export function EsqueletoRanking({ filas }: { filas: number }) {
   return (
-    <EsqueletoPantalla variante="lista" rotulo="el ranking" margenSuperior={16} lineasDescripcion={4}>
+    <EsqueletoPantalla variante="lista" rotulo={tr("el ranking")} margenSuperior={16} lineasDescripcion={4}>
       <EsqueletoTarjeta lineas={5} alto={ALTO_CANDIDATAS} />
       <div className="acciones" style={{ marginBottom: 14, marginTop: 12 }} aria-hidden="true">
         <Esqueleto className="esqueleto-chip" ancho={230} />
-        <Esqueleto alto={12} ancho="min(50%, 420px)" />
+        <Esqueleto alto={12} ancho={tr("min(50%, 420px)")} />
       </div>
       <EsqueletoTarjetas filas={Math.min(MAX_FILAS_SILUETA, Math.max(1, filas))} altoFila={ALTO_FILA_RANKING} />
     </EsqueletoPantalla>
@@ -200,7 +200,7 @@ export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRos
         <div className="acciones" style={{ justifyContent: 'space-between' }}>
           <h3 style={{ fontSize: 14, fontWeight: 600 }}>{nombre}</h3>
           <span className="meta">
-            {hs.length} {hs.length === 1 ? 'hipótesis' : 'hipótesis'} · mejor Elo {hs[0]?.elo}
+            {hs.length} {hs.length === 1 ? tr('hipótesis') : tr('hipótesis')} · mejor Elo {hs[0]?.elo}
           </span>
         </div>
         <div className="cola">
@@ -244,7 +244,7 @@ export function Ranking({ inv, estado }: { inv: Investigacion; estado: EstadoRos
 
       <div className="acciones" style={{ marginBottom: 14 }}>
         <Chip tono={cal.acuerdo === null ? undefined : cal.acuerdo >= 0.7 ? 'ok' : 'aviso'} title={tr("Cuántas veces la recomendación del revisor coincidió con lo que decidió una persona")}>
-          {tr("Acuerdo revisor y personas:")} {cal.acuerdo === null ? 'sin decisiones todavía' : formatearPorcentaje(cal.acuerdo)}
+          {tr("Acuerdo revisor y personas:")} {cal.acuerdo === null ? tr('sin decisiones todavía') : formatearPorcentaje(cal.acuerdo)}
         </Chip>
         <span className="meta">{tr("Las decisiones humanas de aceptar y descartar son la señal que calibra al juez del torneo.")}</span>
       </div>

@@ -4,7 +4,7 @@
 // ingles es al reves. No es cosmetica: «1.171» leido en ingles es poco mas
 // de uno, no mil ciento setenta y uno, asi que el separador tiene que seguir
 // al idioma.
-import { idiomaActual } from './idioma';
+import { tr, idiomaActual } from './idioma';
 
 /** El separador decimal del idioma. Se aplica sobre la cadena que ya produjo
  *  `toFixed` o `toString`, que siempre traen punto. */
@@ -41,7 +41,7 @@ export function tiempoRelativo(momento: number, ahora: number): string {
   const prefijo = diff >= 0 ? 'hace' : 'en';
   // Un desfase pequeno hacia el futuro es reloj de pantalla (se relee cada
   // 15 s), no un momento futuro: se dice "hace un momento".
-  if (abs < 45_000) return 'hace un momento';
+  if (abs < 45_000) return tr('hace un momento');
   const min = Math.round(abs / 60_000);
   if (min < 60) return `${prefijo} ${min} min`;
   const h = Math.round(abs / 3_600_000);

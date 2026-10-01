@@ -27,7 +27,7 @@ export class Limite extends Component<Props, Estado> {
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     // Queda en la consola del navegador con la pila de componentes.
-    console.error(`[ROSA2018] fallo al pintar ${this.props.ambito ?? 'la interfaz'}:`, error, info.componentStack);
+    console.error(`[ROSA2018] fallo al pintar ${this.props.ambito ?? tr('la interfaz')}:`, error, info.componentStack);
   }
 
   componentDidUpdate(anterior: Props): void {

@@ -20,7 +20,7 @@ import { formatearEntero, plural } from '../lib/formato';
 import { EXPLICACION_BLOQUEO } from '../lib/priorizacion';
 import { componentesDe, queCambiariaElOrden, type ComponentesRanking, type EstadoNovedad, type EstadoParaRanking } from '../lib/ranking';
 import { Chip } from './piezas';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 type Tono = 'ok' | 'aviso' | 'mal' | 'acento' | 'borde' | 'neutro';
 
@@ -33,14 +33,14 @@ function legible(x: unknown): string {
   return String(x).replace(/_/g, ' ');
 }
 
-const NOVEDAD: Record<EstadoNovedad, { etiqueta: string; tono: Tono; nota: string }> = {
+const NOVEDAD: Record<EstadoNovedad, { etiqueta: string; tono: Tono; nota: string }> = traducido({
   no_comprobado: { etiqueta: 'Novedad sin comprobar', tono: 'borde', nota: 'La búsqueda de precedentes no se hizo o la fuente no respondió. No comprobado no es lo mismo que nuevo.' },
   nueva: { etiqueta: 'Sin precedente', tono: 'ok', nota: 'Nadie la propuso antes en la literatura buscada (comprobación de precedente, tipo Owl).' },
   parcial: { etiqueta: 'Precedente parcial', tono: 'aviso', nota: 'Hay trabajos parecidos, pero ninguno con esta formulación, población o desenlace.' },
   precedente: { etiqueta: 'Ya publicada', tono: 'mal', nota: 'Alguien ya la publicó: como idea no es nueva, aunque siga siendo útil comprobarla aquí.' },
-};
+});
 
-const DEFINICIONES = {
+const DEFINICIONES = traducido({
   certeza: 'Certeza GRADE: cuánto se puede confiar en la evidencia reunida (alta, moderada, baja, muy baja). Es independiente de la dirección: dice cuánto se sabe, no si la hipótesis es cierta.',
   techo: 'Techo por regla: el nivel máximo que permite lo que hay contado (cohortes distintas, evidencia directa no sintética, peso de los apoyos). El juez explica dentro de esa caja, no la fija.',
   direccion: 'Dirección de la evidencia: hacia dónde apunta lo reunido (apoya, mixta, en contra, sin evidencia directa). Va separada de la certeza.',
@@ -60,7 +60,7 @@ const DEFINICIONES = {
   sinBloqueos: 'Sin bloqueos no compensables: ninguno de los motivos que sacan a una hipótesis de las candidatas puntúe lo que puntúe en lo demás.',
   bloqueosServidor: 'Bloqueos tal como los guardó el servidor: la regla de la interfaz no pudo evaluar este registro (trae un valor que esta versión no conoce).',
   bloqueosSinComprobar: 'Bloqueos sin comprobar: la regla de la interfaz no pudo evaluar este registro y el servidor no guardó sus bloqueos. No se puede afirmar que no tenga; no comprobado no es lo mismo que sin bloqueos.',
-};
+});
 
 function etiquetaCerteza(nivel: CertezaEvidencia): { etiqueta: string; tono: Tono } {
   return de(CERTEZA_EVIDENCIA as Record<string, { etiqueta: string; tono: Tono }>, nivel) ?? { etiqueta: `Certeza ${legible(nivel)}`, tono: 'borde' };
@@ -71,7 +71,7 @@ function etiquetaDireccion(d: DireccionEvidencia): { etiqueta: string; tono: Ton
 }
 
 function etiquetaKiller(k: DecisionKiller): { etiqueta: string; tono: Tono; nota: string } {
-  return de(DECISION_KILLER as Record<string, { etiqueta: string; tono: Tono; nota: string }>, k) ?? { etiqueta: legible(k), tono: 'borde', nota: 'Decisión del Killer que esta versión de la interfaz no conoce.' };
+  return de(DECISION_KILLER as Record<string, { etiqueta: string; tono: Tono; nota: string }>, k) ?? { etiqueta: legible(k), tono: 'borde', nota: tr('Decisión del Killer que esta versión de la interfaz no conoce.') };
 }
 
 function etiquetaPaso(p: PasoRutaTerapeutica): string {
@@ -97,7 +97,7 @@ function ChipCerteza({ c }: { c: ComponentesRanking }) {
   const e = etiquetaCerteza(c.certeza.nivel);
   const t = c.certeza.techo;
   const partesTitulo = [DEFINICIONES.certeza];
-  if (t) partesTitulo.push(`${DEFINICIONES.techo} Techo: ${t.etiqueta.toLowerCase()}${t.acotada ? ' (acotada: el juez había dicho más)' : ''}${t.motivo ? `. Motivo: ${t.motivo}` : ''}.`);
+  if (t) partesTitulo.push(`${DEFINICIONES.techo} Techo: ${t.etiqueta.toLowerCase()}${t.acotada ? tr(' (acotada: el juez había dicho más)') : ''}${t.motivo ? `. Motivo: ${t.motivo}` : ''}.`);
   return (
     <Chip tono={e.tono} title={partesTitulo.join(' ')}>
       {e.etiqueta}
@@ -132,7 +132,7 @@ function Bloqueos({ c }: { c: ComponentesRanking }) {
   return (
     <span className="acciones" style={{ gap: 4 }} title={c.bloqueosOrigen === 'servidor' ? DEFINICIONES.bloqueosServidor : undefined}>
       {c.bloqueos.map((b) => (
-        <Chip key={b} tono="mal" title={de(EXPLICACION_BLOQUEO as Record<string, string>, b) ?? 'Bloqueo no compensable que esta versión de la interfaz no conoce.'}>
+        <Chip key={b} tono="mal" title={de(EXPLICACION_BLOQUEO as Record<string, string>, b) ?? tr('Bloqueo no compensable que esta versión de la interfaz no conoce.')}>
           {de(BLOQUEO as Record<string, string>, b) ?? legible(b)}
         </Chip>
       ))}
@@ -162,8 +162,8 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
             {etiquetaDireccion(c.direccion).etiqueta}
           </Chip>
         )}
-        <Chip tono={n >= 2 ? 'ok' : 'borde'} title={`${DEFINICIONES.cohortes}${n > 0 ? ` Aquí: ${c.cohortesDistintas.join('; ')}.` : ' Aquí ninguna fuente nombra su cohorte: no se puede afirmar que sean independientes.'}`}>
-          {n === 0 ? 'Sin cohorte identificada' : plural(n, 'cohorte distinta', 'cohortes distintas')}
+        <Chip tono={n >= 2 ? 'ok' : 'borde'} title={`${DEFINICIONES.cohortes}${n > 0 ? ` Aquí: ${c.cohortesDistintas.join('; ')}.` : tr(' Aquí ninguna fuente nombra su cohorte: no se puede afirmar que sean independientes.')}`}>
+          {n === 0 ? tr('Sin cohorte identificada') : plural(n, tr('cohorte distinta'), tr('cohortes distintas'))}
         </Chip>
         <Chip tono={c.aFavor > 0 ? 'ok' : 'borde'} title={DEFINICIONES.aFavor}>
           {formatearEntero(c.aFavor)} a favor
@@ -171,12 +171,12 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
         <Chip tono={c.enContra > 0 ? 'mal' : 'borde'} title={DEFINICIONES.enContra}>
           {formatearEntero(c.enContra)} en contra
         </Chip>
-        {!compacto && <Chip tono={c.socavan > 0 ? 'aviso' : 'borde'} title={`${DEFINICIONES.socavan}${c.socavadas > 0 ? ` Hoy ${plural(c.socavadas, 'apoyo socavado no cuenta', 'apoyos socavados no cuentan')}.` : ''}`}>
+        {!compacto && <Chip tono={c.socavan > 0 ? 'aviso' : 'borde'} title={`${DEFINICIONES.socavan}${c.socavadas > 0 ? ` Hoy ${plural(c.socavadas, tr('apoyo socavado no cuenta'), tr('apoyos socavados no cuentan'))}.` : ''}`}>
           {c.socavan === 1 ? '1 socava' : `${formatearEntero(c.socavan)} socavan`}
         </Chip>}
         {!compacto && c.razonesEnContra > 0 && (
           <Chip tono="aviso" title={tr("Razones en contra que el juez enumera en la conclusión: no son afirmaciones verificadas (esas son las de 'en contra' y 'socavan'), sino ataques al paso inferencial o cosas que faltan. Se cuentan aparte para que '0 en contra' no se lea como 'sin objeciones'.")}>
-            {c.razonesEnContra === 1 ? '1 razón en contra (juez)' : `${formatearEntero(c.razonesEnContra)} razones en contra (juez)`}
+            {c.razonesEnContra === 1 ? tr('1 razón en contra (juez)') : `${formatearEntero(c.razonesEnContra)} razones en contra (juez)`}
           </Chip>
         )}
         {c.killer ? (
@@ -205,7 +205,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           {novedad.etiqueta}
         </Chip>}
         {c.ruta ? (
-          <Chip tono={c.ruta.coherente ? 'acento' : 'aviso'} title={`Ruta terapéutica evaluada por regla sobre la evidencia que tiene: pasos cubiertos de ocho y el primero que falta. ${c.ruta.coherente ? 'El paso que declara la tarjeta es coherente con lo cubierto.' : 'El paso que declara la tarjeta va por delante de lo que la evidencia cubre.'}`}>
+          <Chip tono={c.ruta.coherente ? 'acento' : 'aviso'} title={`Ruta terapéutica evaluada por regla sobre la evidencia que tiene: pasos cubiertos de ocho y el primero que falta. ${c.ruta.coherente ? tr('El paso que declara la tarjeta es coherente con lo cubierto.') : tr('El paso que declara la tarjeta va por delante de lo que la evidencia cubre.')}`}>
             {etiquetaRuta(c.ruta)}
           </Chip>
         ) : c.pasoRuta ? (

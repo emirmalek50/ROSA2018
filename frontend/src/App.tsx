@@ -79,9 +79,9 @@ import { ModeloDeMundo } from './pantallas/ModeloDeMundo';
 import { NuevaInvestigacion } from './pantallas/NuevaInvestigacion';
 import { Panorama } from './pantallas/Panorama';
 import { Ranking } from './pantallas/Ranking';
-import { tr } from './lib/idioma';
+import { traducido, tr } from './lib/idioma';
 
-const TITULO_PANTALLA = {
+const TITULO_PANTALLA = traducido({
   corrida: 'Corrida en vivo',
   hipotesis: 'Cola de hipótesis',
   ranking: 'Ranking',
@@ -94,7 +94,7 @@ const TITULO_PANTALLA = {
   artefactos: 'Artefactos',
   calidad: 'Calidad',
   investigacion: 'Objetivo y datos',
-} as const;
+} as const);
 
 /** El rótulo oculto ("Cargando el ranking") de la silueta del ranking, el
  *  mismo que Ranking.tsx pone por dentro mientras calcula. Los del árbol y
@@ -109,7 +109,7 @@ const ROTULO_RANKING = 'el ranking';
  *  la pantalla pinta por dentro, para no saltar. */
 const SILUETA_AL_CAMBIAR: Partial<Record<Pantalla, (conexion: EstadoConexion) => JSX.Element>> = {
   arbol: (conexion) => <EsqueletoArbol conexion={conexion} />,
-  ranking: () => <EsqueletoPantalla variante="lista" rotulo={ROTULO_RANKING} />,
+  ranking: () => <EsqueletoPantalla variante="lista" rotulo={tr(ROTULO_RANKING)} />,
   atlas: (conexion) => <EsqueletoAtlas conexion={conexion} />,
 };
 
@@ -169,7 +169,7 @@ export default function App() {
   }, [claveRuta, ruta]);
 
   useEffect(() => {
-    const base = inv ? `${inv.titulo} · ROSA2018` : 'ROSA2018 · Alzheimer Project';
+    const base = inv ? `${inv.titulo} · ROSA2018` : tr('ROSA2018 · Alzheimer Project');
     document.title = esperan > 0 ? `(${esperan}) ${base}` : base;
   }, [inv, esperan]);
 
@@ -201,7 +201,7 @@ export default function App() {
     pantalla = <Laboratorio dianaId={ruta.dianaId} panel={ruta.panel} alAbrirDiana={(u, panel) => irA(rutaLaboratorio(u, panel ?? null))} />;
   } else if (ruta.tipo === 'investigacion') {
     if (!inv) {
-      titulo = 'Investigación';
+      titulo = tr('Investigación');
       pantalla = (
         <div className="contenido">
           <div className="vacio">

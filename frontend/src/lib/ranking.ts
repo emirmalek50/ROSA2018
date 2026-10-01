@@ -16,6 +16,7 @@
 import type { Bloqueo, CertezaEvidencia, DecisionKiller, DireccionEvidencia, EstadoRosa, Hipotesis, PasoRutaTerapeutica } from '../datos/tipos';
 import { CERTEZA_EVIDENCIA, VEREDICTO } from './etiquetas';
 import { bloqueosDe, cohortesDe } from './priorizacion';
+import { tr } from './idioma';
 
 /** La novedad de la hipótesis resumida a un estado: si nadie la propuso antes
  *  (nueva), si alguien ya la publicó (precedente), si hay algo parecido pero
@@ -212,14 +213,14 @@ const NO_COMPROBADO = /^no\s+(se\s+pudo\s+)?comprob/i;
 export function novedadDe(h: Pick<Hipotesis, 'novedad'>): { estado: EstadoNovedad; detalle: string } {
   const p = h.novedad?.precedente;
   if (!p || typeof p !== 'object') {
-    return { estado: 'no_comprobado', detalle: 'No se pudo comprobar la novedad: esta hipótesis no tiene la comprobación de precedente registrada.' };
+    return { estado: 'no_comprobado', detalle: tr('No se pudo comprobar la novedad: esta hipótesis no tiene la comprobación de precedente registrada.') };
   }
   const detalle = texto(p.detalle).trim();
   const estado = clave(p.estado);
-  if (estado === 'no_comprobado' || NO_COMPROBADO.test(detalle)) return { estado: 'no_comprobado', detalle: detalle || 'No se pudo comprobar la novedad.' };
-  if (estado === 'sin_precedente') return { estado: 'nueva', detalle: detalle || 'Nadie la propuso antes en la literatura buscada.' };
-  if (estado === 'parcial') return { estado: 'parcial', detalle: detalle || 'Hay trabajos parecidos, pero ninguno con esta formulación.' };
-  if (estado === 'ya_publicado') return { estado: 'precedente', detalle: detalle || 'Alguien ya la publicó.' };
+  if (estado === 'no_comprobado' || NO_COMPROBADO.test(detalle)) return { estado: 'no_comprobado', detalle: detalle || tr('No se pudo comprobar la novedad.') };
+  if (estado === 'sin_precedente') return { estado: 'nueva', detalle: detalle || tr('Nadie la propuso antes en la literatura buscada.') };
+  if (estado === 'parcial') return { estado: 'parcial', detalle: detalle || tr('Hay trabajos parecidos, pero ninguno con esta formulación.') };
+  if (estado === 'ya_publicado') return { estado: 'precedente', detalle: detalle || tr('Alguien ya la publicó.') };
   const nombre = texto(p.estado) || 'sin nombre';
   return { estado: 'no_comprobado', detalle: detalle ? `Estado de novedad que esta interfaz no conoce (${nombre}): ${detalle}` : `Estado de novedad que esta interfaz no conoce (${nombre}).` };
 }
@@ -230,7 +231,7 @@ function etiquetaCerteza(nivel: unknown): string {
   // Object.hasOwn: "constructor" o "toString" como nivel no deben encontrar
   // nada en el prototipo.
   if (k && Object.hasOwn(tabla, k)) return tabla[k]!.etiqueta;
-  return k ? `Certeza ${k.replace(/_/g, ' ')}` : 'Certeza sin nivel';
+  return k ? `Certeza ${k.replace(/_/g, ' ')}` : tr('Certeza sin nivel');
 }
 
 function certezaDe(h: Pick<Hipotesis, 'conclusion'>): CertezaRanking | null {
@@ -369,7 +370,7 @@ function encajada(s: string): string {
 export function queCambiariaElOrden(h: Pick<Hipotesis, 'conclusion'>): string {
   const c = h.conclusion;
   if (!c || typeof c !== 'object' || !clave(c.certeza)) {
-    return 'ROSA2018 todavía no ha escrito una conclusión sobre esta hipótesis: hasta que cierre una iteración, su puesto lo fija solo el torneo (los partidos que gana y pierde contra sus rivales), no la evidencia reunida.';
+    return tr('ROSA2018 todavía no ha escrito una conclusión sobre esta hipótesis: hasta que cierre una iteración, su puesto lo fija solo el torneo (los partidos que gana y pierde contra sus rivales), no la evidencia reunida.');
   }
   const partes: string[] = [];
   const peldano = objetos<{ de?: string; a?: string; falta?: string }>(c.escalera)[0];
@@ -377,10 +378,10 @@ export function queCambiariaElOrden(h: Pick<Hipotesis, 'conclusion'>): string {
   if (peldano && falta) {
     // Un peldaño sin "de" (registro a medias) parte de la certeza actual.
     const de = etiquetaCerteza(clave(peldano.de) ? peldano.de : c.certeza).toLowerCase();
-    const a = clave(peldano.a) ? etiquetaCerteza(peldano.a).toLowerCase() : 'el siguiente nivel';
+    const a = clave(peldano.a) ? etiquetaCerteza(peldano.a).toLowerCase() : tr('el siguiente nivel');
     partes.push(`Para pasar de ${de} a ${a} le falta: ${encajada(falta)}`);
   } else if (clave(c.certeza) === 'alta') {
-    partes.push('Está en certeza alta, el nivel más alto de GRADE: no hay peldaño por encima.');
+    partes.push(tr('Está en certeza alta, el nivel más alto de GRADE: no hay peldaño por encima.'));
   } else {
     partes.push(`Está en ${etiquetaCerteza(c.certeza).toLowerCase()} y esta conclusión no trae la escalera por regla (es anterior a que ROSA2018 la calculara): se rehará al cerrar la próxima iteración.`);
   }

@@ -24,14 +24,14 @@ import { construirArbol, enlaceDe, iteracionesDe, type Evidencia, type FiltroVer
 import { formatearEntero } from '../lib/formato';
 import { Cargando, Esqueleto } from './Esqueleto';
 import { Chip, Seccion } from './piezas';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
-const FILTROS: { clave: FiltroVeredicto; etiqueta: string }[] = [
+const FILTROS: { clave: FiltroVeredicto; etiqueta: string }[] = traducido([
   { clave: 'todas', etiqueta: 'Todas' },
   { clave: 'sostenidas', etiqueta: 'Sostenidas y parciales' },
   { clave: 'bloqueadas', etiqueta: 'Bloqueadas' },
   { clave: 'sin_verificar', etiqueta: 'Sin comprobar' },
-];
+]);
 
 const TITULO = 'De la consulta a la afirmación';
 const NOTA = 'Cada consulta, las fuentes que trajo y las afirmaciones que salieron de cada fuente con su veredicto. Una afirmación nace sin comprobar y cambia de color cuando el juez dictamina.';
@@ -69,7 +69,7 @@ function EsqueletoTrazabilidad({ consultas }: { consultas: number }) {
   return (
     <Cargando
       activo
-      rotulo="la cadena de evidencia"
+      rotulo={tr("la cadena de evidencia")}
       esqueleto={
         <div aria-hidden="true" style={{ pointerEvents: 'none' }}>
           <div className="embudo embudo-compacto">
@@ -175,14 +175,14 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
   if (!activa) return null;
   if (datos === null && respondida !== corrida.id) {
     return (
-      <Seccion detalle titulo={TITULO} nota={NOTA} acciones={corrida.iteracionActual > 1 ? <PestanasGrises iteraciones={corrida.iteracionActual} /> : undefined}>
+      <Seccion detalle titulo={tr(TITULO)} nota={tr(NOTA)} acciones={corrida.iteracionActual > 1 ? <PestanasGrises iteraciones={corrida.iteracionActual} /> : undefined}>
         <EsqueletoTrazabilidad consultas={consultasEnSilueta(corrida)} />
       </Seccion>
     );
   }
   if (datos === null && sinRespuesta === corrida.id) {
     return (
-      <Seccion detalle titulo={TITULO} nota={NOTA}>
+      <Seccion detalle titulo={tr(TITULO)} nota={tr(NOTA)}>
         <div className="acciones">
           <span className="meta">{tr("No pude comprobar la cadena de evidencia: el servidor no respondió a tiempo.")}</span>
           <button type="button" className="btn btn-s" onClick={() => setIntento((i) => i + 1)}>
@@ -206,8 +206,8 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
 
   return (
     <Seccion
-      detalle titulo={TITULO}
-      nota={NOTA}
+      detalle titulo={tr(TITULO)}
+      nota={tr(NOTA)}
       acciones={
         iteraciones.length > 1 ? (
           <div className="pestanas pestanas-s" role="tablist">
@@ -347,7 +347,7 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
           <Chip tono="borde" title={tr("Puntuación de relevancia del cribado, 0 a 10")}>
             relevancia {f.relevancia}
           </Chip>
-          <Chip tono={f.textoCompleto ? 'acento' : 'borde'}>{f.textoCompleto ? `texto completo · ${f.fragmentos} fragmentos` : 'solo resumen'}</Chip>
+          <Chip tono={f.textoCompleto ? 'acento' : 'borde'}>{f.textoCompleto ? `texto completo · ${f.fragmentos} fragmentos` : tr('solo resumen')}</Chip>
           <Chip tono={bloqueadas > 0 ? 'mal' : 'borde'}>
             {nodo.afirmaciones.length} afirmaciones{bloqueadas > 0 ? ` · ${bloqueadas} bloqueadas` : ''}
           </Chip>
@@ -362,7 +362,7 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
               </a>
             )}
             {f.anio && <span>{f.anio}</span>}
-            {f.modo === 'amplitud' && <Chip tono="acento" title={f.porque ? `Llegó por búsqueda en amplitud. Se conservó porque podría cambiar: ${f.porque}` : 'Llegó por búsqueda en amplitud'}>Amplitud</Chip>}
+            {f.modo === 'amplitud' && <Chip tono="acento" title={f.porque ? `Llegó por búsqueda en amplitud. Se conservó porque podría cambiar: ${f.porque}` : tr('Llegó por búsqueda en amplitud')}>Amplitud</Chip>}
             {nodo.tambienEn.length > 0 && <span>{tr("También la trajo la consulta")} {nodo.tambienEn.join(', ')}</span>}
             {f.retraccionDetalle && <span>Crossref: {f.retraccionDetalle}</span>}
             {!f.extraida && <span>{tr("Todavía sin extraer")}</span>}

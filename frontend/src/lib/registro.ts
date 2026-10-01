@@ -24,6 +24,7 @@
 //   función heredada del prototipo.
 
 import { PASO_RUTA } from './etiquetas';
+import { traducido, tr } from './idioma';
 
 /** Los campos que se comparan, con su ruta en punto (la misma clave que
  *  guarda el servidor en versiones[].cambios). */
@@ -127,7 +128,7 @@ export const CAMPOS_DIFF: readonly CampoDiff[] = [
   'tarjeta.pasoRuta',
 ];
 
-const DEFINICIONES: Record<CampoDiff, DefinicionCampo> = {
+const DEFINICIONES: Record<CampoDiff, DefinicionCampo> = traducido({
   titulo: { ruta: ['titulo'], etiqueta: 'Título', nombreEnFrase: 'el título' },
   enunciado: { ruta: ['enunciado'], etiqueta: 'Enunciado', nombreEnFrase: 'el enunciado' },
   mecanismo: { ruta: ['mecanismo'], etiqueta: 'Mecanismo', nombreEnFrase: 'el mecanismo' },
@@ -142,7 +143,7 @@ const DEFINICIONES: Record<CampoDiff, DefinicionCampo> = {
   'tarjeta.prediccionFalsable': { ruta: ['tarjeta', 'prediccionFalsable'], etiqueta: 'Predicción falsable', nombreEnFrase: 'la predicción falsable' },
   'tarjeta.riesgos': { ruta: ['tarjeta', 'riesgos'], etiqueta: 'Riesgos', nombreEnFrase: 'los riesgos' },
   'tarjeta.pasoRuta': { ruta: ['tarjeta', 'pasoRuta'], etiqueta: 'Paso de la ruta', nombreEnFrase: 'el paso de la ruta' },
-};
+});
 
 /** La definición de un campo conocido, buscada por clave propia: 'constructor'
  *  o 'toString' no son campos, aunque el prototipo los tenga. */
@@ -157,12 +158,12 @@ function enTabla(tabla: Record<string, string>, clave: string): string | undefin
 
 /** La dirección de la intervención es un identificador; en el resumen se
  *  enseña con su etiqueta. Misma tabla que DIRECCION_LEGIBLE en rosa/registro.py. */
-export const DIRECCION_LEGIBLE: Record<string, string> = {
+export const DIRECCION_LEGIBLE: Record<string, string> = traducido({
   aumenta: 'aumenta',
   disminuye: 'disminuye',
   modula: 'modula',
   sin_intervencion: 'sin intervención',
-};
+});
 
 /** El paso de la ruta terapéutica se enseña con la etiqueta de PASO_RUTA, el
  *  mismo sitio que usa la pantalla. rosa/registro.py lleva una copia
@@ -332,10 +333,10 @@ export function resumenDiff(cambios: readonly CambioRegistro[] | null | undefine
   for (const c of Array.isArray(cambios) ? cambios : []) {
     if (!esDiccionario(c)) continue;
     const campo = typeof c.campo === 'string' ? c.campo : '';
-    const nombre = definicion(campo)?.nombreEnFrase || campo || CAMPO_SIN_NOMBRE;
+    const nombre = definicion(campo)?.nombreEnFrase || campo || tr(CAMPO_SIN_NOMBRE);
     partes.push(nombre + detalle(campo, texto(c.antes), texto(c.despues)));
   }
-  if (partes.length === 0) return SIN_CAMBIOS;
+  if (partes.length === 0) return tr(SIN_CAMBIOS);
   const lista = partes.length === 1 ? partes[0]! : `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]!}`;
   return `Cambió ${lista}`;
 }

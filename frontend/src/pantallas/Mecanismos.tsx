@@ -218,7 +218,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
         <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
           <div>
             <h2>Mecanismos</h2>
-            <p>{AYUDA}</p>
+            <p>{tr(AYUDA)}</p>
           </div>
         </div>
         <p className="nota">
@@ -237,8 +237,8 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
           <h2>Mecanismos</h2>
-          <p>{AYUDA}</p>
-          <p className="meta">{META}</p>
+          <p>{tr(AYUDA)}</p>
+          <p className="meta">{tr(META)}</p>
         </div>
       </div>
 
@@ -276,7 +276,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
       <div className="mec-chips">
         <button
           type="button"
-          className={verAmenazas ? 'mec-chip mec-activo' : 'mec-chip'}
+          className={verAmenazas ? tr('mec-chip mec-activo') : 'mec-chip'}
           aria-pressed={verAmenazas}
           onClick={() => cambiarAmenazas(!verAmenazas)}
         >
@@ -355,8 +355,8 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                         !sobre
                           ? 'mec-consenso'
                           : a.de === sobre || a.a === sobre
-                            ? 'mec-consenso mec-encendida'
-                            : 'mec-consenso mec-apagada'
+                            ? tr('mec-consenso mec-encendida')
+                            : tr('mec-consenso mec-apagada')
                       }
                       markerEnd="url(#mec-gris)"
                     >
@@ -389,7 +389,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                         className="mec-amenaza-linea"
                         markerEnd="url(#mec-rojo)"
                       >
-                        <title>{`${am.clase}: ataca a ${cual === 'X' ? 'lo que la hipótesis mueve' : 'lo que la hipótesis lee'}. ${am.texto}`}</title>
+                        <title>{`${am.clase}: ataca a ${cual === 'X' ? tr('lo que la hipótesis mueve') : tr('lo que la hipótesis lee')}. ${am.texto}`}</title>
                       </path>
                     );
                   });
@@ -445,7 +445,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                     title={actores.exposicion}
                   >
                     <b>{tr("LO QUE MUEVE")}</b>
-                    <span>{actores.exposicion || 'sin declarar'}</span>
+                    <span>{actores.exposicion || tr('sin declarar')}</span>
                   </div>
                   <div
                     className="mec-actor"
@@ -453,7 +453,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                     title={actores.desenlace}
                   >
                     <b>{tr("Y LO LEE EN")}</b>
-                    <span>{actores.desenlace || 'sin declarar'}</span>
+                    <span>{actores.desenlace || tr('sin declarar')}</span>
                   </div>
                 </>
               )}
@@ -531,7 +531,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
             <p className="mec-t">{enLlano.titulo}</p>
             <p className="mec-d">
               {cumplenAhora} de {cumplenAhora + faltanAhora} supuestos cumplidos
-              {tocado ? ' con lo que has encendido' : ' con la evidencia que hay'}. {enLlano.que}
+              {tocado ? tr(' con lo que has encendido') : tr(' con la evidencia que hay')}. {enLlano.que}
             </p>
             {tocado && (
               <p className="mec-d mec-d-nota">
@@ -543,9 +543,9 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
           {(actores.exposicion || actores.desenlace) && (
             <dl className="mec-actores">
               <dt>{tr("Afirma que mueve")}</dt>
-              <dd>{actores.exposicion || 'sin declarar'}</dd>
+              <dd>{actores.exposicion || tr('sin declarar')}</dd>
               <dt>{tr("Y lo lee en")}</dt>
-              <dd>{actores.desenlace || 'sin declarar'}</dd>
+              <dd>{actores.desenlace || tr('sin declarar')}</dd>
             </dl>
           )}
 

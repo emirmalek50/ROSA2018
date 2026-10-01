@@ -654,8 +654,8 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
       <div className="atlas-lienzo atlas-3d-lienzo">
         <div className="atlas-3d-herramientas">
           <button type="button" className="btn btn-s" onClick={restablecer}>Restablecer vista</button>
-          <button type="button" className="btn btn-s" aria-label="Acercar atlas" onClick={() => zoom(0.85)}>+</button>
-          <button type="button" className="btn btn-s" aria-label="Alejar atlas" onClick={() => zoom(1.18)}>−</button>
+          <button type="button" className="btn btn-s" aria-label={tr("Acercar atlas")} onClick={() => zoom(0.85)}>+</button>
+          <button type="button" className="btn btn-s" aria-label={tr("Alejar atlas")} onClick={() => zoom(1.18)}>−</button>
           <label>{tr("Región")} <select aria-label={tr("Seleccionar región del atlas 3D")} value={seleccion ?? ''} onChange={(e) => { if (e.target.value) seleccionar(e.target.value); }}>
             <option value="">Explorar regiones</option>
             {atlas.regiones.filter((r) => regiones.some((g) => g.clave === r.clave)).map((r) => <option key={r.clave} value={r.clave}>{r.etiqueta} · {r.conteo}</option>)}
@@ -702,7 +702,7 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
         />}
       </div>
       <p className="meta">{tr("El hemisferio del corte sagital en relieve, con el volumen y los pliegues idealizados: el mapa anatómico es el del corte, no la superficie. Arrastra para girar, usa la rueda para acercar y pulsa una región para leer su evidencia.")}</p>
-      <p className="atlas-3d-lectura" aria-live="polite">{apuntada ? `${apuntada.etiqueta}: ${apuntada.conteo} registros · ${apuntada.cohortes.length} cohortes nombradas por sus hipótesis${apuntada.discordia.length ? ' · Discordia entre hechos' : ''}${!apuntada.conteo ? apuntada.cobertura === 'buscada_sin_hallazgo' ? ' · Buscada sin hallazgo' : ' · No buscada' : ''}` : 'Selecciona una región para ver sus cifras y abrir su ficha.'}</p>
+      <p className="atlas-3d-lectura" aria-live="polite">{apuntada ? `${apuntada.etiqueta}: ${apuntada.conteo} registros · ${apuntada.cohortes.length} cohortes nombradas por sus hipótesis${apuntada.discordia.length ? tr(' · Discordia entre hechos') : ''}${!apuntada.conteo ? apuntada.cobertura === 'buscada_sin_hallazgo' ? tr(' · Buscada sin hallazgo') : tr(' · No buscada') : ''}` : tr('Selecciona una región para ver sus cifras y abrir su ficha.')}</p>
     </section>
   );
 }

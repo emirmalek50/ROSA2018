@@ -56,7 +56,7 @@ function Celda({ celda, hueco, paso, diana }: { celda: CeldaMapaRuta | undefined
     );
   }
   return (
-    <td className={`num ruta-celda ${certeza ? `ruta-certeza-${certeza.tono}` : ''}`} title={`${diana}, ${etiquetaPaso.toLowerCase()}: ${plural(hip, 'hipótesis cubre el paso', 'hipótesis cubren el paso')}, ${parciales} a medias, ${plural(hechos, 'hecho')} del modelo de mundo${certeza ? `; certeza máxima: ${certeza.etiqueta.toLowerCase()}` : ''}.`}>
+    <td className={`num ruta-celda ${certeza ? `ruta-certeza-${certeza.tono}` : ''}`} title={`${diana}, ${etiquetaPaso.toLowerCase()}: ${plural(hip, tr('hipótesis cubre el paso'), tr('hipótesis cubren el paso'))}, ${parciales} a medias, ${plural(hechos, 'hecho')} del modelo de mundo${certeza ? `; certeza máxima: ${certeza.etiqueta.toLowerCase()}` : ''}.`}>
       <span className="ruta-celda-cifra">{hip}</span>
       {parciales > 0 && <span className="meta ruta-celda-parciales">+{parciales} parcial{parciales === 1 ? '' : 'es'}</span>}
       {hechos > 0 && <span className="meta ruta-celda-hechos">{plural(hechos, 'hecho')}</span>}
@@ -91,7 +91,7 @@ export function MapaRuta({ mapa, estado }: { mapa: Mapa | null | undefined; esta
     <article className="tarjeta mapa-ruta" aria-label={tr("Mapa de la ruta terapéutica")}>
       <div className="mapa-ruta-cabecera">
         <h3>{tr("Mapa de la ruta terapéutica")}</h3>
-        <span className="meta">{iteracion ? `Calculado al cerrar la iteración ${iteracion}.` : 'Calculado a demanda.'}</span>
+        <span className="meta">{iteracion ? `Calculado al cerrar la iteración ${iteracion}.` : tr('Calculado a demanda.')}</span>
       </div>
       {resumen ? <p className="mapa-ruta-resumen">{resumen}</p> : null}
       <p className="meta">
@@ -119,7 +119,7 @@ export function MapaRuta({ mapa, estado }: { mapa: Mapa | null | undefined; esta
                 const hip = [...new Set(Array.isArray(f.hipotesis) ? f.hipotesis.filter((x): x is string => typeof x === 'string' && x !== '') : [])];
                 const huecos = new Set(Array.isArray(f.huecos) ? f.huecos : []);
                 const pasos = f.pasos && typeof f.pasos === 'object' ? f.pasos : ({} as Partial<Record<PasoRutaTerapeutica, CeldaMapaRuta>>);
-                const etiqueta = typeof f.etiqueta === 'string' && f.etiqueta ? f.etiqueta : typeof f.clave === 'string' && f.clave ? f.clave : 'sin diana';
+                const etiqueta = typeof f.etiqueta === 'string' && f.etiqueta ? f.etiqueta : typeof f.clave === 'string' && f.clave ? f.clave : tr('sin diana');
                 return (
                   <tr key={`${f.clave ?? etiqueta}-${i}`}>
                     <td>

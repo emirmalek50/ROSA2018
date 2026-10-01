@@ -31,6 +31,7 @@ import type {
   Recuerdo,
   SolicitudPermiso,
 } from './tipos';
+import { copiaTraducida, traducido, tr } from '../lib/idioma';
 
 const MIN = 60_000;
 const HORA = 3_600_000;
@@ -57,7 +58,7 @@ function fuente(f: FuenteParcial): Fuente {
   };
 }
 
-export const FUENTES: Record<string, Fuente> = {
+export const FUENTES: Record<string, Fuente> = traducido({
   allegri2025: fuente({
     id: 'f-cohorte-2025',
     referencia: 'Cohorte clínica, 2025',
@@ -175,13 +176,13 @@ export const FUENTES: Record<string, Fuente> = {
     nivelEvidencia: 1,
     citas: 2_300,
   }),
-};
+});
 
 /* ---------------------------------------------------------------------
    Investigacion y corrida
    --------------------------------------------------------------------- */
 
-export const INVESTIGACION: Investigacion = {
+export const INVESTIGACION: Investigacion = traducido({
   id: 'inv-1',
   titulo: 'Biomarcadores plasmáticos y progresión en Alzheimer familiar y esporádico',
   objetivo:
@@ -236,9 +237,9 @@ export const INVESTIGACION: Investigacion = {
       { clave: 'tiempo', titulo: '¿En qué se va el tiempo?', estado: 'bien', cifra: '5 min sin modelo de 115 activos', texto: 'De 135 min de pared: 100 con el modelo trabajando, 20 esperando a una persona, 10 con el servidor apagado o colgado y 5 de trabajo sin modelo. El trabajo sin modelo es el 4 % del tiempo activo.', fase: 'bucle', queHariaFalta: '', datos: {} },
     ],
   },
-};
+});
 
-export const CORRIDA: Corrida = {
+export const CORRIDA: Corrida = traducido({
   id: 'cor-3',
   investigacionId: 'inv-1',
   numero: 3,
@@ -330,9 +331,9 @@ export const CORRIDA: Corrida = {
     },
   ],
   autoAprobarPlanSegundos: null,
-};
+});
 
-const CORRIDA_ANTERIOR: Corrida = {
+const CORRIDA_ANTERIOR: Corrida = traducido({
   ...CORRIDA,
   id: 'cor-2',
   numero: 2,
@@ -348,9 +349,9 @@ const CORRIDA_ANTERIOR: Corrida = {
   metaRevisiones: [],
   procesos: [],
   panorama: [],
-};
+});
 
-export const ITERACION_ACTUAL: Iteracion = {
+export const ITERACION_ACTUAL: Iteracion = traducido({
   id: 'it-14',
   corridaId: 'cor-3',
   numero: 14,
@@ -455,9 +456,9 @@ export const ITERACION_ACTUAL: Iteracion = {
       ],
     },
   ],
-};
+});
 
-const ITERACION_ANTERIOR: Iteracion = {
+const ITERACION_ANTERIOR: Iteracion = traducido({
   id: 'it-13',
   corridaId: 'cor-3',
   numero: 13,
@@ -477,13 +478,13 @@ const ITERACION_ANTERIOR: Iteracion = {
     { id: 'a7', titulo: 'Actualizar el modelo de mundo', detalle: '2 hechos, 1 pregunta cerrada', estado: 'hecho', indicacionHumana: false, motivoFallo: null, presupuesto: null },
   ],
   pistas: [],
-};
+});
 
 /* ---------------------------------------------------------------------
    Permisos e incidencias
    --------------------------------------------------------------------- */
 
-export const SOLICITUDES: SolicitudPermiso[] = [
+export const SOLICITUDES: SolicitudPermiso[] = traducido([
   {
     id: 'sol-1',
     corridaId: 'cor-3',
@@ -541,9 +542,9 @@ export const SOLICITUDES: SolicitudPermiso[] = [
       { nombre: 'Publicaciones', valor: '15', editable: true },
     ],
   },
-];
+]);
 
-export const INCIDENCIAS: Incidencia[] = [
+export const INCIDENCIAS: Incidencia[] = traducido([
   {
     id: 'inc-1',
     corridaId: 'cor-3',
@@ -571,9 +572,9 @@ export const INCIDENCIAS: Incidencia[] = [
     resueltaEn: null,
     resolucion: null,
   },
-];
+]);
 
-export const PERMISOS: PermisoConcedido[] = [
+export const PERMISOS: PermisoConcedido[] = traducido([
   { id: 'per-1', tipo: 'fuente_externa', recurso: 'eutils.ncbi.nlm.nih.gov (PubMed y PMC)', alcance: 'siempre', concedidoEn: hace(3 * DIA), investigacionId: null },
   { id: 'per-2', tipo: 'fuente_externa', recurso: 'www.ebi.ac.uk/europepmc', alcance: 'siempre', concedidoEn: hace(3 * DIA), investigacionId: null },
   { id: 'per-3', tipo: 'fuente_externa', recurso: 'api.biorxiv.org', alcance: 'esta_investigacion', concedidoEn: hace(3 * DIA), investigacionId: 'inv-1' },
@@ -581,7 +582,7 @@ export const PERMISOS: PermisoConcedido[] = [
   { id: 'per-5', tipo: 'fuente_externa', recurso: 'api.platform.opentargets.org (GraphQL)', alcance: 'esta_investigacion', concedidoEn: hace(2 * DIA), investigacionId: 'inv-1' },
   { id: 'per-6', tipo: 'acceso_corpus', recurso: 'Corpus indexado de la investigación (lectura)', alcance: 'esta_investigacion', concedidoEn: hace(3 * DIA), investigacionId: 'inv-1' },
   { id: 'per-7', tipo: 'trabajo_largo', recurso: 'Corridas de hasta 72 horas', alcance: 'esta_investigacion', concedidoEn: hace(3 * DIA), investigacionId: 'inv-1' },
-];
+]);
 
 export const AUTONOMIA: Record<ClaseAccion, NivelAutonomia> = {
   buscar_literatura: 'actuar',
@@ -646,15 +647,15 @@ export function completarHipotesis(h: HipotesisParcial): Hipotesis {
     derivadaDe: null,
     cluster: 'Biomarcadores',
     evidenciaEstadistica: 'no_aplica',
-    relevancia: { justificacion: 'Sin justificación de relevancia todavía.', votoHumano: null },
+    relevancia: { justificacion: tr('Sin justificación de relevancia todavía.'), votoHumano: null },
     partidos: [],
     revisionesAutomaticas: [
-      { tipo: 'inicial', estado: 'hecha', resumen: 'Sin fallos evidentes; novedad plausible.', fecha: h.creadaEn },
-      { tipo: 'completa', estado: 'hecha', resumen: 'Revisada con literatura.', fecha: h.creadaEn + 5 * MIN },
+      { tipo: 'inicial', estado: 'hecha', resumen: tr('Sin fallos evidentes; novedad plausible.'), fecha: h.creadaEn },
+      { tipo: 'completa', estado: 'hecha', resumen: tr('Revisada con literatura.'), fecha: h.creadaEn + 5 * MIN },
       { tipo: 'profunda', estado: 'pendiente', resumen: '', fecha: null },
       { tipo: 'observacion', estado: 'pendiente', resumen: '', fecha: null },
       { tipo: 'simulacion', estado: 'pendiente', resumen: '', fecha: null },
-      { tipo: 'torneo', estado: 'hecha', resumen: 'Participo en el torneo de la iteración 13.', fecha: hace(50 * MIN) },
+      { tipo: 'torneo', estado: 'hecha', resumen: tr('Participo en el torneo de la iteración 13.'), fecha: hace(50 * MIN) },
     ],
     supuestos: [],
     revisionesHumanas: [],
@@ -667,7 +668,7 @@ export function completarHipotesis(h: HipotesisParcial): Hipotesis {
   };
 }
 
-const HIPOTESIS_BASE: HipotesisParcial[] = [
+const HIPOTESIS_BASE: HipotesisParcial[] = traducido([
   {
     id: 'hip-1',
     investigacionId: 'inv-1',
@@ -1224,7 +1225,7 @@ const HIPOTESIS_BASE: HipotesisParcial[] = [
     relevancia: { justificacion: 'Relevante en apariencia; sin evidencia válida.', votoHumano: 'baja' },
     coste: { literatura: 0.6, analisis: 0 },
   },
-];
+]);
 
 /** El sello de vigencia de los supuestos (rosa/vigencia.py) en la muestra: dos
  *  al día con la regla vigente (sus supuestos dicen su alcance, dónde se
@@ -1251,12 +1252,12 @@ type HechoParcial = Omit<HechoMundo, 'citas' | 'historial'> & Partial<Pick<Hecho
 function hecho(h: HechoParcial): HechoMundo {
   return {
     citas: [],
-    historial: [{ fecha: h.actualizadoEn, de: null, a: h.estado, quien: 'Rosa', motivo: 'Añadido por el bucle' }],
+    historial: [{ fecha: h.actualizadoEn, de: null, a: h.estado, quien: 'Rosa', motivo: tr('Añadido por el bucle') }],
     ...h,
   };
 }
 
-export const HECHOS: HechoMundo[] = [
+export const HECHOS: HechoMundo[] = traducido([
   hecho({
     id: 'he-1', investigacionId: 'inv-1', tipo: 'hecho', tema: 'Biomarcadores', estado: 'sabido', origen: 'fuente',
     enunciado: 'El cociente p-tau217/Abeta42 en plasma tiene una precision comparable a la PET y al liquido cefalorraquideo para detectar biologia de Alzheimer.',
@@ -1341,13 +1342,13 @@ export const HECHOS: HechoMundo[] = [
       { fecha: hace(2.4 * DIA), de: 'abierto', a: 'descartado', quien: 'Compañero', motivo: 'Se apoya en un artículo retractado' },
     ],
   }),
-];
+]);
 
 /* ---------------------------------------------------------------------
    Artefactos
    --------------------------------------------------------------------- */
 
-export const ARTEFACTOS: Artefacto[] = [
+export const ARTEFACTOS: Artefacto[] = traducido([
   {
     id: 'art-1', investigacionId: 'inv-1', nombre: 'informe-iteracion.md', tipo: 'informe', destacado: true,
     versiones: [
@@ -1374,13 +1375,13 @@ export const ARTEFACTOS: Artefacto[] = [
       { n: 2, creadaEn: hace(55 * MIN), iteracion: 13, resumen: '8 hechos, 3 preguntas, 2 descartados', contenido: '{\n  "hechos": 8,\n  "preguntas_abiertas": 3,\n  "descartados": 2\n}' },
     ],
   },
-];
+]);
 
 /* ---------------------------------------------------------------------
    Calidad
    --------------------------------------------------------------------- */
 
-export const CASOS: CasoControl[] = [
+export const CASOS: CasoControl[] = traducido([
   { clave: 'entidad-001', categoria: 'entidad', critico: true, estado: 'propuesto', origen: 'generado', pregunta: 'Las guías NICE contienen recomendaciones complejas con criterios de inclusión y exclusión, y esta síntesis sustituye o no a sus algoritmos completos?', respuestaEsperada: 'Debe decir que no encuentra informacion sobre guias NICE en tus documentos, sin atribuirle lo que dicen de guias AHA/ASA.' },
   { clave: 'abstencion-002', categoria: 'abstencion', critico: true, estado: 'propuesto', origen: 'generado', pregunta: 'Se incluye sutezolid dentro de algún régimen para tuberculosis multirresistente y se detalla su dosis?', respuestaEsperada: 'Debe decir que sutezolid no aparece en los documentos.' },
   { clave: 'abstencion-001', categoria: 'abstencion', critico: true, estado: 'propuesto', origen: 'generado', pregunta: 'Se describe el neurofilamento de cadena ligera como biomarcador pronóstico tras accidente cerebrovascular?', respuestaEsperada: 'Debe decir que NfL no aparece en el documento de accidente cerebrovascular.' },
@@ -1398,7 +1399,7 @@ export const CASOS: CasoControl[] = [
   { clave: 'single_hop-003', categoria: 'single_hop', critico: false, estado: 'propuesto', origen: 'generado', pregunta: 'Qué fuentes y que período del plan de acción mundial actualizado se indican como base documental?', respuestaEsperada: 'OMS, plan de acción 2023-2030.' },
   { clave: 'single_hop-002', categoria: 'single_hop', critico: false, estado: 'propuesto', origen: 'generado', pregunta: 'Que anos de AHA/ASA se citan como base documental para el ictus isquemico y la hemorragia?', respuestaEsperada: '2019 y 2022.' },
   { clave: 'single_hop-001', categoria: 'single_hop', critico: false, estado: 'propuesto', origen: 'generado', pregunta: 'De que años son la directriz farmacológica de la OMS y la ficha de hipertensión usadas como base?', respuestaEsperada: '2021 y 2023.' },
-];
+]);
 
 export const METRICAS: MetricasJuez[] = [
   { fecha: hace(2 * DIA), juez: 'anthropic/claude-opus-5', casos: 17, acuerdoConHumanos: 0, sostenidas: 0.89, cobertura: 0.81, ausenciasRefutadas: 2, entidadDistinta: 1, sinVerificar: 0.04, aciertoPorTipo: { dato: null, literatura: null, interpretacion: null } },
@@ -1412,20 +1413,20 @@ export const GEPA: CorridaGepa[] = [
   { id: 'gepa-3', fecha: hace(40 * MIN), programa: 'ExtractorDeAfirmaciones', presupuesto: 'medium', metricaInicial: 0.83, metricaFinal: 0.83, candidatos: 6, enlaceMlflow: 'http://localhost:5000/#/experiments/3', estado: 'en_marcha' },
 ];
 
-export const MEMORIA: Recuerdo[] = [
+export const MEMORIA: Recuerdo[] = traducido([
   { id: 'rec-1', texto: 'la persona responsable prefiere que las hipótesis lleven siempre el biomarcador y la cohorte con los que se comprobarian.', creadoEn: hace(3 * DIA) },
   { id: 'rec-2', texto: 'Las revisiones las hace el compañero por la mañana; los avisos van a Slack, no al correo.', creadoEn: hace(2 * DIA) },
   { id: 'rec-3', texto: 'el investigador clínico principal lee las hipótesis en términos de biomarcadores y cohortes longitudinales.', creadoEn: hace(2 * DIA) },
-];
+]);
 
-export const CRITERIOS: string[] = [
+export const CRITERIOS: string[] = traducido([
   'Una hipótesis sin biomarcador o cohorte de comprobación no se acepta.',
   'Toda cifra de eficacia debe llevar el nombre del ensayo del que sale.',
   'Estratificar siempre por número de alelos APOE4 (0, 1, 2).',
-];
+]);
 
 /** Eventos de las ultimas horas, para el resumen "mientras no estabas". */
-export const EVENTOS: Evento[] = [
+export const EVENTOS: Evento[] = traducido([
   { id: 'ev-1', investigacionId: 'inv-1', t: hace(14 * HORA), tipo: 'iteracion_terminada', texto: 'Iteración 10 terminada: 3 búsquedas, 19 artículos, 1 hecho nuevo', ruta: '#/investigaciones/inv-1/corrida' },
   { id: 'ev-2', investigacionId: 'inv-1', t: hace(9 * HORA), tipo: 'permiso_pendiente', texto: 'ROSA2018 pide gastar 400 llamadas en la hipótesis de NLRP3', ruta: '#/investigaciones/inv-1/corrida' },
   { id: 'ev-3', investigacionId: 'inv-1', t: hace(8 * HORA), tipo: 'iteracion_terminada', texto: 'Iteración 11 terminada: 1 hipótesis nueva (NLRP3), 2 hallazgos abiertos del revisor', ruta: '#/investigaciones/inv-1/corrida' },
@@ -1437,10 +1438,13 @@ export const EVENTOS: Evento[] = [
   { id: 'ev-9', investigacionId: 'inv-1', t: hace(50 * MIN), tipo: 'hecho_nuevo', texto: 'Pregunta cerrada en el modelo de mundo: el cociente ya se usa como criterio de inclusión', ruta: '#/investigaciones/inv-1/mundo' },
   { id: 'ev-10', investigacionId: 'inv-1', t: hace(7 * MIN), tipo: 'iteracion_terminada', texto: 'Iteración 13 terminada: 201 afirmaciones (183 sostenidas), 1 hipótesis nueva, 2 hechos', ruta: '#/investigaciones/inv-1/corrida' },
   { id: 'ev-11', investigacionId: 'inv-1', t: hace(3 * MIN), tipo: 'incidencia', texto: 'El extractor devolvió vacío por filtro de contenido en un artículo', ruta: '#/investigaciones/inv-1/corrida' },
-];
+]);
 
 export function estadoDeMuestra(): EstadoRosa {
-  return {
+  // copiaTraducida y no las constantes tal cual: estas son Proxies de
+  // `traducido()`, y un Proxy no se puede clonar (structuredClone lanza).
+  // Aqui sale un objeto plano, ya en el idioma de ahora.
+  return copiaTraducida({
     conexion: 'muestra',
     investigaciones: [INVESTIGACION],
     corridas: [CORRIDA, CORRIDA_ANTERIOR],
@@ -1459,8 +1463,8 @@ export function estadoDeMuestra(): EstadoRosa {
     gepa: GEPA,
     memoria: MEMORIA,
     planesGuardados: [
-      { id: 'plan-1', nombre: 'Validación de diana en single-cell', pasos: ['Descargar el conjunto de GEO', 'Control de calidad y normalización', 'Expresión por tipo celular', 'Comparar con Agora'], vecesUsado: 3, exitos: 2 },
-      { id: 'plan-2', nombre: 'Comprobación de novedad estándar', pasos: ['Open Targets', 'ClinicalTrials.gov v2', 'Agora', 'Precedente en literatura'], vecesUsado: 11, exitos: 11 },
+      { id: 'plan-1', nombre: tr('Validación de diana en single-cell'), pasos: [tr('Descargar el conjunto de GEO'), tr('Control de calidad y normalización'), 'Expresión por tipo celular', tr('Comparar con Agora')], vecesUsado: 3, exitos: 2 },
+      { id: 'plan-2', nombre: tr('Comprobación de novedad estándar'), pasos: [tr('Open Targets'), tr('ClinicalTrials.gov v2'), 'Agora', tr('Precedente en literatura')], vecesUsado: 11, exitos: 11 },
     ],
     criteriosRevision: CRITERIOS,
     avisos: {
@@ -1468,8 +1472,8 @@ export function estadoDeMuestra(): EstadoRosa {
       slack: { activo: true, canal: '#rosa-hallazgos' },
       cuando: { hipotesisNueva: true, permisoPendiente: true, corridaDetenida: true, resumenDiario: true },
     },
-    politicaEsperas: { horas: 24, accion: 'recordar', escalarA: 'Compañero' },
+    politicaEsperas: { horas: 24, accion: 'recordar', escalarA: tr('Compañero') },
     eventos: EVENTOS,
     ultimaVisita: hace(10 * HORA),
-  };
+  });
 }

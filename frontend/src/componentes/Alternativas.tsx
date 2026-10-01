@@ -21,7 +21,7 @@
 import type { ReactNode } from 'react';
 import { plural } from '../lib/formato';
 import { Chip } from './piezas';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 export type ClaseAlternativa = 'causa_inversa' | 'confusor' | 'seleccion' | 'artefacto' | 'otra';
 
@@ -55,13 +55,13 @@ export interface AlternativaLeida extends Alternativa {
   origen: 'alternativas' | 'grafo_causal';
 }
 
-export const CLASE_ALTERNATIVA: Record<ClaseAlternativa, { etiqueta: string; definicion: string; tono: 'ok' | 'aviso' | 'mal' | 'acento' | 'borde' | 'neutro' }> = {
+export const CLASE_ALTERNATIVA: Record<ClaseAlternativa, { etiqueta: string; definicion: string; tono: 'ok' | 'aviso' | 'mal' | 'acento' | 'borde' | 'neutro' }> = traducido({
   causa_inversa: { etiqueta: 'Causa inversa', definicion: 'El desenlace produce la exposición y no al revés: la enfermedad cambia el marcador, en vez de que el marcador anticipe la enfermedad.', tono: 'aviso' },
   confusor: { etiqueta: 'Confusor', definicion: 'Una tercera variable explica las dos a la vez (la edad, la función renal, el genotipo APOE), y por eso parecen relacionadas sin que una cause la otra.', tono: 'aviso' },
   seleccion: { etiqueta: 'Sesgo de selección', definicion: 'Quién entra en la muestra distorsiona la asociación: los participantes de una cohorte clínica no son la población, y lo que se ve en ellos puede no valer fuera.', tono: 'aviso' },
   artefacto: { etiqueta: 'Artefacto de medida', definicion: 'La medida o la plataforma producen la señal: el ensayo, el lote de reactivo o el preanalítico crean la diferencia, no la biología.', tono: 'mal' },
   otra: { etiqueta: 'Otra explicación', definicion: 'Una explicación rival que no encaja en las cuatro clases anteriores; su texto dice cuál.', tono: 'borde' },
-};
+});
 
 /** Cómo puede venir escrita cada clase (castellano e inglés, con o sin
  *  "sesgo de"); la clave ya normalizada (sin tildes, minúsculas, guiones bajos). */
@@ -135,7 +135,7 @@ function clasificar(claseDeclarada: string, textoAlternativa: string): { clase: 
     const m = r.patron.exec(llano);
     if (m) return { clase: r.clase, claseInferida: true, motivoClase: `Clase inferida del texto por regla (misma que rosa/causal.py): contiene "${m[0]}".` };
   }
-  return { clase: 'otra', claseInferida: true, motivoClase: 'Sin clase declarada y el texto no nombra causa inversa, confusor, selección ni artefacto.' };
+  return { clase: 'otra', claseInferida: true, motivoClase: tr('Sin clase declarada y el texto no nombra causa inversa, confusor, selección ni artefacto.') };
 }
 
 function iteracionDe(x: unknown): number | null {
@@ -179,7 +179,7 @@ export function alternativasDe(h: ConAlternativas | null | undefined): Alternati
     if (!t) continue;
     const claseOriginal = rol.slice('alternativa_'.length).toLowerCase();
     const c = clasificar(claseOriginal, t);
-    salida.push({ texto: t, queLaDistinguiria: '', iteracion: null, claseOriginal, origen: 'grafo_causal', ...c, motivoClase: `${c.motivoClase} Leída del nodo ${texto(o.id) || 'sin id'} del grafo causal.` });
+    salida.push({ texto: t, queLaDistinguiria: '', iteracion: null, claseOriginal, origen: 'grafo_causal', ...c, motivoClase: `${c.motivoClase} Leída del nodo ${texto(o.id) || tr('sin id')} del grafo causal.` });
   }
   return salida;
 }
@@ -191,7 +191,7 @@ export function Alternativas({ h, vacio }: { h: ConAlternativas | null | undefin
   if (lista.length === 0) {
     return (
       <p className="meta">
-        {vacio ?? 'ROSA2018 no ha escrito explicaciones alternativas para esta hipótesis todavía. Las escribe al concluir cada iteración: qué más explicaría lo observado (causa inversa, confusor, selección, artefacto) y qué observación lo separaría de la hipótesis.'}
+        {vacio ?? tr('ROSA2018 no ha escrito explicaciones alternativas para esta hipótesis todavía. Las escribe al concluir cada iteración: qué más explicaría lo observado (causa inversa, confusor, selección, artefacto) y qué observación lo separaría de la hipótesis.')}
       </p>
     );
   }
@@ -199,8 +199,8 @@ export function Alternativas({ h, vacio }: { h: ConAlternativas | null | undefin
   return (
     <div>
       <p className="meta">
-        {plural(lista.length, 'explicación alternativa', 'explicaciones alternativas')}{tr(". Cada una dice qué observación la separaría de la hipótesis: eso es lo que convierte una duda en un experimento.")}
-        {delGrafo && ' Leídas del grafo causal que construyó el Killer; ahí no consta qué las distinguiría.'}
+        {plural(lista.length, tr('explicación alternativa'), tr('explicaciones alternativas'))}{tr(". Cada una dice qué observación la separaría de la hipótesis: eso es lo que convierte una duda en un experimento.")}
+        {delGrafo && tr(' Leídas del grafo causal que construyó el Killer; ahí no consta qué las distinguiría.')}
       </p>
       <ul className="supuestos">
         {lista.map((a, i) => {
@@ -219,7 +219,7 @@ export function Alternativas({ h, vacio }: { h: ConAlternativas | null | undefin
               </div>
               {a.texto && <p>{a.texto}</p>}
               <p className="meta">
-                <strong>{tr("Qué la distinguiría:")}</strong> {a.queLaDistinguiria || 'ROSA2018 no lo dejó escrito; sin eso la alternativa no se puede separar de la hipótesis en un experimento.'}
+                <strong>{tr("Qué la distinguiría:")}</strong> {a.queLaDistinguiria || tr('ROSA2018 no lo dejó escrito; sin eso la alternativa no se puede separar de la hipótesis en un experimento.')}
               </p>
             </li>
           );

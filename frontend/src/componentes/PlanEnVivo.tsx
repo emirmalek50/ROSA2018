@@ -175,7 +175,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
                   <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label="Bajar" disabled={i === iteracion.plan.length - 1} onClick={() => mover(i, 1)}>
                     <IconChevronDown size={12} />
                   </button>
-                  <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label="Quitar paso" disabled={iteracion.plan.length === 1} onClick={() => onEditarPlan?.(iteracion.plan.filter((p) => p.id !== paso.id))}>
+                  <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label={tr("Quitar paso")} disabled={iteracion.plan.length === 1} onClick={() => onEditarPlan?.(iteracion.plan.filter((p) => p.id !== paso.id))}>
                     <IconTrash size={12} />
                   </button>
                 </div>
@@ -186,7 +186,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
           ))}
         </ol>
         <div className="dirigir">
-          <input className="entrada entrada-s" value={nuevoPaso} placeholder={tr("Añadir un paso")} onChange={(e) => setNuevoPaso(e.target.value)} aria-label="Paso nuevo" />
+          <input className="entrada entrada-s" value={nuevoPaso} placeholder={tr("Añadir un paso")} onChange={(e) => setNuevoPaso(e.target.value)} aria-label={tr("Paso nuevo")} />
           <button
             type="button"
             className="btn btn-s"
@@ -220,7 +220,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
                 {paso.estado === 'sin_trabajo' && <Chip tono="borde">{tr("Sin trabajo")}</Chip>}
                 {paso.comprobacion && paso.comprobacion.resultado !== 'pasa' && (
                   <Chip tono={paso.comprobacion.resultado === 'falla' ? 'mal' : 'aviso'}>
-                    {paso.comprobacion.resultado === 'falla' ? 'La etapa no produjo nada' : paso.comprobacion.resultado === 'no_comprobable' ? 'No se pudo comprobar' : 'Sin materia'}
+                    {paso.comprobacion.resultado === 'falla' ? tr('La etapa no produjo nada') : paso.comprobacion.resultado === 'no_comprobable' ? 'No se pudo comprobar' : tr('Sin materia')}
                   </Chip>
                 )}
                 {paso.presupuesto !== null && <span className="meta">hasta {paso.presupuesto} llamadas</span>}

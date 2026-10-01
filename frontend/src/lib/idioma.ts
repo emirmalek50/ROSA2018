@@ -140,9 +140,42 @@ export function cobertura(): { total: number; traducidas: number } {
  *  Lo que NO hace, a propósito: no toca las claves ni los valores que no son
  *  texto. Un identificador traducido sería un fallo, no una traducción. */
 export function traducido<T extends object>(mapa: T): T {
+  return envolver(mapa);
+}
+
+/** Copia profunda, plana y con el texto ya traducido. `traducido()` devuelve
+ *  un Proxy, que es barato pero NO se puede clonar: `structuredClone` de un
+ *  Proxy lanza DataCloneError. Esto devuelve objetos y arrays normales, asi
+ *  que se clona y se manda por postMessage sin problema. Cuesta recorrer la
+ *  estructura entera, de modo que es para lo que se construye una vez (el
+ *  estado de muestra), no para un mapa de consulta. */
+export function copiaTraducida<T>(v: T): T {
+  if (typeof v === 'string') return (idioma === 'es' ? v : tr(v)) as unknown as T;
+  if (v === null || typeof v !== 'object') return v;
+  if (Array.isArray(v)) return v.map((x) => copiaTraducida(x)) as unknown as T;
+  const proto = Object.getPrototypeOf(v);
+  if (proto !== Object.prototype && proto !== null) return v;
+  const out: Record<string, unknown> = {};
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) out[k] = copiaTraducida(x);
+  return out as T;
+}
+
+/** Solo se envuelven objetos planos y arrays. Una RegExp, una Date, un Map o
+ *  un elemento de React metidos en un Proxy dejan de funcionar: sus metodos
+ *  leen ranuras internas que el Proxy no tiene, y `patron.test(x)` lanza en
+ *  vez de comparar. El glosario guarda una RegExp en cada entrada, asi que
+ *  esto no es hipotetico. */
+function sePuedeEnvolver(v: unknown): v is object {
+  if (v === null || typeof v !== 'object') return false;
+  if (Array.isArray(v)) return true;
+  const proto = Object.getPrototypeOf(v);
+  return proto === Object.prototype || proto === null;
+}
+
+function envolver<T extends object>(o: T): T {
   const cache = new Map<string, unknown>();
   let paraIdioma: Idioma = idioma;
-  return new Proxy(mapa, {
+  return new Proxy(o, {
     get(objetivo, clave, receptor) {
       const v = Reflect.get(objetivo, clave, receptor);
       if (typeof clave === 'symbol') return v;
@@ -152,19 +185,10 @@ export function traducido<T extends object>(mapa: T): T {
         paraIdioma = idioma;
       }
       if (typeof v === 'string') return tr(v);
-      // Un nivel de anidamiento: los mapas cuyo valor es {etiqueta, nota...}.
-      if (v && typeof v === 'object' && !Array.isArray(v)) {
-        const k = String(clave);
-        if (!cache.has(k)) {
-          const copia: Record<string, unknown> = {};
-          for (const [kk, vv] of Object.entries(v as Record<string, unknown>)) {
-            copia[kk] = typeof vv === 'string' ? tr(vv) : vv;
-          }
-          cache.set(k, copia);
-        }
-        return cache.get(k);
-      }
-      return v;
+      if (!sePuedeEnvolver(v)) return v;
+      const k = clave;
+      if (!cache.has(k)) cache.set(k, envolver(v));
+      return cache.get(k);
     },
   });
 }

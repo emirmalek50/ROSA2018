@@ -22,6 +22,7 @@ import type { AlcancePermiso, Amplitud, AnclaComentario, Avisos, CampoEnmendable
 import { senalDeTope } from '../lib/diferido';
 import type { CitasRecuperables, FichaCita, ListaCitas } from '../lib/citas';
 import type { DisenoAso, ExperimentoDeDiana, Laboratorio } from '../lib/laboratorio';
+import { tr } from '../lib/idioma';
 
 const CLAVE_VISITA = 'rosa-ultima-visita';
 const API = '/api';
@@ -113,7 +114,14 @@ export function useRosa(): EstadoRosa {
   return useSyncExternalStore(suscribir, leer, leer);
 }
 
-/** Quien firma las revisiones. Cuando haya cuentas, sale de la sesion. */
+/** Quien firma las revisiones. Cuando haya cuentas, sale de la sesion.
+ *
+ *  SIN tr(): esto no es una etiqueta, es un valor que se GUARDA. Viaja al
+ *  servidor como `quien` de cada revision y queda en el registro de
+ *  auditoria. Si dependiera del idioma de la pantalla, la misma persona
+ *  firmaria «la persona responsable» unas veces y otra cosa otras, y el
+ *  registro dejaria de poder agruparse por quien. Se traduce al enseñarlo,
+ *  no al guardarlo. */
 export const QUIEN = 'la persona responsable';
 
 export function modoActual(): 'muestra' | 'servidor' {
@@ -404,7 +412,7 @@ export async function reintentarConexion(): Promise<boolean> {
     const r = await fetch(conToken(`${API}/estado`), { cache: 'no-store', headers: cabeceras(false) });
     if (!r.ok) throw new Error(`Estado ${r.status}`);
     const cuerpo = (await r.json()) as EstadoRosa;
-    if (!Array.isArray(cuerpo.investigaciones)) throw new Error('Respuesta sin forma de EstadoRosa');
+    if (!Array.isArray(cuerpo.investigaciones)) throw new Error(tr('Respuesta sin forma de EstadoRosa'));
     const version = versionDe(r.headers.get('X-Rosa-Version'));
     if (version === null || version >= vivo.version) recibirRemoto(cuerpo, version);
     ultimaSenal = Date.now();
@@ -520,10 +528,10 @@ function abrirEventos(): void {
 /** Baja un fichero (el PDF de un dossier) del servidor con la sesión y lo guarda con el nombre que da
  *  el servidor (o `porDefecto`). Devuelve el motivo si no se pudo. */
 async function bajarFichero(url: string, porDefecto: string): Promise<string | null> {
-  if (modo !== 'servidor') return 'Descargar el documento requiere el servidor de ROSA2018.';
+  if (modo !== 'servidor') return tr('Descargar el documento requiere el servidor de ROSA2018.');
   try {
     const r = await fetch(url, { headers: cabeceras(false) });
-    if (!r.ok) return r.status === 404 ? 'Ese documento no está en el servidor.' : `El servidor no lo entregó (${r.status}).`;
+    if (!r.ok) return r.status === 404 ? tr('Ese documento no está en el servidor.') : `El servidor no lo entregó (${r.status}).`;
     const nombre = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') ?? '')?.[1] ?? porDefecto;
     const enlace = URL.createObjectURL(await r.blob());
     const a = document.createElement('a');
@@ -535,7 +543,7 @@ async function bajarFichero(url: string, porDefecto: string): Promise<string | n
     window.setTimeout(() => URL.revokeObjectURL(enlace), 1000);
     return null;
   } catch {
-    return 'No pude comprobar la conexión con el servidor.';
+    return tr('No pude comprobar la conexión con el servidor.');
   }
 }
 
@@ -552,7 +560,7 @@ function enviar(nombre: string, args: Record<string, unknown>): Promise<void> {
         // guardar nada, así que la persona seguía decidiendo sobre una pantalla que
         // mentía. Se avisa y se resincroniza; si el servidor está de verdad caído,
         // `resincronizar` vuelve a marcar sin conexión y reabre el flujo.
-        const motivo = r.status === 503 ? 'Esta ROSA2018 ya no puede guardar cambios (otra se quedó con la base). Cierra esta y arranca una sola.' : `El servidor falló al guardar (${r.status}).`;
+        const motivo = r.status === 503 ? tr('Esta ROSA2018 ya no puede guardar cambios (otra se quedó con la base). Cierra esta y arranca una sola.') : `El servidor falló al guardar (${r.status}).`;
         fijarAviso(`No se guardó la acción "${nombre}". ${motivo} Lo que veías como aplicado no lo está.`);
         void resincronizar();
         return;
@@ -608,7 +616,7 @@ export async function conectar(permitirMuestra = true): Promise<'muestra' | 'ser
     const r = await fetch(conToken(`${API}/estado`), { cache: 'no-store', headers: cabeceras(false) });
     if (!r.ok) throw new Error(String(r.status));
     const remoto = (await r.json()) as EstadoRosa;
-    if (!Array.isArray(remoto.investigaciones)) throw new Error('respuesta sin forma de EstadoRosa');
+    if (!Array.isArray(remoto.investigaciones)) throw new Error(tr('respuesta sin forma de EstadoRosa'));
     modo = 'servidor';
     if (pararSimulacion) {
       pararSimulacion();
@@ -620,7 +628,7 @@ export async function conectar(permitirMuestra = true): Promise<'muestra' | 'ser
   } catch {
     // Sin servidor la conexión vuelve a "muestra": el esqueleto no se queda para siempre.
     if (vivo.estado.conexion === 'conectando') aplicar((e) => ({ ...e, conexion: 'muestra' }));
-    if (!permitirMuestra) throw new Error('No se pudo cargar el estado de ROSA2018');
+    if (!permitirMuestra) throw new Error(tr('No se pudo cargar el estado de ROSA2018'));
     modo = 'muestra';
     arrancarMuestra();
   }
@@ -725,8 +733,8 @@ export const acciones = {
    *  segundos que tardo en decidir; si el servidor la rechaza (la hipotesis
    *  cambio entre medias), se resincroniza el estado y se avisa. */
   revisarHipotesis: (id: string, accion: A.AccionRevision, nota: string, aCiegas = false, revisionHumana: Omit<RevisionHumana, 'fecha' | 'quien'> | null = null, versionEsperada: number | null = null, segundosRevision: number | null = null): boolean => {
-    const titulo = vivo.estado.hipotesis.find((h) => h.id === id)?.titulo ?? 'la hipótesis';
-    const verbo = accion === 'aceptar' ? 'Aceptada' : accion === 'descartar' ? 'Descartada' : accion === 'refinar' ? 'Devuelta a ROSA2018 para refinar' : 'Decisión registrada';
+    const titulo = vivo.estado.hipotesis.find((h) => h.id === id)?.titulo ?? tr('la hipótesis');
+    const verbo = accion === 'aceptar' ? 'Aceptada' : accion === 'descartar' ? 'Descartada' : accion === 'refinar' ? tr('Devuelta a ROSA2018 para refinar') : tr('Decisión registrada');
     const ahora = Date.now();
     const corto = titulo.length > 60 ? `${titulo.slice(0, 57)}...` : titulo;
     const args = { hipotesis_id: id, accion, nota, quien: QUIEN, a_ciegas: aCiegas, revision_humana: revisionHumana, version_esperada: versionEsperada, segundos_revision: segundosRevision };
@@ -735,7 +743,7 @@ export const acciones = {
     const mandar = (keepalive: boolean, intento = 0): Promise<void> =>
       enviarYComprobar('revisarHipotesis', args, keepalive).then((ok) => {
         if (ok === false) {
-          fijarAviso('La hipótesis cambió mientras la revisabas (ROSA2018 la reformuló) o la decisión ya estaba registrada. Se recargó la versión del servidor; vuelve a mirarla antes de decidir.');
+          fijarAviso(tr('La hipótesis cambió mientras la revisabas (ROSA2018 la reformuló) o la decisión ya estaba registrada. Se recargó la versión del servidor; vuelve a mirarla antes de decidir.'));
           void resincronizar();
           return;
         }
@@ -813,7 +821,7 @@ export const acciones = {
     try {
       r = await fetch(`${API}/hipotesis/${encodeURIComponent(id)}/datos`, { method: 'POST', headers: cabeceras(false), body: cuerpo });
     } catch {
-      return 'No se pudo subir el fichero: sin conexión con el servidor.';
+      return tr('No se pudo subir el fichero: sin conexión con el servidor.');
     }
     if (!r.ok) return `El servidor rechazó el fichero (${r.status}).`;
     if (!sintetico) return null;
@@ -872,7 +880,7 @@ export const acciones = {
       const invId = id;
       void enviarYComprobar('crearInvestigacion', { datos: conQuien, id_: invId }).then((ok) => {
         if (ok === false) {
-          fijarAviso('El servidor no creó la investigación. Se recargó el estado.');
+          fijarAviso(tr('El servidor no creó la investigación. Se recargó el estado.'));
           void resincronizar();
           return;
         }
@@ -1084,14 +1092,14 @@ export const acciones = {
    *  de mundo): la corre el servidor con el cerebro y la respuesta llega al
    *  estado por SSE con sus consultas. Devuelve un error legible o null. */
   preguntarALasBases: async (investigacionId: string, pregunta: string): Promise<string | null> => {
-    if (modo !== 'servidor') return 'Preguntar a las bases requiere el servidor de ROSA2018.';
+    if (modo !== 'servidor') return tr('Preguntar a las bases requiere el servidor de ROSA2018.');
     try {
       const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/preguntar`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ pregunta, quien: QUIEN }) });
       if (!r.ok) return `El servidor no pudo responder (${r.status}).`;
       const d = (await r.json()) as { ok: boolean; resultado?: { error?: string | null } };
-      return d.ok ? null : d.resultado?.error ?? 'La pregunta falló.';
+      return d.ok ? null : d.resultado?.error ?? tr('La pregunta falló.');
     } catch {
-      return 'Sin conexión con el servidor.';
+      return tr('Sin conexión con el servidor.');
     }
   },
   cambiarEstadoArea: (investigacionId: string, areaId: string, estado: EstadoArea | null, condicionReapertura = '', corridaId: string | null | undefined = undefined, motivo = '') => {
@@ -1285,7 +1293,7 @@ export const acciones = {
   /** Sube un dataset con su fichero. El servidor calcula el hash, perfila las
    *  columnas y lo deja pendiente hasta completar el libro de procedencia. */
   subirDataset: async (investigacionId: string, fichero: File, nombre: string, descripcion: string, sintetico: boolean): Promise<string | null> => {
-    if (modo !== 'servidor') return 'Subir datasets requiere el servidor de ROSA2018.';
+    if (modo !== 'servidor') return tr('Subir datasets requiere el servidor de ROSA2018.');
     const cuerpo = new FormData();
     cuerpo.append('fichero', fichero, fichero.name);
     cuerpo.append('nombre', nombre);
@@ -1296,7 +1304,7 @@ export const acciones = {
       if (!r.ok) return `El servidor rechazó el fichero (${r.status}).`;
       return null;
     } catch {
-      return 'No se pudo subir el fichero: sin conexión con el servidor.';
+      return tr('No se pudo subir el fichero: sin conexión con el servidor.');
     }
   },
 };

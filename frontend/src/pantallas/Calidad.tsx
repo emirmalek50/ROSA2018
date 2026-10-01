@@ -27,7 +27,7 @@ function Caso({ c }: { c: CasoControl }) {
         {c.critico && <Chip tono="aviso">Importante</Chip>}
         <Chip tono={c.estado === 'aprobado' ? 'ok' : c.estado === 'descartado' ? 'mal' : undefined}>{ESTADO_CASO[c.estado]}</Chip>
         <span className="meta" style={{ marginLeft: 'auto' }}>
-          {c.origen === 'generado' ? 'Propuesto por el RAG' : 'Escrito a mano'}
+          {c.origen === 'generado' ? tr('Propuesto por el RAG') : tr('Escrito a mano')}
         </span>
       </div>
       <p className="caso-pregunta">{c.pregunta}</p>
@@ -80,10 +80,10 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
     setAccionGepa(accion);
     try {
       const r = await fetch(`/api/gepa/${accion}`, { method: 'POST', headers: cabeceras() });
-      if (!r.ok) throw new Error(r.status === 403 ? 'Solo administración puede cambiar la optimización global.' : 'No se pudo confirmar el cambio.');
-      setAvisoGepa('Cambio confirmado. Las corridas actuales conservan sus versiones.');
+      if (!r.ok) throw new Error(r.status === 403 ? tr('Solo administración puede cambiar la optimización global.') : tr('No se pudo confirmar el cambio.'));
+      setAvisoGepa(tr('Cambio confirmado. Las corridas actuales conservan sus versiones.'));
     } catch (error) {
-      setAvisoGepa(error instanceof Error ? error.message : 'No se pudo confirmar el cambio.');
+      setAvisoGepa(error instanceof Error ? error.message : tr('No se pudo confirmar el cambio.'));
     } finally {
       setAccionGepa(null);
     }
@@ -111,11 +111,11 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         </div>
       </div>
 
-      <Seccion detalle titulo="Métricas del juez" nota={ultima ? `Última medición con ${ultima.juez}` : 'Sin mediciones'} acciones={ultima ? <Momento t={ultima.fecha} ahora={ahora} /> : undefined}>
+      <Seccion detalle titulo={tr("Métricas del juez")} nota={ultima ? `Última medición con ${ultima.juez}` : tr('Sin mediciones')} acciones={ultima ? <Momento t={ultima.fecha} ahora={ahora} /> : undefined}>
         {ultima && (
           <div className="metricas">
             <div className="gasto-item">
-              <strong>{ultima.acuerdoConHumanos === null || ultima.acuerdoConHumanos === undefined ? 'Sin etiquetas' : `kappa ${ultima.acuerdoConHumanos}`}</strong>
+              <strong>{ultima.acuerdoConHumanos === null || ultima.acuerdoConHumanos === undefined ? tr('Sin etiquetas') : `kappa ${ultima.acuerdoConHumanos}`}</strong>
               <span>acuerdo juez-humano (conjunto dorado)</span>
             </div>
             <div className="gasto-item">
@@ -142,7 +142,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         )}
       </Seccion>
 
-      <Seccion titulo="Conjunto dorado: acuerdo juez-humano por comprobación" nota="Cada etiqueta que una persona pone sobre una comprobación del Killer (en la ficha de la hipótesis) entra aquí. Kappa de Cohen corrige el acuerdo por el azar; se mide por comprobación, no en promedio, porque el juez puede acertar en citas y fallar en sesgo. Hacen falta al menos 100 casos por comprobación (200 si el fallo es raro) para que la cifra sea estable; hasta entonces es orientativa.">
+      <Seccion titulo={tr("Conjunto dorado: acuerdo juez-humano por comprobación")} nota={tr("Cada etiqueta que una persona pone sobre una comprobación del Killer (en la ficha de la hipótesis) entra aquí. Kappa de Cohen corrige el acuerdo por el azar; se mide por comprobación, no en promedio, porque el juez puede acertar en citas y fallar en sesgo. Hacen falta al menos 100 casos por comprobación (200 si el fallo es raro) para que la cifra sea estable; hasta entonces es orientativa.")}>
         {(() => {
           const casos = estado.conjuntoDorado ?? [];
           if (casos.length === 0) return <p className="meta">{tr("Sin etiquetas todavía. Abre una hipótesis juzgada por el Killer y marca en cada comprobación tu veredicto.")}</p>;
@@ -171,7 +171,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
                       <td className="num">{a.n}</td>
                       <td className="num">{a.bruto === null ? 'n/a' : formatearPorcentaje(a.bruto)}</td>
                       <td className="num">{a.kappa ?? 'n/a'}</td>
-                      <td className="meta">{a.n < 5 ? 'muy pocos casos' : a.interpretacion}</td>
+                      <td className="meta">{a.n < 5 ? tr('muy pocos casos') : a.interpretacion}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -181,7 +181,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         })()}
       </Seccion>
 
-      <Seccion detalle titulo="Acierto por tipo de afirmación" nota="Kosmos midió 85 % en datos, 82 % en literatura y 58 % en interpretaciones. ROSA2018 lo mide igual, con las afirmaciones verificadas por personas, y enseña la fiabilidad de cada tipo.">
+      <Seccion detalle titulo={tr("Acierto por tipo de afirmación")} nota={tr("Kosmos midió 85 % en datos, 82 % en literatura y 58 % en interpretaciones. ROSA2018 lo mide igual, con las afirmaciones verificadas por personas, y enseña la fiabilidad de cada tipo.")}>
         <div className="rejilla-3">
           {(['dato', 'literatura', 'interpretacion'] as const).map((t) => {
             const v = ultima?.aciertoPorTipo[t] ?? null;
@@ -189,7 +189,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
               <div key={t} className="tarjeta">
                 <div className="acciones" style={{ justifyContent: 'space-between' }}>
                   <strong style={{ fontSize: 13 }}>{TIPO_AFIRMACION[t].etiqueta}</strong>
-                  <Chip tono={v === null ? 'borde' : v >= 0.8 ? 'ok' : v >= 0.65 ? 'aviso' : 'mal'}>{v === null ? 'sin medir' : formatearPorcentaje(v)}</Chip>
+                  <Chip tono={v === null ? 'borde' : v >= 0.8 ? 'ok' : v >= 0.65 ? 'aviso' : 'mal'}>{v === null ? tr('sin medir') : formatearPorcentaje(v)}</Chip>
                 </div>
                 <p className="meta" style={{ marginTop: 6 }}>
                   {TIPO_AFIRMACION[t].nota} {tiposCuenta[t]} en esta investigación.
@@ -213,12 +213,12 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         const casos = (estado.conjuntoDorado ?? []).map((c) => ({ c, d: (estado.decisiones ?? []).find((d) => d.id === c.decisionId) })).filter((x) => x.d?.contexto);
         if (casos.length < 5) return null;
         const tramos: [string, (n: number) => boolean][] = [
-          ['menos de 50 hechos', (n) => n < 50],
-          ['50 a 200 hechos', (n) => n >= 50 && n < 200],
-          ['200 o más hechos', (n) => n >= 200],
+          [tr('menos de 50 hechos'), (n) => n < 50],
+          [tr('50 a 200 hechos'), (n) => n >= 50 && n < 200],
+          [tr('200 o más hechos'), (n) => n >= 200],
         ];
         return (
-          <Seccion detalle titulo="Acuerdo juez-humano según el tamaño del modelo de mundo" nota="Los modelos rinden peor cuando crece la entrada y aparecen distractores (context rot). Cada decisión del Killer guarda cuantos hechos había en el modelo de mundo al juzgar; si el acuerdo con las personas cae en los tramos grandes, la política de contexto tiene que recortar antes de que duela.">
+          <Seccion detalle titulo={tr("Acuerdo juez-humano según el tamaño del modelo de mundo")} nota={tr("Los modelos rinden peor cuando crece la entrada y aparecen distractores (context rot). Cada decisión del Killer guarda cuantos hechos había en el modelo de mundo al juzgar; si el acuerdo con las personas cae en los tramos grandes, la política de contexto tiene que recortar antes de que duela.")}>
             <table className="tabla">
               <thead>
                 <tr>
@@ -251,15 +251,15 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         const propias = (estado.decisiones ?? []).filter((d) => d.etapa === 'persona' && typeof d.segundosRevision === 'number' && estado.hipotesis.some((h) => h.id === d.hipotesisId && h.investigacionId === inv.id));
         const media = propias.length ? propias.reduce((a, d) => a + (d.segundosRevision ?? 0), 0) / propias.length : null;
         return (
-          <Seccion titulo="Carga de revisión" nota="Segundos entre abrir la ficha de una hipótesis y decidir sobre ella. Es la cifra con la que se compara ROSA2018 contra investigar sin ella: si revisar cuesta más que hacerlo a mano, pierde.">
+          <Seccion titulo={tr("Carga de revisión")} nota={tr("Segundos entre abrir la ficha de una hipótesis y decidir sobre ella. Es la cifra con la que se compara ROSA2018 contra investigar sin ella: si revisar cuesta más que hacerlo a mano, pierde.")}>
             <p className="meta">
-              {media === null ? 'Sin decisiones humanas con tiempo medido todavía.' : `${propias.length} ${propias.length === 1 ? 'decision' : 'decisiones'} medidas; media ${Math.round(media)} s por decisión (${(media / 60).toFixed(1)} min).`}
+              {media === null ? tr('Sin decisiones humanas con tiempo medido todavía.') : `${propias.length} ${propias.length === 1 ? 'decision' : 'decisiones'} medidas; media ${Math.round(media)} s por decisión (${(media / 60).toFixed(1)} min).`}
             </p>
           </Seccion>
         );
       })()}
 
-      <Seccion detalle titulo="Calibración del revisor frente a las personas" nota="Qué recomendaba el revisor (bloquear o pasar) frente a lo que decidió una persona. Los desacuerdos son el conjunto de entrenamiento de GEPA para el juez.">
+      <Seccion detalle titulo={tr("Calibración del revisor frente a las personas")} nota={tr("Qué recomendaba el revisor (bloquear o pasar) frente a lo que decidió una persona. Los desacuerdos son el conjunto de entrenamiento de GEPA para el juez.")}>
         <div className="rejilla-2">
           <table className="tabla matriz">
             <thead>
@@ -284,7 +284,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
           </table>
           <div className="tarjeta">
             <p className="campo-etiqueta">Acuerdo</p>
-            <p style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{cal.acuerdo === null ? 'Sin decisiones' : formatearPorcentaje(cal.acuerdo)}</p>
+            <p style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{cal.acuerdo === null ? tr('Sin decisiones') : formatearPorcentaje(cal.acuerdo)}</p>
             {cal.desacuerdos.length > 0 ? (
               <ul className="lista-limpia" style={{ marginTop: 8 }}>
                 {cal.desacuerdos.map((d) => (
@@ -307,7 +307,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         </div>
       </Seccion>
 
-      <Seccion detalle titulo="Agujeros de conejo y coste" nota="Hipótesis con evidencia estadística fuerte que una persona votó poco relevantes: lo que Kosmos reconoce como su fallo. Y cuánto costó cada una.">
+      <Seccion detalle titulo={tr("Agujeros de conejo y coste")} nota={tr("Hipótesis con evidencia estadística fuerte que una persona votó poco relevantes: lo que Kosmos reconoce como su fallo. Y cuánto costó cada una.")}>
         <div className="rejilla-2">
           <div className="tarjeta">
             <p className="campo-etiqueta">Significativas pero irrelevantes</p>
@@ -343,8 +343,8 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
       </Seccion>
 
       <Seccion
-        detalle titulo="Casos de control"
-        nota="Los 17 los propuso el RAG sobre otro corpus y ninguno está aprobado. Sirven para probar el ciclo; los del dominio del Alzheimer hay que escribirlos con el compañero."
+        detalle titulo={tr("Casos de control")}
+        nota={tr("Los 17 los propuso el RAG sobre otro corpus y ninguno está aprobado. Sirven para probar el ciclo; los del dominio del Alzheimer hay que escribirlos con el compañero.")}
         acciones={
           <div className="segmentos" role="group" aria-label={tr("Filtro de casos")}>
             {(['propuesto', 'aprobado', 'descartado', 'todos'] as const).map((f) => (
@@ -358,15 +358,15 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         {casos.length === 0 ? <p className="meta">{tr("Ningún caso en este estado.")}</p> : casos.map((c) => <Caso key={c.clave} c={c} />)}
       </Seccion>
 
-      <Seccion detalle titulo="Optimizaciones con GEPA" nota="Captura continua y optimización automática por ciclos. Los candidatos se examinan con casos que GEPA no vio; solo los que mejoran sin regresiones se activan para nuevas corridas. Son métricas de un evaluador automático, no validación científica.">
-        <p role="status">{estado.gepaAutomatico?.nota ?? 'El servicio automático aún no ha informado de su estado en este servidor.'}</p>
+      <Seccion detalle titulo={tr("Optimizaciones con GEPA")} nota={tr("Captura continua y optimización automática por ciclos. Los candidatos se examinan con casos que GEPA no vio; solo los que mejoran sin regresiones se activan para nuevas corridas. Son métricas de un evaluador automático, no validación científica.")}>
+        <p role="status">{estado.gepaAutomatico?.nota ?? tr('El servicio automático aún no ha informado de su estado en este servidor.')}</p>
         {estado.conexion === 'muestra' ? (
           <p className="meta">{tr("Con datos de muestra no hay servicio que controlar.")}</p>
         ) : (
         <div className="acciones">
           <button type="button" className="btn" disabled={controlandoGepa} {...atributosEnVuelo(accionGepa === 'pausar')} onClick={() => void controlarGepa('pausar')}>Pausar promociones</button>
           <button type="button" className="btn" disabled={controlandoGepa} {...atributosEnVuelo(accionGepa === 'reanudar')} onClick={() => void controlarGepa('reanudar')}>Reanudar</button>
-          <Confirmar etiqueta="Volver a programas base" pregunta="Se pausará GEPA y las nuevas corridas usarán los programas base. No cambia las corridas existentes ni borra las versiones guardadas. ¿Continuar?" disabled={controlandoGepa} onConfirmar={() => void controlarGepa('restablecer')} />
+          <Confirmar etiqueta={tr("Volver a programas base")} pregunta={tr("Se pausará GEPA y las nuevas corridas usarán los programas base. No cambia las corridas existentes ni borra las versiones guardadas. ¿Continuar?")} disabled={controlandoGepa} onConfirmar={() => void controlarGepa('restablecer')} />
         </div>
         )}
         {avisoGepa && <p role="status">{avisoGepa}</p>}
@@ -399,7 +399,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
                   <td className={`num ${g.metricaFinal > g.metricaInicial ? 'subida' : ''}`}>{g.estado === 'terminada' ? formatearPorcentaje(g.metricaFinal) : 'Pendiente'}</td>
                   <td className="num">{g.candidatos}</td>
                   <td className="num">{g.gasto ? `${coma(g.gasto.usd.toFixed(2))} $ · ${g.gasto.llamadas} llamadas` : 'sin dato'}</td>
-                  <td>{g.estado === 'en_marcha' ? <Chip tono="acento">{tr("En marcha")}</Chip> : g.estado === 'terminada' ? <Chip tono={g.promovido ? 'ok' : 'borde'}>{g.promovido ? 'Activado para nuevas corridas' : 'Terminada'}</Chip> : <Chip tono="mal">Fallida</Chip>}<p className="meta">{g.nota}</p></td>
+                  <td>{g.estado === 'en_marcha' ? <Chip tono="acento">{tr("En marcha")}</Chip> : g.estado === 'terminada' ? <Chip tono={g.promovido ? 'ok' : 'borde'}>{g.promovido ? tr('Activado para nuevas corridas') : 'Terminada'}</Chip> : <Chip tono="mal">Fallida</Chip>}<p className="meta">{g.nota}</p></td>
                   <td>
                     {g.enlaceMlflow && <a className="enlace" href={g.enlaceMlflow} target="_blank" rel="noopener noreferrer">
                       MLflow <IconExternal />

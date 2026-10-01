@@ -20,7 +20,7 @@ import { AvisoMuestra } from '../componentes/piezas';
 import type { CandidatoAso, Duplex as DuplexT, CompuestoDeLaboratorio, DianaDeLaboratorio, DisenoAso, ExperimentoDeDiana, Laboratorio as Datos, OligoQueMandaria, QuimicaDeDiana } from '../lib/laboratorio';
 import type { Residuo, Visor } from '../lib/visorMolecular';
 import '../laboratorio.css';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 import { coma } from '../lib/formato';
 
 /* --------------------------------------------------------------------------
@@ -38,7 +38,7 @@ import { coma } from '../lib/formato';
  *  la proteína se agrega. La primera versión de esta lista se escribió
  *  mirando SULF2 y no pedía ese campo, así que en la proteína más nombrada de
  *  toda la investigación solo se marcaba «tramo desordenado». */
-const QUE_MARCAR: { tipo: string; contiene?: string; nombre: string; detalle: string; cuantas?: number }[] = [
+const QUE_MARCAR: { tipo: string; contiene?: string; nombre: string; detalle: string; cuantas?: number }[] = traducido([
   { tipo: 'Active site', nombre: 'Sitio activo', detalle: 'donde ocurre la reacción' },
   { tipo: 'Repeat', nombre: 'Repetición', detalle: 'se repite en la cadena', cuantas: 4 },
   { tipo: 'Region', contiene: 'Catalytic', nombre: 'Dominio catalítico', detalle: 'la parte que cataliza' },
@@ -49,7 +49,7 @@ const QUE_MARCAR: { tipo: string; contiene?: string; nombre: string; detalle: st
   { tipo: 'Binding site', nombre: 'Sitio de unión', detalle: '' },
   { tipo: 'Site', nombre: 'Sitio', detalle: '' },
   { tipo: 'Region', contiene: 'Disordered', nombre: 'Tramo desordenado', detalle: 'sin forma fija' },
-];
+]);
 const MAX_MARCAS = 8;
 
 interface Marca {
@@ -67,7 +67,7 @@ interface Marca {
 
 /* Los códigos de prueba de UniProt (ECO) en castellano. Lo que no está en la
    lista se enseña con su código: inventarle un nombre sería peor. */
-const PRUEBA: Record<string, string> = {
+const PRUEBA: Record<string, string> = traducido({
   'ECO:0000269': 'demostrado en un experimento publicado',
   'ECO:0000305': 'deducido por quien curó la entrada',
   'ECO:0000303': 'afirmado en una publicación, sin dato propio',
@@ -77,7 +77,7 @@ const PRUEBA: Record<string, string> = {
   'ECO:0000259': 'importado de otra base de datos',
   'ECO:0000313': 'importado de otra base de datos',
   'ECO:0007829': 'leído de una estructura resuelta en el laboratorio',
-};
+});
 
 /* Lo que es cada aminoácido: carga a pH fisiológico, si el lado es polar y lo
    que conviene saber al mutarlo. Es química de libro de texto, no algo que
@@ -89,7 +89,7 @@ const n = (x: number) => x.toLocaleString('es');
 /** Un decimal con coma, que es como se escribe en castellano. */
 const dec = (x: number, d: number) => coma(x.toFixed(d));
 
-const AMINOACIDOS: Record<string, { carga: 'positiva' | 'negativa' | 'sin carga'; polar: boolean; nota: string }> = {
+const AMINOACIDOS: Record<string, { carga: 'positiva' | 'negativa' | 'sin carga'; polar: boolean; nota: string }> = traducido({
   ALA: { carga: 'sin carga', polar: false, nota: 'pequeño y sin reactividad; el cambio de referencia cuando se quiere quitar una cadena lateral sin meter otra cosa' },
   ARG: { carga: 'positiva', polar: true, nota: 'cadena larga y cargada; suele hacer puentes salinos y unir fosfatos o sulfatos' },
   ASN: { carga: 'sin carga', polar: true, nota: 'acepta glicosilación si va en la secuencia N-X-S/T' },
@@ -110,7 +110,7 @@ const AMINOACIDOS: Record<string, { carga: 'positiva' | 'negativa' | 'sin carga'
   TRP: { carga: 'sin carga', polar: false, nota: 'el más grande; su fluorescencia se usa para seguir el plegado' },
   TYR: { carga: 'sin carga', polar: true, nota: 'aromático y se fosforila' },
   VAL: { carga: 'sin carga', polar: false, nota: 'hidrofóbico ramificado; suele estar en el interior' },
-};
+});
 
 /** Las tres letras del fichero a la letra única de la secuencia, que es como
  *  se pide un péptido o un constructo a un laboratorio. */
@@ -196,35 +196,35 @@ const ROZAMIENTO_LANZAR = 0.955;
 const MINIMO_LANZAR = 0.00012;
 const ALTO_ETIQUETA = 44;
 
-const CERTEZA: Record<string, string> = { muy_baja: 'certeza muy baja', baja: 'certeza baja', moderada: 'certeza moderada', alta: 'certeza alta' };
-const SISTEMA: Record<string, string> = {
+const CERTEZA: Record<string, string> = traducido({ muy_baja: 'certeza muy baja', baja: 'certeza baja', moderada: 'certeza moderada', alta: 'certeza alta' });
+const SISTEMA: Record<string, string> = traducido({
   ipsc: 'neuronas de iPSC humanas',
   datos_publicos_existentes: 'datos públicos ya existentes',
   raton: 'ratón',
   linea_celular: 'línea celular',
   cohorte_humana: 'cohorte humana',
-};
-const AMINOACIDO: Record<string, string> = {
+});
+const AMINOACIDO: Record<string, string> = traducido({
   ALA: 'alanina', ARG: 'arginina', ASN: 'asparagina', ASP: 'aspártico', CYS: 'cisteína', GLN: 'glutamina',
   GLU: 'glutámico', GLY: 'glicina', HIS: 'histidina', ILE: 'isoleucina', LEU: 'leucina', LYS: 'lisina',
   MET: 'metionina', PHE: 'fenilalanina', PRO: 'prolina', SER: 'serina', THR: 'treonina', TRP: 'triptófano',
   TYR: 'tirosina', VAL: 'valina', SEC: 'selenocisteína', FGL: '3-oxoalanina',
-};
+});
 
 function confianzaEnPalabras(plddt: number): string {
-  return plddt > 90 ? 'muy alta' : plddt > 70 ? 'alta' : plddt > 50 ? 'baja' : 'muy baja';
+  return plddt > 90 ? tr('muy alta') : plddt > 70 ? 'alta' : plddt > 50 ? 'baja' : tr('muy baja');
 }
 
 /* El Killer decide si una hipótesis sigue, y eso manda sobre lo que se puede
    decir de su diana. Una proteína cuyas hipótesis están todas suspendidas se
    enseña igual (es lo que la evidencia nombra) pero no se presenta como algo
    que ya se podría pedir: se dice en qué estado la dejó el Killer. */
-const KILLER: Record<string, { texto: string; tono: string }> = {
+const KILLER: Record<string, { texto: string; tono: string }> = traducido({
   avanzar: { texto: 'el Killer la deja avanzar', tono: 'va' },
   reformular: { texto: 'el Killer pide reformularla', tono: 'espera' },
   suspender: { texto: 'el Killer la tiene suspendida', tono: 'espera' },
   descartar_en_contexto: { texto: 'el Killer la descarta en este contexto', tono: 'no' },
-};
+});
 const ORDEN_KILLER = ['avanzar', 'reformular', 'suspender', 'descartar_en_contexto'];
 
 /** La mejor decisión del Killer entre las hipótesis que nombran esta diana:
@@ -267,7 +267,7 @@ function hojaComoTexto(d: DianaDeLaboratorio): string {
   const l = [
     `DIANA: ${d.simbolo} (${d.nombre})`,
     `IDENTIFICADOR: ${h.identificador}`,
-    `ESTRUCTURA: ${d.estructura.url} (${d.estructura.fuente}, ${d.estructura.licencia}, ${d.estructura.clase === 'predicha' ? 'predicha, no medida' : 'medida'})`,
+    `ESTRUCTURA: ${d.estructura.url} (${d.estructura.fuente}, ${d.estructura.licencia}, ${d.estructura.clase === 'predicha' ? tr('predicha, no medida') : 'medida'})`,
     h.hipotesis ? `HIPÓTESIS: ${h.hipotesis}` : '',
     h.certeza ? `CERTEZA (GRADE): ${CERTEZA[h.certeza] ?? h.certeza}` : '',
     h.queSeHace ? `QUÉ SE HACE: ${h.queSeHace}` : '',
@@ -284,14 +284,14 @@ function hojaComoTexto(d: DianaDeLaboratorio): string {
       x.controles ? `  CONTROLES: ${x.controles}` : '',
       x.refuta ? `  QUÉ LA REFUTARÍA: ${x.refuta}` : '',
     ]),
-    h.sinExperimento ? 'NINGUNA HIPÓTESIS PROPONE TODAVÍA UN EXPERIMENTO SOBRE ESTA DIANA.' : '',
+    h.sinExperimento ? tr('NINGUNA HIPÓTESIS PROPONE TODAVÍA UN EXPERIMENTO SOBRE ESTA DIANA.') : '',
     h.sinExperimento && d.loQueSeSabe.length ? '' : '',
     ...(h.sinExperimento ? d.loQueSeSabe.flatMap((x) => [`LO QUE SE SABE · ${x.tema}`, `  ${x.enunciado}`, x.referencia ? `  [${x.referencia}]` : '']) : []),
     '',
     `EVIDENCIA: ${d.hechos} afirmaciones la nombran, ${d.sabidos} sostenidas por ${d.fuentes} fuentes`,
     d.investigaciones.length ? `INVESTIGACIONES: ${d.investigaciones.map((i) => i.titulo).join('; ')}` : '',
     '',
-    'Lo reunió ROSA2018 a partir de lo que su evidencia nombra. ROSA2018 no ha diseñado ninguna estructura ni ha calculado acoplamientos.',
+    tr('Lo reunió ROSA2018 a partir de lo que su evidencia nombra. ROSA2018 no ha diseñado ninguna estructura ni ha calculado acoplamientos.'),
   ];
   return l.filter(Boolean).join('\n');
 }
@@ -346,7 +346,7 @@ function FichaQuimica({ q }: { q: QuimicaDeDiana }) {
       <div className="lab-quimica-cab">
         <b>{q.nombre}</b>
         <span>
-          en {q.juntas.toLocaleString('es')} {q.juntas === 1 ? 'afirmación' : 'afirmaciones'} {tr("junto a esta proteína")}
+          en {q.juntas.toLocaleString('es')} {q.juntas === 1 ? tr('afirmación') : 'afirmaciones'} {tr("junto a esta proteína")}
         </span>
       </div>
       {q.enPubchem ? (
@@ -362,11 +362,11 @@ function FichaQuimica({ q }: { q: QuimicaDeDiana }) {
               <dd className="lab-mono">{q.peso} g/mol</dd>
             </div>
             <div>
-              <dt>SMILES {q.smiles ? <Copiar texto={q.smiles} que="el SMILES" /> : null}</dt>
+              <dt>SMILES {q.smiles ? <Copiar texto={q.smiles} que={tr("el SMILES")} /> : null}</dt>
               <dd className="lab-mono lab-largo">{q.smiles}</dd>
             </div>
             <div>
-              <dt>INCHIKEY {q.inchikey ? <Copiar texto={q.inchikey} que="el InChIKey" /> : null}</dt>
+              <dt>INCHIKEY {q.inchikey ? <Copiar texto={q.inchikey} que={tr("el InChIKey")} /> : null}</dt>
               <dd className="lab-mono">{q.inchikey}</dd>
             </div>
           </dl>
@@ -417,7 +417,7 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
           <h2>{cabecera ? cabecera.titulo : `Ninguna hipótesis propone todavía un experimento sobre ${diana.simbolo}`}</h2>
         </div>
         <div className="lab-acciones-exp">
-          {h ? <Copiar texto={experimentoComoTexto(diana, h)} que="el experimento entero" clase="lab-copiar-grande" /> : null}
+          {h ? <Copiar texto={experimentoComoTexto(diana, h)} que={tr("el experimento entero")} clase="lab-copiar-grande" /> : null}
           <button type="button" className="lab-cerrar" onClick={alCerrar} aria-label={tr("Cerrar el experimento")}>
             ✕
           </button>
@@ -442,15 +442,15 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
         {diana.hipotesis.length && !contratos ? (
           <p className="lab-parrafo" role="status">
             {falloContrato
-              ? 'No pude traer el contrato del experimento: el servidor no respondió. No quiere decir que no lo haya.'
-              : 'Trayendo el contrato del experimento…'}
+              ? tr('No pude traer el contrato del experimento: el servidor no respondió. No quiere decir que no lo haya.')
+              : tr('Trayendo el contrato del experimento…')}
           </p>
         ) : null}
         {h ? (
           <>
             <div className="lab-insignias">
               <span className={`lab-grado lab-grado-${h.certeza ?? 'muy_baja'}`}>
-                <i /> {h.certeza ? (CERTEZA[h.certeza] ?? h.certeza) : 'sin certeza asignada'} · GRADE
+                <i /> {h.certeza ? (CERTEZA[h.certeza] ?? h.certeza) : tr('sin certeza asignada')} · GRADE
               </span>
               {h.decisionKiller && KILLER[h.decisionKiller] ? (
                 <span className={`lab-grado lab-killer-${KILLER[h.decisionKiller]!.tono}`}>
@@ -459,7 +459,7 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
               ) : null}
               {h.estadoExperimento ? (
                 <span className="lab-grado lab-grado-neutro">
-                  <i /> {h.estadoExperimento === 'propuesto' ? 'propuesto, sin ejecutar' : h.estadoExperimento}
+                  <i /> {h.estadoExperimento === 'propuesto' ? tr('propuesto, sin ejecutar') : h.estadoExperimento}
                 </span>
               ) : null}
               {h.nivelDesenlace ? (
@@ -513,14 +513,14 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
 
             <h3>{tr("LO QUE DECIDE")}</h3>
             <dl className="lab-campos">
-              <Campo t="QUÉ LO CONFIRMARÍA" v={h.confirma} />
-              <Campo t="QUÉ LO REFUTARÍA" v={h.refuta} tono="lab-campo-refuta" />
-              <Campo t="LA EXPLICACIÓN RIVAL" v={h.alternativa} />
+              <Campo t={tr("QUÉ LO CONFIRMARÍA")} v={h.confirma} />
+              <Campo t={tr("QUÉ LO REFUTARÍA")} v={h.refuta} tono="lab-campo-refuta" />
+              <Campo t={tr("LA EXPLICACIÓN RIVAL")} v={h.alternativa} />
               <Campo t="CONTROLES" v={h.controles} />
-              <Campo t="TAMAÑO MUESTRAL" v={h.tamanoMuestral} />
-              <Campo t="QUÉ DECISIÓN CAMBIA" v={h.decisionQueCambia} />
-              <Campo t="LO QUE CUESTA" v={h.costeEstimado} />
-              <Campo t="QUÉ FALTARÍA PARA QUE BENEFICIE A ALGUIEN" v={h.puenteAlBeneficio} />
+              <Campo t={tr("TAMAÑO MUESTRAL")} v={h.tamanoMuestral} />
+              <Campo t={tr("QUÉ DECISIÓN CAMBIA")} v={h.decisionQueCambia} />
+              <Campo t={tr("LO QUE CUESTA")} v={h.costeEstimado} />
+              <Campo t={tr("QUÉ FALTARÍA PARA QUE BENEFICIE A ALGUIEN")} v={h.puenteAlBeneficio} />
             </dl>
           </>
         ) : (
@@ -551,7 +551,7 @@ function experimentoComoTexto(d: DianaDeLaboratorio, h: ExperimentoDeDiana): str
   const l = [
     `EXPERIMENTO SOBRE ${d.simbolo} (${d.nombre})`,
     `IDENTIFICADOR: UniProt ${d.uniprot}${d.hgnc ? ` · ${d.hgnc}` : ''}`,
-    `ESTRUCTURA: ${d.estructura.url} (${d.estructura.fuente}, ${d.estructura.licencia}, ${d.estructura.clase === 'predicha' ? 'predicha, no medida' : 'medida'})`,
+    `ESTRUCTURA: ${d.estructura.url} (${d.estructura.fuente}, ${d.estructura.licencia}, ${d.estructura.clase === 'predicha' ? tr('predicha, no medida') : 'medida'})`,
     '',
     `HIPÓTESIS: ${h.titulo}`,
     h.certeza ? `CERTEZA (GRADE): ${CERTEZA[h.certeza] ?? h.certeza}` : '',
@@ -583,13 +583,13 @@ function experimentoComoTexto(d: DianaDeLaboratorio, h: ExperimentoDeDiana): str
       q.formula ? `  FÓRMULA: ${q.formula}  ·  PESO: ${q.peso} g/mol` : '',
       q.smiles ? `  SMILES: ${q.smiles}` : '',
       q.inchikey ? `  INCHIKEY: ${q.inchikey}` : '',
-      !q.enPubchem ? '  Sin ficha de molécula pequeña en PubChem: no hay SMILES que mandar.' : '',
+      !q.enPubchem ? tr('  Sin ficha de molécula pequeña en PubChem: no hay SMILES que mandar.') : '',
     ]),
     '',
     `EVIDENCIA: ${d.hechos} afirmaciones de ROSA2018 nombran esta proteína, ${d.sabidos} sostenidas por ${d.fuentes} fuentes.`,
     d.investigaciones.length ? `INVESTIGACIONES: ${d.investigaciones.map((i) => i.titulo).join('; ')}` : '',
     '',
-    'Lo reunió ROSA2018 de lo que su evidencia nombra y de contratos de experimento ya prerregistrados. ROSA2018 no ha diseñado ninguna estructura, no calcula acoplamientos y no propone estructuras nuevas.',
+    tr('Lo reunió ROSA2018 de lo que su evidencia nombra y de contratos de experimento ya prerregistrados. ROSA2018 no ha diseñado ninguna estructura, no calcula acoplamientos y no propone estructuras nuevas.'),
   ];
   return l.filter((x) => x !== '').join('\n');
 }
@@ -639,7 +639,7 @@ function Parte({
       <div className="lab-parte-cifras">
         <div>
           <b>{largo.toLocaleString('es')}</b>
-          <span>{largo === 1 ? 'RESIDUO' : 'AMINOÁCIDOS'}</span>
+          <span>{largo === 1 ? 'RESIDUO' : tr('AMINOÁCIDOS')}</span>
         </div>
         <div>
           <b>{media.toFixed(0)}</b>
@@ -659,7 +659,7 @@ function Parte({
       {secuencia ? (
         <>
           <h4>
-            {tr("LA SECUENCIA DE ESTE TRAMO")} <Copiar texto={secuencia} que="la secuencia" />
+            {tr("LA SECUENCIA DE ESTE TRAMO")} <Copiar texto={secuencia} que={tr("la secuencia")} />
           </h4>
           <p className="lab-secuencia">{secuencia}</p>
           <p className="lab-nota">
@@ -722,7 +722,7 @@ function FichaResiduo({
   const dentro = marcas.filter((m) => r.numero >= m.desde && r.numero <= m.hasta);
   // Un residuo del interior de una proteína plegada suele pasar de veinte
   // vecinos a diez ángstrom; uno de la superficie se queda por debajo de doce.
-  const donde = vecinos >= 20 ? 'enterrado en el interior' : vecinos <= 11 ? 'asomado a la superficie' : 'a media profundidad';
+  const donde = vecinos >= 20 ? tr('enterrado en el interior') : vecinos <= 11 ? tr('asomado a la superficie') : tr('a media profundidad');
   return (
     <section className="lab-parte lab-residuo-ficha" aria-label={`Residuo ${r.numero} de ${diana.simbolo}`}>
       <header>
@@ -789,7 +789,7 @@ function FichaResiduo({
       {contexto.length ? (
         <>
           <h4>
-            {tr("EN LA SECUENCIA")} <Copiar texto={contexto.map((x) => UNA_LETRA[x.aa] ?? 'X').join('')} que="el tramo" />
+            {tr("EN LA SECUENCIA")} <Copiar texto={contexto.map((x) => UNA_LETRA[x.aa] ?? 'X').join('')} que={tr("el tramo")} />
           </h4>
           <p className="lab-secuencia lab-secuencia-contexto">
             {contexto.map((x) => (
@@ -838,7 +838,7 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
     d.via ? `  ${d.via.porQue}` : '',
     d.via ? `  ${d.via.precedente}` : '',
     '',
-    `CRIBADO CONTRA EL TRANSCRIPTOMA: ${c.criba?.veredicto?.toUpperCase() ?? (c.cribado ? 'HECHO' : 'NO HECHO')}`,
+    `CRIBADO CONTRA EL TRANSCRIPTOMA: ${c.criba?.veredicto?.toUpperCase() ?? (c.cribado ? 'HECHO' : tr('NO HECHO'))}`,
     `  ${c.criba?.porQue ?? c.avisoCribado}`,
     c.criba?.cribado && d.criba?.hecho
       ? `  comparado contra ${d.criba.transcritos.toLocaleString('es')} transcritos de Ensembl GRCh38 (${d.criba.ficheros.join(', ')}); encaja en ${c.criba.propios} transcritos de su propio gen`
@@ -848,7 +848,7 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
       : '',
     // Lo que el cribado NO cubre viaja con el pedido a propósito: quien lo
     // reciba tiene que saber que «sin choque exacto» no es «seguro».
-    ...(d.criba?.hecho ? ['  lo que este cribado NO cubre:', ...d.criba.limites.map((l) => `    - ${l.que}: ${l.porQue}`)] : []),
+    ...(d.criba?.hecho ? [tr('  lo que este cribado NO cubre:'), ...d.criba.limites.map((l) => `    - ${l.que}: ${l.porQue}`)] : []),
     '',
     c.especies ? `SE PUEDE PROBAR EN UN ROEDOR: ${c.especies.veredicto.toUpperCase()}` : '',
     c.especies ? `  ${c.especies.porQue}` : '',
@@ -859,7 +859,7 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
     '',
     `El gen tiene ${d.transcritosDelGen} transcritos; este diseño va sobre el canónico. Cuál se baja no es lo mismo que cuánta se baja, y esa decisión es de quien dirige el experimento.`,
     '',
-    'Lo generó ROSA2018 por regla a partir de la secuencia pública del transcrito. Es un CANDIDATO PARA CRIBAR EN EL LABORATORIO, no un fármaco: los filtros aplicados son estadística de experimentos pasados, no una predicción de que funcione.',
+    tr('Lo generó ROSA2018 por regla a partir de la secuencia pública del transcrito. Es un CANDIDATO PARA CRIBAR EN EL LABORATORIO, no un fármaco: los filtros aplicados son estadística de experimentos pasados, no una predicción de que funcione.'),
     '',
     // De qué fiarse y de qué no viaja con el pedido: quien lo reciba tiene
     // que saber qué le están mandando, y eso no puede quedarse en la
@@ -875,10 +875,10 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
             ...nv.cosas.map((x) => `  - ${x.que}: ${x.porQue}`),
             '',
           ]),
-          'LO QUE NO SE HA COMPROBADO',
+          tr('LO QUE NO SE HA COMPROBADO'),
           ...d.fiabilidad.noComprobado.map((x) => `  - ${x.que}: ${x.porQue}`),
           '',
-          'QUÉ ES ESTO',
+          tr('QUÉ ES ESTO'),
           `  ${d.fiabilidad.queEsEsto.es}`,
           `  ${d.fiabilidad.queEsEsto.noEs}`,
           `  ${d.fiabilidad.queEsEsto.comoSeUsa}`,
@@ -998,7 +998,7 @@ function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['d
 
   return (
     <figure className="arn">
-      <div className="lab-grafica-barra"><div><strong>{tr("Estructura secundaria del ARN")}</strong><span>{tr("Tramo del oligo resaltado en ámbar")}</span></div><div className="lab-grafica-zoom" role="group" aria-label={tr("Ampliación del ARN")}><button type="button" aria-label="Alejar ARN" disabled={zoom <= 1} onClick={() => fijarZoom(Math.max(1, zoom - .5))}>−</button><output>{Math.round(zoom * 100)} %</output><button type="button" aria-label="Acercar ARN" disabled={zoom >= 3} onClick={() => fijarZoom(Math.min(3, zoom + .5))}>+</button></div></div>
+      <div className="lab-grafica-barra"><div><strong>{tr("Estructura secundaria del ARN")}</strong><span>{tr("Tramo del oligo resaltado en ámbar")}</span></div><div className="lab-grafica-zoom" role="group" aria-label={tr("Ampliación del ARN")}><button type="button" aria-label={tr("Alejar ARN")} disabled={zoom <= 1} onClick={() => fijarZoom(Math.max(1, zoom - .5))}>−</button><output>{Math.round(zoom * 100)} %</output><button type="button" aria-label={tr("Acercar ARN")} disabled={zoom >= 3} onClick={() => fijarZoom(Math.min(3, zoom + .5))}>+</button></div></div>
       <div className="arn-ventana" tabIndex={0} aria-label={tr("Gráfica desplazable del ARN")}><div className="arn-escala" style={{ width: `${zoom * 100}%` }}>
       <svg
         className="arn-svg"
@@ -1045,7 +1045,7 @@ function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['d
             key={l.i}
             className={`arn-n${l.enElSitio ? ' arn-n-sitio' : ''}${sobre === l.i ? ' arn-n-sobre' : ''}${parejaActiva === l.i ? ' arn-n-pareja' : ''}`}
             role="button" tabIndex={sobre === l.i || (sobre === null && l.i === letras[0]?.i) ? 0 : -1}
-            aria-label={`${l.letra}, posición ${l.pos}, ${l.emparejada ? 'emparejada' : 'libre'}${l.enElSitio ? ', tramo del oligo' : ''}`}
+            aria-label={`${l.letra}, posición ${l.pos}, ${l.emparejada ? 'emparejada' : 'libre'}${l.enElSitio ? tr(', tramo del oligo') : ''}`}
             onFocus={() => fijarSobre(l.i)} onClick={() => fijarSobre(l.i)}
             onKeyDown={e => { if(e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const indice=letras.indexOf(l); const siguiente=(indice+(e.key==='ArrowRight'?1:letras.length-1))%letras.length; (e.currentTarget.parentElement?.querySelectorAll<SVGGElement>('.arn-n')[siguiente])?.focus(); } else if(e.key==='Enter'||e.key===' ') {e.preventDefault(); fijarSobre(l.i);} }}
             onMouseEnter={() => fijarSobre(l.i)}
@@ -1064,7 +1064,7 @@ function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['d
             <>
               <b className="lab-mono">{act.letra}</b> en la posición <b>{n(act.pos)}</b> del transcrito ·{' '}
               {act.emparejada ? 'emparejada' : 'libre'}
-              {act.enElSitio ? ' · dentro del tramo del oligo' : ''}
+              {act.enElSitio ? tr(' · dentro del tramo del oligo') : ''}
             </>
           ) : (
             <>
@@ -1139,7 +1139,7 @@ function Duplex({ d }: { d: DuplexT }) {
               key={p.i}
               className={`dux-col${sobre === p.i ? ' dux-col-sobre' : ''}`}
               role="button" tabIndex={sobre === p.i || (sobre === null && p.i === d.pares[0]?.i) ? 0 : -1}
-              aria-label={`Par ${p.i}: ARN ${p.arn}, oligo ${p.aso}, ${p.quimica === 'hueco' ? 'hueco de ADN' : "ala de 2′-MOE"}`}
+              aria-label={`Par ${p.i}: ARN ${p.arn}, oligo ${p.aso}, ${p.quimica === 'hueco' ? 'hueco de ADN' : tr("ala de 2′-MOE")}`}
               onClick={() => fijarSobre(p.i)} onFocus={() => fijarSobre(p.i)}
               onKeyDown={e => {if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault(); const indice=d.pares.indexOf(p);const siguiente=(indice+(e.key==='ArrowRight'?1:d.pares.length-1))%d.pares.length;(e.currentTarget.parentElement?.querySelectorAll<SVGGElement>('.dux-col')[siguiente])?.focus();} else if(e.key==='Enter'||e.key===' '){e.preventDefault();fijarSobre(p.i);}}}
               onMouseEnter={() => fijarSobre(p.i)}
@@ -1186,7 +1186,7 @@ function Duplex({ d }: { d: DuplexT }) {
             <>
               ARN <b className="lab-mono">{act.arn}</b> con oligo <b className="lab-mono">{act.aso}</b> · letra{' '}
               <b>{act.posAso}</b> del oligo ·{' '}
-              {act.quimica === 'hueco' ? 'en el hueco de ADN, que es donde corta' : "en un ala de 2'-MOE, que la enzima no reconoce"}
+              {act.quimica === 'hueco' ? tr('en el hueco de ADN, que es donde corta') : tr("en un ala de 2'-MOE, que la enzima no reconoce")}
             </>
           ) : (
             <>
@@ -1422,7 +1422,7 @@ function FichaSitio({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
       <section className="aso-criba aso-criba-duda">
         <h3>{tr("¿ESTÁ ABIERTO EL SITIO?")}</h3>
         <p className="aso-criba-titulo">{tr("No se pudo calcular")}</p>
-        <p className="aso-criba-porque">{pl.motivo || 'Falta el cálculo del plegado. No quiere decir que el sitio esté tapado.'}</p>
+        <p className="aso-criba-porque">{pl.motivo || tr('Falta el cálculo del plegado. No quiere decir que el sitio esté tapado.')}</p>
       </section>
     );
   }
@@ -1637,7 +1637,7 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
           <h2>{tr("Cortar la producción de")} {diana.simbolo} {tr("en su propio ARN")}</h2>
         </div>
         <div className="lab-acciones-exp">
-          {d && c ? <Copiar texto={asoComoTexto(diana.simbolo, d, c)} que="el candidato entero" clase="lab-copiar-grande" /> : null}
+          {d && c ? <Copiar texto={asoComoTexto(diana.simbolo, d, c)} que={tr("el candidato entero")} clase="lab-copiar-grande" /> : null}
           <button type="button" className="lab-cerrar" onClick={alCerrar} aria-label="Cerrar">
             ✕
           </button>
@@ -1648,8 +1648,8 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
         {!d ? (
           <p className="lab-parrafo" role="status">
             {diana.asoSinComprobar
-              ? "No pude traer la secuencia del transcrito de esta proteína: Ensembl no respondió. No quiere decir que no se pueda diseñar."
-              : "Todavía no se ha traído la secuencia de esta proteína. En cuanto ROSA2018 la tenga, el diseño aparece aquí."}
+              ? tr("No pude traer la secuencia del transcrito de esta proteína: Ensembl no respondió. No quiere decir que no se pueda diseñar.")
+              : tr("Todavía no se ha traído la secuencia de esta proteína. En cuanto ROSA2018 la tenga, el diseño aparece aquí.")}
           </p>
         ) : !c ? (
           <p className="lab-parrafo" role="status">
@@ -1762,12 +1762,12 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
             {d.candidatos.length > 1 ? (
               <>
                 <h3>
-                  {tr("EL CRIBADO")} {completo ? `· ${d.candidatos.length} CANDIDATOS` : '· TRAYENDO EL RESTO…'}
+                  {tr("EL CRIBADO")} {completo ? `· ${d.candidatos.length} CANDIDATOS` : tr('· TRAYENDO EL RESTO…')}
                 </h3>
                 <p className="lab-nota">
                   {completo
                     ? `Sesenta es el orden de magnitud de un cribado primario de verdad: el protocolo de Ionis describe probar unos ochenta en células para quedarse con ocho o diez, y esos ocho o diez son ya el resultado, no la entrada. Van separados al menos ${d.separacionUsada ?? 60} nucleótidos entre sí para que vengan de sitios distintos del transcrito.`
-                    : 'El muro trae ocho; el cribado entero se está trayendo.'}
+                    : tr('El muro trae ocho; el cribado entero se está trayendo.')}
                 </p>
                 {d.criba?.hecho ? (
                   <p className="lab-nota">
@@ -1879,7 +1879,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
   const abajoRef = useRef<HTMLDivElement | null>(null);
   const [fallo, fijarFallo] = useState<string | null>(null);
   const [verExperimento, fijarVerExperimento] = useState(false);
-  const [hojaAbierta, fijarHojaAbierta] = useState(() => window.matchMedia?.('(min-width: 981px)').matches ?? false);
+  const [hojaAbierta, fijarHojaAbierta] = useState(() => window.matchMedia?.(tr('(min-width: 981px)')).matches ?? false);
   // Se puede llegar con el panel ya abierto desde el muro (#/…/aso).
   const [verAso, fijarVerAso] = useState(abrirAso);
   // La parte abierta y sus residuos. Se guardan juntos porque los residuos se
@@ -2032,7 +2032,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
     if (!medido) return;
     const nodo = caja.current;
     if (!nodo) return;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
+    if (window.matchMedia?.(tr('(prefers-reduced-motion: reduce)'))?.matches) return;
     let arrastrando = false;
     let ultimo = { x: 0, y: 0, t: 0 };
     let vx = 0;
@@ -2090,7 +2090,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
     if (!medido) return;
     const nodo = caja.current;
     if (!nodo) return;
-    const reducido = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
+    const reducido = window.matchMedia?.(tr('(prefers-reduced-motion: reduce)'))?.matches ?? false;
     if (reducido || hayPanel) {
       visorRef.current?.girar(false);
       return;
@@ -2243,7 +2243,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
             {diana.hechos === 0 ? (
               <>
                 {tr("Todavía ninguna afirmación verificada la nombra. Está aquí porque")}{' '}
-                {diana.enHipotesis === 1 ? 'una hipótesis la propone' : `${diana.enHipotesis} hipótesis la proponen`} como diana.
+                {diana.enHipotesis === 1 ? tr('una hipótesis la propone') : `${diana.enHipotesis} hipótesis la proponen`} como diana.
               </>
             ) : (
               <>
@@ -2257,7 +2257,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
           <div className="lab-insignias">
             {diana.enHipotesis ? (
               <span className="lab-grado lab-grado-neutro">
-                <i /> {diana.enHipotesis === 1 ? '1 experimento propuesto' : `${diana.enHipotesis} experimentos propuestos`}
+                <i /> {diana.enHipotesis === 1 ? tr('1 experimento propuesto') : `${diana.enHipotesis} experimentos propuestos`}
               </span>
             ) : (
               <span className="lab-grado lab-killer-no">
@@ -2300,19 +2300,19 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
       </div>
 
       <p className={`lab-capa lab-pie${nivel > 0 || pisados[1] ? ' lab-fuera' : ''}`}>
-        {diana.estructura.clase === 'predicha' ? 'Modelo predicho, no medido: el color dice de qué tramos se fía. ' : 'Estructura medida en un laboratorio. '}
+        {diana.estructura.clase === 'predicha' ? tr('Modelo predicho, no medido: el color dice de qué tramos se fía. ') : tr('Estructura medida en un laboratorio. ')}
         {tr("Acerca la rueda del ratón sobre la proteína")}
       </p>
 
       {!hayPanel && <button type="button" className={`lab-hoja-toggle${nivel > 0 ? ' lab-fuera' : ''}`} aria-expanded={hojaAbierta} aria-controls="ficha-laboratorio" onClick={() => fijarHojaAbierta(!hojaAbierta)}>
-        {hojaAbierta ? 'Cerrar ficha' : 'Para el laboratorio'}
+        {hojaAbierta ? tr('Cerrar ficha') : 'Para el laboratorio'}
       </button>}
       <aside id="ficha-laboratorio" aria-label={tr("Para el laboratorio")} className={`lab-capa lab-hoja${nivel > 0 ? ' lab-fuera' : ''}${hojaAbierta ? ' lab-hoja-abierta' : ' lab-hoja-cerrada'}`}>
         <header className="lab-hoja-cabecera">
-          <div className="lab-hoja-titulo"><h3>{hoja.sinExperimento ? 'Lo que se sabe' : 'Para el laboratorio'}</h3><Copiar texto={hojaComoTexto(diana)} que="la hoja de pedido" /><button type="button" className="lab-hoja-cerrar" aria-label={tr("Cerrar panel del laboratorio")} onClick={() => fijarHojaAbierta(false)}>Cerrar ×</button></div>
+          <div className="lab-hoja-titulo"><h3>{hoja.sinExperimento ? 'Lo que se sabe' : 'Para el laboratorio'}</h3><Copiar texto={hojaComoTexto(diana)} que={tr("la hoja de pedido")} /><button type="button" className="lab-hoja-cerrar" aria-label={tr("Cerrar panel del laboratorio")} onClick={() => fijarHojaAbierta(false)}>Cerrar ×</button></div>
           <div className="lab-hoja-identidad"><strong>{diana.simbolo}</strong><span>{hoja.identificador}</span></div>
           <p className="lab-hoja-estado" data-alerta={hoja.contradiceLaIntervencion || hoja.sinExperimento}>
-            <i aria-hidden="true" />{hoja.contradiceLaIntervencion ? 'Contrato por revisar' : hoja.sinExperimento ? 'Sin experimento propuesto' : 'Experimento propuesto'}
+            <i aria-hidden="true" />{hoja.contradiceLaIntervencion ? tr('Contrato por revisar') : hoja.sinExperimento ? tr('Sin experimento propuesto') : tr('Experimento propuesto')}
           </p>
         </header>
         {hoja.contradiceLaIntervencion && <div className="lab-hoja-alerta" role="note"><strong>{tr("La intervención y el contrato no coinciden")}</strong><p>{tr("Se propone un experimento de banco, pero el contrato indica revisar lo publicado. Esta ficha no es un pedido para un laboratorio.")}</p></div>}
@@ -2326,17 +2326,17 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
             {hoja.refuta && <details className="lab-hoja-refutacion"><summary><span><strong>{tr("Qué la refutaría")}</strong><small>{tr("El criterio que pone a prueba la hipótesis")}</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary><p>{hoja.refuta}</p></details>}
             {hoja.controles && <details className="lab-hoja-controles"><summary><span><strong>Controles</strong><small>{tr("Cómo distinguir el efecto de un sesgo")}</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary><p>{hoja.controles}</p></details>}
           </>}
-          <details className="lab-hoja-origen"><summary><span><strong>{tr("De dónde viene la evidencia")}</strong><small>{diana.investigaciones.length} {diana.investigaciones.length === 1 ? 'investigación' : 'investigaciones'} · {n(diana.fuentes)} fuentes</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary>
+          <details className="lab-hoja-origen"><summary><span><strong>{tr("De dónde viene la evidencia")}</strong><small>{diana.investigaciones.length} {diana.investigaciones.length === 1 ? tr('investigación') : 'investigaciones'} · {n(diana.fuentes)} fuentes</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary>
             <p>{n(diana.hechos)} afirmaciones; {n(diana.sabidos)} sostenidas. {n(diana.fuentes)} fuentes.</p>
             {diana.investigaciones.map((inv) => <div className="lab-origen-fila" key={inv.id}><span>{inv.titulo}</span><b>{n(inv.hechos)}</b><meter min={0} max={Math.max(1, ...diana.investigaciones.map(x => x.hechos))} value={inv.hechos} aria-label={`Afirmaciones de ${inv.titulo}`} /></div>)}
             <small>{tr("Las barras comparan el número de afirmaciones por investigación, no su certeza.")}</small>
           </details>
           {hoja.faltan.length > 0 && <p className="lab-faltan">{tr("El contrato todavía no dice:")} {hoja.faltan.join(', ')}.</p>}
-          {hoja.otrosExperimentos.length > 0 && <p className="lab-faltan">{tr("Hay")} {hoja.otrosExperimentos.length} {hoja.otrosExperimentos.length === 1 ? 'experimento adicional' : 'experimentos adicionales'}{tr(". Cada uno conserva sus controles y su criterio de refutación. Copiar incluye todos.")}</p>}
+          {hoja.otrosExperimentos.length > 0 && <p className="lab-faltan">{tr("Hay")} {hoja.otrosExperimentos.length} {hoja.otrosExperimentos.length === 1 ? tr('experimento adicional') : tr('experimentos adicionales')}{tr(". Cada uno conserva sus controles y su criterio de refutación. Copiar incluye todos.")}</p>}
         </div>
         <footer className="lab-hoja-acciones">
           {diana.aso?.candidatos.length ? <button type="button" className="lab-abrir-experimento lab-abrir-aso" onClick={() => fijarVerAso(true)}><span className="lab-hoja-numero">{n(diana.aso.candidatosEnTotal ?? diana.aso.candidatos.length)}</span><span><strong>{tr("Explorar oligonucleótidos")}</strong><small>{tr("Candidatos para reducir la producción")}</small></span><span aria-hidden="true">↗</span></button> : null}
-          <button type="button" className="lab-abrir-experimento" onClick={() => fijarVerExperimento(true)}>{hoja.sinExperimento ? 'Ver la evidencia y la química' : 'Ver el experimento entero'}<span aria-hidden="true">↗</span></button>
+          <button type="button" className="lab-abrir-experimento" onClick={() => fijarVerExperimento(true)}>{hoja.sinExperimento ? tr('Ver la evidencia y la química') : tr('Ver el experimento entero')}<span aria-hidden="true">↗</span></button>
         </footer>
       </aside>
 
@@ -2358,7 +2358,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
 
       <div className={`lab-capa lab-mando${nivel > 0 ? ' lab-fuera' : ''}`} aria-hidden={nivel > 0}>
         <div className="lab-niveles">
-          {['LÁMINA', 'PARTES', 'ÁTOMOS'].map((t, i) => (
+          {[tr('LÁMINA'), 'PARTES', tr('ÁTOMOS')].map((t, i) => (
             <button key={t} type="button" tabIndex={nivel > 0 ? -1 : 0} aria-current={nivel === i} onClick={() => irANivel(i)}>
               {t}
             </button>
@@ -2369,9 +2369,9 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
       {nivel === 1 && !marcas.length ? (
         <p className="lab-sinmarcas">
           {marcasEstado === 'pidiendo'
-            ? 'Trayendo las anotaciones de UniProt…'
+            ? tr('Trayendo las anotaciones de UniProt…')
             : marcasEstado === 'sin_respuesta'
-              ? 'No pude comprobar qué partes tiene: UniProt no respondió. No quiere decir que no las tenga.'
+              ? tr('No pude comprobar qué partes tiene: UniProt no respondió. No quiere decir que no las tenga.')
               : `UniProt no tiene dominios ni sitios anotados para ${diana.simbolo}.`}
         </p>
       ) : null}
@@ -2436,9 +2436,9 @@ function FichaCompuesto({ c }: { c: CompuestoDeLaboratorio }) {
         {c.enPubchem ? (
           <span className={`lab-cerebro lab-cerebro-${c.cerebro.veredicto}`}>
             {c.cerebro.veredicto === 'compatible'
-              ? 'perfil compatible con llegar al cerebro'
+              ? tr('perfil compatible con llegar al cerebro')
               : c.cerebro.veredicto === 'improbable'
-                ? 'improbable por difusión'
+                ? tr('improbable por difusión')
                 : 'no comprobable'}
           </span>
         ) : (
@@ -2451,7 +2451,7 @@ function FichaCompuesto({ c }: { c: CompuestoDeLaboratorio }) {
           <>{tr("Lo nombra una intervención propuesta; todavía ninguna afirmación verificada.")}</>
         ) : (
           <>
-            {tr("Lo nombran")} <b>{n(c.menciones)}</b> {c.menciones === 1 ? 'afirmación' : 'afirmaciones'}
+            {tr("Lo nombran")} <b>{n(c.menciones)}</b> {c.menciones === 1 ? tr('afirmación') : 'afirmaciones'}
             {c.sostenidos ? <>, {n(c.sostenidos)} {tr("sostenidas por su fuente")}</> : null}.
           </>
         )}
@@ -2472,11 +2472,11 @@ function FichaCompuesto({ c }: { c: CompuestoDeLaboratorio }) {
               <dd className="lab-mono">{c.peso} g/mol</dd>
             </div>
             <div>
-              <dt>SMILES {c.smiles ? <Copiar texto={c.smiles} que="el SMILES" /> : null}</dt>
+              <dt>SMILES {c.smiles ? <Copiar texto={c.smiles} que={tr("el SMILES")} /> : null}</dt>
               <dd className="lab-mono lab-largo">{c.smiles}</dd>
             </div>
             <div>
-              <dt>INCHIKEY {c.inchikey ? <Copiar texto={c.inchikey} que="el InChIKey" /> : null}</dt>
+              <dt>INCHIKEY {c.inchikey ? <Copiar texto={c.inchikey} que={tr("el InChIKey")} /> : null}</dt>
               <dd className="lab-mono">{c.inchikey}</dd>
             </div>
             <div>
@@ -2518,10 +2518,10 @@ function Decision({
   const diana = dianas.find((d) => d.uniprot === o.uniprot);
   const fuera = o.fueraDeConcurso;
   const etiquetaFuera: Record<string, string> = {
-    subir: 'porque la evidencia pide SUBIRLAS, y un oligo las bajaría',
-    modular: 'porque se habla de modularlas sin decir en qué sentido',
-    mezclado: 'porque hay hipótesis que piden subirlas y otras bajarlas',
-    ninguna: 'porque ninguna hipótesis propone intervenir: son biomarcadores, no dianas de tratamiento todavía',
+    subir: tr('porque la evidencia pide SUBIRLAS, y un oligo las bajaría'),
+    modular: tr('porque se habla de modularlas sin decir en qué sentido'),
+    mezclado: tr('porque hay hipótesis que piden subirlas y otras bajarlas'),
+    ninguna: tr('porque ninguna hipótesis propone intervenir: son biomarcadores, no dianas de tratamiento todavía'),
   };
   // Fuera del JSX: un className multilínea rompe la comprobación de que
   // ninguna clase lleve caracteres fuera de ASCII, y además se lee peor.
@@ -2547,8 +2547,8 @@ function Decision({
             {tr("Posición")} {o.candidato.posicion.toLocaleString('es')} del transcrito {o.diseño.transcrito}
             {o.candidato.region ? `, en la ${o.candidato.region}` : ''}.{' '}
             {o.diseño.mismaIsoformaQueLaProteina
-              ? 'Es la misma versión del gen que la proteína de al lado, confirmado por MANE Select.'
-              : 'No se puede confirmar que sea la misma versión del gen que la proteína: este gen no tiene MANE Select.'}
+              ? tr('Es la misma versión del gen que la proteína de al lado, confirmado por MANE Select.')
+              : tr('No se puede confirmar que sea la misma versión del gen que la proteína: este gen no tiene MANE Select.')}
           </p>
           {diana ? (
             <button type="button" className="lab-abrir-experimento lab-abrir-aso" onClick={() => alAbrir(diana, 'aso')}>
@@ -2597,10 +2597,10 @@ function Decision({
           <p className={`lab-decision-criba lab-decision-criba-${colorAnimales}`}>
             <b>
               {o.paraAnimales.esElMismo
-                ? 'Y se puede probar en un roedor.'
+                ? tr('Y se puede probar en un roedor.')
                 : o.paraAnimales.hay
                   ? `Para empezar en el animal, el ${o.paraAnimales.candidato?.secuencia ?? 'otro'}.`
-                  : 'Ninguno se puede probar en un roedor tal cual.'}
+                  : tr('Ninguno se puede probar en un roedor tal cual.')}
             </b>{' '}
             {o.paraAnimales.porQue}
             {o.paraAnimales.hay && !o.paraAnimales.esElMismo ? (
@@ -2642,16 +2642,16 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
         <h1>{tr("Lo que ROSA2018 mandaría al laboratorio")}</h1>
         <p className="lab-entrada">
           {r.dianas === 0 ? (
-            'Todavía ninguna afirmación verificada nombra una proteína con identificador resuelto. Cuando la nombre, su estructura aparecerá aquí.'
+            tr('Todavía ninguna afirmación verificada nombra una proteína con identificador resuelto. Cuando la nombre, su estructura aparecerá aquí.')
           ) : (
             <>
-              {r.dianas === 1 ? 'Una proteína' : `${r.dianas} proteínas`}, reunidas de{' '}
-              {r.investigaciones === 1 ? 'la investigación' : `las ${r.investigaciones} investigaciones`} {tr("que ROSA2018 ha hecho. Las nombran")} {n(r.afirmaciones)} afirmaciones, {n(r.sostenidas)} {tr("de ellas sostenidas por su fuente.")}{' '}
+              {r.dianas === 1 ? tr('Una proteína') : `${r.dianas} proteínas`}, reunidas de{' '}
+              {r.investigaciones === 1 ? tr('la investigación') : `las ${r.investigaciones} investigaciones`} {tr("que ROSA2018 ha hecho. Las nombran")} {n(r.afirmaciones)} afirmaciones, {n(r.sostenidas)} {tr("de ellas sostenidas por su fuente.")}{' '}
               <b>
                 {r.deBanco === 0
-                  ? 'Hoy ninguna se podría mandar a un laboratorio: ninguna hipótesis propone todavía un experimento de banco sobre ellas.'
+                  ? tr('Hoy ninguna se podría mandar a un laboratorio: ninguna hipótesis propone todavía un experimento de banco sobre ellas.')
                   : r.deBanco === 1
-                    ? 'De todas ellas, hoy se podría mandar una: es la única con un experimento de banco propuesto.'
+                    ? tr('De todas ellas, hoy se podría mandar una: es la única con un experimento de banco propuesto.')
                     : `De todas ellas, hoy se podrían mandar ${r.deBanco}: son las que tienen un experimento de banco propuesto.`}
               </b>{' '}
               {tr("Por eso el orden empieza por esas y no por las más nombradas.")} <b>{tr("ROSA2018 no ha diseñado ninguna")}</b>{tr(", las nombra lo que ha verificado, y aquí se ven tal como son.")}
@@ -2709,7 +2709,7 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
                 <>{tr("sin afirmaciones todavía; la propone una hipótesis")}</>
               ) : (
                 <>
-                  {n(d.sabidos)} {d.sabidos === 1 ? 'afirmación sostenida' : 'afirmaciones sostenidas'} · {d.fuentes}{' '}
+                  {n(d.sabidos)} {d.sabidos === 1 ? tr('afirmación sostenida') : tr('afirmaciones sostenidas')} · {d.fuentes}{' '}
                   {d.fuentes === 1 ? 'fuente' : 'fuentes'}
                   {d.investigaciones.length > 1 ? ` · ${d.investigaciones.length} investigaciones` : ''}
                 </>
@@ -2720,7 +2720,7 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
                   return (
                     <em className={k ? `lab-estado-${KILLER[k]!.tono}` : ''}>
                       {' '}
-                      · {d.enHipotesis === 1 ? '1 hipótesis' : `${d.enHipotesis} hipótesis`}
+                      · {d.enHipotesis === 1 ? tr('1 hipótesis') : `${d.enHipotesis} hipótesis`}
                       {k ? `, ${KILLER[k]!.texto}` : ''}
                     </em>
                   );
@@ -2731,10 +2731,10 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
             </span>
             <span className={`lab-mandar${d.deBanco ? ' lab-mandar-si' : ''}`}>
               {d.deBanco
-                ? 'se puede mandar: hay un experimento de banco'
+                ? tr('se puede mandar: hay un experimento de banco')
                 : d.hojaDePedido.queSeHace
-                  ? 'no se manda a un banco: lo propuesto es revisar lo publicado'
-                  : 'no hay experimento que mandar todavía'}
+                  ? tr('no se manda a un banco: lo propuesto es revisar lo publicado')
+                  : tr('no hay experimento que mandar todavía')}
             </span>
             </button>
             {!d.aso?.candidatos.length && d.direccion.pide === 'subir' ? (
@@ -2786,7 +2786,7 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
               <b>{tr("Nombradas y sin estructura que traer:")}</b>{' '}
               {datos.nombradasSinEstructura.map((x) => (
                 <span key={x.simbolo}>
-                  {x.simbolo} ({x.hechos} {x.hechos === 1 ? 'afirmación' : 'afirmaciones'}): {x.motivo}.{' '}
+                  {x.simbolo} ({x.hechos} {x.hechos === 1 ? tr('afirmación') : 'afirmaciones'}): {x.motivo}.{' '}
                 </span>
               ))}
             </p>
@@ -2884,7 +2884,7 @@ function Miniatura({ diana, grande }: { diana: DianaDeLaboratorio; grande: boole
         <span className="lab-barra" aria-hidden="true">
           <i style={{ width: pct === null ? '0%' : `${pct}%` }} />
         </span>
-        <span className="lab-confianza">{fallo ? 'no pude traer la estructura de AlphaFold' : pct === null ? 'trayendo la estructura…' : `${pct} % del modelo con confianza alta`}</span>
+        <span className="lab-confianza">{fallo ? tr('no pude traer la estructura de AlphaFold') : pct === null ? tr('trayendo la estructura…') : `${pct} % del modelo con confianza alta`}</span>
       </span>
       <span className="lab-sello">{diana.estructura.clase === 'predicha' ? 'predicha' : 'medida'}</span>
     </>

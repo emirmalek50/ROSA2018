@@ -51,7 +51,7 @@ export function useSeleccionComentable(contenedor: React.RefObject<HTMLElement>)
 export function NuevoComentario({ ancla, onGuardar, onCancelar }: { ancla: AnclaComentario; onGuardar: (nota: string) => void; onCancelar: () => void }) {
   const [nota, setNota] = useState('');
   return (
-    <div className="comentario-nuevo" role="dialog" aria-label="Nuevo comentario">
+    <div className="comentario-nuevo" role="dialog" aria-label={tr("Nuevo comentario")}>
       <q>{ancla.cita}</q>
       <textarea
         className="entrada"
@@ -103,17 +103,17 @@ function Pendiente({ c, onQuitar, onEditar }: { c: Comentario; onQuitar: () => v
               setEditando(false);
             }}
             autoFocus
-            aria-label="Editar comentario"
+            aria-label={tr("Editar comentario")}
           />
         ) : (
           c.nota
         )}
       </div>
       <div className="acciones" style={{ gap: 2 }}>
-        <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label="Editar comentario" onClick={() => setEditando(true)}>
+        <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label={tr("Editar comentario")} onClick={() => setEditando(true)}>
           <IconPen size={12} />
         </button>
-        <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label="Quitar comentario" onClick={onQuitar}>
+        <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label={tr("Quitar comentario")} onClick={onQuitar}>
           <IconX size={12} />
         </button>
       </div>
@@ -139,7 +139,7 @@ export function BandejaComentarios({
       <div className="acciones" style={{ justifyContent: 'space-between' }}>
         <strong style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <IconMessage size={14} />
-          {pendientes.length} {pendientes.length === 1 ? 'comentario pendiente' : 'comentarios pendientes'}
+          {pendientes.length} {pendientes.length === 1 ? tr('comentario pendiente') : tr('comentarios pendientes')}
         </strong>
         <span className="meta">{tr("Salen juntos con el siguiente mensaje")}</span>
       </div>

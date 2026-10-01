@@ -17,7 +17,7 @@ import { AvisoMuestra, Momento, Seccion, Vacio, descargar } from '../componentes
 import { atributosEnVuelo, useCalculoDiferido, useEnVuelo } from '../lib/diferido';
 import { specificAims } from '../lib/exportar';
 import { rutaDe } from '../lib/ruta';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 /** Una promesa que se resuelve después del siguiente pintado (un fotograma y
  *  un temporizador a cero, como lib/diferido.ts): así el botón en vuelo llega
@@ -40,10 +40,10 @@ function derivarPanorama(estado: EstadoRosa, invId: string) {
   return { invId, corrida, hipotesis, direcciones, meta };
 }
 
-const CABECERA_PANORAMA = {
+const CABECERA_PANORAMA = traducido({
   titulo: 'Panorama de la investigación',
   descripcion: 'La síntesis por encima de las hipótesis: direcciones principales, por qué y qué investigar en cada una, y lo inesperado. Es lo que ROSA2018 le enseñaría primero al investigador clínico principal.',
-};
+});
 /** Medido en Chromium a 1440 px: cada tarjeta de dirección mide entre 481 y 566 px. */
 const ALTO_DIRECCION = 530;
 
@@ -52,7 +52,7 @@ const ALTO_DIRECCION = 530;
  *  sabe cuántas hay), o el hueco del vacío si no hay ninguna. */
 export function EsqueletoPanorama({ direcciones }: { direcciones: number }) {
   return (
-    <EsqueletoPantalla variante="panel" rotulo="el panorama de la investigación" margenSuperior={16} cabecera={CABECERA_PANORAMA} acciones={<Esqueleto className="esqueleto-boton esqueleto-boton-ancho" />}>
+    <EsqueletoPantalla variante="panel" rotulo={tr("el panorama de la investigación")} margenSuperior={16} cabecera={CABECERA_PANORAMA} acciones={<Esqueleto className="esqueleto-boton esqueleto-boton-ancho" />}>
       {direcciones === 0 ? (
         <EsqueletoTarjeta lineas={3} alto={120} />
       ) : (
@@ -80,7 +80,7 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
   const exportarAims = envolver(async () => {
     await trasElPintado();
     const texto = specificAims(inv, hipotesis);
-    acciones.guardarArtefacto(inv.id, 'specific-aims.md', 'specific_aims', texto, 'Generado desde el panorama', corrida?.iteracionActual ?? 0);
+    acciones.guardarArtefacto(inv.id, 'specific-aims.md', 'specific_aims', texto, tr('Generado desde el panorama'), corrida?.iteracionActual ?? 0);
     descargar('specific-aims.md', texto, 'text/markdown;charset=utf-8');
   });
   return (
@@ -97,7 +97,7 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
       </div>
 
       {direcciones.length === 0 ? (
-        <Vacio titulo="Sin panorama todavía">{tr("ROSA2018 lo sintetiza al cerrar cada iteración a partir de las hipótesis, las revisiones y el modelo de mundo.")}</Vacio>
+        <Vacio titulo={tr("Sin panorama todavía")}>{tr("ROSA2018 lo sintetiza al cerrar cada iteración a partir de las hipótesis, las revisiones y el modelo de mundo.")}</Vacio>
       ) : (
         <div className="seccion">
           {direcciones.map((d, i) => (
@@ -155,7 +155,7 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
         </div>
       )}
 
-      <Seccion titulo="Meta-revisión: debilidades recurrentes" nota="Lo que se repite en las revisiones de todas las hipótesis de la corrida. Inyectarlo como criterio hace que la siguiente generación lo tenga en cuenta.">
+      <Seccion titulo={tr("Meta-revisión: debilidades recurrentes")} nota={tr("Lo que se repite en las revisiones de todas las hipótesis de la corrida. Inyectarlo como criterio hace que la siguiente generación lo tenga en cuenta.")}>
         {meta.length === 0 ? (
           <p className="meta">{tr("Sin meta-revisión todavía.")}</p>
         ) : (

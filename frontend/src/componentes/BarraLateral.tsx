@@ -3,7 +3,7 @@
 // pendientes llevan su cuenta al lado, porque son lo que espera a una persona.
 
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 import { ESTADO_CORRIDA } from '../lib/etiquetas';
 import { pendientesDeRevision } from '../lib/hipotesis';
 import { rutaDe, rutaLaboratorio, type Pantalla, type Ruta } from '../lib/ruta';
@@ -81,7 +81,7 @@ function IconEstructura({ size = 16 }: { size?: number }) {
   );
 }
 
-const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number }) => JSX.Element }[] = [
+const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number }) => JSX.Element }[] = traducido([
   { clave: 'corrida', etiqueta: 'Corrida en vivo', icono: IconActivity },
   { clave: 'hipotesis', etiqueta: 'Cola de hipótesis', icono: IconFlask },
   { clave: 'ranking', etiqueta: 'Ranking', icono: IconTrophy },
@@ -94,7 +94,7 @@ const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number
   { clave: 'artefactos', etiqueta: 'Artefactos', icono: IconDocument },
   { clave: 'calidad', etiqueta: 'Calidad', icono: IconGauge },
   { clave: 'investigacion', etiqueta: 'Objetivo y datos', icono: IconUsers },
-];
+]);
 
 interface Props {
   estado: EstadoRosa;
@@ -158,7 +158,7 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
             return (
               <a key={inv.id} className="nav-inv" href={rutaDe(inv.id, 'corrida')} aria-current={inv.id === invId ? 'true' : undefined} onClick={onCerrar}>
                 <span>{inv.titulo}</span>
-                <small>{corrida ? `Corrida ${corrida.numero} · ${ESTADO_CORRIDA[corrida.estado]}` : 'Sin corridas'}</small>
+                <small>{corrida ? `Corrida ${corrida.numero} · ${ESTADO_CORRIDA[corrida.estado]}` : tr('Sin corridas')}</small>
               </a>
             );
           })}

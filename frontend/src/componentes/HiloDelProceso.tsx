@@ -12,11 +12,11 @@ import { pendientesDeRevision } from '../lib/hipotesis';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { rutaDe, type Pantalla } from '../lib/ruta';
 import { proponiendoPlan } from '../lib/etiquetas';
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 
 export type Etapa = 'plan' | 'literatura' | 'verificar' | 'mundo' | 'hipotesis' | 'candidatas' | 'laboratorio';
 
-export const ETAPAS: { clave: Etapa; nombre: string; corto: string; explicacion: string; pantalla: Pantalla; detalle?: string }[] = [
+export const ETAPAS: { clave: Etapa; nombre: string; corto: string; explicacion: string; pantalla: Pantalla; detalle?: string }[] = traducido([
   { clave: 'plan', nombre: 'Plan', corto: 'Plan', explicacion: 'ROSA2018 propone el plan de la iteración y espera tu aprobación antes de ejecutar nada.', pantalla: 'corrida' },
   { clave: 'literatura', nombre: 'Buscar literatura', corto: 'Literatura', explicacion: 'Consultas a PubMed, Europe PMC, ensayos clínicos y bases curadas. Cada consulta queda registrada con fecha.', pantalla: 'corrida' },
   { clave: 'verificar', nombre: 'Verificar afirmaciones', corto: 'Verificar', explicacion: 'Cada afirmación extraida se contrasta con su pasaje literal; el juez decide si la fuente la sostiene.', pantalla: 'corrida' },
@@ -24,7 +24,7 @@ export const ETAPAS: { clave: Etapa; nombre: string; corto: string; explicacion:
   { clave: 'hipotesis', nombre: 'Hipótesis y Killer', corto: 'Hipótesis', explicacion: 'ROSA2018 genera hipótesis, el Killer las somete a quince comprobaciones y tú decides sobre las que quedan en la cola.', pantalla: 'hipotesis' },
   { clave: 'candidatas', nombre: 'Candidatas', corto: 'Candidatas', explicacion: 'El torneo (Elo y Bradley-Terry) y los bloqueos deciden cuales llegan al laboratorio: hasta tres por ciclo.', pantalla: 'ranking' },
   { clave: 'laboratorio', nombre: 'Laboratorio', corto: 'Laboratorio', explicacion: 'El experimento se prerregistra y se sella con un tercero; los datos vuelven y ROSA2018 actualiza su conclusión. Aquí se ven solo las hipótesis que están en ese tramo.', pantalla: 'hipotesis', detalle: 'laboratorio' },
-];
+]);
 
 const ETAPA_POR_PISTA: Record<TipoPista, Etapa> = {
   literatura: 'literatura',

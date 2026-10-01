@@ -15,7 +15,7 @@ export function Resumen({ d, titulo, ahora, onVisto }: { d: Digest; titulo: stri
   const [copiado, setCopiado] = useState(false);
   const [todos, setTodos] = useState(false);
   if (!d.hayNovedades) return null;
-  const ventana = d.desde !== null ? `desde tu última visita, hace ${formatearDuracion(ahora - d.desde)}` : 'los últimos siete días (todavía no habías pulsado «Visto»)';
+  const ventana = d.desde !== null ? `desde tu última visita, hace ${formatearDuracion(ahora - d.desde)}` : tr('los últimos siete días (todavía no habías pulsado «Visto»)');
   const visibles = todos ? d.eventos : d.eventos.slice(0, 5);
   return (
     <section className="resumen" aria-label={`Mientras no estabas: ${titulo}`}>
@@ -69,7 +69,7 @@ export function Resumen({ d, titulo, ahora, onVisto }: { d: Digest; titulo: stri
       )}
       {d.eventos.length > 5 && (
         <button type="button" className="enlace" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => setTodos((v) => !v)}>
-          {todos ? 'Ver menos' : `Ver los ${d.eventos.length} eventos`}
+          {todos ? tr('Ver menos') : `Ver los ${d.eventos.length} eventos`}
         </button>
       )}
     </section>
