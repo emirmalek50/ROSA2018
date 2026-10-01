@@ -2358,15 +2358,15 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
           </div> : <>
             {hoja.queSeHace && <section className="lab-hoja-propuesta"><h4>Qué se propone</h4><p>{hoja.queSeHace}</p></section>}
             {hoja.sistema && <p className="lab-hoja-sistema"><span>Sistema experimental</span><strong>{SISTEMA[hoja.sistema] ?? hoja.sistema}</strong></p>}
-            {hoja.refuta && <section className="lab-hoja-refutacion"><h4>Qué la refutaría</h4><p>{hoja.refuta}</p></section>}
-            {hoja.controles && <section className="lab-hoja-controles"><h4>Controles</h4><p>{hoja.controles}</p></section>}
+            {hoja.refuta && <details className="lab-hoja-refutacion"><summary><span className="lab-ficha-icono" aria-hidden="true">↯</span><span><strong>Qué la refutaría</strong><small>El criterio que pone a prueba la hipótesis</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary><p>{hoja.refuta}</p></details>}
+            {hoja.controles && <details className="lab-hoja-controles"><summary><span className="lab-ficha-icono" aria-hidden="true">±</span><span><strong>Controles</strong><small>Cómo distinguir el efecto de un sesgo</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary><p>{hoja.controles}</p></details>}
           </>}
-          {hoja.faltan.length > 0 && <p className="lab-faltan">El contrato todavía no dice: {hoja.faltan.join(', ')}.</p>}
-          <details className="lab-hoja-origen"><summary>De dónde viene la evidencia <span>{diana.investigaciones.length} {diana.investigaciones.length === 1 ? 'investigación' : 'investigaciones'}</span></summary>
+          <details className="lab-hoja-origen"><summary><span className="lab-ficha-icono" aria-hidden="true"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="6" cy="5" r="2.5" /><circle cx="18" cy="12" r="2.5" /><circle cx="6" cy="19" r="2.5" /><path d="M6 7.5v9M8.5 5h2a4 4 0 0 1 4 4v0a3 3 0 0 0 3 3M8.5 19h2a4 4 0 0 0 4-4" /></svg></span><span><strong>De dónde viene la evidencia</strong><small>{diana.investigaciones.length} {diana.investigaciones.length === 1 ? 'investigación' : 'investigaciones'} · {n(diana.fuentes)} fuentes</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary>
             <p>{n(diana.hechos)} afirmaciones; {n(diana.sabidos)} sostenidas. {n(diana.fuentes)} fuentes.</p>
             {diana.investigaciones.map((inv) => <div className="lab-origen-fila" key={inv.id}><span>{inv.titulo}</span><b>{n(inv.hechos)}</b><meter min={0} max={Math.max(1, ...diana.investigaciones.map(x => x.hechos))} value={inv.hechos} aria-label={`Afirmaciones de ${inv.titulo}`} /></div>)}
             <small>Las barras comparan el número de afirmaciones por investigación, no su certeza.</small>
           </details>
+          {hoja.faltan.length > 0 && <p className="lab-faltan">El contrato todavía no dice: {hoja.faltan.join(', ')}.</p>}
           {hoja.otrosExperimentos.length > 0 && <p className="lab-faltan">Hay {hoja.otrosExperimentos.length} {hoja.otrosExperimentos.length === 1 ? 'experimento adicional' : 'experimentos adicionales'}. Cada uno conserva sus controles y su criterio de refutación. Copiar incluye todos.</p>}
         </div>
         <footer className="lab-hoja-acciones">

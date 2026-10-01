@@ -3069,3 +3069,53 @@
 .lab-hoja-acciones .lab-abrir-experimento { white-space: normal; }
 .lab-hoja-acciones .lab-abrir-aso > span:nth-child(2) { min-width: 0; flex: 1; }
 .lab-hoja-numero { flex-shrink: 0; }
+
+/* La ficha distingue refutación, controles y procedencia por su función. */
+.lab-hoja { background: #11131a; border-color: #44404f; border-radius: 20px; }
+.lab-hoja-cabecera { padding: 22px; background: #191922; }
+.lab-hoja-identidad strong { font-size: 38px; font-weight: 650; letter-spacing: -1.4px; }
+.lab-hoja .lab-hoja-titulo h3 { color: #e0dce7; font-size: 13px; }
+.lab-hoja-estado { width: fit-content; padding: 7px 10px; border: 1px solid #75618d; border-radius: 6px; background: #30253d; color: #ecddff; font-size: 13px; font-weight: 600; }
+.lab-hoja-estado[data-alerta='true'] { background: #30271c; border-color: #78603d; color: #ffce8a; }
+.lab-hoja-cuerpo { padding: 18px 14px; }
+.lab-hoja-propuesta, .lab-hoja-sistema { margin-left: 8px; margin-right: 8px; }
+.lab-hoja h4 { font-size: 14px; font-weight: 650; color: #f2edf8; }
+.lab-hoja-refutacion, .lab-hoja-controles, .lab-hoja-origen { --ficha-acento: #f2bc74; margin: 0 0 10px; padding: 0; border: 1px solid #514332; border-left: 3px solid var(--ficha-acento); border-radius: 4px 12px 12px 4px; background: #211d19; }
+.lab-hoja-controles { --ficha-acento: #99d3ef; border-color: #344b5b; border-left-color: var(--ficha-acento); background: #17212a; }
+.lab-hoja-origen { --ficha-acento: #c6b0ee; border-color: #484057; border-left-color: var(--ficha-acento); background: #211c2b; }
+.lab-hoja :is(.lab-hoja-refutacion, .lab-hoja-controles, .lab-hoja-origen) summary { display: flex; align-items: center; gap: 11px; padding: 17px 12px; list-style: none; cursor: pointer; color: var(--ficha-acento); }
+.lab-hoja summary::-webkit-details-marker { display: none; }
+.lab-hoja summary strong { display: block; font-size: 16px; line-height: 1.3; letter-spacing: -.3px; font-weight: 650; }
+.lab-hoja summary small { display: block; font-size: 11px; line-height: 1.5; color: #c8c3cf; margin-top: 5px; }
+.lab-hoja-origen summary span { margin: 0; color: inherit; font-size: inherit; }
+.lab-ficha-icono { display: grid !important; place-items: center; width: 28px; flex: 0 0 28px; font-size: 29px !important; line-height: 1; font-weight: 400; }
+.lab-ficha-desplegar { margin-left: auto !important; font-size: 20px !important; transition: transform 150ms; }
+.lab-hoja details[open] .lab-ficha-desplegar { transform: rotate(45deg); }
+.lab-hoja details[open] summary { border-bottom: 1px solid #ffffff18; }
+.lab-hoja details summary:hover { background: #ffffff06; }
+.lab-hoja-refutacion > p, .lab-hoja-controles > p { margin: 0; padding: 16px; font-size: 13px; line-height: 1.75; color: #eeebf1; }
+.lab-hoja-origen > p, .lab-hoja-origen > small, .lab-hoja-origen > .lab-origen-fila { margin: 14px 16px; }
+.lab-hoja-acciones { padding: 14px; gap: 10px; background: #191922; }
+.lab-hoja-acciones .lab-abrir-aso { min-height: 76px; background: #292038; color: #eadcfc; border: 1px solid #9d7fc0; border-radius: 12px; }
+.lab-hoja-acciones .lab-abrir-aso:hover { background: #382b49; border-color: #ceadf4; }
+.lab-hoja-acciones .lab-abrir-aso strong { font-size: 15px; line-height: 1.35; }
+.lab-hoja-acciones .lab-abrir-aso small { color: #d0bddf; font-size: 11px; line-height: 1.4; }
+.lab-hoja-numero { font-size: 32px; color: #d6b3ff; border-color: #715985; }
+.lab-hoja-acciones .lab-abrir-experimento:not(.lab-abrir-aso) { min-height: 50px; background: #eee8df; color: #242027; border-color: #eee8df; border-radius: 10px; font-size: 15px; font-weight: 650; text-align: left; }
+.lab-hoja-acciones .lab-abrir-experimento:not(.lab-abrir-aso):hover { background: #fff9f0; }
+@media (max-height: 750px) {
+ .lab-hoja-cabecera { padding: 14px 18px; }
+ .lab-hoja-identidad { margin-top: 9px; }
+ .lab-hoja-identidad strong { font-size: 30px; }
+ .lab-hoja-estado { margin-top: 9px; padding: 5px 8px; }
+ .lab-hoja-acciones { padding: 10px; gap: 8px; }
+ .lab-hoja-acciones .lab-abrir-aso { min-height: 66px; }
+}
+@media (prefers-reduced-motion: reduce) { .lab-ficha-desplegar { transition: none; } }
+@media (max-height: 750px) and (max-width: 980px) {
+ .lab-hoja-cuerpo { padding: 10px 14px; }
+ .lab-hoja :is(.lab-hoja-refutacion, .lab-hoja-controles, .lab-hoja-origen) summary { padding: 10px; gap: 8px; min-height: 46px; }
+ .lab-hoja summary strong { font-size: 14px; }
+ .lab-hoja summary small { display: none; }
+ .lab-ficha-icono { width: 24px; flex-basis: 24px; font-size: 24px !important; }
+}
