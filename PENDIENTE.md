@@ -1411,3 +1411,49 @@ Lo que las secuencias públicas hicieron fue MOVER el cuello de botella, no
 quitarlo. Encontrar el tramo de ARN era trabajo hace veinte años; hoy son diez
 segundos en un portátil. Lo que ROSA2018 hace es justo la parte que se volvió
 barata, y eso hay que decirlo en vez de dejar que parezca otra cosa.
+
+## Inglés: la etapa 1 (el mecanismo) está, faltan dos (1 oct 2026)
+
+Emir: «reemplaza el signo de interrogación por un selector de idiomas, que se
+pueda ver tanto en español como inglés ROSA entero, es por los gringos».
+
+Medido antes de empezar, porque cambia la conversación: son unas **3.480
+cadenas en el frontend**, **3.857 que genera el backend**, y además el estado
+guardado lleva **48.987 frases largas en castellano** (24 MB) que NO son
+interfaz: son las hipótesis, los veredictos del Killer, las afirmaciones y las
+conclusiones que ROSA2018 escribió en sus corridas. Eso es contenido, y no se
+arregla traduciendo botones.
+
+### Hecho: el mecanismo
+
+`frontend/src/lib/idioma.ts` y `frontend/src/i18n/en.ts`. La decisión de
+diseño que manda sobre todo lo demás: **la clave de traducción es la propia
+frase en castellano**, no un identificador inventado. Con siete mil cadenas,
+inventar claves sería tocar siete mil sitios y cada clave mal puesta es un
+texto que desaparece. Con la frase como clave, envolver es mecánico y lo que
+falta se ve en castellano, que se entiende, en vez de en blanco o con el
+nombre de la clave a la vista.
+
+El selector ocupa el sitio del «?», y el recorrido de ROSA2018 NO se pierde:
+se movió al menú lateral, que es donde se busca algo que se ve una vez.
+
+### Falta: etapa 2, la prosa que genera el backend
+
+Los textos del cribado, la accesibilidad, las especies, la dúplex, GRADE y el
+Killer son cadenas con números interpolados, así que no se traducen con un
+diccionario: hay que hacer que las funciones que los generan sepan el idioma.
+El plan es una variable de contexto por petición y una función corta de
+traducción, para no tener que pasar el idioma por cada firma.
+
+Ojo con una trampa: parte de esa prosa se GUARDA en el estado (el porqué del
+cribado, por ejemplo, lo calcula el bucle). Para esa hay que guardar la clave
+y los números, no la frase hecha. Ya hay precedente de hacerlo bien:
+`_refrescar_prosa` en `rosa/laboratorio.py` regenera las frases del sitio al
+servir en vez de dejarlas congeladas.
+
+### Falta: etapa 3, las 48.987 frases de las corridas
+
+Traducir bajo demanda con el modelo que ROSA2018 ya tiene, cacheando por hash
+del texto original, y solo cuando alguien en inglés mira ese contenido. A
+decidir: qué modelo, cuánto gasta y quién revisa la traducción, porque una
+mala traducción de la ciencia es un error científico y no una errata.

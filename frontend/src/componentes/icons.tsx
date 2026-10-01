@@ -205,6 +205,19 @@ export function IconLock({ size = 14, ...props }: IconProps) {
   );
 }
 
+/** Un signo de interrogación en un círculo: el recorrido de ROSA2018.
+ *  Vivía como texto en la cabecera; al ponerle el selector de idioma pasó al
+ *  menú, y ahí hace falta un icono como los demás. */
+export function IconAyuda({ size = 15, ...props }: IconProps) {
+  return (
+    <svg {...base(size, { ...props, strokeWidth: 1.6 })}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
 /** Engranaje de ajustes: corona de seis dientes y eje central. */
 export function IconSettings({ size = 15, ...props }: IconProps) {
   return (

@@ -3,6 +3,7 @@
 // pendientes llevan su cuenta al lado, porque son lo que espera a una persona.
 
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
+import { t } from '../lib/idioma';
 import { ESTADO_CORRIDA } from '../lib/etiquetas';
 import { pendientesDeRevision } from '../lib/hipotesis';
 import { rutaDe, rutaLaboratorio, type Pantalla, type Ruta } from '../lib/ruta';
@@ -15,6 +16,7 @@ import {
   IconLayers,
   IconPlus,
   IconSearch,
+  IconAyuda,
   IconSettings,
   IconTree,
   IconTrophy,
@@ -100,9 +102,13 @@ interface Props {
   abierta: boolean;
   onCerrar: () => void;
   onBuscar: () => void;
+  /** El recorrido de ROSA2018. Estaba en el «?» de la cabecera, que ahora es
+   *  el selector de idioma; se mueve aquí porque es algo que se ve una vez y
+   *  se busca en el menú, no en la barra de arriba. */
+  onAyuda?: () => void;
 }
 
-export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar }: Props) {
+export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyuda }: Props) {
   const invId = ruta.tipo === 'investigacion' ? ruta.investigacionId : null;
   const pantalla = ruta.tipo === 'investigacion' ? ruta.pantalla : null;
   const actual = estado.investigaciones.find((i) => i.id === invId) ?? null;
@@ -123,7 +129,7 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar }: Prop
   return (
     <>
       {abierta && <div className="scrim" onClick={onCerrar} aria-hidden="true" />}
-      <nav className={`barra ${abierta ? 'abierta' : ''}`} aria-label="Navegación principal">
+      <nav className={`barra ${abierta ? 'abierta' : ''}`} aria-label={t('Navegación principal')}>
         <a className="marca" href="#/" onClick={onCerrar}>
           <img src="/arbol-marca.png" alt="" width={30} height={30} />
           <div>
@@ -132,9 +138,9 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar }: Prop
           </div>
         </a>
 
-        <button type="button" className="nav-item nav-buscar" onClick={onBuscar} disabled={actual === null} title="Buscar en la investigación (Cmd+K o Ctrl+K)">
+        <button type="button" className="nav-item nav-buscar" onClick={onBuscar} disabled={actual === null} title={t('Buscar en la investigación (Cmd+K o Ctrl+K)')}>
           <IconSearch size={14} />
-          Buscar
+          {t('Buscar')}
           <span className="meta" style={{ marginLeft: 'auto' }}>
             Cmd K
           </span>
@@ -142,9 +148,9 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar }: Prop
 
         <div className="barra-seccion">
           <div className="barra-titulo">
-            <span>Investigaciones</span>
-            <a href="#/nueva" onClick={onCerrar} title="Nueva investigación">
-              <IconPlus size={13} /> Nueva
+            <span>{t('Investigaciones')}</span>
+            <a href="#/nueva" onClick={onCerrar} title={t('Nueva investigación')}>
+              <IconPlus size={13} /> {t('Nueva')}
             </a>
           </div>
           {estado.investigaciones.map((inv) => {
@@ -161,7 +167,7 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar }: Prop
         {actual && (
           <div className="barra-seccion">
             <div className="barra-titulo">
-              <span>Esta investigación</span>
+              <span>{t('Esta investigación')}</span>
             </div>
             {PANTALLAS.map((p) => {
               const Icono = p.icono;
@@ -179,22 +185,38 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar }: Prop
 
         <div className="barra-seccion">
           <div className="barra-titulo">
-            <span>De todas las investigaciones</span>
+            <span>{t('De todas las investigaciones')}</span>
           </div>
           <a className="nav-item" href={rutaLaboratorio()} aria-current={ruta.tipo === 'laboratorio' ? 'page' : undefined} onClick={onCerrar}>
             <IconEstructura size={15} />
-            Al laboratorio
+            {t('Al laboratorio')}
           </a>
         </div>
 
         <div className="barra-seccion">
+          {onAyuda && (
+            <button
+              type="button"
+              className="nav-item"
+              onClick={() => {
+                onCerrar();
+                onAyuda();
+              }}
+            >
+              <IconAyuda size={15} />
+              {t('Cómo funciona ROSA2018')}
+            </button>
+          )}
           <a className="nav-item" href="#/ajustes" aria-current={ruta.tipo === 'ajustes' ? 'page' : undefined} onClick={onCerrar}>
             <IconSettings size={15} />
-            Ajustes
+            {t('Ajustes')}
           </a>
         </div>
 
-        <p className="barra-pie">ROSA2018 investiga; la persona decide. Ninguna hipótesis entra al modelo de mundo sin pasar por la cola.</p>
+        <p className="barra-pie">
+          {t('ROSA2018 investiga; la persona decide.')}{' '}
+          {t('Ninguna hipótesis entra al modelo de mundo sin pasar por la cola.')}
+        </p>
       </nav>
     </>
   );

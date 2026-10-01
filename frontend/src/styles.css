@@ -4059,6 +4059,16 @@ mark.fuerte {
   font-size: 12px;
 }
 
+/* El selector de idioma, en el sitio donde estaba el «?». Mismo trato que
+   Sencillo / Detalle: con dos opciones, un desplegable sería un clic de más.
+   Las letras van algo más apretadas porque son dos, no dos palabras. */
+.segmentos-idioma button {
+  padding: 3px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
 .seccion-plegar {
   display: inline-flex;
   align-items: center;
@@ -4247,7 +4257,8 @@ details.versiones > :not(summary) {
   .cabecera-derecha {
     flex-wrap: wrap;
   }
-  .segmentos-modo button {
+  .segmentos-modo button,
+  .segmentos-idioma button {
     padding: 3px 7px;
     font-size: 11px;
   }
