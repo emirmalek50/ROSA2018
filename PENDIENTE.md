@@ -1439,6 +1439,25 @@ se movió al menú lateral, que es donde se busca algo que se ve una vez.
 
 ### Falta: etapa 2, la prosa que genera el backend
 
+Medido el 1 de octubre de 2026: en `rosa/` hay 6.023 cadenas sueltas y 1.413
+plantillas f-string con texto castellano. **Esa cifra no es el trabajo**: hay
+que separar antes tres cosas que están mezcladas.
+
+- Lo que SÍ es interfaz: la prosa que acaba en el estado y se sirve al
+  navegador. Se concentra en `rosa/bucle/pasos.py` (860),
+  `rosa/bucle/corrida.py` (714), `rosa/experimento.py` (356),
+  `rosa/certeza.py` (243) y `rosa/mapa_enfermedad.py` (179).
+- Lo que NO se traduce nunca: `rosa/modulos/firmas.py` (404) son las firmas
+  de DSPy, o sea las INSTRUCCIONES a los modelos. Traducirlas cambia lo que
+  el modelo hace, no cómo se lee. Lo mismo con los docstrings y los mensajes
+  de registro, que los lee quien mantiene ROSA2018, no quien la usa.
+- Lo dudoso: `rosa/estado/acciones.py` (280) escribe en el registro de
+  auditoría. Ahí vale lo mismo que con `QUIEN` en el frontend: lo que se
+  guarda no puede depender del idioma de quien mira.
+
+El primer paso de esta etapa es, por tanto, clasificar, no traducir.
+
+
 Los textos del cribado, la accesibilidad, las especies, la dúplex, GRADE y el
 Killer son cadenas con números interpolados, así que no se traducen con un
 diccionario: hay que hacer que las funciones que los generan sepan el idioma.
