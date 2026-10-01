@@ -13,11 +13,13 @@ import { BarraLateral } from '../componentes/BarraLateral';
 import { estadoDeMuestra } from '../datos/muestra';
 import { Ajustes } from './Ajustes';
 
+const { llamadas } = vi.hoisted(() => ({ llamadas: vi.fn() }));
+
 vi.mock('../datos/almacen', () => ({
   // Cada acción devuelve una promesa que no resuelve: los bloques que piden
   // datos al servidor (integridad, espejo) se quedan en "cargando" y no
   // estorban a la sección Sesión, que no depende de ellos.
-  acciones: new Proxy({}, { get: () => () => new Promise(() => undefined) }),
+  acciones: new Proxy({}, { get: (_, nombre) => (...args: unknown[]) => { llamadas(nombre, ...args); return new Promise(() => undefined); } }),
   aplicar: () => undefined,
   cabeceras: () => ({ 'X-Rosa': '1', 'Content-Type': 'application/json' }),
   modoActual: () => 'muestra',
@@ -48,6 +50,7 @@ let root: Root;
 let nodo: HTMLDivElement;
 beforeEach(() => {
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  llamadas.mockClear();
   nodo = document.createElement('div');
   document.body.append(nodo);
   root = createRoot(nodo);
@@ -161,4 +164,72 @@ describe('la barra lateral tras el traslado', () => {
     expect(nodo.querySelector('.cuenta-actual')).toBeNull();
     expect(nodo.querySelector('a[href="#/ajustes"]')?.getAttribute('aria-current')).toBe('page');
   });
+});
+
+describe('navegación del espacio de ajustes', () => {
+  const tab = (id: string) => nodo.querySelector<HTMLButtonElement>(`#ajuste-tab-${id}`)!;
+  const panel = (id: string) => nodo.querySelector<HTMLElement>(`#ajuste-panel-${id}`)!;
+  const pulsar = async (el: HTMLElement) => act(async () => el.click());
+
+  it('muestra una sola categoría y permite llegar a todas con el teclado', async () => {
+    await montarConSesion(false);
+    expect(panel('general').hidden).toBe(false);
+    expect(nodo.querySelectorAll('[role="tabpanel"]:not([hidden])')).toHaveLength(1);
+    await act(async () => tab('general').dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true })));
+    expect(document.activeElement).toBe(tab('seguridad'));
+    expect(panel('general').hidden).toBe(true);
+    expect(panel('seguridad').hidden).toBe(false);
+    await act(async () => tab('seguridad').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })));
+    expect(document.activeElement).toBe(tab('general'));
+    for (const id of ['autonomia', 'memoria', 'avisos', 'herramientas', 'seguridad']) {
+      await pulsar(tab(id));
+      expect(panel(id).hidden).toBe(false);
+      expect(tab(id).getAttribute('aria-selected')).toBe('true');
+      expect(nodo.querySelectorAll('[role="tabpanel"]:not([hidden])')).toHaveLength(1);
+    }
+  });
+
+  it('conserva una política de espera sin guardar al cambiar de categoría', async () => {
+    await montarConSesion(false);
+    await pulsar(tab('autonomia'));
+    const horas = nodo.querySelector<HTMLInputElement>('#pe-horas')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(horas, '72');
+      horas.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await pulsar(tab('general'));
+    await pulsar(tab('autonomia'));
+    expect(nodo.querySelector<HTMLInputElement>('#pe-horas')!.value).toBe('72');
+    const guardar = [...panel('autonomia').querySelectorAll('button')].find(b => b.textContent?.trim() === 'Guardar')!;
+    expect(guardar.disabled).toBe(false);
+  });
+
+  it('aplica el tema de la vista previa y conserva la elección al volver', async () => {
+    await montarConSesion(false);
+    const oscuro = nodo.querySelector<HTMLButtonElement>('[data-tema="oscuro"]')!;
+    await pulsar(oscuro);
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(localStorage.getItem('rosa-tema')).toBe('oscuro');
+    expect(oscuro.getAttribute('aria-pressed')).toBe('true');
+    await pulsar(tab('avisos'));
+    await pulsar(tab('general'));
+    expect(oscuro.getAttribute('aria-pressed')).toBe('true');
+    localStorage.removeItem('rosa-tema');
+  });
+});
+
+
+it('los nuevos controles mantienen las acciones y la clase exacta de autonomía', async () => {
+  await montarConSesion(false);
+  await act(async () => nodo.querySelector<HTMLButtonElement>('#ajuste-tab-autonomia')!.click());
+  const radio = nodo.querySelector<HTMLInputElement>('input[name="aut-buscar_literatura"]:not(:checked)')!;
+  const nivel = radio.getAttribute('aria-label')!.split(': ')[1];
+  await act(async () => radio.click());
+  const valores: Record<string, string> = { 'Solo sugerir': 'sugerir', 'Preguntar antes': 'preguntar', 'Actuar y avisar': 'actuar' };
+  expect(llamadas).toHaveBeenCalledWith('fijarAutonomia', 'buscar_literatura', valores[nivel!]);
+  await act(async () => nodo.querySelector<HTMLButtonElement>('#ajuste-tab-avisos')!.click());
+  const correo = [...nodo.querySelectorAll<HTMLLabelElement>('#ajuste-panel-avisos label')].find(el => el.textContent?.trim() === 'Correo')!.querySelector<HTMLInputElement>('input')!;
+  const activo = !correo.checked;
+  await act(async () => correo.click());
+  expect(llamadas).toHaveBeenCalledWith('actualizarAvisos', expect.objectContaining({ correo: expect.objectContaining({ activo }) }));
 });
