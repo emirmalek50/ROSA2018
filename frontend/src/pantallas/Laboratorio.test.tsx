@@ -1095,8 +1095,11 @@ describe('la ficha visual y sus gráficas', () => {
     expect(nodo.querySelector('.lab-hoja-acciones .lab-abrir-aso')).not.toBeNull();
     await pulsar(nodo.querySelector('.lab-hoja-toggle')!);
     expect(nodo.querySelector('.lab-hoja-toggle')!.getAttribute('aria-expanded')).toBe('true');
-    await pulsar(nodo.querySelector('.lab-hoja-toggle')!);
+    await pulsar(nodo.querySelector('[aria-label="Cerrar panel del laboratorio"]')!);
     expect(nodo.querySelector('.lab-hoja-toggle')!.getAttribute('aria-expanded')).toBe('false');
+    expect(nodo.querySelector('.lab-hoja')!.classList.contains('lab-hoja-cerrada')).toBe(true);
+    await pulsar(nodo.querySelector('.lab-hoja-toggle')!);
+    expect(nodo.querySelector('.lab-hoja')!.classList.contains('lab-hoja-abierta')).toBe(true);
   });
 
   it('el mapa selecciona por teclado otro candidato y actualiza el diseño', async () => {

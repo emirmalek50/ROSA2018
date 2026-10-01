@@ -3070,52 +3070,42 @@
 .lab-hoja-acciones .lab-abrir-aso > span:nth-child(2) { min-width: 0; flex: 1; }
 .lab-hoja-numero { flex-shrink: 0; }
 
-/* La ficha distingue refutación, controles y procedencia por su función. */
-.lab-hoja { background: #11131a; border-color: #44404f; border-radius: 20px; }
-.lab-hoja-cabecera { padding: 22px; background: #191922; }
-.lab-hoja-identidad strong { font-size: 38px; font-weight: 650; letter-spacing: -1.4px; }
-.lab-hoja .lab-hoja-titulo h3 { color: #e0dce7; font-size: 13px; }
-.lab-hoja-estado { width: fit-content; padding: 7px 10px; border: 1px solid #75618d; border-radius: 6px; background: #30253d; color: #ecddff; font-size: 13px; font-weight: 600; }
-.lab-hoja-estado[data-alerta='true'] { background: #30271c; border-color: #78603d; color: #ffce8a; }
-.lab-hoja-cuerpo { padding: 18px 14px; }
-.lab-hoja-propuesta, .lab-hoja-sistema { margin-left: 8px; margin-right: 8px; }
-.lab-hoja h4 { font-size: 14px; font-weight: 650; color: #f2edf8; }
-.lab-hoja-refutacion, .lab-hoja-controles, .lab-hoja-origen { --ficha-acento: #f2bc74; margin: 0 0 10px; padding: 0; border: 1px solid #514332; border-left: 3px solid var(--ficha-acento); border-radius: 4px 12px 12px 4px; background: #211d19; }
-.lab-hoja-controles { --ficha-acento: #99d3ef; border-color: #344b5b; border-left-color: var(--ficha-acento); background: #17212a; }
-.lab-hoja-origen { --ficha-acento: #c6b0ee; border-color: #484057; border-left-color: var(--ficha-acento); background: #211c2b; }
-.lab-hoja :is(.lab-hoja-refutacion, .lab-hoja-controles, .lab-hoja-origen) summary { display: flex; align-items: center; gap: 11px; padding: 17px 12px; list-style: none; cursor: pointer; color: var(--ficha-acento); }
+/* Ficha continua: jerarquía tipográfica y separadores, sin tarjetas internas. */
+.lab-hoja { background: #111114; border: 1px solid #39383e; border-radius: 12px; }
+.lab-hoja-cabecera { padding: 20px 22px; background: transparent; }
+.lab-hoja-identidad strong { font-size: 36px; letter-spacing: -1.2px; }
+.lab-hoja-titulo .lab-copiar { margin-left: auto; }
+.lab-hoja-cerrar { background: none; border: 0; color: #d8d5dd; font: inherit; font-size: 12px; padding: 8px 0 8px 8px; cursor: pointer; white-space: nowrap; }
+.lab-hoja-estado { font-size: 14px; font-weight: 600; color: #eeeaf3; }
+.lab-hoja-estado i { background: #b7a3ec; }
+.lab-hoja-cuerpo { padding: 8px 22px 20px; }
+.lab-hoja-refutacion, .lab-hoja-controles, .lab-hoja-origen { margin: 0; padding: 0; border: 0; border-bottom: 1px solid #333238; border-radius: 0; background: none; }
+.lab-hoja :is(.lab-hoja-refutacion, .lab-hoja-controles, .lab-hoja-origen) summary { display: flex; align-items: center; gap: 12px; padding: 20px 0; list-style: none; cursor: pointer; color: #f2eff5; }
 .lab-hoja summary::-webkit-details-marker { display: none; }
-.lab-hoja summary strong { display: block; font-size: 16px; line-height: 1.3; letter-spacing: -.3px; font-weight: 650; }
-.lab-hoja summary small { display: block; font-size: 11px; line-height: 1.5; color: #c8c3cf; margin-top: 5px; }
+.lab-hoja summary strong { display: block; font-size: 18px; line-height: 1.3; letter-spacing: -.4px; font-weight: 600; }
+.lab-hoja summary small { display: block; font-size: 11px; line-height: 1.5; color: #a8a4b0; margin-top: 6px; }
 .lab-hoja-origen summary span { margin: 0; color: inherit; font-size: inherit; }
-.lab-ficha-icono { display: grid !important; place-items: center; width: 28px; flex: 0 0 28px; font-size: 29px !important; line-height: 1; font-weight: 400; }
-.lab-ficha-desplegar { margin-left: auto !important; font-size: 20px !important; transition: transform 150ms; }
+.lab-ficha-desplegar { margin-left: auto !important; font-size: 22px !important; color: #aaa2b7 !important; transition: transform 150ms; }
 .lab-hoja details[open] .lab-ficha-desplegar { transform: rotate(45deg); }
-.lab-hoja details[open] summary { border-bottom: 1px solid #ffffff18; }
-.lab-hoja details summary:hover { background: #ffffff06; }
-.lab-hoja-refutacion > p, .lab-hoja-controles > p { margin: 0; padding: 16px; font-size: 13px; line-height: 1.75; color: #eeebf1; }
-.lab-hoja-origen > p, .lab-hoja-origen > small, .lab-hoja-origen > .lab-origen-fila { margin: 14px 16px; }
-.lab-hoja-acciones { padding: 14px; gap: 10px; background: #191922; }
-.lab-hoja-acciones .lab-abrir-aso { min-height: 76px; background: #292038; color: #eadcfc; border: 1px solid #9d7fc0; border-radius: 12px; }
-.lab-hoja-acciones .lab-abrir-aso:hover { background: #382b49; border-color: #ceadf4; }
-.lab-hoja-acciones .lab-abrir-aso strong { font-size: 15px; line-height: 1.35; }
-.lab-hoja-acciones .lab-abrir-aso small { color: #d0bddf; font-size: 11px; line-height: 1.4; }
-.lab-hoja-numero { font-size: 32px; color: #d6b3ff; border-color: #715985; }
-.lab-hoja-acciones .lab-abrir-experimento:not(.lab-abrir-aso) { min-height: 50px; background: #eee8df; color: #242027; border-color: #eee8df; border-radius: 10px; font-size: 15px; font-weight: 650; text-align: left; }
-.lab-hoja-acciones .lab-abrir-experimento:not(.lab-abrir-aso):hover { background: #fff9f0; }
+.lab-hoja summary:hover strong { color: #d6c9ef; }
+.lab-hoja-refutacion > p, .lab-hoja-controles > p { margin: 0; padding: 0 0 20px; font-size: 13px; line-height: 1.75; color: #d5d1dc; }
+.lab-hoja-origen > p, .lab-hoja-origen > small, .lab-hoja-origen > .lab-origen-fila { margin: 0 0 16px; }
+.lab-hoja-acciones { padding: 16px 22px; gap: 12px; background: #151518; }
+.lab-hoja-acciones .lab-abrir-aso { padding: 0 0 14px; border: 0; border-bottom: 1px solid #39363f; border-radius: 0; background: none; color: #e8e0f4; }
+.lab-hoja-acciones .lab-abrir-aso:hover { background: none; color: #fff; }
+.lab-hoja-acciones .lab-abrir-aso strong { font-size: 15px; }
+.lab-hoja-acciones .lab-abrir-aso small { font-size: 11px; color: #aaa3b6; }
+.lab-hoja-numero { font-size: 30px; color: #c9b9e3; border: 0; padding-right: 0; }
+.lab-hoja-acciones .lab-abrir-experimento:not(.lab-abrir-aso) { background: #e7e1ee; color: #201b29; border: 0; border-radius: 6px; min-height: 46px; font-size: 14px; font-weight: 650; }
+.lab-hoja-cerrada { display: none; }
+.lab-hoja-toggle { display: block; position: absolute; top: 16px; right: 30px; z-index: 9; min-height: 40px; padding: 9px 14px; border: 1px solid #57515f; border-radius: 6px; color: #e3dce9; background: #19171d; font: inherit; font-size: 12px; cursor: pointer; }
+.lab-hoja-toggle[aria-expanded='true'] { display: none; }
 @media (max-height: 750px) {
- .lab-hoja-cabecera { padding: 14px 18px; }
- .lab-hoja-identidad { margin-top: 9px; }
- .lab-hoja-identidad strong { font-size: 30px; }
- .lab-hoja-estado { margin-top: 9px; padding: 5px 8px; }
- .lab-hoja-acciones { padding: 10px; gap: 8px; }
- .lab-hoja-acciones .lab-abrir-aso { min-height: 66px; }
+ .lab-hoja-cabecera { padding: 12px 18px; }
+ .lab-hoja-identidad strong { font-size: 28px; }
+ .lab-hoja :is(.lab-hoja-refutacion, .lab-hoja-controles, .lab-hoja-origen) summary { padding: 13px 0; }
+ .lab-hoja summary strong { font-size: 16px; }
+ .lab-hoja summary small { display: none; }
+ .lab-hoja-acciones { padding: 12px 18px; gap: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .lab-ficha-desplegar { transition: none; } }
-@media (max-height: 750px) and (max-width: 980px) {
- .lab-hoja-cuerpo { padding: 10px 14px; }
- .lab-hoja :is(.lab-hoja-refutacion, .lab-hoja-controles, .lab-hoja-origen) summary { padding: 10px; gap: 8px; min-height: 46px; }
- .lab-hoja summary strong { font-size: 14px; }
- .lab-hoja summary small { display: none; }
- .lab-ficha-icono { width: 24px; flex-basis: 24px; font-size: 24px !important; }
-}

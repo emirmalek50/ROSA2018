@@ -1914,7 +1914,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
   const abajoRef = useRef<HTMLDivElement | null>(null);
   const [fallo, fijarFallo] = useState<string | null>(null);
   const [verExperimento, fijarVerExperimento] = useState(false);
-  const [hojaAbierta, fijarHojaAbierta] = useState(false);
+  const [hojaAbierta, fijarHojaAbierta] = useState(() => window.matchMedia?.('(min-width: 981px)').matches ?? false);
   // Se puede llegar con el panel ya abierto desde el muro (#/…/aso).
   const [verAso, fijarVerAso] = useState(abrirAso);
   // La parte abierta y sus residuos. Se guardan juntos porque los residuos se
@@ -2342,9 +2342,9 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
       {!hayPanel && <button type="button" className={`lab-hoja-toggle${nivel > 0 ? ' lab-fuera' : ''}`} aria-expanded={hojaAbierta} aria-controls="ficha-laboratorio" onClick={() => fijarHojaAbierta(!hojaAbierta)}>
         {hojaAbierta ? 'Cerrar ficha' : 'Para el laboratorio'}
       </button>}
-      <aside id="ficha-laboratorio" aria-label="Para el laboratorio" className={`lab-capa lab-hoja${nivel > 0 ? ' lab-fuera' : ''}${hojaAbierta ? ' lab-hoja-abierta' : ''}`}>
+      <aside id="ficha-laboratorio" aria-label="Para el laboratorio" className={`lab-capa lab-hoja${nivel > 0 ? ' lab-fuera' : ''}${hojaAbierta ? ' lab-hoja-abierta' : ' lab-hoja-cerrada'}`}>
         <header className="lab-hoja-cabecera">
-          <div className="lab-hoja-titulo"><h3>{hoja.sinExperimento ? 'Lo que se sabe' : 'Para el laboratorio'}</h3><Copiar texto={hojaComoTexto(diana)} que="la hoja de pedido" /></div>
+          <div className="lab-hoja-titulo"><h3>{hoja.sinExperimento ? 'Lo que se sabe' : 'Para el laboratorio'}</h3><Copiar texto={hojaComoTexto(diana)} que="la hoja de pedido" /><button type="button" className="lab-hoja-cerrar" aria-label="Cerrar panel del laboratorio" onClick={() => fijarHojaAbierta(false)}>Cerrar ×</button></div>
           <div className="lab-hoja-identidad"><strong>{diana.simbolo}</strong><span>{hoja.identificador}</span></div>
           <p className="lab-hoja-estado" data-alerta={hoja.contradiceLaIntervencion || hoja.sinExperimento}>
             <i aria-hidden="true" />{hoja.contradiceLaIntervencion ? 'Contrato por revisar' : hoja.sinExperimento ? 'Sin experimento propuesto' : 'Experimento propuesto'}
@@ -2358,10 +2358,10 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
           </div> : <>
             {hoja.queSeHace && <section className="lab-hoja-propuesta"><h4>Qué se propone</h4><p>{hoja.queSeHace}</p></section>}
             {hoja.sistema && <p className="lab-hoja-sistema"><span>Sistema experimental</span><strong>{SISTEMA[hoja.sistema] ?? hoja.sistema}</strong></p>}
-            {hoja.refuta && <details className="lab-hoja-refutacion"><summary><span className="lab-ficha-icono" aria-hidden="true">↯</span><span><strong>Qué la refutaría</strong><small>El criterio que pone a prueba la hipótesis</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary><p>{hoja.refuta}</p></details>}
-            {hoja.controles && <details className="lab-hoja-controles"><summary><span className="lab-ficha-icono" aria-hidden="true">±</span><span><strong>Controles</strong><small>Cómo distinguir el efecto de un sesgo</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary><p>{hoja.controles}</p></details>}
+            {hoja.refuta && <details className="lab-hoja-refutacion"><summary><span><strong>Qué la refutaría</strong><small>El criterio que pone a prueba la hipótesis</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary><p>{hoja.refuta}</p></details>}
+            {hoja.controles && <details className="lab-hoja-controles"><summary><span><strong>Controles</strong><small>Cómo distinguir el efecto de un sesgo</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary><p>{hoja.controles}</p></details>}
           </>}
-          <details className="lab-hoja-origen"><summary><span className="lab-ficha-icono" aria-hidden="true"><svg viewBox="0 0 24 24" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="6" cy="5" r="2.5" /><circle cx="18" cy="12" r="2.5" /><circle cx="6" cy="19" r="2.5" /><path d="M6 7.5v9M8.5 5h2a4 4 0 0 1 4 4v0a3 3 0 0 0 3 3M8.5 19h2a4 4 0 0 0 4-4" /></svg></span><span><strong>De dónde viene la evidencia</strong><small>{diana.investigaciones.length} {diana.investigaciones.length === 1 ? 'investigación' : 'investigaciones'} · {n(diana.fuentes)} fuentes</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary>
+          <details className="lab-hoja-origen"><summary><span><strong>De dónde viene la evidencia</strong><small>{diana.investigaciones.length} {diana.investigaciones.length === 1 ? 'investigación' : 'investigaciones'} · {n(diana.fuentes)} fuentes</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary>
             <p>{n(diana.hechos)} afirmaciones; {n(diana.sabidos)} sostenidas. {n(diana.fuentes)} fuentes.</p>
             {diana.investigaciones.map((inv) => <div className="lab-origen-fila" key={inv.id}><span>{inv.titulo}</span><b>{n(inv.hechos)}</b><meter min={0} max={Math.max(1, ...diana.investigaciones.map(x => x.hechos))} value={inv.hechos} aria-label={`Afirmaciones de ${inv.titulo}`} /></div>)}
             <small>Las barras comparan el número de afirmaciones por investigación, no su certeza.</small>
