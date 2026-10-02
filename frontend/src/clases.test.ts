@@ -79,3 +79,19 @@ describe('las barras pegadas no dejan ver lo de detrás', () => {
     expect(malas).toEqual([]);
   });
 });
+
+describe('los avatares que se solapan no se salen de su sitio', () => {
+  it('.mundo-fuentes aísla el apilamiento de sus avatares', () => {
+    // Los avatares de las fuentes se solapan y llevan un z-index descendente
+    // puesto en el JSX (`zIndex: FUENTES_VISIBLES - i`, ModeloDeMundo.tsx)
+    // para que el primero quede encima de los demás. Sin un contexto de
+    // apilamiento propio, esos números viven en el contexto raíz: el 3 del
+    // primer avatar le ganaba al 2 de la barra del chat y se pintaba ENCIMA
+    // de ella al pasar por debajo (Emir, tres veces, 2 de octubre de 2026).
+    const css = readFileSync(join(__dirname, 'mundo.css'), 'utf8');
+    // Al principio de linea: si no, coge «.mundo-busqueda-dato + .mundo-fuentes».
+    const bloque = /^\.mundo-fuentes\s*\{([^}]*)\}/m.exec(css)?.[1] ?? '';
+    expect(bloque, '.mundo-fuentes existe en mundo.css').not.toBe('');
+    expect(bloque).toMatch(/isolation:\s*isolate/);
+  });
+});

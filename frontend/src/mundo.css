@@ -539,6 +539,14 @@
 .mundo-fuentes {
   display: inline-flex;
   align-items: center;
+  /* Contexto de apilamiento propio. Los avatares se solapan y llevan un
+     z-index descendente puesto en el JSX (`zIndex: FUENTES_VISIBLES - i`,
+     ModeloDeMundo.tsx) para que el primero quede encima. Sin aislarlos, esos
+     numeros viven en el contexto raiz y compiten con todo: el 3 del primer
+     avatar le ganaba al 2 de la barra del chat, asi que al pasar por debajo
+     se pintaban ENCIMA de ella (Emir, tres veces, 2 de octubre de 2026).
+     Con `isolate` el orden entre ellos se mantiene y deja de salirse. */
+  isolation: isolate;
 }
 
 .mundo-fuentes::before {
