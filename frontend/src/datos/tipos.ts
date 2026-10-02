@@ -2488,11 +2488,12 @@ export interface AccionAsistente {
   nombre: string;
   argumentos: Record<string, unknown>;
   resumen: string;
-  estado: 'pendiente' | 'ejecutada' | 'no_aplicada' | 'cancelada';
+  estado: 'pendiente' | 'en_curso' | 'resultado_desconocido' | 'ejecutada' | 'no_aplicada' | 'cancelada';
   resultado?: unknown;
 }
 
 export interface PreguntaABases {
+  descargas?: { url: string; nombre: string; tipo?: string; bytes?: number }[];
   acciones?: AccionAsistente[];
   id: string;
   fecha: number;

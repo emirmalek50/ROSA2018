@@ -687,7 +687,7 @@ def registrar_pregunta_bases(e: Estado, investigacion_id: str, pregunta: dict, a
     inv = _buscar(e["investigaciones"], investigacion_id)
     if not inv or not isinstance(pregunta, dict) or not pregunta.get("pregunta"):
         return False
-    inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}, **{k: pregunta[k] for k in ("cobertura", "atribucion", "duracionMs", "acciones") if pregunta.get(k) is not None}, **({"pasos": _pasos_de_razonamiento(pregunta["pasos"])} if isinstance(pregunta.get("pasos"), list) else {}), **({"hilo": str(pregunta["hilo"])[:40]} if pregunta.get("hilo") else {})})
+    inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}, **{k: pregunta[k] for k in ("cobertura", "atribucion", "duracionMs", "acciones", "descargas") if pregunta.get(k) is not None}, **({"pasos": _pasos_de_razonamiento(pregunta["pasos"])} if isinstance(pregunta.get("pasos"), list) else {}), **({"hilo": str(pregunta["hilo"])[:40]} if pregunta.get("hilo") else {})})
     return True
 
 
@@ -2200,9 +2200,9 @@ def resolver_accion_asistente(e: Estado, investigacion_id: str, pregunta_id: str
 
 
 def crear_investigacion_e_iniciar(e: Estado, datos: dict, quien: str, ahora: int, limite: int | None = None, parada: dict | None = None) -> dict | bool:
-    """Crea una investigación y su primera corrida. datos exige titulo, objetivo
-    y condicionParada. La corrida espera su plan y conserva su aprobación.
-    limite es exclusivamente el presupuesto de llamadas al modelo, NO el número
+    """Crea una investigación y su primera corrida. `datos` exige `titulo`, `objetivo`
+    y `condicionParada`. La corrida espera su plan y conserva su aprobación.
+    `limite` es exclusivamente el presupuesto de llamadas al modelo, NO el número
     de iteraciones. Omitirlo si la persona no pidió un presupuesto de llamadas.
     parada admite iteraciones, horas, llamadas o texto.
     Devuelve los identificadores reales de la investigación y la corrida.

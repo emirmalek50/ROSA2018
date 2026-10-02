@@ -2693,3 +2693,15 @@
 .mundo-operacion dt { font-size: 12px; font-weight: 600; margin-top: 10px; }
 .mundo-operacion dd { margin: 4px 0 0 12px; overflow-wrap: anywhere; }
 .mundo-operacion p { font-size: 13px; }
+
+/* Adjuntos del asistente: misma superficie y contraste que el compositor. */
+.mundo-adjuntos { padding: 0 14px 8px; }
+.mundo-adjuntos fieldset { display: grid; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 10px; min-width: 0; }
+.mundo-adjuntos label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; }
+.mundo-adjuntos select, .mundo-adjuntos input[type="file"] { max-width: 100%; min-width: 0; font: inherit; color: inherit; }
+.mundo-adjuntos select { background: var(--surface); border: 1px solid var(--border); padding: 6px; border-radius: 6px; }
+.mundo-adjuntos p, .mundo-adjuntos legend { font-size: 12px; line-height: 1.5; }
+
+.mundo-adjuntos, .mundo-adjuntos fieldset > * { min-width: 0; overflow-wrap: anywhere; }
+.mundo-adjuntos select { width: 100%; }
+.mundo-adjuntos input[type="file"] { width: 100%; }

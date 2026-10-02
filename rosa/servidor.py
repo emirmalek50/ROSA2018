@@ -1067,6 +1067,25 @@ def crear_app(almacen: Almacen) -> FastAPI:
             }, actor=request.state.usuario or "servidor")
         except (TypeError, ValueError, KeyError, AttributeError, OverflowError, IndexError) as ex:
             raise HTTPException(400, f"No se pudo aplicar la operación: {str(ex)[:200]}") from None
+        if r.get("estado") == "en_curso" and not r.get("repetida"):
+            from rosa import asistente_servicios as SV
+
+            try:
+                salida = await SV.Servicios(app, request, es_admin(request.state.usuario)).ejecutar(r["nombre"], r["argumentos"])
+            except Exception as ex:  # noqa: BLE001
+                # No se repite automáticamente una petición cuyo resultado es incierto.
+                salida = {"ok": False, "incierto": True, "error": f"No se pudo comprobar el resultado ({type(ex).__name__}). Comprueba el estado antes de repetir."}
+            datos = salida.get("datos", salida)
+            ok = salida.get("ok") is True and (not isinstance(datos, dict) or datos.get("ok") is not False)
+
+            def finalizar(e):
+                inv = next(i for i in e["investigaciones"] if i["id"] == investigacion_id)
+                q = next(q for q in inv["preguntasABases"] if q["id"] == pregunta_id)
+                op = next(o for o in q["acciones"] if o["id"] == operacion_id)
+                op.update(estado="resultado_desconocido" if salida.get("incierto") else "ejecutada" if ok else "no_aplicada", resultado=datos, resueltaEn=P.ahora_ms())
+                return {"ok": ok, "estado": op["estado"], "resultado": datos}
+
+            r = await asyncio.to_thread(almacen.mutar, finalizar, nombre="resultadoServicioAsistente", args={"operacionId": operacion_id}, actor=request.state.usuario or "servidor")
         if r.get("ok") and not r.get("repetida") and r.get("nombre") == "asignarExperimento":
             t = asyncio.create_task(_sellar_prerregistro(r["argumentos"]["hipotesis_id"]))
             _sellos_en_vuelo.add(t)
@@ -1126,7 +1145,17 @@ def crear_app(almacen: Almacen) -> FastAPI:
                     from rosa import asistente as AS
 
                     consultar = AS.preguntar if cuerpo.get("asistente") is True else H.preguntar
-                    r = await asyncio.wait_for(consultar(modelos_.cerebro, almacen.estado, investigacion_id, pregunta[:2000], f"Objetivo: {inv['objetivo']}. {_texto_mision(inv)}{contexto_hilo}", almacen=almacen), timeout=600)
+                    from rosa import asistente_servicios as SV
+
+                    servicios = SV.Servicios(app, request, es_admin(request.state.usuario))
+                    vista = cuerpo.get("vista")
+                    if isinstance(vista, dict) and len(json.dumps(vista)) <= 4000:
+                        servicios.vista = {k: vista[k] for k in ("pantalla", "vista", "filtro", "seleccion", "investigacionId") if k in vista}
+                    token_servicios = SV.CONTEXTO.set(servicios)
+                    try:
+                        r = await asyncio.wait_for(consultar(modelos_.cerebro, almacen.estado, investigacion_id, pregunta[:2000], f"Objetivo: {inv['objetivo']}. {_texto_mision(inv)}{contexto_hilo}", almacen=almacen), timeout=600)
+                    finally:
+                        SV.CONTEXTO.reset(token_servicios)
                     r["pregunta"], r["quien"], r["error"] = pregunta[:2000], quien, None
             except Exception as ex:  # noqa: BLE001
                 print(f"preguntar con herramientas fallo: {type(ex).__name__}: {str(ex)[:300]}", file=sys.stderr)

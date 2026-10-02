@@ -2,7 +2,8 @@
 
 El modelo prepara acciones; solo la sesión que las pidió puede ejecutarlas.
 La confirmación usa los mismos reducers y la misma transacción del almacén.
-Nunca se ofrece acceso a ficheros, credenciales ni claves privadas del estado.
+Los servicios recuperan evidencia y archivos mediante sus rutas autorizadas;
+las credenciales nunca entran en el contexto del modelo.
 """
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ import dspy
 
 from rosa import herramientas as H
 from rosa import killer as K
+from rosa import asistente_servicios as SV
 from rosa.estado import plantilla as P
 
 # Estas operaciones pertenecen a endpoints con efectos adicionales o al servidor.
@@ -45,7 +47,18 @@ class ConversarConRosa(H.PreguntarConHerramientas):
     Para ver cuánta información hay sobre una proteína usa primero
     panorama_del_tema: reúne las categorías en una sola consulta.
 
-    Para actuar, consulta catalogo_acciones y prepara_accion. Esas herramientas
+    Para laboratorio, citas originales, validación experimental, informes,
+    costes, fallos de corridas, búsqueda semántica global, políticas, conectores,
+    exportaciones y administración usa catalogo_servicios y consultar_servicio.
+    Son los mismos servicios que usa la interfaz, con los permisos de la sesión.
+    Consulta el catálogo antes de declarar que no tienes acceso. Para métodos
+    científicos consulta skills y leer_skill; no confundas un método con evidencia.
+    Los resultados largos se paginan con desde o se seleccionan con camino.
+    Usa enlaces de descarga devueltos por las herramientas, no los inventes.
+    El botón Adjuntar datos permite cargar datasets y resultados experimentales;
+    sus filas no se envían al modelo sin la autorización de procedencia de ROSA.
+
+    Para actuar, consulta catalogo_acciones y preparar_accion. Esas herramientas
     preparan una operación pendiente: NO la ejecutan. Explica qué se cambiará
     y que el botón de la conversación la ejecuta. Nunca digas que arrancaste,
     aprobaste o terminaste algo sin un resultado ejecutado. No prepares cambios
@@ -79,16 +92,19 @@ def descripcion_accion(nombre: str) -> dict:
     return {"nombre": nombre, "descripcion": inspect.getdoc(fn) or re.sub(r"([A-Z])", r" \1", nombre).lower(),
             "argumentos": {k: {"tipo": str(v.annotation), "obligatorio": v.default is inspect.Parameter.empty, "descripcion": "Presupuesto de llamadas al modelo. Omitir si no se pidió. No son iteraciones." if k == "limite" else "iteraciones, horas, llamadas o texto; cada unidad en su clave" if k == "parada" else ""}
                            for k, v in parametros.items() if k not in {"e", "ahora", "quien", "id_"}},
-            "nota": "crearInvestigacion requiere datos con titulo, objetivo, condicionParada; limites es una lista. No inicia la corrida." if nombre == "crearInvestigacion" else "Se aplican las reglas actuales de ROSA al confirmar."}
+            "nota": "`crearInvestigacion` requiere `datos` con `titulo`, `objetivo`, `condicionParada`; `limites` es una lista. No inicia la corrida." if nombre == "crearInvestigacion" else "Se aplican las reglas actuales de ROSA al confirmar."}
 
 
 def validar_accion(nombre: str, argumentos: dict) -> None:
-    if nombre not in disponibles():
-        raise ValueError("Esta operación no está disponible en el asistente")
     if not isinstance(argumentos, dict):
         raise ValueError("Los argumentos deben ser un objeto")
     if len(json.dumps(argumentos, ensure_ascii=False, allow_nan=False)) > 24000:
         raise ValueError("La operación es demasiado grande; divídela en cambios concretos")
+    if nombre.startswith("servicio:"):
+        SV.validar_operacion(nombre, argumentos)
+        return
+    if nombre not in disponibles():
+        raise ValueError("Esta operación no está disponible en el asistente")
     if any(k in argumentos for k in ("e", "ahora", "quien", "id_")):
         raise ValueError("La autoría, los identificadores nuevos y la fecha los pone ROSA")
     if nombre in {"crearInvestigacion", "crearInvestigacionEIniciar"}:
@@ -156,6 +172,9 @@ def resolver_accion(e: dict, investigacion_id: str, pregunta_id: str, operacion_
     if op.get("_huella") and huella(contexto_operacion(e, nombre, args)) != op["_huella"]:
         op.update(estado="no_aplicada", resueltaEn=ahora, resultado="El objeto cambió desde la propuesta. Pide a ROSA que prepare el cambio de nuevo.")
         return {"ok": False, "estado": "no_aplicada", "resultado": op["resultado"]}
+    if nombre.startswith("servicio:"):
+        op.update(estado="en_curso", iniciadaEn=ahora)
+        return {"ok": True, "estado": "en_curso", "nombre": nombre, "argumentos": args}
     fn, con_ahora = disponibles()[nombre]
     if con_ahora:
         args["ahora"] = ahora
@@ -190,7 +209,7 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
 
     def consultar_arbol(investigacion: str = "", desde: int = 0, tipo: str = "") -> str:
         """Recuento real del Árbol de una investigación: nodos, enlaces,
-        desglose por tipo y nodos desplegados inicialmente. Sin investigacion
+        desglose por tipo y nodos desplegados inicialmente. Sin `investigacion`
         usa la abierta. No confundir con la tabla relaciones del proyecto.
         Incluye páginas de 25 nodos; desde es un desplazamiento. tipo filtra
         los nodos listados, pero no altera los totales del árbol completo.
@@ -253,7 +272,7 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
     def consultar_proyecto(tabla: str, consulta: str = "", investigacion: str = "", desde: int = 0) -> str:
         """Lista o busca TODAS las investigaciones, hechos, hipótesis, corridas,
         artefactos, decisiones, cuestiones y eventos. consulta vacía cuenta todo.
-        investigacion vacía busca globalmente. Devuelve total exacto y páginas de
+        `investigacion` vacía busca globalmente. Devuelve total exacto y páginas de
         15 registros; desde es el desplazamiento, no un número de página.
         """
         colecciones = tablas(estado())
@@ -288,9 +307,12 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
         """Sin nombre lista las acciones disponibles. Con nombre devuelve los
         argumentos exactos y las reglas para prepararla. No ejecuta cambios.
         """
+        if nombre.startswith("servicio:"):
+            servicio = SV.CONTEXTO.get()
+            return json.dumps(servicio.catalogo(nombre) if servicio else {"error": "Sesión de servicios no disponible"}, ensure_ascii=False)
         if nombre:
             return K.como_dato(json.dumps(descripcion_accion(nombre), ensure_ascii=False)) if nombre in disponibles() else "Acción desconocida"
-        return json.dumps({"acciones": list(disponibles()), "confirmacion": "Las acciones preparadas se ejecutan con el botón de la conversación. Para archivos, cuentas y proveedor usa sus pantallas; no se manipulan credenciales aquí."}, ensure_ascii=False)
+        return json.dumps({"acciones": list(disponibles()), "confirmacion": "Las acciones preparadas se ejecutan con el botón de la conversación. catalogo_servicios añade servicios, archivos y administración según tus permisos."}, ensure_ascii=False)
 
     def preparar_accion(nombre: str, argumentos: dict[str, Any], resumen: str) -> str:
         """Prepara una acción solicitada por la persona, sin ejecutarla.
@@ -298,6 +320,10 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
         La persona verá los argumentos y confirmará desde la conversación.
         """
         validar_accion(nombre, argumentos)
+        if nombre.startswith("servicio:"):
+            servicio = SV.CONTEXTO.get()
+            if servicio is None or "error" in servicio.catalogo(nombre):
+                raise ValueError("Servicio no disponible para esta sesión")
         for op in acciones:
             if op["nombre"] == nombre and op["argumentos"] == argumentos:
                 return json.dumps(op, ensure_ascii=False)
@@ -323,7 +349,11 @@ async def preguntar(lm: Any, estado: dict, investigacion_id: str, pregunta: str,
     # El estado público impide filtrar claves privadas por el buscador legado.
     publico = almacen.instantanea()
     tools = H.herramientas(publico, investigacion_id, registro, almacen=almacen) + herramientas(almacen, investigacion_id, acciones)
-    agente = dspy.ReAct(ConversarConRosa, tools=tools, max_iters=16)
+    tools += SV.herramientas_locales(almacen)
+    servicios = SV.CONTEXTO.get()
+    if servicios is not None:
+        tools += servicios.herramientas()
+    agente = dspy.ReAct(ConversarConRosa, tools=tools, max_iters=24)
     with dspy.context(lm=lm):
         pred = await agente.acall(pregunta=pregunta, contexto=f"Investigación abierta: {investigacion_id}.\n{contexto}")
     traj = getattr(pred, "trajectory", {}) or {}
@@ -334,4 +364,4 @@ async def preguntar(lm: Any, estado: dict, investigacion_id: str, pregunta: str,
     return {"respuesta": respuesta, "limites": limpio(pred.limites), "cobertura": H.leer_cobertura(str(getattr(pred, "cobertura", "") or "")),
             "atribucion": H.atribucion(respuesta, devuelto), "duracionMs": int((time.monotonic()-inicio)*1000),
             "herramientas": [v for k, v in traj.items() if k.startswith("tool_name_") and v != "finish"],
-            "consultas": registro, "iteraciones": sum(k.startswith("tool_name_") for k in traj), "acciones": acciones}
+            "descargas": servicios.descargas if servicios else [], "consultas": registro, "iteraciones": sum(k.startswith("tool_name_") for k in traj), "acciones": acciones}

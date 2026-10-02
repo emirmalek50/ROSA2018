@@ -19,6 +19,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { acciones } from "../datos/almacen";
+import { AdjuntosAsistente } from "../componentes/AdjuntosAsistente";
 import { AccionesAsistente } from "../componentes/AccionesAsistente";
 import {
   preguntarAlModeloDeMundo,
@@ -582,7 +583,7 @@ function CuerpoMundo({
     setPasosEnVivo([]);
     setPendiente({ hilo: h, pregunta, desde: fecha, listo: false, seguimiento });
     void envolver(async () => {
-      const error = await acciones.preguntarALasBases(inv.id, pregunta, h, seguimiento);
+      const error = await acciones.preguntarALasBases(inv.id, pregunta, h, seguimiento, { pantalla: "modelo_de_mundo", vista, filtro, seleccion, investigacionId: inv.id });
       if (error) {
         setPendiente((p) => (p && p.desde === fecha ? null : p));
         setErrores((es) => [
@@ -970,6 +971,7 @@ function Conversar(p: PropsConversar) {
 }
 
 function Compositor({
+  inv,
   texto,
   setTexto,
   modo,
@@ -1025,6 +1027,7 @@ function Compositor({
           }
         }}
       />
+      {modo === "bases" && <AdjuntosAsistente investigacionId={inv.id} alSubir={setTexto} disabled={pendiente !== null} />}
       <div className="mundo-compositor-pie">
         {/* La cara junto a la caja: escucha mientras escribes y piensa
             mientras busca. Es lo que hace que se sienta que hay alguien al
@@ -1638,6 +1641,7 @@ function TurnoGuardado({
         ) : (
           <>
             <TextoRico bloques={bloques} c={c} />
+            {!!q.descargas?.length && <div className="mundo-respuesta-acciones">{q.descargas.filter(d => /^\/api\/(hipotesis|artefactos|documentos|corridas)\//.test(d.url) && !d.url.includes('..') && !/[?#]/.test(d.url)).map(d => <a key={d.url} className="mundo-accion" href={acciones.descargaAsistente(d.url)} target="_blank" rel="noreferrer">{tr('Descargar')}: {d.nombre}</a>)}</div>}
             {!!q.acciones?.length && <AccionesAsistente investigacionId={investigacionId} preguntaId={q.id} operaciones={q.acciones} />}
             <HechosCitados hechos={citados} abrirHecho={abrirHecho} />
             {cobertura.length > 0 && <CoberturaPregunta partes={cobertura} />}

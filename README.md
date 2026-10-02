@@ -999,8 +999,8 @@ solo la abierta. Comparte los conectores permitidos de `rosa/herramientas.py` y
 puede contar registros, buscar proteínas y leer hechos, citas, hipótesis,
 corridas, planes, fuentes, datasets, memoria y el estado público del programa.
 Las búsquedas devuelven el total y páginas explícitas; no confunden una página
-parcial con todos los resultados. No se exponen claves privadas ni ficheros del
-servidor.
+parcial con todos los resultados. Los servicios especializados recuperan la
+evidencia y los archivos del proyecto sin exponer credenciales ni rutas libres.
 
 Para operar el proyecto, ROSA consulta el catálogo de acciones de la interfaz y
 prepara un cambio con sus argumentos. La conversación muestra el cambio y los
@@ -1015,5 +1015,30 @@ Ejemplos: «¿Qué hechos tiene ROSA sobre MAPT en todas las investigaciones?»,
 esta hipótesis». Para crear y arrancar una investigación nueva hace falta su
 título, objetivo y condición de parada. Crear una corrida conserva las puertas
 de aprobación del plan, de la evidencia y de los permisos; el asistente no las
-salta. Archivos, cuentas, correo y credenciales conservan sus pantallas y
-endpoints específicos, en lugar de dar al modelo acceso al sistema operativo.
+salta.
+
+`rosa/asistente_servicios.py` conecta la conversación con las mismas rutas que
+usan las pantallas: laboratorio global, oligonucleótidos, contratos experimentales,
+citas con página exacta, evidencia, PRISMA, costes, llamadas y errores, ruta
+terapéutica, mapa, cifras de aprendizaje, integridad, acuerdo, búsqueda semántica
+global, políticas, conectores, salud y sincronización. También puede leer las
+skills y la documentación del sistema. Los resultados largos tienen paginación
+y selección de campos; las páginas de un resultado comparten una instantánea
+durante el turno. Una ruta nueva requiere clasificación explícita en el catálogo.
+
+La sesión se conserva al consultar cada servicio; el asistente no obtiene una
+credencial privilegiada. GEPA, gestión de cuentas, configuración de correo sin
+claves, avisos, prueba de correo, sellado y reanclaje se proponen con confirmación.
+Los permisos se comprueban de nuevo al ejecutar. Los servicios con efectos externos
+se marcan `en_curso` antes de llamarlos: un doble clic no repite el efecto. Si se
+interrumpe el servidor entre el efecto y su registro, quedan en ese estado y hay
+que comprobar el resultado antes de preparar otra operación. No se promete una
+transacción atómica entre SQLite y un proveedor externo.
+
+El chat permite adjuntar datasets o resultados experimentales mediante los mismos
+endpoints de carga y procedencia. Las descargas de PDF y RO-Crate aparecen como
+enlaces. `leer_dataset` solo lee contenido si el libro autoriza modelos de
+terceros; de lo contrario entrega metadatos. Contraseñas y claves se introducen
+exclusivamente en sus formularios de Ajustes. La pantalla del modelo de mundo
+transmite su vista, filtros y selección como contexto, nunca como autorización;
+no transmite la cámara ni los filtros de otras pestañas.

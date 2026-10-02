@@ -41,8 +41,8 @@ export function AccionesAsistente({ investigacionId, preguntaId, operaciones }: 
         {estado === 'pendiente' ? <div className="mundo-respuesta-acciones">
           <button type="button" className="mundo-accion" disabled={!!ocupada} onClick={() => void resolver(op, true)}>{tr(ocupada === op.id ? 'Aplicando…' : 'Aplicar cambio')}</button>
           <button type="button" className="mundo-accion" disabled={!!ocupada} onClick={() => void resolver(op, false)}>{tr('Cancelar')}</button>
-        </div> : <p role="status">{tr(estado === 'ejecutada' ? 'Cambio aplicado en ROSA.' : estado === 'cancelada' ? 'Operación cancelada.' : 'No se aplicó: el estado actual o las reglas de ROSA no lo permiten.')}</p>}
-        {(local?.resultado ?? op.resultado) !== undefined && (estado === 'ejecutada' || estado === 'no_aplicada') && <details><summary>{tr('Resultado registrado')}</summary><Detalle valor={local?.resultado ?? op.resultado} /></details>}
+        </div> : <p role="status">{tr(estado === 'ejecutada' ? 'Cambio aplicado en ROSA.' : estado === 'cancelada' ? 'Operación cancelada.' : estado === 'resultado_desconocido' ? 'No se pudo comprobar el resultado. Consulta el estado de ROSA antes de repetir la operación.' : estado === 'en_curso' ? 'Operación iniciada. Si se interrumpe la conexión, comprueba su resultado antes de repetirla.' : 'No se aplicó: el estado actual o las reglas de ROSA no lo permiten.')}</p>}
+        {(local?.resultado ?? op.resultado) !== undefined && (estado === 'ejecutada' || estado === 'no_aplicada' || estado === 'resultado_desconocido') && <details><summary>{tr('Resultado registrado')}</summary><Detalle valor={local?.resultado ?? op.resultado} /></details>}
         {local?.error && <p role="alert">{local.error}</p>}
       </div>;
     })}

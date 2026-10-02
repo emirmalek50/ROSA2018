@@ -1,0 +1,34 @@
+// @vitest-environment jsdom
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import { expect, it, vi } from 'vitest';
+import { AdjuntosAsistente } from './AdjuntosAsistente';
+const subirDataset = vi.fn();
+const subirDatosExperimento = vi.fn();
+vi.mock('../datos/almacen', () => ({ acciones: { subirDataset: (...args: unknown[]) => subirDataset(...args), subirDatosExperimento: (...args: unknown[]) => subirDatosExperimento(...args) }, useRosa: () => ({ hipotesis: [{ id: 'h-1', investigacionId: 'inv-1', titulo: 'MAPT', experimento: {} }, { id: 'h-otra', investigacionId: 'otra', titulo: 'Otra', experimento: {} }] }) }));
+it.each(['dataset', 'h-1'])('adjunta %s solo al guardar y conserva la marca sintética', async destino => {
+  (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  subirDataset.mockReset().mockResolvedValue(null);
+  subirDatosExperimento.mockReset().mockResolvedValue(null);
+  const nodo = document.createElement('div');
+  const root = createRoot(nodo);
+  const alSubir = vi.fn();
+  await act(async () => root.render(<AdjuntosAsistente investigacionId="inv-1" alSubir={alSubir} />));
+  await act(async () => nodo.querySelector('button')!.click());
+  expect(nodo.querySelector('option[value="h-otra"]')).toBeNull();
+  const fichero = new File(['grupo,valor\nA,1'], 'prueba.csv');
+  const entrada = nodo.querySelector('input[type="file"]')!;
+  Object.defineProperty(entrada, 'files', { value: [fichero] });
+  await act(async () => entrada.dispatchEvent(new Event('change', { bubbles: true })));
+  await act(async () => (nodo.querySelector('input[type="checkbox"]') as HTMLInputElement).click());
+  const selector = nodo.querySelector('select')!;
+  await act(async () => { selector.value = destino; selector.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(subirDataset).not.toHaveBeenCalled();
+  expect(subirDatosExperimento).not.toHaveBeenCalled();
+  await act(async () => (nodo.querySelector('fieldset button') as HTMLButtonElement).click());
+  if (destino === 'dataset') expect(subirDataset).toHaveBeenCalledWith('inv-1', fichero, 'prueba.csv', '', true);
+  else expect(subirDatosExperimento).toHaveBeenCalledWith('h-1', fichero, '', true);
+  expect(alSubir).toHaveBeenCalledWith(expect.stringContaining('prueba.csv'));
+  expect(nodo.textContent).toContain('Archivo guardado');
+  await act(async () => root.unmount());
+});
