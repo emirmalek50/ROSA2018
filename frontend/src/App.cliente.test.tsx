@@ -127,7 +127,7 @@ describe('la aplicacion montada en el cliente', () => {
     localStorage.setItem('rosa.recorrido.v1', '1');
     const e = estadoDeMuestra();
     const inv = e.investigaciones[0]!;
-    for (const pantalla of ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'artefactos', 'calidad', 'investigacion'] as const) {
+    for (const pantalla of ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'artefactos', 'investigacion'] as const) {
       const raiz = await montar(rutaDe(inv.id, pantalla));
       expect(raiz.querySelector('.hilo'), pantalla).toBeTruthy();
       expect(raiz.querySelectorAll('.hilo-etapa').length, pantalla).toBe(7);

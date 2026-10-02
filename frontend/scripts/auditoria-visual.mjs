@@ -34,7 +34,7 @@ const inv = estado.investigaciones[0]?.id;
 const hip = estado.hipotesis.find((h) => h.investigacionId === inv)?.id;
 const rutas = ['#/', '#/nueva', '#/ajustes'];
 if (inv) {
-  for (const p of ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'artefactos', 'calidad', 'investigacion']) rutas.push(`#/investigaciones/${inv}/${p}`);
+  for (const p of ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'artefactos', 'investigacion']) rutas.push(`#/investigaciones/${inv}/${p}`);
   rutas.push(`#/investigaciones/${inv}/hipotesis/laboratorio`);
   if (hip) rutas.push(`#/investigaciones/${inv}/hipotesis/${hip}`);
 }

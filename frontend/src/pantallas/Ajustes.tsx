@@ -9,6 +9,7 @@ import { acciones } from '../datos/almacen';
 import { sugerenciasDeAutonomia } from '../datos/acciones';
 import type { ClaseAccion, EstadoRosa, NivelAutonomia, PoliticaEsperas } from '../datos/tipos';
 import { IconTrash, IconUser, IconGauge, IconBulb, IconMessage, IconGlobe, IconShieldCheck, IconCheck, IconSettings } from '../componentes/icons';
+import { CasosDeControl } from '../componentes/CasosDeControl';
 import { Chip, Confirmar, Momento, Seccion } from '../componentes/piezas';
 import { Conectores, EspejoConvex, IntegridadRegistro, NivelDeAutonomia, Politicas, RegistroAprendizaje, RegistroMetodos, Skills } from '../componentes/Rosa2018';
 import { digest, digestComoTexto } from '../lib/digest';
@@ -320,6 +321,11 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
             </Seccion>
 
             <RegistroAprendizaje estado={estado} ahora={ahora} />
+
+            {/* Los 17 casos de control. Estaban en la pantalla de Calidad,
+                que se retiró el 2 de octubre de 2026; son un criterio de
+                investigación, que es de lo que va esta pestaña. */}
+            <CasosDeControl casos={estado.casos} />
           </div>
           <div className="ajustes-panel" role="tabpanel" id="ajuste-panel-avisos" aria-labelledby="ajuste-tab-avisos" hidden={categoria !== 'avisos'} tabIndex={0}>
             <Seccion titulo={tr("Avisos")} nota={tr("El bucle trabaja cuando nadie mira. Estos ajustes son de tu cuenta; el correo lleva contadores y un enlace, sin datos sensibles.")}>

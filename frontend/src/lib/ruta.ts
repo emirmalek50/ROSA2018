@@ -11,9 +11,9 @@
 //   #/laboratorio
 //   #/ajustes
 
-export type Pantalla = 'corrida' | 'hipotesis' | 'ranking' | 'panorama' | 'mundo' | 'arbol' | 'atlas' | 'mecanismos' | 'citas' | 'artefactos' | 'calidad' | 'investigacion';
+export type Pantalla = 'corrida' | 'hipotesis' | 'ranking' | 'panorama' | 'mundo' | 'arbol' | 'atlas' | 'mecanismos' | 'citas' | 'artefactos' | 'investigacion';
 
-export const PANTALLAS: Pantalla[] = ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'atlas', 'mecanismos', 'citas', 'artefactos', 'calidad', 'investigacion'];
+export const PANTALLAS: Pantalla[] = ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'atlas', 'mecanismos', 'citas', 'artefactos', 'investigacion'];
 
 export type Ruta =
   | { tipo: 'inicio' }
@@ -66,6 +66,11 @@ export function parsearRuta(hash: string): Ruta {
     if (partes[2] === 'hipotesis' && (partes[3] === undefined || partes[3] === 'laboratorio')) {
       return { tipo: 'investigacion', investigacionId: partes[1], pantalla: 'ranking', detalleId: partes[3] ?? 'pendientes' };
     }
+    // Calidad se retiró el 2 de octubre de 2026 (Emir: «no sirve para nada y
+    // dudo que alguien lo use»). Lo único que no era de solo lectura, los 17
+    // casos de control, está en Ajustes > Memoria y criterio; un enlace
+    // guardado lleva allí.
+    if (partes[2] === 'calidad') return { tipo: 'ajustes' };
     const pantalla = partes[2] === 'desbloqueo' ? 'ranking' : (partes[2] ?? 'corrida');
     if (!esPantalla(pantalla)) return { tipo: 'inicio' };
     return {

@@ -24,7 +24,7 @@ const inv = await p.evaluate(() => {
   return m ? m[1] : null;
 });
 const rutas = RUTAS ?? ['/', '/ajustes', '/laboratorio',
-  ...['corrida', 'ranking', 'ranking/pendientes', 'ranking/lista', 'ranking/laboratorio', 'panorama', 'mundo', 'arbol', 'atlas', 'mecanismos', 'citas', 'artefactos', 'calidad', 'investigacion'].map((x) => `/investigaciones/${inv}/${x}`)];
+  ...['corrida', 'ranking', 'ranking/pendientes', 'ranking/lista', 'ranking/laboratorio', 'panorama', 'mundo', 'arbol', 'atlas', 'mecanismos', 'citas', 'artefactos', 'investigacion'].map((x) => `/investigaciones/${inv}/${x}`)];
 
 const cuenta = new Map();
 const porRuta = new Map();

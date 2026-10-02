@@ -1,5 +1,11 @@
 /** Décimo lote: los párrafos de ayuda más largos. Cierran el frontend. */
 export const FRASES7: Record<string, string> = {
+  // Los casos de control, que pasaron de la pantalla de Calidad (retirada el
+  // 2 de octubre de 2026) a Ajustes > Memoria y criterio.
+  'aprobados por una persona': 'approved by a person',
+  'Los 17 los propuso el RAG sobre otro corpus y ninguno está aprobado. Sirven para probar el ciclo; los del dominio del Alzheimer hay que escribirlos con el compañero. El juez se calibra con los aprobados: con cero, las métricas de acuerdo no significan nada.':
+    'The RAG proposed all 17 over a different corpus and none is approved. They serve to test the cycle; the Alzheimer domain ones have to be written with your colleague. The judge is calibrated with the approved ones: with zero, the agreement metrics mean nothing.',
+
   'Cuánto debe durar esta corrida como mucho. Se detiene con lo que llegue primero. Deja todo vacío para que solo mande la condición de la investigación: «': 'How long this run should last at most. It stops with whichever comes first. Leave it all empty so only the investigation’s own condition applies: «',
   'Cada lectura del contrato contrastada por regla con la cifra que la nombra en el resultado. "No evaluable" quiere decir que ninguna cifra la nombró: no pude comprobar, no que fallara.': 'Each readout in the contract checked by rule against the figure that names it in the result. "Not assessable" means no figure named it: could not check, not that it failed.',
   'Lo propuso la meta-campaña al terminar una corrida, leyendo cómo rindió. Un criterio se evalúa solo contra las decisiones humanas y se revierte si empeora; una política la decides tú.': 'The meta-campaign proposed it at the end of a run, reading how it performed. A criterion is evaluated only against human decisions and is reverted if it makes things worse; a policy is yours to decide.',

@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 const BASE = 'http://127.0.0.1:8765';
 const token = readFileSync('/Users/emirmalek/traspaso-alzheimer-agente/datos/_token_interno', 'utf8').trim();
 const cab = { 'x-rosa-interno': token, 'Content-Type': 'application/json', 'X-Rosa': '1' };
-const PANTALLAS = ['corrida', 'ranking', 'ranking/pendientes', 'ranking/lista', 'ranking/laboratorio', 'panorama', 'mundo', 'arbol', 'atlas', 'mecanismos', 'citas', 'artefactos', 'calidad', 'investigacion'];
+const PANTALLAS = ['corrida', 'ranking', 'ranking/pendientes', 'ranking/lista', 'ranking/laboratorio', 'panorama', 'mundo', 'arbol', 'atlas', 'mecanismos', 'citas', 'artefactos', 'investigacion'];
 
 const estado = await (await fetch(`${BASE}/api/estado`, { headers: cab })).json();
 const invs = process.argv[2] ? [process.argv[2]] : estado.investigaciones.map((i) => i.id);

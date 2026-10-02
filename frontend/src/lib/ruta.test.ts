@@ -70,6 +70,13 @@ describe('pantallas retiradas', () => {
     expect(parsearRuta('#/investigaciones/inv-1/hipotesis/hip-3')).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'hipotesis', detalleId: 'hip-3' });
   });
 
+  it('un enlace guardado a Calidad lleva a Ajustes, que es donde están los casos', () => {
+    // Calidad se retiró el 2 de octubre de 2026 (Emir: «no sirve para nada y
+    // dudo que alguien lo use»). Lo único que no era de solo lectura, los 17
+    // casos de control, está en Ajustes > Memoria y criterio.
+    expect(parsearRuta('#/investigaciones/inv-1/calidad')).toEqual({ tipo: 'ajustes' });
+  });
+
   it('una hipótesis que se llamara como una vista seguiría abriendo su ficha', () => {
     // El centinela va en la misma ranura que el id, así que conviene saber
     // qué gana. Solo «laboratorio» está reservado, porque es el único que ya

@@ -1787,3 +1787,31 @@ Queda abierto, y es lo importante: **nadie ha revisado las traducciones del
 modelo**. Son contenido cientifico; una mala traduccion de una conclusion es
 un error, no una errata. Y las 10 cadenas de la funcion del asistente, que
 otro agente estaba escribiendo.
+
+### Fuera la pantalla de Calidad (2 de octubre de 2026)
+
+Emir: «el apartado de quality no sirve para nada y dudo que alguien lo use».
+Mirado antes de borrar, tenía razón en lo esencial: de sus nueve secciones,
+ocho eran de solo lectura (métricas del juez, kappa del conjunto dorado,
+acierto por tipo de afirmación, acuerdo según el tamaño del modelo de mundo,
+carga de revisión, calibración del revisor, agujeros de conejo,
+optimizaciones de GEPA) y el etiquetado del conjunto dorado ya vive en la
+ficha de la hipótesis.
+
+La única que no era de solo lectura, **los 17 casos de control**, era además
+su ÚNICA interfaz: sin ella no habría forma de ver ni editar
+`casos_evaluacion.jsonl`, y sin casos aprobados las métricas de acuerdo del
+juez no significan nada. Emir eligió moverlos; están en
+`componentes/CasosDeControl.tsx`, dentro de Ajustes > Memoria y criterio,
+que es la pestaña de los criterios de investigación.
+
+`lib/calidad.ts` SE QUEDA: lo usan Ranking, la ficha de hipótesis, la cola y
+el presupuesto. Lo que se fue es la pantalla.
+
+Un enlace guardado a `#/investigaciones/<inv>/calidad` lleva a Ajustes, con
+su test en `lib/ruta.test.ts`.
+
+Lo que se pierde y conviene saberlo: las ocho secciones de métricas siguen
+calculándose en el backend y guardándose en el estado, pero ya no hay dónde
+verlas. Si algún día hacen falta (el acuerdo kappa es parte del plan del
+sistema), la pantalla está en el historial de git.

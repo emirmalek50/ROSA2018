@@ -70,7 +70,6 @@ import { Atlas, EsqueletoAtlas } from './pantallas/Atlas';
 import { Citas } from './pantallas/Citas';
 import { Laboratorio } from './pantallas/Laboratorio';
 import { Mecanismos } from './pantallas/Mecanismos';
-import { Calidad } from './pantallas/Calidad';
 import { Corrida } from './pantallas/Corrida';
 import { Hipotesis } from './pantallas/Hipotesis';
 import { Inicio } from './pantallas/Inicio';
@@ -95,7 +94,6 @@ const TITULO_PANTALLA = traducido({
   mecanismos: 'Mecanismos',
   citas: 'Citas',
   artefactos: 'Artefactos',
-  calidad: 'Calidad',
   investigacion: 'Objetivo y datos',
 } as const);
 
@@ -281,9 +279,6 @@ export default function App() {
           break;
         case 'artefactos':
           pantalla = <Artefactos inv={inv} estado={estado} ahora={ahora} detalleId={ruta.detalleId} />;
-          break;
-        case 'calidad':
-          pantalla = <Calidad inv={inv} estado={estado} ahora={ahora} />;
           break;
         case 'investigacion':
           pantalla = <Investigacion key={inv.id} inv={inv} estado={estado} ahora={ahora} irA={irA} />;

@@ -10,7 +10,6 @@ import { rutaDe, rutaLaboratorio, type Pantalla, type Ruta } from '../lib/ruta';
 import {
   IconActivity,
   IconDocument,
-    IconGauge,
   IconGlobe,
   IconLayers,
   IconPlus,
@@ -93,7 +92,6 @@ const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number
   { clave: 'mecanismos', etiqueta: 'Mecanismos', icono: IconMecanismo },
   { clave: 'citas', etiqueta: 'Citas', icono: IconCita },
   { clave: 'artefactos', etiqueta: 'Artefactos', icono: IconDocument },
-  { clave: 'calidad', etiqueta: 'Calidad', icono: IconGauge },
   { clave: 'investigacion', etiqueta: 'Objetivo y datos', icono: IconUsers },
 ]);
 
