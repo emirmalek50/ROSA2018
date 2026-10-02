@@ -35,7 +35,9 @@ class ConversarConRosa(H.PreguntarConHerramientas):
 
     Puedes conversar, consultar TODO el proyecto, buscar en bases públicas y
     preparar las acciones del catálogo para operar ROSA. La investigación
-    abierta es contexto, no una restricción de acceso. Para datos actuales usa
+    abierta es contexto, no una restricción de acceso. Para preguntas sobre
+    nodos, enlaces o tamaño del Árbol usa consultar_arbol; la tabla relaciones
+    no es el Árbol. Sin otra indicación consulta la investigación abierta. Para datos actuales usa
     las herramientas; no inventes hechos, cifras, identificadores ni resultados.
     consultar_proyecto permite contar, filtrar y paginar; leer_registro permite
     inspeccionar el detalle completo por páginas. Busca por proteína o por
@@ -186,6 +188,42 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
         salida["fuentes"] = [{**f, "corridaId": c["id"], "investigacionId": c["investigacionId"]} for c in e.get("corridas", []) for f in (c.get("busqueda") or {}).get("fuentes", [])]
         return salida
 
+    def consultar_arbol(investigacion: str = "", desde: int = 0, tipo: str = "") -> str:
+        """Recuento real del Árbol de una investigación: nodos, enlaces,
+        desglose por tipo y nodos desplegados inicialmente. Sin investigacion
+        usa la abierta. No confundir con la tabla relaciones del proyecto.
+        Incluye páginas de 25 nodos; desde es un desplazamiento. tipo filtra
+        los nodos listados, pero no altera los totales del árbol completo.
+        La expansión, búsqueda y filtros actuales del navegador no se conocen.
+        """
+        from rosa import grafo as G
+
+        e = estado()
+        ident = investigacion or investigacion_id
+        inv = next((i for i in e.get("investigaciones", []) if i["id"] == ident), None)
+        if inv is None:
+            return json.dumps({"error": "Investigación desconocida", "investigacionId": ident}, ensure_ascii=False)
+        if tipo and tipo not in G.TIPOS_NODO:
+            return json.dumps({"error": "Tipo de nodo desconocido", "tipos": G.TIPOS_NODO}, ensure_ascii=False)
+        g = G.construir(e, inv)
+        nodos, enlaces = g["nodos"], g["enlaces"]
+        vivas = {h["id"] for h in e.get("hipotesis", []) if h.get("investigacionId") == ident and h.get("estado") != "descartada"}
+        iniciales = {n["id"] for n in nodos if n["tipo"] in {"objetivo", "rama", "area", "experimento"} or (n["tipo"] == "hipotesis" and n["id"] in vivas)}
+        filtrados = [n for n in nodos if not tipo or n["tipo"] == tipo]
+        desde = max(0, int(desde))
+        return K.como_dato(json.dumps({
+            "investigacionId": ident, "titulo": inv.get("titulo"),
+            "fuente": "rosa.grafo.construir, modelo del Árbol de la interfaz",
+            "nodosTotales": len(nodos), "enlacesTotales": len(enlaces),
+            "nodosPorTipo": {t: sum(n["tipo"] == t for n in nodos) for t in G.TIPOS_NODO if any(n["tipo"] == t for n in nodos)},
+            "enlacesPorTipo": {t: sum(a["tipo"] == t for a in enlaces) for t in G.TIPOS_ENLACE if any(a["tipo"] == t for a in enlaces)},
+            "vistaInicial": {"nodos": len(iniciales), "enlaces": sum(a["de"] in iniciales and a["a"] in iniciales for a in enlaces)},
+            "nota": "El total incluye nodos plegados. La vista inicial no es el estado actual del navegador: la persona puede haber desplegado o filtrado nodos.",
+            "tipoFiltro": tipo or None, "totalFiltrado": len(filtrados), "desde": desde,
+            "siguiente": desde+25 if desde+25 < len(filtrados) else None,
+            "nodos": [{k: n[k] for k in ("id", "tipo", "etiqueta", "estado", "href") if k in n} for n in filtrados[desde:desde+25]],
+        }, ensure_ascii=False))
+
     def catalogo_proyecto() -> str:
         """Lista todas las colecciones públicas de ROSA, con sus tamaños.
         Incluye programa, configuración, permisos, datasets, memoria y fuentes.
@@ -275,7 +313,7 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
         acciones.append(op)
         return json.dumps({k: v for k, v in op.items() if k not in {"contexto", "_huella"}}, ensure_ascii=False)
 
-    return [dspy.Tool(f) for f in (catalogo_proyecto, panorama_del_tema, consultar_proyecto, leer_registro, catalogo_acciones, preparar_accion)]
+    return [dspy.Tool(f) for f in (consultar_arbol, catalogo_proyecto, panorama_del_tema, consultar_proyecto, leer_registro, catalogo_acciones, preparar_accion)]
 
 
 async def preguntar(lm: Any, estado: dict, investigacion_id: str, pregunta: str, contexto: str, *, almacen: Any) -> dict:

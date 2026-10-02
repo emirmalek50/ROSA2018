@@ -198,3 +198,24 @@ def test_no_aprueba_un_plan_distinto_del_que_vio_la_persona(al):
     al.mutar(lambda e: e['iteraciones'][0].update(plan=[{'titulo': 'Otro experimento'}]) or True)
     r = al.aplicar('resolverAccionAsistente', args, actor='persona@rosa.test')
     assert not r['ok'] and not al.estado['iteraciones'][0]['planAprobado']
+
+
+def test_arbol_cuenta_el_grafo_no_la_tabla_relaciones_y_respeta_el_alcance(al):
+    from rosa import grafo as G
+    from rosa.tests.test_grafo import _estado
+    e, inv = _estado()
+    e['investigaciones'] = [inv, {'id': 'otra', 'titulo': 'Otra', 'objetivo': 'Otro objetivo'}]
+    e['relaciones'] = [{'id': str(i)} for i in range(46)]
+    al.mutar(lambda destino: destino.update(e) or True)
+    tool = {t.name: t.func for t in AS.herramientas(al, inv['id'], [])}['consultar_arbol']
+    salida = tool()
+    g = G.construir(al.instantanea(), inv)
+    assert f'"nodosTotales": {len(g["nodos"])}' in salida
+    assert f'"enlacesTotales": {len(g["enlaces"])}' in salida
+    assert '"nodosTotales": 46' not in salida
+    assert '"nodosTotales": 1' in tool('otra')
+    assert 'Investigación desconocida' in tool('inexistente')
+    assert 'Tipo de nodo desconocido' in tool(tipo='inventado')
+    assert '"tipoFiltro": "hipotesis"' in tool(tipo='hipotesis')
+    assert '"nodos": []' in tool(desde=10000)
+    assert 'no es el estado actual del navegador' in salida
