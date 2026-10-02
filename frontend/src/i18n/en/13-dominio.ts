@@ -7,6 +7,19 @@
  *  Y las frases de GRADE van con la redacción en inglés de GRADE, que es su
  *  idioma original: `very low certainty`, no `certainty very low`. */
 export const DOMINIO: Record<string, string> = {
+  // El revisor del registro: la gravedad y la procedencia se pintaban con el
+  // valor crudo de la enumeracion, que es castellano.
+  regla: 'rule',
+  juez: 'judge',
+  alta: 'high',
+  media: 'medium',
+  baja: 'low',
+  Descartado: 'Dismissed',
+  Respuesta: 'Answer',
+  Motivo: 'Reason',
+  'Vuelta {vuelta}': 'Round {vuelta}',
+  'Vuelta {vuelta} rechazada': 'Round {vuelta} rejected',
+
   // --- Estados ------------------------------------------------------------
   Abierta: 'Open',
   Abierto: 'Open',

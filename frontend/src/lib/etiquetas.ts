@@ -311,6 +311,27 @@ export const TIPO_HALLAZGO: Record<TipoHallazgo, string> = traducido({
   metrica_inventada: 'Métrica definida por ROSA2018 sin definición clara',
 });
 
+/** La gravedad y la procedencia de un hallazgo del revisor del registro. Se
+ *  pintaban con el valor crudo de la enumeracion («media», «regla»), que es
+ *  castellano y nunca se traducia. */
+export const GRAVEDAD_HALLAZGO: Record<'alta' | 'media' | 'baja', string> = traducido({
+  alta: 'alta',
+  media: 'media',
+  baja: 'baja',
+});
+
+export const ORIGEN_HALLAZGO: Record<'regla' | 'juez', string> = traducido({
+  regla: 'regla',
+  juez: 'juez',
+});
+
+/** Como queda un hallazgo una vez resuelto. */
+export const RESUELTO_HALLAZGO: Record<'atendido' | 'descartado' | 'rebatido', string> = traducido({
+  atendido: 'Atendido',
+  descartado: 'Descartado',
+  rebatido: 'ROSA2018 lo rebate',
+});
+
 export const ESTADO_HALLAZGO: Record<EstadoHallazgo, string> = traducido({
   abierto: 'Abierto',
   atendido: 'Atendido',

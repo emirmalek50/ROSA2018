@@ -11,27 +11,7 @@ import { useEffect, useState } from 'react';
 import { acciones, useRosa } from '../datos/almacen';
 import { CAMPOS_ENMENDABLES, CAMPOS_LECTURA_ENMENDABLES, NIVELES_DESENLACE, PROPOSITOS_BIOMARCADOR_VISTA, SISTEMAS_EXPERIMENTALES, TIPOS_LECTURA, empeoraAlEvaluar, etiquetaContrato, hashLecturas, normalizarContrato } from '../datos/acciones';
 import type { CampoLecturaEnmendable, CapaPerfilDiana, EnmiendaPrerregistro, EstadoPasoRuta, LecturaExperimento, PasoRutaEvaluado, RutaTerapeuticaEvaluada, VeredictoLectura, CambioAprendizaje, CasoDorado, Comprobacion, ConocimientoOperativo, EntidadCanonica, Corrida, Dataset, Decision, DimensionesResultado, Ejecucion, EstadoRosa, Hipotesis, Investigacion, MetodoRegistrado, PasoRutaTerapeutica, PlanAnalisis, PreguntaCampana, ProcedenciaDataset, Reproduccion, Responsables, CampoEnmendable, AreaInvestigacion, ConectorCatalogo, RevisionRegistro, ProcedenciaArtefacto, ConsultaBase, NivelPermisoConector, SkillCatalogo, EstadoEspejo } from '../datos/tipos';
-import {
-  ACCESO_DATASET,
-  BLOQUEO,
-  CLASE_EVIDENCIA,
-  COMPROBACION_KILLER,
-  DECISION_KILLER,
-  DIMENSION_RESULTADO,
-  ESTADO_APRENDIZAJE,
-  ESTADO_EJECUCION,
-  ESTADO_METODO,
-  ESTADO_REPRODUCCION,
-  ETAPA_DECISION,
-  INTERPRETACION_EJECUCION,
-  NIVEL_APRENDIZAJE,
-  PASO_RUTA,
-  RESULTADO_COMPROBACION,
-  RUNTIME_EJECUCION,
-  TIPO_APRENDIZAJE,
-  TIPO_METODO,
-  USO_IA,
-  VEREDICTO_AUDITORIA, IDENTIFICACION_CAUSAL, TIPO_ARISTA, GRUPO_CONECTOR, ESTADO_CONECTOR, CLASE_HALLAZGO_REGISTRO, RELACION_TORNEO, ESTADO_PASO_RUTA, DEFINICION_PASO_RUTA, CAPA_DIANA, ORDEN_CAPAS_DIANA, ESTADO_CAPA_DIANA, DIRECCION_GENETICA, RAMA_NEGATIVO, killerPendienteDe, nombreActor } from '../lib/etiquetas';
+import { ACCESO_DATASET, BLOQUEO, CAPA_DIANA, CLASE_EVIDENCIA, CLASE_HALLAZGO_REGISTRO, COMPROBACION_KILLER, DECISION_KILLER, DEFINICION_PASO_RUTA, DIMENSION_RESULTADO, DIRECCION_GENETICA, ESTADO_APRENDIZAJE, ESTADO_CAPA_DIANA, ESTADO_CONECTOR, ESTADO_EJECUCION, ESTADO_METODO, ESTADO_PASO_RUTA, ESTADO_REPRODUCCION, ETAPA_DECISION, GRAVEDAD_HALLAZGO, GRUPO_CONECTOR, IDENTIFICACION_CAUSAL, INTERPRETACION_EJECUCION, NIVEL_APRENDIZAJE, ORDEN_CAPAS_DIANA, ORIGEN_HALLAZGO, PASO_RUTA, RAMA_NEGATIVO, RELACION_TORNEO, RESUELTO_HALLAZGO, RESULTADO_COMPROBACION, RUNTIME_EJECUCION, TIPO_APRENDIZAJE, TIPO_ARISTA, TIPO_METODO, USO_IA, VEREDICTO_AUDITORIA, killerPendienteDe, nombreActor } from '../lib/etiquetas';
 import { EXPLICACION_BLOQUEO } from '../lib/priorizacion';
 import { cambiosPorVersion, etiquetaCampo, resumenDiff } from '../lib/registro';
 import { rutaDe } from '../lib/ruta';
@@ -2599,7 +2579,7 @@ export function RevisionDeRegistro({ r, compacto = false, iteracionId }: { r: Re
             {r.vueltas.map((v) => (
               <li key={v.vuelta} className="meta">
                 <Chip tono={v.estado === 'hecha' ? 'ok' : v.estado === 'rechazada' ? 'mal' : 'aviso'}>
-                  {v.estado === 'hecha' ? `Vuelta ${v.vuelta}` : v.estado === 'rechazada' ? `Vuelta ${v.vuelta} rechazada` : v.estado === 'sin_comprobar' ? trp("Vuelta {vuelta} sin comprobar", { vuelta: v.vuelta }) : trp("Vuelta {vuelta} no hecha", { vuelta: v.vuelta })}
+                  {v.estado === 'hecha' ? trp('Vuelta {vuelta}', { vuelta: v.vuelta }) : v.estado === 'rechazada' ? trp('Vuelta {vuelta} rechazada', { vuelta: v.vuelta }) : v.estado === 'sin_comprobar' ? trp("Vuelta {vuelta} sin comprobar", { vuelta: v.vuelta }) : trp("Vuelta {vuelta} no hecha", { vuelta: v.vuelta })}
                 </Chip>{' '}
                 {v.motivo}
               </li>
@@ -2610,10 +2590,10 @@ export function RevisionDeRegistro({ r, compacto = false, iteracionId }: { r: Re
       <ul className="lista-plana">
         {r.hallazgos.slice(0, compacto ? 3 : 20).map((h, i) => (
           <li key={h.id ?? i} className={`tarjeta hallazgo-registro gravedad-${h.gravedad}`}>
-            <strong style={{ fontSize: 13 }}>{CLASE_HALLAZGO_REGISTRO[h.clase] ?? h.clase}</strong> <Chip tono={h.gravedad === 'alta' ? 'mal' : h.gravedad === 'media' ? 'aviso' : 'borde'}>{h.gravedad}</Chip> <span className="meta">({h.origen})</span>
+            <strong style={{ fontSize: 13 }}>{CLASE_HALLAZGO_REGISTRO[h.clase] ?? h.clase}</strong> <Chip tono={h.gravedad === 'alta' ? 'mal' : h.gravedad === 'media' ? 'aviso' : 'borde'}>{GRAVEDAD_HALLAZGO[h.gravedad] ?? h.gravedad}</Chip> <span className="meta">({ORIGEN_HALLAZGO[h.origen] ?? h.origen})</span>
             {h.estado && h.estado !== 'abierto' && (
               <Chip tono={h.estado === 'atendido' ? 'ok' : h.estado === 'rebatido' ? 'aviso' : 'borde'}>
-                {h.estado === 'atendido' ? 'Atendido' : h.estado === 'rebatido' ? tr('ROSA2018 lo rebate') : 'Descartado'}
+                {RESUELTO_HALLAZGO[h.estado === 'atendido' || h.estado === 'rebatido' ? h.estado : 'descartado']}
                 {h.resueltoPor ? trp(" por {resueltoPor}", { resueltoPor: h.resueltoPor }) : ''}
               </Chip>
             )}
@@ -2628,8 +2608,8 @@ export function RevisionDeRegistro({ r, compacto = false, iteracionId }: { r: Re
             )}
             {iteracionId && h.id && ((h.estado ?? 'abierto') === 'abierto' || h.estado === 'rebatido') && !compacto && (
               <div className="acciones">
-                <Confirmar etiqueta="Atendido" pregunta={tr("¿Qué se hizo con este hallazgo?")} pedirTexto={{ etiqueta: 'Respuesta', marcador: tr('Se corrigió el resumen; la cifra venía de la pista 3') }} onConfirmar={(t) => acciones.resolverHallazgoRegistro(iteracionId, h.id!, 'atendido', t)} />
-                <Confirmar etiqueta="Descartar" pregunta={tr("¿Por qué no aplica este hallazgo?")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('El revisor confundió hipótesis en cola con hipótesis nuevas') }} onConfirmar={(t) => acciones.resolverHallazgoRegistro(iteracionId, h.id!, 'descartado', t)} />
+                <Confirmar etiqueta={tr("Atendido")} pregunta={tr("¿Qué se hizo con este hallazgo?")} pedirTexto={{ etiqueta: tr('Respuesta'), marcador: tr('Se corrigió el resumen; la cifra venía de la pista 3') }} onConfirmar={(t) => acciones.resolverHallazgoRegistro(iteracionId, h.id!, 'atendido', t)} />
+                <Confirmar etiqueta={tr("Descartar")} pregunta={tr("¿Por qué no aplica este hallazgo?")} pedirTexto={{ etiqueta: tr('Motivo'), marcador: tr('El revisor confundió hipótesis en cola con hipótesis nuevas') }} onConfirmar={(t) => acciones.resolverHallazgoRegistro(iteracionId, h.id!, 'descartado', t)} />
               </div>
             )}
           </li>
@@ -2643,7 +2623,7 @@ export function RevisionDeRegistro({ r, compacto = false, iteracionId }: { r: Re
 export function ProcedenciaDeArtefacto({ p }: { p: ProcedenciaArtefacto | undefined }) {
   const [pestana, setPestana] = useState<'mensajes' | 'codigo' | 'registroEjecucion' | 'entorno' | 'revision'>('mensajes');
   if (!p) return <p className="meta">{tr("Esta versión no tiene procedencia registrada (anterior al 11 de septiembre de 2026).")}</p>;
-  const etiquetas: Record<string, string> = { mensajes: 'Mensajes', codigo: 'Código', registroEjecucion: tr('Registro de ejecución'), entorno: 'Entorno', revision: tr('Revisión') };
+  const etiquetas: Record<string, string> = { mensajes: tr('Mensajes'), codigo: tr('Código'), registroEjecucion: tr('Registro de ejecución'), entorno: tr('Entorno'), revision: tr('Revisión') };
   const vacio = (k: keyof ProcedenciaArtefacto) => p[k] === null || p[k] === undefined || (Array.isArray(p[k]) && (p[k] as unknown[]).length === 0);
   return (
     <div className="procedencia-artefacto">
