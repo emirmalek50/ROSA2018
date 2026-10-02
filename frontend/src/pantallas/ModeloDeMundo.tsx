@@ -75,6 +75,7 @@ import { Herramientas } from "../componentes/Herramienta";
 import { PasosDeBusqueda, pasosDeConsultas } from "../componentes/PasosDeBusqueda";
 import { Shimmer } from "../componentes/Shimmer";
 import { Checkpoint, GuardarEnMemoria } from "../componentes/Checkpoint";
+import { Persona, type EstadoPersona } from "../componentes/Persona";
 import {
   ESTADO_COBERTURA,
   SIN_TEMA,
@@ -899,6 +900,16 @@ function Compositor({
         }}
       />
       <div className="mundo-compositor-pie">
+        {/* La cara junto a la caja: escucha mientras escribes y piensa
+            mientras busca. Es lo que hace que se sienta que hay alguien al
+            otro lado, sin escribir «ROSA2018 está escuchando» en ningun
+            sitio. */}
+        <Persona
+          estado={pendiente !== null ? "pensando" : vacio ? "quieta" : "escuchando"}
+          tamano={26}
+          marca
+          className="mundo-compositor-cara"
+        />
         <p className="mundo-compositor-nota">
           {modo === "bases"
             ? trp(
@@ -934,20 +945,21 @@ function BurbujaPregunta({ texto }: { texto: string }) {
 }
 
 /** La marca de la app al lado de cada respuesta: quién habla, sin rótulo. */
-function CabezaRespuesta({ children }: { children?: ReactNode }) {
+/** La cabecera de cada respuesta, con la cara de ROSA2018 en el estado que
+ *  toca: pensando mientras busca, hablando justo al llegar la respuesta, y
+ *  quieta despues. El arbol, que es la marca, va dentro del orbe. */
+function CabezaRespuesta({ children, estado = "quieta" }: { children?: ReactNode; estado?: EstadoPersona }) {
   return (
     <div className="mundo-respuesta-cabeza">
-      <img
-        className="mundo-marca"
-        src="/arbol-marca.png"
-        alt="ROSA2018"
-        width={24}
-        height={24}
-      />
+      <Persona estado={estado} tamano={estado === "pensando" ? 34 : 30} marca className="mundo-marca" />
       {children}
     </div>
   );
 }
+
+/** Una respuesta recien llegada se ve «hablando» unos segundos. Despues pasa
+ *  a quieta: una cara que habla para siempre deja de decir nada. */
+const SEGUNDOS_HABLANDO = 6;
 
 const FUENTES_VISIBLES = 3;
 
@@ -1374,7 +1386,7 @@ function TurnoGuardado({
     <>
       <BurbujaPregunta texto={q.pregunta} />
       <div className="mundo-respuesta">
-        <CabezaRespuesta>
+        <CabezaRespuesta estado={ahora - q.fecha < SEGUNDOS_HABLANDO * 1000 ? "hablando" : "quieta"}>
           {(pasos.length > 0 || (q.consultas ?? []).length > 0) && (
             <ResumenDeBusqueda
               q={q}
@@ -1383,6 +1395,10 @@ function TurnoGuardado({
             />
           )}
         </CabezaRespuesta>
+        {/* Los pasos se ven siempre: son pocas lineas y son lo que dice COMO
+            llego a la respuesta. Detras del desplegable queda solo el detalle
+            de cada llamada (argumentos, ids, invariante). */}
+        {(q.consultas ?? []).length > 0 && <PasosDeBusqueda pasos={pasosDeConsultas(q.consultas)} />}
         {abierto && (
           <div className="mundo-rastro-detalle">
             {pasos.length > 0 && (
@@ -1392,10 +1408,7 @@ function TurnoGuardado({
               </p>
             )}
             {(q.consultas ?? []).length > 0 ? (
-              <>
-                <PasosDeBusqueda pasos={pasosDeConsultas(q.consultas)} />
-                <Herramientas consultas={q.consultas} ahora={ahora} />
-              </>
+              <Herramientas consultas={q.consultas} ahora={ahora} />
             ) : (
               <p className="meta">
                 {tr("No quedaron consultas registradas para esta respuesta.")}
@@ -1636,13 +1649,10 @@ function TurnoPendiente({
     <>
       <BurbujaPregunta texto={p.pregunta} />
       <div className="mundo-respuesta" aria-live="polite">
-        <CabezaRespuesta>
+        <CabezaRespuesta estado="pensando">
           <div className="mundo-pensando" role="status">
-            <span className="mundo-pensando-puntos" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </span>
+            {/* Sin los tres puntos: la cara de al lado ya esta en
+                «pensando», y dos indicadores para lo mismo se estorban. */}
             <Shimmer>
               {p.listo
                 ? tr("Respuesta lista. Llegando...")

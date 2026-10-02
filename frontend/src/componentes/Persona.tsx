@@ -39,7 +39,10 @@ const MOVIMIENTO: Record<EstadoPersona, { escala: number[]; giro: number; duraci
   dormida: { escala: [1, 1.015, 1], giro: 60, duracion: 7.5, opacidad: [0.45, 0.6, 0.45] },
 };
 
-export function Persona({ estado = 'quieta', tamano = 44, className = '' }: { estado?: EstadoPersona; tamano?: number; className?: string }) {
+/** `marca`: el árbol del Alzheimer Project en el centro. Es la marca gráfica
+ *  de ROSA2018 y no se sustituye por el orbe: el orbe pasa a ser su aura, que
+ *  es lo que se mueve. */
+export function Persona({ estado = 'quieta', tamano = 44, className = '', marca = false }: { estado?: EstadoPersona; tamano?: number; className?: string; marca?: boolean }) {
   const reducido = useMovimientoReducido();
   const m = MOVIMIENTO[estado];
   const comun = { repeat: Infinity, duration: m.duracion, ease: 'easeInOut' as const };
@@ -87,6 +90,24 @@ export function Persona({ estado = 'quieta', tamano = 44, className = '' }: { es
           <circle cx="50" cy="50" r="46" fill="url(#persona-brillo)" />
         </motion.svg>
       </motion.span>
+      {marca && (
+        // Un disco oscuro debajo del arbol: el arbol es morado y sobre el
+        // orbe morado no se leia. Asi el orbe queda como un aro de luz
+        // alrededor, que es lo que respira.
+        <span className="persona-disco" aria-hidden="true" />
+      )}
+      {marca && (
+        // El arbol no gira con el orbe: una marca que da vueltas deja de
+        // leerse. Solo respira con el, un poco menos.
+        <motion.img
+          className="persona-marca"
+          src="/arbol-marca.png"
+          alt=""
+          aria-hidden="true"
+          animate={reducido ? {} : { scale: m.escala.map((x) => 1 + (x - 1) * 0.5) }}
+          transition={comun}
+        />
+      )}
     </span>
   );
 }

@@ -451,6 +451,22 @@
   background: #ede7fb;
 }
 
+/* Desde el 2 de octubre de 2026 la marca de cada respuesta es la cara animada
+   (componentes/Persona.tsx), con el arbol dentro. Se queda en el mismo sitio,
+   pero sin el fondo blanco ni el relleno del logo de antes, que le pintaban un
+   borde grueso alrededor del aro. La que piensa es algo mayor: se centra sobre
+   el mismo punto. */
+.mundo-marca.persona,
+:root[data-theme='dark'] .mundo-marca.persona {
+  padding: 0;
+  background: none;
+}
+
+.mundo-marca.persona-pensando {
+  top: -4px;
+  left: -4px;
+}
+
 .mundo-busqueda {
   display: inline-flex;
   align-items: center;
@@ -2290,6 +2306,25 @@
   box-shadow: 0 0 0 1px var(--border);
 }
 
+/* Con la marca dentro, el arbol va sobre un disco oscuro y el orbe se ve
+   como un aro de luz de unos pocos pixeles alrededor: el aura, no el fondo. */
+.persona-disco {
+  position: absolute;
+  inset: 11%;
+  border-radius: 50%;
+  background: var(--surface);
+  pointer-events: none;
+}
+
+.persona-marca {
+  position: absolute;
+  inset: 21%;
+  width: 58%;
+  height: 58%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .persona-halo { display: none; }
 }
@@ -2380,3 +2415,31 @@
 }
 
 .hito-editor .meta { margin: 0; }
+
+.mundo-compositor-cara { margin-right: 2px; }
+
+/* El aro de la cara cuando lleva la marca: un degradado conico que da
+   vueltas. El radial del orbe suelto apenas se nota girar; este si, y la
+   velocidad dice el estado: pensando va rapido, hablando a medias,
+   escuchando despacio, quieta casi parada y dormida no gira. */
+.persona:has(.persona-marca) .persona-orbe {
+  /* Tramos oscuros explicitos: con `transparent` el aro se veia casi blanco
+     y el giro no se leia de lejos. */
+  background: conic-gradient(from 0deg, var(--accent), var(--surface) 28%, var(--blue, var(--accent)) 52%, var(--surface) 78%, var(--accent));
+  box-shadow: 0 0 10px -2px var(--accent-soft);
+  animation: persona-giro 9s linear infinite;
+}
+
+.persona:has(.persona-marca) .persona-orbe svg { display: none; }
+.persona-escuchando:has(.persona-marca) .persona-orbe { animation-duration: 4s; }
+.persona-hablando:has(.persona-marca) .persona-orbe { animation-duration: 2.2s; }
+.persona-pensando:has(.persona-marca) .persona-orbe { animation-duration: 1.2s; }
+.persona-dormida:has(.persona-marca) .persona-orbe { animation: none; opacity: 0.4; }
+
+@keyframes persona-giro {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .persona:has(.persona-marca) .persona-orbe { animation: none; }
+}

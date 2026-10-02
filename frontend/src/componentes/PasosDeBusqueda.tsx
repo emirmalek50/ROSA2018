@@ -59,14 +59,15 @@ const PUNTO: Record<Paso['estado'], string> = {
   en_marcha: 'rastro-en-marcha',
 };
 
-function UnPaso({ p, ultimo }: { p: Paso; ultimo: boolean }) {
+function UnPaso({ p, ultimo, orden }: { p: Paso; ultimo: boolean; orden: number }) {
   const reducido = useMovimientoReducido();
   return (
     <motion.li
       className={`rastro-paso ${PUNTO[p.estado]}`}
       initial={reducido ? { opacity: 0 } : { opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: DUR.media }}
+      // Uno tras otro: se lee como la secuencia que fue, no como una lista.
+      transition={{ duration: DUR.media, delay: reducido ? 0 : Math.min(orden, 8) * 0.07 }}
     >
       <span className="rastro-carril" aria-hidden="true">
         <i className="rastro-punto" />
@@ -108,7 +109,7 @@ export function PasosDeBusqueda({ pasos, titulo }: { pasos: Paso[]; titulo?: str
       <ol className="rastro-lista">
         <AnimatePresence initial={false}>
           {pasos.map((p, i) => (
-            <UnPaso key={p.id} p={p} ultimo={i === pasos.length - 1} />
+            <UnPaso key={p.id} p={p} ultimo={i === pasos.length - 1} orden={i} />
           ))}
         </AnimatePresence>
       </ol>

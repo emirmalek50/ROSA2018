@@ -94,8 +94,10 @@ describe('el esqueleto del modelo de mundo', () => {
     expect(nodo.querySelectorAll('.esqueleto').length).toBe(0);
     expect(nodo.querySelector('textarea')).not.toBeNull();
     expect(nodo.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toContain('Conversar');
-    // Sin logotipo encima del chat: la cabecera es el título, nada más.
-    expect(nodo.querySelector('.mundo-vacio img, .mundo-vacio svg.mundo-emblema')).toBeNull();
+    // Sin logotipo encima del chat: la cabecera es el título, nada más. La
+    // cara pequeña de ROSA2018 junto a la caja de escribir (.persona) no es
+    // un logotipo de cabecera, es el interlocutor; por eso queda fuera.
+    expect(nodo.querySelector('.mundo-vacio img:not(.persona-marca), .mundo-vacio svg.mundo-emblema')).toBeNull();
     expect(nodo.textContent).toContain('Qué cambió');
     expect(nodo.textContent).not.toContain('\u2014');
   });
@@ -236,7 +238,13 @@ describe('lo que se toca en el modelo de mundo', () => {
     await esperarPintado();
     sessionStorage.clear();
     const r = nodo.querySelector('.mundo-respuesta')!;
-    expect(r.querySelector('img.mundo-marca')?.getAttribute('alt')).toBe('ROSA2018');
+    // La marca del árbol sigue en cada respuesta (es la marca gráfica de
+    // ROSA2018 y no se sustituye): desde el 2 de octubre de 2026 va dentro
+    // del orbe animado, que dice con palabras en qué está.
+    const cara = r.querySelector('.mundo-marca')!;
+    expect(cara.getAttribute('role')).toBe('img');
+    expect(cara.getAttribute('aria-label')).toMatch(/ROSA2018/);
+    expect(cara.querySelector('img.persona-marca')?.getAttribute('src')).toBe('/arbol-marca.png');
     const cabeza = r.querySelector('.mundo-busqueda')!;
     expect([...cabeza.querySelectorAll('.mundo-busqueda-dato')].map((x) => x.textContent)).toEqual(['3 búsquedas', '7 documentos', '19 s']);
     expect([...cabeza.querySelectorAll('.mundo-fuente')].map((x) => x.textContent)).toEqual(['M', 'P']);
