@@ -4,7 +4,7 @@
 // ingles es al reves. No es cosmetica: «1.171» leido en ingles es poco mas
 // de uno, no mil ciento setenta y uno, asi que el separador tiene que seguir
 // al idioma.
-import { tr, idiomaActual } from './idioma';
+import { tr, trp, idiomaActual } from './idioma';
 
 /** El separador decimal del idioma. Se aplica sobre la cadena que ya produjo
  *  `toFixed` o `toString`, que siempre traen punto. */
@@ -38,16 +38,19 @@ export function formatearDuracion(ms: number): string {
 export function tiempoRelativo(momento: number, ahora: number): string {
   const diff = ahora - momento;
   const abs = Math.abs(diff);
-  const prefijo = diff >= 0 ? 'hace' : 'en';
+  const pasado = diff >= 0;
   // Un desfase pequeno hacia el futuro es reloj de pantalla (se relee cada
   // 15 s), no un momento futuro: se dice "hace un momento".
   if (abs < 45_000) return tr('hace un momento');
+  // La frase entera, no «hace» por un lado y la cifra por otro: en ingles el
+  // orden es al reves («hace 15 d» es «15 d ago»), asi que componerla a
+  // trozos la dejaba en castellano en TODAS las tarjetas de la interfaz.
   const min = Math.round(abs / 60_000);
-  if (min < 60) return `${prefijo} ${min} min`;
+  if (min < 60) return pasado ? trp('hace {min} min', { min }) : trp('en {min} min', { min });
   const h = Math.round(abs / 3_600_000);
-  if (h < 24) return `${prefijo} ${h} h`;
+  if (h < 24) return pasado ? trp('hace {h} h', { h }) : trp('en {h} h', { h });
   const d = Math.round(abs / 86_400_000);
-  return `${prefijo} ${d} d`;
+  return pasado ? trp('hace {d} d', { d }) : trp('en {d} d', { d });
 }
 
 /** Entero con puntos de miles: 48200000 -> "48.200.000". */

@@ -18,6 +18,10 @@ for (const f of execSync("ls src/i18n/en/*.ts", { encoding: 'utf8' }).trim().spl
   };
   ver(sf);
 }
+// Los valores de enumeracion no van al catalogo: se comparan con el
+// servidor, y traducidos dejan de encajar. Misma regla que el guardian de
+// `src/i18n/catalogo.test.ts`.
+const IDENTIFICADOR = /^(?:[a-z][a-z0-9]*(?:_[a-z0-9]+)+|[a-z]+[A-Z]\w*)$/;
 const faltan = new Map();
 for (const f of execSync("find src -name '*.tsx' -o -name '*.ts' | grep -v '/i18n/' | grep -v '.test.'", { encoding: 'utf8' }).trim().split('\n')) {
   const sf = ts.createSourceFile(f, readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -44,7 +48,9 @@ for (const f of execSync("find src -name '*.tsx' -o -name '*.ts' | grep -v '/i18
     if (ts.isCallExpression(x) && ts.isIdentifier(x.expression) && ['tr', 'trp'].includes(x.expression.text)
         && x.arguments.length >= 1 && (ts.isStringLiteral(x.arguments[0]) || ts.isNoSubstitutionTemplateLiteral(x.arguments[0]))) {
       const t = x.arguments[0].text;
-      if (!cat.has(t)) faltan.set(t, (faltan.get(t) || f));
+      // Un nombre tecnico («pLDDT») se escribe igual en los dos idiomas: sin
+      // entrada, `tr()` devuelve la clave, que ya es lo correcto.
+      if (!IDENTIFICADOR.test(t) && !cat.has(t)) faltan.set(t, (faltan.get(t) || f));
     }
     // dentro de traducido(): todas las cadenas de la estructura
     if (ts.isCallExpression(x) && ts.isIdentifier(x.expression) && x.expression.text === 'traducido') {
@@ -54,7 +60,12 @@ for (const f of execSync("find src -name '*.tsx' -o -name '*.ts' | grep -v '/i18
         const enCampoDeDatos = ts.isPropertyAssignment(y.parent) && y.parent.initializer === y && CAMPOS_DE_DATOS.has(y.parent.name.getText());
         if ((ts.isStringLiteral(y) || ts.isNoSubstitutionTemplateLiteral(y)) && !(ts.isPropertyAssignment(y.parent) && y.parent.name === y) && !enCampoDeDatos) {
           const t = y.text;
-          if (t.trim().length > 3 && /\s|[ñáéíóú]/.test(t) && !cat.has(t)) faltan.set(t, (faltan.get(t) || f));
+          // Sin pedir espacio ni tilde: «Artefactos», «Atlas», «Corrida» e
+          // «Inicio» son una sola palabra sin tilde, y con aquel filtro
+          // siete rótulos del menú se quedaron en castellano sin que esto
+          // los contara (2 de octubre de 2026). Lo que no es texto ya lo
+          // quita CAMPOS_DE_DATOS.
+          if (t.trim().length > 2 && /[a-záéíóúñ]{2}/i.test(t) && !IDENTIFICADOR.test(t) && !cat.has(t)) faltan.set(t, (faltan.get(t) || f));
         }
         ts.forEachChild(y, dentro);
       };

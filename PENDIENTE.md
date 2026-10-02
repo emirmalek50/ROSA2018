@@ -1651,3 +1651,51 @@ observador no llega.
 
 Lo que queda sigue siendo lo mismo y es lo importante: **nadie ha revisado
 las traducciones del modelo**, y son contenido científico.
+
+### El reloj, el menú y el escáner que decía «faltan 0»
+
+Emir: «artefactos sigue en español». Tenía razón, y mi método estaba mal: yo
+medía con la MISMA regla que acababa de demostrarse ciega. Volqué el texto de
+la pantalla sin filtrar y aparecieron dos cosas de bulto:
+
+- **«hace 15 d» en todas las tarjetas de la interfaz.** `tiempoRelativo`
+  (`lib/formato.ts`) componía el prefijo por un lado y la cifra por otro. En
+  inglés el orden se invierte («15 d ago»), así que un prefijo traducido no
+  sirve: ahora van las seis frases enteras por `trp()`.
+- **Siete de los catorce rótulos del menú** no estaban en el catálogo:
+  «Artefactos», «Atlas», «Árbol», «Corrida», «Inicio», «Laboratorio»,
+  «Ajustes», «Panorama». Se veían en castellano desde siempre.
+
+La causa de lo segundo es un fallo del medidor, y es lo que hay que recordar:
+`scripts/i18n/pendientes.mjs`, el que dice «faltan 0 cadenas», exigía un
+espacio o una tilde para contar una cadena dentro de `traducido()`. Una sola
+palabra sin tilde no se contaba nunca. Por eso el recuento decía 0 mientras
+el menú estaba a medio traducir. Corregido: ahora cuenta cualquier texto, y
+lo que no es texto lo quitan `CAMPOS_DE_DATOS` y un filtro de
+identificadores.
+
+Al abrir el filtro salieron 373 cadenas. Dos cosas de ahí:
+
+- El modelo tradujo 22 **valores de enumeración** («una_vez» -> «once»,
+  «sin_cita» -> «no_citation», «pasoRuta» -> «routeStep»). Esos se comparan
+  con el servidor: traducidos dejan de encajar. Se quitan del catálogo (sin
+  entrada, el Proxy los deja tal cual) y lo vigila un test nuevo en
+  `catalogo.test.ts`.
+- Las grafías británicas **volvían en cada regeneración**, porque
+  `normalizar_eeuu.mjs` tocaba los `.ts` pero no `traducciones.jsonl`, que es
+  de donde `traducir_catalogo.py --escribir-ts` reconstruye. Ahora normaliza
+  también la memoria y es idempotente.
+
+Y una trampa conocida que volvió a saltar: `acentuar.py` acentuó `{numero}`
+DENTRO de un hueco de `trp()`, que es un identificador. El hueco se llama
+`{n}`.
+
+El catálogo pasa de 5768 a 6124 entradas. Quedan 6 cadenas sin traducir, las
+de la función del asistente que otro agente está escribiendo
+(`AccionesAsistente.tsx`, `ModeloDeMundo.tsx`); las verá `pendientes.mjs`
+cuando la cierre.
+
+Pendiente de verdad, otra vez: **nadie ha revisado las traducciones del
+modelo**, y son contenido científico. Y el precalentado de las
+investigaciones 5 y 6 se cortó por un tiempo agotado de `fetch`; el script
+ya sobrevive al fallo y sigue, pero hay que volver a correrlo.

@@ -3,7 +3,7 @@
 // pendientes llevan su cuenta al lado, porque son lo que espera a una persona.
 
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 import { ESTADO_CORRIDA } from '../lib/etiquetas';
 import { pendientesDeRevision } from '../lib/hipotesis';
 import { rutaDe, rutaLaboratorio, type Pantalla, type Ruta } from '../lib/ruta';
@@ -159,7 +159,7 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
             return (
               <a key={inv.id} className="nav-inv" href={rutaDe(inv.id, 'corrida')} aria-current={inv.id === invId ? 'true' : undefined} onClick={onCerrar}>
                 <span>{inv.titulo}</span>
-                <small>{corrida ? `Corrida ${corrida.numero} · ${ESTADO_CORRIDA[corrida.estado]}` : tr('Sin corridas')}</small>
+                <small>{corrida ? trp('Corrida {n} · {estado}', { n: corrida.numero, estado: ESTADO_CORRIDA[corrida.estado] }) : tr('Sin corridas')}</small>
               </a>
             );
           })}

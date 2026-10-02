@@ -68,21 +68,30 @@ const juntar = () => p.evaluate(() => {
 });
 
 async function traducir(textos) {
-  let hechas = 0, rechazadas = 0;
+  let hechas = 0, rechazadas = 0, fallos = 0;
   const lotes = [];
-  for (let i = 0; i < textos.length; i += 60) lotes.push(textos.slice(i, i + 60));
+  for (let i = 0; i < textos.length; i += 40) lotes.push(textos.slice(i, i + 40));
   // Tres a la vez, que es lo que admite el servidor.
   for (let i = 0; i < lotes.length; i += 3) {
     const rs = await Promise.all(lotes.slice(i, i + 3).map(async (l) => {
-      const r = await fetch(`${BASE}/api/traducir`, { method: 'POST', headers: cab, body: JSON.stringify({ textos: l }) });
-      return r.ok ? r.json() : { traducciones: {}, rechazadas: {} };
+      try {
+        // `fetch` de Node corta la espera de cabeceras a los 5 minutos y un
+        // lote grande tarda más: sin esto, un lote lento mataba la corrida
+        // entera (2 de octubre de 2026). Lo que ya se tradujo está en la
+        // caché, así que al volver a correr se sigue por donde iba.
+        const r = await fetch(`${BASE}/api/traducir`, { method: 'POST', headers: cab, body: JSON.stringify({ textos: l }), signal: AbortSignal.timeout(900_000) });
+        return r.ok ? await r.json() : { traducciones: {}, rechazadas: {}, fallo: true };
+      } catch (e) {
+        console.log(`    lote de ${l.length} sin traducir: ${String(e).slice(0, 80)}`);
+        return { traducciones: {}, rechazadas: {}, fallo: true };
+      }
     }));
-    for (const r of rs) { hechas += Object.keys(r.traducciones ?? {}).length; rechazadas += Object.keys(r.rechazadas ?? {}).length; }
+    for (const r of rs) { hechas += Object.keys(r.traducciones ?? {}).length; rechazadas += Object.keys(r.rechazadas ?? {}).length; if (r.fallo) fallos++; }
   }
-  return { hechas, rechazadas };
+  return { hechas, rechazadas, fallos };
 }
 
-let total = 0, totalRech = 0;
+let total = 0, totalRech = 0, totalFallos = 0;
 const t0 = Date.now();
 for (const inv of invs) {
   const textos = new Set();
@@ -92,8 +101,9 @@ for (const inv of invs) {
     (await juntar().catch(() => [])).forEach((t) => textos.add(t));
   }
   const r = await traducir([...textos]);
-  total += r.hechas; totalRech += r.rechazadas;
-  console.log(`  ${inv}: ${textos.size} textos en castellano, ${r.hechas} traducidos, ${r.rechazadas} rechazados por las reglas  (${Math.round((Date.now() - t0) / 1000)} s)`);
+  total += r.hechas; totalRech += r.rechazadas; totalFallos += r.fallos;
+  const aviso = r.fallos ? `, ${r.fallos} lotes sin respuesta` : '';
+  console.log(`  ${inv}: ${textos.size} textos en castellano, ${r.hechas} traducidos, ${r.rechazadas} rechazados por las reglas${aviso}  (${Math.round((Date.now() - t0) / 1000)} s)`);
 }
-console.log(`\n${total} traducidos, ${totalRech} rechazados, en ${Math.round((Date.now() - t0) / 1000)} s`);
+console.log(`\n${total} traducidos, ${totalRech} rechazados${totalFallos ? `, ${totalFallos} lotes sin respuesta (volver a correr para esos)` : ''}, en ${Math.round((Date.now() - t0) / 1000)} s`);
 await nav.close();

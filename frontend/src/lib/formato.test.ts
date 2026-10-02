@@ -114,3 +114,20 @@ describe('el separador de números sigue al idioma', () => {
     expect(formatearDuracion(800)).toBe('0.8 s');
   });
 });
+
+describe('el tiempo relativo en inglés', () => {
+  it('invierte el orden: «hace 15 d» no es «ago 15 d»', () => {
+    // Se componía como prefijo + cifra, y en inglés el orden es al revés.
+    // Por eso TODAS las tarjetas de la interfaz decían «hace 15 d» con la
+    // interfaz en inglés (2 de octubre de 2026).
+    fijarIdioma('en');
+    const ahora = 1_700_000_000_000;
+    expect(tiempoRelativo(ahora - 15 * 86_400_000, ahora)).toBe('15 d ago');
+    expect(tiempoRelativo(ahora - 3 * 3_600_000, ahora)).toBe('3 h ago');
+    expect(tiempoRelativo(ahora - 20 * 60_000, ahora)).toBe('20 min ago');
+    expect(tiempoRelativo(ahora + 20 * 60_000, ahora)).toBe('in 20 min');
+    fijarIdioma('es');
+    expect(tiempoRelativo(ahora - 15 * 86_400_000, ahora)).toBe('hace 15 d');
+    expect(tiempoRelativo(ahora + 20 * 60_000, ahora)).toBe('en 20 min');
+  });
+});

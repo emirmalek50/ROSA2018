@@ -1,5 +1,29 @@
 /** Navegación, cabecera, botones y lo que se ve en cualquier pantalla. */
 export const CASCARA: Record<string, string> = {
+  // La corrida del menu. Entera, que el numero va en medio.
+  'Corrida {n} · {estado}': 'Run {n} · {estado}',
+  'Esta acción requiere conexión con ROSA.': 'This action needs a connection to ROSA.',
+  'No se pudo aplicar la operación.': 'The operation could not be applied.',
+  'No se pudo comprobar el resultado. Recarga antes de volver a intentarlo.': 'The result could not be checked. Reload before trying again.',
+  // El reloj de cada tarjeta. La frase va entera porque en ingles el orden
+  // se invierte: componer «hace» + la cifra dejaba «hace 15 d» en toda la
+  // interfaz (2 de octubre de 2026).
+  'hace {min} min': '{min} min ago',
+  'en {min} min': 'in {min} min',
+  'hace {h} h': '{h} h ago',
+  'en {h} h': 'in {h} h',
+  'hace {d} d': '{d} d ago',
+  'en {d} d': 'in {d} d',
+  // Los rotulos del menu y los titulos de pantalla. Siete eran una sola
+  // palabra sin tilde, y el escaner que dice «faltan 0» no los contaba.
+  Artefactos: 'Artifacts',
+  Panorama: 'Overview',
+  Atlas: 'Atlas',
+  'Árbol': 'Tree',
+  'Árbol de la investigación': 'Research tree',
+  Corrida: 'Run',
+  Inicio: 'Home',
+  Laboratorio: 'Lab',
   'Abrir el menú': 'Open the menu',
   'Navegación principal': 'Main navigation',
   Investigaciones: 'Investigations',

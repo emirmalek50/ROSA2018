@@ -97,4 +97,29 @@ for (const f of execSync('ls src/i18n/en/*.ts', { encoding: 'utf8' }).trim().spl
     });
   if (escribir && salida !== src) writeFileSync(f, salida);
 }
+
+// Y la memoria de traducciones, que es de donde `traducir_catalogo.py
+// --escribir-ts` reconstruye el fichero generado: sin esto las grafias
+// britanicas volvian en cada regeneracion (2 de octubre de 2026).
+{
+  const f = 'scripts/i18n/traducciones.jsonl';
+  const lineas = readFileSync(f, 'utf8').split('\n');
+  let cambio = false;
+  const salida = lineas.map((ln) => {
+    if (!ln.trim()) return ln;
+    let d;
+    try { d = JSON.parse(ln); } catch { return ln; }
+    if (typeof d !== 'object' || d === null) return ln;
+    let toco = false;
+    for (const [k, v] of Object.entries(d)) {
+      if (typeof v !== 'string') continue;
+      const nuevo = aEEUU(v);
+      if (nuevo !== v) { d[k] = nuevo; total++; toco = true; if (!escribir) console.log(`  (memoria) ${v.slice(0, 48)} -> ${nuevo.slice(0, 48)}`); }
+    }
+    if (toco) cambio = true;
+    return toco ? JSON.stringify(d) : ln;
+  }).join('\n');
+  if (escribir && cambio) writeFileSync(f, salida);
+}
+
 console.log(`\n${total} valores pasados a ingles de Estados Unidos`);

@@ -110,6 +110,17 @@ describe('el catálogo en inglés', () => {
     expect(malas.slice(0, 6)).toEqual([]);
   });
 
+  it('ningún identificador entró al catálogo', () => {
+    // Los valores de enumeración (`una_vez`, `sin_cita`, `pasoRuta`) se
+    // comparan con el servidor. Si entran aquí, el Proxy de `traducido()`
+    // los traduce al leerlos y el valor deja de encajar: el 2 de octubre de
+    // 2026 el modelo devolvió 22 así («una_vez» -> «once»). Sin entrada en
+    // el catálogo se quedan tal cual, que es lo correcto.
+    const IDENT = /^(?:[a-z][a-z0-9]*(?:_[a-z0-9]+)+|[a-z]+[A-Z]\w*)$/;
+    const malas = entradas.map(([k]) => k).filter((k) => IDENT.test(k));
+    expect(malas).toEqual([]);
+  });
+
   it('el inglés es de Estados Unidos, que es a quien va dirigido', () => {
     // Mezclar variantes se nota y queda descuidado. Los nombres propios se
     // quedan como se llaman: el «Sydney Memory and Ageing Study» lleva
