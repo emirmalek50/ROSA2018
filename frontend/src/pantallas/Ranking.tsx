@@ -214,7 +214,7 @@ const CABECERA: Partial<Record<VistaRanking, { titulo: string; nota: string }>> 
 
 /** Las cinco vistas. Lo usan las dos ramas de la pantalla (la del ranking y
  *  la de la cola), asi que vive aparte para no escribirlo dos veces. */
-function Segmentado({ vista, setVista, esperan }: { vista: VistaRanking; setVista: (v: VistaRanking) => void; esperan: number }) {
+function Segmentado({ vista, setVista }: { vista: VistaRanking; setVista: (v: VistaRanking) => void }) {
   return (
     <div className="segmentos" role="group" aria-label={tr("Vista")}>
       <button type="button" aria-pressed={vista === 'podio'} onClick={() => setVista('podio')}>
@@ -222,7 +222,6 @@ function Segmentado({ vista, setVista, esperan }: { vista: VistaRanking; setVist
       </button>
       <button type="button" aria-pressed={vista === 'pendientes'} onClick={() => setVista('pendientes')} title={tr("Las que esperan tu decisión: aceptar, descartar o pedir que las refine")}>
         {tr("Pendientes")}
-        {esperan > 0 && <span className="nav-cuenta">{esperan}</span>}
       </button>
       <button type="button" aria-pressed={vista === 'lista'} onClick={() => setVista('lista')}>
         {tr("Lista completa")}
@@ -307,7 +306,7 @@ export function Ranking({ inv, estado, detalleId, irA }: { inv: Investigacion; e
             <p>{CABECERA[vista]!.nota}</p>
           </div>
           <div className="acciones">
-            <Segmentado vista={vista} setVista={setVista} esperan={esperanTuDecision} />
+            <Segmentado vista={vista} setVista={setVista} />
             <button type="button" className="btn btn-primario" onClick={() => setProponiendo((v) => !v)}>
               {tr("Proponer hipótesis")}
             </button>
@@ -349,7 +348,7 @@ export function Ranking({ inv, estado, detalleId, irA }: { inv: Investigacion; e
           )}
         </div>
         <div className="acciones">
-          <Segmentado vista={vista} setVista={setVista} esperan={esperanTuDecision} />
+          <Segmentado vista={vista} setVista={setVista} />
           <button type="button" className="btn btn-primario" onClick={() => setProponiendo((v) => !v)}>
             {tr("Proponer hipótesis")}
           </button>
