@@ -33,6 +33,7 @@ import type {
   MovimientoHecho,
   ParteCobertura,
   PreguntaABases,
+  PasoRazonamiento,
 } from "../datos/tipos";
 import { AvisoMuestra, Chip, Momento, Seccion } from "../componentes/piezas";
 import { Cargando, Esqueleto } from "../componentes/Esqueleto";
@@ -78,6 +79,7 @@ import { PasosDeBusqueda, pasosDeConsultas } from "../componentes/PasosDeBusqued
 import { Shimmer } from "../componentes/Shimmer";
 import { Checkpoint, GuardarEnMemoria } from "../componentes/Checkpoint";
 import { Persona, type EstadoPersona } from "../componentes/Persona";
+import { Razonamiento } from "../componentes/Razonamiento";
 import { SILENCIO_PARA_ENVIAR_MS, callar, escuchar, hablar, puedeEscuchar, puedeHablar, type Escucha } from "../lib/voz";
 import {
   ESTADO_COBERTURA,
@@ -439,6 +441,9 @@ type Pendiente = {
   pregunta: string;
   desde: number;
   listo: boolean;
+  /** Con el que se le piden al servidor los pasos mientras piensa
+   *  (rosa/razonamiento.py). */
+  seguimiento: string;
 };
 
 const FILTRO_VACIO: FiltroHechos = {
@@ -510,6 +515,24 @@ function CuerpoMundo({
     }
   };
 
+  // Lo que va pensando mientras busca, pedido al servidor cada poco. Es un
+  // extra: si no llega, la respuesta llega igual y solo se pierde el detalle.
+  const [pasosEnVivo, setPasosEnVivo] = useState<PasoRazonamiento[]>([]);
+  useEffect(() => {
+    if (!pendiente) return;
+    let vivo = true;
+    const pedir = async () => {
+      const r = await acciones.razonamientoDePregunta(pendiente.seguimiento);
+      if (vivo && r) setPasosEnVivo(r.pasos);
+    };
+    void pedir();
+    const id = setInterval(() => void pedir(), 700);
+    return () => {
+      vivo = false;
+      clearInterval(id);
+    };
+  }, [pendiente?.seguimiento]);
+
   // La respuesta llega por el canal en vivo: cuando aparece guardada, la pregunta deja de estar en vuelo.
   useEffect(() => {
     if (pendiente && guardadas.some((q) => esLaPendiente(q, pendiente)))
@@ -554,9 +577,11 @@ function CuerpoMundo({
       ]);
       return;
     }
-    setPendiente({ hilo: h, pregunta, desde: fecha, listo: false });
+    const seguimiento = `seg-${fecha.toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    setPasosEnVivo([]);
+    setPendiente({ hilo: h, pregunta, desde: fecha, listo: false, seguimiento });
     void envolver(async () => {
-      const error = await acciones.preguntarALasBases(inv.id, pregunta, h);
+      const error = await acciones.preguntarALasBases(inv.id, pregunta, h, seguimiento);
       if (error) {
         setPendiente((p) => (p && p.desde === fecha ? null : p));
         setErrores((es) => [
@@ -712,6 +737,7 @@ function CuerpoMundo({
           }}
           abrirHecho={abrirHecho}
           enfocar={() => enfocar()}
+          pasosEnVivo={pasosEnVivo}
           voz={voz}
           pulsarCara={pulsarCara}
           errorVoz={errorVoz}
@@ -765,6 +791,8 @@ type PropsConversar = {
   reintentar: (e: ErrorLocal) => void;
   abrirHecho: (id: string) => void;
   enfocar: () => void;
+  /** Lo que va pensando la pregunta en vuelo, paso a paso. */
+  pasosEnVivo: PasoRazonamiento[];
   /** Hablar de viva voz (lib/voz.ts): en qué está y qué hacer al pulsar la cara. */
   voz: EstadoVoz;
   pulsarCara: () => void;
@@ -927,11 +955,7 @@ function Conversar(p: PropsConversar) {
         ))}
         {pendiente && (
           <li className="mundo-turno">
-            <TurnoPendiente
-              p={pendiente}
-              base={base}
-              abrirHecho={p.abrirHecho}
-            />
+            <TurnoPendiente p={pendiente} pasos={p.pasosEnVivo} />
           </li>
         )}
       </ol>
@@ -1567,7 +1591,13 @@ function TurnoGuardado({
         {/* Los pasos se ven siempre: son pocas lineas y son lo que dice COMO
             llego a la respuesta. Detras del desplegable queda solo el detalle
             de cada llamada (argumentos, ids, invariante). */}
-        {(q.consultas ?? []).length > 0 && <PasosDeBusqueda pasos={pasosDeConsultas(q.consultas)} />}
+        {(q.pasos ?? []).length > 0 ? (
+          <Razonamiento pasos={q.pasos!} ahora={ahora} plegable />
+        ) : (
+          // Las de antes del 2 de octubre no guardaban el razonamiento: se
+          // enseñan sus consultas, que es lo que sí quedó registrado.
+          (q.consultas ?? []).length > 0 && <PasosDeBusqueda pasos={pasosDeConsultas(q.consultas)} />
+        )}
         {abierto && (
           <div className="mundo-rastro-detalle">
             {pasos.length > 0 && (
@@ -1796,58 +1826,38 @@ function TurnoSoloLoQueSabe({
   );
 }
 
-function TurnoPendiente({
-  p,
-  base,
-  abrirHecho,
-}: {
-  p: Pendiente;
-  base: BaseMundo;
-  abrirHecho: (id: string) => void;
-}) {
-  const [, setTic] = useState(0);
+function TurnoPendiente({ p, pasos }: { p: Pendiente; pasos: PasoRazonamiento[] }) {
+  const [ahora, setAhora] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setTic((n) => n + 1), 1000);
+    const id = setInterval(() => setAhora(Date.now()), 500);
     return () => clearInterval(id);
   }, []);
-  const segundos = Math.max(0, Math.round((Date.now() - p.desde) / 1000));
-  const [mientras] = useState(
-    () =>
-      preguntarAlModeloDeMundo(
-        base.propios,
-        base.invId,
-        p.pregunta,
-        base.fuentesPorId,
-      ).nodos,
-  );
+  const segundos = Math.max(0, Math.round((ahora - p.desde) / 1000));
+  // Antes aquí salía «Mientras tanto, lo que ya sabe»: hechos del modelo de
+  // mundo que casaban con la pregunta. Lo que ahora se ve es lo que ROSA2018
+  // está HACIENDO, paso a paso, como la línea de tiempo de Kimi (Emir, 2 de
+  // octubre de 2026).
   return (
     <>
       <BurbujaPregunta texto={p.pregunta} />
       <div className="mundo-respuesta" aria-live="polite">
         <CabezaRespuesta estado="pensando">
           <div className="mundo-pensando" role="status">
-            {/* Sin los tres puntos: la cara de al lado ya esta en
-                «pensando», y dos indicadores para lo mismo se estorban. */}
             <Shimmer>
               {p.listo
                 ? tr("Respuesta lista. Llegando...")
-                : tr("Consultando el modelo de mundo y las publicaciones...")}
+                : pasos.length === 0
+                  ? tr("Empezando...")
+                  : trp(pasos.filter((x) => x.tipo === "herramienta").length === 1 ? "Trabajando · {n} herramienta" : "Trabajando · {n} herramientas", {
+                      n: pasos.filter((x) => x.tipo === "herramienta").length,
+                    })}
             </Shimmer>
             <span className="mundo-pensando-tiempo">
               {trp("{n} s", { n: segundos })}
             </span>
           </div>
         </CabezaRespuesta>
-        {mientras.length > 0 && (
-          <div className="mundo-mientras">
-            <span className="mundo-ceja">
-              {trp("Mientras tanto, lo que ya sabe · {n}", {
-                n: mientras.length,
-              })}
-            </span>
-            <HechosEncontrados hechos={mientras} abrirHecho={abrirHecho} />
-          </div>
-        )}
+        <Razonamiento pasos={pasos} ahora={ahora} enMarcha />
       </div>
     </>
   );

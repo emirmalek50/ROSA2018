@@ -669,13 +669,25 @@ def quitar_memoria(e: Estado, investigacion_id: str, memoria_id: str) -> bool:
     return len(inv["memoria"]) != antes
 
 
+def _pasos_de_razonamiento(pasos: list) -> list[dict]:
+    """La linea de tiempo de una pregunta (rosa/razonamiento.py), acotada: a
+    lo sumo 80 pasos y solo los campos conocidos, para que un estado viejo o
+    un cuerpo inventado no meta cualquier cosa en la investigacion."""
+    campos = ("id", "tipo", "texto", "cierra", "herramienta", "familia", "nombre", "argumentos", "inicio", "fin", "error", "resumen")
+    salida = []
+    for p in pasos[:80]:
+        if isinstance(p, dict) and p.get("tipo") in ("pensar", "herramienta"):
+            salida.append({k: p[k] for k in campos if k in p})
+    return salida
+
+
 def registrar_pregunta_bases(e: Estado, investigacion_id: str, pregunta: dict, ahora: int) -> bool:
     """La respuesta de una pregunta con herramientas entra a la investigación
     con sus consultas, para que se vea de donde salió cada dato."""
     inv = _buscar(e["investigaciones"], investigacion_id)
     if not inv or not isinstance(pregunta, dict) or not pregunta.get("pregunta"):
         return False
-    inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}, **{k: pregunta[k] for k in ("cobertura", "atribucion", "duracionMs") if pregunta.get(k) is not None}, **({"hilo": str(pregunta["hilo"])[:40]} if pregunta.get("hilo") else {})})
+    inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}, **{k: pregunta[k] for k in ("cobertura", "atribucion", "duracionMs") if pregunta.get(k) is not None}, **({"pasos": _pasos_de_razonamiento(pregunta["pasos"])} if isinstance(pregunta.get("pasos"), list) else {}), **({"hilo": str(pregunta["hilo"])[:40]} if pregunta.get("hilo") else {})})
     return True
 
 

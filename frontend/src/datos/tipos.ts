@@ -2505,6 +2505,29 @@ export interface PreguntaABases {
   atribucion?: { citadas: string[]; sinRespaldo: string[] };
   /** Lo que tardó la respuesta entera, con el modelo. */
   duracionMs?: number;
+  /** El razonamiento paso a paso: lo que fue pensando y las herramientas que
+   *  usó, en orden (rosa/razonamiento.py). Ausente en las de antes del 2 de
+   *  octubre de 2026. */
+  pasos?: PasoRazonamiento[];
+}
+
+/** Un paso del bucle del chat. `pensar` es lo que el modelo DICE que va a
+ *  hacer: no es un hecho comprobado. `herramienta` es una llamada real. */
+export interface PasoRazonamiento {
+  id: string;
+  tipo: 'pensar' | 'herramienta';
+  inicio: number;
+  /** pensar: el pensamiento; `cierra` si es el último antes de responder. */
+  texto?: string;
+  cierra?: boolean;
+  /** herramienta */
+  herramienta?: string;
+  familia?: 'base' | 'mundo' | 'proyecto' | 'cuestiones' | 'otra';
+  nombre?: string;
+  argumentos?: Record<string, string>;
+  fin?: number | null;
+  error?: string | null;
+  resumen?: string;
 }
 
 export type EstadoCobertura = 'respondido' | 'en_parte' | 'no_esta' | 'no_pude_comprobar';

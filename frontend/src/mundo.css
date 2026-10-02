@@ -2531,3 +2531,154 @@
   font-size: 11.5px;
   opacity: 0.8;
 }
+
+/* La linea de tiempo del razonamiento (componentes/Razonamiento.tsx), como la
+   de Kimi: un icono por paso, «Etiqueta | resumen» en gris, la linea punteada
+   que los une, y el paso en marcha brillando. */
+.razon-bloque { margin-top: 2px; }
+
+.razon {
+  list-style: none;
+  margin: 6px 0 4px;
+  padding: 0;
+}
+
+.razon-fila {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.razon-carril {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  width: 18px;
+}
+
+.razon-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 26px;
+  color: var(--text-3);
+}
+
+.razon-viva .razon-icono { color: var(--text); }
+.razon-fallo .razon-icono { color: var(--amber); }
+
+/* Punteada, como la de Kimi: une los pasos sin pesar tanto como una raya. */
+.razon-linea {
+  flex: 1;
+  width: 0;
+  min-height: 8px;
+  border-left: 1px dashed var(--border-strong);
+}
+
+.razon-cuerpo {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 4px;
+}
+
+.razon-cabeza {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 26px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-3);
+  text-align: left;
+  cursor: pointer;
+}
+
+.razon-cabeza:disabled { cursor: default; }
+.razon-cabeza:not(:disabled):hover .razon-texto { color: var(--text); }
+
+.razon-etiqueta {
+  flex: none;
+  color: var(--text-2, var(--text));
+  font-weight: 500;
+}
+
+.razon-sep {
+  flex: none;
+  width: 1px;
+  height: 14px;
+  background: var(--border-strong);
+}
+
+.razon-texto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--dur-1, 0.15s) ease;
+}
+
+.razon-dato {
+  flex: none;
+  margin-left: auto;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.razon-flecha {
+  flex: none;
+  opacity: 0.6;
+  transition: transform var(--dur-1, 0.15s) ease;
+}
+
+.razon-flecha-abierta { transform: rotate(180deg); }
+
+.razon-detalle {
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.razon-detalle p { margin: 4px 0; }
+
+.razon-arg {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.razon-arg span {
+  font-weight: 600;
+  margin-right: 6px;
+  opacity: 0.75;
+}
+
+/* Ya contestada, el razonamiento queda en una linea, como el «Used 1 tool»
+   de Kimi. */
+.razon-resumen {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 6px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.razon-resumen:hover { color: var(--text); }
+
+/* Marcadores de la linea de tiempo: el pensamiento va un punto mas tenue que
+   la llamada, porque es lo que el modelo dice, no lo que hizo. */
+.razon-pensar .razon-texto { font-style: italic; }
+.razon-ms { opacity: 0.75; }
+.razon-resumen-abierto { color: var(--text); }

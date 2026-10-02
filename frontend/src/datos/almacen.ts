@@ -18,7 +18,7 @@ import { descargar } from '../componentes/piezas';
 import type { CostesInvestigacion } from '../componentes/Rosa2018';
 import { estadoDeMuestra } from './muestra';
 import { iniciarSimulacion } from './simulacion';
-import type { AlcancePermiso, Amplitud, AnclaComentario, Avisos, CampoEnmendable, CampoLecturaEnmendable, ClaseAccion, ClasificacionDatos, ConocimientoOperativo, Dataset, EstadoArea, EstadoEspejo, EstadoRosa, Investigacion, MetodoRegistrado, NivelAutonomia, NivelPermisoConector, ParadaCorrida, PasoPlan, PoliticaEsperas, PreguntaCampana, ProcedenciaDataset, RevisionHumana, TipoArtefacto } from './tipos';
+import type { PasoRazonamiento, AlcancePermiso, Amplitud, AnclaComentario, Avisos, CampoEnmendable, CampoLecturaEnmendable, ClaseAccion, ClasificacionDatos, ConocimientoOperativo, Dataset, EstadoArea, EstadoEspejo, EstadoRosa, Investigacion, MetodoRegistrado, NivelAutonomia, NivelPermisoConector, ParadaCorrida, PasoPlan, PoliticaEsperas, PreguntaCampana, ProcedenciaDataset, RevisionHumana, TipoArtefacto } from './tipos';
 import { senalDeTope } from '../lib/diferido';
 import type { CitasRecuperables, FichaCita, ListaCitas } from '../lib/citas';
 import type { DisenoAso, ExperimentoDeDiana, Laboratorio } from '../lib/laboratorio';
@@ -1093,10 +1093,23 @@ export const acciones = {
    *  estado por SSE con sus consultas. Devuelve un error legible o null. Con
    *  `hilo`, la pregunta sigue una conversación: el servidor lee los turnos
    *  anteriores de lo ya guardado (el navegador solo manda el id). */
-  preguntarALasBases: async (investigacionId: string, pregunta: string, hilo?: string): Promise<string | null> => {
+  /** Los pasos de una pregunta en curso (rosa/razonamiento.py). null si
+   *  todavia no hay nada o no se pudo leer: el razonamiento en vivo es un
+   *  extra, y si falla la respuesta llega igual. */
+  razonamientoDePregunta: async (seguimiento: string): Promise<{ pasos: PasoRazonamiento[]; terminado: boolean } | null> => {
+    if (modo !== 'servidor') return null;
+    try {
+      const r = await fetch(`${API}/preguntar/razonamiento/${encodeURIComponent(seguimiento)}`, { headers: cabeceras(false) });
+      if (!r.ok) return null;
+      return (await r.json()) as { pasos: PasoRazonamiento[]; terminado: boolean };
+    } catch {
+      return null;
+    }
+  },
+  preguntarALasBases: async (investigacionId: string, pregunta: string, hilo?: string, seguimiento?: string): Promise<string | null> => {
     if (modo !== 'servidor') return tr('Preguntar a las bases requiere el servidor de ROSA2018.');
     try {
-      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/preguntar`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ pregunta, quien: QUIEN, ...(hilo ? { hilo } : {}) }) });
+      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/preguntar`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ pregunta, quien: QUIEN, ...(hilo ? { hilo } : {}), ...(seguimiento ? { seguimiento } : {}) }) });
       if (r.status === 429) return tr('Hoy ya se llegó al tope de preguntas con búsqueda en publicaciones. Mañana vuelve a haber; mientras tanto, «Solo lo que ya sabe» responde al instante.');
       if (!r.ok) return `El servidor no pudo responder (${r.status}).`;
       const d = (await r.json()) as { ok: boolean; resultado?: { error?: string | null } };

@@ -1075,6 +1075,15 @@ def crear_app(almacen: Almacen) -> FastAPI:
         hilo = str(cuerpo.get("hilo") or "").strip()
         hilo = hilo if re.fullmatch(r"[a-zA-Z0-9-]{1,40}", hilo) else ""
         contexto_hilo = _turnos_previos(inv, hilo)
+        # El razonamiento en vivo (rosa/razonamiento.py): el navegador manda un
+        # id de seguimiento y, mientras esto corre, pide los pasos a
+        # /api/preguntar/razonamiento/{id}. Sin id, no se sigue y no pasa nada.
+        import dspy
+
+        from rosa import razonamiento as RZ
+
+        seguimiento = RZ.id_valido(cuerpo.get("seguimiento"))
+        progreso = RZ.abrir(seguimiento) if seguimiento else RZ.Progreso()
         hoy = time.strftime("%Y-%m-%d")
         cont = app.state.preguntas_hoy
         if cont["dia"] != hoy:
@@ -1086,15 +1095,34 @@ def crear_app(almacen: Almacen) -> FastAPI:
         app.state.modelos = modelos_
         async with app.state.semaforo_preguntas:
             try:
-                r = await asyncio.wait_for(H.preguntar(modelos_.cerebro, almacen.estado, investigacion_id, pregunta[:2000], f"Objetivo: {inv['objetivo']}. {_texto_mision(inv)}{contexto_hilo}", almacen=almacen), timeout=600)
-                r["pregunta"], r["quien"], r["error"] = pregunta[:2000], quien, None
+                with dspy.context(callbacks=RZ.callbacks_con(progreso)):
+                    r = await asyncio.wait_for(H.preguntar(modelos_.cerebro, almacen.estado, investigacion_id, pregunta[:2000], f"Objetivo: {inv['objetivo']}. {_texto_mision(inv)}{contexto_hilo}", almacen=almacen), timeout=600)
+                    r["pregunta"], r["quien"], r["error"] = pregunta[:2000], quien, None
             except Exception as ex:  # noqa: BLE001
                 print(f"preguntar con herramientas fallo: {type(ex).__name__}: {str(ex)[:300]}", file=sys.stderr)
                 r = {"pregunta": pregunta[:2000], "quien": quien, "respuesta": "", "limites": "", "herramientas": [], "consultas": [], "iteraciones": 0, "error": "El modelo o una herramienta no respondieron; el detalle está en el registro del servidor"}
+        progreso.cerrar()
+        # Los pasos se guardan con la respuesta: la linea de tiempo se ve igual
+        # despues, no solo mientras se busca.
+        r["pasos"] = progreso.pasos()
         if hilo:
             r["hilo"] = hilo
         almacen.aplicar("registrarPreguntaBases", {"investigacion_id": investigacion_id, "pregunta": r})
         return {"ok": r.get("error") is None, "resultado": {k: v for k, v in r.items() if k != "consultas"} | {"consultas": len(r.get("consultas", []))}, "version": almacen.version}
+
+    @app.get("/api/preguntar/razonamiento/{seguimiento}")
+    async def razonamiento_de_pregunta(seguimiento: str) -> dict[str, Any]:
+        """Los pasos de una pregunta en curso: lo que va pensando y las
+        herramientas que va usando (rosa/razonamiento.py). El id lo genera el
+        navegador al preguntar; uno que no existe o ya caduco da 404, que el
+        navegador lee como «todavia no hay nada que enseñar»."""
+        from rosa import razonamiento as RZ
+
+        s = RZ.id_valido(seguimiento)
+        datos = RZ.leer(s) if s else None
+        if datos is None:
+            raise HTTPException(404, "No hay razonamiento en curso con ese id")
+        return datos
 
     @app.get("/api/espejo")
     async def espejo_estado() -> dict[str, Any]:
