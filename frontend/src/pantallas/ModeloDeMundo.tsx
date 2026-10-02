@@ -74,6 +74,7 @@ import { tr, trp } from "../lib/idioma";
 import { Herramientas } from "../componentes/Herramienta";
 import { PasosDeBusqueda, pasosDeConsultas } from "../componentes/PasosDeBusqueda";
 import { Shimmer } from "../componentes/Shimmer";
+import { Checkpoint, GuardarEnMemoria } from "../componentes/Checkpoint";
 import {
   ESTADO_COBERTURA,
   SIN_TEMA,
@@ -776,8 +777,23 @@ function Conversar(p: PropsConversar) {
                 enfocar={p.enfocar}
                 reintentar={() => p.enviar(t.q.pregunta, "bases")}
                 ocupado={pendiente !== null}
+                recordar={(texto) => acciones.anadirMemoria(p.inv.id, texto)}
               />
             )}
+            {/* Lo que ROSA2018 se guardo justo despues de este turno. La
+                memoria del proyecto ya existia; lo que faltaba era verla
+                donde pasa, en vez de en una lista aparte. */}
+            {t.tipo === "guardada" &&
+              (p.inv.memoria ?? [])
+                .filter((m) => m.fecha >= t.q.fecha && m.fecha < t.q.fecha + 10 * 60_000)
+                .map((m) => (
+                  <Checkpoint
+                    key={m.id}
+                    m={m}
+                    ahora={ahora}
+                    alQuitar={() => acciones.quitarMemoria(p.inv.id, m.id)}
+                  />
+                ))}
             {t.tipo === "local" && (
               <TurnoSoloLoQueSabe
                 t={t.t}
@@ -1327,6 +1343,7 @@ function TurnoGuardado({
   enfocar,
   reintentar,
   ocupado,
+  recordar,
 }: {
   q: PreguntaABases;
   ahora: number;
@@ -1335,6 +1352,7 @@ function TurnoGuardado({
   enfocar: () => void;
   reintentar: () => void;
   ocupado: boolean;
+  recordar: (texto: string) => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   const fuentes = fuentesDeConsultas(q);
@@ -1431,6 +1449,10 @@ function TurnoGuardado({
                 <IconMessage size={13} />
                 {tr("Seguir preguntando")}
               </button>
+              {/* La memoria del proyecto ya existia (inv.memoria) pero vivia
+                  en una lista de ajustes. Aqui se guarda donde pasa, y lo
+                  guarda una persona: ROSA2018 no se apunta nada sola. */}
+              <GuardarEnMemoria propuesta={q.pregunta} alGuardar={recordar} />
               {!veredicto && comprobables > 0 && (
                 <span className="mundo-accion-meta">
                   {trp(

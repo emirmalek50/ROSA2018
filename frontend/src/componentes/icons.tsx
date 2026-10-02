@@ -492,3 +492,12 @@ export function IconClock({ size = 14, ...props }: IconProps) {
     </svg>
   );
 }
+
+/** Un marcapáginas: el punto del hilo donde ROSA2018 se guardó algo tuyo. */
+export function IconBookmark({ size = 14, ...props }: IconProps) {
+  return (
+    <svg {...base(size, props)}>
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
