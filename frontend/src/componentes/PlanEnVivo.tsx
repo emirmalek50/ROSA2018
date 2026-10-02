@@ -17,7 +17,7 @@ import { ESTADO_PISTA, TIPO_PISTA, mostrarTexto } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { IconAlert, IconCheck, IconChevronDown, IconMinus, IconSpinner, IconStop, IconTrash, IconUser } from './icons';
 import { Chip, Momento } from './piezas';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 function IconoPaso({ paso }: { paso: PasoPlan }) {
   if (paso.estado === 'en_curso') return <IconSpinner size={12} />;
@@ -33,7 +33,7 @@ function Consulta({ c }: { c: NonNullable<Pista['transcripcion'][number]['consul
   return (
     <div className="consulta">
       <button type="button" className="consulta-cabecera" aria-expanded={abierta} onClick={() => setAbierta((v) => !v)}>
-        <span>Consulta a {c.base}</span>
+        <span>{trp("Consulta a {base}", { base: c.base })}</span>
         <span style={{ transform: abierta ? 'rotate(180deg)' : 'none', display: 'inline-flex' }}>
           <IconChevronDown size={11} />
         </span>
@@ -61,7 +61,7 @@ export function Transcripcion({ pista, ahora, onDetener }: { pista: Pista; ahora
       {pista.transcripcion.length === 0 ? (
         <p className="meta">{tr("Todavía sin actividad registrada.")}</p>
       ) : (
-        <ol className="transcripcion" aria-label={`Transcripción de ${pista.titulo}`}>
+        <ol className="transcripcion" aria-label={trp("Transcripción de {titulo}", { titulo: pista.titulo })}>
           <AnimatePresence initial={false}>
             {pista.transcripcion.map((e, i) => (
               <motion.li key={`${e.t}-${i}`} className={`t-${e.tipo}`} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}>
@@ -127,7 +127,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
       <div className="plan-editor">
         <div className="acciones" style={{ justifyContent: 'space-between' }}>
           <div>
-            <strong style={{ fontSize: 13 }}>{tr("Plan propuesto para la iteración")} {iteracion.numero}</strong>
+            <strong style={{ fontSize: 13 }}>{trp("Plan propuesto para la iteración {numero}", { numero: iteracion.numero })}</strong>
             <p className="meta">
               Propuesto <Momento t={iteracion.planPropuestoEn} ahora={ahora} />{tr(". ROSA2018 no ejecuta nada hasta que lo apruebes. Reordena, quita o añade pasos y fija el presupuesto de cada uno.")}
             </p>
@@ -152,7 +152,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
                       const t = e.target.value.trim();
                       if (t && t !== paso.titulo) onEditarPlan?.(iteracion.plan.map((p) => (p.id === paso.id ? { ...p, titulo: t } : p)));
                     }}
-                    aria-label={`Título del paso ${i + 1}`}
+                    aria-label={trp("Título del paso {v}", { v: i + 1 })}
                   />
                   <input
                     className="entrada entrada-s"
@@ -167,7 +167,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
                       if (nuevo !== null && !(Number.isFinite(nuevo) && nuevo >= 0)) return;
                       if (nuevo !== (paso.presupuesto ?? null)) onEditarPlan?.(iteracion.plan.map((p) => (p.id === paso.id ? { ...p, presupuesto: nuevo } : p)));
                     }}
-                    aria-label={`Presupuesto del paso ${i + 1}`}
+                    aria-label={trp("Presupuesto del paso {v}", { v: i + 1 })}
                   />
                   <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label="Subir" disabled={i === 0} onClick={() => mover(i, -1)}>
                     <IconChevronDown size={12} style={{ transform: 'rotate(180deg)' }} />
@@ -180,7 +180,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
                   </button>
                 </div>
                 {paso.detalle !== '' && <p className="paso-detalle">{paso.detalle}</p>}
-                {paso.valorDecision ? <p className="paso-detalle paso-valor" title={tr("Qué decisión cambia según el resultado de este paso (valor de decisión)")}>Decide: {paso.valorDecision}</p> : null}
+                {paso.valorDecision ? <p className="paso-detalle paso-valor" title={tr("Qué decisión cambia según el resultado de este paso (valor de decisión)")}>{trp("Decide: {valorDecision}", { valorDecision: paso.valorDecision })}</p> : null}
               </div>
             </li>
           ))}
@@ -204,7 +204,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
   }
 
   return (
-    <ol className="plan" aria-label={`Plan de la iteración ${iteracion.numero}`}>
+    <ol className="plan" aria-label={trp("Plan de la iteración {numero}", { numero: iteracion.numero })}>
       {iteracion.plan.map((paso) => {
         const pistas = iteracion.pistas.filter((p) => p.pasoId === paso.id);
         return (
@@ -223,7 +223,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
                     {paso.comprobacion.resultado === 'falla' ? tr('La etapa no produjo nada') : paso.comprobacion.resultado === 'no_comprobable' ? 'No se pudo comprobar' : tr('Sin materia')}
                   </Chip>
                 )}
-                {paso.presupuesto !== null && <span className="meta">hasta {paso.presupuesto} llamadas</span>}
+                {paso.presupuesto !== null && <span className="meta">{trp("hasta {presupuesto} llamadas", { presupuesto: paso.presupuesto })}</span>}
               </div>
               {paso.detalle !== '' && <p className="paso-detalle">{paso.detalle}</p>}
               {paso.motivoFallo && <p className="paso-fallo">{paso.motivoFallo}</p>}

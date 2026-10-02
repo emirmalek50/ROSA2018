@@ -20,7 +20,7 @@ import { formatearEntero, plural } from '../lib/formato';
 import { EXPLICACION_BLOQUEO } from '../lib/priorizacion';
 import { componentesDe, queCambiariaElOrden, type ComponentesRanking, type EstadoNovedad, type EstadoParaRanking } from '../lib/ranking';
 import { Chip } from './piezas';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 type Tono = 'ok' | 'aviso' | 'mal' | 'acento' | 'borde' | 'neutro';
 
@@ -67,7 +67,7 @@ function etiquetaCerteza(nivel: CertezaEvidencia): { etiqueta: string; tono: Ton
 }
 
 function etiquetaDireccion(d: DireccionEvidencia): { etiqueta: string; tono: Tono } {
-  return de(DIRECCION_EVIDENCIA as Record<string, { etiqueta: string; tono: Tono }>, d) ?? { etiqueta: `Dirección: ${legible(d)}`, tono: 'borde' };
+  return de(DIRECCION_EVIDENCIA as Record<string, { etiqueta: string; tono: Tono }>, d) ?? { etiqueta: trp("Dirección: {d}", { d: legible(d) }), tono: 'borde' };
 }
 
 function etiquetaKiller(k: DecisionKiller): { etiqueta: string; tono: Tono; nota: string } {
@@ -89,7 +89,7 @@ function etiquetaRuta(r: NonNullable<ComponentesRanking['ruta']>): string {
 function ChipCerteza({ c }: { c: ComponentesRanking }) {
   if (!c.certeza) {
     return (
-      <Chip tono="borde" title={`${DEFINICIONES.certeza} ROSA2018 todavía no ha escrito una conclusión: la escribe al cerrar cada iteración.`}>
+      <Chip tono="borde" title={trp("{certeza} ROSA2018 todavía no ha escrito una conclusión: la escribe al cerrar cada iteración.", { certeza: DEFINICIONES.certeza })}>
         {tr("Sin conclusión todavía")}
       </Chip>
     );
@@ -162,17 +162,15 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
             {etiquetaDireccion(c.direccion).etiqueta}
           </Chip>
         )}
-        <Chip tono={n >= 2 ? 'ok' : 'borde'} title={`${DEFINICIONES.cohortes}${n > 0 ? ` Aquí: ${c.cohortesDistintas.join('; ')}.` : tr(' Aquí ninguna fuente nombra su cohorte: no se puede afirmar que sean independientes.')}`}>
+        <Chip tono={n >= 2 ? 'ok' : 'borde'} title={`${DEFINICIONES.cohortes}${n > 0 ? trp(" Aquí: {v}.", { v: c.cohortesDistintas.join('; ') }) : tr(' Aquí ninguna fuente nombra su cohorte: no se puede afirmar que sean independientes.')}`}>
           {n === 0 ? tr('Sin cohorte identificada') : plural(n, tr('cohorte distinta'), tr('cohortes distintas'))}
         </Chip>
         <Chip tono={c.aFavor > 0 ? 'ok' : 'borde'} title={DEFINICIONES.aFavor}>
-          {formatearEntero(c.aFavor)} a favor
-        </Chip>
+          {trp("{aFavor} a favor", { aFavor: formatearEntero(c.aFavor) })}</Chip>
         <Chip tono={c.enContra > 0 ? 'mal' : 'borde'} title={DEFINICIONES.enContra}>
-          {formatearEntero(c.enContra)} en contra
-        </Chip>
+          {trp("{enContra} en contra", { enContra: formatearEntero(c.enContra) })}</Chip>
         {!compacto && <Chip tono={c.socavan > 0 ? 'aviso' : 'borde'} title={`${DEFINICIONES.socavan}${c.socavadas > 0 ? ` Hoy ${plural(c.socavadas, tr('apoyo socavado no cuenta'), tr('apoyos socavados no cuentan'))}.` : ''}`}>
-          {c.socavan === 1 ? '1 socava' : `${formatearEntero(c.socavan)} socavan`}
+          {c.socavan === 1 ? tr('1 socava') : `${formatearEntero(c.socavan)} socavan`}
         </Chip>}
         {!compacto && c.razonesEnContra > 0 && (
           <Chip tono="aviso" title={tr("Razones en contra que el juez enumera en la conclusión: no son afirmaciones verificadas (esas son las de 'en contra' y 'socavan'), sino ataques al paso inferencial o cosas que faltan. Se cuentan aparte para que '0 en contra' no se lea como 'sin objeciones'.")}>
@@ -180,11 +178,10 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           </Chip>
         )}
         {c.killer ? (
-          <Chip tono={etiquetaKiller(c.killer).tono} title={`${DEFINICIONES.killer} ${c.killerMotivo ? `Motivo: ${c.killerMotivo}` : etiquetaKiller(c.killer).nota}`}>
-            Killer: {etiquetaKiller(c.killer).etiqueta}
+          <Chip tono={etiquetaKiller(c.killer).tono} title={`${DEFINICIONES.killer} ${c.killerMotivo ? `Motivo: ${c.killerMotivo}` : etiquetaKiller(c.killer).nota}`}>{trp("Killer: {etiqueta}", { etiqueta: etiquetaKiller(c.killer).etiqueta })}
           </Chip>
         ) : (
-          <Chip tono="borde" title={`${DEFINICIONES.killer} Todavía no la juzgó.`}>
+          <Chip tono="borde" title={trp("{killer} Todavía no la juzgó.", { killer: DEFINICIONES.killer })}>
             {tr("Killer: sin juzgar")}
           </Chip>
         )}
@@ -194,18 +191,18 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
             BT {formatearEntero(c.bt.fuerza)} ({formatearEntero(c.bt.ic95[0])} a {formatearEntero(c.bt.ic95[1])})
           </Chip>
         ) : (
-          <Chip tono="borde" title={`${DEFINICIONES.bt} Todavía no se calculó: hacen falta partidos.`}>
+          <Chip tono="borde" title={trp("{bt} Todavía no se calculó: hacen falta partidos.", { bt: DEFINICIONES.bt })}>
             {tr("Sin BT")}
           </Chip>
         )}
         <Chip tono={pocos ? 'aviso' : 'neutro'} title={DEFINICIONES.partidos}>
-          {plural(c.partidos, 'partido')}
+          {plural(c.partidos, tr("partido"))}
         </Chip>
         {!compacto && <Chip tono={novedad.tono} title={`${novedad.nota}${c.novedad.detalle ? ` Detalle: ${c.novedad.detalle}` : ''}`}>
           {novedad.etiqueta}
         </Chip>}
         {c.ruta ? (
-          <Chip tono={c.ruta.coherente ? 'acento' : 'aviso'} title={`Ruta terapéutica evaluada por regla sobre la evidencia que tiene: pasos cubiertos de ocho y el primero que falta. ${c.ruta.coherente ? tr('El paso que declara la tarjeta es coherente con lo cubierto.') : tr('El paso que declara la tarjeta va por delante de lo que la evidencia cubre.')}`}>
+          <Chip tono={c.ruta.coherente ? 'acento' : 'aviso'} title={(c.ruta.coherente ? tr("Ruta terapéutica evaluada por regla sobre la evidencia que tiene: pasos cubiertos de ocho y el primero que falta. El paso que declara la tarjeta es coherente con lo cubierto.") : tr("Ruta terapéutica evaluada por regla sobre la evidencia que tiene: pasos cubiertos de ocho y el primero que falta. El paso que declara la tarjeta va por delante de lo que la evidencia cubre."))}>
             {etiquetaRuta(c.ruta)}
           </Chip>
         ) : c.pasoRuta ? (
@@ -214,8 +211,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           </Chip>
         ) : null}
         {c.conflictoCon.length > 0 && (
-          <Chip tono="aviso" title={`${DEFINICIONES.conflicto} Con: ${c.conflictoCon.map((x) => x.titulo).join('; ')}.`}>
-            Se contradice con {c.conflictoCon.length === 1 ? 'otra' : formatearEntero(c.conflictoCon.length)}
+          <Chip tono="aviso" title={trp("{conflicto} Con: {v}.", { conflicto: DEFINICIONES.conflicto, v: c.conflictoCon.map((x) => x.titulo).join('; ') })}>{trp("Se contradice con {v}", { v: c.conflictoCon.length === 1 ? 'otra' : formatearEntero(c.conflictoCon.length) })}
           </Chip>
         )}
         {c.pendiente && (
@@ -229,8 +225,8 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           </Chip>
         )}
         {c.fusion === 'absorbe' && (
-          <Chip tono="acento" title={`${DEFINICIONES.absorbe} Absorbió: ${c.fusionCon.map((x) => x.titulo).join('; ')}.`}>
-            {tr("Absorbió")} {c.fusionCon.length === 1 ? 'otra' : formatearEntero(c.fusionCon.length)}
+          <Chip tono="acento" title={trp("{absorbe} Absorbió: {v}.", { absorbe: DEFINICIONES.absorbe, v: c.fusionCon.map((x) => x.titulo).join('; ') })}>
+            {trp("Absorbió {v}", { v: c.fusionCon.length === 1 ? 'otra' : formatearEntero(c.fusionCon.length) })}
           </Chip>
         )}
       </div>

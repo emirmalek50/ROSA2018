@@ -10,7 +10,7 @@ import type { CeldaMapaRuta, EstadoRosa, MapaRuta as Mapa, PasoRutaTerapeutica }
 import { CERTEZA_EVIDENCIA, PASO_RUTA } from '../lib/etiquetas';
 import { plural } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 /** Los ocho pasos en orden. */
 export const PASOS_RUTA: PasoRutaTerapeutica[] = ['mecanismo', 'opciones_intervencion', 'compromiso_diana', 'efecto_funcional', 'selectividad_toxicidad', 'exposicion', 'replicacion_independiente', 'evidencia_poblacion'];
@@ -49,17 +49,17 @@ function Celda({ celda, hueco, paso, diana }: { celda: CeldaMapaRuta | undefined
   const etiquetaPaso = PASO_RUTA[paso]?.etiqueta ?? paso;
   if (hueco || (hip === 0 && parciales === 0 && hechos === 0)) {
     return (
-      <td className="num ruta-celda ruta-hueco" title={`${diana}, ${etiquetaPaso.toLowerCase()}: ninguna hipótesis viva de esta diana cubre el paso${hechos ? `; ${plural(hechos, 'hecho')} del modelo de mundo lo tocan` : ''}.`}>
+      <td className="num ruta-celda ruta-hueco" title={trp("{diana}, {v}: ninguna hipótesis viva de esta diana cubre el paso{v2}.", { diana, v: etiquetaPaso.toLowerCase(), v2: hechos ? trp("; {hechos} del modelo de mundo lo tocan", { hechos: plural(hechos, tr("hecho")) }) : '' })}>
         <span className="ruta-hueco-texto">hueco</span>
-        {hechos > 0 && <span className="meta ruta-celda-hechos">{plural(hechos, 'hecho')}</span>}
+        {hechos > 0 && <span className="meta ruta-celda-hechos">{plural(hechos, tr("hecho"))}</span>}
       </td>
     );
   }
   return (
-    <td className={`num ruta-celda ${certeza ? `ruta-certeza-${certeza.tono}` : ''}`} title={`${diana}, ${etiquetaPaso.toLowerCase()}: ${plural(hip, tr('hipótesis cubre el paso'), tr('hipótesis cubren el paso'))}, ${parciales} a medias, ${plural(hechos, 'hecho')} del modelo de mundo${certeza ? `; certeza máxima: ${certeza.etiqueta.toLowerCase()}` : ''}.`}>
+    <td className={`num ruta-celda ${certeza ? `ruta-certeza-${certeza.tono}` : ''}`} title={trp("{diana}, {v}: {hip}, {parciales} a medias, {hechos} del modelo de mundo{v2}.", { diana, v: etiquetaPaso.toLowerCase(), hip: plural(hip, tr('hipótesis cubre el paso'), tr('hipótesis cubren el paso')), parciales, hechos: plural(hechos, tr("hecho")), v2: certeza ? trp("; certeza máxima: {v}", { v: certeza.etiqueta.toLowerCase() }) : '' })}>
       <span className="ruta-celda-cifra">{hip}</span>
-      {parciales > 0 && <span className="meta ruta-celda-parciales">+{parciales} parcial{parciales === 1 ? '' : 'es'}</span>}
-      {hechos > 0 && <span className="meta ruta-celda-hechos">{plural(hechos, 'hecho')}</span>}
+      {parciales > 0 && <span className="meta ruta-celda-parciales">{(parciales === 1 ? trp("+{parciales} parcial", { parciales }) : trp("+{parciales} parciales", { parciales }))}</span>}
+      {hechos > 0 && <span className="meta ruta-celda-hechos">{plural(hechos, tr("hecho"))}</span>}
       {certeza && <span className={`chip chip-${certeza.tono} ruta-celda-certeza`}>{certeza.etiqueta.replace('Certeza ', '')}</span>}
     </td>
   );
@@ -91,7 +91,7 @@ export function MapaRuta({ mapa, estado }: { mapa: Mapa | null | undefined; esta
     <article className="tarjeta mapa-ruta" aria-label={tr("Mapa de la ruta terapéutica")}>
       <div className="mapa-ruta-cabecera">
         <h3>{tr("Mapa de la ruta terapéutica")}</h3>
-        <span className="meta">{iteracion ? `Calculado al cerrar la iteración ${iteracion}.` : tr('Calculado a demanda.')}</span>
+        <span className="meta">{iteracion ? trp("Calculado al cerrar la iteración {iteracion}.", { iteracion }) : tr('Calculado a demanda.')}</span>
       </div>
       {resumen ? <p className="mapa-ruta-resumen">{resumen}</p> : null}
       <p className="meta">
@@ -134,10 +134,10 @@ export function MapaRuta({ mapa, estado }: { mapa: Mapa | null | undefined; esta
                               </a>
                             </span>
                           ))}
-                          {hip.length > 4 ? ` y ${hip.length - 4} más` : ''}
+                          {hip.length > 4 ? trp(" y {v} más", { v: hip.length - 4 }) : ''}
                         </span>
                       )}
-                      {entero(f.hechos) > 0 && <span className="meta ruta-fila-hechos">{plural(entero(f.hechos), 'hecho')} {tr("del modelo de mundo")}</span>}
+                      {entero(f.hechos) > 0 && <span className="meta ruta-fila-hechos">{trp("{v} del modelo de mundo", { v: plural(entero(f.hechos), tr("hecho")) })}</span>}
                     </td>
                     <td className="num">{hip.length}</td>
                     {PASOS_RUTA.map((p) => (

@@ -11,7 +11,7 @@
 
 import type { Bloqueo, EstadoRosa, Hipotesis } from '../datos/tipos';
 import { veredictoDe } from './etiquetas';
-import { tr, traducido } from './idioma';
+import { traducido } from './idioma';
 
 export const MAX_CANDIDATOS = 3;
 
@@ -210,13 +210,13 @@ const CATALOGO_COHORTES: EntradaCohorte[] = traducido([
 ]);
 
 /** Palabras que no distinguen una cohorte (rosa/metodos.py _GENERICOS_COHORTE). */
-const GENERICOS_COHORTE = new Set(['cohorte', 'cohort', 'study', 'estudio', 'longitudinal', 'portadores', 'familias', 'alzheimer', 'disease', 'enfermedad', 'mutaciones', 'carriers', 'participantes', 'pacientes', 'et', 'al', 'the', 'of', 'de', 'del', 'la', 'los', 'las', 'con', 'and', 'familial', 'autosomal', 'dominant', tr('autosómico'), 'dominante', 'ensayo', 'ensayos', 'trial', 'trials']);
+const GENERICOS_COHORTE = new Set(['cohorte', 'cohort', 'study', 'estudio', 'longitudinal', 'portadores', 'familias', 'alzheimer', 'disease', 'enfermedad', 'mutaciones', 'carriers', 'participantes', 'pacientes', 'et', 'al', 'the', 'of', 'de', 'del', 'la', 'los', 'las', 'con', 'and', 'familial', 'autosomal', 'dominant', 'autosómico', 'dominante', 'ensayo', 'ensayos', 'trial', 'trials']);
 
 /** Las genéricas más las que tampoco distinguen un nombre libre de uno del
  *  catálogo (rosa/metodos.py _GENERICOS_MIXTA). */
 const GENERICOS_MIXTA = new Set([
   ...GENERICOS_COHORTE,
-  ...['memory', 'aging', 'ageing', 'brain', 'center', 'centre', 'centers', 'research', 'project', 'initiative', 'registry', 'network', 'consortium', 'biobank', 'university', 'birth', 'adad', 'fad', 'eoad', 'load', 'sporadic', 'trial', 'trials', 'ensayo', 'prevention', tr('prevención'), 'prevencion', 'prevent', 'data', 'datos', 'dementia', 'demencia', 'bank', 'banco', 'kindred', 'unit', 'programme', 'program', 'neuroimaging', 'imaging', 'health', 'european', 'national', 'biomarker', 'biomarkers', 'treatment', 'treatments', 'observational', 'older', 'controls', 'risk', 'cognitive', 'impairment', 'clinical', 'series', 'studies', 'open', 'access', 'for', 'with', 'des', 'etude', 'translational', 'families', 'family', 'japanese', 'chinese', 'swedish', 'australian', 'finnish', 'british', 'knowledge', 'portal', 'medical', 'information', 'framework', 'evaluation', 'experimental', 'novel', 'intervention', 'disability', 'geriatric', 'survey', 'development', 'syndrome', 'lifestyle', 'care', 'elderly', 'offspring', 'heart', 'scan', 'atlas', 'cell', 'mayo', 'clinic'],
+  ...['memory', 'aging', 'ageing', 'brain', 'center', 'centre', 'centers', 'research', 'project', 'initiative', 'registry', 'network', 'consortium', 'biobank', 'university', 'birth', 'adad', 'fad', 'eoad', 'load', 'sporadic', 'trial', 'trials', 'ensayo', 'prevention', 'prevención', 'prevencion', 'prevent', 'data', 'datos', 'dementia', 'demencia', 'bank', 'banco', 'kindred', 'unit', 'programme', 'program', 'neuroimaging', 'imaging', 'health', 'european', 'national', 'biomarker', 'biomarkers', 'treatment', 'treatments', 'observational', 'older', 'controls', 'risk', 'cognitive', 'impairment', 'clinical', 'series', 'studies', 'open', 'access', 'for', 'with', 'des', 'etude', 'translational', 'families', 'family', 'japanese', 'chinese', 'swedish', 'australian', 'finnish', 'british', 'knowledge', 'portal', 'medical', 'information', 'framework', 'evaluation', 'experimental', 'novel', 'intervention', 'disability', 'geriatric', 'survey', 'development', 'syndrome', 'lifestyle', 'care', 'elderly', 'offspring', 'heart', 'scan', 'atlas', 'cell', 'mayo', 'clinic'],
 ]);
 
 const NCT = /\bNCT\d{8}\b/i;

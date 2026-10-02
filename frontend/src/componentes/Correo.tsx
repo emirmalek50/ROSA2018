@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 import { cabeceras } from '../datos/almacen';
 import { atributosEnVuelo, senalDeTope, useEnVuelo } from '../lib/diferido';
 import { Cargando, Esqueleto, EsqueletoTexto } from './Esqueleto';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 type Configuracion = { remitente: string; url: string; hora: number; zona: string; proveedor: 'resend' | 'smtp'; smtpServidor: string; smtpPuerto: number; smtpUsuario: string };
 type EstadoCorreo = Configuracion & {
@@ -156,8 +156,8 @@ export function Correo({ servidor }: { servidor: boolean }) {
             <div className="campo"><label htmlFor="correo-smtp-puerto">{tr("Puerto (587 con STARTTLS, 465 con TLS)")}</label><input id="correo-smtp-puerto" type="number" min={1} max={65535} required value={form.smtpPuerto} onChange={(e) => setForm({ ...form, smtpPuerto: Number(e.target.value) })} /></div>
             <div className="campo"><label htmlFor="correo-smtp-usuario">{tr("Usuario (la cuenta que envía)")}</label><input id="correo-smtp-usuario" type="email" required value={form.smtpUsuario} onChange={(e) => setForm({ ...form, smtpUsuario: e.target.value })} /></div>
           </>}
-          <div className="campo"><label htmlFor="correo-remitente">{form.proveedor === 'smtp' ? tr('Correo remitente (la misma cuenta o un alias suyo)') : tr('Correo remitente (dominio verificado en Resend)')}</label><input id="correo-remitente" type="email" required value={form.remitente} onChange={(e) => setForm({ ...form, remitente: e.target.value })} placeholder="rosa@tu-dominio.com" /></div>
-          <div className="campo"><label htmlFor="correo-clave">{form.proveedor === 'smtp' ? tr('Contraseña de aplicación') : 'Clave de Resend'} {estado.claveGuardada ? tr('(guardada; deja vacío para conservarla)') : ''}</label><input id="correo-clave" type="password" autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} /></div>
+          <div className="campo"><label htmlFor="correo-remitente">{(form.proveedor === 'smtp' ? tr("Correo remitente (la misma cuenta o un alias suyo)") : tr("Correo remitente (dominio verificado en Resend)"))}</label><input id="correo-remitente" type="email" required value={form.remitente} onChange={(e) => setForm({ ...form, remitente: e.target.value })} placeholder="rosa@tu-dominio.com" /></div>
+          <div className="campo"><label htmlFor="correo-clave">{(form.proveedor === 'smtp' ? trp("Contraseña de aplicación {v}", { v: estado.claveGuardada ? tr("(guardada; deja vacío para conservarla)") : "" }) : trp("Clave de Resend {v}", { v: estado.claveGuardada ? tr("(guardada; deja vacío para conservarla)") : "" }))}</label><input id="correo-clave" type="password" autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} /></div>
           <div className="campo"><label htmlFor="correo-url">{tr("Dirección web para abrir ROSA2018 desde el correo")}</label><input id="correo-url" type="url" required value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /><small>{tr("Localhost solo funciona en el equipo que ejecuta ROSA2018. No incluyas tokens de acceso en esta URL.")}</small></div>
           <div className="campo"><label htmlFor="correo-hora">{tr("Hora del resumen diario (0 a 23)")}</label><input id="correo-hora" type="number" min={0} max={23} required value={form.hora} onChange={(e) => setForm({ ...form, hora: Number(e.target.value) })} /></div>
           <div className="campo"><label htmlFor="correo-zona">Zona horaria</label><input id="correo-zona" required value={form.zona} onChange={(e) => setForm({ ...form, zona: e.target.value })} /></div>

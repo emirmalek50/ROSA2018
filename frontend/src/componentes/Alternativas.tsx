@@ -21,7 +21,7 @@
 import type { ReactNode } from 'react';
 import { plural } from '../lib/formato';
 import { Chip } from './piezas';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 export type ClaseAlternativa = 'causa_inversa' | 'confusor' | 'seleccion' | 'artefacto' | 'otra';
 
@@ -128,12 +128,12 @@ function esClase(k: string): k is ClaseAlternativa {
 function clasificar(claseDeclarada: string, textoAlternativa: string): { clase: ClaseAlternativa; claseInferida: boolean; motivoClase: string } {
   const k = claveClase(claseDeclarada);
   if (k && esClase(k)) return { clase: k, claseInferida: false, motivoClase: `Clase declarada: ${CLASE_ALTERNATIVA[k].etiqueta.toLowerCase()}.` };
-  if (k && Object.hasOwn(ALIAS_CLASE, k)) return { clase: ALIAS_CLASE[k]!, claseInferida: false, motivoClase: `Clase declarada como "${claseDeclarada.trim()}", leída como ${CLASE_ALTERNATIVA[ALIAS_CLASE[k]!].etiqueta.toLowerCase()}.` };
-  if (k) return { clase: 'otra', claseInferida: false, motivoClase: `Clase declarada "${claseDeclarada.trim()}", que esta interfaz no conoce; se enseña como otra explicación.` };
+  if (k && Object.hasOwn(ALIAS_CLASE, k)) return { clase: ALIAS_CLASE[k]!, claseInferida: false, motivoClase: trp("Clase declarada como \"{v}\", leída como {v2}.", { v: claseDeclarada.trim(), v2: CLASE_ALTERNATIVA[ALIAS_CLASE[k]!].etiqueta.toLowerCase() }) };
+  if (k) return { clase: 'otra', claseInferida: false, motivoClase: trp("Clase declarada \"{v}\", que esta interfaz no conoce; se enseña como otra explicación.", { v: claseDeclarada.trim() }) };
   const llano = sinTildes(textoAlternativa);
   for (const r of REGLAS_CLASE) {
     const m = r.patron.exec(llano);
-    if (m) return { clase: r.clase, claseInferida: true, motivoClase: `Clase inferida del texto por regla (misma que rosa/causal.py): contiene "${m[0]}".` };
+    if (m) return { clase: r.clase, claseInferida: true, motivoClase: trp("Clase inferida del texto por regla (misma que rosa/causal.py): contiene \"{v}\".", { v: m[0] }) };
   }
   return { clase: 'otra', claseInferida: true, motivoClase: tr('Sin clase declarada y el texto no nombra causa inversa, confusor, selección ni artefacto.') };
 }
@@ -179,7 +179,7 @@ export function alternativasDe(h: ConAlternativas | null | undefined): Alternati
     if (!t) continue;
     const claseOriginal = rol.slice('alternativa_'.length).toLowerCase();
     const c = clasificar(claseOriginal, t);
-    salida.push({ texto: t, queLaDistinguiria: '', iteracion: null, claseOriginal, origen: 'grafo_causal', ...c, motivoClase: `${c.motivoClase} Leída del nodo ${texto(o.id) || tr('sin id')} del grafo causal.` });
+    salida.push({ texto: t, queLaDistinguiria: '', iteracion: null, claseOriginal, origen: 'grafo_causal', ...c, motivoClase: trp("{motivoClase} Leída del nodo {v} del grafo causal.", { motivoClase: c.motivoClase, v: texto(o.id) || tr('sin id') }) });
   }
   return salida;
 }
@@ -215,7 +215,7 @@ export function Alternativas({ h, vacio }: { h: ConAlternativas | null | undefin
                 </Chip>
                 <span className="meta">{c.definicion}</span>
                 {a.claseInferida && a.clase !== 'otra' && <span className="meta">{tr("Clase inferida del texto por regla")}</span>}
-                {a.iteracion !== null && <span className="meta">{tr("Iteración")} {a.iteracion}</span>}
+                {a.iteracion !== null && <span className="meta">{trp("Iteración {iteracion}", { iteracion: a.iteracion })}</span>}
               </div>
               {a.texto && <p>{a.texto}</p>}
               <p className="meta">

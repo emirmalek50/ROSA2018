@@ -9,22 +9,22 @@ import { TIPO_EVENTO, mostrarTexto } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { IconCheck, IconCopy } from './icons';
 import { Chip, Momento } from './piezas';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 export function Resumen({ d, titulo, ahora, onVisto }: { d: Digest; titulo: string; ahora: number; onVisto: () => void }) {
   const [copiado, setCopiado] = useState(false);
   const [todos, setTodos] = useState(false);
   if (!d.hayNovedades) return null;
-  const ventana = d.desde !== null ? `desde tu última visita, hace ${formatearDuracion(ahora - d.desde)}` : tr('los últimos siete días (todavía no habías pulsado «Visto»)');
+  const ventana = d.desde !== null ? trp("desde tu última visita, hace {v}", { v: formatearDuracion(ahora - d.desde) }) : tr('los últimos siete días (todavía no habías pulsado «Visto»)');
   const visibles = todos ? d.eventos : d.eventos.slice(0, 5);
   return (
-    <section className="resumen" aria-label={`Mientras no estabas: ${titulo}`}>
+    <section className="resumen" aria-label={trp("Mientras no estabas: {titulo}", { titulo })}>
       <div className="acciones" style={{ justifyContent: 'space-between' }}>
         <div>
           <h3 style={{ fontSize: 15, fontWeight: 600 }}>
             {tr("Mientras no estabas")} <span className="resumen-titulo">· {titulo}</span>
           </h3>
-          <p className="meta">{tr("Lo que cambió")} {ventana}{tr(". «Visto» cierra la tarjeta hasta que haya algo nuevo; lo que te espera sigue en la tarjeta de cada investigación.")}</p>
+          <p className="meta">{trp("Lo que cambió {ventana}. «Visto» cierra la tarjeta hasta que haya algo nuevo; lo que te espera sigue en la tarjeta de cada investigación.", { ventana })}</p>
         </div>
         <div className="acciones">
           <button
@@ -69,7 +69,7 @@ export function Resumen({ d, titulo, ahora, onVisto }: { d: Digest; titulo: stri
       )}
       {d.eventos.length > 5 && (
         <button type="button" className="enlace" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => setTodos((v) => !v)}>
-          {todos ? tr('Ver menos') : `Ver los ${d.eventos.length} eventos`}
+          {todos ? tr('Ver menos') : trp("Ver los {eventos} eventos", { eventos: d.eventos.length })}
         </button>
       )}
     </section>

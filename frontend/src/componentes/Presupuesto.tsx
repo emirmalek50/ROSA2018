@@ -9,7 +9,7 @@ import type { Corrida } from '../datos/tipos';
 import { estadoPresupuesto } from '../lib/calidad';
 import { formatearDuracion, formatearEntero, formatearPorcentaje } from '../lib/formato';
 import { Barra, Chip } from './piezas';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 export function Presupuesto({ corrida, onAmpliar }: { corrida: Corrida; onAmpliar: (limite: number) => void }) {
   const p = estadoPresupuesto(corrida);
@@ -21,7 +21,7 @@ export function Presupuesto({ corrida, onAmpliar }: { corrida: Corrida; onAmplia
       <div className="acciones" style={{ justifyContent: 'space-between' }}>
         <strong style={{ fontSize: 13 }}>{tr("Tope de toda la corrida")}</strong>
         <span className="meta">
-          {formatearEntero(corrida.gasto.llamadas)} de {formatearEntero(corrida.presupuesto.limiteLlamadas)} {tr("llamadas en total ·")} {formatearPorcentaje(p.fraccion)}
+          {trp("{llamadas} de {limiteLlamadas} llamadas en total · {fraccion}", { llamadas: formatearEntero(corrida.gasto.llamadas), limiteLlamadas: formatearEntero(corrida.presupuesto.limiteLlamadas), fraccion: formatearPorcentaje(p.fraccion) })}
         </span>
       </div>
       <Barra fraccion={p.fraccion} marcas={corrida.presupuesto.alertas} tono={tono} />
@@ -33,19 +33,17 @@ export function Presupuesto({ corrida, onAmpliar }: { corrida: Corrida; onAmplia
           {pausada
             ? tr('Tope alcanzado: la corrida está pausada, no muerta. Amplia el tope para seguir.')
             : p.msHastaTope !== null
-              ? `Al ritmo actual llegas al tope en ${formatearDuracion(p.msHastaTope)}. Una pregunta pendiente tiene prioridad sobre el tope.`
+              ? trp("Al ritmo actual llegas al tope en {msHastaTope}. Una pregunta pendiente tiene prioridad sobre el tope.", { msHastaTope: formatearDuracion(p.msHastaTope) })
               : tr('Sin ritmo medible todavía.')}
         </span>
         {corrida.presupuesto.avisadas.map((a) => (
-          <Chip key={a} tono={a >= 0.8 ? 'mal' : 'aviso'}>
-            avisado al {Math.round(a * 100)} %
-          </Chip>
+          <Chip key={a} tono={a >= 0.8 ? 'mal' : 'aviso'}>{trp("avisado al {v} %", { v: Math.round(a * 100) })}</Chip>
         ))}
       </div>
       <div className="dirigir">
         <input className="entrada entrada-s" type="number" min={corrida.gasto.llamadas + 1} step={100} value={nuevo} onChange={(e) => setNuevo(e.target.value)} aria-label={tr("Nuevo tope de llamadas")} style={{ maxWidth: 160 }} />
         <button type="button" className={`btn ${pausada ? 'btn-primario' : ''}`} disabled={!(Number(nuevo) > corrida.gasto.llamadas)} onClick={() => onAmpliar(Number(nuevo))}>
-          {pausada ? tr('Ampliar y reanudar') : tr('Ampliar tope')}
+          {(pausada ? tr("Ampliar y reanudar") : tr("Ampliar tope"))}
         </button>
       </div>
     </div>

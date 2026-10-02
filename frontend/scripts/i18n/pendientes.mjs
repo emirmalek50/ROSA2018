@@ -77,6 +77,8 @@ const NO_ES_TEXTO = [
   /^[A-Z]{2}\s{2}- ?$/,
 ];
 for (const t of [...faltan.keys()]) if (NO_ES_TEXTO.some((r) => r.test(t))) faltan.delete(t);
+// Sin letras no hay nada que traducir: «.» en inglés es «.».
+for (const t of [...faltan.keys()]) if (!/[a-záéíóúñ]/i.test(t)) faltan.delete(t);
 
 console.log(`catalogo: ${cat.size} entradas`);
 console.log(`faltan:   ${faltan.size} cadenas`);

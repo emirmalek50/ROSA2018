@@ -8,7 +8,7 @@ const NO_ES_TEXTO = [
   /[&?]\w+=/,                      // db=pubmed&term=...
   /^(?:GET|POST|PUT|DELETE|PATCH) /,
   /^\w+:\/\//,
-  /^[a-z][\w.-]*\/[\w.-]+/,        // anthropic/claude-sonnet-5
+  /^(?:anthropic|openai|google|meta|mistral|xai)\//,  // anthropic/claude-sonnet-5 (solo el proveedor: «kcal/mol» es texto)
   /^\/[\w/.-]+/,                   // /api/v2/studies
   /\w+\([^)]*\)\s*\w*\([^)]*\)/,   // target(...) associatedDiseases(...)
   /^(?:esearch|efetch|esummary|REST|GraphQL|SPARQL|SQL|GET|POST):/i,

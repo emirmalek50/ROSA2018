@@ -30,39 +30,10 @@ sys.path.insert(0, str(RAIZ))
 
 SALIDA = RAIZ / "frontend" / "scripts" / "i18n" / "traducciones.jsonl"
 
-REGLAS = """Traduces la interfaz de ROSA2018, una IA que investiga el Alzheimer, del castellano al inglés.
-Quien va a leer esto es un investigador o un médico anglófono. El texto es de interfaz: etiquetas, ayudas, explicaciones y conclusiones.
-
-Reglas, por orden de importancia:
-
-1. TERMINOLOGÍA QUE YA EXISTE EN INGLÉS. Usa la del campo, no una traducción literal.
-   - GRADE: certainty (no "certainty level"), "high / moderate / low / very low", "rated down for risk of bias", "imprecision", "indirectness", "inconsistency", "publication bias".
-   - Anatomía: entorhinal cortex, locus coeruleus, hippocampus, precuneus, posterior cingulate, white matter hyperintensities, blood-brain barrier.
-   - Células: astrocyte, microglia, oligodendrocyte, oligodendrocyte precursor cell (OPC), pericyte, endothelium.
-   - Estudios: cohort, case-control, cross-sectional, randomised trial, preregistration, target engagement, readout, held-out set.
-   - PRISMA, RoB 2, ROBINS-I, BEST, Elo, Bradley-Terry, e-value, kappa: tal cual.
-
-2. DOS COSAS QUE NO SE PUEDEN CONFUNDIR, porque es una regla del proyecto:
-   - "no pude comprobar" / "no se pudo comprobar" -> "could not check". NUNCA "none found", "no results", "there is none".
-   - "no hay" -> "there is none". Son estados distintos y la interfaz los distingue a propósito.
-   - "tiempo agotado" -> "timed out", nunca "no results".
-
-3. NUNCA uses "proven", "confirmed", "demonstrates" ni porcentajes de confianza que no estén en el original. ROSA2018 no demuestra nada; sostiene o no sostiene.
-
-4. FORMA:
-   - Conserva EXACTAMENTE los huecos entre llaves: {n}, {q}, {clase}. No los traduzcas ni los reordenes dentro de la llave.
-   - Conserva los símbolos de gen y de biomarcador tal cual: GFAP, NfL, p-tau217, APOE e4, TREM2, Abeta42.
-   - Conserva las cifras, las unidades y la puntuación final.
-   - Comillas angulares « » -> comillas dobles " ".
-   - NUNCA uses guion largo (—). Usa coma, punto o dos puntos.
-   - Si la cadena empieza o acaba con espacio, consérvalo.
-   - Si la cadena ya está en inglés o es un nombre propio, devuélvela igual.
-
-5. REGISTRO: la interfaz tutea en castellano ("tu decisión"). En inglés, "your decision". Directo y llano, sin floreos.
-
-6. VARIANTE: inglés de Estados Unidos, que es a quien va dirigido. "randomized", "analyze", "behavior", "program", "color", "gray matter", "aging", "catalog", "center", "license". Los nombres propios se quedan como se llaman ("Sydney Memory and Ageing Study" lleva Ageing porque así se llama el estudio).
-
-Devuelves SOLO un objeto JSON: {"<original en castellano>": "<traducción al inglés>", ...}. Una entrada por cada cadena que te den, con la clave idéntica al original, carácter a carácter."""
+# Las reglas y la comprobación son las del traductor del servidor
+# (rosa/traductor.py): un solo sitio, para que el catálogo y lo que se traduce
+# en pantalla no digan cosas distintas.
+from rosa.traductor import REGLAS, comprobar  # noqa: E402
 
 
 def lotes(cadenas: list[str], tope_caracteres: int = 4500) -> list[list[str]]:
@@ -93,30 +64,6 @@ def ya_hechas() -> dict[str, str]:
         except json.JSONDecodeError:
             continue
     return out
-
-
-def comprobar(original: str, traducido: str) -> str | None:
-    """Lo que se revisa de cada traducción antes de aceptarla."""
-    if not traducido.strip():
-        return "vacía"
-    if "—" in traducido:
-        return "lleva guion largo"
-    huecos_o = set(re.findall(r"\{(\w+)\}", original))
-    huecos_t = set(re.findall(r"\{(\w+)\}", traducido))
-    if huecos_o != huecos_t:
-        return f"los huecos no coinciden: {sorted(huecos_o)} frente a {sorted(huecos_t)}"
-    bajo = traducido.lower()
-    # Comparativa, igual que la prueba del catálogo: «No confirmado» -> «Not
-    # confirmed» es fiel, porque el castellano ya lo dice. Lo que no vale es
-    # que el inglés afirme algo que el castellano no afirma.
-    afirma_en = re.search(r"\b(?:proven|proves|confirmed|confirms|demonstrates|demonstrated|establishes)\b", bajo)
-    afirma_es = re.search(r"\b(?:demostrad|demuestra|confirmad|confirma|establece|prueba que)", original.lower())
-    if afirma_en and not afirma_es:
-        return "afirma de más (proven/confirmed)"
-    if "no pude comprobar" in original.lower() or "no se pudo comprobar" in original.lower():
-        if not re.search(r"could not (?:be )?check", bajo):
-            return "«no pude comprobar» no se tradujo como «could not check»"
-    return None
 
 
 def traducir(cadenas: list[str], modelo: str) -> dict[str, str]:

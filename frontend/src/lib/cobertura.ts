@@ -6,6 +6,7 @@
 // converge: si no, se degrada a "sin verificar" con la cobertura al lado.
 
 import type { Cobertura, Veredicto } from '../datos/tipos';
+import { trp } from './idioma';
 
 /** Fraccion estimada de lo relevante encontrada tras leer n con escala tau. */
 export function fraccionCubierta(leidos: number, tau: number): number {
@@ -32,7 +33,7 @@ export function veredictoConCobertura(veredicto: Veredicto, cobertura: Cobertura
   const pct = Math.round(cobertura.fraccion * 100);
   return {
     veredicto: 'sin_verificar',
-    nota: `La búsqueda del tema "${cobertura.tema}" no ha convergido (cobertura estimada ${pct} %): no se puede afirmar que esté ni que no esté.`,
+    nota: trp("La búsqueda del tema \"{tema}\" no ha convergido (cobertura estimada {pct} %): no se puede afirmar que esté ni que no esté.", { tema: cobertura.tema, pct }),
   };
 }
 

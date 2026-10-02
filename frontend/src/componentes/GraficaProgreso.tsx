@@ -6,7 +6,7 @@ import { useMemo } from 'react';
 import type { Corrida } from '../datos/tipos';
 import { resumenMetrica, serieDeProgreso } from '../lib/progreso';
 import { Seccion } from './piezas';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 const PELDANO = traducido(['muy baja', 'baja', 'moderada', 'alta']);
 
@@ -44,7 +44,7 @@ export function GraficaProgreso({ corridas }: { corridas: Corrida[] }) {
       titulo={tr("Progreso de la investigación")}
       nota={tr("Cada punto es una iteración cerrada, de todas las corridas seguidas. La línea morada suma los peldaños de certeza (muy baja 0, baja 1, moderada 2, alta 3) de las hipótesis vivas; la gris, los hechos acumulados. Abajo, en rojo, lo que falló en cada iteración. Las rayas verticales marcan un cambio de versión de ROSA2018. Es la vara: si la línea morada no sube, ROSA2018 lee pero no avanza.")}
     >
-      <svg className="grafica-progreso" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Progreso: ${ultimo.peldanosTotales} peldaños de certeza tras ${n} iteraciones${maxReal === 0 ? tr('; ninguna hipótesis ha subido todavía') : ''}`}>
+      <svg className="grafica-progreso" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={(maxReal === 0 ? trp("Progreso: {peldanosTotales} peldaños de certeza tras {n} iteraciones; ninguna hipótesis ha subido todavía", { peldanosTotales: ultimo.peldanosTotales, n }) : trp("Progreso: {peldanosTotales} peldaños de certeza tras {n} iteraciones", { peldanosTotales: ultimo.peldanosTotales, n }))}>
         {[0, 0.5, 1].map((f) => (
           <line key={f} className="gp-rejilla" x1={ml} x2={W - mr} y1={yPeld(f * maxPeld)} y2={yPeld(f * maxPeld)} />
         ))}
@@ -54,7 +54,7 @@ export function GraficaProgreso({ corridas }: { corridas: Corrida[] }) {
         {puntos.filter((p) => p.cambioDeArnes).map((p) => (
           <g key={`arnes-${p.indice}`}>
             <line className="gp-arnes" x1={x(p.indice)} x2={x(p.indice)} y1={mt} y2={H - mb + 4} />
-            <text className="gp-eje" x={x(p.indice) + 3} y={mt + 8}>ROSA2018 {p.arnes ?? '?'}</text>
+            <text className="gp-eje" x={x(p.indice) + 3} y={mt + 8}>{trp("ROSA2018 {v}", { v: p.arnes ?? '?' })}</text>
           </g>
         ))}
         <path className="gp-hechos" d={camino((p) => yHechos(p.hechosAcumulados))} />
@@ -62,12 +62,12 @@ export function GraficaProgreso({ corridas }: { corridas: Corrida[] }) {
         {puntos.map((p) => (
           <g key={p.indice}>
             <circle className={`gp-punto ${p.peldanosSubidos > 0 ? 'gp-sube' : ''} ${p.peldanosBajados > 0 ? 'gp-baja' : ''}`} cx={x(p.indice)} cy={yPeld(p.peldanosTotales)} r={p.peldanosSubidos > 0 || p.peldanosBajados > 0 ? 4 : 2.6}>
-              <title>{`Corrida ${p.corrida}, iteración ${p.iteracion}: ${p.peldanosTotales} peldaños (${p.peldanosSubidos} subidos, ${p.peldanosBajados} bajados), certeza máxima ${PELDANO[p.maxPeldano] ?? '?'}, ${p.hipotesisVivas} hipótesis vivas, ${p.hechosAcumulados} hechos acumulados, ${p.usdAcumulado.toFixed(2)} USD acumulados`}</title>
+              <title>{trp("Corrida {corrida}, iteración {iteracion}: {peldanosTotales} peldaños ({peldanosSubidos} subidos, {peldanosBajados} bajados), certeza máxima {v}, {hipotesisVivas} hipótesis vivas, {hechosAcumulados} hechos acumulados, {v2} USD acumulados", { corrida: p.corrida, iteracion: p.iteracion, peldanosTotales: p.peldanosTotales, peldanosSubidos: p.peldanosSubidos, peldanosBajados: p.peldanosBajados, v: PELDANO[p.maxPeldano] ?? '?', hipotesisVivas: p.hipotesisVivas, hechosAcumulados: p.hechosAcumulados, v2: p.usdAcumulado.toFixed(2) })}</title>
             </circle>
             {p.fallidos > 0 && (
               <text className="gp-fallido" x={xBanda(p.indice)} y={yBanda} textAnchor="middle">
                 {marcaFallidos(p.fallidos)}
-                <title>{`${p.fallidos} fallidos en la iteración ${p.iteracion} de la corrida ${p.corrida} (pasos, pistas, cierres del Killer y afirmaciones bloqueadas)`}</title>
+                <title>{trp("{fallidos} fallidos en la iteración {iteracion} de la corrida {corrida} (pasos, pistas, cierres del Killer y afirmaciones bloqueadas)", { fallidos: p.fallidos, iteracion: p.iteracion, corrida: p.corrida })}</title>
               </text>
             )}
             {p.nuevaCorrida && (
@@ -86,9 +86,7 @@ export function GraficaProgreso({ corridas }: { corridas: Corrida[] }) {
       {terminadas.length > 0 && (
         <ul className="lista-limpia gp-balances">
           {terminadas.slice(0, 3).map((c) => (
-            <li key={c.id} className="meta">
-              Corrida {c.numero}: {resumenMetrica(c.metrica)}
-              {c.metrica?.banco?.puntuacion != null ? ` · banco «${c.metrica.banco.objetivo}»: ${c.metrica.banco.puntuacion}` : ''}
+            <li key={c.id} className="meta">{trp("Corrida {numero}: {metrica}{v}", { numero: c.numero, metrica: resumenMetrica(c.metrica), v: c.metrica?.banco?.puntuacion != null ? ` · banco «${c.metrica.banco.objetivo}»: ${c.metrica.banco.puntuacion}` : '' })}
             </li>
           ))}
         </ul>

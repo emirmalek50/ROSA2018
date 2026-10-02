@@ -33,7 +33,7 @@
 
 import type { Grafo, NodoArbol, Posicion, TipoEnlace, TipoNodo } from './arbol';
 import { niebla, ordenarPorProfundidad, proyectar, type Camara, type Posicion3 } from './arbol3d';
-import { tr, traducido } from './idioma';
+import { traducido } from './idioma';
 
 /** Radio base de cada tipo de nodo, en unidades del lienzo. */
 export const RADIO: Record<TipoNodo, number> = { objetivo: 22, rama: 13, area: 12, hipotesis: 11, hecho: 7, pregunta: 7, fuente: 5, entidad: 6, experimento: 12, afirmacion: 6, ejecucion: 9, dataset: 8, laboratorio: 12 };
@@ -307,8 +307,8 @@ export const RESPALDOS_PALETA: Record<string, string> = traducido({ '--text': '#
 const guionA = (g: string | null): number[] => (g ? g.split(/\s+/).map(Number).filter((v) => Number.isFinite(v)) : []);
 
 /** Trazos de los iconos (los mismos que tenía el SVG), en unidades del nodo. */
-const ICONO_EXPERIMENTO = tr('M-4 -5 h8 v3 l3 6 a2 2 0 0 1 -2 3 h-10 a2 2 0 0 1 -2 -3 l3 -6 z');
-const ICONO_LABORATORIO = tr('M-4.5 0.5 l3 3 l6 -7');
+const ICONO_EXPERIMENTO = 'M-4 -5 h8 v3 l3 6 a2 2 0 0 1 -2 3 h-10 a2 2 0 0 1 -2 -3 l3 -6 z';
+const ICONO_LABORATORIO = 'M-4.5 0.5 l3 3 l6 -7';
 
 /** Lo que el trazo necesita del navegador además del contexto 2D. */
 export interface OpcionesTrazo {

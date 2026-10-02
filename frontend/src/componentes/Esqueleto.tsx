@@ -36,7 +36,7 @@
 // `--esqueleto-base` y `--esqueleto-brillo` (tema claro y oscuro).
 
 import { cloneElement, isValidElement, type CSSProperties, type ReactNode } from 'react';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 type PropsEsqueleto = {
   /** Ancho CSS (número en píxeles o cadena con unidad). Por defecto, 100%. */
@@ -268,7 +268,7 @@ type PropsPantalla = PropsCuerpo &
 export function EsqueletoPantalla({ variante, rotulo = tr('la pantalla'), clase, ...resto }: PropsPantalla): JSX.Element {
   return (
     <div className={`contenido esqueleto-pantalla esqueleto-pantalla-${variante} ${clase ?? ''}`.trim()} role="status" aria-busy="true">
-      <span className="sr-only">Cargando {rotulo}</span>
+      <span className="sr-only">{trp("Cargando {rotulo}", { rotulo })}</span>
       <SiluetaPantalla variante={variante} {...resto} />
     </div>
   );
@@ -283,7 +283,7 @@ export function EsqueletoPantalla({ variante, rotulo = tr('la pantalla'), clase,
 export function EsqueletoAplicacion({ rotulo = 'ROSA2018' }: { rotulo?: string } = {}): JSX.Element {
   return (
     <div className="app esqueleto-app" role="status" aria-busy="true">
-      <span className="sr-only">Cargando {rotulo}</span>
+      <span className="sr-only">{trp("Cargando {rotulo}", { rotulo })}</span>
       <div className="barra esqueleto-barra" aria-hidden="true">
         <div className="marca">
           <img src="/arbol-marca.png" alt="" width={30} height={30} />
@@ -349,7 +349,7 @@ export function Cargando({ activo, rotulo, esqueleto, children }: PropsCargando)
   }
   return (
     <div className="esqueleto-espera" role="status" aria-busy="true">
-      <span className="sr-only">Cargando {rotulo}</span>
+      <span className="sr-only">{trp("Cargando {rotulo}", { rotulo })}</span>
       {esqueleto}
     </div>
   );

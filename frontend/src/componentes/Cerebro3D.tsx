@@ -54,7 +54,7 @@ import { NOMBRE_CORTO } from '../lib/atlas_dibujo';
 import { intensidad, type Atlas } from '../lib/atlas';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { Esqueleto } from './Esqueleto';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 /** Los ficheros del modelo, resueltos por Vite a direcciones que el navegador
  *  puede pedir. Si la carpeta todavía no está, los mapas salen vacíos y la
@@ -149,7 +149,7 @@ const distanciaReposo = (radio: number): number => distanciaParaEncuadrar(radio 
  *  desaturado lee como el fondo de un estudio y deja respirar al tejido. */
 const FONDO: [number, number, number] = [0.043, 0.047, 0.059];
 const TEXTO = '#f4efe4';
-const TEXTO_TENUE = tr('rgba(244, 239, 228, 0.72)');
+const TEXTO_TENUE = 'rgba(244, 239, 228, 0.72)';
 const AMBAR = '#f0a030';
 
 /** Los compartimentos de fuera del cerebro, como cuerpos en la escena. Las
@@ -704,7 +704,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         const esMirada = r.clave === mirada;
         const conDatos = r.prioridad > 1;
         // La guía corta, del ancla al borde de la caja, con su punto en el ancla.
-        rotulador.strokeStyle = esMirada ? AMBAR : tr('rgba(244, 239, 228, 0.55)');
+        rotulador.strokeStyle = esMirada ? AMBAR : 'rgba(244, 239, 228, 0.55)';
         rotulador.lineWidth = 1.2;
         rotulador.beginPath();
         rotulador.moveTo(r.x, r.y);
@@ -712,7 +712,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         rotulador.stroke();
         rotulador.beginPath();
         rotulador.arc(r.x, r.y, 2.6, 0, Math.PI * 2);
-        rotulador.fillStyle = esMirada ? AMBAR : tr('rgba(244, 239, 228, 0.9)');
+        rotulador.fillStyle = esMirada ? AMBAR : 'rgba(244, 239, 228, 0.9)';
         rotulador.fill();
         // El texto con halo del color del fondo, para que se lea sobre el tejido.
         rotulador.font = fuente(conDatos || esMirada);
@@ -866,7 +866,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
   const respaldo = estado === 'sin_modelo' || estado === 'sin_webgl' || estado === 'error';
   const aviso = estado === 'sin_webgl' ? tr('Este navegador no puede dibujar el cerebro en tres dimensiones. Puedes consultar toda la evidencia en «Vista 2D».')
     : estado === 'sin_modelo' ? tr('El modelo anatómico del cerebro todavía no está instalado en esta copia. La evidencia está entera en «Vista 2D».')
-    : `No se pudo cargar el modelo del cerebro. ${detalle}`;
+    : trp("No se pudo cargar el modelo del cerebro. {detalle}", { detalle });
   const credito = indice?.atribucion ? `${indice.atribucion.replace(/\.\s*$/, '')}. ` : '';
   const porClave = new Map(atlas.regiones.map((r) => [r.clave, r]));
   /** El color de tejido de cada chip, el mismo que en la escena. */
@@ -956,8 +956,8 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
           })}
         </ul>
       )}
-      <p className="meta">{credito}{tr("Las estructuras se encienden con la evidencia reunida: el color va por cohortes. El ojo, la gota de sangre y el intestino son cuerpos esquemáticos, no anatomía medida. Arrastra para girar el cerebro y pulsa una estructura para leer lo que hay sobre ella.")}</p>
-      <p className="atlas-3d-lectura" aria-live="polite">{apuntada ? `${nombre ?? apuntada.etiqueta}: ${apuntada.conteo} registros · ${apuntada.cohortes.length} cohortes nombradas por sus hipótesis${apuntada.discordia.length ? tr(' · Discordia entre hechos') : ''}` : tr('Señala una estructura para ver sus cifras y abrir su ficha.')}</p>
+      <p className="meta">{trp("{credito}Las estructuras se encienden con la evidencia reunida: el color va por cohortes. El ojo, la gota de sangre y el intestino son cuerpos esquemáticos, no anatomía medida. Arrastra para girar el cerebro y pulsa una estructura para leer lo que hay sobre ella.", { credito })}</p>
+      <p className="atlas-3d-lectura" aria-live="polite">{apuntada ? (apuntada.discordia.length ? trp("{v}: {conteo} registros · {cohortes} cohortes nombradas por sus hipótesis · Discordia entre hechos", { v: nombre ?? apuntada.etiqueta, conteo: apuntada.conteo, cohortes: apuntada.cohortes.length }) : trp("{v}: {conteo} registros · {cohortes} cohortes nombradas por sus hipótesis", { v: nombre ?? apuntada.etiqueta, conteo: apuntada.conteo, cohortes: apuntada.cohortes.length })) : tr('Señala una estructura para ver sus cifras y abrir su ficha.')}</p>
     </section>
   );
 }

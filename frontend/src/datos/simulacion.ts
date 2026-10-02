@@ -15,7 +15,7 @@ import type { EstadoRosa, Hipotesis, Iteracion, PasoPlan, Pista, TipoPista } fro
 import { FUENTES } from './muestra';
 import { aclararHipotesis, conEvento, nuevoId } from './acciones';
 import { estadoPresupuesto } from '../lib/calidad';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 /** Cada cuanto avanza la simulacion. */
 export const TICK_MS = 2_500;
@@ -242,13 +242,13 @@ function hipotesisSimulada(investigacionId: string, iteracion: number, ahora: nu
     ],
     procedencia: {
       mensajes: [{ id: nuevoId('m'), de: 'rosa', texto: tr('Hipótesis generada por la simulación de la interfaz a partir de la pregunta abierta sobre NfL y GFAP.'), creadoEn: ahora }],
-      codigo: tr('salida = generar(hechos=hechos_iteracion, pregunta_abierta="orden de NfL y GFAP")'),
+      codigo: 'salida = generar(hechos=hechos_iteracion, pregunta_abierta="orden de NfL y GFAP")',
       registro: ['(simulación) generar -> 1 hipótesis', '(simulación) juez -> parcial', '(simulación) novedad -> sin ensayo'],
       entorno: { lenguaje: 'Python', version: '3.12.14', paquetes: [{ nombre: 'dspy', version: '3.3.1' }], modelos: [{ nombre: 'openai/gpt-6-astra', version: 'gateway' }] },
       fuentes: [f],
     },
     hallazgos: [],
-    revisiones: [{ fecha: ahora, quien: 'Rosa', accion: 'propuesta', nota: `Iteración ${iteracion} (simulación)`, aCiegas: false }],
+    revisiones: [{ fecha: ahora, quien: 'Rosa', accion: 'propuesta', nota: trp("Iteración {iteracion} (simulación)", { iteracion }), aCiegas: false }],
     creadaEn: ahora,
     iteracion,
     origen: 'rosa',
@@ -294,7 +294,7 @@ export function avanzar(estado: EstadoRosa, ahora: number): EstadoRosa {
     if (h.estado === 'aclarando') {
       const ultima = h.revisiones[h.revisiones.length - 1];
       if (ultima && ultima.accion === 'no_puedo_juzgar' && ahora - ultima.fecha >= TICK_MS) {
-        e = aclararHipotesis(e, h.id, `Aclaracion a "${ultima.nota}": reescribo el enunciado con el contexto que faltaba y marco lo que es inferencia mia. Vuelve a la cola como aclarada.`, ahora);
+        e = aclararHipotesis(e, h.id, trp("Aclaracion a \"{nota}\": reescribo el enunciado con el contexto que faltaba y marco lo que es inferencia mia. Vuelve a la cola como aclarada.", { nota: ultima.nota }), ahora);
       }
     }
   }
@@ -330,7 +330,7 @@ export function avanzar(estado: EstadoRosa, ahora: number): EstadoRosa {
         iteraciones: e.iteraciones.map((i) => (i.id === it.id ? { ...i, planAprobado: true, empezadaEn: ahora } : i)),
         corridas: e.corridas.map((x) => (x.id === c.id ? { ...x, estado: 'en_marcha' as const } : x)),
       };
-      e = conEvento(e, c.investigacionId, 'corrida_estado', `Plan de la iteración ${it.numero} autoaprobado tras ${c.autoAprobarPlanSegundos} s sin respuesta`, null, ahora);
+      e = conEvento(e, c.investigacionId, 'corrida_estado', trp("Plan de la iteración {numero} autoaprobado tras {autoAprobarPlanSegundos} s sin respuesta", { numero: it.numero, autoAprobarPlanSegundos: c.autoAprobarPlanSegundos }), null, ahora);
     }
   }
 
@@ -367,13 +367,13 @@ export function avanzar(estado: EstadoRosa, ahora: number): EstadoRosa {
   if (pres.nuevasAlertas.length > 0) {
     corridaNueva = { ...corridaNueva, presupuesto: { ...corridaNueva.presupuesto, avisadas: [...corridaNueva.presupuesto.avisadas, ...pres.nuevasAlertas] } };
     for (const a of pres.nuevasAlertas) {
-      e = conEvento(e, corrida.investigacionId, 'presupuesto', `La corrida paso del ${Math.round(a * 100)} % del presupuesto global (${gasto.llamadas} de ${corridaNueva.presupuesto.limiteLlamadas} llamadas)`, null, ahora);
+      e = conEvento(e, corrida.investigacionId, 'presupuesto', trp("La corrida paso del {v} % del presupuesto global ({llamadas} de {limiteLlamadas} llamadas)", { v: Math.round(a * 100), llamadas: gasto.llamadas, limiteLlamadas: corridaNueva.presupuesto.limiteLlamadas }), null, ahora);
     }
   }
   if (pres.agotado) {
     const pendientes = e.solicitudes.some((s) => s.corridaId === corrida.id && s.estado === 'pendiente') || e.incidencias.some((i) => i.corridaId === corrida.id && i.estado === 'pendiente');
     corridaNueva = { ...corridaNueva, estado: pendientes ? 'esperando_aprobacion' : 'pausada_por_presupuesto' };
-    e = conEvento(e, corrida.investigacionId, 'presupuesto', `Presupuesto global agotado (${corridaNueva.presupuesto.limiteLlamadas} llamadas): la corrida se pauso. Amplia el tope para seguir.`, null, ahora);
+    e = conEvento(e, corrida.investigacionId, 'presupuesto', trp("Presupuesto global agotado ({limiteLlamadas} llamadas): la corrida se pauso. Amplia el tope para seguir.", { limiteLlamadas: corridaNueva.presupuesto.limiteLlamadas }), null, ahora);
     return { ...e, corridas: e.corridas.map((c) => (c.id === corrida.id ? corridaNueva : c)) };
   }
 
@@ -441,17 +441,17 @@ export function avanzar(estado: EstadoRosa, ahora: number): EstadoRosa {
       // Iteracion cerrada: resumen, evento, y la siguiente espera su plan.
       const hechas = pistas.filter((p) => p.estado === 'hecha').length;
       const fallidas = pistas.filter((p) => p.estado === 'fallida' || p.estado === 'detenida').length;
-      resumen = `${plan.length} pasos, ${hechas} pistas completadas${fallidas > 0 ? `, ${fallidas} sin completar` : ''}`;
+      resumen = `${plan.length} pasos, ${hechas} pistas completadas${fallidas > 0 ? trp(", {fallidas} sin completar", { fallidas }) : ''}`;
       terminadaEn = ahora;
       const siguiente = nuevaIteracion(corrida.id, actual.numero + 1, ahora);
       nuevasIteraciones = [...e.iteraciones, siguiente];
       corridas = corridas.map((c) => (c.id === corrida.id ? { ...c, iteracionActual: siguiente.numero, estado: 'esperando_plan' as const, gasto: { ...c.gasto, articulosLeidos: c.gasto.articulosLeidos + 12 } } : c));
-      e = conEvento(e, corrida.investigacionId, 'iteracion_terminada', `Iteración ${actual.numero} terminada: ${resumen}`, `#/investigaciones/${corrida.investigacionId}/corrida`, ahora);
+      e = conEvento(e, corrida.investigacionId, 'iteracion_terminada', trp("Iteración {numero} terminada: {resumen}", { numero: actual.numero, resumen }), `#/investigaciones/${corrida.investigacionId}/corrida`, ahora);
       const yaAnadida = hipotesis.some((h) => h.titulo.startsWith('GFAP en plasma se altera antes que NfL'));
       if (!yaAnadida) {
         const nueva = hipotesisSimulada(corrida.investigacionId, actual.numero, ahora);
         hipotesis = [...hipotesis, nueva];
-        e = conEvento(e, corrida.investigacionId, 'hipotesis_nueva', `Hipotesis nueva en la cola: ${nueva.titulo}`, `#/investigaciones/${corrida.investigacionId}/hipotesis/${nueva.id}`, ahora);
+        e = conEvento(e, corrida.investigacionId, 'hipotesis_nueva', trp("Hipotesis nueva en la cola: {titulo}", { titulo: nueva.titulo }), `#/investigaciones/${corrida.investigacionId}/hipotesis/${nueva.id}`, ahora);
         const f = FUENTES.trem2apoe!;
         hechos = [
           ...hechos,
@@ -468,7 +468,7 @@ export function avanzar(estado: EstadoRosa, ahora: number): EstadoRosa {
             actualizadoEn: ahora,
             prioridad: 5,
             citas: [],
-            historial: [{ fecha: ahora, de: null, a: 'sabido', quien: 'Rosa', motivo: `Añadido en la iteración ${actual.numero}` }],
+            historial: [{ fecha: ahora, de: null, a: 'sabido', quien: 'Rosa', motivo: trp("Añadido en la iteración {numero}", { numero: actual.numero }) }],
           },
         ];
         e = conEvento(e, corrida.investigacionId, 'hecho_nuevo', tr('Hecho nuevo en el modelo de mundo: GFAP como marcador astroglial, NfL como axonal'), `#/investigaciones/${corrida.investigacionId}/mundo`, ahora);

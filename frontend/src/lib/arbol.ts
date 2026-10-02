@@ -350,7 +350,7 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
     const n = hip.filter((h) => (h.cluster || 'Sin cluster') === c);
     if (n.length < 2) continue;
     conRama.add(c);
-    anadir({ id: `rama-${c}`, tipo: 'rama', etiqueta: c, sub: `${n.length} hipótesis`, peso: 2 + Math.min(3, n.length) * 0.4, iteracion: Math.min(...n.map((h) => ordinalDe(h))), href: rutaDe(inv.id, 'ranking') });
+    anadir({ id: `rama-${c}`, tipo: 'rama', etiqueta: c, sub: trp("{n} hipótesis", { n: n.length }), peso: 2 + Math.min(3, n.length) * 0.4, iteracion: Math.min(...n.map((h) => ordinalDe(h))), href: rutaDe(inv.id, 'ranking') });
     enlazar('objetivo', `rama-${c}`, 'rama');
     // Un área cuyo título o familia coincide con el cluster lo adopta.
     const area = (inv.mision?.areas ?? []).find((a) => a.titulo.toLowerCase() === c.toLowerCase() || a.familiaMecanismo.toLowerCase() === c.toLowerCase());
@@ -358,7 +358,7 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
   }
   for (const h of hip) {
     const bloqueos = h.bloqueos ?? [];
-    const alerta = h.estado === 'descartada' ? 'descartada' : h.decisionKiller === 'descartar_en_contexto' ? 'el Killer propone descartar' : bloqueos.length ? `${bloqueos.length} ${bloqueos.length === 1 ? 'bloqueo' : 'bloqueos'}` : undefined;
+    const alerta = h.estado === 'descartada' ? 'descartada' : h.decisionKiller === 'descartar_en_contexto' ? 'el Killer propone descartar' : bloqueos.length ? (bloqueos.length === 1 ? trp("{bloqueos} bloqueo", { bloqueos: bloqueos.length }) : trp("{bloqueos} bloqueos", { bloqueos: bloqueos.length })) : undefined;
     // Sin Elo (registro anterior al torneo) vale el de salida, 1500: un peso NaN
     // dejaría el círculo sin radio y la disposición por fuerzas sin posición.
     const elo = typeof h.elo === 'number' && Number.isFinite(h.elo) ? h.elo : 1500;
@@ -472,7 +472,7 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
       if (!vistos.has(id)) {
         const medicion = medicionDeAfirmacion(a) ?? undefined;
         const alerta = a.sintetico ? 'dato sintético: no cuenta como observación' : NO_SOSTENIDOS.has(a.veredicto) ? 'el verificador no la sostiene' : undefined;
-        anadir({ id, tipo: 'afirmacion', etiqueta: recortar(a.texto, 60), sub: `${medicion ? 'medición propia' : 'dato'} · ${legible(VEREDICTO_LEGIBLE, a.veredicto)}`, peso: medicion ? 1.4 : 1, iteracion, href: rutaDe(inv.id, 'hipotesis', h.id), estado: a.veredicto, alerta, medicion });
+        anadir({ id, tipo: 'afirmacion', etiqueta: recortar(a.texto, 60), sub: (medicion ? trp("medición propia · {VEREDICTO_LEGIBLE}", { VEREDICTO_LEGIBLE: legible(VEREDICTO_LEGIBLE, a.veredicto) }) : trp("dato · {VEREDICTO_LEGIBLE}", { VEREDICTO_LEGIBLE: legible(VEREDICTO_LEGIBLE, a.veredicto) })), peso: medicion ? 1.4 : 1, iteracion, href: rutaDe(inv.id, 'hipotesis', h.id), estado: a.veredicto, alerta, medicion });
       } else {
         const n = porId.get(id)!;
         n.iteracion = Math.min(n.iteracion, iteracion);
@@ -484,7 +484,7 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
       const iteracion = iteracionDeEjecucion(h, run);
       if (!vistos.has(id)) {
         const medicion = medicionDeEjecucion(run) ?? undefined;
-        const auditoria = run.auditoria ? `auditoría: ${legible(AUDITORIA_LEGIBLE, run.auditoria.veredicto)}` : 'sin auditar';
+        const auditoria = run.auditoria ? trp("auditoría: {AUDITORIA_LEGIBLE}", { AUDITORIA_LEGIBLE: legible(AUDITORIA_LEGIBLE, run.auditoria.veredicto) }) : 'sin auditar';
         anadir({ id, tipo: 'ejecucion', etiqueta: 'Análisis in silico', sub: `${legible(ESTADO_EJECUCION_LEGIBLE, run.estado)} · ${auditoria}`, peso: medicion ? 1.8 : 1.4, iteracion, href: rutaDe(inv.id, 'hipotesis', h.id), estado: run.estado, alerta: alertaEjecucion(run), medicion });
       } else {
         const n = porId.get(id)!;

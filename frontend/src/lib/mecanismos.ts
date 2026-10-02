@@ -213,11 +213,11 @@ export function recuentoVeredictos(hipotesis: Hipotesis[]): { identificable: num
  *  la pantalla enseñaría dos filas para lo mismo: medido allí, "Ajuste"
  *  cumplía en 5 y "Confusión" faltaba en 16, que son las 21 partidas en dos.
  *  Los grafos nuevos ya salen con un solo nombre desde `rosa/causal.py`. */
-const NOMBRE_ANTIGUO: Record<string, string> = {
+const NOMBRE_ANTIGUO: Record<string, string> = traducido({
   ajuste: 'Ajuste por confusores',
   confusion: 'Ajuste por confusores',
   replicacion: 'Replicación independiente',
-};
+});
 
 /** El nombre corto de un supuesto: lo que va antes de los dos puntos.
  *  Se agrupa SIN tildes porque el mismo supuesto aparece escrito de las dos

@@ -39,7 +39,7 @@ import {
   resumirVerificacion,
   variacionElo,
 } from '../lib/hipotesis';
-import { tr, traducido } from '../lib/idioma';
+import { tr, traducido, trp } from '../lib/idioma';
 import { salidaPorDecision } from '../lib/movimiento';
 import { bloqueosDe } from '../lib/priorizacion';
 import { rutaDe } from '../lib/ruta';
@@ -83,13 +83,12 @@ function FilaCola({ h, ahora, href, horasEspera, estado }: { h: Hip; ahora: numb
           {h.origen === 'humana' && <Chip tono="acento">Humana</Chip>}
           <span className={`tono-${r.tono === 'vacio' ? 'aviso' : r.tono}`}>{r.frase}</span>
           {h.conclusion && (
-            <Chip tono={certezaDe(h.conclusion.certeza).tono} title={h.conclusion.escalera?.[0] ? `Para subir a ${certezaDe(h.conclusion.escalera[0].a).etiqueta.toLowerCase()}: ${h.conclusion.escalera[0].falta}` : certezaDe(h.conclusion.certeza).nota}>
+            <Chip tono={certezaDe(h.conclusion.certeza).tono} title={h.conclusion.escalera?.[0] ? trp("Para subir a {v}: {falta}", { v: certezaDe(h.conclusion.escalera[0].a).etiqueta.toLowerCase(), falta: h.conclusion.escalera[0].falta }) : certezaDe(h.conclusion.certeza).nota}>
               {certezaDe(h.conclusion.certeza).etiqueta}
             </Chip>
           )}
           {h.decisionKiller && DECISION_KILLER[h.decisionKiller] && (
-            <Chip tono={DECISION_KILLER[h.decisionKiller].tono} title={DECISION_KILLER[h.decisionKiller].nota}>
-              Killer: {DECISION_KILLER[h.decisionKiller].etiqueta}
+            <Chip tono={DECISION_KILLER[h.decisionKiller].tono} title={DECISION_KILLER[h.decisionKiller].nota}>{trp("Killer: {etiqueta}", { etiqueta: DECISION_KILLER[h.decisionKiller].etiqueta })}
             </Chip>
           )}
           {juicioPendiente && (
@@ -99,13 +98,12 @@ function FilaCola({ h, ahora, href, horasEspera, estado }: { h: Hip; ahora: numb
           )}
           {(h.version ?? 1) > 1 && <Chip tono="borde">v{h.version}</Chip>}
           {h.candidata && bloqueos.length === 0 && <Chip tono="ok">Candidata</Chip>}
-          {bloqueos.length > 0 && <span className="tono-mal">{bloqueos.length} {bloqueos.length === 1 ? 'bloqueo' : 'bloqueos'}</span>}
-          {abiertos > 0 && <span className="tono-mal">{abiertos} {abiertos === 1 ? tr('hallazgo abierto') : tr('hallazgos abiertos')}</span>}
+          {bloqueos.length > 0 && <span className="tono-mal">{(bloqueos.length === 1 ? trp("{bloqueos} bloqueo", { bloqueos: bloqueos.length }) : trp("{bloqueos} bloqueos", { bloqueos: bloqueos.length }))}</span>}
+          {abiertos > 0 && <span className="tono-mal">{(abiertos === 1 ? trp("{abiertos} hallazgo abierto", { abiertos }) : trp("{abiertos} hallazgos abiertos", { abiertos }))}</span>}
           {retractadas.length > 0 && <span className="tono-mal">{tr("depende de una fuente retractada")}</span>}
-          <span>{tr("Iteración")} {h.iteracion}</span>
+          <span>{trp("Iteración {iteracion}", { iteracion: h.iteracion })}</span>
           {pendiente ? (
-            <span className={tarde ? 'tono-mal' : ''} title={`Creada el ${new Date(h.creadaEn).toLocaleString('es-ES')}${tarde ? `; supera las ${horasEspera} h de la política de esperas` : ''}`}>
-              esperando {formatearDuracion(espera)}
+            <span className={tarde ? 'tono-mal' : ''} title={trp("Creada el {v}{v2}", { v: new Date(h.creadaEn).toLocaleString('es-ES'), v2: tarde ? trp("; supera las {horasEspera} h de la política de esperas", { horasEspera }) : '' })}>{trp("esperando {espera}", { espera: formatearDuracion(espera) })}
             </span>
           ) : (
             // Con "esperando 3 h 21 min" delante, la fecha absoluta repetía lo
@@ -119,7 +117,7 @@ function FilaCola({ h, ahora, href, horasEspera, estado }: { h: Hip; ahora: numb
           <Contador valor={h.elo} />
         </strong>
         <span className={d > 0 ? 'subida' : d < 0 ? 'bajada' : 'meta'}>{d > 0 ? `+${d}` : d}</span>
-        <span className="meta">{h.partidos.length} {h.partidos.length === 1 ? 'partido' : 'partidos'}</span>
+        <span className="meta">{(h.partidos.length === 1 ? trp("{partidos} partido", { partidos: h.partidos.length }) : trp("{partidos} partidos", { partidos: h.partidos.length }))}</span>
       </div>
     </a>
   );
@@ -286,7 +284,7 @@ export function ColaHipotesis({ inv, estado, vista }: { inv: Investigacion; esta
       {(inv.vivero?.length ?? 0) > 0 && (
         <Seccion
           detalle
-          titulo={`Vivero de ideas (${inv.vivero!.length})`}
+          titulo={trp("Vivero de ideas ({length})", { length: inv.vivero!.length })}
           nota={tr("Propuestas de ROSA2018 que todavía no nacen como hipótesis: su evidencia viene de una sola cohorte y no da para certeza baja. En cada cierre de iteración ROSA2018 les suma lo que lee; cuando llegan a dos cohortes distintas, nacen y entran en la cola. Si pasan seis iteraciones sin ganar nada, salen con su motivo.")}
         >
           <div className="cola">
@@ -296,9 +294,9 @@ export function ColaHipotesis({ inv, estado, vista }: { inv: Investigacion; esta
                   <h3>{s.titulo}</h3>
                   <p className="meta">{s.enunciado}</p>
                   <div className="hip-meta">
-                    <Chip tono="borde">{tr("Idea desde la iteración")} {s.iteracion}</Chip>
-                    <Chip tono="borde">{s.afirmaciones.length} {s.afirmaciones.length === 1 ? tr('afirmación') : 'afirmaciones'}</Chip>
-                    <Chip tono="borde">{s.fuentes.length} {s.fuentes.length === 1 ? 'fuente' : 'fuentes'}</Chip>
+                    <Chip tono="borde">{trp("Idea desde la iteración {iteracion}", { iteracion: s.iteracion })}</Chip>
+                    <Chip tono="borde">{(s.afirmaciones.length === 1 ? trp("{afirmaciones} afirmación", { afirmaciones: s.afirmaciones.length }) : trp("{afirmaciones} afirmaciones", { afirmaciones: s.afirmaciones.length }))}</Chip>
+                    <Chip tono="borde">{(s.fuentes.length === 1 ? trp("{fuentes} fuente", { fuentes: s.fuentes.length }) : trp("{fuentes} fuentes", { fuentes: s.fuentes.length }))}</Chip>
                     <span className="meta">Actualizada <Momento t={s.actualizadaEn} ahora={ahora} /></span>
                   </div>
                   <p className="meta"><strong>{tr("Le falta para nacer:")}</strong> {s.falta}</p>

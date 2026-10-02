@@ -13,7 +13,7 @@ import { fechaCorta, tiempoRelativo } from '../lib/formato';
 import { IconExternal, IconX } from './icons';
 import { Chip, descargar } from './piezas';
 import { Revisor } from './Revisor';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 export type PestanaProcedencia = 'mensajes' | 'codigo' | 'registro' | 'entorno' | 'revision' | 'fuentes';
 
@@ -56,7 +56,7 @@ export function TarjetaFuente({ f, ahora }: { f: Fuente; ahora: number }) {
               {f.riesgoSesgo.instrumento} {RIESGO_SESGO[f.riesgoSesgo.global]?.etiqueta ?? f.riesgoSesgo.global}
             </Chip>
           )}
-          {f.pagina !== null && ` · pág. ${f.pagina}`}
+          {f.pagina !== null && trp(" · pág. {pagina}", { pagina: f.pagina })}
           {f.retraccion !== null && (
             <>
               {' · '}
@@ -69,7 +69,7 @@ export function TarjetaFuente({ f, ahora }: { f: Fuente; ahora: number }) {
           <Chip tono="borde">{TIPO_ESTUDIO[f.tipoEstudio]}</Chip>
           <Escalera nivel={f.nivelEvidencia} />
           <Chip tono={f.textoCompleto ? undefined : 'aviso'} title={f.textoCompleto ? tr('ROSA2018 leyo el texto completo') : tr('ROSA2018 solo leyó el resumen: la verificación vale menos')}>
-            {f.textoCompleto ? tr('texto completo') : tr('solo resumen')}
+            {(f.textoCompleto ? tr("texto completo") : tr("solo resumen"))}
           </Chip>
           <span className="meta">
             {TIPO_FUENTE[f.tipo]}
@@ -97,7 +97,7 @@ export function TarjetaFuente({ f, ahora }: { f: Fuente; ahora: number }) {
             {f.nct} <IconExternal />
           </a>
         )}
-        <span className="meta">{f.retraccionComprobadaEn !== null ? `retractación comprobada ${tiempoRelativo(f.retraccionComprobadaEn, ahora)}` : tr('retractacion sin comprobar')}</span>
+        <span className="meta">{f.retraccionComprobadaEn !== null ? trp("retractación comprobada {retraccionComprobadaEn}", { retraccionComprobadaEn: tiempoRelativo(f.retraccionComprobadaEn, ahora) }) : tr('retractacion sin comprobar')}</span>
       </footer>
     </article>
   );
@@ -124,7 +124,7 @@ export function Procedencia({
   return (
     <aside className="cajon" aria-label="Procedencia">
       <div className="cajon-cabecera">
-        <h3>Procedencia · {hipotesis.titulo}</h3>
+        <h3>{trp("Procedencia · {titulo}", { titulo: hipotesis.titulo })}</h3>
         <button type="button" className="btn btn-fantasma btn-icono" aria-label={tr("Cerrar procedencia")} onClick={onCerrar}>
           <IconX size={14} />
         </button>

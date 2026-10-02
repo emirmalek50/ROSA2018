@@ -19,7 +19,7 @@
 
 import { partesAutomatizadas } from '../lib/parada';
 import { esViva, vigencia } from '../lib/desbloqueo';
-import { coma } from '../lib/formato';
+import { traducido } from '../lib/idioma';
 import type {
   Afirmacion,
   AlcancePermiso,
@@ -73,7 +73,6 @@ import type {
   TipoLectura,
   TipoSistema,
 } from './tipos';
-import { traducido, tr } from '../lib/idioma';
 
 let contador = 0;
 /** Ids locales. El almacen real los asigna el servidor. */
@@ -134,7 +133,7 @@ export function reanudarCorrida(estado: EstadoRosa, corridaId: string): EstadoRo
 }
 
 export function detenerCorrida(estado: EstadoRosa, corridaId: string, motivo: string, ahora: number, vigilarLiteraturaDias: number | null = null): EstadoRosa {
-  const texto = motivo.trim() === '' ? tr('Detenida por la investigadora.') : motivo.trim();
+  const texto = motivo.trim() === '' ? 'Detenida por la investigadora.' : motivo.trim();
   const corrida = corridaDe(estado, corridaId);
   if (!corrida || corrida.estado === 'detenida' || corrida.estado === 'terminada') return estado;
   let siguiente: EstadoRosa = {
@@ -279,8 +278,8 @@ export function detenerPista(estado: EstadoRosa, pistaId: string, indicacion: st
           ? {
               ...p,
               estado: 'detenida',
-              resumen: nota === '' ? tr('Detenida por la investigadora') : `Detenida: ${nota}`,
-              transcripcion: [...p.transcripcion, { t: p.transcripcion.length * 2_500, tipo: 'nota' as const, texto: nota === '' ? tr('Detenida por la investigadora.') : `Detenida por la investigadora: ${nota}` }],
+              resumen: nota === '' ? 'Detenida por la investigadora' : `Detenida: ${nota}`,
+              transcripcion: [...p.transcripcion, { t: p.transcripcion.length * 2_500, tipo: 'nota' as const, texto: nota === '' ? 'Detenida por la investigadora.' : `Detenida por la investigadora: ${nota}` }],
             }
           : p,
       ),
@@ -450,7 +449,7 @@ export function revocarPermiso(estado: EstadoRosa, permisoId: string): EstadoRos
 export function resolverIncidencia(estado: EstadoRosa, incidenciaId: string, resolucion: string, ahora: number): EstadoRosa {
   const inc = estado.incidencias.find((i) => i.id === incidenciaId);
   if (!inc || inc.estado !== 'pendiente') return estado;
-  const texto = resolucion.trim() === '' ? inc.alternativa ?? tr('Resuelta por la investigadora') : resolucion.trim();
+  const texto = resolucion.trim() === '' ? inc.alternativa ?? 'Resuelta por la investigadora' : resolucion.trim();
   const corrida = corridaDe(estado, inc.corridaId);
   const siguiente: EstadoRosa = {
     ...estado,
@@ -594,7 +593,7 @@ export function solicitarRevision(estado: EstadoRosa, hipotesisId: string, ahora
       ...x,
       ultimaRevisionAutomatica: ahora,
       revisionesAutomaticas: x.revisionesAutomaticas.map((r) => (r.estado === 'pendiente' ? { ...r, estado: 'hecha' as const, fecha: ahora, resumen: 'Revisada a petición de la investigadora: sin hallazgos nuevos.' } : r)),
-      procedencia: { ...x.procedencia, mensajes: [...x.procedencia.mensajes, { id: nuevoId('m'), de: 'revisor' as const, texto: tr('Revisión pedida por la investigadora: releidas las afirmaciones, el plan y el registro. Sin hallazgos nuevos.'), creadoEn: ahora }] },
+      procedencia: { ...x.procedencia, mensajes: [...x.procedencia.mensajes, { id: nuevoId('m'), de: 'revisor' as const, texto: 'Revisión pedida por la investigadora: releidas las afirmaciones, el plan y el registro. Sin hallazgos nuevos.', creadoEn: ahora }] },
     })),
   };
   return conEvento(siguiente, h.investigacionId, 'revision_automatica', `Revisión pedida sobre: ${h.titulo}`, `#/investigaciones/${h.investigacionId}/hipotesis/${h.id}`, ahora);
@@ -616,7 +615,7 @@ export function reevaluarSupuestos(estado: EstadoRosa, investigacionId: string |
     return {
       ...h,
       supuestosEvaluados: sello,
-      procedencia: { ...h.procedencia, mensajes: [...h.procedencia.mensajes, { id: nuevoId('m'), de: 'revisor' as const, texto: tr('Reevaluación de supuestos pedida desde Qué desbloquea más: no estaban al día. ROSA2018 los reevalúa con la regla de hoy y vuelve a pasar el Killer.'), creadoEn: ahora }] },
+      procedencia: { ...h.procedencia, mensajes: [...h.procedencia.mensajes, { id: nuevoId('m'), de: 'revisor' as const, texto: 'Reevaluación de supuestos pedida desde Qué desbloquea más: no estaban al día. ROSA2018 los reevalúa con la regla de hoy y vuelve a pasar el Killer.', creadoEn: ahora }] },
     };
   });
   let siguiente: EstadoRosa = { ...estado, hipotesis };
@@ -920,7 +919,7 @@ export const SISTEMAS_EXPERIMENTALES: Record<TipoSistema, { etiqueta: string; de
   in_silico: { etiqueta: 'in silico', definicion: 'Modelo computacional o análisis sobre datos ya existentes, sin medir nada nuevo.', queNoRepresenta: 'no mide nada nuevo: hereda lo que contienen los datos de entrada y los supuestos del modelo; un resultado in silico es una predicción hasta que se mide', intervencional: false },
 };
 
-export const PROPOSITOS_BIOMARCADOR: Record<PropositoBiomarcador, { etiqueta: string; definicion: string }> = traducido({
+export const PROPOSITOS_BIOMARCADOR: Record<PropositoBiomarcador, { etiqueta: string; definicion: string }> = {
   susceptibilidad_riesgo: { etiqueta: 'susceptibilidad o riesgo', definicion: 'Indica el potencial de desarrollar la enfermedad en una persona que hoy no la tiene de forma clínicamente aparente (por ejemplo, ser portador de APOE e4).' },
   diagnostico: { etiqueta: 'diagnóstico', definicion: 'Detecta o confirma la presencia de la enfermedad, o identifica a las personas con un subtipo de ella (por ejemplo, PET de amiloide positivo).' },
   monitorizacion: { etiqueta: 'monitorización', definicion: 'Se mide de forma repetida para seguir el estado de la enfermedad o la exposición a una intervención o a un agente (por ejemplo, NfL en plasma cada seis meses).' },
@@ -928,7 +927,7 @@ export const PROPOSITOS_BIOMARCADOR: Record<PropositoBiomarcador, { etiqueta: st
   prediccion_respuesta: { etiqueta: 'predicción de respuesta', definicion: 'Identifica a las personas con más probabilidad que otras similares de tener un efecto favorable o desfavorable ante una intervención concreta (por ejemplo, APOE e4 y ARIA con anticuerpos antiamiloide).' },
   farmacodinamico_respuesta: { etiqueta: 'farmacodinámico o de respuesta', definicion: 'Cambia en respuesta a la exposición a una intervención: muestra que hubo una respuesta biológica, incluido el compromiso de diana (por ejemplo, caída de amiloide en PET tras el tratamiento).' },
   seguridad: { etiqueta: 'seguridad', definicion: 'Se mide antes o después de una exposición para indicar la probabilidad, la presencia o la extensión de una toxicidad como efecto adverso (por ejemplo, microhemorragias en RM).' },
-});
+};
 
 export const NIVELES_DESENLACE: Record<NivelDesenlace, { etiqueta: string; definicion: string }> = {
   molecular: { etiqueta: 'molecular', definicion: 'Una molécula o su cantidad o estado: proteína, ARN, metabolito, fosforilación (por ejemplo, GFAP en plasma, p-tau181).' },
@@ -1156,7 +1155,7 @@ export function bloquePrerregistro(experimento: unknown): string[] {
   const L = ['', '## Lecturas fijadas de antemano (contrato del experimento)'];
   if (x.lecturas.length > 0) {
     for (const l of lecturasParaHash(x)) {
-      L.push(`- ${l.nombre || 'sin nombre'} [${etiquetaContrato(TIPOS_LECTURA, l.tipo)}${l.unidad ? `, ${l.unidad}` : ''}]: confirma si ${l.queConfirma || tr('sin criterio')}; refuta si ${l.queRefuta || tr('sin criterio')}; control: ${l.control || tr('sin control declarado')}`);
+      L.push(`- ${l.nombre || 'sin nombre'} [${etiquetaContrato(TIPOS_LECTURA, l.tipo)}${l.unidad ? `, ${l.unidad}` : ''}]: confirma si ${l.queConfirma || 'sin criterio'}; refuta si ${l.queRefuta || 'sin criterio'}; control: ${l.control || 'sin control declarado'}`);
     }
     L.push(`Hash SHA-256 de las lecturas en orden canónico: ${hashLecturas(x)}`);
   } else {
@@ -1242,7 +1241,7 @@ export function registrarProtocoloReal(estado: EstadoRosa, hipotesisId: string, 
     hipotesis: reemplazar(estado.hipotesis, hipotesisId, (y) => ({
       ...y,
       experimento: { ...y.experimento!, protocoloReal: pr, resultado: reevalua ? null : y.experimento!.resultado },
-      procedencia: { ...y.procedencia, registro: [...y.procedencia.registro, `${new Date(ahora).toISOString()} protocolo real registrado por ${quien}${pr.desviaciones ? '; con desviaciones' : '; sin desviaciones declaradas'}`] },
+      procedencia: { ...y.procedencia, registro: [...y.procedencia.registro, (pr.desviaciones ? `${new Date(ahora).toISOString()} protocolo real registrado por ${quien}; con desviaciones` : `${new Date(ahora).toISOString()} protocolo real registrado por ${quien}; sin desviaciones declaradas`)] },
     })),
   };
 }
@@ -1380,7 +1379,7 @@ export function enviarComentarios(estado: EstadoRosa, hipotesisId: string, mensa
   if (pendientes.length === 0 && texto === '') return estado;
   const lineas = pendientes.map((c) => `Sobre «${c.ancla.cita}»: ${c.nota}`);
   const cuerpo = [texto, ...lineas].filter((l) => l !== '').join('\n');
-  const revision: Revision = { fecha: ahora, quien, accion: 'comentada', nota: pendientes.length > 0 ? `${pendientes.length} ${pendientes.length === 1 ? 'comentario' : 'comentarios'}` : 'Mensaje', aCiegas: false };
+  const revision: Revision = { fecha: ahora, quien, accion: 'comentada', nota: pendientes.length > 0 ? (pendientes.length === 1 ? `${pendientes.length} comentario` : `${pendientes.length} comentarios`) : 'Mensaje', aCiegas: false };
   return {
     ...estado,
     comentarios: estado.comentarios.map((c) => (c.hipotesisId === hipotesisId && c.estado === 'pendiente' ? { ...c, estado: 'enviado' as const } : c)),
@@ -1482,7 +1481,7 @@ export function preguntarAlModeloDeMundo(hechos: HechoMundo[], investigacionId: 
           if (!citas.has(fid)) citas.set(fid, { fuenteId: fid, referencia: ref, doi: f?.doi ?? null, pmid: f?.pmid ?? null, titulo: f?.titulo ?? '' });
           return `${ref}${paginas.length ? `, pág. ${paginas.sort((a, b) => a - b).join(', ')}` : ''}${f?.pmid ? `, PMID ${f.pmid}` : ''}`;
         })
-        .join('; ') || tr('inferencia de ROSA2018')
+        .join('; ') || 'inferencia de ROSA2018'
     );
   };
   const partes: string[] = [];
@@ -1646,7 +1645,7 @@ export function pedirAnalisis(estado: EstadoRosa, hipotesisId: string, datasetId
   const inv = estado.investigaciones.find((i) => i.id === h.investigacionId);
   const ds = inv?.datasets.find((d) => d.id === datasetId);
   if (!ds || ds.estado !== 'aprobado' || !ds.procedencia?.hash) return estado;
-  const mensaje = { id: nuevoId('m'), de: 'investigadora' as const, texto: `Análisis pedido sobre ${ds.nombre}: ${pregunta.trim() || tr('aplicar la predicción falsable de la hipótesis')}`, creadoEn: ahora };
+  const mensaje = { id: nuevoId('m'), de: 'investigadora' as const, texto: `Análisis pedido sobre ${ds.nombre}: ${pregunta.trim() || 'aplicar la predicción falsable de la hipótesis'}`, creadoEn: ahora };
   const siguiente: EstadoRosa = { ...estado, hipotesis: reemplazar(estado.hipotesis, hipotesisId, (x) => ({ ...x, procedencia: { ...x.procedencia, mensajes: [...x.procedencia.mensajes, mensaje] } })) };
   return conEvento(siguiente, h.investigacionId, 'analisis', `Análisis in silico pedido sobre ${ds.nombre}: ${h.titulo.slice(0, 80)}`, `#/investigaciones/${h.investigacionId}/hipotesis/${h.id}`, ahora);
 }
@@ -2014,7 +2013,10 @@ function compartenDireccion(pa: PerfilTexto, pb: PerfilTexto): boolean {
 }
 
 function conComa(n: number, decimales: number): string {
-  return coma(n.toFixed(decimales));
+  // Coma fija, NO coma() de lib/formato: esto va a texto que se guarda, y el
+  // separador de coma() cambia con el idioma de la pantalla. Igual que en
+  // rosa/estado/acciones.py.
+  return n.toFixed(decimales).replace('.', ',');
 }
 
 /** Texto normalizado de un enunciado: minúsculas, sin tildes ni signos, letras griegas por su nombre. Misma regla que rosa/cuestiones.py normalizar. */
@@ -2428,3 +2430,7 @@ export function actualizarPoliticaEsperas(estado: EstadoRosa, politica: Politica
 export function borrarPlanGuardado(estado: EstadoRosa, id: string): EstadoRosa {
   return { ...estado, planesGuardados: estado.planesGuardados.filter((p) => p.id !== id) };
 }
+
+/** La misma tabla, traducida al leerla, para ENSEÑARLA. Los reductores usan
+ *  `PROPOSITOS_BIOMARCADOR`, en castellano, porque lo que escriben se guarda. */
+export const PROPOSITOS_BIOMARCADOR_VISTA = traducido(PROPOSITOS_BIOMARCADOR);

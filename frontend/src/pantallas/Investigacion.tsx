@@ -29,7 +29,7 @@ import { AMBITO_LECCION, AMPLITUD, CLASIFICACION_DATOS, ESTADO_CORRIDA, ESTADO_I
 import { coma, formatearDuracion } from '../lib/formato';
 import { partesAutomatizadas, textoAutomatizacion } from '../lib/parada';
 import { rutaDe } from '../lib/ruta';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 /** Catalogo de datos del Alzheimer, como el de Biomni-AD. Acceso abierto o
  *  controlado; lo controlado pasa por acuerdo de uso y, si hay personas, por
@@ -54,8 +54,7 @@ function TarjetaDataset({ d, inv }: { d: Dataset; inv: Inv }) {
             {d.nombre}
           </strong>
           <p className="meta">
-            {d.descripcion} · {d.tamanoMb >= 1000 ? `${coma((d.tamanoMb / 1000).toFixed(1))} GB` : `${d.tamanoMb} MB`} · {d.columnas} columnas
-          </p>
+            {trp("{descripcion} · {v} · {columnas} columnas", { descripcion: d.descripcion, v: d.tamanoMb >= 1000 ? `${coma((d.tamanoMb / 1000).toFixed(1))} GB` : `${d.tamanoMb} MB`, columnas: d.columnas })}</p>
         </div>
         <Chip tono={d.estado === 'aprobado' ? 'ok' : d.estado === 'rechazado' ? 'mal' : 'aviso'}>{d.estado === 'aprobado' ? tr('Contrato aprobado') : d.estado === 'rechazado' ? 'Rechazado' : tr('Comprobación pendiente')}</Chip>
       </div>
@@ -123,12 +122,12 @@ function QueToca({ inv, corridas, irA }: { inv: Inv; corridas: EstadoRosa['corri
   const pendientes = inv.datasets.filter((d) => d.estado === 'pendiente').length;
   const tareas: { texto: string; accion: () => void; etiqueta: string }[] = [];
   if (inv.mision && !inv.mision.aprobadaEn) tareas.push({ texto: tr('ROSA2018 propuso la misión (población, etapa, mecanismo, presupuesto). Falta que la apruebes o la corrijas.'), accion: () => ir('mision'), etiqueta: tr('Ver la misión') });
-  if (pendientes > 0) tareas.push({ texto: `${pendientes} ${pendientes === 1 ? tr('dataset espera') : tr('datasets esperan')} que completes su libro de procedencia y lo apruebes.`, accion: () => ir('datos'), etiqueta: tr('Ver los datos') });
-  if (puerta && puerta.estado === 'bloqueada') tareas.push({ texto: `La puerta de reproducción está bloqueada (${puerta.superadas} de ${puerta.requeridas}): hasta abrirla, ningún análisis con datos cuenta como descubrimiento.`, accion: () => ir('puerta'), etiqueta: tr('Ver la puerta') });
+  if (pendientes > 0) tareas.push({ texto: (pendientes === 1 ? trp("{pendientes} dataset espera que completes su libro de procedencia y lo apruebes.", { pendientes }) : trp("{pendientes} datasets esperan que completes su libro de procedencia y lo apruebes.", { pendientes })), accion: () => ir('datos'), etiqueta: tr('Ver los datos') });
+  if (puerta && puerta.estado === 'bloqueada') tareas.push({ texto: trp("La puerta de reproducción está bloqueada ({superadas} de {requeridas}): hasta abrirla, ningún análisis con datos cuenta como descubrimiento.", { superadas: puerta.superadas, requeridas: puerta.requeridas }), accion: () => ir('puerta'), etiqueta: tr('Ver la puerta') });
   if (corridas.length === 0) tareas.push({ texto: tr('Esta investigación no tiene corridas: ROSA2018 todavía no ha empezado a trabajar en ella.'), accion: () => irA(rutaDe(inv.id, 'corrida')), etiqueta: 'Arrancar la primera corrida' });
   return (
     <div className={`quetoca ${tareas.length === 0 ? 'quetoca-vacio' : ''}`} role="status">
-      <strong>{tareas.length === 0 ? tr('Nada te espera aquí.') : tareas.length === 1 ? tr('Te espera una cosa:') : `Te esperan ${tareas.length} cosas:`}</strong>
+      <strong>{tareas.length === 0 ? tr('Nada te espera aquí.') : tareas.length === 1 ? tr('Te espera una cosa:') : trp("Te esperan {tareas} cosas:", { tareas: tareas.length })}</strong>
       {tareas.length === 0 ? (
         <span className="meta"> {tr("El objetivo, la misión y los datos están en orden. Lo demás de esta pantalla es consulta.")}</span>
       ) : (
@@ -177,7 +176,7 @@ export function motivoEsperaHumana(corridas: EstadoRosa['corridas']): string {
         : corrida.estado === 'pausada'
           ? tr('la corrida está pausada y espera que la reanudes')
           : tr('la corrida espera a una persona');
-  return `Las cuatro piezas se calculan al cerrar la primera iteración; ${motivo}.`;
+  return trp("Las cuatro piezas se calculan al cerrar la primera iteración; {motivo}.", { motivo });
 }
 
 /** Lo que la pantalla deriva del estado para una investigación: sus corridas
@@ -434,7 +433,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         nota={tr("Antes de una corrida larga, la comprobación de datos: columnas sin diccionario, valores centinela y nombres duplicados contaminaron horas de una corrida de Kosmos. Nada se aprueba con esos contadores en rojo.")}
         acciones={
           <button type="button" className="btn btn-s" onClick={() => setVerCatalogo((v) => !v)}>
-            {verCatalogo ? tr('Ocultar catálogo') : tr('Catálogo de datos del Alzheimer')}
+            {(verCatalogo ? tr("Ocultar catálogo") : tr("Catálogo de datos del Alzheimer"))}
           </button>
         }
       >
@@ -461,7 +460,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
                   <td>{c.nombre}</td>
                   <td className="meta">{c.descripcion}</td>
                   <td>
-                    <Chip tono={c.acceso === 'abierto' ? 'ok' : 'aviso'}>{c.acceso === 'abierto' ? 'Abierto' : 'Controlado'}</Chip>
+                    <Chip tono={c.acceso === 'abierto' ? 'ok' : 'aviso'}>{(c.acceso === 'abierto' ? tr("Abierto") : tr("Controlado"))}</Chip>
                   </td>
                   <td className="num">{c.tamanoMb >= 1000 ? `${Math.round(c.tamanoMb / 1000)} GB` : `${c.tamanoMb} MB`}</td>
                   <td>
@@ -529,7 +528,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
       <Cuestiones inv={inv} estado={estado} />
       {(() => {
         return lecciones.length > 0 ? (
-          <Seccion detalle titulo={`Lo que ROSA2018 aprendió a no repetir (${lecciones.length})`} nota={tr("Lecciones generadas por regla al cerrar cada iteración: pasos que fallaron, consultas que no rindieron, bases que no respondieron, hipótesis cerradas por el Killer y por qué, ideas retiradas del vivero, análisis sin efecto. Cada paso las lee antes de actuar; una lección repetida pesa más.")}>
+          <Seccion detalle titulo={trp("Lo que ROSA2018 aprendió a no repetir ({lecciones})", { lecciones: lecciones.length })} nota={tr("Lecciones generadas por regla al cerrar cada iteración: pasos que fallaron, consultas que no rindieron, bases que no respondieron, hipótesis cerradas por el Killer y por qué, ideas retiradas del vivero, análisis sin efecto. Cada paso las lee antes de actuar; una lección repetida pesa más.")}>
             <ul className="lista-limpia lecciones">
               {lecciones.slice(0, 40).map((l) => (
                 <li key={l.id} className="leccion">
@@ -537,7 +536,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
                   <span>{l.texto}</span>
                   <span className="meta">
                     {l.veces > 1 ? `visto ${l.veces} veces · ` : ''}
-                    {l.iteracion ? `iteración ${l.iteracion} · ` : ''}
+                    {l.iteracion ? trp("iteración {iteracion} · ", { iteracion: l.iteracion }) : ''}
                     <Momento t={l.ultimaVez} ahora={Date.now()} soloRelativo />
                   </span>
                 </li>
@@ -568,8 +567,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
               {corridas.map((c) => (
                 <tr key={c.id}>
                   <td>
-                    <a className="enlace" href={rutaDe(inv.id, 'corrida')}>
-                      Corrida {c.numero}
+                    <a className="enlace" href={rutaDe(inv.id, 'corrida')}>{trp("Corrida {numero}", { numero: c.numero })}
                     </a>
                   </td>
                   <td>{ESTADO_CORRIDA[c.estado]}</td>
@@ -623,7 +621,7 @@ export function ColaDeTriaje({ inv, estado }: { inv: Inv; estado: EstadoRosa }) 
   const vivas = todas.filter((t) => ['propuesta', 'aceptada', 'programada'].includes(t.estado)).sort((a, b) => b.veces - a.veces || a.creadaEn - b.creadaEn);
   const cerradas = todas.filter((t) => ['hecha', 'rechazada', 'caducada'].includes(t.estado)).sort((a, b) => b.creadaEn - a.creadaEn);
   return (
-    <Seccion detalle titulo={`Cola de trabajo que ROSA2018 pidió abrir (${vivas.length})`} nota={tr("Cuando un paso ve algo que el plan no cubría, lo pide aquí en vez de perderlo. Una regla decide si entra, y si no entra dice por qué. Lo que entra lo programa el plan de la iteración siguiente, que tiene que explicar por escrito cada tarea que deja fuera.")}>
+    <Seccion detalle titulo={trp("Cola de trabajo que ROSA2018 pidió abrir ({vivas})", { vivas: vivas.length })} nota={tr("Cuando un paso ve algo que el plan no cubría, lo pide aquí en vez de perderlo. Una regla decide si entra, y si no entra dice por qué. Lo que entra lo programa el plan de la iteración siguiente, que tiene que explicar por escrito cada tarea que deja fuera.")}>
       {vivas.length === 0 && <p className="meta">{tr("Nada en la cola. Es lo normal: ROSA2018 solo pide abrir trabajo cuando ve algo concreto.")}</p>}
       <ul className="lista-limpia cuestiones">
         {vivas.slice(0, 20).map((t) => (
@@ -633,13 +631,11 @@ export function ColaDeTriaje({ inv, estado }: { inv: Inv; estado: EstadoRosa }) 
                 {t.estado === 'programada' ? tr('En el plan') : t.estado === 'aceptada' ? tr('Esperando plan') : 'Propuesta'}
               </Chip>{' '}
               <span>{t.queHaria}</span>
-              <div className="meta">
-                Vio: {t.queVio}
-                {t.porQue ? ` · Importa porque: ${t.porQue}` : ''}
+              <div className="meta">{trp("Vio: {queVio}{v}", { queVio: t.queVio, v: t.porQue ? ` · Importa porque: ${t.porQue}` : '' })}
               </div>
               <div className="meta">
                 {t.herramienta} · {ORIGEN_TAREA[t.origen.tipo] ?? t.origen.tipo}
-                {t.origen.iteracion ? ` en la iteración ${t.origen.iteracion}` : ''}
+                {t.origen.iteracion ? trp(" en la iteración {iteracion}", { iteracion: t.origen.iteracion }) : ''}
                 {t.veces > 1 ? ` · pedida ${t.veces} veces` : ''}
                 {t.motivo ? ` · ${t.motivo}` : ''}
               </div>
@@ -677,7 +673,7 @@ export function ColaDeTriaje({ inv, estado }: { inv: Inv; estado: EstadoRosa }) 
       </form>
       {cerradas.length > 0 && (
         <button type="button" className="btn btn-s" onClick={() => setVerCerradas((v) => !v)}>
-          {verCerradas ? 'Ocultar' : 'Ver'} {cerradas.length} {cerradas.length === 1 ? 'cerrada' : 'cerradas'}
+          {(verCerradas ? trp("Ocultar {cerradas} {v}", { cerradas: cerradas.length, v: cerradas.length === 1 ? tr("cerrada") : tr("cerradas") }) : trp("Ver {cerradas} {v}", { cerradas: cerradas.length, v: cerradas.length === 1 ? tr("cerrada") : tr("cerradas") }))}
         </button>
       )}
       {verCerradas && (
@@ -716,9 +712,9 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
               <Chip tono="borde" title={tr("Prioridad 1 es lo más urgente")}>P{c.prioridad}</Chip> <span>{c.texto}</span>
               <div className="meta">
                 {ORIGEN_CUESTION[c.origen.tipo]}
-                {c.hipotesisIds.length > 0 ? ` · sobre ${c.hipotesisIds.map(titulo).join('; ')}` : ''}
+                {c.hipotesisIds.length > 0 ? trp(" · sobre {v}", { v: c.hipotesisIds.map(titulo).join('; ') }) : ''}
                 {c.veces > 1 ? ` · planteada ${c.veces} veces` : ''}
-                {c.queLaResolveria ? ` · la resolvería: ${c.queLaResolveria}` : ''}
+                {c.queLaResolveria ? trp(" · la resolvería: {queLaResolveria}", { queLaResolveria: c.queLaResolveria }) : ''}
               </div>
             </div>
             <span className="acciones">
@@ -746,7 +742,7 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
       </form>
       {cerradas.length > 0 && (
         <button type="button" className="btn btn-s" onClick={() => setVerResueltas((v) => !v)}>
-          {verResueltas ? 'Ocultar' : 'Ver'} {cerradas.length} {cerradas.length === 1 ? tr('resuelta o descartada') : tr('resueltas o descartadas')}
+          {(verResueltas ? trp("Ocultar {cerradas} {v}", { cerradas: cerradas.length, v: cerradas.length === 1 ? tr("resuelta o descartada") : tr("resueltas o descartadas") }) : trp("Ver {cerradas} {v}", { cerradas: cerradas.length, v: cerradas.length === 1 ? tr("resuelta o descartada") : tr("resueltas o descartadas") }))}
         </button>
       )}
       {verResueltas && (
@@ -754,7 +750,7 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
           {cerradas.slice(0, 40).map((c) => (
             <li key={c.id} className="cuestion cuestion-cerrada">
               <div>
-                <Chip tono={c.estado === 'resuelta' ? 'ok' : 'borde'}>{c.estado === 'resuelta' ? 'Resuelta' : 'Descartada'}</Chip> <span>{c.texto}</span>
+                <Chip tono={c.estado === 'resuelta' ? 'ok' : 'borde'}>{(c.estado === 'resuelta' ? tr("Resuelta") : tr("Descartada"))}</Chip> <span>{c.texto}</span>
                 <div className="meta">
                   {c.resolucion ? `${c.resolucion.motivo}` : ''}
                   {c.resueltaEn ? <> · <Momento t={c.resueltaEn} ahora={Date.now()} soloRelativo /></> : ''}

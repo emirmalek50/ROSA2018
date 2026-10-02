@@ -4,7 +4,7 @@
 
 import type { Fuente, Hipotesis, HechoMundo, Investigacion } from '../datos/tipos';
 import { VEREDICTO } from './etiquetas';
-import { tr } from './idioma';
+import { tr, trp } from './idioma';
 
 function claveBib(f: Fuente): string {
   const autor = f.referencia.split(/[ ,]/)[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'fuente';
@@ -25,7 +25,7 @@ export function aBibtex(fuentes: Fuente[]): string {
       if (f.pmid) campos.push(`  note = {${f.pmid}}`);
       if (f.nct) campos.push(`  howpublished = {ClinicalTrials.gov ${f.nct}}`);
       if (f.pagina !== null) campos.push(`  pages = {${f.pagina}}`);
-      campos.push(`  annote = {ROSA2018: ${f.retraccion ? 'RETRACTADO. ' : ''}${f.textoCompleto ? tr('texto completo') : tr('solo resumen')}; tipo de estudio ${f.tipoEstudio}}`);
+      campos.push((f.retraccion ? trp("  annote = {ROSA2018: RETRACTADO. {v}; tipo de estudio {tipoEstudio}}", { v: f.textoCompleto ? tr("texto completo") : tr("solo resumen"), tipoEstudio: f.tipoEstudio }) : trp("  annote = {ROSA2018: {v}; tipo de estudio {tipoEstudio}}", { v: f.textoCompleto ? tr("texto completo") : tr("solo resumen"), tipoEstudio: f.tipoEstudio })));
       return `@${tipo}{${claveBib(f)},\n${campos.join(',\n')}\n}`;
     })
     .join('\n\n');
@@ -109,5 +109,5 @@ export function specificAims(inv: Investigacion, hipotesis: Hipotesis[]): string
         `## Specific Aim ${i + 1}\n\n**Objetivo general.** ${h.titulo}\n\n**Hipotesis.** ${h.enunciado}\n\n**Razonamiento.** ${h.mecanismo}\n\n**Enfoque.** Biomarcador: ${h.comprobacion.biomarcador}. Cohorte: ${h.comprobacion.cohorte}. Diseño: ${h.comprobacion.diseno}.\n\n**Fuentes.** ${h.procedencia.fuentes.map((f) => `${f.referencia}${f.pagina !== null ? `, pag. ${f.pagina}` : ''}`).join('; ') || tr('sin fuentes')}`,
     )
     .join('\n\n');
-  return `# Specific Aims\n\n**Descripcion de la enfermedad.** ${inv.objetivo}\n\n**Necesidad no cubierta.** ${inv.relevancia || tr('Por definir.')}\n\n**Solucion propuesta.** ${inv.configuracion.preferencias || tr('Por definir.')}\n\n${aims || tr('_Sin hipótesis candidatas todavía._')}\n\n## Evaluacion piloto\n\nCada aim se comprobara con el biomarcador y la cohorte indicados; las hipotesis se prerregistran en ROSA2018 antes de probarse.\n\n_Generado por ROSA2018 el ${new Date().toISOString().slice(0, 10)}. Borrador para revision humana._`;
+  return trp("# Specific Aims\n\n**Descripcion de la enfermedad.** {objetivo}\n\n**Necesidad no cubierta.** {v}\n\n**Solucion propuesta.** {v2}\n\n{v3}\n\n## Evaluacion piloto\n\nCada aim se comprobara con el biomarcador y la cohorte indicados; las hipotesis se prerregistran en ROSA2018 antes de probarse.\n\n_Generado por ROSA2018 el {v4}. Borrador para revision humana._", { objetivo: inv.objetivo, v: inv.relevancia || tr('Por definir.'), v2: inv.configuracion.preferencias || tr('Por definir.'), v3: aims || tr('_Sin hipótesis candidatas todavía._'), v4: new Date().toISOString().slice(0, 10) });
 }

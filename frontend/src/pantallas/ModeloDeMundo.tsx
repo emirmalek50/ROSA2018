@@ -1385,8 +1385,7 @@ function Trozos({ ts, c }: { ts: Trozo[]; c: Contexto }) {
                 title={tr(
                   "Abre el artículo por su DOI: comprobable fuera de ROSA2018.",
                 )}
-              >
-                doi:{t.doi}
+              >{trp("doi:{doi}", { doi: t.doi })}
                 <IconExternal size={10} />
               </a>
             );
@@ -1413,8 +1412,7 @@ function Trozos({ ts, c }: { ts: Trozo[]; c: Contexto }) {
                 target="_blank"
                 rel="noreferrer"
                 title={tr("Abre el artículo en PubMed.")}
-              >
-                PMID {t.pmid}
+              >{trp("PMID {pmid}", { pmid: t.pmid })}
                 <IconExternal size={10} />
               </a>
             );
@@ -1522,7 +1520,7 @@ function HechosCitados({
         <div key={h.id} className={`mundo-citado mundo-citado-${h.estado}`}>
           <span className="mundo-citado-ceja">
             <IconLayers size={12} />
-            {tr("Del modelo de mundo")} · {estadoCorto(h.estado)}
+            {trp("Del modelo de mundo · {estado}", { estado: estadoCorto(h.estado) })}
           </span>
           <p>{recortar(h.enunciado, 220)}</p>
           <button
@@ -1786,8 +1784,7 @@ function TurnoSoloLoQueSabe({
                         href={`https://pubmed.ncbi.nlm.nih.gov/${c.pmid}/`}
                         target="_blank"
                         rel="noreferrer"
-                      >
-                        PMID {c.pmid}
+                      >{trp("PMID {pmid}", { pmid: c.pmid })}
                         <IconExternal size={10} />
                       </a>
                     )}
@@ -1797,8 +1794,7 @@ function TurnoSoloLoQueSabe({
                         href={`https://doi.org/${c.doi}`}
                         target="_blank"
                         rel="noreferrer"
-                      >
-                        doi:{c.doi}
+                      >{trp("doi:{doi}", { doi: c.doi })}
                         <IconExternal size={10} />
                       </a>
                     )}
@@ -2062,7 +2058,7 @@ function LosHechos({
             onClick={() => fijar({ origen: "fuente" })}
             title={tr("Lo dice la fuente citada")}
           >
-            {tr("Dice la fuente")} · {porOrigen("fuente")}
+            {trp("Dice la fuente · {v}", { v: porOrigen("fuente") })}
           </button>
           <button
             type="button"
@@ -2070,7 +2066,7 @@ function LosHechos({
             onClick={() => fijar({ origen: "inferencia" })}
             title={tr("Lo infiere ROSA2018; no es una cita")}
           >
-            {tr("Inferencia")} · {porOrigen("inferencia")}
+            {trp("Inferencia · {v}", { v: porOrigen("inferencia") })}
           </button>
           {hayLaboratorio && (
             <button
@@ -2078,7 +2074,7 @@ function LosHechos({
               aria-pressed={filtro.origen === "laboratorio"}
               onClick={() => fijar({ origen: "laboratorio" })}
             >
-              {tr("Laboratorio")} · {porOrigen("laboratorio")}
+              {trp("Laboratorio · {v}", { v: porOrigen("laboratorio") })}
             </button>
           )}
         </div>
@@ -2156,9 +2152,7 @@ function LosHechos({
                       })
                     }
                   >
-                    {filtro.tema === SIN_TEMA
-                      ? tr("Ver todos")
-                      : tr("Revisarlos")}
+                    {(filtro.tema === SIN_TEMA ? tr("Ver todos") : tr("Revisarlos"))}
                   </button>
                 </span>
               )}
@@ -2542,8 +2536,7 @@ function DetalleHecho({
                           href={`https://pubmed.ncbi.nlm.nih.gov/${f.pmid}/`}
                           target="_blank"
                           rel="noreferrer"
-                        >
-                          PubMed {f.pmid}
+                        >{trp("PubMed {pmid}", { pmid: f.pmid })}
                           <IconExternal size={10} />
                         </a>
                       )}
@@ -2553,8 +2546,7 @@ function DetalleHecho({
                           href={`https://doi.org/${f.doi}`}
                           target="_blank"
                           rel="noreferrer"
-                        >
-                          doi:{f.doi}
+                        >{trp("doi:{doi}", { doi: f.doi })}
                           <IconExternal size={10} />
                         </a>
                       )}
@@ -2850,7 +2842,7 @@ function QueCambio({
                         corrida &&
                         acciones.dirigirCorrida(
                           corrida.id,
-                          `Extender la búsqueda del tema "${c.tema}" hasta el 90 % de cobertura (unos ${Number.isFinite(faltan) ? faltan : "muchos"} artículos más)`,
+                          trp("Extender la búsqueda del tema \"{tema}\" hasta el 90 % de cobertura (unos {v} artículos más)", { tema: c.tema, v: Number.isFinite(faltan) ? faltan : "muchos" }),
                         )
                       }
                       disabled={!corrida}

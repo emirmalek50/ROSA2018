@@ -17,7 +17,7 @@ import { AvisoMuestra, Momento, Seccion, Vacio, descargar } from '../componentes
 import { atributosEnVuelo, useCalculoDiferido, useEnVuelo } from '../lib/diferido';
 import { specificAims } from '../lib/exportar';
 import { rutaDe } from '../lib/ruta';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 /** Una promesa que se resuelve después del siguiente pintado (un fotograma y
  *  un temporizador a cero, como lib/diferido.ts): así el botón en vuelo llega
@@ -166,7 +166,7 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
             // a la derecha; las iteraciones viejas van plegadas.
             <details key={m.iteracion} className="debilidades" open={m.iteracion === meta[0]!.iteracion}>
               <summary>
-                {tr("Iteración")} {m.iteracion} · {m.debilidades.length} {m.debilidades.length === 1 ? 'debilidad' : 'debilidades'} · <Momento t={m.fecha} ahora={ahora} />
+                {(m.debilidades.length === 1 ? trp("Iteración {iteracion} · {debilidades} debilidad · ", { iteracion: m.iteracion, debilidades: m.debilidades.length }) : trp("Iteración {iteracion} · {debilidades} debilidades · ", { iteracion: m.iteracion, debilidades: m.debilidades.length }))}<Momento t={m.fecha} ahora={ahora} />
               </summary>
               <ul>
                 {m.debilidades.map((d) => (

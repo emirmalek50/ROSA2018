@@ -12,7 +12,7 @@ import { useMovimientoReducido } from '../lib/movimiento';
 import { ArbolVivo } from './ArbolVivo';
 import { EsqueletoAplicacion } from './Esqueleto';
 import './acceso.css';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 type Sesion = {
   correo: string | null;
@@ -57,7 +57,7 @@ async function api(ruta: string, datos?: object) {
   } catch {
     throw new Error(
       control.signal.aborted
-        ? `ROSA2018 no respondió en ${ESPERA_ACCESO_MS / 1000} segundos. Recarga la página y vuelve a intentarlo; si sigue igual, puede que tu red bloquee este enlace.`
+        ? trp("ROSA2018 no respondió en {v} segundos. Recarga la página y vuelve a intentarlo; si sigue igual, puede que tu red bloquee este enlace.", { v: ESPERA_ACCESO_MS / 1000 })
         : tr('No se pudo conectar con ROSA2018. Comprueba que el enlace es el correcto y que el equipo que lo comparte está encendido.'),
     );
   } finally {
@@ -114,7 +114,7 @@ export function CuentasDelEquipo() {
   return (
     <div className="cuentas-equipo">
       <h4>{tr("Cuentas del equipo")}</h4>
-      <p className="meta">{tr("Cualquier persona con correo @")}{DOMINIO} {tr("puede pedir cuenta desde la pantalla de acceso. Aprueba solo si sabes que esa persona la pidió: si no, entraría quien haya escrito su correo.")}</p>
+      <p className="meta">{trp("Cualquier persona con correo @{DOMINIO} puede pedir cuenta desde la pantalla de acceso. Aprueba solo si sabes que esa persona la pidió: si no, entraría quien haya escrito su correo.", { DOMINIO })}</p>
       {cuentas === null && !error && <p className="meta">Cargando…</p>}
       {cuentas !== null && pendientes.length === 0 && <p className="meta">Ninguna solicitud pendiente.</p>}
       {pendientes.length > 0 && (
@@ -122,7 +122,7 @@ export function CuentasDelEquipo() {
           {pendientes.map((c) => (
             <li key={c.correo}>
               <span>
-                <strong>{c.correo}</strong> <small>pidió acceso el {new Date(c.creada).toLocaleString('es-DO')}</small>
+                <strong>{c.correo}</strong> <small>{trp("pidió acceso el {v}", { v: new Date(c.creada).toLocaleString('es-DO') })}</small>
               </span>
               <span className="acciones">
                 <button type="button" className="btn btn-s" disabled={ocupada === c.correo} onClick={() => void decidir(c.correo, 'activa')}>
@@ -138,12 +138,12 @@ export function CuentasDelEquipo() {
       )}
       {resto.length > 0 && (
         <details>
-          <summary>{resto.length} {resto.length === 1 ? tr('cuenta decidida') : tr('cuentas decididas')}</summary>
+          <summary>{(resto.length === 1 ? trp("{resto} cuenta decidida", { resto: resto.length }) : trp("{resto} cuentas decididas", { resto: resto.length }))}</summary>
           <ul className="cuentas-lista">
             {resto.map((c) => (
               <li key={c.correo}>
                 <span>
-                  <strong>{c.correo}</strong> <small>{c.estado === 'activa' ? tr('con acceso') : 'rechazada'}{c.aprobadaPor ? ` por ${c.aprobadaPor}` : ''}</small>
+                  <strong>{c.correo}</strong> <small>{(c.estado === 'activa' ? trp("con acceso{v}", { v: c.aprobadaPor ? trp(" por {aprobadaPor}", { aprobadaPor: c.aprobadaPor }) : '' }) : trp("rechazada{v}", { v: c.aprobadaPor ? trp(" por {aprobadaPor}", { aprobadaPor: c.aprobadaPor }) : '' }))}</small>
                 </span>
                 {c.estado === 'activa' && (
                   <button type="button" className="btn btn-fantasma btn-s" disabled={ocupada === c.correo} onClick={() => void decidir(c.correo, 'rechazada')}>
@@ -167,7 +167,7 @@ export function CuentaActual() {
   return (
     <div className="cuenta-actual">
       <strong>{sesion.correo}</strong>
-      <small>{sesion.administrador ? tr('Cuenta administradora: puede conectar el correo de esta instalación.') : tr('Cuenta del equipo, sin permisos de administración.')}</small>
+      <small>{(sesion.administrador ? tr("Cuenta administradora: puede conectar el correo de esta instalación.") : tr("Cuenta del equipo, sin permisos de administración."))}</small>
       <button
         type="button"
         className="btn btn-fantasma btn-s"
@@ -336,8 +336,8 @@ export function Acceso({ children }: { children: ReactNode }) {
           </div>
 
           <motion.div key="formulario" initial={entrada} animate={{ opacity: 1, y: 0 }} transition={transicion}>
-            <h2>{registrando ? tr('Pide tu cuenta') : tr('Continúa tu investigación')}</h2>
-            <p>{registrando ? tr('Con tu correo de Alzheimer Project. Quien administra ROSA2018 la aprobará.') : tr('Inicia sesión con tu cuenta de Alzheimer Project.')}</p>
+            <h2>{(registrando ? tr("Pide tu cuenta") : tr("Continúa tu investigación"))}</h2>
+            <p>{(registrando ? tr("Con tu correo de Alzheimer Project. Quien administra ROSA2018 la aprobará.") : tr("Inicia sesión con tu cuenta de Alzheimer Project."))}</p>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -357,12 +357,12 @@ export function Acceso({ children }: { children: ReactNode }) {
                   maxLength={200}
                   pattern="[^@\s]+@[aA][lL][zZ][hH][eE][iI][mM][eE][rR][pP][rR][oO][jJ][eE][cC][tT]\.[cC][oO][mM]"
                   title={tr("Usa tu cuenta @alzheimerproject.com")}
-                  placeholder={`tu.nombre@${DOMINIO}`}
+                  placeholder={trp("tu.nombre@{DOMINIO}", { DOMINIO })}
                   value={correo}
                   onChange={(e) => setCorreo(e.target.value)}
                 />
               </div>
-              <label htmlFor="acceso-contrasena">{registrando ? tr('Elige una contraseña (al menos 10 caracteres)') : tr('Contraseña')}</label>
+              <label htmlFor="acceso-contrasena">{(registrando ? tr("Elige una contraseña (al menos 10 caracteres)") : tr("Contraseña"))}</label>
               <input
                 id="acceso-contrasena"
                 type="password"
@@ -393,7 +393,7 @@ export function Acceso({ children }: { children: ReactNode }) {
                 setAviso('');
               }}
             >
-              {registrando ? tr('Ya tengo cuenta: iniciar sesión') : tr('¿No tienes cuenta? Pídela con tu correo del proyecto')}
+              {(registrando ? tr("Ya tengo cuenta: iniciar sesión") : tr("¿No tienes cuenta? Pídela con tu correo del proyecto"))}
             </button>
             <p className="acceso-privacidad">
               Acceso exclusivo para <span className="acceso-dominio">@{DOMINIO}</span>{tr(". Los avisos de tus corridas llegarán a esta misma cuenta.")}

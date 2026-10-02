@@ -22,7 +22,7 @@ import type { PasoRazonamiento, AlcancePermiso, Amplitud, AnclaComentario, Aviso
 import { senalDeTope } from '../lib/diferido';
 import type { CitasRecuperables, FichaCita, ListaCitas } from '../lib/citas';
 import type { DisenoAso, ExperimentoDeDiana, Laboratorio } from '../lib/laboratorio';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 const CLAVE_VISITA = 'rosa-ultima-visita';
 const API = '/api';
@@ -454,7 +454,7 @@ function pedirEstado(): void {
   siguienteEntera = false;
   void (async () => {
     try {
-      const r = await fetch(conToken(`${API}/estado${desde !== null ? `?desde=${desde}` : ''}`), { cache: 'no-store', headers: cabeceras(false) });
+      const r = await fetch(conToken(`${API}/estado${desde !== null ? trp("?desde={desde}", { desde }) : ''}`), { cache: 'no-store', headers: cabeceras(false) });
       if (r.ok) {
         const cuerpo = (await r.json()) as EstadoRosa;
         const version = versionDe(r.headers.get('X-Rosa-Version'));
@@ -531,7 +531,7 @@ async function bajarFichero(url: string, porDefecto: string): Promise<string | n
   if (modo !== 'servidor') return tr('Descargar el documento requiere el servidor de ROSA2018.');
   try {
     const r = await fetch(url, { headers: cabeceras(false) });
-    if (!r.ok) return r.status === 404 ? tr('Ese documento no está en el servidor.') : `El servidor no lo entregó (${r.status}).`;
+    if (!r.ok) return r.status === 404 ? tr('Ese documento no está en el servidor.') : trp("El servidor no lo entregó ({status}).", { status: r.status });
     const nombre = /filename="([^"]+)"/.exec(r.headers.get('Content-Disposition') ?? '')?.[1] ?? porDefecto;
     const enlace = URL.createObjectURL(await r.blob());
     const a = document.createElement('a');
@@ -560,21 +560,21 @@ function enviar(nombre: string, args: Record<string, unknown>): Promise<void> {
         // guardar nada, así que la persona seguía decidiendo sobre una pantalla que
         // mentía. Se avisa y se resincroniza; si el servidor está de verdad caído,
         // `resincronizar` vuelve a marcar sin conexión y reabre el flujo.
-        const motivo = r.status === 503 ? tr('Esta ROSA2018 ya no puede guardar cambios (otra se quedó con la base). Cierra esta y arranca una sola.') : `El servidor falló al guardar (${r.status}).`;
-        fijarAviso(`No se guardó la acción "${nombre}". ${motivo} Lo que veías como aplicado no lo está.`);
+        const motivo = r.status === 503 ? tr('Esta ROSA2018 ya no puede guardar cambios (otra se quedó con la base). Cierra esta y arranca una sola.') : trp("El servidor falló al guardar ({status}).", { status: r.status });
+        fijarAviso(trp("No se guardó la acción \"{nombre}\". {motivo} Lo que veías como aplicado no lo está.", { nombre, motivo }));
         void resincronizar();
         return;
       }
       if (!r.ok) {
         // 4xx: el servidor rechazo la accion (argumentos, permiso). No es un corte de
         // conexion: se deshace el cambio optimista volviendo a pedir el estado.
-        fijarAviso(`El servidor no aceptó la acción "${nombre}" (${r.status}). Se recargó el estado del servidor; lo que veías como aplicado no lo estaba.`);
+        fijarAviso(trp("El servidor no aceptó la acción \"{nombre}\" ({status}). Se recargó el estado del servidor; lo que veías como aplicado no lo estaba.", { nombre, status: r.status }));
         void resincronizar();
         return;
       }
       const d = (await r.json().catch(() => null)) as { ok?: boolean } | null;
       if (d && d.ok === false) {
-        fijarAviso(`El servidor no aplicó la acción "${nombre}": la regla no se cumplía (otro cambio llegó antes). Se recargó el estado.`);
+        fijarAviso(trp("El servidor no aplicó la acción \"{nombre}\": la regla no se cumplía (otro cambio llegó antes). Se recargó el estado.", { nombre }));
         void resincronizar();
       }
     })
@@ -750,10 +750,10 @@ export const acciones = {
         if (ok === null && modo === 'servidor') {
           if (intento < 3) {
             const espera = 5000 * (intento + 1);
-            fijarAviso(`No pude registrar tu decisión sobre «${corto}»: el servidor no respondió. Se reintenta en ${espera / 1000} s.`);
+            fijarAviso(trp("No pude registrar tu decisión sobre «{corto}»: el servidor no respondió. Se reintenta en {v} s.", { corto, v: espera / 1000 }));
             window.setTimeout(() => void mandar(false, intento + 1), espera);
           } else {
-            fijarAviso(`Tu decisión sobre «${corto}» no quedó registrada: el servidor no respondió en cuatro intentos. Cuando vuelva la conexión, vuelve a decidir.`);
+            fijarAviso(trp("Tu decisión sobre «{corto}» no quedó registrada: el servidor no respondió en cuatro intentos. Cuando vuelva la conexión, vuelve a decidir.", { corto }));
             void resincronizar();
           }
         }
@@ -823,7 +823,7 @@ export const acciones = {
     } catch {
       return tr('No se pudo subir el fichero: sin conexión con el servidor.');
     }
-    if (!r.ok) return `El servidor rechazó el fichero (${r.status}).`;
+    if (!r.ok) return trp("El servidor rechazó el fichero ({status}).", { status: r.status });
     if (!sintetico) return null;
     // Red de seguridad (S-18): mientras el endpoint multipart del servidor no
     // declare el campo `sintetico`, lo ignora y el fichero quedaría como dato
@@ -899,7 +899,7 @@ export const acciones = {
     if (id !== null) {
       enviar('bifurcarInvestigacion', { investigacion_id: investigacionId, motivo, id_: id });
       const rama = vivo.estado.investigaciones.find((i) => i.id === id);
-      avisar(`Rama creada: "${rama?.titulo ?? 'rama'}". Estás dentro de la rama; la original sigue igual y está en la barra lateral. Arranca su primera corrida cuando quieras.`);
+      avisar(trp("Rama creada: \"{v}\". Estás dentro de la rama; la original sigue igual y está en la barra lateral. Arranca su primera corrida cuando quieras.", { v: rama?.titulo ?? 'rama' }));
     }
     return id;
   },
@@ -1093,6 +1093,16 @@ export const acciones = {
    *  estado por SSE con sus consultas. Devuelve un error legible o null. Con
    *  `hilo`, la pregunta sigue una conversación: el servidor lee los turnos
    *  anteriores de lo ya guardado (el navegador solo manda el id). */
+  /** Traduce al inglés textos que no caben en un catálogo: lo que escribió
+   *  ROSA2018 y la prosa del servidor (rosa/traductor.py). Sin servidor no hay
+   *  traducción y el texto se queda en castellano, que se entiende. */
+  traducirTextos: async (textos: string[]): Promise<Record<string, string>> => {
+    if (modo !== 'servidor' || textos.length === 0) return {};
+    const r = await fetch(`${API}/traducir`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ textos }) });
+    if (!r.ok) return {};
+    const d = (await r.json()) as { traducciones?: Record<string, string> };
+    return d.traducciones ?? {};
+  },
   /** Los pasos de una pregunta en curso (rosa/razonamiento.py). null si
    *  todavia no hay nada o no se pudo leer: el razonamiento en vivo es un
    *  extra, y si falla la respuesta llega igual. */
@@ -1111,7 +1121,7 @@ export const acciones = {
     try {
       const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/preguntar`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ pregunta, quien: QUIEN, ...(hilo ? { hilo } : {}), ...(seguimiento ? { seguimiento } : {}) }) });
       if (r.status === 429) return tr('Hoy ya se llegó al tope de preguntas con búsqueda en publicaciones. Mañana vuelve a haber; mientras tanto, «Solo lo que ya sabe» responde al instante.');
-      if (!r.ok) return `El servidor no pudo responder (${r.status}).`;
+      if (!r.ok) return trp("El servidor no pudo responder ({status}).", { status: r.status });
       const d = (await r.json()) as { ok: boolean; resultado?: { error?: string | null } };
       return d.ok ? null : d.resultado?.error ?? tr('La pregunta falló.');
     } catch {
@@ -1317,7 +1327,7 @@ export const acciones = {
     cuerpo.append('sintetico', sintetico ? 'si' : 'no');
     try {
       const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/datasets`, { method: 'POST', headers: cabeceras(false), body: cuerpo });
-      if (!r.ok) return `El servidor rechazó el fichero (${r.status}).`;
+      if (!r.ok) return trp("El servidor rechazó el fichero ({status}).", { status: r.status });
       return null;
     } catch {
       return tr('No se pudo subir el fichero: sin conexión con el servidor.');

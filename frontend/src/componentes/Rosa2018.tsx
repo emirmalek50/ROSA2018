@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { acciones, useRosa } from '../datos/almacen';
-import { CAMPOS_ENMENDABLES, CAMPOS_LECTURA_ENMENDABLES, NIVELES_DESENLACE, PROPOSITOS_BIOMARCADOR, SISTEMAS_EXPERIMENTALES, TIPOS_LECTURA, empeoraAlEvaluar, etiquetaContrato, hashLecturas, normalizarContrato } from '../datos/acciones';
+import { CAMPOS_ENMENDABLES, CAMPOS_LECTURA_ENMENDABLES, NIVELES_DESENLACE, PROPOSITOS_BIOMARCADOR_VISTA, SISTEMAS_EXPERIMENTALES, TIPOS_LECTURA, empeoraAlEvaluar, etiquetaContrato, hashLecturas, normalizarContrato } from '../datos/acciones';
 import type { CampoLecturaEnmendable, CapaPerfilDiana, EnmiendaPrerregistro, EstadoPasoRuta, LecturaExperimento, PasoRutaEvaluado, RutaTerapeuticaEvaluada, VeredictoLectura, CambioAprendizaje, CasoDorado, Comprobacion, ConocimientoOperativo, EntidadCanonica, Corrida, Dataset, Decision, DimensionesResultado, Ejecucion, EstadoRosa, Hipotesis, Investigacion, MetodoRegistrado, PasoRutaTerapeutica, PlanAnalisis, PreguntaCampana, ProcedenciaDataset, Reproduccion, Responsables, CampoEnmendable, AreaInvestigacion, ConectorCatalogo, RevisionRegistro, ProcedenciaArtefacto, ConsultaBase, NivelPermisoConector, SkillCatalogo, EstadoEspejo } from '../datos/tipos';
 import {
   ACCESO_DATASET,
@@ -41,7 +41,7 @@ import { Cargando, Esqueleto, EsqueletoTexto } from './Esqueleto';
 /** Lo que devuelve el almacén cuando el servidor está pero no contestó a tiempo (almacen.ts, SinRespuesta). */
 type SinRespuestaServidor = 'sin_respuesta';
 import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 import { coma } from '../lib/formato';
 
 /* ---------------------------------------------------------------------
@@ -126,7 +126,7 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
         <div className="acciones" style={{ justifyContent: 'space-between' }}>
           <div className="acciones">
             {m.aprobadaEn ? (
-              <Chip tono="ok" title={`Aprobada por ${m.aprobadaPor ?? tr('una persona')}`}>
+              <Chip tono="ok" title={trp("Aprobada por {v}", { v: m.aprobadaPor ?? tr('una persona') })}>
                 Aprobada <Momento t={m.aprobadaEn} ahora={Date.now()} soloRelativo />
               </Chip>
             ) : (
@@ -141,7 +141,7 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
               </button>
             )}
             <button type="button" className="btn btn-s" onClick={() => setEditando(true)}>
-              {m.aprobadaEn ? 'Editar' : tr('Corregir y aprobar')}
+              {(m.aprobadaEn ? tr("Editar") : tr("Corregir y aprobar"))}
             </button>
           </div>
         </div>
@@ -160,8 +160,7 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
           <dd>{m.capacidadesLaboratorio.length ? m.capacidadesLaboratorio.join('; ') : tr('sin declarar')}</dd>
           <dt>Presupuesto</dt>
           <dd>
-            {m.presupuesto.llamadas} llamadas · {m.presupuesto.usd.toFixed(0)} USD estimados · {m.presupuesto.horas} h
-          </dd>
+            {trp("{llamadas} llamadas · {v} USD estimados · {horas} h", { llamadas: m.presupuesto.llamadas, v: m.presupuesto.usd.toFixed(0), horas: m.presupuesto.horas })}</dd>
           <dt>Responsables</dt>
           <dd>
             {m.responsables && Object.values(m.responsables).some((v) => v) ? (
@@ -173,7 +172,7 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
         </dl>
         {(m.areas?.length ?? 0) > 0 && !compacto && (
           <details className="versiones" open>
-            <summary>{tr("Áreas de investigación que ROSA2018 comparo (")}{m.areas!.length}{tr("); empieza por las elegidas")}</summary>
+            <summary>{trp("Áreas de investigación que ROSA2018 comparo ({length}); empieza por las elegidas", { length: m.areas!.length })}</summary>
             <p className="meta">{tr("Se comparan por relevancia para la meta, valor de intervención, incertidumbre, comprobabilidad, coste, demora y dependencia, conservando familias de mecanismo distintas. La disponibilidad de datos no sustituye a la relevancia. Un mecanismo desconocido sigue siendo una explicación permitida.")}</p>
             {/* Siete columnas de prosa no caben en el ancho del contenido: el
                 navegador partía las palabras ("Famil / ia"). El contenedor se
@@ -255,7 +254,7 @@ export function TarjetaDeHipotesis({ h }: { h: Hipotesis }) {
     <Seccion titulo={tr("Tarjeta de la hipótesis")} nota={tr("El contrato mínimo para que el Killer la juzgue y un laboratorio la ejecute: diana, célula, etapa, intervención, la predicción que la refutaría y sus riesgos. Sin predicción falsable no avanza.")}>
       {t === null || t === undefined ? (
         <>
-          <p className="meta">{t === null ? tr('ROSA2018 no pudo rellenar la tarjeta.') : tr('ROSA2018 todavía no rellena la tarjeta de esta hipótesis.')}</p>
+          <p className="meta">{(t === null ? tr("ROSA2018 no pudo rellenar la tarjeta.") : tr("ROSA2018 todavía no rellena la tarjeta de esta hipótesis."))}</p>
           {h.ruta && typeof h.ruta === 'object' && (
             <div>
               <p className="campo-etiqueta">{tr("Ruta terapéutica")}</p>
@@ -290,7 +289,7 @@ export function TarjetaDeHipotesis({ h }: { h: Hipotesis }) {
       {(h.versiones?.length ?? 0) > 0 && (
         <details className="versiones">
           <summary>
-            {tr("Versión")} {h.version ?? 1} · {h.versiones!.length} {h.versiones!.length === 1 ? tr('versión anterior') : tr('versiones anteriores')} {tr("(reformular no sobrescribe)")}
+            {(h.versiones!.length === 1 ? trp("Versión {v} · {length} versión anterior (reformular no sobrescribe)", { v: h.version ?? 1, length: h.versiones!.length }) : trp("Versión {v} · {length} versiones anteriores (reformular no sobrescribe)", { v: h.version ?? 1, length: h.versiones!.length }))}
           </summary>
           <ul className="lista-limpia">
             {cambiosPorVersion(h.versiones!, h).map(({ version: v, deN, aN, cambios }) => (
@@ -303,9 +302,9 @@ export function TarjetaDeHipotesis({ h }: { h: Hipotesis }) {
                   </strong>
                   <p style={{ fontSize: 13 }}>{v.titulo}</p>
                   <p className="meta">{v.enunciado}</p>
-                  <p className="meta">{tr("Por qué cambió:")} {v.motivo}</p>
+                  <p className="meta">{trp("Por qué cambió: {motivo}", { motivo: v.motivo })}</p>
                   <p className="meta">
-                    {tr("De la v")}{deN} a la v{aN}: {resumenDiff(cambios)}
+                    {trp("De la v{deN} a la v{aN}: {cambios}", { deN, aN, cambios: resumenDiff(cambios) })}
                   </p>
                   {cambios.length > 0 && (
                     <ul className="version-cambios">
@@ -375,7 +374,7 @@ export function RutaTerapeutica({ paso, ruta = null }: { paso: PasoRutaTerapeuti
           const titulo = evaluada
             ? estado
               ? `${definicion} Estado: ${estado.etiqueta}. ${typeof ev?.motivo === 'string' && ev.motivo ? ev.motivo : estado.definicion}`
-              : `${definicion} Estado: no pude comprobar (el registro no trae este paso).`
+              : trp("{definicion} Estado: no pude comprobar (el registro no trae este paso).", { definicion })
             : definicion;
           const estiloEstado = estado ? { borderColor: COLOR_ESTADO_PASO[ev!.estado], boxShadow: `inset 3px 0 0 ${COLOR_ESTADO_PASO[ev!.estado]}` } : undefined;
           return (
@@ -446,7 +445,7 @@ export function PreguntaDeCampana({ corrida }: { corrida: Corrida }) {
           {q.aprobadaEn ? <Chip tono="ok">Aprobada</Chip> : <Chip tono="aviso">{tr("Propuesta por ROSA2018")}</Chip>}
           {!q.umbralResuelto && <Chip tono="aviso" title={tr("No hay un valor defendible del efecto mínimo que importaría")}>{tr("Umbral sin resolver")}</Chip>}
           <button type="button" className="btn btn-s" onClick={() => setEditando((v) => !v)}>
-            {editando ? 'Cancelar' : 'Corregir'}
+            {(editando ? tr("Cancelar") : tr("Corregir"))}
           </button>
         </div>
       }
@@ -551,16 +550,10 @@ function FilaMetodo({ m, ahora }: { m: MetodoRegistrado; ahora: number }) {
             <Momento t={m.actualizadoEn} ahora={ahora} />
           </span>
         </div>
-        <p className="meta" style={{ marginTop: 4 }}>
-          Evalua: {m.evalua}. {m.contextos.length ? `Contextos: ${m.contextos.join('; ')}. ` : ''}
-          {m.exclusiones.length ? `Excluye: ${m.exclusiones.join('; ')}. ` : ''}
-          {tr("Validación:")} {m.validacion || tr('sin declarar')}. {m.fallosConocidos ? `Fallos conocidos: ${m.fallosConocidos}. ` : ''}
-          {m.probadoEn.length ? `Probado en: ${m.probadoEn.join('; ')}. ` : ''}
-          {m.version ? `Versión: ${m.version}. ` : ''}
-          {m.responsable ? `Responsable: ${m.responsable}.` : ''}
+        <p className="meta" style={{ marginTop: 4 }}>{trp("Evalua: {evalua}. {v}{v2}Validación: {v3}. {v4}{v5}{v6}{v7}", { evalua: m.evalua, v: m.contextos.length ? `Contextos: ${m.contextos.join('; ')}. ` : '', v2: m.exclusiones.length ? `Excluye: ${m.exclusiones.join('; ')}. ` : '', v3: m.validacion || tr('sin declarar'), v4: m.fallosConocidos ? `Fallos conocidos: ${m.fallosConocidos}. ` : '', v5: m.probadoEn.length ? `Probado en: ${m.probadoEn.join('; ')}. ` : '', v6: m.version ? trp("Versión: {version}. ", { version: m.version }) : '', v7: m.responsable ? `Responsable: ${m.responsable}.` : '' })}
         </p>
       </div>
-      <select className="entrada entrada-s" style={{ width: 'auto' }} value={m.estado} onChange={(ev) => acciones.actualizarMetodo(m.id, { estado: ev.target.value as MetodoRegistrado['estado'] })} aria-label={`Estado de ${m.nombre}`}>
+      <select className="entrada entrada-s" style={{ width: 'auto' }} value={m.estado} onChange={(ev) => acciones.actualizarMetodo(m.id, { estado: ev.target.value as MetodoRegistrado['estado'] })} aria-label={trp("Estado de {nombre}", { nombre: m.nombre })}>
         {(Object.keys(ESTADO_METODO) as MetodoRegistrado['estado'][]).map((s) => (
           <option key={s} value={s}>
             {ESTADO_METODO[s].etiqueta}
@@ -610,29 +603,27 @@ export function FusionYConflictos({ h, estado }: { h: Hipotesis; estado: EstadoR
       {fp && (
         <div className="aviso-conflicto aviso-info">
           <span>
-            <strong>{tr("ROSA2018 propone fusionar esta hipótesis")}</strong> en «{titulo(fp.con)}» ({RELACION_TORNEO[fp.relacion]}). {fp.motivo} {tr("Si aceptas, la otra hereda las afirmaciones y fuentes de esta y esta queda cerrada como fusionada, no como refutada.")}
+            <strong>{tr("ROSA2018 propone fusionar esta hipótesis")}</strong>{trp(" en «{con}» ({v}). {motivo} Si aceptas, la otra hereda las afirmaciones y fuentes de esta y esta queda cerrada como fusionada, no como refutada.", { con: titulo(fp.con), v: RELACION_TORNEO[fp.relacion], motivo: fp.motivo })}
           </span>
           <span className="acciones">
-            <Confirmar etiqueta="Fusionar" pregunta={`«${titulo(fp.con)}» hereda la evidencia de esta hipótesis y esta se cierra como fusionada.`} onConfirmar={() => acciones.fusionarHipotesis(fp.con, h.id, fp.motivo)} />
+            <Confirmar etiqueta="Fusionar" pregunta={trp("«{con}» hereda la evidencia de esta hipótesis y esta se cierra como fusionada.", { con: titulo(fp.con) })} onConfirmar={() => acciones.fusionarHipotesis(fp.con, h.id, fp.motivo)} />
             <button type="button" className="btn btn-s" onClick={() => acciones.rechazarFusion(h.id)}>
               {tr("No fusionar")}
             </button>
           </span>
         </div>
       )}
-      {h.fusionadaEn && <p className="meta">{tr("Fusionada en «")}{titulo(h.fusionadaEn)}{tr("»: su evidencia vive allí. No fue refutada.")}</p>}
-      {(h.absorbe?.length ?? 0) > 0 && <p className="meta">{tr("Absorbió por fusión:")} {h.absorbe!.map(titulo).join('; ')}.</p>}
+      {h.fusionadaEn && <p className="meta">{trp("Fusionada en «{fusionadaEn}»: su evidencia vive allí. No fue refutada.", { fusionadaEn: titulo(h.fusionadaEn) })}</p>}
+      {(h.absorbe?.length ?? 0) > 0 && <p className="meta">{trp("Absorbió por fusión: {v}.", { v: h.absorbe!.map(titulo).join('; ') })}</p>}
       {conflictos.length > 0 && (
         <p className="meta">
-          <Chip tono="aviso" title={tr("Marco de argumentación (Dung): dos hipótesis que se atacan no pueden ser ciertas a la vez. ROSA2018 lo marca; no descarta ninguna.")}>
-            Se contradice con {conflictos.length === 1 ? tr('otra candidata') : `${conflictos.length} candidatas`}
-          </Chip>{' '}
-          {conflictos.map(titulo).join('; ')}{tr(". Si las dos van al laboratorio, una sobra o hay que diseñar el experimento que las separe.")}
+          <Chip tono="aviso" title={tr("Marco de argumentación (Dung): dos hipótesis que se atacan no pueden ser ciertas a la vez. ROSA2018 lo marca; no descarta ninguna.")}>{trp("Se contradice con {v}", { v: conflictos.length === 1 ? tr('otra candidata') : `${conflictos.length} candidatas` })}
+          </Chip>{trp(" {v}. Si las dos van al laboratorio, una sobra o hay que diseñar el experimento que las separe.", { v: conflictos.map(titulo).join('; ') })}
         </p>
       )}
       {pendiente && (
         <p className="meta">
-          <Chip tono="aviso" title={EXPLICACION_BLOQUEO.dependencia_pendiente}>{tr("Pendiente de revisar")}</Chip> {CAUSA_PENDIENTE[pendiente.causa]}: {pendiente.detalle} (desde el <Momento t={pendiente.desde} ahora={Date.now()} />{tr("). ROSA2018 la volverá a concluir al cerrar la iteración; si ya la revisaste tú, márcalo.")}{' '}
+          <Chip tono="aviso" title={EXPLICACION_BLOQUEO.dependencia_pendiente}>{tr("Pendiente de revisar")}</Chip>{trp(" {v}: {detalle} (desde el ", { v: CAUSA_PENDIENTE[pendiente.causa], detalle: pendiente.detalle })}<Momento t={pendiente.desde} ahora={Date.now()} />{tr("). ROSA2018 la volverá a concluir al cerrar la iteración; si ya la revisaste tú, márcalo.")}{' '}
           <button type="button" className="btn btn-s" onClick={() => acciones.atenderPendiente('hipotesis', h.id, tr('revisada por una persona'))}>
             {tr("Ya la revisé")}
           </button>
@@ -663,9 +654,8 @@ function ListaComprobaciones({ comprobaciones, etiquetas, onEtiquetar }: { compr
               {onEtiquetar && c.resultado !== 'no_aplica' && (
                 <span className="acciones" style={{ display: 'inline-flex', marginLeft: 8, gap: 4 }} title={tr("Tu veredicto sobre esta comprobación entra al conjunto dorado con el que se mide si el juez acierta (kappa por comprobación)")}>
                   {(['pasa', 'falla', 'no_comprobable'] as const).map((v) => (
-                    <button key={v} type="button" className={`btn btn-s ${mia?.veredictoHumano === v ? 'btn-primario' : 'btn-fantasma'}`} onClick={() => onEtiquetar(c.comprobacion, v)} aria-label={`Marcar ${c.comprobacion} como ${v}`}>
-                      {mia?.veredictoHumano === v ? 'Tu: ' : ''}
-                      {v === 'no_comprobable' ? 'no comprobable' : v}
+                    <button key={v} type="button" className={`btn btn-s ${mia?.veredictoHumano === v ? 'btn-primario' : 'btn-fantasma'}`} onClick={() => onEtiquetar(c.comprobacion, v)} aria-label={trp("Marcar {comprobacion} como {v}", { comprobacion: c.comprobacion, v })}>
+                      {(mia?.veredictoHumano === v ? trp("Tu: {v}", { v: v === 'no_comprobable' ? 'no comprobable' : v }) : trp("{v}", { v: v === 'no_comprobable' ? 'no comprobable' : v }))}
                     </button>
                   ))}
                   {mia && mia.veredictoHumano !== c.resultado && <Chip tono="aviso">desacuerdo</Chip>}
@@ -701,10 +691,10 @@ export function DecisionesKiller({ h, decisiones, ahora, conjuntoDorado = [] }: 
       {!h.decisionKiller && <p className="meta">{tr("El Killer todavía no juzgó esta versión. Pasa por él en el paso de hipótesis de la siguiente iteración, o al pedir una revisión.")}</p>}
       {ultima && <ListaComprobaciones comprobaciones={ultima.comprobaciones} etiquetas={etiquetas} onEtiquetar={(c, v) => acciones.etiquetarComprobacion(h.id, c, v)} />}
       {ultima && <p className="meta">{tr("Marca en cada comprobación tu veredicto (pasa, falla o no comprobable): es el conjunto dorado con el que ROSA2018 mide si el juez acierta, comprobación por comprobación, y detecta si cambia cuando cambia el modelo.")}</p>}
-      {ultima?.queHariaFalta && <p className="meta">{tr("Qué haría falta para evaluarla:")} {ultima.queHariaFalta}</p>}
+      {ultima?.queHariaFalta && <p className="meta">{trp("Qué haría falta para evaluarla: {queHariaFalta}", { queHariaFalta: ultima.queHariaFalta })}</p>}
       {propias.length > 0 && (
         <details className="versiones">
-          <summary>{tr("Historial de decisiones (")}{propias.length})</summary>
+          <summary>{trp("Historial de decisiones ({propias})", { propias: propias.length })}</summary>
           <table className="tabla">
             <thead>
               <tr>
@@ -730,7 +720,7 @@ export function DecisionesKiller({ h, decisiones, ahora, conjuntoDorado = [] }: 
                     {nombreActor(d.quien)}
                   </td>
                   <td className="meta">{d.motivo}</td>
-                  <td>{d.auditoria ? <Chip tono={d.auditoria.acuerdo ? 'ok' : 'mal'} title={d.auditoria.motivo}>{d.auditoria.acuerdo ? tr('De acuerdo') : tr('En desacuerdo')}</Chip> : <span className="meta">{tr("sin auditar")}</span>}</td>
+                  <td>{d.auditoria ? <Chip tono={d.auditoria.acuerdo ? 'ok' : 'mal'} title={d.auditoria.motivo}>{(d.auditoria.acuerdo ? tr("De acuerdo") : tr("En desacuerdo"))}</Chip> : <span className="meta">{tr("sin auditar")}</span>}</td>
                 </tr>
               ))}
             </tbody>
@@ -778,10 +768,9 @@ export function EjecucionesInSilico({ h, estado, ahora }: { h: Hipotesis; estado
       {runs.length === 0 && <p className="meta">{tr("Sin análisis con datos todavía.")}</p>}
       {h.evidenciaSecuencial && (
         <div className="acciones">
-          <Chip tono={h.evidenciaSecuencial.rechazaNula ? 'ok' : 'borde'} title={tr("Producto de los e-valores (kappa p^(kappa-1)) de los análisis válidos. Controla el error de tipo I aunque se sigan añadiendo pruebas (Popper, 2025).")}>
-            Evidencia acumulada e = {h.evidenciaSecuencial.eAcumulado} sobre {h.evidenciaSecuencial.pruebas.length} {h.evidenciaSecuencial.pruebas.length === 1 ? 'prueba' : 'pruebas'}
+          <Chip tono={h.evidenciaSecuencial.rechazaNula ? 'ok' : 'borde'} title={tr("Producto de los e-valores (kappa p^(kappa-1)) de los análisis válidos. Controla el error de tipo I aunque se sigan añadiendo pruebas (Popper, 2025).")}>{(h.evidenciaSecuencial.pruebas.length === 1 ? trp("Evidencia acumulada e = {eAcumulado} sobre {pruebas} prueba", { eAcumulado: h.evidenciaSecuencial.eAcumulado, pruebas: h.evidenciaSecuencial.pruebas.length }) : trp("Evidencia acumulada e = {eAcumulado} sobre {pruebas} pruebas", { eAcumulado: h.evidenciaSecuencial.eAcumulado, pruebas: h.evidenciaSecuencial.pruebas.length }))}
           </Chip>
-          <span className="meta">{h.evidenciaSecuencial.rechazaNula ? `Alcanza 1/alfa = ${Math.round(1 / h.evidenciaSecuencial.alfa)}: rechaza la hipotesis nula al ${Math.round(h.evidenciaSecuencial.alfa * 100)} %.` : `No alcanza 1/alfa = ${Math.round(1 / h.evidenciaSecuencial.alfa)}: la evidencia acumulada aún no rechaza la nula.`}</span>
+          <span className="meta">{h.evidenciaSecuencial.rechazaNula ? trp("Alcanza 1/alfa = {v}: rechaza la hipotesis nula al {v2} %.", { v: Math.round(1 / h.evidenciaSecuencial.alfa), v2: Math.round(h.evidenciaSecuencial.alfa * 100) }) : trp("No alcanza 1/alfa = {v}: la evidencia acumulada aún no rechaza la nula.", { v: Math.round(1 / h.evidenciaSecuencial.alfa) })}</span>
         </div>
       )}
       {runs.map((run) => (
@@ -791,15 +780,14 @@ export function EjecucionesInSilico({ h, estado, ahora }: { h: Hipotesis; estado
         <p className="meta">{tr("Para pedir un análisis hace falta un dataset aprobado con fichero y libro de procedencia (Objetivo y datos).")}</p>
       ) : (
         <div className="seccion">
-          {!puertaOk && <p className="tono-aviso" style={{ fontSize: 13 }}>{tr("La puerta de reproducción está bloqueada (")}{puerta?.superadas ?? 0} de {puerta?.requeridas ?? 3}{tr("): el análisis quedará en \"no ejecutado\" hasta reproducir los análisis publicados o eximir la puerta con motivo.")}</p>}
+          {!puertaOk && <p className="tono-aviso" style={{ fontSize: 13 }}>{trp("La puerta de reproducción está bloqueada ({v} de {v2}): el análisis quedará en \"no ejecutado\" hasta reproducir los análisis publicados o eximir la puerta con motivo.", { v: puerta?.superadas ?? 0, v2: puerta?.requeridas ?? 3 })}</p>}
           <div className="rejilla-2">
             <div className="campo">
               <label htmlFor="an-ds">Dataset</label>
               <select id="an-ds" value={ds} onChange={(e) => setDs(e.target.value)}>
                 {datasets.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.nombre}
-                    {d.procedencia?.sintetico ? tr(' (sintético)') : ''}
+                    {(d.procedencia?.sintetico ? trp("{nombre} (sintético)", { nombre: d.nombre }) : trp("{nombre}", { nombre: d.nombre }))}
                   </option>
                 ))}
               </select>
@@ -813,7 +801,7 @@ export function EjecucionesInSilico({ h, estado, ahora }: { h: Hipotesis; estado
             <button type="button" className="btn" disabled={ds === ''} onClick={() => acciones.pedirAnalisis(h.id, ds, pregunta)}>
               Pedir analisis in silico
             </button>
-            <span className="meta">{tr("Cuenta como evaluación costosa (máximo")} {Number(estado.politicas?.maxEvaluacionesCostosas ?? 5)} por corrida).</span>
+            <span className="meta">{trp("Cuenta como evaluación costosa (máximo {v} por corrida).", { v: Number(estado.politicas?.maxEvaluacionesCostosas ?? 5) })}</span>
           </div>
         </div>
       )}
@@ -829,24 +817,22 @@ export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: Pla
         <Chip tono={e.tono}>{e.etiqueta}</Chip>
         {run.interpretacion && <Chip tono={INTERPRETACION_EJECUCION[run.interpretacion.estado].tono}>{INTERPRETACION_EJECUCION[run.interpretacion.estado].etiqueta}</Chip>}
         {run.auditoria && (
-          <Chip tono={VEREDICTO_AUDITORIA[run.auditoria.veredicto].tono} title={run.auditoria.motivo}>
-            Auditor: {VEREDICTO_AUDITORIA[run.auditoria.veredicto].etiqueta}
+          <Chip tono={VEREDICTO_AUDITORIA[run.auditoria.veredicto].tono} title={run.auditoria.motivo}>{trp("Auditor: {etiqueta}", { etiqueta: VEREDICTO_AUDITORIA[run.auditoria.veredicto].etiqueta })}
           </Chip>
         )}
         {run.ensayoSeco && run.ensayoSeco.estado !== 'no_hecho' && (
-          <Chip tono={run.ensayoSeco.estado === 'completado' ? 'ok' : 'aviso'} title={`El código se corrió antes sobre ${run.ensayoSeco.filas} filas sintéticas con la forma del dataset (${run.ensayoSeco.intentos} intento${run.ensayoSeco.intentos === 1 ? '' : 's'}). ${run.ensayoSeco.error || tr('Sus cifras no cuentan: solo dice si el codigo corre sobre esa forma.')}`}>
-            {tr("Ensayo en seco:")} {run.ensayoSeco.estado === 'completado' ? 'corre' : run.ensayoSeco.estado.replace('_', ' ')}
+          <Chip tono={run.ensayoSeco.estado === 'completado' ? 'ok' : 'aviso'} title={(run.ensayoSeco.intentos === 1 ? trp("El código se corrió antes sobre {filas} filas sintéticas con la forma del dataset ({intentos} intento). {v}", { filas: run.ensayoSeco.filas, intentos: run.ensayoSeco.intentos, v: run.ensayoSeco.error || tr('Sus cifras no cuentan: solo dice si el codigo corre sobre esa forma.') }) : trp("El código se corrió antes sobre {filas} filas sintéticas con la forma del dataset ({intentos} intentos). {v}", { filas: run.ensayoSeco.filas, intentos: run.ensayoSeco.intentos, v: run.ensayoSeco.error || tr('Sus cifras no cuentan: solo dice si el codigo corre sobre esa forma.') }))}>
+            {trp("Ensayo en seco: {v}", { v: run.ensayoSeco.estado === 'completado' ? 'corre' : run.ensayoSeco.estado.replace('_', ' ') })}
           </Chip>
         )}
         <span className="meta">
-          <Momento t={run.inicio} ahora={ahora} /> · {RUNTIME_EJECUCION[run.runtime]} · semilla {run.semilla} · datos {run.hashDatos.slice(0, 12) || tr('sin hash')}
-          {run.duracionS !== null ? ` · ${run.duracionS} s` : ''}
+          <Momento t={run.inicio} ahora={ahora} />{trp(" · {v} · semilla {semilla} · datos {v2}{v3}", { v: RUNTIME_EJECUCION[run.runtime], semilla: run.semilla, v2: run.hashDatos.slice(0, 12) || tr('sin hash'), v3: run.duracionS !== null ? ` · ${run.duracionS} s` : '' })}
         </span>
       </div>
       {run.error && (run.estado === 'no_ejecutado' || run.estado === 'error_tecnico' || run.estado === 'tiempo_agotado') && <p className="tono-mal" style={{ fontSize: 13 }}>{run.error.split('\n').slice(-3).join(' ')}</p>}
       {plan && (
         <details className="versiones">
-          <summary>Plan congelado {plan.hashPlan} ({plan.tipo}) el {new Date(plan.congeladoEn).toLocaleString('es')}</summary>
+          <summary>{trp("Plan congelado {hashPlan} ({tipo}) el {v}", { hashPlan: plan.hashPlan, tipo: plan.tipo, v: new Date(plan.congeladoEn).toLocaleString('es') })}</summary>
           <dl className="comprobacion">
             <dt>Pregunta</dt>
             <dd>{plan.pregunta}</dd>
@@ -858,19 +844,18 @@ export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: Pla
             <dd>{plan.prueba}</dd>
             <dt>H0 / H1</dt>
             <dd>
-              {plan.hipotesisNula} / {plan.hipotesisAlternativa} (alfa {plan.alpha})
-            </dd>
+              {trp("{hipotesisNula} / {hipotesisAlternativa} (alfa {alpha})", { hipotesisNula: plan.hipotesisNula, hipotesisAlternativa: plan.hipotesisAlternativa, alpha: plan.alpha })}</dd>
             <dt>{tr("Efecto mínimo y umbral")}</dt>
             <dd>
-              {plan.tamanoEfectoMinimo}{tr(". Cuenta como efecto si:")} {plan.umbralEfecto}
+              {trp("{tamanoEfectoMinimo}. Cuenta como efecto si: {umbralEfecto}", { tamanoEfectoMinimo: plan.tamanoEfectoMinimo, umbralEfecto: plan.umbralEfecto })}
             </dd>
             {(plan.siConfirma || plan.siRefuta || plan.siNoEvaluable) && (
               <>
                 <dt>{tr("Qué hará ROSA2018 según salga")}</dt>
                 <dd>
-                  {plan.siConfirma && <>Si confirma: {plan.siConfirma}. </>}
-                  {plan.siRefuta && <>Si refuta: {plan.siRefuta}. </>}
-                  {plan.siNoEvaluable && <>{tr("Si no es evaluable:")} {plan.siNoEvaluable}.</>}
+                  {plan.siConfirma && <>{trp("Si confirma: {siConfirma}. ", { siConfirma: plan.siConfirma })}</>}
+                  {plan.siRefuta && <>{trp("Si refuta: {siRefuta}. ", { siRefuta: plan.siRefuta })}</>}
+                  {plan.siNoEvaluable && <>{trp("Si no es evaluable: {siNoEvaluable}.", { siNoEvaluable: plan.siNoEvaluable })}</>}
                 </dd>
               </>
             )}
@@ -885,7 +870,7 @@ export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: Pla
             {plan.selloExterno && (
               <>
                 <dt>{tr("Sello externo del plan")}</dt>
-                <dd>{plan.selloExterno.ok ? `Sellado (RFC 3161) el ${plan.selloExterno.primeraHora ?? ''}` : `Sin sello externo${plan.selloExterno.error ? `: ${plan.selloExterno.error}` : ''}`}</dd>
+                <dd>{plan.selloExterno.ok ? trp("Sellado (RFC 3161) el {v}", { v: plan.selloExterno.primeraHora ?? '' }) : `Sin sello externo${plan.selloExterno.error ? `: ${plan.selloExterno.error}` : ''}`}</dd>
               </>
             )}
             <dt>Baseline</dt>
@@ -909,7 +894,7 @@ export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: Pla
       )}
       {run.repeticiones && run.repeticiones.length > 0 && (
         <p className="meta">
-          {tr("Repeticiones con otras semillas:")} {run.repeticiones.map((r) => `semilla ${r.semilla}: ${Object.entries(r.resultados).slice(0, 3).map(([k, v]) => `${k}=${v}`).join(', ') || tr('sin cifras')}`).join(' | ')}
+          {trp("Repeticiones con otras semillas: {v}", { v: run.repeticiones.map((r) => `semilla ${r.semilla}: ${Object.entries(r.resultados).slice(0, 3).map(([k, v]) => `${k}=${v}`).join(', ') || tr('sin cifras')}`).join(' | ') })}
         </p>
       )}
       <div className="conclusion-columnas">
@@ -969,7 +954,7 @@ export function PuertaYReproducciones({ inv, estado, ahora }: { inv: Investigaci
       id="puerta"
       plegable
       abierta={puerta.estado !== 'abierta'}
-      resumen={<span>{puerta.estado === 'abierta' ? `Abierta: ${puerta.superadas} de ${puerta.requeridas} análisis publicados reproducidos. ROSA2018 ya puede descubrir con datos.` : puerta.estado === 'eximida' ? `Eximida por ${puerta.eximidaPor}: ${puerta.motivo}` : `Bloqueada: ${puerta.superadas} de ${puerta.requeridas} reproducidos. Hasta abrirla, ningún análisis con datos cuenta como descubrimiento.`}</span>}
+      resumen={<span>{puerta.estado === 'abierta' ? trp("Abierta: {superadas} de {requeridas} análisis publicados reproducidos. ROSA2018 ya puede descubrir con datos.", { superadas: puerta.superadas, requeridas: puerta.requeridas }) : puerta.estado === 'eximida' ? `Eximida por ${puerta.eximidaPor}: ${puerta.motivo}` : trp("Bloqueada: {superadas} de {requeridas} reproducidos. Hasta abrirla, ningún análisis con datos cuenta como descubrimiento.", { superadas: puerta.superadas, requeridas: puerta.requeridas })}</span>}
       titulo="Puerta de reproducción"
       nota={tr("Antes de descubrir nada con datos, ROSA2018 tiene que reproducir análisis ya publicados dentro de una tolerancia fijada de antemano. Si no lo consigue, un resultado nuevo no se distingue de un error del pipeline. Una persona puede eximirla dejando el motivo; queda como cambio de política.")}
       acciones={
@@ -984,9 +969,8 @@ export function PuertaYReproducciones({ inv, estado, ahora }: { inv: Investigaci
     >
       <div className="acciones">
         <Chip tono={tono}>
-          {puerta.estado === 'abierta' ? 'Abierta' : puerta.estado === 'eximida' ? `Eximida por ${puerta.eximidaPor}` : 'Bloqueada'} · {puerta.superadas} de {puerta.requeridas} reproducidas
-        </Chip>
-        {puerta.estado === 'eximida' && <span className="meta">Motivo: {puerta.motivo}</span>}
+          {trp("{v} · {superadas} de {requeridas} reproducidas", { v: puerta.estado === 'abierta' ? 'Abierta' : puerta.estado === 'eximida' ? `Eximida por ${puerta.eximidaPor}` : 'Bloqueada', superadas: puerta.superadas, requeridas: puerta.requeridas })}</Chip>
+        {puerta.estado === 'eximida' && <span className="meta">{trp("Motivo: {motivo}", { motivo: puerta.motivo })}</span>}
       </div>
       {reps.length > 0 && (
         <table className="tabla">
@@ -1127,7 +1111,7 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
         <div className="acciones">
           <Chip tono={USO_IA[p.usoIAAutorizado].tono}>{USO_IA[p.usoIAAutorizado].etiqueta}</Chip>
           <Chip tono={p.permiteLlmTerceros ? 'aviso' : 'ok'} title={tr("Si las filas individuales pueden salir hacia el AI Gateway. Con datos controlados está prohibido (NIH NOT-OD-25-081).")}>
-            {p.permiteLlmTerceros ? tr('Filas pueden ir al modelo') : tr('Al modelo solo agregados')}
+            {(p.permiteLlmTerceros ? tr("Filas pueden ir al modelo") : tr("Al modelo solo agregados"))}
           </Chip>
           {p.sintetico && <Chip tono="aviso">{tr("Sintético: no cuenta como evidencia")}</Chip>}
           <Chip tono="borde">{CLASE_EVIDENCIA[p.clase].etiqueta}</Chip>
@@ -1160,7 +1144,7 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
         </dl>
         {p.diccionario.length > 0 && (
           <details className="versiones">
-            <summary>{tr("Diccionario de columnas (")}{p.diccionario.length}; {p.diccionario.filter((c) => c.descripcion.trim() === '').length} sin descripcion)</summary>
+            <summary>{trp("Diccionario de columnas ({diccionario}; {length} sin descripcion)", { diccionario: p.diccionario.length, length: p.diccionario.filter((c) => c.descripcion.trim() === '').length })}</summary>
             <table className="tabla">
               <tbody>
                 {p.diccionario.map((c) => (
@@ -1190,7 +1174,7 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
       <div className="rejilla-2">
         {campo('origen', tr('Origen (portal, laboratorio, publicación)'), tr('GEO GSE1297'))}
         {campo('version', tr('Versión del dataset'), tr('v1, 2004'))}
-        {campo('licencia', tr('Licencia o condiciones de uso'), tr('CC-BY 4.0; Allen Terms of Use'))}
+        {campo('licencia', tr('Licencia o condiciones de uso'), 'CC-BY 4.0; Allen Terms of Use')}
         {campo('permisos', tr('Permisos y acuerdo de uso (id, fecha)'), tr('DUC Synapse v8.2, aprobado 2026-09-01'))}
         {campo('cohorte', tr('Cohorte de origen'), 'ADNI')}
         {campo('restriccionIA', tr('Cláusula de IA del acuerdo (literal)'), tr('Use of AI tools must be described in your IDU'))}
@@ -1242,7 +1226,7 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
                 <tr key={c.columna}>
                   <td className="mono">{c.columna}</td>
                   <td>
-                    <select className="entrada entrada-s" value={c.tipo} onChange={(e) => setF({ ...f, diccionario: f.diccionario.map((x, j) => (j === i ? { ...x, tipo: e.target.value as typeof x.tipo } : x)) })} aria-label={`Tipo de ${c.columna}`}>
+                    <select className="entrada entrada-s" value={c.tipo} onChange={(e) => setF({ ...f, diccionario: f.diccionario.map((x, j) => (j === i ? { ...x, tipo: e.target.value as typeof x.tipo } : x)) })} aria-label={trp("Tipo de {columna}", { columna: c.columna })}>
                       {(['numerica', 'categorica', 'fecha', 'texto', 'identificador'] as const).map((t) => (
                         <option key={t} value={t}>
                           {t}
@@ -1251,10 +1235,10 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
                     </select>
                   </td>
                   <td>
-                    <input className="entrada entrada-s" value={c.unidad} placeholder="unidad" onChange={(e) => setF({ ...f, diccionario: f.diccionario.map((x, j) => (j === i ? { ...x, unidad: e.target.value } : x)) })} aria-label={`Unidad de ${c.columna}`} />
+                    <input className="entrada entrada-s" value={c.unidad} placeholder="unidad" onChange={(e) => setF({ ...f, diccionario: f.diccionario.map((x, j) => (j === i ? { ...x, unidad: e.target.value } : x)) })} aria-label={trp("Unidad de {columna}", { columna: c.columna })} />
                   </td>
                   <td>
-                    <input className="entrada entrada-s" value={c.descripcion} placeholder={tr("que mide")} onChange={(e) => setF({ ...f, diccionario: f.diccionario.map((x, j) => (j === i ? { ...x, descripcion: e.target.value } : x)) })} aria-label={`Descripción de ${c.columna}`} />
+                    <input className="entrada entrada-s" value={c.descripcion} placeholder={tr("que mide")} onChange={(e) => setF({ ...f, diccionario: f.diccionario.map((x, j) => (j === i ? { ...x, descripcion: e.target.value } : x)) })} aria-label={trp("Descripción de {columna}", { columna: c.columna })} />
                   </td>
                 </tr>
               ))}
@@ -1344,7 +1328,7 @@ export function SubirDataset({ inv }: { inv: Investigacion }) {
             }
           })}
         >
-          {subiendo ? 'Subiendo...' : tr('Subir y perfilar')}
+          {(subiendo ? tr("Subiendo...") : tr("Subir y perfilar"))}
         </button>
         {error && <span className="tono-mal">{error}</span>}
       </div>
@@ -1399,14 +1383,14 @@ function FilaAprendizaje({ c, ahora }: { c: CambioAprendizaje; ahora: number }) 
           )}
           <span className="meta">
             {nombreActor(c.quien)} · <Momento t={c.fecha} ahora={ahora} />
-            {c.resueltoPor && c.resueltoPor !== c.quien ? ` · resuelto por ${c.resueltoPor}` : ''}
+            {c.resueltoPor && c.resueltoPor !== c.quien ? trp(" · resuelto por {resueltoPor}", { resueltoPor: c.resueltoPor }) : ''}
           </span>
         </div>
         <p style={{ fontSize: 13.5, marginTop: 4 }}>{c.descripcion}</p>
         {c.nota && <p className="meta">{c.nota}</p>}
         {ev && (
           <p className="meta">
-            {ev.casos > 0 ? `Evaluado sobre ${ev.casos} casos (${ev.conjunto}): acuerdo con las personas ${ev.antes ?? '?'} antes, ${ev.despues ?? '?'} después. ` : ''}
+            {ev.casos > 0 ? trp("Evaluado sobre {casos} casos ({conjunto}): acuerdo con las personas {v} antes, {v2} después. ", { casos: ev.casos, conjunto: ev.conjunto, v: ev.antes ?? '?', v2: ev.despues ?? '?' }) : ''}
             {ev.nota}
           </p>
         )}
@@ -1492,8 +1476,7 @@ export function Candidatas({ inv, estado, candidatas, noCandidatas }: { inv: Inv
                 {h.titulo}
               </a>
               <span className="meta" title={h.bt ? tr('Elo del torneo y fuerza de Bradley-Terry (lo que ordena a las candidatas)') : undefined}>
-                {h.cluster} · Elo {h.elo}
-                {h.bt ? ` · BT ${h.bt.fuerza}` : ''}
+                {trp("{cluster} · Elo {elo}{v}", { cluster: h.cluster, elo: h.elo, v: h.bt ? ` · BT ${h.bt.fuerza}` : '' })}
               </span>
             </li>
           ))}
@@ -1501,7 +1484,7 @@ export function Candidatas({ inv, estado, candidatas, noCandidatas }: { inv: Inv
       )}
       {noCandidatas.length > 0 && (
         <details className="versiones">
-          <summary>{tr("Por qué las demás no son candidatas (")}{noCandidatas.length})</summary>
+          <summary>{trp("Por qué las demás no son candidatas ({noCandidatas})", { noCandidatas: noCandidatas.length })}</summary>
           <ul className="lista-limpia">
             {noCandidatas.map(({ h, bloqueos, motivo }) => (
               <li key={h.id}>
@@ -1599,7 +1582,7 @@ export function ProtocoloYEnmiendas({ h, ahora }: { h: Hipotesis; ahora: number 
         <ul className="lista-plana">
           {(x.enmiendas ?? []).map((en, i) => (
             <li key={i}>
-              <strong>Enmienda {i + 1}</strong> <Momento t={en.fecha} ahora={ahora} /> por {nombreActor(en.quien)}, {describirEnmienda(en)}: <span className="meta">"{String(en.antes ?? '').slice(0, 160) || tr('vacío')}"</span> pasa a "{String(en.despues ?? '').slice(0, 160)}". Motivo: {en.motivo}
+              <strong>{trp("Enmienda {v}", { v: i + 1 })}</strong> <Momento t={en.fecha} ahora={ahora} />{trp(" por {quien}, {en}: ", { quien: nombreActor(en.quien), en: describirEnmienda(en) })}<span className="meta">"{String(en.antes ?? '').slice(0, 160) || tr('vacío')}"</span>{trp(" pasa a \"{v}\". Motivo: {motivo}", { v: String(en.despues ?? '').slice(0, 160), motivo: en.motivo })}
             </li>
           ))}
         </ul>
@@ -1629,12 +1612,11 @@ export function ProtocoloYEnmiendas({ h, ahora }: { h: Hipotesis; ahora: number 
           </button>
         </div>
       ) : (
-        <p className="meta">{x.resultado ? tr('Con datos ya evaluados el prerregistro no se enmienda: los criterios ya se aplicaron.') : tr('Las enmiendas se registran después de congelar el prerregistro.')}</p>
+        <p className="meta">{(x.resultado ? tr("Con datos ya evaluados el prerregistro no se enmienda: los criterios ya se aplicaron.") : tr("Las enmiendas se registran después de congelar el prerregistro."))}</p>
       )}
       {x.protocoloReal && (
         <p className="meta">
-          Protocolo real registrado <Momento t={x.protocoloReal.registradoEn} ahora={ahora} /> por {x.protocoloReal.quien}. Desviaciones: {x.protocoloReal.desviaciones || tr('ninguna declarada')}. Muestras: {x.protocoloReal.identidadMuestras || tr('no declaradas')}.
-        </p>
+          Protocolo real registrado <Momento t={x.protocoloReal.registradoEn} ahora={ahora} />{trp(" por {quien}. Desviaciones: {v}. Muestras: {v2}.", { quien: x.protocoloReal.quien, v: x.protocoloReal.desviaciones || tr('ninguna declarada'), v2: x.protocoloReal.identidadMuestras || tr('no declaradas') })}</p>
       )}
       <div className="campo">
         <label htmlFor={`pr-texto-${h.id}`}>Protocolo realmente ejecutado</label>
@@ -1650,7 +1632,7 @@ export function ProtocoloYEnmiendas({ h, ahora }: { h: Hipotesis; ahora: number 
       </div>
       <div className="acciones">
         <button type="button" className="btn" disabled={texto.trim() === ''} onClick={() => acciones.registrarProtocoloReal(h.id, { texto, desviaciones, identidadMuestras: muestras })}>
-          {x.protocoloReal ? tr('Actualizar protocolo real') : tr('Registrar protocolo real')}
+          {(x.protocoloReal ? tr("Actualizar protocolo real") : tr("Registrar protocolo real"))}
         </button>
         {x.resultado && <span className="meta">{tr("Si lo registras ahora, ROSA2018 vuelve a evaluar los datos con esta información.")}</span>}
       </div>
@@ -1671,10 +1653,10 @@ function FilaArea({ inv, a, corridas }: { inv: Investigacion; a: AreaInvestigaci
       <td>
         <strong style={{ fontSize: 13 }}>{a.titulo}</strong>
         <p className="meta">{a.valorIntervencion}</p>
-        {a.estado === 'pausada' && a.condicionReapertura && <p className="meta">{tr("Se reabre si:")} {a.condicionReapertura}</p>}
+        {a.estado === 'pausada' && a.condicionReapertura && <p className="meta">{trp("Se reabre si: {condicionReapertura}", { condicionReapertura: a.condicionReapertura })}</p>}
         {(a.historial?.length ?? 0) > 0 && (
           <details className="versiones">
-            <summary>Historial ({a.historial!.length})</summary>
+            <summary>{trp("Historial ({length})", { length: a.historial!.length })}</summary>
             <ul className="lista-plana">
               {a.historial!.map((hi, i) => (
                 <li key={i} className="meta">
@@ -1690,22 +1672,22 @@ function FilaArea({ inv, a, corridas }: { inv: Investigacion; a: AreaInvestigaci
       <td className="meta">{a.comprobabilidad}</td>
       <td className="meta">
         {a.coste}; {a.demora}
-        {a.dependeDe ? `; depende de ${a.dependeDe}` : ''}
+        {a.dependeDe ? trp("; depende de {dependeDe}", { dependeDe: a.dependeDe }) : ''}
       </td>
       <td>
         <Chip tono={a.estado === 'elegida' ? 'ok' : a.estado === 'sin_explorar' ? 'aviso' : 'borde'}>{a.estado.replace('_', ' ')}</Chip>
-        {campana && <p className="meta">{tr("Campaña")} {campana.numero}</p>}
+        {campana && <p className="meta">{trp("Campaña {numero}", { numero: campana.numero })}</p>}
       </td>
       <td>
         <div className="acciones" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
           {a.estado !== 'elegida' && (
             <button type="button" className="btn btn-pequeno" onClick={() => acciones.cambiarEstadoArea(inv.id, a.id, 'elegida', '', undefined, a.estado === 'pausada' ? 'reabierta' : 'elegida')}>
-              {a.estado === 'pausada' ? 'Reabrir' : 'Elegir'}
+              {(a.estado === 'pausada' ? tr("Reabrir") : tr("Elegir"))}
             </button>
           )}
           {a.estado !== 'pausada' && (
             <>
-              <input className="entrada" value={condicion} placeholder={tr("Condición para reabrirla")} onChange={(e) => setCondicion(e.target.value)} aria-label={`Condición de reapertura de ${a.titulo}`} />
+              <input className="entrada" value={condicion} placeholder={tr("Condición para reabrirla")} onChange={(e) => setCondicion(e.target.value)} aria-label={trp("Condición de reapertura de {titulo}", { titulo: a.titulo })} />
               <button type="button" className="btn btn-pequeno" disabled={condicion.trim() === ''} onClick={() => acciones.cambiarEstadoArea(inv.id, a.id, 'pausada', condicion)}>
                 {tr("Pausar con condición")}
               </button>
@@ -1717,12 +1699,11 @@ function FilaArea({ inv, a, corridas }: { inv: Investigacion; a: AreaInvestigaci
             </button>
           )}
           {corridas.length > 0 && (
-            <select className="entrada" value={a.corridaId ?? ''} onChange={(e) => acciones.cambiarEstadoArea(inv.id, a.id, null, '', e.target.value)} aria-label={`Campaña de ${a.titulo}`}>
+            <select className="entrada" value={a.corridaId ?? ''} onChange={(e) => acciones.cambiarEstadoArea(inv.id, a.id, null, '', e.target.value)} aria-label={trp("Campaña de {titulo}", { titulo: a.titulo })}>
               <option value="">{tr("Sin campaña")}</option>
               {corridas.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {tr("Campaña")} {c.numero} ({c.estado.replace('_', ' ')})
-                </option>
+                  {trp("Campaña {numero} ({v})", { numero: c.numero, v: c.estado.replace('_', ' ') })}</option>
               ))}
             </select>
           )}
@@ -1746,8 +1727,7 @@ export function Jerarquia({ inv, corridas }: { inv: Investigacion; corridas: Cor
     if (!q) return <span className="meta">{tr("sin pregunta de campaña todavía")}</span>;
     return (
       <span>
-        {q.intervencion || tr('la intervención')} frente a {q.comparador || tr('el comparador')} sobre {q.desenlace || tr('el desenlace')} en {q.contexto || tr('el contexto')}
-        {q.umbralResuelto ? '' : tr(' (umbral de efecto sin resolver)')}
+        {(q.umbralResuelto ? trp("{v} frente a {v2} sobre {v3} en {v4}", { v: q.intervencion || tr('la intervención'), v2: q.comparador || tr('el comparador'), v3: q.desenlace || tr('el desenlace'), v4: q.contexto || tr('el contexto') }) : trp("{v} frente a {v2} sobre {v3} en {v4} (umbral de efecto sin resolver)", { v: q.intervencion || tr('la intervención'), v2: q.comparador || tr('el comparador'), v3: q.desenlace || tr('el desenlace'), v4: q.contexto || tr('el contexto') }))}
       </span>
     );
   };
@@ -1763,13 +1743,13 @@ export function Jerarquia({ inv, corridas }: { inv: Investigacion; corridas: Cor
               return (
                 <li key={a.id}>
                   <Chip tono={a.estado === 'elegida' ? 'ok' : a.estado === 'pausada' ? 'aviso' : 'borde'}>{a.estado.replace('_', ' ')}</Chip> <strong>{a.titulo}</strong>
-                  {a.estado === 'pausada' && a.condicionReapertura ? <span className="meta"> {tr("(se reabre si:")} {a.condicionReapertura})</span> : null}
+                  {a.estado === 'pausada' && a.condicionReapertura ? <span className="meta">{trp(" (se reabre si: {condicionReapertura})", { condicionReapertura: a.condicionReapertura })}</span> : null}
                   <ul>
-                    {cs.length === 0 && <li className="meta">{a.estado === 'elegida' ? tr('Elegida sin campaña asignada.') : tr('Sin campaña.')}</li>}
+                    {cs.length === 0 && <li className="meta">{(a.estado === 'elegida' ? tr("Elegida sin campaña asignada.") : tr("Sin campaña."))}</li>}
                     {cs.map((c) => (
                       <li key={c.id}>
                         <a className="enlace" href={rutaDe(inv.id, 'corrida', c.id)}>
-                          {tr("Campaña")} {c.numero}
+                          {trp("Campaña {numero}", { numero: c.numero })}
                         </a>{' '}
                         <span className="meta">({c.estado.replace('_', ' ')})</span>
                         <ul>
@@ -1788,7 +1768,7 @@ export function Jerarquia({ inv, corridas }: { inv: Investigacion; corridas: Cor
                   {sinArea.map((c) => (
                     <li key={c.id}>
                       <a className="enlace" href={rutaDe(inv.id, 'corrida', c.id)}>
-                        {tr("Campaña")} {c.numero}
+                        {trp("Campaña {numero}", { numero: c.numero })}
                       </a>{' '}
                       <span className="meta">({c.estado.replace('_', ' ')})</span>
                       <ul>
@@ -1825,8 +1805,7 @@ export function GrafoCausalDeHipotesis({ h }: { h: Hipotesis }) {
       {g.supuestosFaltantes.length > 0 && (
         <ul className="lista-limpia">
           {g.supuestosFaltantes.map((s, i) => (
-            <li key={i} className="tono-aviso">
-              Falta: {s}
+            <li key={i} className="tono-aviso">{trp("Falta: {s}", { s })}
             </li>
           ))}
         </ul>
@@ -1834,16 +1813,14 @@ export function GrafoCausalDeHipotesis({ h }: { h: Hipotesis }) {
       {g.supuestosCumplidos.length > 0 && (
         <ul className="lista-limpia">
           {g.supuestosCumplidos.map((s, i) => (
-            <li key={i} className="meta">
-              Cumplido: {s}
+            <li key={i} className="meta">{trp("Cumplido: {s}", { s })}
             </li>
           ))}
         </ul>
       )}
       <details className="versiones">
         <summary>
-          {g.nodos.length} nodos y {g.aristas.length} aristas tipadas
-        </summary>
+          {trp("{nodos} nodos y {aristas} aristas tipadas", { nodos: g.nodos.length, aristas: g.aristas.length })}</summary>
         <ul className="lista-plana">
           {g.aristas.map((a, i) => (
             <li key={i}>
@@ -1881,11 +1858,11 @@ export function RelacionesCausales({ estado, inv }: { estado: EstadoRosa; inv: I
         ))}
       </ul>
       <details className="versiones">
-        <summary>Base curada ({base.length} relaciones de consenso)</summary>
+        <summary>{trp("Base curada ({base} relaciones de consenso)", { base: base.length })}</summary>
         <ul className="lista-plana">
           {base.map((r) => (
             <li key={r.id} className="meta">
-              {r.de} causa {r.a}: {r.contexto}
+              {trp("{de} causa {a}: {contexto}", { de: r.de, a: r.a, contexto: r.contexto })}
             </li>
           ))}
         </ul>
@@ -1919,18 +1896,17 @@ export function PanelKiller({ estado }: { estado: EstadoRosa }) {
         evs.slice(0, 3).map((ev) => (
           <div key={ev.id} className="tarjeta">
             <div className="acciones">
-              <Chip tono={ev.resumen.tasaDeteccion !== null && ev.resumen.tasaDeteccion >= 0.8 ? 'ok' : 'aviso'}>{tr("Detección")} {ev.resumen.tasaDeteccion === null ? 'n/a' : `${Math.round(ev.resumen.tasaDeteccion * 100)} %`}</Chip>
-              <Chip tono="borde">Juez detecta {ev.resumen.tasaJuezDetecta === null ? 'n/a' : `${Math.round(ev.resumen.tasaJuezDetecta * 100)} %`}</Chip>
-              <Chip tono="borde">{tr("Abstención")} {Math.round(ev.resumen.abstencion * 100)} %</Chip>
-              <Chip tono={ev.resumen.sobreMatanzaGris !== null && ev.resumen.sobreMatanzaGris > 0 ? 'mal' : 'ok'}>{tr("Mata de más en gris")} {ev.resumen.sobreMatanzaGris === null ? 'n/a' : `${Math.round(ev.resumen.sobreMatanzaGris * 100)} %`}</Chip>
+              <Chip tono={ev.resumen.tasaDeteccion !== null && ev.resumen.tasaDeteccion >= 0.8 ? 'ok' : 'aviso'}>{trp("Detección {v}", { v: ev.resumen.tasaDeteccion === null ? 'n/a' : `${Math.round(ev.resumen.tasaDeteccion * 100)} %` })}</Chip>
+              <Chip tono="borde">{trp("Juez detecta {v}", { v: ev.resumen.tasaJuezDetecta === null ? 'n/a' : `${Math.round(ev.resumen.tasaJuezDetecta * 100)} %` })}</Chip>
+              <Chip tono="borde">{trp("Abstención {v} %", { v: Math.round(ev.resumen.abstencion * 100) })}</Chip>
+              <Chip tono={ev.resumen.sobreMatanzaGris !== null && ev.resumen.sobreMatanzaGris > 0 ? 'mal' : 'ok'}>{trp("Mata de más en gris {v}", { v: ev.resumen.sobreMatanzaGris === null ? 'n/a' : `${Math.round(ev.resumen.sobreMatanzaGris * 100)} %` })}</Chip>
               <span className="meta">
-                {ev.resumen.casos} casos sobre {ev.resumen.hipotesis} hipótesis, juez {ev.resumen.juez}, {ev.resumen.usd} USD, {new Date(ev.fecha).toLocaleString('es')}
+                {trp("{casos} casos sobre {hipotesis} hipótesis, juez {juez}, {usd} USD, {v}", { casos: ev.resumen.casos, hipotesis: ev.resumen.hipotesis, juez: ev.resumen.juez, usd: ev.resumen.usd, v: new Date(ev.fecha).toLocaleString('es') })}
               </span>
             </div>
             {ev.resumen.acuerdo?.decision && (
               <p className="meta" title={tr("Kappa de Cohen: acuerdo entre la decisión esperada y la que salió, corregido por el que se daría por azar. Landis y Koch: 0,41 a 0,60 moderado, 0,61 a 0,80 sustancial, más de 0,80 casi perfecto.")}>
-                {tr("Acuerdo por decisión: kappa")} {ev.resumen.acuerdo.decision.kappa ?? 'n/a'} ({ev.resumen.acuerdo.decision.interpretacion}, n = {ev.resumen.acuerdo.decision.n})
-                {Object.entries(ev.resumen.acuerdo.porComprobacion).map(([c, a]) => ` · ${COMPROBACION_KILLER[c] ?? c}: ${a.kappa ?? 'n/a'}`).join('')}
+                {trp("Acuerdo por decisión: kappa {v} ({interpretacion}, n = {n}){v2}", { v: ev.resumen.acuerdo.decision.kappa ?? 'n/a', interpretacion: ev.resumen.acuerdo.decision.interpretacion, n: ev.resumen.acuerdo.decision.n, v2: Object.entries(ev.resumen.acuerdo.porComprobacion).map(([c, a]) => ` · ${COMPROBACION_KILLER[c] ?? c}: ${a.kappa ?? 'n/a'}`).join('') })}
               </p>
             )}
             <table className="tabla">
@@ -1949,7 +1925,7 @@ export function PanelKiller({ estado }: { estado: EstadoRosa }) {
                   <tr key={f}>
                     <td title={ev.fallos[f]}>{ETIQUETA_FALLO[f] ?? f}</td>
                     <td>{r.casos}</td>
-                    <td>{f === 'original' ? `${r.acuerdoConReal ?? 0} de acuerdo con la real` : `${r.detectados ?? 0}`}</td>
+                    <td>{f === 'original' ? trp("{v} de acuerdo con la real", { v: r.acuerdoConReal ?? 0 }) : `${r.detectados ?? 0}`}</td>
                     <td>{f === 'original' ? '' : (r.juezFalla ?? 0)}</td>
                     <td>{r.suspendidas ?? 0}</td>
                     <td>{r.descartadas ?? 0}</td>
@@ -1978,7 +1954,7 @@ export function Conectores({ conectores }: { conectores: ConectorCatalogo[] | un
   const grupos = Array.from(new Set(lista.map((c) => c.grupo)));
   const disponibles = lista.filter((c) => c.estado === 'disponible').length;
   return (
-    <Seccion detalle titulo={tr("Conectores a bases públicas")} nota={`Cada conector envuelve una API pública con su límite de peticiones y su licencia. Cada llamada deja un registro de consulta (herramienta, argumentos, fecha, resultados, identificadores, invariante comprobada) en la hipótesis que la pidió. ${disponibles} de ${lista.length} disponibles; el resto se lista con el motivo. Una fuente que no responde es "no pude comprobar", nunca "no hay".`}>
+    <Seccion detalle titulo={tr("Conectores a bases públicas")} nota={trp("Cada conector envuelve una API pública con su límite de peticiones y su licencia. Cada llamada deja un registro de consulta (herramienta, argumentos, fecha, resultados, identificadores, invariante comprobada) en la hipótesis que la pidió. {disponibles} de {lista} disponibles; el resto se lista con el motivo. Una fuente que no responde es \"no pude comprobar\", nunca \"no hay\".", { disponibles, lista: lista.length })}>
       {lista.length === 0 ? (
         <p className="meta">{tr("El catálogo llega del servidor al arrancar.")}</p>
       ) : (
@@ -2023,9 +1999,9 @@ export function Conectores({ conectores }: { conectores: ConectorCatalogo[] | un
                       </td>
                       <td className="meta">
                         {c.usos}
-                        {c.errores ? ` (${c.errores} sin respuesta)` : ''}
+                        {c.errores ? trp(" ({errores} sin respuesta)", { errores: c.errores }) : ''}
                         {c.estado === 'disponible' && (
-                          <select className="entrada" value={c.permiso ?? 'permitir'} onChange={(e) => acciones.fijarPermisoConector(c.nombre, e.target.value as NivelPermisoConector)} aria-label={`Permiso de ${c.fuente}`} title={tr("Permitir: el bucle y las personas lo usan. Solo persona: solo cuando alguien pregunta desde aquí. Bloquear: nadie.")}>
+                          <select className="entrada" value={c.permiso ?? 'permitir'} onChange={(e) => acciones.fijarPermisoConector(c.nombre, e.target.value as NivelPermisoConector)} aria-label={trp("Permiso de {fuente}", { fuente: c.fuente })} title={tr("Permitir: el bucle y las personas lo usan. Solo persona: solo cuando alguien pregunta desde aquí. Bloquear: nadie.")}>
                             <option value="permitir">Permitir</option>
                             <option value="solo_persona">{tr("Solo si pregunta una persona")}</option>
                             <option value="bloquear">Bloquear</option>
@@ -2093,8 +2069,7 @@ export function ConsultasABases({ h, ahora }: { h: Hipotesis; ahora: number }) {
   return (
     <Seccion detalle titulo={tr("Consultas a bases")} nota={tr("Cada fila es una llamada a una base pública hecha para esta hipótesis. La invariante es una comprobación independiente de que la respuesta es la que se esperaba (un símbolo resuelve a un único gen, el accession coincide). Sin respuesta significa que no se pudo comprobar, no que no exista.")}>
       <p className="meta">
-        {cs.length} {cs.length === 1 ? 'consulta' : 'consultas'}
-        {fallidas ? `, ${fallidas} sin respuesta` : ''}
+        {(cs.length === 1 ? trp("{cs} consulta{v}", { cs: cs.length, v: fallidas ? trp(", {fallidas} sin respuesta", { fallidas }) : '' }) : trp("{cs} consultas{v}", { cs: cs.length, v: fallidas ? trp(", {fallidas} sin respuesta", { fallidas }) : '' }))}
       </p>
       <TablaConsultas consultas={cs} ahora={ahora} />
     </Seccion>
@@ -2164,7 +2139,7 @@ export function PreguntarALasBases({ inv, ahora }: { inv: Investigacion; ahora: 
             if (!err) setPregunta('');
           })}
         >
-          {enviando ? tr('Consultando bases...') : tr('Preguntar con herramientas')}
+          {(enviando ? tr("Consultando bases...") : tr("Preguntar con herramientas"))}
         </button>
         {error && <span className="tono-mal">{error}</span>}
       </div>
@@ -2173,14 +2148,14 @@ export function PreguntarALasBases({ inv, ahora }: { inv: Investigacion; ahora: 
           <p>
             <strong style={{ fontSize: 13 }}>{q.pregunta}</strong>{' '}
             <span className="meta">
-              {nombreActor(q.quien)}, <Momento t={q.fecha} ahora={ahora} />, {q.iteraciones} {q.iteraciones === 1 ? 'paso' : 'pasos'}, {q.herramientas.length} {q.herramientas.length === 1 ? 'herramienta' : 'herramientas'}
+              {nombreActor(q.quien)}, <Momento t={q.fecha} ahora={ahora} />{(q.iteraciones === 1 ? trp(", {iteraciones} paso, {herramientas} {v}", { iteraciones: q.iteraciones, herramientas: q.herramientas.length, v: q.herramientas.length === 1 ? tr("herramienta") : tr("herramientas") }) : trp(", {iteraciones} pasos, {herramientas} {v}", { iteraciones: q.iteraciones, herramientas: q.herramientas.length, v: q.herramientas.length === 1 ? tr("herramienta") : tr("herramientas") }))}
             </span>
           </p>
           {q.error ? <p className="tono-mal">{q.error}</p> : <p style={{ whiteSpace: 'pre-wrap' }}>{q.respuesta}</p>}
-          {q.limites && <p className="meta">{tr("Límites:")} {q.limites}</p>}
+          {q.limites && <p className="meta">{trp("Límites: {limites}", { limites: q.limites })}</p>}
           {q.consultas.length > 0 && (
             <details className="versiones">
-              <summary>{q.consultas.length} consultas registradas</summary>
+              <summary>{trp("{consultas} consultas registradas", { consultas: q.consultas.length })}</summary>
               <TablaConsultas consultas={q.consultas} ahora={ahora} />
             </details>
           )}
@@ -2202,20 +2177,17 @@ export function ContextoDeBases({ h }: { h: Hipotesis }) {
         {ids.ensembl ? (
           <>
             <Chip tono="ok">{ids.simbolo ?? c.diana}</Chip>
-            <span className="meta">
-              Ensembl {ids.ensembl}
-              {ids.uniprot ? ` · UniProt ${ids.uniprot}` : tr(' · sin entrada UniProt revisada')}
-              {ids.entrez ? ` · Entrez ${ids.entrez}` : ''}
+            <span className="meta">{trp("Ensembl {ensembl}{v}{v2}", { ensembl: ids.ensembl, v: ids.uniprot ? ` · UniProt ${ids.uniprot}` : tr(' · sin entrada UniProt revisada'), v2: ids.entrez ? ` · Entrez ${ids.entrez}` : '' })}
             </span>
           </>
         ) : (
-          <Chip tono="aviso">"{c.diana}{tr("\" no resuelve a un gen humano en MyGene")}</Chip>
+          <Chip tono="aviso">{trp("\"{diana}\" no resuelve a un gen humano en MyGene", { diana: c.diana })}</Chip>
         )}
       </div>
-      {c.funcion && <p className="meta">{tr("Función (UniProt):")} {c.funcion}</p>}
-      {c.expresionCerebro && <p className="meta">{tr("Expresión (Human Protein Atlas):")} {c.expresionCerebro}</p>}
-      {c.interactores.length > 0 && <p className="meta">Interactores (STRING): {c.interactores.map((i) => `${i.simbolo} (${i.puntuacion})`).join(', ')}</p>}
-      {c.rutas.length > 0 && <p className="meta">Rutas (Reactome): {c.rutas.map((r) => r.nombre).join('; ')}</p>}
+      {c.funcion && <p className="meta">{trp("Función (UniProt): {funcion}", { funcion: c.funcion })}</p>}
+      {c.expresionCerebro && <p className="meta">{trp("Expresión (Human Protein Atlas): {expresionCerebro}", { expresionCerebro: c.expresionCerebro })}</p>}
+      {c.interactores.length > 0 && <p className="meta">{trp("Interactores (STRING): {v}", { v: c.interactores.map((i) => `${i.simbolo} (${i.puntuacion})`).join(', ') })}</p>}
+      {c.rutas.length > 0 && <p className="meta">{trp("Rutas (Reactome): {v}", { v: c.rutas.map((r) => r.nombre).join('; ') })}</p>}
     </div>
   );
 }
@@ -2240,8 +2212,8 @@ export function PerfilDeLaDiana({ h }: { h: Hipotesis }) {
         <strong style={{ fontSize: 13 }}>{tr("Perfil de la diana")}</strong>
         <Chip tono="borde">{simbolo}</Chip>
         {typeof ids.nombre === 'string' && ids.nombre && <span className="meta">{ids.nombre}</span>}
-        {typeof perfil.contexto === 'string' && perfil.contexto && <span className="meta" title={tr("La célula o el tejido de la tarjeta con que se eligió el tejido de GTEx (expresión por tejido).")}>Contexto: {perfil.contexto}</span>}
-        {typeof perfil.version === 'number' && <span className="meta">{tr("Consultado para la versión")} {perfil.version}</span>}
+        {typeof perfil.contexto === 'string' && perfil.contexto && <span className="meta" title={tr("La célula o el tejido de la tarjeta con que se eligió el tejido de GTEx (expresión por tejido).")}>{trp("Contexto: {contexto}", { contexto: perfil.contexto })}</span>}
+        {typeof perfil.version === 'number' && <span className="meta">{trp("Consultado para la versión {version}", { version: perfil.version })}</span>}
         {typeof perfil.consultadoEn === 'number' && (
           <span className="meta">
             <Momento t={perfil.consultadoEn} ahora={Date.now()} />
@@ -2282,10 +2254,10 @@ export function PerfilDeLaDiana({ h }: { h: Hipotesis }) {
                   <div style={{ fontSize: 13 }}>{detalle}</div>
                   {k === 'genetica_humana' && c && (
                     <div className="meta" title={tr("Convención de Open Targets: '+' quiere decir que más función de la diana se asocia a más riesgo; '-', que menos función se asocia a más riesgo. Sin dirección: las bases no la traen para este gen.")}>
-                      {tr("Dirección del efecto:")} {direccion ?? tr('sin dirección en las bases')}
+                      {trp("Dirección del efecto: {v}", { v: direccion ?? tr('sin dirección en las bases') })}
                     </div>
                   )}
-                  {fuentes.length > 0 && <div className="meta">Bases: {fuentes.join(', ')}</div>}
+                  {fuentes.length > 0 && <div className="meta">{trp("Bases: {v}", { v: fuentes.join(', ') })}</div>}
                 </td>
               </tr>
             );
@@ -2426,7 +2398,7 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
                       {puedeEnmendar && (
                         <td>
                           <button type="button" className="btn btn-s" aria-pressed={enmendando === indice} onClick={() => setEnmendando(enmendando === indice ? null : indice)}>
-                            {enmendando === indice ? 'Cancelar' : 'Enmendar'}
+                            {(enmendando === indice ? tr("Cancelar") : tr("Enmendar"))}
                           </button>
                         </td>
                       )}
@@ -2440,7 +2412,7 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
       )}
       {puedeEnmendar && lecturaEnEdicion && enmendando !== null && (
         <div className="campo-fila" data-enmienda-lectura>
-          <span className="meta">{tr("Enmienda fechada de la lectura «")}{textoO(lecturaEnEdicion.nombre, `lectura ${declaradas.findIndex((f) => f.indice === enmendando) + 1}`)}{tr("» (queda registrada con autor, fecha y motivo; el hash congelado del prerregistro deja de coincidir y eso delata el cambio):")}</span>
+          <span className="meta">{trp("Enmienda fechada de la lectura «{nombre}» (queda registrada con autor, fecha y motivo; el hash congelado del prerregistro deja de coincidir y eso delata el cambio):", { nombre: textoO(lecturaEnEdicion.nombre, `lectura ${declaradas.findIndex((f) => f.indice === enmendando) + 1}`) })}</span>
           <select className="entrada" value={campo} onChange={(e) => setCampo(e.target.value as CampoLecturaEnmendable)} aria-label={tr("Campo de la lectura a enmendar")}>
             {CAMPOS_LECTURA_ENMENDABLES.map((c) => (
               <option key={c} value={c}>
@@ -2471,7 +2443,7 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
                 <strong>{tr("Qué prueba:")}</strong> {textoO(sistema.quePrueba, 'no declarado')}
               </p>
               <p style={{ fontSize: 13 }}>
-                <strong>{tr("Qué no representa:")}</strong> {sistema.queNoRepresenta ? sistema.queNoRepresenta : <span className="meta">no declarado{sistemaInfo ? `; límite general de este sistema: ${sistemaInfo.queNoRepresenta}` : ''}</span>}
+                <strong>{tr("Qué no representa:")}</strong> {sistema.queNoRepresenta ? sistema.queNoRepresenta : <span className="meta">{trp("no declarado{v}", { v: sistemaInfo ? trp("; límite general de este sistema: {queNoRepresenta}", { queNoRepresenta: sistemaInfo.queNoRepresenta }) : '' })}</span>}
               </p>
             </>
           ) : (
@@ -2482,10 +2454,10 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
           <h4 title={tr("BEST (Biomarkers, EndpointS and other Tools) es la clasificación de la FDA y el NIH de para qué sirve un biomarcador: riesgo, diagnóstico, monitorización, pronóstico, predicción de respuesta, farmacodinámico o seguridad.")}>{tr("Propósito del biomarcador (BEST)")}</h4>
           {proposito ? (
             <div className="acciones">
-              <Chip tono="borde" title={PROPOSITOS_BIOMARCADOR[proposito].definicion}>
-                {PROPOSITOS_BIOMARCADOR[proposito].etiqueta}
+              <Chip tono="borde" title={PROPOSITOS_BIOMARCADOR_VISTA[proposito].definicion}>
+                {PROPOSITOS_BIOMARCADOR_VISTA[proposito].etiqueta}
               </Chip>
-              <span className="meta">{PROPOSITOS_BIOMARCADOR[proposito].definicion}</span>
+              <span className="meta">{PROPOSITOS_BIOMARCADOR_VISTA[proposito].definicion}</span>
             </div>
           ) : (
             <p className="meta">{tr("No declarado. BEST es la clasificación de la FDA y el NIH de para qué sirve un biomarcador (riesgo, diagnóstico, monitorización, pronóstico, predicción de respuesta, farmacodinámico, seguridad); sin ella no se sabe qué decisión informaría la medida.")}</p>
@@ -2571,7 +2543,7 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
             </div>
           )}
           {negativo && (
-            <div className={negativoDestacado ? tr('experimento-bloque criterio-mal') : 'experimento-bloque'} data-lectura-negativo={negativoDestacado ? 'destacada' : 'discreta'}>
+            <div className={negativoDestacado ? 'experimento-bloque criterio-mal' : 'experimento-bloque'} data-lectura-negativo={negativoDestacado ? 'destacada' : 'discreta'}>
               <div className="acciones">
                 <strong style={{ fontSize: 13 }}>{tr("Qué dice el negativo")}</strong>
                 {rama && (
@@ -2610,10 +2582,12 @@ export function RevisionDeRegistro({ r, compacto = false, iteracionId }: { r: Re
     <div className="revision-registro">
       <div className="acciones">
         <Chip tono={r.hallazgos.some((h) => h.gravedad === 'alta') ? 'mal' : 'aviso'}>
-          {tr("Revisor de registro:")} {r.hallazgos.length} {r.hallazgos.length === 1 ? 'hallazgo' : 'hallazgos'}
+          {(r.hallazgos.length === 1 ? trp("Revisor de registro: {hallazgos} hallazgo", { hallazgos: r.hallazgos.length }) : trp("Revisor de registro: {hallazgos} hallazgos", { hallazgos: r.hallazgos.length }))}
         </Chip>
         <span className="meta">
-          {r.porRegla} por regla{r.juez ? `, ${r.hallazgos.length - r.porRegla} del juez` : tr(', sin juez')}
+          {r.juez
+            ? trp("{porRegla} por regla, {delJuez} del juez", { porRegla: r.porRegla, delJuez: r.hallazgos.length - r.porRegla })
+            : trp("{porRegla} por regla, sin juez", { porRegla: r.porRegla })}
         </span>
       </div>
       {r.vueltas && r.vueltas.length > 0 && (
@@ -2625,7 +2599,7 @@ export function RevisionDeRegistro({ r, compacto = false, iteracionId }: { r: Re
             {r.vueltas.map((v) => (
               <li key={v.vuelta} className="meta">
                 <Chip tono={v.estado === 'hecha' ? 'ok' : v.estado === 'rechazada' ? 'mal' : 'aviso'}>
-                  {v.estado === 'hecha' ? `Vuelta ${v.vuelta}` : v.estado === 'rechazada' ? `Vuelta ${v.vuelta} rechazada` : v.estado === 'sin_comprobar' ? `Vuelta ${v.vuelta} sin comprobar` : `Vuelta ${v.vuelta} no hecha`}
+                  {v.estado === 'hecha' ? `Vuelta ${v.vuelta}` : v.estado === 'rechazada' ? `Vuelta ${v.vuelta} rechazada` : v.estado === 'sin_comprobar' ? trp("Vuelta {vuelta} sin comprobar", { vuelta: v.vuelta }) : trp("Vuelta {vuelta} no hecha", { vuelta: v.vuelta })}
                 </Chip>{' '}
                 {v.motivo}
               </li>
@@ -2640,7 +2614,7 @@ export function RevisionDeRegistro({ r, compacto = false, iteracionId }: { r: Re
             {h.estado && h.estado !== 'abierto' && (
               <Chip tono={h.estado === 'atendido' ? 'ok' : h.estado === 'rebatido' ? 'aviso' : 'borde'}>
                 {h.estado === 'atendido' ? 'Atendido' : h.estado === 'rebatido' ? tr('ROSA2018 lo rebate') : 'Descartado'}
-                {h.resueltoPor ? ` por ${h.resueltoPor}` : ''}
+                {h.resueltoPor ? trp(" por {resueltoPor}", { resueltoPor: h.resueltoPor }) : ''}
               </Chip>
             )}
             {h.arregloFalso && <Chip tono="mal">{tr("Se dijo arreglado y el texto no cambió")}</Chip>}
@@ -2649,8 +2623,7 @@ export function RevisionDeRegistro({ r, compacto = false, iteracionId }: { r: Re
             <p className="meta">{h.detalle}</p>
             {h.respuesta && (
               <p className="meta">
-                {h.estado === 'rebatido' ? tr('ROSA2018 lo rebate: ') : 'Respuesta: '}
-                {h.respuesta}
+                {(h.estado === 'rebatido' ? trp("ROSA2018 lo rebate: {respuesta}", { respuesta: h.respuesta }) : trp("Respuesta: {respuesta}", { respuesta: h.respuesta }))}
               </p>
             )}
             {iteracionId && h.id && ((h.estado ?? 'abierto') === 'abierto' || h.estado === 'rebatido') && !compacto && (
@@ -2724,15 +2697,14 @@ export function Skills({ skills }: { skills: SkillCatalogo[] | undefined }) {
                 <td>
                   <strong style={{ fontSize: 13 }}>{s.nombre}</strong>
                   <p className="meta">
-                    {s.ruta}/SKILL.md, {s.lineas} líneas
-                  </p>
+                    {trp("{ruta}/SKILL.md, {lineas} líneas", { ruta: s.ruta, lineas: s.lineas })}</p>
                 </td>
                 <td className="meta">{s.descripcion}</td>
                 <td className="meta">{s.activaSi.join(', ')}</td>
                 <td className="meta">
-                  <Chip tono={s.entorno === 'celula_unica' ? 'aviso' : 'borde'}>{s.entorno === 'celula_unica' ? tr('célula única') : 'tabular'}</Chip>
-                  {s.paquetes.length > 0 && <p className="meta">Paquetes: {s.paquetes.join(', ')}</p>}
-                  {s.scripts.length > 0 && <p className="meta">{tr("Módulos:")} {s.scripts.join(', ')}</p>}
+                  <Chip tono={s.entorno === 'celula_unica' ? 'aviso' : 'borde'}>{(s.entorno === 'celula_unica' ? tr("célula única") : tr("tabular"))}</Chip>
+                  {s.paquetes.length > 0 && <p className="meta">{trp("Paquetes: {v}", { v: s.paquetes.join(', ') })}</p>}
+                  {s.scripts.length > 0 && <p className="meta">{trp("Módulos: {v}", { v: s.scripts.join(', ') })}</p>}
                 </td>
               </tr>
             ))}
@@ -2785,7 +2757,7 @@ function EsqueletoVeredicto({ rotulo, lineas = 1 }: { rotulo: string; lineas?: n
 function SinRespuesta({ que, onReintentar }: { que: string; onReintentar: () => void }) {
   return (
     <div className="acciones">
-      <span className="meta">{tr("No pude comprobar")} {que}{tr(": el servidor no respondió a tiempo.")}</span>
+      <span className="meta">{trp("No pude comprobar {que}: el servidor no respondió a tiempo.", { que })}</span>
       <button type="button" className="btn btn-s" onClick={onReintentar}>
         Volver a comprobar
       </button>
@@ -2919,8 +2891,7 @@ export function IntegridadRegistro() {
         <div className="acciones">
           <Chip tono={estado.ok ? 'ok' : 'mal'}>{estado.ok ? tr('Cadena intacta') : `Cadena rota en la fila ${estado.rotaEn}`}</Chip>
           <span className="meta">
-            {estado.filas} acciones registradas, {estado.encadenadas} encadenadas{estado.sinHash > 0 ? `, ${estado.sinHash} anteriores al encadenado (sin hash)` : ''}
-            {estado.motivo ? `. ${estado.motivo}` : ''}
+            {trp("{filas} acciones registradas, {encadenadas} encadenadas{v}{v2}", { filas: estado.filas, encadenadas: estado.encadenadas, v: estado.sinHash > 0 ? trp(", {sinHash} anteriores al encadenado (sin hash)", { sinHash: estado.sinHash }) : '', v2: estado.motivo ? `. ${estado.motivo}` : '' })}
           </span>
         </div>
       )}
@@ -3074,9 +3045,8 @@ export function CostesPorDecision({ investigacionId }: { investigacionId: string
   return (
     <Seccion detalle titulo={tr("Coste por decisión")} nota={tr("Lo que decide presupuestos no es el coste de una llamada sino cuánto cuesta una hipótesis que llega al dossier, una candidata al laboratorio o una decisión que tomó una persona. El tiempo de revisión humana entra en el coste a la tarifa declarada en políticas: sin eso la comparación con investigar sin ROSA2018 no es honesta. Las cifras de modelo son estimaciones por tokens; lo facturado por el gateway, cuando el servidor lo guardó, va al lado.")}>
       {factura && (
-        <p className="meta" title={`Suma de gasto.usdReal de las corridas de esta investigación (${factura.conFactura} de ${factura.total} corridas traen la factura del gateway).${factura.mixto ? tr(' En alguna corrida una llamada llegó sin coste del gateway y se estimó por tokens.') : ''}`}>
-          {tr("Facturado por el gateway:")} <strong>{usd(factura.usd)}</strong> en {factura.conFactura} de {factura.total} {tr("corridas · estimado por tokens en esas mismas corridas:")} {usd(factura.estimado)}.
-        </p>
+        <p className="meta" title={(factura.mixto ? trp("Suma de gasto.usdReal de las corridas de esta investigación ({conFactura} de {total} corridas traen la factura del gateway). En alguna corrida una llamada llegó sin coste del gateway y se estimó por tokens.", { conFactura: factura.conFactura, total: factura.total }) : trp("Suma de gasto.usdReal de las corridas de esta investigación ({conFactura} de {total} corridas traen la factura del gateway).", { conFactura: factura.conFactura, total: factura.total }))}>
+          {tr("Facturado por el gateway:")} <strong>{usd(factura.usd)}</strong>{trp(" en {conFactura} de {total} corridas · estimado por tokens en esas mismas corridas: {estimado}.", { conFactura: factura.conFactura, total: factura.total, estimado: usd(factura.estimado) })}</p>
       )}
       {c === 'cargando' ? (
         <EsqueletoCostes iteraciones={iteraciones} />
@@ -3089,25 +3059,25 @@ export function CostesPorDecision({ investigacionId }: { investigacionId: string
           <div className="metricas">
             <div className="gasto-item">
               <strong>{usd(c.usdTotal)}</strong>
-              <span>total (estimado): {usd(c.usdModelo)} {tr("de modelo por tokens")}{(c.usdExa ?? 0) > 0 ? ` + ${usd(c.usdExa ?? 0)} en Exa` : ''} + {coma(c.horasRevision.toFixed(2))} {tr("h de revisión a")} {c.tarifaHoraRevisionUsd} $/h</span>
+              <span>{trp("total (estimado): {usdModelo} de modelo por tokens{v} + {v2} h de revisión a {tarifaHoraRevisionUsd} $/h", { usdModelo: usd(c.usdModelo), v: (c.usdExa ?? 0) > 0 ? ` + ${usd(c.usdExa ?? 0)} en Exa` : '', v2: coma(c.horasRevision.toFixed(2)), tarifaHoraRevisionUsd: c.tarifaHoraRevisionUsd })}</span>
             </div>
             <div className="gasto-item">
               <strong>{usd(c.usdPorDossier)}</strong>
-              <span>{tr("por hipótesis con dossier (")}{c.hipotesisConDossier} de {c.hipotesis})</span>
+              <span>{trp("por hipótesis con dossier ({hipotesisConDossier} de {hipotesis})", { hipotesisConDossier: c.hipotesisConDossier, hipotesis: c.hipotesis })}</span>
             </div>
             <div className="gasto-item">
               <strong>{usd(c.usdPorCandidata)}</strong>
-              <span>{tr("por candidata al laboratorio (")}{c.candidatas})</span>
+              <span>{trp("por candidata al laboratorio ({candidatas})", { candidatas: c.candidatas })}</span>
             </div>
             <div className="gasto-item">
               <strong>{usd(c.usdPorDecisionHumana)}</strong>
-              <span>{tr("por decisión humana (")}{c.decisionesHumanas}; {c.segundosMediosPorDecision === null ? tr('sin tiempos') : `${Math.round(c.segundosMediosPorDecision)} s de media`})</span>
+              <span>{trp("por decisión humana ({decisionesHumanas}; {v})", { decisionesHumanas: c.decisionesHumanas, v: c.segundosMediosPorDecision === null ? tr('sin tiempos') : trp("{segundosMediosPorDecision} s de media", { segundosMediosPorDecision: Math.round(c.segundosMediosPorDecision) }) })}</span>
             </div>
           </div>
           {c.porIteracion.length > 0 && (
             <p className="meta">
               {tr("Por iteración (estimado por tokens):")} {c.porIteracion.map((x) => `c${x.corrida} it${x.iteracion} ${x.usd.toFixed(2)} $`).join(' · ')}
-              {c.tendenciaUsdPorIteracion !== null && ` · tendencia ${c.tendenciaUsdPorIteracion >= 0 ? '+' : ''}${c.tendenciaUsdPorIteracion.toFixed(2)} $ por iteración entre las primeras y las últimas`}
+              {c.tendenciaUsdPorIteracion !== null && (c.tendenciaUsdPorIteracion >= 0 ? trp(" · tendencia +{v} $ por iteración entre las primeras y las últimas", { v: c.tendenciaUsdPorIteracion.toFixed(2) }) : trp(" · tendencia {v} $ por iteración entre las primeras y las últimas", { v: c.tendenciaUsdPorIteracion.toFixed(2) }))}
             </p>
           )}
         </>

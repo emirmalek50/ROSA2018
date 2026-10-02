@@ -27,7 +27,7 @@ import { TIPO_ARTEFACTO } from '../lib/etiquetas';
 import { ProcedenciaDeArtefacto } from '../componentes/Rosa2018';
 import { aBibtex, aCsv, aRis } from '../lib/exportar';
 import { rutaDe } from '../lib/ruta';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 /** Cuánto espera el botón del dossier a que el servidor lo devuelva por el
  *  canal en vivo antes de darse por vencido y decirlo. */
@@ -47,7 +47,7 @@ function trasElPintado(): Promise<void> {
 /** Un botón que descarga un fichero armado en el momento. Va en vuelo desde el
  *  clic hasta que el navegador recibe el fichero, y mientras tanto ignora los
  *  clics repetidos (una descarga, no dos). */
-function BotonDescarga({ etiqueta, nombre, tipo, construir, disabled, className = tr('btn btn-s') }: { etiqueta: string; nombre: string; tipo?: string; construir: () => string; disabled?: boolean; className?: string }) {
+function BotonDescarga({ etiqueta, nombre, tipo, construir, disabled, className = 'btn btn-s' }: { etiqueta: string; nombre: string; tipo?: string; construir: () => string; disabled?: boolean; className?: string }) {
   const [enVuelo, envolver] = useEnVuelo();
   const bajar = envolver(async () => {
     await trasElPintado();
@@ -81,7 +81,7 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
             {a.nombre}
           </h2>
           <p>
-            {TIPO_ARTEFACTO[a.tipo]} · {a.versiones.length} {a.versiones.length === 1 ? tr('versión') : 'versiones'}
+            {(a.versiones.length === 1 ? trp("{v} · {versiones} versión", { v: TIPO_ARTEFACTO[a.tipo], versiones: a.versiones.length }) : trp("{v} · {versiones} versiones", { v: TIPO_ARTEFACTO[a.tipo], versiones: a.versiones.length }))}
           </p>
         </div>
         <div className="acciones">
@@ -94,7 +94,7 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
             <BotonDescarga className="btn" etiqueta={`Descargar v${version.n}`} nombre={a.nombre} construir={() => version.contenido} />
           )}
           <button type="button" className={`btn ${a.destacado ? 'btn-primario' : ''}`} onClick={() => acciones.destacarArtefacto(a.id)}>
-            <IconStar size={13} /> {a.destacado ? 'Destacado' : 'Destacar'}
+            <IconStar size={13} />{(a.destacado ? tr(" Destacado") : tr(" Destacar"))}
           </button>
         </div>
       </div>
@@ -124,8 +124,7 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
         )}
         {n !== ultima.n && <Chip tono="aviso">{tr("Versión anterior, solo lectura")}</Chip>}
       </div>
-      <p className="meta" style={{ marginBottom: 10 }}>
-        v{version.n} {tr("· iteración")} {version.iteracion} · <Momento t={version.creadaEn} ahora={ahora} /> · {version.resumen}
+      <p className="meta" style={{ marginBottom: 10 }}>{trp("v{n} · iteración {iteracion} · ", { n: version.n, iteracion: version.iteracion })}<Momento t={version.creadaEn} ahora={ahora} /> · {version.resumen}
         {resumen && (
           <>
             {' · '}
@@ -147,7 +146,7 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
       )}
       {a.tipo === 'dossier' && <DocumentoControladoPanel a={a} estado={estado} />}
       <details className="versiones">
-        <summary>{tr("Procedencia de la versión")} {version.n}{tr(": mensajes, código, registro de ejecución, entorno y revisión")}</summary>
+        <summary>{trp("Procedencia de la versión {n}: mensajes, código, registro de ejecución, entorno y revisión", { n: version.n })}</summary>
         <ProcedenciaDeArtefacto p={version.procedencia} />
       </details>
     </div>
@@ -165,9 +164,7 @@ function DescargarDossierWord({ a, n, muestra }: { a: Artefacto; n: number; mues
   });
   return (
     <>
-      <button type="button" className="btn btn-primario" disabled={muestra} title={muestra ? tr('Con datos de muestra no hay servidor que lo arme') : tr('PDF con el diseño del Alzheimer Project')} {...atributosEnVuelo(bajando)} onClick={() => void bajar()}>
-        Descargar v{n} (PDF)
-      </button>
+      <button type="button" className="btn btn-primario" disabled={muestra} title={muestra ? tr('Con datos de muestra no hay servidor que lo arme') : tr('PDF con el diseño del Alzheimer Project')} {...atributosEnVuelo(bajando)} onClick={() => void bajar()}>{trp("Descargar v{n} (PDF)", { n })}</button>
       {aviso && (
         <span className="meta tono-aviso" role="status">
           {aviso}
@@ -211,7 +208,7 @@ function DocumentoControladoPanel({ a, estado }: { a: Artefacto; estado: EstadoR
     <section className="doc-control" aria-label={tr("Documento controlado")}>
       <div className="doc-control-cab">
         <div>
-          <h3>Documento controlado{doc ? ` · ${doc.id}` : ''}</h3>
+          <h3>{trp("Documento controlado{v}", { v: doc ? ` · ${doc.id}` : '' })}</h3>
         </div>
       </div>
       {versiones.length > 0 && (
@@ -223,21 +220,20 @@ function DocumentoControladoPanel({ a, estado }: { a: Artefacto; estado: EstadoR
               <li key={v.version}>
                 <span className="mono">{v.cabecera}</span>
                 <span className="meta">
-                  {v.fecha} · {v.iniciales} · dossier v{v.versionArtefacto}
+                  {trp("{fecha} · {iniciales} · dossier v{versionArtefacto}", { fecha: v.fecha, iniciales: v.iniciales, versionArtefacto: v.versionArtefacto })}
                 </span>
-                <Chip tono={v.controlado ? 'ok' : 'aviso'}>{v.controlado ? tr('8 de 8 comprobaciones') : `${v.comprobaciones.filter((c) => c.ok).length} de 8 comprobaciones`}</Chip>
-                <button type="button" className="btn btn-s" disabled={muestra} {...atributosEnVuelo(bajando)} onClick={() => bajar(v.version)}>
-                  Descargar PDF {v.version}
+                <Chip tono={v.controlado ? 'ok' : 'aviso'}>{v.controlado ? tr('8 de 8 comprobaciones') : trp("{length} de 8 comprobaciones", { length: v.comprobaciones.filter((c) => c.ok).length })}</Chip>
+                <button type="button" className="btn btn-s" disabled={muestra} {...atributosEnVuelo(bajando)} onClick={() => bajar(v.version)}>{trp("Descargar PDF {version}", { version: v.version })}
                 </button>
                 {!v.controlado && (
-                  <span className="meta tono-aviso">{tr("No cumple:")} {v.comprobaciones.filter((c) => !c.ok).map((c) => c.texto).join('; ')}.</span>
+                  <span className="meta tono-aviso">{trp("No cumple: {v}.", { v: v.comprobaciones.filter((c) => !c.ok).map((c) => c.texto).join('; ') })}</span>
                 )}
               </li>
             ))}
         </ul>
       )}
       {yaEmitida ? (
-        <p className="meta">{tr("La última versión del dossier ya está emitida como")} {ultima!.version}{tr(". Para una versión nueva del documento, regenera el dossier.")}</p>
+        <p className="meta">{trp("La última versión del dossier ya está emitida como {version}. Para una versión nueva del documento, regenera el dossier.", { version: ultima!.version })}</p>
       ) : (
         <div className="acciones">
           <label className="meta" htmlFor={`nombre-corto-${a.id}`}>
@@ -314,13 +310,12 @@ function GenerarDossier({ estado, hipotesis }: { estado: EstadoRosa; hipotesis: 
           <select className="entrada entrada-s" style={{ width: 'auto', maxWidth: 360 }} value={elegida?.id ?? ''} onChange={(e) => setElegidaId(e.target.value)} aria-label={tr("Hipótesis del dossier")}>
             {ordenadas.map((h) => (
               <option key={h.id} value={h.id}>
-                {h.titulo.length > 70 ? `${h.titulo.slice(0, 67)}...` : h.titulo}
-                {h.estado === 'descartada' ? ' (descartada)' : ''}
+                {(h.estado === 'descartada' ? trp("{v} (descartada)", { v: h.titulo.length > 70 ? `${h.titulo.slice(0, 67)}...` : h.titulo }) : trp("{v}", { v: h.titulo.length > 70 ? `${h.titulo.slice(0, 67)}...` : h.titulo }))}
               </option>
             ))}
           </select>
           <button type="button" className="btn btn-s" disabled={!elegida || muestra} title={muestra ? tr('Con datos de muestra no hay servidor que lo arme') : tr('El servidor arma el dossier con lo que hay en el estado, sin ningún modelo, y lo guarda aquí como artefacto')} {...atributosEnVuelo(pedido)} onClick={() => void pedir()}>
-            {elegida?.dossierArtefactoId ? tr('Regenerar dossier') : tr('Generar dossier')}
+            {(elegida?.dossierArtefactoId ? tr("Regenerar dossier") : tr("Generar dossier"))}
           </button>
           {pedido && <span className="meta">{tr("Esperando al servidor: el dossier aparecerá en la lista.")}</span>}
           {aviso && (
@@ -417,7 +412,7 @@ export function Artefactos({ inv, estado, ahora, detalleId }: { inv: Investigaci
       </div>
       <div className="acciones" style={{ marginBottom: 16 }}>
         <span className="meta">
-          {fuentes.length} {fuentes.length === 1 ? tr('fuente citada') : tr('fuentes citadas')} {tr("en la investigación. Exportar:")}
+          {(fuentes.length === 1 ? trp("{fuentes} fuente citada en la investigación. Exportar:", { fuentes: fuentes.length }) : trp("{fuentes} fuentes citadas en la investigación. Exportar:", { fuentes: fuentes.length }))}
         </span>
         <BotonDescarga etiqueta="BibTeX" disabled={fuentes.length === 0} nombre={`rosa-${inv.id}-fuentes-${fecha}.bib`} construir={() => aBibtex(fuentes)} />
         <BotonDescarga etiqueta="RIS" disabled={fuentes.length === 0} nombre={`rosa-${inv.id}-fuentes-${fecha}.ris`} construir={() => aRis(fuentes)} />

@@ -67,7 +67,7 @@ def familia_y_nombre(herramienta: str) -> tuple[str, str]:
 
 
 def _recortar(t: Any, n: int) -> str:
-    s = re.sub(r"\s+", " ", str(t or "")).strip().replace("—", ", ")
+    s = re.sub(r"\s+", " ", str(t or "")).strip().replace("\u2014", ", ")
     return s if len(s) <= n else s[: n - 1].rstrip() + "…"
 
 

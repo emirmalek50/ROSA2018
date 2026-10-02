@@ -146,12 +146,12 @@ function Tarjeta({ p, i, escala, elegida, alElegir, reducido, retraso, refBoton 
           </span>
           <span className="podio-evidencia-fila" title={tr('Cohortes distintas entre las fuentes: dos artículos de la misma cohorte cuentan como una')}>
             <span className="podio-evidencia-cifra">{cohortes}</span>
-            <span className="podio-evidencia-unidad">{cohortes === 1 ? tr('cohorte') : tr('cohortes')}</span>
+            <span className="podio-evidencia-unidad">{(cohortes === 1 ? tr("cohorte") : tr("cohortes"))}</span>
             <Marcas n={cohortes} max={MAX_TRAZOS} forma="trazo" />
           </span>
           <span className="podio-evidencia-fila" title={tr('Debates del torneo en los que ha participado')}>
             <span className="podio-evidencia-cifra">{c.partidos}</span>
-            <span className="podio-evidencia-unidad">{c.partidos === 1 ? tr('partido') : tr('partidos')}</span>
+            <span className="podio-evidencia-unidad">{(c.partidos === 1 ? tr("partido") : tr("partidos"))}</span>
             <Marcas n={c.partidos} max={MAX_CUADROS} forma="cuadro" />
           </span>
         </span>
@@ -316,7 +316,7 @@ function Detalle({ p, i, invId, total, alElegir, alVerLista }: { p: Puesto; i: n
             <Ruta c={p.c} />
             <div className="podio-acciones">
               <a className="btn btn-primario" href={rutaDe(invId, 'hipotesis', p.h.id)}>
-                {hallazgo ? tr('Atender el hallazgo') : tr('Abrir la ficha')} <span aria-hidden="true">→</span>
+                {(hallazgo ? tr("Atender el hallazgo ") : tr("Abrir la ficha "))}<span aria-hidden="true">→</span>
               </a>
               <button type="button" className="btn" onClick={alVerLista}>
                 {tr('Verla en la lista completa')}

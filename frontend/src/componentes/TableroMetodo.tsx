@@ -6,7 +6,7 @@
 // tiempo. Las cifras las pone una regla; aquí solo se enseñan. Los avisos van
 // primero porque son lo que hay que mirar.
 import type { EstadoIndicador, FaseIndicador, IndicadorMetodo, TableroMetodo as Tablero } from '../datos/tipos';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 const FASE: Record<FaseIndicador, string> = traducido({
   busqueda: 'búsqueda',
@@ -40,7 +40,7 @@ function Fila({ i }: { i: IndicadorMetodo }) {
           <span>{tr("Haría falta")}</span> {i.queHariaFalta}
         </p>
       ) : null}
-      <p className="metodo-fase">Fase: {FASE[i.fase] ?? i.fase}</p>
+      <p className="metodo-fase">{trp("Fase: {v}", { v: FASE[i.fase] ?? i.fase })}</p>
     </li>
   );
 }
@@ -58,12 +58,11 @@ export function TableroMetodo({ tablero }: { tablero: Tablero | null | undefined
   const avisos = indicadores.filter((i) => i.estado === 'aviso').length;
   // Sin número de iteración es el que el bucle calcula al arrancar para las
   // investigaciones que aún no lo tenían: decir "al cerrar" sería falso.
-  const cuando = typeof tablero.iteracion === 'number' ? `al cerrar la iteración ${tablero.iteracion}` : tr('con lo que había al arrancar ROSA2018; se rehace al cerrar la próxima iteración');
+  const cuando = typeof tablero.iteracion === 'number' ? trp("al cerrar la iteración {iteracion}", { iteracion: tablero.iteracion }) : tr('con lo que había al arrancar ROSA2018; se rehace al cerrar la próxima iteración');
   return (
     <article className="tarjeta metodo" aria-label={tr("Cómo está investigando ROSA2018")}>
       <p className="metodo-resumen">
-        {avisos === 0 ? tr('Ningún aviso') : avisos === 1 ? tr('1 aviso') : `${avisos} avisos`} de {indicadores.length} indicadores, calculado {cuando}.
-      </p>
+        {trp("{v} de {indicadores} indicadores, calculado {cuando}.", { v: avisos === 0 ? tr('Ningún aviso') : avisos === 1 ? tr('1 aviso') : `${avisos} avisos`, indicadores: indicadores.length, cuando })}</p>
       <ul className="metodo-lista">
         {ordenados.map((i) => (
           <Fila key={i.clave} i={i} />

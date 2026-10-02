@@ -38,7 +38,7 @@ import {
 import { rutaDe } from '../lib/ruta';
 import { AvisoMuestra } from '../componentes/piezas';
 import '../mecanismos.css';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 const AYUDA =
   'El grafo causal de cada hipótesis: qué dice que causa qué, sobre el fondo de lo que el campo ya da por sentado, y con las explicaciones alternativas que tendrían que ser falsas para que el efecto sea del actor y no de otra cosa.';
@@ -246,12 +246,10 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
         <b>{tr("Cómo se lee:")}</b>
         <span>
           <i className="mec-trazo mec-t-consenso" />
-          {tr("lo que el campo da por sentado, sin comprobar (")}{aristas.base_curada})
-        </span>
+          {trp("lo que el campo da por sentado, sin comprobar ({base_curada})", { base_curada: aristas.base_curada })}</span>
         <span>
           <i className="mec-trazo mec-t-afirma" />
-          {tr("lo que afirma la hipótesis, sin dato propio (")}{aristas.supuesto})
-        </span>
+          {trp("lo que afirma la hipótesis, sin dato propio ({supuesto})", { supuesto: aristas.supuesto })}</span>
         <span>
           <i className="mec-trazo mec-t-evidencia" />
           {tr("sostenido por evidencia propia")}{' '}
@@ -269,29 +267,25 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
       <p className="mec-comose mec-comose-2">
         <b>{tr("El número de cada caja:")}</b>
         <span>
-          {tr("en cuántas de las")} {casc.total} {tr("hipótesis entra en juego ese nodo, sea porque lo estudian o porque es un confusor que hay que vigilar. No es cuántas lo estudian. Cuanto más relleno está el recuadro, en más entra; el de borde discontinuo apenas aparece. Pasa el ratón por una flecha y te dice qué afirma.")}
+          {trp("en cuántas de las {total} hipótesis entra en juego ese nodo, sea porque lo estudian o porque es un confusor que hay que vigilar. No es cuántas lo estudian. Cuanto más relleno está el recuadro, en más entra; el de borde discontinuo apenas aparece. Pasa el ratón por una flecha y te dice qué afirma.", { total: casc.total })}
         </span>
       </p>
 
       <div className="mec-chips">
         <button
           type="button"
-          className={verAmenazas ? tr('mec-chip mec-activo') : 'mec-chip'}
+          className={verAmenazas ? 'mec-chip mec-activo' : 'mec-chip'}
           aria-pressed={verAmenazas}
           onClick={() => cambiarAmenazas(!verAmenazas)}
-        >
-          Amenazas ({todasLasAmenazas.length})
-        </button>
+        >{trp("Amenazas ({todasLasAmenazas})", { todasLasAmenazas: todasLasAmenazas.length })}</button>
         <span className="mec-cuenta">
-          {casc.total} {tr("hipótesis con grafo ·")} {veredictos.identificable} identificables · {veredictos.acotado} acotadas
-          {veredictos.sin_resolver ? ` · ${veredictos.sin_resolver} sin resolver` : ''}
+          {trp("{total} hipótesis con grafo · {identificable} identificables · {acotado} acotadas{v}", { total: casc.total, identificable: veredictos.identificable, acotado: veredictos.acotado, v: veredictos.sin_resolver ? trp(" · {sin_resolver} sin resolver", { sin_resolver: veredictos.sin_resolver }) : '' })}
         </span>
       </div>
 
       {aristas.inferencia_con_evidencia === 0 && aristas.total > 0 && (
         <p className="mec-aviso">
-          <b>{tr("Ninguna arista está sostenida por evidencia propia todavía.")}</b> De las {aristas.total} del grafo,{' '}
-          {aristas.supuesto} {tr("son supuestos de la hipótesis y")} {aristas.base_curada} {tr("consenso del campo. No es un fallo de esta pantalla: es lo que hay, y por eso se cuenta.")}
+          <b>{tr("Ninguna arista está sostenida por evidencia propia todavía.")}</b>{trp(" De las {total} del grafo, {supuesto} son supuestos de la hipótesis y {base_curada} consenso del campo. No es un fallo de esta pantalla: es lo que hay, y por eso se cuenta.", { total: aristas.total, supuesto: aristas.supuesto, base_curada: aristas.base_curada })}
         </p>
       )}
 
@@ -355,12 +349,12 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                         !sobre
                           ? 'mec-consenso'
                           : a.de === sobre || a.a === sobre
-                            ? tr('mec-consenso mec-encendida')
-                            : tr('mec-consenso mec-apagada')
+                            ? 'mec-consenso mec-encendida'
+                            : 'mec-consenso mec-apagada'
                       }
                       markerEnd="url(#mec-gris)"
                     >
-                      <title>{`Consenso del campo: ${a.de} lleva a ${a.a}. ${a.contexto}`}</title>
+                      <title>{trp("Consenso del campo: {de} lleva a {a}. {contexto}", { de: a.de, a: a.a, contexto: a.contexto })}</title>
                     </path>
                   );
                 })}
@@ -389,7 +383,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                         className="mec-amenaza-linea"
                         markerEnd="url(#mec-rojo)"
                       >
-                        <title>{`${am.clase}: ataca a ${cual === 'X' ? tr('lo que la hipótesis mueve') : tr('lo que la hipótesis lee')}. ${am.texto}`}</title>
+                        <title>{(cual === 'X' ? trp("{clase}: ataca a lo que la hipótesis mueve. {texto}", { clase: am.clase, texto: am.texto }) : trp("{clase}: ataca a lo que la hipótesis lee. {texto}", { clase: am.clase, texto: am.texto }))}</title>
                       </path>
                     );
                   });
@@ -427,11 +421,10 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                       top: `${(p.y / altoLienzo) * 100}%`,
                       width: `${(CAJA_ANCHO / ANCHO) * 100}%`,
                     }}
-                    title={`${n.etiqueta} entra en juego en ${n.enJuego} de las ${casc.total} hipótesis, como actor o como confusor`}
+                    title={trp("{etiqueta} entra en juego en {enJuego} de las {total} hipótesis, como actor o como confusor", { etiqueta: n.etiqueta, enJuego: n.enJuego, total: casc.total })}
                   >
                     {partible(n.etiqueta)}
-                    <span className="mec-cuantas">
-                      en {n.enJuego} de {casc.total}
+                    <span className="mec-cuantas">{trp("en {enJuego} de {total}", { enJuego: n.enJuego, total: casc.total })}
                     </span>
                   </div>
                 );
@@ -484,14 +477,14 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
 
             <p className="mec-pie">
               {tr("Las cajas y sus flechas grises son la cascada del campo (marco ATN), escrita a mano en")}{' '}
-              <code>rosa/causal.py</code> {tr("y revisable: es contexto declarado, no verdad comprobada. Debajo de cada caja, en cuántas de las")} {casc.total} {tr("hipótesis entra en juego ese nodo, como actor o como confusor. No es cuántas lo estudian.")}
+              <code>rosa/causal.py</code>{trp(" y revisable: es contexto declarado, no verdad comprobada. Debajo de cada caja, en cuántas de las {total} hipótesis entra en juego ese nodo, como actor o como confusor. No es cuántas lo estudian.", { total: casc.total })}
             </p>
           </div>
 
           <div className="mec-falta">
             <p className="mec-falta-t">{tr("QUÉ LE FALTA AL PROGRAMA")}</p>
             <p className="mec-falta-d">
-              {tr("Los mismos supuestos, contados sobre las")} {casc.total} {tr("hipótesis con grafo. Lo ámbar es lo que habría que conseguir para que esos efectos dejaran de estar acotados.")}
+              {trp("Los mismos supuestos, contados sobre las {total} hipótesis con grafo. Lo ámbar es lo que habría que conseguir para que esos efectos dejaran de estar acotados.", { total: casc.total })}
             </p>
             <ul>
               {supuestos.map((s) => (
@@ -502,9 +495,9 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                     <i className="mec-parte-falta" style={{ flexGrow: s.faltan }} />
                   </span>
                   <span className="mec-c">
-                    {s.cumplen} cumplen ·{' '}
+                    {trp("{cumplen} cumplen · ", { cumplen: s.cumplen })}
                     <b>
-                      {s.faltan} falta{s.faltan === 1 ? '' : 'n'}
+                      {(s.faltan === 1 ? trp("{faltan} falta", { faltan: s.faltan }) : trp("{faltan} faltan", { faltan: s.faltan }))}
                     </b>
                   </span>
                 </li>
@@ -530,8 +523,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
           <div className={`mec-veredicto ${veredictoAhora}`}>
             <p className="mec-t">{enLlano.titulo}</p>
             <p className="mec-d">
-              {cumplenAhora} de {cumplenAhora + faltanAhora} supuestos cumplidos
-              {tocado ? tr(' con lo que has encendido') : tr(' con la evidencia que hay')}. {enLlano.que}
+              {(tocado ? trp("{cumplenAhora} de {v} supuestos cumplidos con lo que has encendido. {que}", { cumplenAhora, v: cumplenAhora + faltanAhora, que: enLlano.que }) : trp("{cumplenAhora} de {v} supuestos cumplidos con la evidencia que hay. {que}", { cumplenAhora, v: cumplenAhora + faltanAhora, que: enLlano.que }))}
             </p>
             {tocado && (
               <p className="mec-d mec-d-nota">
@@ -551,11 +543,8 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
 
           {ficha.flojos > 0 && (
             <p className="mec-ojo">
-              <b>
-                Ojo: {ficha.flojos} de {ficha.total} {tr("supuestos de su ficha no sostienen nada")}
-              </b>{' '}
-              ({ficha.sin_evidencia} sin evidencia
-              {ficha.contradicho ? `, ${ficha.contradicho} contradicho${ficha.contradicho === 1 ? '' : 's'}` : ''}{tr("). Los tres de aquí abajo dicen si el efecto sería")} <i>identificable</i>{tr("; esos dicen si los")} <i>ingredientes</i>{' '}
+              <b>{trp("Ojo: {flojos} de {total} supuestos de su ficha no sostienen nada", { flojos: ficha.flojos, total: ficha.total })}
+              </b>{trp(" ({sin_evidencia} sin evidencia{v}). Los tres de aquí abajo dicen si el efecto sería ", { sin_evidencia: ficha.sin_evidencia, v: ficha.contradicho ? `, ${ficha.contradicho} contradicho${ficha.contradicho === 1 ? '' : 's'}` : '' })}<i>identificable</i>{tr("; esos dicen si los")} <i>ingredientes</i>{' '}
               {tr("existen, y son cosas distintas.")}{' '}
               {elegida && (
                 <a href={rutaDe(inv.id, 'hipotesis', elegida.id)}>{tr("Verlos en la hipótesis")}</a>
@@ -584,7 +573,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                     type="button"
                     className={`mec-caja ${puesto ? 'mec-supuesto' : ''}`}
                     aria-pressed={puesto}
-                    aria-label={`Suponer que se cumple: ${s}`}
+                    aria-label={trp("Suponer que se cumple: {s}", { s })}
                     onClick={() =>
                       encender((antes) => {
                         const nuevo = new Set(antes);

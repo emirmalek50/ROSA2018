@@ -12,7 +12,7 @@ import { ALCANCE, TIPO_PERMISO } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { IconLock } from './icons';
 import { Chip, Momento } from './piezas';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 import { DUR, useMovimientoReducido } from '../lib/movimiento';
 
 interface Props {
@@ -50,8 +50,7 @@ export function TarjetaPermiso({ solicitud, ahora, horasEspera, seleccionada, on
           Pedido <Momento t={solicitud.creadaEn} ahora={ahora} />
         </span>
         {!resuelta && esperaMs > 60_000 && (
-          <Chip tono={tarde ? 'mal' : undefined} title={tarde ? `Supera las ${horasEspera} h de la política de esperas` : undefined}>
-            esperando {formatearDuracion(esperaMs)}
+          <Chip tono={tarde ? 'mal' : undefined} title={tarde ? trp("Supera las {horasEspera} h de la política de esperas", { horasEspera }) : undefined}>{trp("esperando {esperaMs}", { esperaMs: formatearDuracion(esperaMs) })}
           </Chip>
         )}
       </div>

@@ -17,7 +17,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Corrida, Iteracion, PasoPlan } from '../datos/tipos';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { coma, formatearDuracion, formatearEntero } from '../lib/formato';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 // Los resortes de SwiftUI, convertidos a los parámetros de `motion` con las
 // fórmulas de Apple (stiffness = (2pi/duración)^2 * masa; damping =
@@ -48,7 +48,7 @@ export function queHaceAhora(corrida: Corrida, iteracion: Iteracion | null): { t
   const enCurso = iteracion?.plan.find((p) => p.estado === 'en_curso') ?? null;
   if (corrida.estado === 'esperando_plan' || (iteracion && !iteracion.planAprobado && !iteracion.terminadaEn)) {
     return iteracion && !iteracion.planAprobado && iteracion.plan.length > 0
-      ? { titulo: tr('El plan espera tu aprobación'), detalle: `${iteracion.plan.length} pasos propuestos para la iteración ${iteracion.numero}.` }
+      ? { titulo: tr('El plan espera tu aprobación'), detalle: trp("{plan} pasos propuestos para la iteración {numero}.", { plan: iteracion.plan.length, numero: iteracion.numero }) }
       : { titulo: tr('Escribiendo el plan de la iteración'), detalle: tr('Dos o tres llamadas al cerebro; suele tardar uno o dos minutos.') };
   }
   if (corrida.estado === 'esperando_aprobacion') return { titulo: tr('ROSA2018 necesita tu permiso'), detalle: tr('Nada de lo pedido ocurre hasta que respondas.') };
@@ -63,7 +63,7 @@ export function queHaceAhora(corrida: Corrida, iteracion: Iteracion | null): { t
       ? enCurso.detalle || tr('En marcha.')
       : vivas.length === 1
         ? `${vivas[0]!.titulo}`
-        : `${vivas.length} pistas a la vez: ${vivas.slice(0, 2).map((p) => p.titulo).join('; ')}${vivas.length > 2 ? '…' : ''}`;
+        : (vivas.length > 2 ? trp("{vivas} pistas a la vez: {v}…", { vivas: vivas.length, v: vivas.slice(0, 2).map((p) => p.titulo).join('; ') }) : trp("{vivas} pistas a la vez: {v}", { vivas: vivas.length, v: vivas.slice(0, 2).map((p) => p.titulo).join('; ') }));
     return { titulo: enCurso.titulo, detalle };
   }
   if (iteracion && !iteracion.terminadaEn) return { titulo: tr('Entre pasos'), detalle: tr('Guardando lo del paso anterior y preparando el siguiente.') };
@@ -167,11 +167,10 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
         <span className="vivo-estado">
           <i className="vivo-punto" aria-hidden="true" />
           {etiqueta}
-          {iteracion && <em>{tr("· Iteración")} {iteracion.numero}</em>}
+          {iteracion && <em>{trp("· Iteración {numero}", { numero: iteracion.numero })}</em>}
         </span>
         <span className="vivo-reloj" title={tr("Tiempo de trabajo: el reloj de pared menos lo que la corrida pasó esperando a una persona y menos las pausas del proceso.")}>
-          <b>{formatearDuracion(segundosDeTrabajo * 1000) || '0 s'}</b> de trabajo
-          {relojParado ? ` · ${relojParado}: el reloj no corre` : ''}
+          <b>{formatearDuracion(segundosDeTrabajo * 1000) || '0 s'}</b>{trp(" de trabajo{v}", { v: relojParado ? trp(" · {relojParado}: el reloj no corre", { relojParado }) : '' })}
         </span>
       </div>
 
@@ -204,20 +203,20 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
 
       {pasos.length > 0 && (
         <>
-          <div className="vivo-pasos" role="img" aria-label={`Paso ${Math.min(hechos + 1, pasos.length)} de ${pasos.length}`}>
+          <div className="vivo-pasos" role="img" aria-label={trp("Paso {v} de {pasos}", { v: Math.min(hechos + 1, pasos.length), pasos: pasos.length })}>
             {pasos.map((p) => (
               <span key={p.id} className={`vivo-paso vivo-paso-${p.estado}`} title={`${p.titulo} (${p.estado.replace('_', ' ')})`} />
             ))}
           </div>
           <p className="vivo-detalle" style={{ marginTop: 8 }}>
-            {iteracion?.terminadaEn ? `${pasos.length} pasos, terminada` : `Paso ${Math.min(hechos + 1, pasos.length)} de ${pasos.length}`}
+            {iteracion?.terminadaEn ? `${pasos.length} pasos, terminada` : trp("Paso {v} de {pasos}", { v: Math.min(hechos + 1, pasos.length), pasos: pasos.length })}
             {pasos.some((p) => p.estado === 'fallido') && ` · ${pasos.filter((p) => p.estado === 'fallido').length} fallido${pasos.filter((p) => p.estado === 'fallido').length === 1 ? '' : 's'}`}
           </p>
         </>
       )}
 
       <div className="vivo-vitales">
-        <Vital nombre={tr("llamadas al modelo")} title={`${formatearEntero(corrida.gasto.llamadas)} de ${formatearEntero(tope)} autorizadas`}>
+        <Vital nombre={tr("llamadas al modelo")} title={trp("{llamadas} de {tope} autorizadas", { llamadas: formatearEntero(corrida.gasto.llamadas), tope: formatearEntero(tope) })}>
           <Cifra valor={corrida.gasto.llamadas} />
         </Vital>
         {usd !== null && (
@@ -229,8 +228,8 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
           <Cifra valor={corrida.gasto.articulosLeidos} />
         </Vital>
         <Vital
-          nombre={`del tope · quedan ${formatearEntero(Math.max(0, tope - corrida.gasto.llamadas))}`}
-          title={`${formatearEntero(corrida.gasto.llamadas)} de ${formatearEntero(tope)} llamadas autorizadas`}
+          nombre={trp("del tope · quedan {v}", { v: formatearEntero(Math.max(0, tope - corrida.gasto.llamadas)) })}
+          title={trp("{llamadas} de {tope} llamadas autorizadas", { llamadas: formatearEntero(corrida.gasto.llamadas), tope: formatearEntero(tope) })}
           pie={<BarraTope fraccion={fraccionTope} />}
         >
           <Cifra valor={Math.round(fraccionTope * 100)} sufijo=" %" />
@@ -244,7 +243,7 @@ export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclama
             <path d="M8 4.8v3.6M8 10.8v.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
           </svg>
           <span>
-            <strong>{reclaman === 1 ? tr('Una cosa espera tu respuesta') : `${reclaman} cosas esperan tu respuesta`}</strong>{tr(". Hasta que decidas, ROSA2018 no sigue por ahí.")}
+            <strong>{reclaman === 1 ? tr('Una cosa espera tu respuesta') : trp("{reclaman} cosas esperan tu respuesta", { reclaman })}</strong>{tr(". Hasta que decidas, ROSA2018 no sigue por ahí.")}
           </span>
         </motion.div>
       )}

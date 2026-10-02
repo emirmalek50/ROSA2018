@@ -17,7 +17,7 @@ import { useTema, type Tema } from '../lib/theme';
 import { Correo } from '../componentes/Correo';
 import { CuentaActual, CuentasDelEquipo, useSesion } from '../componentes/Acceso';
 import '../ajustes.css';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 const CATEGORIAS = traducido([
   { id: 'general', nombre: 'General', descripcion: 'Tu cuenta y tu espacio', icono: IconUser, titulo: 'Un espacio a tu medida', nota: 'Tu cuenta, el equipo y la forma en que ves ROSA2018.' },
@@ -138,7 +138,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
           <header className="ajustes-intro"><h3>{actual.titulo}</h3><p>{actual.nota}</p></header>
           <div className="ajustes-panel" role="tabpanel" id="ajuste-panel-general" aria-labelledby="ajuste-tab-general" hidden={categoria !== 'general'} tabIndex={0}>
             {sesion && (
-              <Seccion titulo="Sesión" nota={tr("La cuenta con la que has entrado en ROSA2018. Cerrar la sesión te devuelve a la pantalla de acceso; las investigaciones y sus corridas quedan en el servidor.")}>
+              <Seccion titulo={tr("Sesión")} nota={tr("La cuenta con la que has entrado en ROSA2018. Cerrar la sesión te devuelve a la pantalla de acceso; las investigaciones y sus corridas quedan en el servidor.")}>
                 <div className="ajustes-identidad"><span className="ajustes-avatar" aria-hidden="true"><IconUser size={23} /></span><CuentaActual /></div>
                 <CuentasDelEquipo />
               </Seccion>
@@ -184,7 +184,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               </div>
               {sugerencias.length > 0 && (
                 <div className="aviso-muestra">
-                  {tr("ROSA2018 ha visto que has concedido")} {sugerencias.map((s) => `${s.veces} permisos de "${TIPO_PERMISO[s.tipo as keyof typeof TIPO_PERMISO] ?? s.tipo}"`).join(' y ')} {tr("con alcance amplio. Si quieres, sube esa clase a \"actuar y avisar\" en los controles de arriba.")}
+                  {trp("ROSA2018 ha visto que has concedido {v} con alcance amplio. Si quieres, sube esa clase a \"actuar y avisar\" en los controles de arriba.", { v: sugerencias.map((s) => trp("{veces} permisos de \"{v}\"", { veces: s.veces, v: TIPO_PERMISO[s.tipo as keyof typeof TIPO_PERMISO] ?? s.tipo })).join(' y ') })}
           </div>
         )}
       </Seccion>
@@ -216,9 +216,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               Guardar
             </button>
             <span className="meta">
-              {tr("Hoy: si nadie decide en")} {estado.politicaEsperas.horas} h, {ACCION_ESPERA[estado.politicaEsperas.accion].toLowerCase()}
-              {estado.politicaEsperas.accion === 'escalar' ? ` (${estado.politicaEsperas.escalarA})` : ''}.
-            </span>
+              {trp("Hoy: si nadie decide en {horas} h, {v}{v2}.", { horas: estado.politicaEsperas.horas, v: ACCION_ESPERA[estado.politicaEsperas.accion].toLowerCase(), v2: estado.politicaEsperas.accion === 'escalar' ? ` (${estado.politicaEsperas.escalarA})` : '' })}</span>
           </div>
         </div>
       </Seccion>
@@ -271,8 +269,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                       <div>
                         <strong style={{ fontSize: 13.5 }}>{p.nombre}</strong>
                         <p className="meta">
-                          {p.pasos.join(' → ')} · usado {p.vecesUsado} {p.vecesUsado === 1 ? 'vez' : 'veces'}, {p.exitos} con éxito
-                        </p>
+                          {(p.vecesUsado === 1 ? trp("{v} · usado {vecesUsado} vez, {exitos} con éxito", { v: p.pasos.join(' → '), vecesUsado: p.vecesUsado, exitos: p.exitos }) : trp("{v} · usado {vecesUsado} veces, {exitos} con éxito", { v: p.pasos.join(' → '), vecesUsado: p.vecesUsado, exitos: p.exitos }))}</p>
                       </div>
                       <button type="button" className="btn btn-fantasma btn-icono" aria-label={tr("Borrar plan guardado")} onClick={() => acciones.borrarPlanGuardado(p.id)}>
                         <IconTrash size={14} />

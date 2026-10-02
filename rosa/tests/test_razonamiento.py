@@ -130,8 +130,8 @@ def test_sin_guiones_largos_en_lo_que_llega_a_pantalla():
     p = RZ.Progreso()
 
     class Salida:
-        next_thought = "Busco esto — y luego aquello"
+        next_thought = "Busco esto \u2014 y luego aquello"
         next_tool_name = "buscar_pubmed"
 
     p.on_module_end("m1", Salida())
-    assert "—" not in p.pasos()[0]["texto"]
+    assert "\u2014" not in p.pasos()[0]["texto"]

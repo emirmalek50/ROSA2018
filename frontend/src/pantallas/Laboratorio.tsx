@@ -20,7 +20,7 @@ import { AvisoMuestra } from '../componentes/piezas';
 import type { CandidatoAso, Duplex as DuplexT, CompuestoDeLaboratorio, DianaDeLaboratorio, DisenoAso, ExperimentoDeDiana, Laboratorio as Datos, OligoQueMandaria, QuimicaDeDiana } from '../lib/laboratorio';
 import type { Residuo, Visor } from '../lib/visorMolecular';
 import '../laboratorio.css';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 import { coma } from '../lib/formato';
 
 /* --------------------------------------------------------------------------
@@ -255,7 +255,7 @@ function Copiar({ texto, que, clase = '' }: { texto: string; que: string; clase?
         window.setTimeout(() => fijarHecho(false), 2000);
       }}
     >
-      {hecho ? 'copiado' : 'copiar'}
+      {(hecho ? tr("copiado") : tr("copiar"))}
     </button>
   );
 }
@@ -267,28 +267,28 @@ function hojaComoTexto(d: DianaDeLaboratorio): string {
   const l = [
     `DIANA: ${d.simbolo} (${d.nombre})`,
     `IDENTIFICADOR: ${h.identificador}`,
-    `ESTRUCTURA: ${d.estructura.url} (${d.estructura.fuente}, ${d.estructura.licencia}, ${d.estructura.clase === 'predicha' ? tr('predicha, no medida') : 'medida'})`,
-    h.hipotesis ? `HIPÓTESIS: ${h.hipotesis}` : '',
+    (d.estructura.clase === 'predicha' ? trp("ESTRUCTURA: {url} ({fuente}, {licencia}, predicha, no medida)", { url: d.estructura.url, fuente: d.estructura.fuente, licencia: d.estructura.licencia }) : trp("ESTRUCTURA: {url} ({fuente}, {licencia}, medida)", { url: d.estructura.url, fuente: d.estructura.fuente, licencia: d.estructura.licencia })),
+    h.hipotesis ? trp("HIPÓTESIS: {hipotesis}", { hipotesis: h.hipotesis }) : '',
     h.certeza ? `CERTEZA (GRADE): ${CERTEZA[h.certeza] ?? h.certeza}` : '',
-    h.queSeHace ? `QUÉ SE HACE: ${h.queSeHace}` : '',
+    h.queSeHace ? trp("QUÉ SE HACE: {queSeHace}", { queSeHace: h.queSeHace }) : '',
     h.sistema ? `SISTEMA: ${SISTEMA[h.sistema] ?? h.sistema}` : '',
     h.controles ? `CONTROLES: ${h.controles}` : '',
-    h.refuta ? `QUÉ LA REFUTARÍA: ${h.refuta}` : '',
-    h.faltan.length ? `SIN DEFINIR EN EL CONTRATO: ${h.faltan.join(', ')}` : '',
+    h.refuta ? trp("QUÉ LA REFUTARÍA: {refuta}", { refuta: h.refuta }) : '',
+    h.faltan.length ? trp("SIN DEFINIR EN EL CONTRATO: {v}", { v: h.faltan.join(', ') }) : '',
     ...h.otrosExperimentos.flatMap((x, i) => [
       '',
-      `OTRO EXPERIMENTO PROPUESTO (${i + 2})`,
-      x.hipotesis ? `  HIPÓTESIS: ${x.hipotesis}` : '',
-      x.queSeHace ? `  QUÉ SE HACE: ${x.queSeHace}` : '',
+      trp("OTRO EXPERIMENTO PROPUESTO ({v})", { v: i + 2 }),
+      x.hipotesis ? trp("  HIPÓTESIS: {hipotesis}", { hipotesis: x.hipotesis }) : '',
+      x.queSeHace ? trp("  QUÉ SE HACE: {queSeHace}", { queSeHace: x.queSeHace }) : '',
       x.sistema ? `  SISTEMA: ${SISTEMA[x.sistema] ?? x.sistema}` : '',
       x.controles ? `  CONTROLES: ${x.controles}` : '',
-      x.refuta ? `  QUÉ LA REFUTARÍA: ${x.refuta}` : '',
+      x.refuta ? trp("  QUÉ LA REFUTARÍA: {refuta}", { refuta: x.refuta }) : '',
     ]),
     h.sinExperimento ? tr('NINGUNA HIPÓTESIS PROPONE TODAVÍA UN EXPERIMENTO SOBRE ESTA DIANA.') : '',
     h.sinExperimento && d.loQueSeSabe.length ? '' : '',
-    ...(h.sinExperimento ? d.loQueSeSabe.flatMap((x) => [`LO QUE SE SABE · ${x.tema}`, `  ${x.enunciado}`, x.referencia ? `  [${x.referencia}]` : '']) : []),
+    ...(h.sinExperimento ? d.loQueSeSabe.flatMap((x) => [trp("LO QUE SE SABE · {tema}", { tema: x.tema }), `  ${x.enunciado}`, x.referencia ? `  [${x.referencia}]` : '']) : []),
     '',
-    `EVIDENCIA: ${d.hechos} afirmaciones la nombran, ${d.sabidos} sostenidas por ${d.fuentes} fuentes`,
+    trp("EVIDENCIA: {hechos} afirmaciones la nombran, {sabidos} sostenidas por {fuentes} fuentes", { hechos: d.hechos, sabidos: d.sabidos, fuentes: d.fuentes }),
     d.investigaciones.length ? `INVESTIGACIONES: ${d.investigaciones.map((i) => i.titulo).join('; ')}` : '',
     '',
     tr('Lo reunió ROSA2018 a partir de lo que su evidencia nombra. ROSA2018 no ha diseñado ninguna estructura ni ha calculado acoplamientos.'),
@@ -345,13 +345,12 @@ function FichaQuimica({ q }: { q: QuimicaDeDiana }) {
     <div className="lab-quimica">
       <div className="lab-quimica-cab">
         <b>{q.nombre}</b>
-        <span>
-          en {q.juntas.toLocaleString('es')} {q.juntas === 1 ? tr('afirmación') : 'afirmaciones'} {tr("junto a esta proteína")}
+        <span>{(q.juntas === 1 ? trp("en {v} afirmación junto a esta proteína", { v: q.juntas.toLocaleString('es') }) : trp("en {v} afirmaciones junto a esta proteína", { v: q.juntas.toLocaleString('es') }))}
         </span>
       </div>
       {q.enPubchem ? (
         <>
-          {q.url2d ? <img className="lab-2d" src={q.url2d} alt={`Estructura plana de ${q.nombre}`} loading="lazy" /> : null}
+          {q.url2d ? <img className="lab-2d" src={q.url2d} alt={trp("Estructura plana de {nombre}", { nombre: q.nombre })} loading="lazy" /> : null}
           <dl className="lab-quimica-datos">
             <div>
               <dt>{tr("FÓRMULA")}</dt>
@@ -408,13 +407,13 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
   const h: ExperimentoDeDiana | undefined = contratos?.[cual];
   const cabecera = diana.hipotesis[cual];
   return (
-    <section className="lab-experimento" aria-label={`Experimento sobre ${diana.simbolo}`}>
+    <section className="lab-experimento" aria-label={trp("Experimento sobre {simbolo}", { simbolo: diana.simbolo })}>
       <header>
         <div>
           <p className="lab-catalogo">
-            <b>{tr("EL EXPERIMENTO")}</b> <i /> {diana.simbolo} <i /> UNIPROT {diana.uniprot}
+            <b>{tr("EL EXPERIMENTO")}</b> <i /> {diana.simbolo} <i />{trp(" UNIPROT {uniprot}", { uniprot: diana.uniprot })}
           </p>
-          <h2>{cabecera ? cabecera.titulo : `Ninguna hipótesis propone todavía un experimento sobre ${diana.simbolo}`}</h2>
+          <h2>{cabecera ? cabecera.titulo : trp("Ninguna hipótesis propone todavía un experimento sobre {simbolo}", { simbolo: diana.simbolo })}</h2>
         </div>
         <div className="lab-acciones-exp">
           {h ? <Copiar texto={experimentoComoTexto(diana, h)} que={tr("el experimento entero")} clase="lab-copiar-grande" /> : null}
@@ -433,7 +432,7 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
             </button>
           ))}
           <span>
-            {diana.hipotesis.length} {tr("experimentos propuestos sobre esta proteína. No se funden en uno: cada uno tiene sus controles y su criterio de refutación.")}
+            {trp("{hipotesis} experimentos propuestos sobre esta proteína. No se funden en uno: cada uno tiene sus controles y su criterio de refutación.", { hipotesis: diana.hipotesis.length })}
           </span>
         </div>
       ) : null}
@@ -441,17 +440,14 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
       <div className="lab-experimento-cuerpo">
         {diana.hipotesis.length && !contratos ? (
           <p className="lab-parrafo" role="status">
-            {falloContrato
-              ? tr('No pude traer el contrato del experimento: el servidor no respondió. No quiere decir que no lo haya.')
-              : tr('Trayendo el contrato del experimento…')}
+            {(falloContrato ? tr("No pude traer el contrato del experimento: el servidor no respondió. No quiere decir que no lo haya.") : tr("Trayendo el contrato del experimento…"))}
           </p>
         ) : null}
         {h ? (
           <>
             <div className="lab-insignias">
               <span className={`lab-grado lab-grado-${h.certeza ?? 'muy_baja'}`}>
-                <i /> {h.certeza ? (CERTEZA[h.certeza] ?? h.certeza) : tr('sin certeza asignada')} · GRADE
-              </span>
+                <i />{trp(" {v} · GRADE", { v: h.certeza ? (CERTEZA[h.certeza] ?? h.certeza) : tr('sin certeza asignada') })}</span>
               {h.decisionKiller && KILLER[h.decisionKiller] ? (
                 <span className={`lab-grado lab-killer-${KILLER[h.decisionKiller]!.tono}`}>
                   <i /> {KILLER[h.decisionKiller]!.texto}
@@ -464,7 +460,7 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
               ) : null}
               {h.nivelDesenlace ? (
                 <span className="lab-grado lab-grado-neutro">
-                  <i /> desenlace {NIVEL[h.nivelDesenlace] ?? h.nivelDesenlace}
+                  <i />{trp(" desenlace {v}", { v: NIVEL[h.nivelDesenlace] ?? h.nivelDesenlace })}
                 </span>
               ) : null}
             </div>
@@ -503,8 +499,8 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
                     <div key={i}>
                       <b>{l.nombre}</b>
                       {l.tipo ? <span className="lab-tipo-lectura">{LECTURA[l.tipo] ?? l.tipo}</span> : null}
-                      {l.queConfirma ? <p>Confirma: {l.queConfirma}</p> : null}
-                      {l.queRefuta ? <p className="lab-refuta-linea">Refuta: {l.queRefuta}</p> : null}
+                      {l.queConfirma ? <p>{trp("Confirma: {queConfirma}", { queConfirma: l.queConfirma })}</p> : null}
+                      {l.queRefuta ? <p className="lab-refuta-linea">{trp("Refuta: {queRefuta}", { queRefuta: l.queRefuta })}</p> : null}
                     </div>
                   ))}
                 </div>
@@ -525,7 +521,7 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
           </>
         ) : (
           <p className="lab-parrafo">
-            {tr("La evidencia de ROSA2018 señala esta proteína con")} {diana.hechos.toLocaleString('es')} {tr("afirmaciones, pero ninguna hipótesis viva propone todavía un experimento sobre ella. No se rellena aquí un protocolo por rellenarlo: un experimento que nadie prerregistró no es un experimento.")}
+            {trp("La evidencia de ROSA2018 señala esta proteína con {v} afirmaciones, pero ninguna hipótesis viva propone todavía un experimento sobre ella. No se rellena aquí un protocolo por rellenarlo: un experimento que nadie prerregistró no es un experimento.", { v: diana.hechos.toLocaleString('es') })}
           </p>
         )}
 
@@ -549,34 +545,34 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
  *  aquí no se resume ni se añade nada. */
 function experimentoComoTexto(d: DianaDeLaboratorio, h: ExperimentoDeDiana): string {
   const l = [
-    `EXPERIMENTO SOBRE ${d.simbolo} (${d.nombre})`,
+    trp("EXPERIMENTO SOBRE {simbolo} ({nombre})", { simbolo: d.simbolo, nombre: d.nombre }),
     `IDENTIFICADOR: UniProt ${d.uniprot}${d.hgnc ? ` · ${d.hgnc}` : ''}`,
-    `ESTRUCTURA: ${d.estructura.url} (${d.estructura.fuente}, ${d.estructura.licencia}, ${d.estructura.clase === 'predicha' ? tr('predicha, no medida') : 'medida'})`,
+    (d.estructura.clase === 'predicha' ? trp("ESTRUCTURA: {url} ({fuente}, {licencia}, predicha, no medida)", { url: d.estructura.url, fuente: d.estructura.fuente, licencia: d.estructura.licencia }) : trp("ESTRUCTURA: {url} ({fuente}, {licencia}, medida)", { url: d.estructura.url, fuente: d.estructura.fuente, licencia: d.estructura.licencia })),
     '',
-    `HIPÓTESIS: ${h.titulo}`,
+    trp("HIPÓTESIS: {titulo}", { titulo: h.titulo }),
     h.certeza ? `CERTEZA (GRADE): ${CERTEZA[h.certeza] ?? h.certeza}` : '',
     h.estadoExperimento ? `ESTADO: ${h.estadoExperimento}` : '',
     '',
-    h.intervencion ? `QUÉ SE HACE: ${h.intervencion}` : '',
+    h.intervencion ? trp("QUÉ SE HACE: {intervencion}", { intervencion: h.intervencion }) : '',
     h.sistema ? `SISTEMA: ${SISTEMA[h.sistema] ?? h.sistema}. ${h.quePrueba}` : '',
     '',
     h.protocolo ? `PROTOCOLO:\n${h.protocolo}` : '',
     '',
-    h.ensayo ? `QUÉ SE MIDE: ${h.ensayo}` : '',
+    h.ensayo ? trp("QUÉ SE MIDE: {ensayo}", { ensayo: h.ensayo }) : '',
     ...h.lecturas.flatMap((x) => [
       `LECTURA: ${x.nombre}${x.tipo ? ` (${x.tipo})` : ''}`,
       x.queConfirma ? `  CONFIRMA: ${x.queConfirma}` : '',
       x.queRefuta ? `  REFUTA: ${x.queRefuta}` : '',
     ]),
     '',
-    h.confirma ? `QUÉ LO CONFIRMARÍA: ${h.confirma}` : '',
-    h.refuta ? `QUÉ LO REFUTARÍA: ${h.refuta}` : '',
-    h.alternativa ? `EXPLICACIÓN RIVAL: ${h.alternativa}` : '',
+    h.confirma ? trp("QUÉ LO CONFIRMARÍA: {confirma}", { confirma: h.confirma }) : '',
+    h.refuta ? trp("QUÉ LO REFUTARÍA: {refuta}", { refuta: h.refuta }) : '',
+    h.alternativa ? trp("EXPLICACIÓN RIVAL: {alternativa}", { alternativa: h.alternativa }) : '',
     h.controles ? `CONTROLES: ${h.controles}` : '',
-    h.tamanoMuestral ? `TAMAÑO MUESTRAL: ${h.tamanoMuestral}` : '',
-    h.decisionQueCambia ? `QUÉ DECISIÓN CAMBIA: ${h.decisionQueCambia}` : '',
-    h.costeEstimado ? `LO QUE CUESTA: ${h.costeEstimado}` : '',
-    h.puenteAlBeneficio ? `QUÉ FALTARÍA PARA QUE BENEFICIE A ALGUIEN: ${h.puenteAlBeneficio}` : '',
+    h.tamanoMuestral ? trp("TAMAÑO MUESTRAL: {tamanoMuestral}", { tamanoMuestral: h.tamanoMuestral }) : '',
+    h.decisionQueCambia ? trp("QUÉ DECISIÓN CAMBIA: {decisionQueCambia}", { decisionQueCambia: h.decisionQueCambia }) : '',
+    h.costeEstimado ? trp("LO QUE CUESTA: {costeEstimado}", { costeEstimado: h.costeEstimado }) : '',
+    h.puenteAlBeneficio ? trp("QUÉ FALTARÍA PARA QUE BENEFICIE A ALGUIEN: {puenteAlBeneficio}", { puenteAlBeneficio: h.puenteAlBeneficio }) : '',
     '',
     ...d.quimica.flatMap((q) => [
       `COMPUESTO NOMBRADO JUNTO A ESTA DIANA: ${q.nombre} (en ${q.juntas} afirmaciones)${q.ontologiaId ? ` · ${q.ontologiaId}` : ''}`,
@@ -586,7 +582,7 @@ function experimentoComoTexto(d: DianaDeLaboratorio, h: ExperimentoDeDiana): str
       !q.enPubchem ? tr('  Sin ficha de molécula pequeña en PubChem: no hay SMILES que mandar.') : '',
     ]),
     '',
-    `EVIDENCIA: ${d.hechos} afirmaciones de ROSA2018 nombran esta proteína, ${d.sabidos} sostenidas por ${d.fuentes} fuentes.`,
+    trp("EVIDENCIA: {hechos} afirmaciones de ROSA2018 nombran esta proteína, {sabidos} sostenidas por {fuentes} fuentes.", { hechos: d.hechos, sabidos: d.sabidos, fuentes: d.fuentes }),
     d.investigaciones.length ? `INVESTIGACIONES: ${d.investigaciones.map((i) => i.titulo).join('; ')}` : '',
     '',
     tr('Lo reunió ROSA2018 de lo que su evidencia nombra y de contratos de experimento ya prerregistrados. ROSA2018 no ha diseñado ninguna estructura, no calcula acoplamientos y no propone estructuras nuevas.'),
@@ -622,7 +618,7 @@ function Parte({
   const pct = residuos.length ? Math.round((fiables / residuos.length) * 100) : 0;
   const faltan = largo - residuos.length;
   return (
-    <section className="lab-parte" aria-label={`${marca.nombre} de ${diana.simbolo}`}>
+    <section className="lab-parte" aria-label={trp("{nombre} de {simbolo}", { nombre: marca.nombre, simbolo: diana.simbolo })}>
       <header>
         <div>
           <p className="lab-catalogo">
@@ -639,7 +635,7 @@ function Parte({
       <div className="lab-parte-cifras">
         <div>
           <b>{largo.toLocaleString('es')}</b>
-          <span>{largo === 1 ? 'RESIDUO' : tr('AMINOÁCIDOS')}</span>
+          <span>{(largo === 1 ? tr("RESIDUO") : tr("AMINOÁCIDOS"))}</span>
         </div>
         <div>
           <b>{media.toFixed(0)}</b>
@@ -653,7 +649,7 @@ function Parte({
 
       <p className="lab-parte-lectura">
         {tr("El modelo se fía")} <b>{confianzaEnPalabras(media)}</b> {tr("de este tramo; de la proteína entera se fía")}{' '}
-        <b>{confianzaEnPalabras(plddtProteina)}</b> (pLDDT medio {plddtProteina.toFixed(0)}{tr("). Un tramo puede estar bien anotado y mal modelado: lo que es sale de UniProt y lo bien resuelto que está, de AlphaFold.")}
+        <b>{confianzaEnPalabras(plddtProteina)}</b>{trp(" (pLDDT medio {v}). Un tramo puede estar bien anotado y mal modelado: lo que es sale de UniProt y lo bien resuelto que está, de AlphaFold.", { v: plddtProteina.toFixed(0) })}
       </p>
 
       {secuencia ? (
@@ -663,8 +659,7 @@ function Parte({
           </h4>
           <p className="lab-secuencia">{secuencia}</p>
           <p className="lab-nota">
-            {tr("En código de una letra, leída del propio fichero de coordenadas. Es lo que se manda para hacer un péptido o un constructo.")}
-            {faltan > 0 ? ` Faltan ${faltan} residuos del tramo que el modelo no resuelve.` : ''}
+            {trp("En código de una letra, leída del propio fichero de coordenadas. Es lo que se manda para hacer un péptido o un constructo.{v}", { v: faltan > 0 ? trp(" Faltan {faltan} residuos del tramo que el modelo no resuelve.", { faltan }) : '' })}
           </p>
         </>
       ) : null}
@@ -685,8 +680,7 @@ function Parte({
       )}
       <p className="lab-nota">
         Anotación de{' '}
-        <a href={`https://www.uniprot.org/uniprotkb/${diana.uniprot}/entry#function`} target="_blank" rel="noreferrer">
-          UniProt {diana.uniprot}
+        <a href={`https://www.uniprot.org/uniprotkb/${diana.uniprot}/entry#function`} target="_blank" rel="noreferrer">{trp("UniProt {uniprot}", { uniprot: diana.uniprot })}
         </a>{' '}
         {tr("(CC BY 4.0). ROSA2018 no la ha deducido: la trae y dice con qué prueba está.")}
       </p>
@@ -724,19 +718,17 @@ function FichaResiduo({
   // vecinos a diez ángstrom; uno de la superficie se queda por debajo de doce.
   const donde = vecinos >= 20 ? tr('enterrado en el interior') : vecinos <= 11 ? tr('asomado a la superficie') : tr('a media profundidad');
   return (
-    <section className="lab-parte lab-residuo-ficha" aria-label={`Residuo ${r.numero} de ${diana.simbolo}`}>
+    <section className="lab-parte lab-residuo-ficha" aria-label={trp("Residuo {numero} de {simbolo}", { numero: r.numero, simbolo: diana.simbolo })}>
       <header>
         <div>
           <p className="lab-catalogo">
-            <b>{diana.simbolo}</b> <i /> RESIDUO {r.numero} <i /> {letra}
+            <b>{diana.simbolo}</b> <i />{trp(" RESIDUO {numero} ", { numero: r.numero })}<i /> {letra}
           </p>
           <h3>
             {nombre} {r.numero}
           </h3>
           {info ? (
-            <p className="lab-parte-desc">
-              Cadena lateral {info.polar ? 'polar' : 'apolar'}, {info.carga === 'sin carga' ? 'sin carga' : `con carga ${info.carga}`}.
-            </p>
+            <p className="lab-parte-desc">{(info.polar ? trp("Cadena lateral polar, {v}.", { v: info.carga === 'sin carga' ? 'sin carga' : trp("con carga {carga}", { carga: info.carga }) }) : trp("Cadena lateral apolar, {v}.", { v: info.carga === 'sin carga' ? 'sin carga' : trp("con carga {carga}", { carga: info.carga }) }))}</p>
           ) : null}
         </div>
         <button type="button" className="lab-cerrar" onClick={alCerrar} aria-label={tr("Cerrar este residuo")}>
@@ -777,8 +769,7 @@ function FichaResiduo({
             <li key={`${m.nombre}-${m.desde}`}>
               dentro de <b>{m.nombre.toLowerCase()}</b>
               <span className="lab-mono lab-eco">
-                {m.desde === m.hasta ? `residuo ${m.desde}` : `${m.desde}–${m.hasta}`} · UniProt
-              </span>
+                {trp("{v} · UniProt", { v: m.desde === m.hasta ? `residuo ${m.desde}` : `${m.desde}–${m.hasta}` })}</span>
             </li>
           ))}
         </ul>
@@ -799,7 +790,7 @@ function FichaResiduo({
             ))}
           </p>
           <p className="lab-nota">
-            {tr("Del residuo")} {contexto[0]!.numero} al {contexto[contexto.length - 1]!.numero}{tr(", con este marcado.")}
+            {trp("Del residuo {numero} al {numero2}, con este marcado.", { numero: contexto[0]!.numero, numero2: contexto[contexto.length - 1]!.numero })}
           </p>
         </>
       ) : null}
@@ -816,11 +807,11 @@ const ALAS_LARGO = 5;
 function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
   const p = c.partes;
   return [
-    `OLIGONUCLEÓTIDO ANTISENTIDO CANDIDATO · DIANA ${simbolo}`,
+    trp("OLIGONUCLEÓTIDO ANTISENTIDO CANDIDATO · DIANA {simbolo}", { simbolo }),
     '',
     `SECUENCIA (5' a 3'): ${c.secuencia}`,
     `ARQUITECTURA: ${d.quimica.arquitectura}  ->  ${p.ala5} | ${p.hueco} | ${p.ala3}`,
-    `  alas (${p.ala5.length} nt cada una): ${d.quimica.alas}`,
+    trp("  alas ({ala5} nt cada una): {alas}", { ala5: p.ala5.length, alas: d.quimica.alas }),
     `  hueco (${p.hueco.length} nt): ${d.quimica.hueco}`,
     `  enlaces: ${d.quimica.enlaces}`,
     `  citosinas: ${d.quimica.citosinas}`,
@@ -829,35 +820,35 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
     `POSICIÓN EN EL TRANSCRITO: ${c.posicion} a ${c.hasta}${c.region ? ` (${c.region})` : ''}`,
     `TRAMO DIANA: 5'-${c.diana}-3'`,
     '',
-    `PROPORCIÓN G+C: ${Math.round(c.gc * 100)} %`,
-    `DINUCLEÓTIDOS CpG: ${c.cpg}`,
+    trp("PROPORCIÓN G+C: {v} %", { v: Math.round(c.gc * 100) }),
+    trp("DINUCLEÓTIDOS CpG: {cpg}", { cpg: c.cpg }),
     `AUTOCOMPLEMENTARIEDAD: ${c.autocomplementariedad} nt`,
-    `MOTIVOS DE ACTIVIDAD: ${c.motivosBuenos} a favor, ${c.motivosMalos} en contra`,
+    trp("MOTIVOS DE ACTIVIDAD: {motivosBuenos} a favor, {motivosMalos} en contra", { motivosBuenos: c.motivosBuenos, motivosMalos: c.motivosMalos }),
     '',
-    d.via ? `VÍA DE ADMINISTRACIÓN: ${d.via.via}` : '',
+    d.via ? trp("VÍA DE ADMINISTRACIÓN: {via}", { via: d.via.via }) : '',
     d.via ? `  ${d.via.porQue}` : '',
     d.via ? `  ${d.via.precedente}` : '',
     '',
-    `CRIBADO CONTRA EL TRANSCRIPTOMA: ${c.criba?.veredicto?.toUpperCase() ?? (c.cribado ? 'HECHO' : tr('NO HECHO'))}`,
+    trp("CRIBADO CONTRA EL TRANSCRIPTOMA: {v}", { v: c.criba?.veredicto?.toUpperCase() ?? (c.cribado ? 'HECHO' : tr('NO HECHO')) }),
     `  ${c.criba?.porQue ?? c.avisoCribado}`,
     c.criba?.cribado && d.criba?.hecho
-      ? `  comparado contra ${d.criba.transcritos.toLocaleString('es')} transcritos de Ensembl GRCh38 (${d.criba.ficheros.join(', ')}); encaja en ${c.criba.propios} transcritos de su propio gen`
+      ? trp("  comparado contra {v} transcritos de Ensembl GRCh38 ({v2}); encaja en {propios} transcritos de su propio gen", { v: d.criba.transcritos.toLocaleString('es'), v2: d.criba.ficheros.join(', '), propios: c.criba.propios })
       : '',
     c.criba?.fuera.length
-      ? `  encaja también en: ${c.criba.fuera.join(', ')}${c.criba.genesFuera > c.criba.fuera.length ? ` y ${c.criba.genesFuera - c.criba.fuera.length} genes más` : ''}`
+      ? trp("  encaja también en: {v}{v2}", { v: c.criba.fuera.join(', '), v2: c.criba.genesFuera > c.criba.fuera.length ? trp(" y {v} genes más", { v: c.criba.genesFuera - c.criba.fuera.length }) : '' })
       : '',
     // Lo que el cribado NO cubre viaja con el pedido a propósito: quien lo
     // reciba tiene que saber que «sin choque exacto» no es «seguro».
     ...(d.criba?.hecho ? [tr('  lo que este cribado NO cubre:'), ...d.criba.limites.map((l) => `    - ${l.que}: ${l.porQue}`)] : []),
     '',
-    c.especies ? `SE PUEDE PROBAR EN UN ROEDOR: ${c.especies.veredicto.toUpperCase()}` : '',
+    c.especies ? trp("SE PUEDE PROBAR EN UN ROEDOR: {v}", { v: c.especies.veredicto.toUpperCase() }) : '',
     c.especies ? `  ${c.especies.porQue}` : '',
     ...(c.especies
       ? Object.values(c.especies.porEspecie).map((x) => `  ${x.nombre}: ${x.veredicto}${x.ortologo ? ` · gen ${x.ortologo}` : ''}`)
       : []),
     c.especies ? `  ${c.especies.marco.siNoEncaja}` : '',
     '',
-    `El gen tiene ${d.transcritosDelGen} transcritos; este diseño va sobre el canónico. Cuál se baja no es lo mismo que cuánta se baja, y esa decisión es de quien dirige el experimento.`,
+    trp("El gen tiene {transcritosDelGen} transcritos; este diseño va sobre el canónico. Cuál se baja no es lo mismo que cuánta se baja, y esa decisión es de quien dirige el experimento.", { transcritosDelGen: d.transcritosDelGen }),
     '',
     tr('Lo generó ROSA2018 por regla a partir de la secuencia pública del transcrito. Es un CANDIDATO PARA CRIBAR EN EL LABORATORIO, no un fármaco: los filtros aplicados son estadística de experimentos pasados, no una predicción de que funcione.'),
     '',
@@ -927,14 +918,14 @@ function MapaTranscrito({ d, activo, alElegir }: { d: DisenoAso; activo: number;
   const y = (gc: number) => arriba + (1 - gc) * (alto - arriba - abajo);
   return (
     <figure className="aso-mapa aso-mapa-datos">
-      <header><div><strong>{tr("Un transcrito, distintos sitios de unión")}</strong><p>{tr("Cada punto es un candidato. Selecciónalo para inspeccionarlo.")}</p></div><span>{n(d.candidatos.length)} candidatos</span></header>
+      <header><div><strong>{tr("Un transcrito, distintos sitios de unión")}</strong><p>{tr("Cada punto es un candidato. Selecciónalo para inspeccionarlo.")}</p></div><span>{trp("{candidatos} candidatos", { candidatos: n(d.candidatos.length) })}</span></header>
       <div className="aso-mapa-lienzo">
         <svg viewBox={`0 0 ${ancho} ${alto}`} role="group" aria-label={tr("Candidatos por posición en el transcrito y proporción de G y C")}>
           <rect x={izq} y={y(.6)} width={ancho - izq - der} height={y(.4) - y(.6)} className="aso-mapa-banda" />
           {[0, .2, .4, .6, .8, 1].map(v => <g key={v}><line x1={izq} x2={ancho-der} y1={y(v)} y2={y(v)} className="aso-mapa-rejilla" /><text x={izq-10} y={y(v)+4} textAnchor="end">{Math.round(v*100)} %</text></g>)}
           {[1, Math.round(d.largo / 2), d.largo].map(pos => <text key={pos} x={x(pos)} y={alto-18} textAnchor={pos===1?'start':pos===d.largo?'end':'middle'}>{n(pos)} nt</text>)}
           {c && <line x1={x(c.posicion)} x2={x(c.posicion)} y1={arriba} y2={alto-abajo} className="aso-mapa-guia" />}
-          {d.candidatos.map((candidato, i) => <g key={candidato.posicion} role="button" tabIndex={i===activo?0:-1} aria-pressed={i===activo} aria-label={`Candidato ${i+1}, posición ${candidato.posicion}, G y C ${Math.round(candidato.gc*100)} por ciento`} className={`aso-punto${i===activo?' aso-punto-activo':''}`} onClick={() => alElegir(i)} onKeyDown={e=>{
+          {d.candidatos.map((candidato, i) => <g key={candidato.posicion} role="button" tabIndex={i===activo?0:-1} aria-pressed={i===activo} aria-label={trp("Candidato {v}, posición {posicion}, G y C {v2} por ciento", { v: i+1, posicion: candidato.posicion, v2: Math.round(candidato.gc*100) })} className={`aso-punto${i===activo?' aso-punto-activo':''}`} onClick={() => alElegir(i)} onKeyDown={e=>{
             if(e.key==='Enter'||e.key===' '){e.preventDefault();alElegir(i);}
             else if(['ArrowRight','ArrowLeft','Home','End'].includes(e.key)){
               e.preventDefault();const siguiente=e.key==='Home'?0:e.key==='End'?d.candidatos.length-1:(i+(e.key==='ArrowRight'?1:d.candidatos.length-1))%d.candidatos.length;
@@ -943,12 +934,12 @@ function MapaTranscrito({ d, activo, alElegir }: { d: DisenoAso; activo: number;
           }}>
             <circle cx={x(candidato.posicion)} cy={y(candidato.gc)} r={14} className="aso-punto-hit" />
             <circle cx={x(candidato.posicion)} cy={y(candidato.gc)} r={i===activo?7:4.5} className="aso-punto-dato" />
-            <title>{`Candidato ${i+1}: ${n(candidato.posicion)} a ${n(candidato.hasta)} nt; G y C ${Math.round(candidato.gc*100)} %`}</title>
+            <title>{trp("Candidato {v}: {posicion} a {hasta} nt; G y C {v2} %", { v: i+1, posicion: n(candidato.posicion), hasta: n(candidato.hasta), v2: Math.round(candidato.gc*100) })}</title>
           </g>)}
         </svg>
       </div>
       <figcaption><span><i /> {tr("Banda del filtro: 40 a 60 % de G y C")}</span><span>{d.transcrito}</span></figcaption>
-      {c && <div className="aso-mapa-seleccion" aria-live="polite"><strong>Candidato {activo+1}</strong><span>{n(c.posicion)} a {n(c.hasta)} nt</span><span>{Math.round(c.gc*100)} {tr("% de G y C")}</span></div>}
+      {c && <div className="aso-mapa-seleccion" aria-live="polite"><strong>{trp("Candidato {v}", { v: activo+1 })}</strong><span>{n(c.posicion)} a {n(c.hasta)} nt</span><span>{trp("{v} % de G y C", { v: Math.round(c.gc*100) })}</span></div>}
     </figure>
   );
 }
@@ -1004,7 +995,7 @@ function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['d
         className="arn-svg"
         viewBox={`0 0 ${ancho.toFixed(0)} ${alto.toFixed(0)}`}
         role="group"
-        aria-label={`El ARN entre las posiciones ${d.desde} y ${d.hasta}, plegado, con el tramo del oligo marcado`}
+        aria-label={trp("El ARN entre las posiciones {desde} y {hasta}, plegado, con el tramo del oligo marcado", { desde: d.desde, hasta: d.hasta })}
         onMouseLeave={() => fijarSobre(null)}
       >
         {/* El esqueleto: la cadena, de una letra a la siguiente. */}
@@ -1045,7 +1036,7 @@ function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['d
             key={l.i}
             className={`arn-n${l.enElSitio ? ' arn-n-sitio' : ''}${sobre === l.i ? ' arn-n-sobre' : ''}${parejaActiva === l.i ? ' arn-n-pareja' : ''}`}
             role="button" tabIndex={sobre === l.i || (sobre === null && l.i === letras[0]?.i) ? 0 : -1}
-            aria-label={`${l.letra}, posición ${l.pos}, ${l.emparejada ? 'emparejada' : 'libre'}${l.enElSitio ? tr(', tramo del oligo') : ''}`}
+            aria-label={(l.emparejada ? trp("{letra}, posición {pos}, emparejada{v}", { letra: l.letra, pos: l.pos, v: l.enElSitio ? tr(", tramo del oligo") : "" }) : trp("{letra}, posición {pos}, libre{v}", { letra: l.letra, pos: l.pos, v: l.enElSitio ? tr(", tramo del oligo") : "" }))}
             onFocus={() => fijarSobre(l.i)} onClick={() => fijarSobre(l.i)}
             onKeyDown={e => { if(e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const indice=letras.indexOf(l); const siguiente=(indice+(e.key==='ArrowRight'?1:letras.length-1))%letras.length; (e.currentTarget.parentElement?.querySelectorAll<SVGGElement>('.arn-n')[siguiente])?.focus(); } else if(e.key==='Enter'||e.key===' ') {e.preventDefault(); fijarSobre(l.i);} }}
             onMouseEnter={() => fijarSobre(l.i)}
@@ -1062,20 +1053,16 @@ function ArnPlegado({ d }: { d: NonNullable<NonNullable<DisenoAso['plegado']>['d
         <p className="arn-pie-cuenta">
           {act ? (
             <>
-              <b className="lab-mono">{act.letra}</b> en la posición <b>{n(act.pos)}</b> del transcrito ·{' '}
-              {act.emparejada ? 'emparejada' : 'libre'}
-              {act.enElSitio ? tr(' · dentro del tramo del oligo') : ''}
+              <b className="lab-mono">{act.letra}</b> en la posición <b>{n(act.pos)}</b>{(act.emparejada ? trp(" del transcrito · emparejada{v}", { v: act.enElSitio ? tr(" · dentro del tramo del oligo") : "" }) : trp(" del transcrito · libre{v}", { v: act.enElSitio ? tr(" · dentro del tramo del oligo") : "" }))}
             </>
           ) : (
             <>
-              <b>{n(aAbrir)}</b> de las {n(enElSitio.length)} {tr("letras del tramo están emparejadas: son las que el oligo tiene que abrir para entrar. Selecciona una letra para inspeccionarla; usa las flechas para recorrer la cadena.")}
+              <b>{n(aAbrir)}</b>{trp(" de las {enElSitio} letras del tramo están emparejadas: son las que el oligo tiene que abrir para entrar. Selecciona una letra para inspeccionarla; usa las flechas para recorrer la cadena.", { enElSitio: n(enElSitio.length) })}
             </>
           )}
         </p>
         <p className="arn-pie-nota">
-          {tr("El ARN entre las posiciones")} {n(d.desde)} y {n(d.hasta)}{tr(", plegado sobre sí mismo (")}{dec(d.energia, 1)} {tr("kcal/mol). Cada letra es un nucleótido en el sitio que le toca; las barras son emparejamientos. Disposición")}{' '}
-          {d.disposicion}.
-        </p>
+          {trp("El ARN entre las posiciones {desde} y {hasta}, plegado sobre sí mismo ({energia} kcal/mol). Cada letra es un nucleótido en el sitio que le toca; las barras son emparejamientos. Disposición {disposicion}.", { desde: n(d.desde), hasta: n(d.hasta), energia: dec(d.energia, 1), disposicion: d.disposicion })}</p>
       </figcaption>
     </figure>
   );
@@ -1139,7 +1126,7 @@ function Duplex({ d }: { d: DuplexT }) {
               key={p.i}
               className={`dux-col${sobre === p.i ? ' dux-col-sobre' : ''}`}
               role="button" tabIndex={sobre === p.i || (sobre === null && p.i === d.pares[0]?.i) ? 0 : -1}
-              aria-label={`Par ${p.i}: ARN ${p.arn}, oligo ${p.aso}, ${p.quimica === 'hueco' ? 'hueco de ADN' : tr("ala de 2′-MOE")}`}
+              aria-label={(p.quimica === 'hueco' ? trp("Par {i}: ARN {arn}, oligo {aso}, hueco de ADN", { i: p.i, arn: p.arn, aso: p.aso }) : trp("Par {i}: ARN {arn}, oligo {aso}, ala de 2′-MOE", { i: p.i, arn: p.arn, aso: p.aso }))}
               onClick={() => fijarSobre(p.i)} onFocus={() => fijarSobre(p.i)}
               onKeyDown={e => {if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault(); const indice=d.pares.indexOf(p);const siguiente=(indice+(e.key==='ArrowRight'?1:d.pares.length-1))%d.pares.length;(e.currentTarget.parentElement?.querySelectorAll<SVGGElement>('.dux-col')[siguiente])?.focus();} else if(e.key==='Enter'||e.key===' '){e.preventDefault();fijarSobre(p.i);}}}
               onMouseEnter={() => fijarSobre(p.i)}
@@ -1185,13 +1172,12 @@ function Duplex({ d }: { d: DuplexT }) {
           {act ? (
             <>
               ARN <b className="lab-mono">{act.arn}</b> con oligo <b className="lab-mono">{act.aso}</b> · letra{' '}
-              <b>{act.posAso}</b> del oligo ·{' '}
-              {act.quimica === 'hueco' ? tr('en el hueco de ADN, que es donde corta') : tr("en un ala de 2'-MOE, que la enzima no reconoce")}
+              <b>{act.posAso}</b>{(act.quimica === 'hueco' ? tr(" del oligo · en el hueco de ADN, que es donde corta") : tr(" del oligo · en un ala de 2'-MOE, que la enzima no reconoce"))}
             </>
           ) : (
             <>
               {tr("Arriba el ARN de la diana leído de 5&apos; a 3&apos;, abajo el oligo, que va al revés porque una dúplex es antiparalela. Las")}{' '}
-              <b>{n(d.hueco[1] - d.hueco[0] + 1)} del centro</b> {tr("son el hueco de ADN: lo único que la RNasa H1 reconoce. Selecciona un par o recórrelos con las flechas del teclado.")}
+              <b>{trp("{v} del centro", { v: n(d.hueco[1] - d.hueco[0] + 1) })}</b> {tr("son el hueco de ADN: lo único que la RNasa H1 reconoce. Selecciona un par o recórrelos con las flechas del teclado.")}
             </>
           )}
         </p>
@@ -1251,7 +1237,7 @@ function FichaDuplex({ c }: { c: CandidatoAso }) {
         </li>
       </ul>
       <details className="aso-criba-limites">
-        <summary>{tr("Qué es y qué NO es este dibujo (")}{d.avisos.length})</summary>
+        <summary>{trp("Qué es y qué NO es este dibujo ({avisos})", { avisos: d.avisos.length })}</summary>
         <ul>
           {d.avisos.map((a) => (
             <li key={a.que}>
@@ -1317,7 +1303,7 @@ function FichaEspecies({ c }: { c: CandidatoAso }) {
               <td className="lab-mono">{x.ortologo || '—'}</td>
               <td>
                 {x.veredicto}
-                {x.fallos ? ` (${n(x.fallos)} letra${x.fallos === 1 ? '' : 's'} de diferencia)` : ''}
+                {x.fallos ? (x.fallos === 1 ? trp(" ({fallos} letra de diferencia)", { fallos: n(x.fallos) }) : trp(" ({fallos} letras de diferencia)", { fallos: n(x.fallos) })) : ''}
               </td>
             </tr>
           ))}
@@ -1344,7 +1330,7 @@ function FichaEspecies({ c }: { c: CandidatoAso }) {
         ))}
       </ul>
       <details className="aso-criba-limites">
-        <summary>{tr("Qué NO dice esto (")}{e.avisos.length + 1})</summary>
+        <summary>{trp("Qué NO dice esto ({v})", { v: e.avisos.length + 1 })}</summary>
         <ul>
           <li>
             <b>{tr("Para qué sirve esto.")}</b> {e.marco.paraInvestigar} {e.marco.siNoEncaja}
@@ -1441,11 +1427,11 @@ function FichaSitio({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
         </div>
         <div>
           <dt>{tr("en su transcrito")}</dt>
-          <dd>mejor que el {s.percentil.toFixed(0)} %</dd>
+          <dd>{trp("mejor que el {v} %", { v: s.percentil.toFixed(0) })}</dd>
         </div>
         <div>
           <dt>{tr("el mejor sitio que hay")}</dt>
-          <dd>{dec(s.mejorDelTranscrito, 3)} en la posición {n(s.posicionMejor)}</dd>
+          <dd>{trp("{mejorDelTranscrito} en la posición {posicionMejor}", { mejorDelTranscrito: dec(s.mejorDelTranscrito, 3), posicionMejor: n(s.posicionMejor) })}</dd>
         </div>
         <div>
           <dt>{tr("mediana del transcrito")}</dt>
@@ -1458,7 +1444,7 @@ function FichaSitio({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
         </>
       ) : null}
       <details className="aso-criba-limites">
-        <summary>{tr("Qué NO dice este cálculo (")}{pl.avisos.length})</summary>
+        <summary>{trp("Qué NO dice este cálculo ({avisos})", { avisos: pl.avisos.length })}</summary>
         <ul>
           {pl.avisos.map((a) => (
             <li key={a.que}>
@@ -1515,7 +1501,7 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
         <dl className="aso-criba-cuentas">
           <div>
             <dt>{tr("en su propio gen")}</dt>
-            <dd>{n(cr.propios)} transcritos</dd>
+            <dd>{trp("{propios} transcritos", { propios: n(cr.propios) })}</dd>
           </div>
           <div>
             <dt>{tr("en otros genes")}</dt>
@@ -1526,7 +1512,7 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
           {cr.genesMismoSitio ? (
             <div>
               <dt>{tr("mismo sitio, otro nombre")}</dt>
-              <dd>{n(cr.transcritosMismoSitio)} transcritos</dd>
+              <dd>{trp("{transcritosMismoSitio} transcritos", { transcritosMismoSitio: n(cr.transcritosMismoSitio) })}</dd>
             </div>
           ) : null}
         </dl>
@@ -1534,12 +1520,12 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
       {cr?.fuera.length ? (
         <p className="aso-criba-genes">
           <b>{tr("Dónde más encaja:")}</b> {cr.fuera.join(", ")}
-          {cr.genesFuera > cr.fuera.length ? ` y ${n(cr.genesFuera - cr.fuera.length)} genes más` : ""}.
+          {cr.genesFuera > cr.fuera.length ? trp(" y {v} genes más", { v: n(cr.genesFuera - cr.fuera.length) }) : ""}.
         </p>
       ) : null}
       {cr?.mismoSitioOtroNombre.length ? (
         <p className="aso-criba-genes suave">
-          <b>{tr("Mismo sitio del cromosoma con otro nombre:")}</b> {cr.mismoSitioOtroNombre.join(", ")}{tr(". No es un fuera de diana: es el mismo tramo transcrito con otra etiqueta de Ensembl.")}
+          <b>{tr("Mismo sitio del cromosoma con otro nombre:")}</b>{trp(" {v}. No es un fuera de diana: es el mismo tramo transcrito con otra etiqueta de Ensembl.", { v: cr.mismoSitioOtroNombre.join(", ") })}
         </p>
       ) : null}
       {cr?.cribadoConDesajustes ? (
@@ -1572,11 +1558,10 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
             </tbody>
           </table>
           <p className="aso-criba-como">
-            {tr("La columna «al azar» es el porcentaje de")} {n(cr.nuloN ?? 300)} {tr("secuencias de veinte letras")} <b>{tr("al azar")}</b>{tr(", con el mismo reparto de G y C, que tienen un encaje de ese nivel al pasar por esta misma tubería. Está aquí para que no haya que fiarse de la regla: por debajo del 1 % un encaje dice algo, por encima del 5 % es lo que pasa solo.")}
+            {trp("La columna «al azar» es el porcentaje de {v} secuencias de veinte letras ", { v: n(cr.nuloN ?? 300) })}<b>{tr("al azar")}</b>{tr(", con el mismo reparto de G y C, que tienen un encaje de ese nivel al pasar por esta misma tubería. Está aquí para que no haya que fiarse de la regla: por debajo del 1 % un encaje dice algo, por encima del 5 % es lo que pasa solo.")}
             {cr.conFalloEnElHueco ? (
               <>
-                {' '}
-                {tr("Hay además")} {n(cr.conFalloEnElHueco)} {tr("gen(es) parecidos donde el fallo cae")} <b>dentro</b> {tr("del hueco: ahí la RNasa H1 no corta.")}
+                {trp(" Hay además {conFalloEnElHueco} gen(es) parecidos donde el fallo cae ", { conFalloEnElHueco: n(cr.conFalloEnElHueco) })}<b>dentro</b> {tr("del hueco: ahí la RNasa H1 no corta.")}
               </>
             ) : null}
           </p>
@@ -1585,12 +1570,10 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
       {criba?.hecho ? (
         <>
           <p className="aso-criba-como">
-            {tr("Comparado contra")} {n(criba.transcritos)} {tr("transcritos de Ensembl (GRCh38")}
-            {criba.ficheros.length ? `, ${criba.ficheros.join(" y ")}` : ""})
-            {criba.segundos ? ` en ${criba.segundos} s` : ""}{tr(". Se busca el complemento inverso del oligo, que es el tramo al que se pega.")}
+            {trp("Comparado contra {transcritos} transcritos de Ensembl (GRCh38{v}){v2}. Se busca el complemento inverso del oligo, que es el tramo al que se pega.", { transcritos: n(criba.transcritos), v: criba.ficheros.length ? `, ${criba.ficheros.join(" y ")}` : "", v2: criba.segundos ? ` en ${criba.segundos} s` : "" })}
           </p>
           <details className="aso-criba-limites">
-            <summary>{tr("Qué NO cubre este cribado (")}{criba.limites.length})</summary>
+            <summary>{trp("Qué NO cubre este cribado ({limites})", { limites: criba.limites.length })}</summary>
             <ul>
               {criba.limites.map((l) => (
                 <li key={l.que}>
@@ -1628,13 +1611,13 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
   const etapas = [...new Set(diana.hipotesis.filter((h) => h.direccion === 'disminuye' && h.etapa).map((h) => h.etapa))];
   const c = d?.candidatos[cual];
   return (
-    <section className="lab-experimento" aria-label={`Oligonucleótido antisentido para ${diana.simbolo}`}>
+    <section className="lab-experimento" aria-label={trp("Oligonucleótido antisentido para {simbolo}", { simbolo: diana.simbolo })}>
       <header>
         <div>
           <p className="lab-catalogo">
             <b>{tr("OLIGONUCLEÓTIDO ANTISENTIDO")}</b> <i /> {diana.simbolo} <i /> {d ? d.build : ""}
           </p>
-          <h2>{tr("Cortar la producción de")} {diana.simbolo} {tr("en su propio ARN")}</h2>
+          <h2>{trp("Cortar la producción de {simbolo} en su propio ARN", { simbolo: diana.simbolo })}</h2>
         </div>
         <div className="lab-acciones-exp">
           {d && c ? <Copiar texto={asoComoTexto(diana.simbolo, d, c)} que={tr("el candidato entero")} clase="lab-copiar-grande" /> : null}
@@ -1647,19 +1630,15 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
       <div className="lab-experimento-cuerpo">
         {!d ? (
           <p className="lab-parrafo" role="status">
-            {diana.asoSinComprobar
-              ? tr("No pude traer la secuencia del transcrito de esta proteína: Ensembl no respondió. No quiere decir que no se pueda diseñar.")
-              : tr("Todavía no se ha traído la secuencia de esta proteína. En cuanto ROSA2018 la tenga, el diseño aparece aquí.")}
+            {(diana.asoSinComprobar ? tr("No pude traer la secuencia del transcrito de esta proteína: Ensembl no respondió. No quiere decir que no se pueda diseñar.") : tr("Todavía no se ha traído la secuencia de esta proteína. En cuanto ROSA2018 la tenga, el diseño aparece aquí."))}
           </p>
         ) : !c ? (
           <p className="lab-parrafo" role="status">
-            {tr("Ninguna ventana del transcrito pasa todos los filtros. Es raro y merece mirarse: de")} {n(d.ventanas)} ventanas posibles,
-            cero limpias.
-          </p>
+            {trp("Ninguna ventana del transcrito pasa todos los filtros. Es raro y merece mirarse: de {ventanas} ventanas posibles, cero limpias.", { ventanas: n(d.ventanas) })}</p>
         ) : (
           <>
             <p className="lab-parrafo lab-destacado">
-              {tr("Un oligonucleótido antisentido es una cadena de")} {c.secuencia.length} {tr("letras que encaja con un tramo del ARN mensajero de")} {diana.simbolo}{tr(". Donde encaja, una enzima de la célula, la RNasa H1, corta el ARN. Sin ARN no se fabrica proteína nueva.")}
+              {trp("Un oligonucleótido antisentido es una cadena de {secuencia} letras que encaja con un tramo del ARN mensajero de {simbolo}. Donde encaja, una enzima de la célula, la RNasa H1, corta el ARN. Sin ARN no se fabrica proteína nueva.", { secuencia: c.secuencia.length, simbolo: diana.simbolo })}
             </p>
             {d.queHace ? (
               <div className="aso-mecanismo">
@@ -1674,18 +1653,18 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
             ) : null}
             {etapas.length ? (
               <p className="lab-nota">
-                <b>{tr("A qué momento apunta la hipótesis que lo respalda:")}</b> {etapas.join(' · ')}{tr(". Importa porque el oligo actúa sobre la producción, no sobre lo ya depositado.")}
+                <b>{tr("A qué momento apunta la hipótesis que lo respalda:")}</b>{trp(" {v}. Importa porque el oligo actúa sobre la producción, no sobre lo ya depositado.", { v: etapas.join(' · ') })}
               </p>
             ) : null}
 
-            <h3>{tr("EL CANDIDATO")} {cual + 1} {tr("DE")} {d.candidatos.length}</h3>
+            <h3>{trp("EL CANDIDATO {v} DE {candidatos}", { v: cual + 1, candidatos: d.candidatos.length })}</h3>
             <Secuencia c={c} grande />
             <div className="aso-leyenda">
               <span>
-                <i className="aso-punto-ala" /> alas de {ALAS_LARGO} nt, {d.quimica.alas}
+                <i className="aso-punto-ala" />{trp(" alas de {ALAS_LARGO} nt, {alas}", { ALAS_LARGO, alas: d.quimica.alas })}
               </span>
               <span>
-                <i className="aso-punto-hueco" /> hueco de {c.partes.hueco.length} nt de {d.quimica.hueco}
+                <i className="aso-punto-hueco" />{trp(" hueco de {hueco} nt de {hueco2}", { hueco: c.partes.hueco.length, hueco2: d.quimica.hueco })}
               </span>
             </div>
 
@@ -1697,8 +1676,7 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
             <h3>{tr("DÓNDE CAE EN EL ARN")}</h3>
             <MapaTranscrito d={d} activo={cual} alElegir={fijarCual} />
             <p className="lab-nota">
-              {tr("Posición")} {n(c.posicion)} a {n(c.hasta)}
-              {c.region ? `, en la ${c.region}` : ""}{tr(". El tramo al que va es 5&apos;-")}{c.diana}{tr("-3&apos;, y el oligo es su complemento inverso. Los")} {d.candidatos.length} {tr("candidatos vienen de sitios separados del transcrito a propósito: diez ventanas solapadas de la misma zona serían un candidato disfrazado de diez.")}
+              {trp("Posición {posicion} a {hasta}{v}. El tramo al que va es 5&apos;-{diana}-3&apos;, y el oligo es su complemento inverso. Los {candidatos} candidatos vienen de sitios separados del transcrito a propósito: diez ventanas solapadas de la misma zona serían un candidato disfrazado de diez.", { posicion: n(c.posicion), hasta: n(c.hasta), v: c.region ? trp(", en la {region}", { region: c.region }) : "", diana: c.diana, candidatos: d.candidatos.length })}
             </p>
 
             <h3>{tr("POR QUÉ ESTE Y NO OTRO")}</h3>
@@ -1723,7 +1701,7 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
               </div>
             </div>
             <p className="lab-parrafo">
-              {tr("De")} {n(d.ventanas)} {tr("ventanas posibles en este transcrito,")} {n(d.pasanFiltros)} {tr("pasan todos los filtros; de esas se eligen")} {d.candidatos.length} {tr("repartidas. Los filtros son: proporción de G y C entre el 40 y el 60 por ciento, sin dinucleótidos CpG (activan el receptor TLR9), sin tramos de cuatro guaninas (bajan la actividad y forman cuádruplex), sin que el oligo se pegue a sí mismo, y prefiriendo los motivos que en experimentos pasados salieron asociados a más actividad.")}
+              {trp("De {ventanas} ventanas posibles en este transcrito, {pasanFiltros} pasan todos los filtros; de esas se eligen {candidatos} repartidas. Los filtros son: proporción de G y C entre el 40 y el 60 por ciento, sin dinucleótidos CpG (activan el receptor TLR9), sin tramos de cuatro guaninas (bajan la actividad y forman cuádruplex), sin que el oligo se pegue a sí mismo, y prefiriendo los motivos que en experimentos pasados salieron asociados a más actividad.", { ventanas: n(d.ventanas), pasanFiltros: n(d.pasanFiltros), candidatos: d.candidatos.length })}
             </p>
             <p className="lab-nota">
               <b>{tr("Esto es estadística, no una predicción.")}</b> {tr("Los filtros salen de mirar experimentos publicados: correlacionan con funcionar, no garantizan funcionar. Una patente de Ionis describe sintetizar 156 oligonucleótidos para llevar unos pocos a pruebas de dosis. Lo que hay aquí es una lista corta para cribar en el laboratorio.")}
@@ -1746,14 +1724,14 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
                   {d.via.porQue[0]!.toUpperCase() + d.via.porQue.slice(1)}. {d.via.precedente[0]!.toUpperCase()}
                   {d.via.precedente.slice(1)}.
                 </p>
-                <p className="lab-nota">{tr("A tener en cuenta:")} {d.via.limite}.</p>
+                <p className="lab-nota">{trp("A tener en cuenta: {limite}.", { limite: d.via.limite })}</p>
               </>
             ) : null}
 
             <h3>{tr("LA DECISIÓN QUE NO TOMA ROSA2018")}</h3>
             <p className="lab-parrafo">
               {tr("Este diseño va sobre")} {d.transcrito}{tr(", el transcrito canónico")}
-              {d.transcritosDelGen > 1 ? <> de los {n(d.transcritosDelGen)} {tr("que tiene el gen")}</> : null}{tr(". Un gen no hace un solo ARN: hace varias versiones cortando y reuniendo los trozos de maneras distintas. Si el oligo cae en un trozo que está en todas, baja la proteína entera; si cae en uno que solo está en algunas, baja solo esas.")}{' '}
+              {d.transcritosDelGen > 1 ? <>{trp(" de los {transcritosDelGen} que tiene el gen", { transcritosDelGen: n(d.transcritosDelGen) })}</> : null}{tr(". Un gen no hace un solo ARN: hace varias versiones cortando y reuniendo los trozos de maneras distintas. Si el oligo cae en un trozo que está en todas, baja la proteína entera; si cae en uno que solo está en algunas, baja solo esas.")}{' '}
               <b>{tr("Cuál bajar no es lo mismo que cuánta bajar")}</b>{tr(", y esa es una decisión científica: ROSA2018 enseña las opciones y la toma una persona.")}
             </p>
 
@@ -1762,17 +1740,17 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
             {d.candidatos.length > 1 ? (
               <>
                 <h3>
-                  {tr("EL CRIBADO")} {completo ? `· ${d.candidatos.length} CANDIDATOS` : tr('· TRAYENDO EL RESTO…')}
+                  {trp("EL CRIBADO {v}", { v: completo ? `· ${d.candidatos.length} CANDIDATOS` : tr('· TRAYENDO EL RESTO…') })}
                 </h3>
                 <p className="lab-nota">
                   {completo
-                    ? `Sesenta es el orden de magnitud de un cribado primario de verdad: el protocolo de Ionis describe probar unos ochenta en células para quedarse con ocho o diez, y esos ocho o diez son ya el resultado, no la entrada. Van separados al menos ${d.separacionUsada ?? 60} nucleótidos entre sí para que vengan de sitios distintos del transcrito.`
+                    ? trp("Sesenta es el orden de magnitud de un cribado primario de verdad: el protocolo de Ionis describe probar unos ochenta en células para quedarse con ocho o diez, y esos ocho o diez son ya el resultado, no la entrada. Van separados al menos {v} nucleótidos entre sí para que vengan de sitios distintos del transcrito.", { v: d.separacionUsada ?? 60 })
                     : tr('El muro trae ocho; el cribado entero se está trayendo.')}
                 </p>
                 {d.criba?.hecho ? (
                   <p className="lab-nota">
                     {tr("Van ordenados por el cribado contra el transcriptoma, no solo por su puntuación:")}{' '}
-                    <b>{n(d.limpios ?? 0)} sin choque exacto</b> y {n(d.descartadosPorCriba ?? 0)} {tr("descartados por encajar idéntico en otro gen. Los descartados no se esconden, van al final. El número uno es el primero que se puede pedir, que es lo que importa cuando ROSA2018 elige cuál mandaría.")}
+                    <b>{trp("{v} sin choque exacto", { v: n(d.limpios ?? 0) })}</b>{trp(" y {v} descartados por encajar idéntico en otro gen. Los descartados no se esconden, van al final. El número uno es el primero que se puede pedir, que es lo que importa cuando ROSA2018 elige cuál mandaría.", { v: n(d.descartadosPorCriba ?? 0) })}
                   </p>
                 ) : null}
                 <div className="aso-lista">
@@ -1787,8 +1765,7 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
                       >
                         <span className="aso-fila-n">{i + 1}</span>
                         <Secuencia c={x} />
-                        <span className="aso-fila-datos">
-                          pos {n(x.posicion)} · GC {Math.round(x.gc * 100)} % · motivos +{x.motivosBuenos}
+                        <span className="aso-fila-datos">{trp("pos {posicion} · GC {v} % · motivos +{motivosBuenos}", { posicion: n(x.posicion), v: Math.round(x.gc * 100), motivosBuenos: x.motivosBuenos })}
                           {/* Que un candidato se pueda probar en un roedor se ve
                               AQUÍ, en la lista: es lo que deja comparar el
                               compromiso de un vistazo, porque el que se puede
@@ -1798,8 +1775,7 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
                             <b className="aso-fila-sello bien">en {x.especies.sirvenEn.join(' y ')}</b>
                           ) : null}
                           {v === 'descartado' ? (
-                            <b className="aso-fila-sello">
-                              choca en {n(x.criba.genesFuera)} gen{x.criba.genesFuera === 1 ? '' : 'es'}
+                            <b className="aso-fila-sello">{(x.criba.genesFuera === 1 ? trp("choca en {genesFuera} gen", { genesFuera: n(x.criba.genesFuera) }) : trp("choca en {genesFuera} genes", { genesFuera: n(x.criba.genesFuera) }))}
                             </b>
                           ) : v === 'revisar' ? (
                             <b className="aso-fila-sello duda">revisar</b>
@@ -2176,7 +2152,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
   const pct = (x: number) => `${Math.round(x * 100)} %`;
 
   return (
-    <section ref={marco} className="lab-lamina" style={altoLamina ? { height: altoLamina } : undefined} aria-label={`Estructura de ${diana.simbolo}`}>
+    <section ref={marco} className="lab-lamina" style={altoLamina ? { height: altoLamina } : undefined} aria-label={trp("Estructura de {simbolo}", { simbolo: diana.simbolo })}>
       {/* El clic va aquí y no en el lienzo de Mol*: Mol* se queda con el suyo
           para girar, y este solo lee cuál es el residuo que ya está señalado. */}
       <div className="lab-lienzo" ref={caja} onClick={abrirResiduo} />
@@ -2220,14 +2196,13 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
 
       <div ref={bloqueRef} className={`lab-capa lab-bloque${nivel > 1 || pisados[0] ? ' lab-fuera' : ''}`}>
         <p className={`lab-catalogo lab-capa${nivel > 0 ? ' lab-fuera' : ''}`}>
-          <b>UNIPROT {diana.uniprot}</b> <i /> {diana.estructura.fuente.toUpperCase()} <i /> {diana.estructura.licencia}
+          <b>{trp("UNIPROT {uniprot}", { uniprot: diana.uniprot })}</b> <i /> {diana.estructura.fuente.toUpperCase()} <i /> {diana.estructura.licencia}
         </p>
         {diana.estructura.medidas ? (
           <p className={`lab-medidas lab-capa${nivel > 0 ? ' lab-fuera' : ''}`}>
             {tr("Lo que ves es el modelo predicho, el único de longitud completa. El PDB tiene")}{' '}
             <a href={diana.estructura.urlPDB} target="_blank" rel="noreferrer">
-              {diana.estructura.medidas.toLocaleString('es')} estructuras medidas
-            </a>{' '}
+              {trp("{v} estructuras medidas", { v: diana.estructura.medidas.toLocaleString('es') })}</a>{' '}
             {tr("de esta proteína; ROSA2018 no elige una porque casi todas son fragmentos.")}
           </p>
         ) : null}
@@ -2242,14 +2217,12 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
           <p className="lab-larga">
             {diana.hechos === 0 ? (
               <>
-                {tr("Todavía ninguna afirmación verificada la nombra. Está aquí porque")}{' '}
-                {diana.enHipotesis === 1 ? tr('una hipótesis la propone') : `${diana.enHipotesis} hipótesis la proponen`} como diana.
-              </>
+                {trp("Todavía ninguna afirmación verificada la nombra. Está aquí porque {v} como diana.", { v: diana.enHipotesis === 1 ? tr('una hipótesis la propone') : trp("{enHipotesis} hipótesis la proponen", { enHipotesis: diana.enHipotesis }) })}</>
             ) : (
               <>
                 {tr("La nombran")} <b>{diana.hechos.toLocaleString('es')}</b> {tr("afirmaciones de ROSA2018,")}{' '}
                 {diana.sabidos.toLocaleString('es')} sostenidas por {diana.fuentes} {diana.fuentes === 1 ? 'fuente' : 'fuentes'}
-                {diana.investigaciones.length > 1 ? <>, en {diana.investigaciones.length} investigaciones</> : null}.
+                {diana.investigaciones.length > 1 ? <>{trp(", en {investigaciones} investigaciones", { investigaciones: diana.investigaciones.length })}</> : null}.
               </>
             )}
           </p>
@@ -2266,8 +2239,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
             )}
             {h?.certeza ? (
               <span className={`lab-grado lab-grado-${h.certeza}`}>
-                <i /> {CERTEZA[h.certeza] ?? h.certeza} · GRADE
-              </span>
+                <i />{trp(" {v} · GRADE", { v: CERTEZA[h.certeza] ?? h.certeza })}</span>
             ) : null}
             {killer ? (
               <span className={`lab-grado lab-killer-${killer.tono}`}>
@@ -2300,16 +2272,15 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
       </div>
 
       <p className={`lab-capa lab-pie${nivel > 0 || pisados[1] ? ' lab-fuera' : ''}`}>
-        {diana.estructura.clase === 'predicha' ? tr('Modelo predicho, no medido: el color dice de qué tramos se fía. ') : tr('Estructura medida en un laboratorio. ')}
-        {tr("Acerca la rueda del ratón sobre la proteína")}
+        {(diana.estructura.clase === 'predicha' ? tr("Modelo predicho, no medido: el color dice de qué tramos se fía. Acerca la rueda del ratón sobre la proteína") : tr("Estructura medida en un laboratorio. Acerca la rueda del ratón sobre la proteína"))}
       </p>
 
       {!hayPanel && <button type="button" className={`lab-hoja-toggle${nivel > 0 ? ' lab-fuera' : ''}`} aria-expanded={hojaAbierta} aria-controls="ficha-laboratorio" onClick={() => fijarHojaAbierta(!hojaAbierta)}>
-        {hojaAbierta ? tr('Cerrar ficha') : 'Para el laboratorio'}
+        {(hojaAbierta ? tr("Cerrar ficha") : tr("Para el laboratorio"))}
       </button>}
       <aside id="ficha-laboratorio" aria-label={tr("Para el laboratorio")} className={`lab-capa lab-hoja${nivel > 0 ? ' lab-fuera' : ''}${hojaAbierta ? ' lab-hoja-abierta' : ' lab-hoja-cerrada'}`}>
         <header className="lab-hoja-cabecera">
-          <div className="lab-hoja-titulo"><h3>{hoja.sinExperimento ? 'Lo que se sabe' : 'Para el laboratorio'}</h3><Copiar texto={hojaComoTexto(diana)} que={tr("la hoja de pedido")} /><button type="button" className="lab-hoja-cerrar" aria-label={tr("Cerrar panel del laboratorio")} onClick={() => fijarHojaAbierta(false)}>Cerrar ×</button></div>
+          <div className="lab-hoja-titulo"><h3>{(hoja.sinExperimento ? tr("Lo que se sabe") : tr("Para el laboratorio"))}</h3><Copiar texto={hojaComoTexto(diana)} que={tr("la hoja de pedido")} /><button type="button" className="lab-hoja-cerrar" aria-label={tr("Cerrar panel del laboratorio")} onClick={() => fijarHojaAbierta(false)}>Cerrar ×</button></div>
           <div className="lab-hoja-identidad"><strong>{diana.simbolo}</strong><span>{hoja.identificador}</span></div>
           <p className="lab-hoja-estado" data-alerta={hoja.contradiceLaIntervencion || hoja.sinExperimento}>
             <i aria-hidden="true" />{hoja.contradiceLaIntervencion ? tr('Contrato por revisar') : hoja.sinExperimento ? tr('Sin experimento propuesto') : tr('Experimento propuesto')}
@@ -2326,17 +2297,17 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
             {hoja.refuta && <details className="lab-hoja-refutacion"><summary><span><strong>{tr("Qué la refutaría")}</strong><small>{tr("El criterio que pone a prueba la hipótesis")}</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary><p>{hoja.refuta}</p></details>}
             {hoja.controles && <details className="lab-hoja-controles"><summary><span><strong>Controles</strong><small>{tr("Cómo distinguir el efecto de un sesgo")}</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary><p>{hoja.controles}</p></details>}
           </>}
-          <details className="lab-hoja-origen"><summary><span><strong>{tr("De dónde viene la evidencia")}</strong><small>{diana.investigaciones.length} {diana.investigaciones.length === 1 ? tr('investigación') : 'investigaciones'} · {n(diana.fuentes)} fuentes</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary>
-            <p>{n(diana.hechos)} afirmaciones; {n(diana.sabidos)} sostenidas. {n(diana.fuentes)} fuentes.</p>
-            {diana.investigaciones.map((inv) => <div className="lab-origen-fila" key={inv.id}><span>{inv.titulo}</span><b>{n(inv.hechos)}</b><meter min={0} max={Math.max(1, ...diana.investigaciones.map(x => x.hechos))} value={inv.hechos} aria-label={`Afirmaciones de ${inv.titulo}`} /></div>)}
+          <details className="lab-hoja-origen"><summary><span><strong>{tr("De dónde viene la evidencia")}</strong><small>{(diana.investigaciones.length === 1 ? trp("{investigaciones} investigación · {fuentes} fuentes", { investigaciones: diana.investigaciones.length, fuentes: n(diana.fuentes) }) : trp("{investigaciones} investigaciones · {fuentes} fuentes", { investigaciones: diana.investigaciones.length, fuentes: n(diana.fuentes) }))}</small></span><span className="lab-ficha-desplegar" aria-hidden="true">+</span></summary>
+            <p>{trp("{hechos} afirmaciones; {sabidos} sostenidas. {fuentes} fuentes.", { hechos: n(diana.hechos), sabidos: n(diana.sabidos), fuentes: n(diana.fuentes) })}</p>
+            {diana.investigaciones.map((inv) => <div className="lab-origen-fila" key={inv.id}><span>{inv.titulo}</span><b>{n(inv.hechos)}</b><meter min={0} max={Math.max(1, ...diana.investigaciones.map(x => x.hechos))} value={inv.hechos} aria-label={trp("Afirmaciones de {titulo}", { titulo: inv.titulo })} /></div>)}
             <small>{tr("Las barras comparan el número de afirmaciones por investigación, no su certeza.")}</small>
           </details>
-          {hoja.faltan.length > 0 && <p className="lab-faltan">{tr("El contrato todavía no dice:")} {hoja.faltan.join(', ')}.</p>}
-          {hoja.otrosExperimentos.length > 0 && <p className="lab-faltan">{tr("Hay")} {hoja.otrosExperimentos.length} {hoja.otrosExperimentos.length === 1 ? tr('experimento adicional') : tr('experimentos adicionales')}{tr(". Cada uno conserva sus controles y su criterio de refutación. Copiar incluye todos.")}</p>}
+          {hoja.faltan.length > 0 && <p className="lab-faltan">{trp("El contrato todavía no dice: {v}.", { v: hoja.faltan.join(', ') })}</p>}
+          {hoja.otrosExperimentos.length > 0 && <p className="lab-faltan">{(hoja.otrosExperimentos.length === 1 ? trp("Hay {otrosExperimentos} experimento adicional. Cada uno conserva sus controles y su criterio de refutación. Copiar incluye todos.", { otrosExperimentos: hoja.otrosExperimentos.length }) : trp("Hay {otrosExperimentos} experimentos adicionales. Cada uno conserva sus controles y su criterio de refutación. Copiar incluye todos.", { otrosExperimentos: hoja.otrosExperimentos.length }))}</p>}
         </div>
         <footer className="lab-hoja-acciones">
           {diana.aso?.candidatos.length ? <button type="button" className="lab-abrir-experimento lab-abrir-aso" onClick={() => fijarVerAso(true)}><span className="lab-hoja-numero">{n(diana.aso.candidatosEnTotal ?? diana.aso.candidatos.length)}</span><span><strong>{tr("Explorar oligonucleótidos")}</strong><small>{tr("Candidatos para reducir la producción")}</small></span><span aria-hidden="true">↗</span></button> : null}
-          <button type="button" className="lab-abrir-experimento" onClick={() => fijarVerExperimento(true)}>{hoja.sinExperimento ? tr('Ver la evidencia y la química') : tr('Ver el experimento entero')}<span aria-hidden="true">↗</span></button>
+          <button type="button" className="lab-abrir-experimento" onClick={() => fijarVerExperimento(true)}>{(hoja.sinExperimento ? tr("Ver la evidencia y la química") : tr("Ver el experimento entero"))}<span aria-hidden="true">↗</span></button>
         </footer>
       </aside>
 
@@ -2372,7 +2343,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
             ? tr('Trayendo las anotaciones de UniProt…')
             : marcasEstado === 'sin_respuesta'
               ? tr('No pude comprobar qué partes tiene: UniProt no respondió. No quiere decir que no las tenga.')
-              : `UniProt no tiene dominios ni sitios anotados para ${diana.simbolo}.`}
+              : trp("UniProt no tiene dominios ni sitios anotados para {simbolo}.", { simbolo: diana.simbolo })}
         </p>
       ) : null}
 
@@ -2381,8 +2352,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
           <b>
             {AMINOACIDO[residuo.r.aa] ?? residuo.r.aa} {residuo.r.numero}
           </b>
-          <span>
-            pLDDT {residuo.r.plddt.toFixed(0)} · confianza <em>{confianzaEnPalabras(residuo.r.plddt)}</em>
+          <span>{trp("pLDDT {v} · confianza ", { v: residuo.r.plddt.toFixed(0) })}<em>{confianzaEnPalabras(residuo.r.plddt)}</em>
           </span>
           <i>{tr("pulsa para abrirlo")}</i>
         </div>
@@ -2390,7 +2360,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
 
 
 
-      {!medido && !fallo ? <div className="lab-cargando">{tr("trayendo la estructura de")} {diana.estructura.fuente}…</div> : null}
+      {!medido && !fallo ? <div className="lab-cargando">{trp("trayendo la estructura de {fuente}…", { fuente: diana.estructura.fuente })}</div> : null}
       {fijado ? (
         <FichaResiduo
           r={fijado.r}
@@ -2417,7 +2387,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
 
       {fallo ? (
         <div className="lab-cargando lab-fallo">
-          {tr("No pude traer la estructura de")} {diana.simbolo}. <span>{fallo}</span>
+          {trp("No pude traer la estructura de {simbolo}. ", { simbolo: diana.simbolo })}<span>{fallo}</span>
         </div>
       ) : null}
     </section>
@@ -2452,7 +2422,7 @@ function FichaCompuesto({ c }: { c: CompuestoDeLaboratorio }) {
         ) : (
           <>
             {tr("Lo nombran")} <b>{n(c.menciones)}</b> {c.menciones === 1 ? tr('afirmación') : 'afirmaciones'}
-            {c.sostenidos ? <>, {n(c.sostenidos)} {tr("sostenidas por su fuente")}</> : null}.
+            {c.sostenidos ? <>{trp(", {sostenidos} sostenidas por su fuente", { sostenidos: n(c.sostenidos) })}</> : null}.
           </>
         )}
         {c.ontologiaId ? <span className="lab-mono"> {c.ontologiaId}</span> : null}
@@ -2460,7 +2430,7 @@ function FichaCompuesto({ c }: { c: CompuestoDeLaboratorio }) {
 
       {c.enPubchem ? (
         <>
-          {c.url2d ? <img className="lab-2d" src={c.url2d} alt={`Estructura plana de ${c.nombre}`} loading="lazy" /> : null}
+          {c.url2d ? <img className="lab-2d" src={c.url2d} alt={trp("Estructura plana de {nombre}", { nombre: c.nombre })} loading="lazy" /> : null}
           <p className="lab-cerebro-motivo">{c.cerebro.motivo}.</p>
           <dl>
             <div>
@@ -2544,11 +2514,7 @@ function Decision({
         <div className="lab-decision-oligo">
           <Secuencia c={o.candidato} grande />
           <p className="lab-nota">
-            {tr("Posición")} {o.candidato.posicion.toLocaleString('es')} del transcrito {o.diseño.transcrito}
-            {o.candidato.region ? `, en la ${o.candidato.region}` : ''}.{' '}
-            {o.diseño.mismaIsoformaQueLaProteina
-              ? tr('Es la misma versión del gen que la proteína de al lado, confirmado por MANE Select.')
-              : tr('No se puede confirmar que sea la misma versión del gen que la proteína: este gen no tiene MANE Select.')}
+            {(o.diseño.mismaIsoformaQueLaProteina ? trp("Posición {v} del transcrito {transcrito}{v2}. Es la misma versión del gen que la proteína de al lado, confirmado por MANE Select.", { v: o.candidato.posicion.toLocaleString('es'), transcrito: o.diseño.transcrito, v2: o.candidato.region ? trp(", en la {region}", { region: o.candidato.region }) : '' }) : trp("Posición {v} del transcrito {transcrito}{v2}. No se puede confirmar que sea la misma versión del gen que la proteína: este gen no tiene MANE Select.", { v: o.candidato.posicion.toLocaleString('es'), transcrito: o.diseño.transcrito, v2: o.candidato.region ? trp(", en la {region}", { region: o.candidato.region }) : '' }))}
           </p>
           {diana ? (
             <button type="button" className="lab-abrir-experimento lab-abrir-aso" onClick={() => alAbrir(diana, 'aso')}>
@@ -2599,7 +2565,7 @@ function Decision({
               {o.paraAnimales.esElMismo
                 ? tr('Y se puede probar en un roedor.')
                 : o.paraAnimales.hay
-                  ? `Para empezar en el animal, el ${o.paraAnimales.candidato?.secuencia ?? 'otro'}.`
+                  ? trp("Para empezar en el animal, el {v}.", { v: o.paraAnimales.candidato?.secuencia ?? 'otro' })
                   : tr('Ninguno se puede probar en un roedor tal cual.')}
             </b>{' '}
             {o.paraAnimales.porQue}
@@ -2607,7 +2573,7 @@ function Decision({
               <>
                 {' '}
                 <span className="lab-mono">{o.paraAnimales.candidato?.secuencia}</span>
-                {o.paraAnimales.sirveEn?.length ? <> (encaja en {o.paraAnimales.sirveEn.join(' y ')}).</> : null}
+                {o.paraAnimales.sirveEn?.length ? <>{trp(" (encaja en {v}).", { v: o.paraAnimales.sirveEn.join(' y ') })}</> : null}
               </>
             ) : null}
           </p>
@@ -2615,7 +2581,7 @@ function Decision({
         {o.frenteA.length ? (
           <p>
             <b>{tr("Frente a las que sí competían:")}</b>{' '}
-            {o.frenteA.map((x) => `${x.simbolo}, que ${x.porQueNo}`).join('; ')}.
+            {o.frenteA.map((x) => trp("{simbolo}, que {porQueNo}", { simbolo: x.simbolo, porQueNo: x.porQueNo })).join('; ')}.
           </p>
         ) : null}
         <p>
@@ -2645,14 +2611,13 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
             tr('Todavía ninguna afirmación verificada nombra una proteína con identificador resuelto. Cuando la nombre, su estructura aparecerá aquí.')
           ) : (
             <>
-              {r.dianas === 1 ? tr('Una proteína') : `${r.dianas} proteínas`}, reunidas de{' '}
-              {r.investigaciones === 1 ? tr('la investigación') : `las ${r.investigaciones} investigaciones`} {tr("que ROSA2018 ha hecho. Las nombran")} {n(r.afirmaciones)} afirmaciones, {n(r.sostenidas)} {tr("de ellas sostenidas por su fuente.")}{' '}
+              {trp("{v}, reunidas de {v2} que ROSA2018 ha hecho. Las nombran {afirmaciones} afirmaciones, {sostenidas} de ellas sostenidas por su fuente. ", { v: r.dianas === 1 ? tr('Una proteína') : trp("{dianas} proteínas", { dianas: r.dianas }), v2: r.investigaciones === 1 ? tr('la investigación') : trp("las {investigaciones} investigaciones", { investigaciones: r.investigaciones }), afirmaciones: n(r.afirmaciones), sostenidas: n(r.sostenidas) })}
               <b>
                 {r.deBanco === 0
                   ? tr('Hoy ninguna se podría mandar a un laboratorio: ninguna hipótesis propone todavía un experimento de banco sobre ellas.')
                   : r.deBanco === 1
                     ? tr('De todas ellas, hoy se podría mandar una: es la única con un experimento de banco propuesto.')
-                    : `De todas ellas, hoy se podrían mandar ${r.deBanco}: son las que tienen un experimento de banco propuesto.`}
+                    : trp("De todas ellas, hoy se podrían mandar {deBanco}: son las que tienen un experimento de banco propuesto.", { deBanco: r.deBanco })}
               </b>{' '}
               {tr("Por eso el orden empieza por esas y no por las más nombradas.")} <b>{tr("ROSA2018 no ha diseñado ninguna")}</b>{tr(", las nombra lo que ha verificado, y aquí se ven tal como son.")}
             </>
@@ -2709,9 +2674,7 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
                 <>{tr("sin afirmaciones todavía; la propone una hipótesis")}</>
               ) : (
                 <>
-                  {n(d.sabidos)} {d.sabidos === 1 ? tr('afirmación sostenida') : tr('afirmaciones sostenidas')} · {d.fuentes}{' '}
-                  {d.fuentes === 1 ? 'fuente' : 'fuentes'}
-                  {d.investigaciones.length > 1 ? ` · ${d.investigaciones.length} investigaciones` : ''}
+                  {(d.sabidos === 1 ? trp("{sabidos} afirmación sostenida · {fuentes} {v}{v2}", { sabidos: n(d.sabidos), fuentes: d.fuentes, v: d.fuentes === 1 ? tr("fuente") : tr("fuentes"), v2: d.investigaciones.length > 1 ? ` · ${d.investigaciones.length} investigaciones` : '' }) : trp("{sabidos} afirmaciones sostenidas · {fuentes} {v}{v2}", { sabidos: n(d.sabidos), fuentes: d.fuentes, v: d.fuentes === 1 ? tr("fuente") : tr("fuentes"), v2: d.investigaciones.length > 1 ? ` · ${d.investigaciones.length} investigaciones` : '' }))}
                 </>
               )}
               {d.enHipotesis ? (
@@ -2720,7 +2683,7 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
                   return (
                     <em className={k ? `lab-estado-${KILLER[k]!.tono}` : ''}>
                       {' '}
-                      · {d.enHipotesis === 1 ? tr('1 hipótesis') : `${d.enHipotesis} hipótesis`}
+                      · {d.enHipotesis === 1 ? tr('1 hipótesis') : trp("{enHipotesis} hipótesis", { enHipotesis: d.enHipotesis })}
                       {k ? `, ${KILLER[k]!.texto}` : ''}
                     </em>
                   );
@@ -2752,7 +2715,7 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
                   {d.aso.candidatos[0]!.partes.ala3}
                 </span>
                 <span className="lab-pieza-aso-pie">
-                  {d.aso.candidatosEnTotal ?? d.aso.candidatos.length} {tr("oligonucleótidos para cortar su producción")} <em>→</em>
+                  {trp("{v} oligonucleótidos para cortar su producción ", { v: d.aso.candidatosEnTotal ?? d.aso.candidatos.length })}<em>→</em>
                 </span>
               </button>
             ) : null}
@@ -2786,15 +2749,14 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
               <b>{tr("Nombradas y sin estructura que traer:")}</b>{' '}
               {datos.nombradasSinEstructura.map((x) => (
                 <span key={x.simbolo}>
-                  {x.simbolo} ({x.hechos} {x.hechos === 1 ? tr('afirmación') : 'afirmaciones'}): {x.motivo}.{' '}
+                  {(x.hechos === 1 ? trp("{simbolo} ({hechos} afirmación): {motivo}. ", { simbolo: x.simbolo, hechos: x.hechos, motivo: x.motivo }) : trp("{simbolo} ({hechos} afirmaciones): {motivo}. ", { simbolo: x.simbolo, hechos: x.hechos, motivo: x.motivo }))}
                 </span>
               ))}
             </p>
           ) : null}
           {datos.descartadasPorAlias.length ? (
             <p>
-              <b>{tr("Descartadas por resolverse solo por alias:")}</b>{' '}
-              {datos.descartadasPorAlias.map((x) => `${x.simbolo} (${x.hechos})`).join(', ')}{tr(". Son nombres que la normalización de entidades convirtió en genes que nadie mencionó: la escala ADAS-Cog entra como AGPS, la anomalía de imagen ARIA como ECSCR, los trazadores FDG y F18 como SMUG1 y MAMLD1. Mandar eso a un laboratorio sería un error caro, así que se quedan fuera y se dicen.")}
+              <b>{tr("Descartadas por resolverse solo por alias:")}</b>{trp(" {v}. Son nombres que la normalización de entidades convirtió en genes que nadie mencionó: la escala ADAS-Cog entra como AGPS, la anomalía de imagen ARIA como ECSCR, los trazadores FDG y F18 como SMUG1 y MAMLD1. Mandar eso a un laboratorio sería un error caro, así que se quedan fuera y se dicen.", { v: datos.descartadasPorAlias.map((x) => `${x.simbolo} (${x.hechos})`).join(', ') })}
             </p>
           ) : null}
         </section>
@@ -2802,7 +2764,7 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
 
       {datos.sinResolver.length ? (
         <p className="lab-sinresolver">
-          {tr("Nombres que se buscaron y PubChem no reconoce como compuesto:")} {datos.sinResolver.map((x) => x.nombre).join(', ')}{tr(". Suelen ser anticuerpos o nombres de familia, que no tienen ficha de molécula pequeña.")}
+          {trp("Nombres que se buscaron y PubChem no reconoce como compuesto: {v}. Suelen ser anticuerpos o nombres de familia, que no tienen ficha de molécula pequeña.", { v: datos.sinResolver.map((x) => x.nombre).join(', ') })}
         </p>
       ) : null}
 
@@ -2884,9 +2846,9 @@ function Miniatura({ diana, grande }: { diana: DianaDeLaboratorio; grande: boole
         <span className="lab-barra" aria-hidden="true">
           <i style={{ width: pct === null ? '0%' : `${pct}%` }} />
         </span>
-        <span className="lab-confianza">{fallo ? tr('no pude traer la estructura de AlphaFold') : pct === null ? tr('trayendo la estructura…') : `${pct} % del modelo con confianza alta`}</span>
+        <span className="lab-confianza">{fallo ? tr('no pude traer la estructura de AlphaFold') : pct === null ? tr('trayendo la estructura…') : trp("{pct} % del modelo con confianza alta", { pct })}</span>
       </span>
-      <span className="lab-sello">{diana.estructura.clase === 'predicha' ? 'predicha' : 'medida'}</span>
+      <span className="lab-sello">{(diana.estructura.clase === 'predicha' ? tr("predicha") : tr("medida"))}</span>
     </>
   );
 }

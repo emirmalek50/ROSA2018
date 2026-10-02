@@ -8,7 +8,7 @@
 // hara el cerebro del bucle con el mismo contrato de salida.
 
 import type { ConfiguracionObjetivo } from '../datos/tipos';
-import { tr } from './idioma';
+import { tr, trp } from './idioma';
 
 export interface AvisoObjetivo {
   tipo: 'corto' | 'varios_objetivos' | 'respuesta_obvia' | 'sin_contexto' | 'sin_comprobacion' | 'sin_parada' | 'parada_no_medible';
@@ -73,15 +73,15 @@ export function parafrasis(objetivo: string): Parafrasis[] {
   if (o === '') return [];
   return [
     {
-      redaccion: `${o}. Prioriza mecanismos con una diana y di con que biomarcador se comprobaria cada uno.`,
+      redaccion: trp("{o}. Prioriza mecanismos con una diana y di con que biomarcador se comprobaria cada uno.", { o }),
       primerasTareas: [tr('Buscar mecanismos y dianas en Open Targets y Agora'), tr('Leer revisiones recientes de neuroinflamación y genética'), tr('Proponer 3 hipótesis mecanísticas con biomarcador')],
     },
     {
-      redaccion: `${o}. Prioriza asociaciones biomarcador-progresión en cohortes longitudinales, y distingue Alzheimer familiar de esporadico.`,
+      redaccion: trp("{o}. Prioriza asociaciones biomarcador-progresión en cohortes longitudinales, y distingue Alzheimer familiar de esporadico.", { o }),
       primerasTareas: [tr('Buscar cohortes longitudinales con biomarcadores plasmáticos seriados'), tr('Comparar familiar frente a esporádico en la literatura'), tr('Proponer 3 hipótesis de anticipación con umbrales')],
     },
     {
-      redaccion: `${o}. Prioriza candidatos a reposicionamiento con un biomarcador de respuesta, y comprueba primero si ya están en ensayo.`,
+      redaccion: trp("{o}. Prioriza candidatos a reposicionamiento con un biomarcador de respuesta, y comprueba primero si ya están en ensayo.", { o }),
       primerasTareas: [tr('Consultar ClinicalTrials.gov por fármacos en fase 2 y 3'), tr('Buscar biomarcadores de respuesta en esos ensayos'), tr('Descartar lo que ya tiene ensayo con ese desenlace')],
     },
   ];

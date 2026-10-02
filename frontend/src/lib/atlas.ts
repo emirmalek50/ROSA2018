@@ -845,7 +845,7 @@ export function construirAtlas(estado: EstadoRosa, inv: Investigacion, filtros: 
     for (const k of ordenarClaves(new Set([...Object.keys(conteosGuardados), ...calculado.keys()]), orden)) {
       const g = cuentaDe(conteosGuardados[k]);
       const c = calculado.get(k)?.size ?? 0;
-      if (g !== c) ejesDesfasados.push(`${etiqueta(eje, k)}: ${g} en el resumen guardado, ${c} en las celdas`);
+      if (g !== c) ejesDesfasados.push(trp("{eje}: {g} en el resumen guardado, {c} en las celdas", { eje: etiqueta(eje, k), g, c }));
     }
   }
 

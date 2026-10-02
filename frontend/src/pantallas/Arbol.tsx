@@ -55,7 +55,7 @@ import { acotarCamara, camaraInicial, distanciaEncuadre, ESPERA_GIRO_MS, paso3d,
 import { ajusteLienzo, construirEscena, dibujar, nodoBajoPuntero, Paleta, registrarEscena, RESPALDOS_PALETA, type Escena, type EstiloNodo, type Trazo } from '../lib/lienzo_arbol';
 import { useCalculoDiferido } from '../lib/diferido';
 import { useMovimientoReducido } from '../lib/movimiento';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 const COLOR: Record<TipoNodo, string> = {
   objetivo: 'var(--accent)',
   rama: 'var(--accent-soft-2)',
@@ -924,7 +924,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
 
       <div className="grafo-marco">
         <div>
-          <canvas ref={lienzoRef} className="grafo" data-vista={vista3d ? '3d' : 'plana'} role="img" aria-label={`Árbol de ${inv.titulo}${vista3d ? tr(' en tres dimensiones') : ''}: ${nodosVisibles.length} nodos y ${enlacesVisibles.length} enlaces visibles`} onPointerDown={empezarArrastre} onPointerMove={mover} onPointerUp={soltar} onPointerCancel={soltar} onPointerLeave={salir} onDoubleClick={dobleClic} />
+          <canvas ref={lienzoRef} className="grafo" data-vista={vista3d ? '3d' : 'plana'} role="img" aria-label={(vista3d ? trp("Árbol de {titulo} en tres dimensiones: {nodosVisibles} nodos y {enlacesVisibles} enlaces visibles", { titulo: inv.titulo, nodosVisibles: nodosVisibles.length, enlacesVisibles: enlacesVisibles.length }) : trp("Árbol de {titulo}: {nodosVisibles} nodos y {enlacesVisibles} enlaces visibles", { titulo: inv.titulo, nodosVisibles: nodosVisibles.length, enlacesVisibles: enlacesVisibles.length }))} onPointerDown={empezarArrastre} onPointerMove={mover} onPointerUp={soltar} onPointerCancel={soltar} onPointerLeave={salir} onDoubleClick={dobleClic} />
           {/* La misma información para el teclado y los lectores de pantalla: un botón por
               nodo visible. Llevan las clases grafo-nodo y grafo-<tipo> que tenían las esferas
               del SVG: son los nodos en el árbol de accesibilidad y así los localizan los tests. */}
@@ -945,8 +945,8 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
               <h3>{nodoSel.etiqueta}</h3>
               {nodoSel.sub && <p className="meta">{nodoSel.sub}</p>}
               {nodoSel.alerta && <p className="tono-mal" style={{ fontSize: 13 }}>{nodoSel.alerta}</p>}
-              {nodoSel.alias && nodoSel.alias.length > 1 && <p className="meta">Alias: {nodoSel.alias.slice(0, 8).join(', ')}</p>}
-              <p className="meta">{tr("Aparece desde la iteración")} {nodoSel.iteracion || 1} de {grafo.iteracionMax} {tr("(contando seguidas todas las corridas).")}</p>
+              {nodoSel.alias && nodoSel.alias.length > 1 && <p className="meta">{trp("Alias: {v}", { v: nodoSel.alias.slice(0, 8).join(', ') })}</p>}
+              <p className="meta">{trp("Aparece desde la iteración {v} de {iteracionMax} (contando seguidas todas las corridas).", { v: nodoSel.iteracion || 1, iteracionMax: grafo.iteracionMax })}</p>
               {!SIN_DISTANCIA.has(nodoSel.tipo) && <p className="meta">{fraseProfundidad(nodoSel)}</p>}
               <h4>{tr("Conectado con")}</h4>
               <ul className="grafo-vecinos">
@@ -1044,15 +1044,14 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
       </div>
       <div className="grafo-tiempo">
         <button type="button" className="btn btn-s" aria-pressed={hasta === grafo.iteracionMax} onClick={() => setHasta(grafo.iteracionMax)}>
-          {hasta === grafo.iteracionMax ? tr('En vivo') : tr('Volver al presente')}
+          {(hasta === grafo.iteracionMax ? tr("En vivo") : tr("Volver al presente"))}
         </button>
         <label htmlFor="grafo-iteracion">
-          {tr("Cómo creció: hasta la iteración")} <strong>{hasta}</strong> de {grafo.iteracionMax}
+          {tr("Cómo creció: hasta la iteración")} <strong>{hasta}</strong>{trp(" de {iteracionMax}", { iteracionMax: grafo.iteracionMax })}
         </label>
         <input id="grafo-iteracion" type="range" min={1} max={Math.max(1, grafo.iteracionMax)} value={Math.min(hasta, Math.max(1, grafo.iteracionMax))} onChange={(e) => setHasta(Number(e.target.value))} />
         <span className="meta">
-          {nodosVisibles.length} nodos · {enlacesVisibles.length} enlaces
-        </span>
+          {trp("{nodosVisibles} nodos · {enlacesVisibles} enlaces", { nodosVisibles: nodosVisibles.length, enlacesVisibles: enlacesVisibles.length })}</span>
       </div>
     </div>
   );

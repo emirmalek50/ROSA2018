@@ -16,7 +16,7 @@ import { CATEGORIA_CASO, COMPROBACION_KILLER, ESTADO_CASO, TIPO_AFIRMACION } fro
 import { coma, formatearPorcentaje } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
 import { atributosEnVuelo } from '../lib/diferido';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 function Caso({ c }: { c: CasoControl }) {
   const [respuesta, setRespuesta] = useState(c.respuestaEsperada);
@@ -27,7 +27,7 @@ function Caso({ c }: { c: CasoControl }) {
         {c.critico && <Chip tono="aviso">Importante</Chip>}
         <Chip tono={c.estado === 'aprobado' ? 'ok' : c.estado === 'descartado' ? 'mal' : undefined}>{ESTADO_CASO[c.estado]}</Chip>
         <span className="meta" style={{ marginLeft: 'auto' }}>
-          {c.origen === 'generado' ? tr('Propuesto por el RAG') : tr('Escrito a mano')}
+          {(c.origen === 'generado' ? tr("Propuesto por el RAG") : tr("Escrito a mano"))}
         </span>
       </div>
       <p className="caso-pregunta">{c.pregunta}</p>
@@ -106,12 +106,12 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         <div>
           <h2>Calidad</h2>
           <p>
-            {tr("El juez se calibra con casos aprobados por personas antes de fijarlo. Hoy hay")} {aprobados} de {estado.casos.length} {tr("aprobados: con cero, las métricas de acuerdo no significan nada.")}
+            {trp("El juez se calibra con casos aprobados por personas antes de fijarlo. Hoy hay {aprobados} de {casos} aprobados: con cero, las métricas de acuerdo no significan nada.", { aprobados, casos: estado.casos.length })}
           </p>
         </div>
       </div>
 
-      <Seccion detalle titulo={tr("Métricas del juez")} nota={ultima ? `Última medición con ${ultima.juez}` : tr('Sin mediciones')} acciones={ultima ? <Momento t={ultima.fecha} ahora={ahora} /> : undefined}>
+      <Seccion detalle titulo={tr("Métricas del juez")} nota={ultima ? trp("Última medición con {juez}", { juez: ultima.juez }) : tr('Sin mediciones')} acciones={ultima ? <Momento t={ultima.fecha} ahora={ahora} /> : undefined}>
         {ultima && (
           <div className="metricas">
             <div className="gasto-item">
@@ -151,8 +151,8 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
           return (
             <>
               <div className="acciones" style={{ marginBottom: 8 }}>
-                <Chip tono={global.kappa !== null && global.kappa >= 0.61 ? 'ok' : 'aviso'}>Global: kappa {global.kappa ?? 'n/a'} ({global.interpretacion})</Chip>
-                <span className="meta">{global.n} etiquetas; acuerdo bruto {global.bruto === null ? 'n/a' : formatearPorcentaje(global.bruto)}</span>
+                <Chip tono={global.kappa !== null && global.kappa >= 0.61 ? 'ok' : 'aviso'}>{trp("Global: kappa {v} ({interpretacion})", { v: global.kappa ?? 'n/a', interpretacion: global.interpretacion })}</Chip>
+                <span className="meta">{trp("{n} etiquetas; acuerdo bruto {v}", { n: global.n, v: global.bruto === null ? 'n/a' : formatearPorcentaje(global.bruto) })}</span>
               </div>
               <table className="tabla">
                 <thead>
@@ -192,8 +192,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
                   <Chip tono={v === null ? 'borde' : v >= 0.8 ? 'ok' : v >= 0.65 ? 'aviso' : 'mal'}>{v === null ? tr('sin medir') : formatearPorcentaje(v)}</Chip>
                 </div>
                 <p className="meta" style={{ marginTop: 6 }}>
-                  {TIPO_AFIRMACION[t].nota} {tiposCuenta[t]} en esta investigación.
-                </p>
+                  {trp("{nota} {v} en esta investigación.", { nota: TIPO_AFIRMACION[t].nota, v: tiposCuenta[t] })}</p>
                 {v !== null && (
                   <div className="presupuesto-barra" style={{ marginTop: 8 }}>
                     <i style={{ width: `${v * 100}%`, background: v >= 0.8 ? 'var(--green)' : v >= 0.65 ? 'var(--amber)' : 'var(--red)' }} />
@@ -253,7 +252,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         return (
           <Seccion titulo={tr("Carga de revisión")} nota={tr("Segundos entre abrir la ficha de una hipótesis y decidir sobre ella. Es la cifra con la que se compara ROSA2018 contra investigar sin ella: si revisar cuesta más que hacerlo a mano, pierde.")}>
             <p className="meta">
-              {media === null ? tr('Sin decisiones humanas con tiempo medido todavía.') : `${propias.length} ${propias.length === 1 ? 'decision' : 'decisiones'} medidas; media ${Math.round(media)} s por decisión (${(media / 60).toFixed(1)} min).`}
+              {media === null ? tr('Sin decisiones humanas con tiempo medido todavía.') : (propias.length === 1 ? trp("{propias} decision medidas; media {media} s por decisión ({v} min).", { propias: propias.length, media: Math.round(media), v: (media / 60).toFixed(1) }) : trp("{propias} decisiones medidas; media {media} s por decisión ({v} min).", { propias: propias.length, media: Math.round(media), v: (media / 60).toFixed(1) }))}
             </p>
           </Seccion>
         );
@@ -292,8 +291,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
                     <a className="enlace" href={rutaDe(inv.id, 'hipotesis', d.id)}>
                       {d.titulo.length > 60 ? `${d.titulo.slice(0, 57)}...` : d.titulo}
                     </a>
-                    <span className="meta">
-                      revisor {d.revisor}, persona {d.humano}
+                    <span className="meta">{trp("revisor {revisor}, persona {humano}", { revisor: d.revisor, humano: d.humano })}
                     </span>
                   </li>
                 ))}
@@ -320,7 +318,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
           </div>
           <div className="tarjeta">
             <p className="campo-etiqueta">{tr("Coste por hipótesis")}</p>
-            <p style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{coma(costeTotal.toFixed(1))} {tr("$ en total")}</p>
+            <p style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{trp("{v} $ en total", { v: coma(costeTotal.toFixed(1)) })}</p>
             <table className="tabla" style={{ marginTop: 6 }}>
               <tbody>
                 {[...propias]
@@ -333,7 +331,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
                         </a>
                       </td>
                       <td className="num">{coma((h.coste.literatura + h.coste.analisis).toFixed(1))} $</td>
-                      <td className="num meta">Elo {h.elo}</td>
+                      <td className="num meta">{trp("Elo {elo}", { elo: h.elo })}</td>
                     </tr>
                   ))}
               </tbody>
@@ -370,7 +368,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         </div>
         )}
         {avisoGepa && <p role="status">{avisoGepa}</p>}
-        {estado.gepaAutomatico && <p className="meta">{Object.entries(estado.gepaAutomatico.trazas).map(([tipo, n]) => `${tipo}: ${n}`).join(' · ')} {tr("· Errores de registro:")} {estado.gepaAutomatico.erroresRegistro}{tr(". Programas con evaluación automática:")} {estado.gepaAutomatico.programas.join(', ')}.{typeof estado.gepaAutomatico.gastoUsd === 'number' ? ` Gasto acumulado de la optimización: ${coma(estado.gepaAutomatico.gastoUsd.toFixed(2))} $.` : ''} {tr("Solo administración puede pausar, reanudar o volver a base; una promoción queda también en el registro de aprendizaje (Ajustes) y se revierte desde allí.")}</p>}
+        {estado.gepaAutomatico && <p className="meta">{trp("{v} · Errores de registro: {erroresRegistro}. Programas con evaluación automática: {v2}.{v3} Solo administración puede pausar, reanudar o volver a base; una promoción queda también en el registro de aprendizaje (Ajustes) y se revierte desde allí.", { v: Object.entries(estado.gepaAutomatico.trazas).map(([tipo, n]) => `${tipo}: ${n}`).join(' · '), erroresRegistro: estado.gepaAutomatico.erroresRegistro, v2: estado.gepaAutomatico.programas.join(', '), v3: typeof estado.gepaAutomatico.gastoUsd === 'number' ? trp(" Gasto acumulado de la optimización: {v} $.", { v: coma(estado.gepaAutomatico.gastoUsd.toFixed(2)) }) : '' })}</p>}
         <table className="tabla">
           <thead>
             <tr>
@@ -399,7 +397,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
                   <td className={`num ${g.metricaFinal > g.metricaInicial ? 'subida' : ''}`}>{g.estado === 'terminada' ? formatearPorcentaje(g.metricaFinal) : 'Pendiente'}</td>
                   <td className="num">{g.candidatos}</td>
                   <td className="num">{g.gasto ? `${coma(g.gasto.usd.toFixed(2))} $ · ${g.gasto.llamadas} llamadas` : 'sin dato'}</td>
-                  <td>{g.estado === 'en_marcha' ? <Chip tono="acento">{tr("En marcha")}</Chip> : g.estado === 'terminada' ? <Chip tono={g.promovido ? 'ok' : 'borde'}>{g.promovido ? tr('Activado para nuevas corridas') : 'Terminada'}</Chip> : <Chip tono="mal">Fallida</Chip>}<p className="meta">{g.nota}</p></td>
+                  <td>{g.estado === 'en_marcha' ? <Chip tono="acento">{tr("En marcha")}</Chip> : g.estado === 'terminada' ? <Chip tono={g.promovido ? 'ok' : 'borde'}>{(g.promovido ? tr("Activado para nuevas corridas") : tr("Terminada"))}</Chip> : <Chip tono="mal">Fallida</Chip>}<p className="meta">{g.nota}</p></td>
                   <td>
                     {g.enlaceMlflow && <a className="enlace" href={g.enlaceMlflow} target="_blank" rel="noopener noreferrer">
                       MLflow <IconExternal />

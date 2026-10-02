@@ -12,7 +12,7 @@ import { pendientesDeRevision } from '../lib/hipotesis';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { rutaDe, vistaDeRanking, type Pantalla } from '../lib/ruta';
 import { proponiendoPlan } from '../lib/etiquetas';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 export type Etapa = 'plan' | 'literatura' | 'verificar' | 'mundo' | 'hipotesis' | 'candidatas' | 'laboratorio';
 
@@ -93,9 +93,9 @@ export function estadoDelHilo(estado: EstadoRosa, inv: Investigacion, corrida: C
   const datosPendientes = inv.datasets.filter((d) => d.estado === 'pendiente').length;
   if (datosPendientes > 0) esperan.mundo = (esperan.mundo ?? 0) + datosPendientes;
   const cuentas: Partial<Record<Etapa, string>> = {
-    plan: it ? `iteración ${it.numero}` : '',
+    plan: it ? trp("iteración {numero}", { numero: it.numero }) : '',
     literatura: corrida ? `${corrida.busqueda.cribados} fuentes` : '',
-    verificar: afirmaciones.length ? `${sostenidas} de ${afirmaciones.length} sostenidas` : '',
+    verificar: afirmaciones.length ? trp("{sostenidas} de {afirmaciones} sostenidas", { sostenidas, afirmaciones: afirmaciones.length }) : '',
     mundo: hechos.length ? `${hechos.length} hechos` : '',
     hipotesis: hip.length ? `${hip.filter((h) => h.estado !== 'descartada').length} vivas` : '',
     candidatas: candidatas.length ? `${candidatas.length}` : '',
@@ -125,7 +125,7 @@ export function HiloDelProceso({ estado, inv, pantalla, detalleId = null, compac
             ? (pantalla === 'ranking' && vistaDeRanking(detalleId) === e.detalle) || (pantalla === 'hipotesis' && e.detalle === 'pendientes')
             : pantalla === e.pantalla && (e.pantalla !== 'corrida' || e.clave === (hilo.activa ?? 'plan'));
         return (
-          <a key={e.clave} className={`hilo-etapa ${activa ? 'hilo-activa' : ''} ${hecha ? 'hilo-hecha' : ''} ${espera ? 'hilo-espera' : ''} ${aqui ? 'hilo-aqui' : ''}`} href={rutaDe(inv.id, e.pantalla, e.detalle)} title={`${e.nombre}. ${e.explicacion}${espera ? ` Te espera${espera > 1 ? 'n' : ''} ${espera}.` : ''}`} aria-current={aqui ? 'step' : undefined}>
+          <a key={e.clave} className={`hilo-etapa ${activa ? 'hilo-activa' : ''} ${hecha ? 'hilo-hecha' : ''} ${espera ? 'hilo-espera' : ''} ${aqui ? 'hilo-aqui' : ''}`} href={rutaDe(inv.id, e.pantalla, e.detalle)} title={`${e.nombre}. ${e.explicacion}${espera ? (espera > 1 ? trp(" Te esperan {espera}.", { espera }) : trp(" Te espera {espera}.", { espera })) : ''}`} aria-current={aqui ? 'step' : undefined}>
             <span className="hilo-punto" aria-hidden="true">
               {activa && !reducido && <motion.i className="hilo-latido" animate={{ scale: [1, 1.9, 1], opacity: [0.55, 0, 0.55] }} transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }} />}
               {hecha ? '✓' : i + 1}

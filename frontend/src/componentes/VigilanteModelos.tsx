@@ -19,7 +19,7 @@
 import type { EsperaModelo, EstadoCorrida, Incidencia, RolModelo, SaludModelo } from '../datos/tipos';
 import { formatearDuracion } from '../lib/formato';
 import { IconPlay } from './icons';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 /** Nombres legibles de los modelos del gateway; los demás se enseñan tal cual. */
 export const NOMBRES_MODELOS: Readonly<Record<string, string>> = traducido({
@@ -79,7 +79,7 @@ function esSalud(x: unknown): x is SaludModelo {
 function significado(estado: string): { etiqueta: string; tono: TonoSalud; explicacion: string } {
   // Un estado que el servidor añada y esta versión no conozca se trata como
   // aviso: "no pude comprobar" nunca es "todo bien".
-  return SIGNIFICADO_ESTADO[estado as SaludModelo['estado']] ?? { etiqueta: estado.replace(/_/g, ' '), tono: 'aviso', explicacion: `Estado "${estado}" que esta versión de la interfaz no conoce.` };
+  return SIGNIFICADO_ESTADO[estado as SaludModelo['estado']] ?? { etiqueta: estado.replace(/_/g, ' '), tono: 'aviso', explicacion: trp("Estado \"{estado}\" que esta versión de la interfaz no conoce.", { estado }) };
 }
 
 /** "reintento 3 de 4 en 45 s", "4 intentos sin respuesta · próximo sondeo en
@@ -89,9 +89,9 @@ function significado(estado: string): { etiqueta: string; tono: TonoSalud; expli
 export function textoReintento(intentos: unknown, proximo: unknown, ahora: number): string {
   const n = typeof intentos === 'number' && Number.isFinite(intentos) ? Math.max(0, Math.floor(intentos)) : 0;
   const en = num(proximo) ? (proximo - ahora > 1000 ? ` en ${formatearDuracion(proximo - ahora)}` : ' ahora') : '';
-  if (n >= MAX_INTENTOS) return `${n} intentos sin respuesta · próximo sondeo${en}`;
+  if (n >= MAX_INTENTOS) return trp("{n} intentos sin respuesta · próximo sondeo{en}", { n, en });
   // "reintento" es sustantivo ("reintento 2 de 4"), no el pretérito "reintentó": el acentuador lo excluye a mano.
-  return `reintento ${Math.min(n + 1, MAX_INTENTOS)} de ${MAX_INTENTOS}${en}`;
+  return trp("reintento {v} de {MAX_INTENTOS}{en}", { v: Math.min(n + 1, MAX_INTENTOS), MAX_INTENTOS, en });
 }
 
 /** La frase en llano de un rol: "GPT-6 Astra (cerebro): responde, última
@@ -103,12 +103,12 @@ export function textoSalud(rol: string, s: SaludModelo, ahora: number): string {
     let hace = '';
     if (num(s.ultimaRespuestaEn)) {
       const dif = ahora - s.ultimaRespuestaEn;
-      hace = dif < 1000 ? tr(', última respuesta hace un momento') : `, última respuesta hace ${formatearDuracion(dif)}`;
+      hace = dif < 1000 ? tr(', última respuesta hace un momento') : trp(", última respuesta hace {dif}", { dif: formatearDuracion(dif) });
     }
     const latencia = num(s.ultimaLatenciaMs) ? ` (${formatearDuracion(s.ultimaLatenciaMs)})` : '';
     return `${quien}: responde${hace}${latencia}`;
   }
-  const desde = num(s.desde) ? ` desde las ${horaCorta(s.desde)}` : '';
+  const desde = num(s.desde) ? trp(" desde las {desde}", { desde: horaCorta(s.desde) }) : '';
   return `${quien}: ${significado(s.estado).etiqueta}${desde} · ${textoReintento(s.intentos, s.proximoIntentoEn, ahora)}`;
 }
 
@@ -150,7 +150,7 @@ export function resumenDeSalud(filas: { rol: string; s: SaludModelo }[]): string
   if (sinRespuesta === 0) return cuenta(lentos, tr('tarda en responder'), tr('tardan en responder'));
   const caidos = cuenta(sinRespuesta, tr('no responde'), tr('no responden'));
   if (lentos === 0) return `${caidos}; ROSA2018 reintenta sola`;
-  return `${caidos} y ${cuenta(lentos, 'tarda', 'tardan')}; ROSA2018 reintenta sola`;
+  return trp("{caidos} y {lentos}; ROSA2018 reintenta sola", { caidos, lentos: cuenta(lentos, 'tarda', 'tardan') });
 }
 
 /** La franja "Modelos". `saludModelos` es la salud de los modelos ahora, común
@@ -193,10 +193,10 @@ export function VigilanteModelos({ salud, incidencias = [], estadoCorrida, esper
         <ul className="vigilante-incidencias" aria-label={tr("Incidencias que ROSA2018 resuelve sola")}>
           {automaticas.map((i) => (
             <li key={i.id} title={i.detalle}>
-              <span className="chip chip-aviso">{viva ? tr('resolviéndose solo') : tr('quedó abierta al cerrar la corrida')}</span>
+              <span className="chip chip-aviso">{(viva ? tr("resolviéndose solo") : tr("quedó abierta al cerrar la corrida"))}</span>
               <span>
                 {i.titulo}
-                {num(i.creadaEn) && ahora - i.creadaEn >= 1000 ? ` · desde hace ${formatearDuracion(ahora - i.creadaEn)}` : ''}
+                {num(i.creadaEn) && ahora - i.creadaEn >= 1000 ? trp(" · desde hace {v}", { v: formatearDuracion(ahora - i.creadaEn) }) : ''}
               </span>
             </li>
           ))}
@@ -210,20 +210,19 @@ export function VigilanteModelos({ salud, incidencias = [], estadoCorrida, esper
  *  última vez y el botón para no esperar al próximo sondeo. */
 export function AvisoEsperandoModelo({ espera, ahora, onReintentar }: { espera: EsperaModelo | null | undefined; ahora: number; onReintentar?: () => void }) {
   const nombre = nombreDeModelo(espera?.modelo);
-  const ultima = num(espera?.ultimoSondeo) ? `última comprobación ${horaCorta(espera?.ultimoSondeo)}` : num(espera?.proximoSondeo) ? `primera comprobación a las ${horaCorta(espera?.proximoSondeo)}` : tr('todavía sin comprobación registrada');
+  const ultima = num(espera?.ultimoSondeo) ? trp("última comprobación {ultimoSondeo}", { ultimoSondeo: horaCorta(espera?.ultimoSondeo) }) : num(espera?.proximoSondeo) ? trp("primera comprobación a las {proximoSondeo}", { proximoSondeo: horaCorta(espera?.proximoSondeo) }) : tr('todavía sin comprobación registrada');
   const detalles: string[] = [];
-  if (num(espera?.desde)) detalles.push(`sin respuesta desde las ${horaCorta(espera?.desde)} (${formatearDuracion(Math.max(1000, ahora - (espera?.desde ?? ahora))) || tr('un momento')})`);
-  if (typeof espera?.intentos === 'number' && espera.intentos > 0) detalles.push(`${espera.intentos} ${espera.intentos === 1 ? 'intento' : 'intentos'} con ${nombre}`);
+  if (num(espera?.desde)) detalles.push(trp("sin respuesta desde las {desde} ({v})", { desde: horaCorta(espera?.desde), v: formatearDuracion(Math.max(1000, ahora - (espera?.desde ?? ahora))) || tr('un momento') }));
+  if (typeof espera?.intentos === 'number' && espera.intentos > 0) detalles.push((espera.intentos === 1 ? trp("{intentos} intento con {nombre}", { intentos: espera.intentos, nombre }) : trp("{intentos} intentos con {nombre}", { intentos: espera.intentos, nombre })));
   detalles.push(tr('el reloj de trabajo no corre mientras espera'));
   return (
     <div className="vigilante-aviso" role="status">
       <div className="vigilante-aviso-texto">
         <p>
-          {tr("ROSA2018 espera a que")} {nombre} {tr("vuelva a responder. Sondea cada minuto y retomará sola;")} {ultima}.
-        </p>
+          {trp("ROSA2018 espera a que {nombre} vuelva a responder. Sondea cada minuto y retomará sola; {ultima}.", { nombre, ultima })}</p>
         <p className="meta">{detalles.join(' · ')}.</p>
       </div>
-      <button type="button" className="btn btn-primario btn-s" onClick={onReintentar} title={`Vuelve a intentarlo con ${nombre} ahora mismo, sin esperar al próximo sondeo. No cambia de modelo.`}>
+      <button type="button" className="btn btn-primario btn-s" onClick={onReintentar} title={trp("Vuelve a intentarlo con {nombre} ahora mismo, sin esperar al próximo sondeo. No cambia de modelo.", { nombre })}>
         <IconPlay size={13} /> Reintentar ahora
       </button>
     </div>

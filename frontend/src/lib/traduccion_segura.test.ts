@@ -11,6 +11,8 @@
  *  traducción. Y el fallo no saldría en el resto de la suite, porque corre en
  *  castellano, donde `tr()` es la identidad. De ahí esta prueba: comprueba
  *  en INGLÉS que lo que sirve para comparar sigue comparando. */
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { QUIEN } from '../datos/almacen';
@@ -96,5 +98,64 @@ describe('en inglés, lo que sirve para comparar sigue comparando', () => {
     ]) {
       expect(tr(n), `${n.slice(0, 40)} no es texto de pantalla`).toBe(n);
     }
+  });
+});
+
+describe('en todo el código, nada que sea dato pasa por tr()', () => {
+  // La prueba de arriba mira unos pocos valores. Esta recorre TODO el código:
+  // el 2 de octubre de 2026 se encontró que un pase del codemod había vuelto a
+  // envolver colores rgba, clases CSS, trazados SVG e identificadores de
+  // modelo que antes se habían sacado, y llegó a un commit sin que nada lo
+  // dijera, porque mientras no estén en el catálogo tr() devuelve lo mismo.
+  function ficheros(d: string): string[] {
+    const out: string[] = [];
+    for (const f of readdirSync(d)) {
+      const p = join(d, f);
+      if (statSync(p).isDirectory()) {
+        if (f !== 'i18n') out.push(...ficheros(p));
+      } else if (/\.tsx?$/.test(f) && !/\.test\./.test(f)) out.push(p);
+    }
+    return out;
+  }
+  const NO_ES_TEXTO: [RegExp, string][] = [
+    [/^(?:rgba?|hsla?)\(/i, 'un color'],
+    [/^#[0-9a-f]{3,8}$/i, 'un color'],
+    [/var\(--/, 'una variable CSS'],
+    [/^[Mm][\s-]?-?[\d.]+[\s,]/, 'un trazado SVG'],
+    [/^(?:anthropic|openai|google|meta|mistral|xai)\//, 'un identificador de modelo'],
+    [/^(?:CC[ -]|MIT|Apache|GPL|BSD|ODbL)\b/, 'una licencia'],
+    [/^[a-z][a-z0-9-]*(?:\s+[a-z][a-z0-9-]*)*$/, 'una lista de clases CSS'],
+  ];
+
+  it('ningún tr() lleva un color, una clase, un trazado, un modelo ni una licencia', () => {
+    const malos: string[] = [];
+    for (const f of ficheros(join(__dirname, '..'))) {
+      const src = readFileSync(f, 'utf8');
+      for (const m of src.matchAll(/\btrc?p?\(\s*(?:[^,()'"]+,\s*)?(['"])((?:\\.|(?!\1).)*)\1/g)) {
+        const t = m[2]!;
+        for (const [r, que] of NO_ES_TEXTO) {
+          // La de clases solo cuenta si alguna ficha lleva guion: «sin datos»
+          // también es minúscula y es texto.
+          if (que === 'una lista de clases CSS' && !t.split(/\s+/).some((x) => x.includes('-'))) continue;
+          if (r.test(t)) malos.push(`${f.split('/src/')[1]}: ${t.slice(0, 50)} (${que})`);
+        }
+      }
+    }
+    expect(malos).toEqual([]);
+  });
+});
+
+describe('lo que escriben los reductores no depende del idioma', () => {
+  it('datos/acciones.ts no traduce nada: lo que escribe se guarda', () => {
+    // Está duplicado uno a uno con rosa/estado/acciones.py, que escribe en
+    // castellano. Si este escribiera en el idioma de la pantalla, el mismo
+    // gesto guardaría cosas distintas según quién lo hiciera. El 2 de octubre
+    // de 2026 un codemod le había metido 85 llamadas a tr()/trp(), 9 de ellas
+    // ya en main. Lo que se guarda se traduce al ENSEÑARLO.
+    // Sin los comentarios, que pueden nombrar estas funciones para explicar
+    // por qué no se usan.
+    const src = readFileSync(join(__dirname, '..', 'datos', 'acciones.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(src.match(/\btr[cp]?\(/g) ?? []).toEqual([]);
+    expect(src).not.toMatch(/\bcoma\(/);
   });
 });

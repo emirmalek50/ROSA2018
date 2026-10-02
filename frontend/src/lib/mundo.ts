@@ -8,7 +8,7 @@
 // chat y los hechos ordenados por tema).
 
 import type { EntidadCanonica, EstadoCobertura, HechoMundo, PreguntaABases } from '../datos/tipos';
-import { idiomaActual, tr, trp } from './idioma';
+import { traducido, idiomaActual, tr, trp } from './idioma';
 
 /* ---------------------------------------------------------------------
    Los temas: las entidades canónicas con nombre en castellano
@@ -17,32 +17,32 @@ import { idiomaActual, tr, trp } from './idioma';
 /** El nombre con que se lee cada entidad frecuente. Las ontologías dan la
  *  etiqueta en inglés («cerebrospinal fluid»); a un médico se le habla en su
  *  idioma. Los genes conservan su símbolo, que es como se nombran. */
-const NOMBRES: Record<string, { nombre: string; clase?: string }> = {
-  'CHEBI:64645': { nombre: 'Amiloide β', clase: tr('péptido') },
-  'HGNC:6893': { nombre: tr('Tau (MAPT)') },
+const NOMBRES: Record<string, { nombre: string; clase?: string }> = traducido({
+  'CHEBI:64645': { nombre: 'Amiloide β', clase: 'péptido' },
+  'HGNC:6893': { nombre: 'Tau (MAPT)' },
   'MONDO:0004975': { nombre: 'Enfermedad de Alzheimer' },
-  'CHEBI:229272': { nombre: 'Lecanemab', clase: tr('fármaco') },
+  'CHEBI:229272': { nombre: 'Lecanemab', clase: 'fármaco' },
   'UBERON:0001359': { nombre: 'Líquido cefalorraquídeo', clase: 'fluido' },
-  'HGNC:7739': { nombre: tr('NfL (NEFL)') },
+  'HGNC:7739': { nombre: 'NfL (NEFL)' },
   'UBERON:0002421': { nombre: 'Hipocampo', clase: 'región cerebral' },
-  'CL:0000129': { nombre: tr('Microglía') },
+  'CL:0000129': { nombre: 'Microglía' },
   'UBERON:0001969': { nombre: 'Plasma', clase: 'fluido' },
   'CL:0000540': { nombre: 'Neurona' },
   'CL:0000127': { nombre: 'Astrocito' },
   'GO:0150076': { nombre: 'Respuesta neuroinflamatoria' },
   'GO:0048143': { nombre: 'Activación de astrocitos' },
   'GO:0045202': { nombre: 'Sinapsis' },
-};
+});
 
-const CLASES: Record<string, string> = {
+const CLASES: Record<string, string> = traducido({
   gen: 'gen',
   compuesto: 'compuesto',
   enfermedad: 'enfermedad',
   tejido: 'tejido',
-  celula: tr('célula'),
+  celula: 'célula',
   proceso: 'proceso',
   componente: 'componente celular',
-};
+});
 
 export function nombreEntidad(e: Pick<EntidadCanonica, 'id' | 'etiqueta'>): string {
   const n = NOMBRES[e.id]?.nombre;

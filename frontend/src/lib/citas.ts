@@ -11,7 +11,7 @@
 import type { RecuperacionCitas } from '../datos/tipos';
 import { certezaDe } from './etiquetas';
 import { formatearEntero, plural } from './formato';
-import { traducido, tr } from './idioma';
+import { traducido, tr, trc, trp } from './idioma';
 
 export type ClaseCita = 'pagina' | 'seccion' | 'resumen' | 'web' | 'otro';
 
@@ -280,11 +280,11 @@ export function enLlanoLaClase(clase: ClaseCita, localizador: string): string {
     case 'pagina':
       return localizador;
     case 'seccion':
-      return `${localizador}, sin número de página`;
+      return trp("{localizador}, sin número de página", { localizador });
     case 'resumen':
       return tr('resumen, sin número de página');
     case 'web':
-      return `${localizador}, sin número de página`;
+      return trp("{localizador}, sin número de página", { localizador });
     default:
       return localizador || tr('sin localizador');
   }
@@ -341,10 +341,10 @@ export function recuentoDeRecuperacion(reg: Pick<RecuperacionCitas, 'recuento'>)
   const partes = [
     `${formatearEntero(cuenta(rec, 'sostenida'))} sostenidas`,
     `${formatearEntero(cuenta(rec, 'parcial'))} parciales`,
-    `${formatearEntero(cuenta(rec, 'no_sostenida'))} no sostenidas`,
+    trp("{v} no sostenidas", { v: formatearEntero(cuenta(rec, 'no_sostenida')) }),
   ];
-  if (siguen) partes.push(`${formatearEntero(siguen)} siguen bloqueadas por otra regla`);
-  if (cuenta(rec, 'sin_verificar')) partes.push(`${formatearEntero(cuenta(rec, 'sin_verificar'))} sin juez`);
+  if (siguen) partes.push(trp("{siguen} siguen bloqueadas por otra regla", { siguen: formatearEntero(siguen) }));
+  if (cuenta(rec, 'sin_verificar')) partes.push(trp("{v} sin juez", { v: formatearEntero(cuenta(rec, 'sin_verificar')) }));
   return partes.join(', ');
 }
 
@@ -356,11 +356,11 @@ export function avanceDeRecuperacion(reg: RecuperacionCitas): string {
     case 'en_espera':
       return reg.motivo || tr('Esperando a que pare la corrida que está trabajando en esta investigación.');
     case 'en_curso':
-      if (reg.fase === 'enlazar') return `Enlazando a las hipótesis lo que salió sostenido: ${plural(reg.enlazadas, tr('afirmación'), 'afirmaciones')} a ${plural(reg.hipotesisConEvidencia.length, 'hipótesis', 'hipótesis')} por ahora.`;
-      if (reg.fase === 'conclusiones') return `Rehaciendo las conclusiones de ${plural(reg.hipotesisConEvidencia.length, 'hipótesis', 'hipótesis')} que ganaron evidencia: ${formatearEntero(reg.reconcluidas.length)} hechas.`;
-      return `Volviendo a juzgar con el verificador de hoy: ${formatearEntero(reg.revisadas)} de ${formatearEntero(reg.total)} (${recuentoDeRecuperacion(reg)}). ${plural(reg.llamadas, 'llamada', 'llamadas')} a modelos hasta ahora.`;
+      if (reg.fase === 'enlazar') return trp("Enlazando a las hipótesis lo que salió sostenido: {enlazadas} a {hipotesisConEvidencia} por ahora.", { enlazadas: plural(reg.enlazadas, tr('afirmación'), tr("afirmaciones")), hipotesisConEvidencia: plural(reg.hipotesisConEvidencia.length, tr("hipótesis"), trc("plural", "hipótesis")) });
+      if (reg.fase === 'conclusiones') return trp("Rehaciendo las conclusiones de {hipotesisConEvidencia} que ganaron evidencia: {reconcluidas} hechas.", { hipotesisConEvidencia: plural(reg.hipotesisConEvidencia.length, tr("hipótesis"), trc("plural", "hipótesis")), reconcluidas: formatearEntero(reg.reconcluidas.length) });
+      return trp("Volviendo a juzgar con el verificador de hoy: {revisadas} de {total} ({reg}). {llamadas} a modelos hasta ahora.", { revisadas: formatearEntero(reg.revisadas), total: formatearEntero(reg.total), reg: recuentoDeRecuperacion(reg), llamadas: plural(reg.llamadas, tr("llamada"), tr("llamadas")) });
     case 'fallida':
-      return `No terminó: ${reg.motivo || tr('motivo desconocido')}. Lo ya juzgado se conserva; se puede pedir otra vez y sigue donde quedó.`;
+      return trp("No terminó: {v}. Lo ya juzgado se conserva; se puede pedir otra vez y sigue donde quedó.", { v: reg.motivo || tr('motivo desconocido') });
     default:
       return '';
   }
@@ -369,16 +369,16 @@ export function avanceDeRecuperacion(reg: RecuperacionCitas): string {
 /** El informe de una recuperación terminada, frase a frase. */
 export function informeDeRecuperacion(reg: RecuperacionCitas): string[] {
   const lineas = [`${plural(reg.revisadas, tr('afirmación vuelta a juzgar'), tr('afirmaciones vueltas a juzgar'))}: ${recuentoDeRecuperacion(reg)}.`];
-  lineas.push(`${plural(reg.enlazadas, tr('afirmación enlazada'), tr('afirmaciones enlazadas'))} a ${plural(reg.hipotesisConEvidencia.length, 'hipótesis', 'hipótesis')}.`);
-  if (reg.nacidas.length) lineas.push(`${plural(reg.nacidas.length, tr('idea del vivero nació'), tr('ideas del vivero nacieron'))} como hipótesis al llegar a certeza baja.`);
+  lineas.push(`${plural(reg.enlazadas, tr('afirmación enlazada'), tr('afirmaciones enlazadas'))} a ${plural(reg.hipotesisConEvidencia.length, tr("hipótesis"), trc("plural", "hipótesis"))}.`);
+  if (reg.nacidas.length) lineas.push(trp("{nacidas} como hipótesis al llegar a certeza baja.", { nacidas: plural(reg.nacidas.length, tr('idea del vivero nació'), tr('ideas del vivero nacieron')) }));
   const cambios = reg.reconcluidas.filter((x) => x.antes !== x.despues);
-  lineas.push(`${plural(reg.reconcluidas.length, tr('conclusión rehecha'), tr('conclusiones rehechas'))}${cambios.length ? `, ${plural(cambios.length, tr('cambió'), 'cambiaron')} de certeza:` : tr(', ninguna cambió de certeza.')}`);
+  lineas.push(`${plural(reg.reconcluidas.length, tr('conclusión rehecha'), tr('conclusiones rehechas'))}${cambios.length ? trp(", {cambios} de certeza:", { cambios: plural(cambios.length, tr('cambió'), tr("cambiaron")) }) : tr(', ninguna cambió de certeza.')}`);
   for (const x of cambios) {
     const antes = x.antes ? certezaDe(x.antes).etiqueta.toLowerCase() : tr('sin conclusión');
     const despues = x.despues ? certezaDe(x.despues).etiqueta.toLowerCase() : tr('sin conclusión');
-    lineas.push(`«${x.titulo}»: de ${antes} a ${despues}.`);
+    lineas.push(trp("«{titulo}»: de {antes} a {despues}.", { titulo: x.titulo, antes, despues }));
   }
   for (const n of reg.notas) lineas.push(n);
-  lineas.push(`Costó ${plural(reg.llamadas, 'llamada', 'llamadas')} a modelos.`);
+  lineas.push(trp("Costó {llamadas} a modelos.", { llamadas: plural(reg.llamadas, tr("llamada"), tr("llamadas")) }));
   return lineas;
 }

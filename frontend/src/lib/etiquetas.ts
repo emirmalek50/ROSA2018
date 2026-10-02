@@ -62,7 +62,7 @@ import type {
   TipoRevisionAutomatica,
   Veredicto,
 } from '../datos/tipos';
-import { traducido } from './idioma';
+import { traducido, trp } from './idioma';
 
 export const ESTADO_CORRIDA: Record<EstadoCorrida, string> = traducido({
   en_marcha: 'En marcha',
@@ -221,7 +221,7 @@ export type EtiquetaVeredicto = { etiqueta: string; tono: 'ok' | 'aviso' | 'mal'
  *  comprobado": ROSA2018 no da por buena una afirmación sin saber qué dice su
  *  veredicto (regla "no pude comprobar" no es "no hay"). */
 export function respaldoVeredicto(clave: string): EtiquetaVeredicto {
-  return { etiqueta: `Veredicto que esta versión no conoce (${legible(clave)})`, tono: 'aviso', bloquea: true };
+  return { etiqueta: trp("Veredicto que esta versión no conoce ({clave})", { clave: legible(clave) }), tono: 'aviso', bloquea: true };
 }
 
 export const VEREDICTO: Record<Veredicto, EtiquetaVeredicto> = conRespaldo(
@@ -249,7 +249,7 @@ export type EtiquetaCerteza = { etiqueta: string; tono: 'ok' | 'aviso' | 'mal' |
  *  legible y tono neutro, sin inventar nivel ni frase calibrada. */
 export function respaldoCerteza(clave: string): EtiquetaCerteza {
   const k = legible(clave);
-  return { etiqueta: `Certeza sin clasificar (${k})`, tono: 'borde', nota: `El servidor guardó un nivel de certeza (${k}) que esta versión de la interfaz no conoce. No se puede interpretar hasta actualizarla.`, verbo: 'no se puede decir si' };
+  return { etiqueta: trp("Certeza sin clasificar ({k})", { k }), tono: 'borde', nota: trp("El servidor guardó un nivel de certeza ({k}) que esta versión de la interfaz no conoce. No se puede interpretar hasta actualizarla.", { k }), verbo: 'no se puede decir si' };
 }
 
 /** Sin respaldo automático (a diferencia de VEREDICTO): varias pantallas
@@ -442,7 +442,7 @@ export function killerPendienteDe(h: Pick<Hipotesis, 'decisionKiller'> & { kille
   const marca = (h as { killerPendiente?: unknown }).killerPendiente;
   if (marca === true || (marca && typeof marca === 'object')) {
     const detalle = marca && typeof marca === 'object' ? String((marca as { motivo?: unknown }).motivo ?? '').trim() : '';
-    return detalle ? `Pendiente de juicio: ${detalle}` : 'Pendiente de juicio: el modelo no respondió';
+    return detalle ? trp("Pendiente de juicio: {detalle}", { detalle }) : 'Pendiente de juicio: el modelo no respondió';
   }
   const revisiones = Array.isArray(h.revisiones) ? (h.revisiones as { accion?: unknown; nota?: unknown; fecha?: unknown }[]) : [];
   const ultima = [...revisiones].reverse().find((r) => r && typeof r === 'object' && r.accion === 'killer');

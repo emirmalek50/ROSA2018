@@ -16,18 +16,18 @@
 
 import { motion } from 'motion/react';
 
-import { tr } from '../lib/idioma';
+import { traducido, tr } from '../lib/idioma';
 import { useMovimientoReducido } from '../lib/movimiento';
 
 export type EstadoPersona = 'quieta' | 'escuchando' | 'pensando' | 'hablando' | 'dormida';
 
-const QUE_HACE: Record<EstadoPersona, string> = {
+const QUE_HACE: Record<EstadoPersona, string> = traducido({
   quieta: 'ROSA2018 está lista',
   escuchando: 'ROSA2018 está escuchando',
   pensando: 'ROSA2018 está pensando',
   hablando: 'ROSA2018 está respondiendo',
   dormida: 'ROSA2018 está en reposo',
-};
+});
 
 /** Cada estado con su movimiento. La duración y la escala son lo que
  *  distingue uno de otro: pensar va rápido y apretado, hablar va amplio. */

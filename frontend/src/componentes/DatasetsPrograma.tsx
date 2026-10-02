@@ -11,7 +11,7 @@ import { useState } from 'react';
 import type { AccesoDatasetPrograma, DatasetPrograma, FuenteDatasetPrograma, Id, TipoDatasetPrograma } from '../datos/tipos';
 import { formatearEntero } from '../lib/formato';
 import { Chip } from './piezas';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 /** Etiquetas visibles, copiadas de rosa/datasets_programa.py ETIQUETA_FUENTE,
  *  ETIQUETA_TIPO y ETIQUETA_ACCESO. Las claves se comparan con el servidor y
@@ -96,7 +96,7 @@ function textoN(d: DatasetPrograma): string {
   const celulas = numero(n.celulas);
   if (muestras !== null) partes.push(`${formatearEntero(muestras)} muestras`);
   if (donantes !== null) partes.push(`${formatearEntero(donantes)} donantes`);
-  if (celulas !== null) partes.push(`${formatearEntero(celulas)} células`);
+  if (celulas !== null) partes.push(trp("{celulas} células", { celulas: formatearEntero(celulas) }));
   return partes.length > 0 ? partes.join(' · ') : tr('sin comprobar');
 }
 
@@ -108,7 +108,7 @@ function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id 
   const compartidas = Array.isArray(d.muestrasCompartidasCon) ? d.muestrasCompartidasCon.filter((x): x is string => typeof x === 'string' && x !== '') : typeof d.muestrasCompartidasCon === 'string' && d.muestrasCompartidasCon ? [d.muestrasCompartidasCon] : [];
   const usado = usadoEnInvestigacion(d, investigacionId);
   const usadoEn = Array.isArray(d.usadoEn) ? d.usadoEn.length : typeof d.usadoEn === 'string' && d.usadoEn ? 1 : 0;
-  const accession = texto(d.accession) || 'sin accession';
+  const accession = texto(d.accession) || tr('sin accession');
   // Solo un enlace http(s) real se pinta como enlace; lo demás (número, javascript:) no.
   const url = typeof d.url === 'string' && /^https?:\/\//i.test(d.url.trim()) ? d.url.trim() : '';
   const tejido = [texto(d.tejido), texto(d.region)].filter(Boolean).join(' · ') || tr('sin comprobar');
@@ -127,7 +127,7 @@ function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id 
         )}
         <Chip tono={TONO_ACCESO[acceso]} title={DEFINICION_ACCESO[acceso]}>{ETIQUETA_ACCESO[acceso]}</Chip>
         {usado && <Chip tono="acento" title={tr("Alguna corrida de esta investigación lo consultó o lo analizó.")}>{tr("usado aquí")}</Chip>}
-        {!usado && usadoEn > 0 && <Chip title={tr("Lo usó otra investigación de este programa.")}>usado en {usadoEn} {usadoEn === 1 ? tr('investigación') : 'investigaciones'}</Chip>}
+        {!usado && usadoEn > 0 && <Chip title={tr("Lo usó otra investigación de este programa.")}>{(usadoEn === 1 ? trp("usado en {usadoEn} investigación", { usadoEn }) : trp("usado en {usadoEn} investigaciones", { usadoEn }))}</Chip>}
       </div>
       <p className="dsp-titulo">{titulo}</p>
       <dl className="dsp-datos">
@@ -166,13 +166,12 @@ function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id 
         </p>
       )}
       {compartidas.length > 0 && (
-        <p className="meta dsp-nota" title={tr("Dos series que comparten muestras no son dos evidencias independientes.")}>
-          Comparte muestras con {compartidas.join(', ')}{tr(": no cuentan como dos evidencias.")}
+        <p className="meta dsp-nota" title={tr("Dos series que comparten muestras no son dos evidencias independientes.")}>{trp("Comparte muestras con {v}: no cuentan como dos evidencias.", { v: compartidas.join(', ') })}
         </p>
       )}
       {registro.length > 0 && (
         <details className="dsp-registro">
-          <summary>{tr("Cómo se dedujo cada dato (")}{registro.length})</summary>
+          <summary>{trp("Cómo se dedujo cada dato ({registro})", { registro: registro.length })}</summary>
           <ul className="lista-limpia">
             {registro.map((r, i) => (
               <li key={i} className="meta">
@@ -205,27 +204,24 @@ export function DatasetsPrograma({ datasets, investigacionId }: { datasets: Data
         </div>
         {todos.length > propios.length && (
           <button type="button" className="btn btn-s" onClick={() => setVerTodos((v) => !v)}>
-            {verTodos ? `Solo los de esta investigación (${propios.length})` : `Ver todo el registro (${todos.length})`}
+            {verTodos ? trp("Solo los de esta investigación ({propios})", { propios: propios.length }) : trp("Ver todo el registro ({todos})", { todos: todos.length })}
           </button>
         )}
       </div>
       {todos.length === 0 ? (
         <p className="meta">{tr("El registro está vacío: se llena cuando ROSA2018 consulta bases de datos al buscar datos para una hipótesis o cuando alguien sube un fichero.")}</p>
       ) : visibles.length === 0 ? (
-        <p className="meta">{tr("Ninguna corrida de esta investigación ha usado todavía un dataset del registro. El botón de arriba muestra los")} {todos.length} del programa.</p>
+        <p className="meta">{trp("Ninguna corrida de esta investigación ha usado todavía un dataset del registro. El botón de arriba muestra los {todos} del programa.", { todos: todos.length })}</p>
       ) : (
         <>
           <p className="meta dsp-resumen">
-            {visibles.length} {visibles.length === 1 ? 'dataset' : 'datasets'}
-            {verTodos ? tr(' en todo el programa') : tr(' usados en esta investigación')}
-            {controlados > 0 ? `; ${controlados} de acceso controlado (el proyecto no lo pide)` : ''}.
-          </p>
+            {(visibles.length === 1 ? trp("{visibles} dataset{v}{v2}.", { visibles: visibles.length, v: verTodos ? tr(" en todo el programa") : tr(" usados en esta investigación"), v2: controlados > 0 ? trp("; {controlados} de acceso controlado (el proyecto no lo pide)", { controlados }) : '' }) : trp("{visibles} datasets{v}{v2}.", { visibles: visibles.length, v: verTodos ? tr(" en todo el programa") : tr(" usados en esta investigación"), v2: controlados > 0 ? trp("; {controlados} de acceso controlado (el proyecto no lo pide)", { controlados }) : '' }))}</p>
           <ul className="lista-limpia dsp-lista">
             {visibles.slice(0, 60).map((d, i) => (
               <Fila key={`${texto(d.id) || `${texto(d.fuente)}-${texto(d.accession)}`}-${i}`} d={d} investigacionId={investigacionId} />
             ))}
           </ul>
-          {visibles.length > 60 && <p className="meta">{tr("Se muestran 60 de")} {visibles.length}.</p>}
+          {visibles.length > 60 && <p className="meta">{trp("Se muestran 60 de {visibles}.", { visibles: visibles.length })}</p>}
         </>
       )}
     </article>

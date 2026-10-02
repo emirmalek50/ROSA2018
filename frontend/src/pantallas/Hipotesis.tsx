@@ -35,7 +35,7 @@ import { bloqueosDe } from '../lib/priorizacion';
 import { rutaDe } from '../lib/ruta';
 import { atributosEnVuelo, useCalculoDiferido, useEnVuelo, useEsperaSenal } from '../lib/diferido';
 import { ESPERA_DOSSIER_MS, huellaDossier } from './Artefactos';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 
 
@@ -83,8 +83,8 @@ function AlcanceDelSupuesto({ s }: { s: Supuesto }) {
   return (
     <p className={`meta supuesto-alcance supuesto-alcance-${s.alcance}`}>
       {alcance}
-      {donde && <> {tr("· se respondería")} {donde}</>}
-      {s.cota && <>{alcance ? ' · ' : ''}{tr("Límite:")} {s.cota}</>}
+      {donde && <>{trp(" · se respondería {donde}", { donde })}</>}
+      {s.cota && <>{(alcance ? trp(" · Límite: {cota}", { cota: s.cota }) : trp("Límite: {cota}", { cota: s.cota }))}</>}
     </p>
   );
 }
@@ -183,12 +183,11 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               {tr("Derivada de otra hipótesis")}
             </a>
           )}
-          <span className="meta">Elo {h.elo} · {h.partidos.length} {h.partidos.length === 1 ? 'partido' : 'partidos'}</span>
-          <span className="meta">{tr("Iteración")} {h.iteracion}</span>
-          <span className="meta">{tr("Versión")} {h.version ?? 1}</span>
+          <span className="meta">{(h.partidos.length === 1 ? trp("Elo {elo} · {partidos} partido", { elo: h.elo, partidos: h.partidos.length }) : trp("Elo {elo} · {partidos} partidos", { elo: h.elo, partidos: h.partidos.length }))}</span>
+          <span className="meta">{trp("Iteración {iteracion}", { iteracion: h.iteracion })}</span>
+          <span className="meta">{trp("Versión {v}", { v: h.version ?? 1 })}</span>
           {h.decisionKiller && DECISION_KILLER[h.decisionKiller] && (
-            <Chip tono={DECISION_KILLER[h.decisionKiller].tono} title={DECISION_KILLER[h.decisionKiller].nota}>
-              Killer: {DECISION_KILLER[h.decisionKiller].etiqueta}
+            <Chip tono={DECISION_KILLER[h.decisionKiller].tono} title={DECISION_KILLER[h.decisionKiller].nota}>{trp("Killer: {etiqueta}", { etiqueta: DECISION_KILLER[h.decisionKiller].etiqueta })}
             </Chip>
           )}
           {juicioPendiente && (
@@ -209,8 +208,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
       </div>
 
       {retractadas.length > 0 && (
-        <div className="aviso-retractada" role="alert">
-          Depende de {retractadas.length === 1 ? tr('una fuente retractada') : `${retractadas.length} fuentes retractadas`}: {retractadas.map((f) => f.referencia).join(', ')}{tr(". No vale como evidencia y la hipótesis baja en el ranking.")}
+        <div className="aviso-retractada" role="alert">{trp("Depende de {v}: {v2}. No vale como evidencia y la hipótesis baja en el ranking.", { v: retractadas.length === 1 ? tr('una fuente retractada') : `${retractadas.length} fuentes retractadas`, v2: retractadas.map((f) => f.referencia).join(', ') })}
         </div>
       )}
 
@@ -329,7 +327,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           </div>
           <div className="novedad-item">
             <strong>Agora</strong>
-            <Chip tono={h.novedad.agora.estado === 'no_nominada' ? 'ok' : 'aviso'}>{h.novedad.agora.estado === 'no_nominada' ? tr('No nominada') : tr('Diana nominada')}</Chip>
+            <Chip tono={h.novedad.agora.estado === 'no_nominada' ? 'ok' : 'aviso'}>{(h.novedad.agora.estado === 'no_nominada' ? tr("No nominada") : tr("Diana nominada"))}</Chip>
             <p>{h.novedad.agora.detalle}</p>
           </div>
           {h.novedad.genetica && (
@@ -418,7 +416,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           detalle
           titulo="Vigilancia de literatura"
           nota={tr("Una búsqueda semántica al día (Exa) de lo publicado sobre esta hipótesis desde la última comprobación. Sin modelos: solo publicaciones con su enlace y el pasaje que más se parece al enunciado. Decidir si una novedad cambia algo te toca a ti.")}
-          resumen={`${h.vigilancia.nuevas.length} novedad${h.vigilancia.nuevas.length === 1 ? '' : 'es'} en ${h.vigilancia.comprobaciones} comprobación${h.vigilancia.comprobaciones === 1 ? '' : 'es'}`}
+          resumen={(h.vigilancia.nuevas.length === 1 ? trp("{nuevas} novedad en {comprobaciones} comprobación{v}", { nuevas: h.vigilancia.nuevas.length, comprobaciones: h.vigilancia.comprobaciones, v: h.vigilancia.comprobaciones === 1 ? "" : tr("es") }) : trp("{nuevas} novedades en {comprobaciones} comprobación{v}", { nuevas: h.vigilancia.nuevas.length, comprobaciones: h.vigilancia.comprobaciones, v: h.vigilancia.comprobaciones === 1 ? "" : tr("es") }))}
         >
           <p className="meta">
             {h.vigilancia.ultimaComprobacion ? (
@@ -547,8 +545,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         {h.replicacion ? (
           <div className="acciones">
             <Chip tono={h.replicacion.estado === 'en_curso' ? 'acento' : h.replicacion.contradicen === 0 ? 'ok' : 'aviso'}>
-              {h.replicacion.hechas} de {h.replicacion.total} trayectorias · {h.replicacion.sostienen} sostienen · {h.replicacion.contradicen} contradicen
-            </Chip>
+              {trp("{hechas} de {total} trayectorias · {sostienen} sostienen · {contradicen} contradicen", { hechas: h.replicacion.hechas, total: h.replicacion.total, sostienen: h.replicacion.sostienen, contradicen: h.replicacion.contradicen })}</Chip>
             <span className="meta">
               Lanzada <Momento t={h.replicacion.empezadaEn} ahora={ahora} />
             </span>
@@ -652,14 +649,14 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                       {RESULTADO_LABORATORIO[h.experimento.resultado.clasificacion].etiqueta}
                     </Chip>
                   )}
-                  {h.experimento.resultado.versionProbada !== undefined && h.experimento.resultado.compatibleConActual === false && <Chip tono="aviso" title={tr("El resultado probó una versión anterior de la hipótesis")}>{tr("Probó la v")}{h.experimento.resultado.versionProbada}</Chip>}
+                  {h.experimento.resultado.versionProbada !== undefined && h.experimento.resultado.compatibleConActual === false && <Chip tono="aviso" title={tr("El resultado probó una versión anterior de la hipótesis")}>{trp("Probó la v{versionProbada}", { versionProbada: h.experimento.resultado.versionProbada })}</Chip>}
                   <span className="meta">
                     {h.experimento.resultado.fichero} · <Momento t={h.experimento.resultado.fecha} ahora={ahora} />
                   </span>
                 </div>
                 <Dimensiones d={h.experimento.resultado.dimensiones} />
                 <p>{h.experimento.resultado.resultado}</p>
-                {h.experimento.resultado.accionTomada && <p className="meta">{tr("Qué hizo ROSA2018:")} {h.experimento.resultado.accionTomada}</p>}
+                {h.experimento.resultado.accionTomada && <p className="meta">{trp("Qué hizo ROSA2018: {accionTomada}", { accionTomada: h.experimento.resultado.accionTomada })}</p>}
                 {h.experimento.resultado.hipotesisDerivadaId && (
                   <p className="meta">
                     {tr("Hipótesis derivada:")}{' '}
@@ -678,8 +675,8 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                     ))}
                   </ul>
                 )}
-                {h.experimento.resultado.limitaciones && <p className="meta">Limitaciones: {h.experimento.resultado.limitaciones}</p>}
-                {h.experimento.resultado.exploratorio && <p className="meta">{tr("Exploratorio, fuera del prerregistro:")} {h.experimento.resultado.exploratorio}</p>}
+                {h.experimento.resultado.limitaciones && <p className="meta">{trp("Limitaciones: {limitaciones}", { limitaciones: h.experimento.resultado.limitaciones })}</p>}
+                {h.experimento.resultado.exploratorio && <p className="meta">{trp("Exploratorio, fuera del prerregistro: {exploratorio}", { exploratorio: h.experimento.resultado.exploratorio })}</p>}
               </div>
             )}
             <div className="acciones">
@@ -697,8 +694,8 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                 </Chip>
               )}
               {h.experimento.prerregistradoEn && !h.experimento.selloExterno?.ok && (
-                <button type="button" className="btn btn-s" title={h.experimento.selloExterno?.error ? `Último intento: ${h.experimento.selloExterno.error}` : tr('Pide a dos autoridades de sellado de tiempo (RFC 3161) que firmen la hora del prerregistro: un tercero atestigua que se congeló antes de los datos')} disabled={selloEnVuelo} {...atributosEnVuelo(selloEnVuelo)} onClick={envolverSello(() => acciones.sellarPrerregistro(h.id))}>
-                  {h.experimento.selloExterno ? tr('Reintentar el sello externo') : tr('Sellar con un tercero')}
+                <button type="button" className="btn btn-s" title={h.experimento.selloExterno?.error ? trp("Último intento: {error}", { error: h.experimento.selloExterno.error }) : tr('Pide a dos autoridades de sellado de tiempo (RFC 3161) que firmen la hora del prerregistro: un tercero atestigua que se congeló antes de los datos')} disabled={selloEnVuelo} {...atributosEnVuelo(selloEnVuelo)} onClick={envolverSello(() => acciones.sellarPrerregistro(h.id))}>
+                  {(h.experimento.selloExterno ? tr("Reintentar el sello externo") : tr("Sellar con un tercero"))}
                 </button>
               )}
             </div>
@@ -750,7 +747,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                       }
                     }}
                   >
-                    {subiendo ? 'Subiendo...' : tr('Subir datos y evaluar contra el prerregistro')}
+                    {(subiendo ? tr("Subiendo...") : tr("Subir datos y evaluar contra el prerregistro"))}
                   </button>
                   {errorSubida && <span className="tono-mal">{errorSubida}</span>}
                   {h.experimento.estado === 'datos_recibidos' && !h.experimento.resultado && <span className="meta">{tr("Datos recibidos; ROSA2018 los está evaluando.")}</span>}
@@ -788,9 +785,9 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                     <Momento t={r.fecha} ahora={ahora} />
                   </span>
                 </header>
-                {r.supuestosCuestionados && <p>Supuestos cuestionados: {r.supuestosCuestionados}</p>}
-                {r.literaturaQueFalta && <p>{tr("Literatura que falta:")} {r.literaturaQueFalta}</p>}
-                {r.problemaExperimental && <p>Problema experimental: {r.problemaExperimental}</p>}
+                {r.supuestosCuestionados && <p>{trp("Supuestos cuestionados: {supuestosCuestionados}", { supuestosCuestionados: r.supuestosCuestionados })}</p>}
+                {r.literaturaQueFalta && <p>{trp("Literatura que falta: {literaturaQueFalta}", { literaturaQueFalta: r.literaturaQueFalta })}</p>}
+                {r.problemaExperimental && <p>{trp("Problema experimental: {problemaExperimental}", { problemaExperimental: r.problemaExperimental })}</p>}
               </div>
             ))}
           </div>
@@ -803,7 +800,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           <textarea id="nota-decision" value={nota} rows={2} onChange={(e) => setNota(e.target.value)} placeholder={tr("Comprobable en FLENI; pedir al investigador clínico principal si la cohorte tiene genotipo de TREM2")} />
         </div>
         <button type="button" className="enlace" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => setRevisionAbierta((v) => !v)}>
-          {revisionAbierta ? tr('Ocultar la revisión estructurada') : tr('Escribir una revisión estructurada (entra al torneo como revisión, no solo como veredicto)')}
+          {(revisionAbierta ? tr("Ocultar la revisión estructurada") : tr("Escribir una revisión estructurada (entra al torneo como revisión, no solo como veredicto)"))}
         </button>
         {revisionAbierta && (
           <div className="rejilla-3">
@@ -860,7 +857,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         nota={tr("El expediente con el que la hipótesis sale al laboratorio, en siete partes: si va o no y por qué (bloqueos), la hipótesis completa con su versión, la evidencia con procedencia, los análisis con datos, las decisiones, el protocolo prerregistrado y qué se aprende con cada resultado. Se arma sin ningún modelo, con lo que hay en el estado.")}
         acciones={
           <button type="button" className="btn btn-s" disabled={estado.conexion === 'muestra' || dossierOcupado} {...atributosEnVuelo(dossierOcupado)} onClick={() => void pedirDossier()}>
-            {h.dossierArtefactoId ? tr('Regenerar dossier') : tr('Generar dossier')}
+            {(h.dossierArtefactoId ? tr("Regenerar dossier") : tr("Generar dossier"))}
           </button>
         }
       >

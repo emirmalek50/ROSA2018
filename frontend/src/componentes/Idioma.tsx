@@ -13,7 +13,7 @@ import { IDIOMAS, fijarIdioma, tr, useIdioma } from '../lib/idioma';
 export function SelectorIdioma() {
   const idioma = useIdioma();
   return (
-    <div className="segmentos segmentos-idioma" role="group" aria-label={tr('Idioma de la interfaz')} title={tr('Lo que todavía no está traducido se ve en castellano.')}>
+    <div className="segmentos segmentos-idioma" role="group" aria-label={tr('Idioma de la interfaz')} title={tr('La interfaz está traducida a mano. Lo que escribió ROSA2018 (hipótesis, hechos, respuestas) lo traduce un modelo al verlo y puede tener errores: el original es el castellano. Lo que no se pudo traducir se ve en castellano.')}>
       {IDIOMAS.map((i) => (
         <button
           key={i.clave}

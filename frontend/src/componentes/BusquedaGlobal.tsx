@@ -16,7 +16,7 @@ import { esTiempoAgotado, senalDeTope } from '../lib/diferido';
 import { Cargando, Esqueleto } from './Esqueleto';
 import { IconSearch, IconX } from './icons';
 import { Chip } from './piezas';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 const TIPO: Record<Resultado['tipo'], string> = traducido({
   hipotesis: 'Hipótesis',
@@ -152,7 +152,7 @@ export function BusquedaGlobal({ estado, investigacionId, abierta, onCerrar }: {
         </div>
         {q.trim().length >= 2 && (
           <ul className="busqueda-resultados">
-            {resultados.length === 0 && <li className="meta">{tr("Nada en esta investigación coincide con «")}{q}».</li>}
+            {resultados.length === 0 && <li className="meta">{trp("Nada en esta investigación coincide con «{q}».", { q })}</li>}
             {resultados.map((r, i) => (
               <li key={`${r.tipo}-${r.titulo}-${i}`}>
                 <button type="button" className={`busqueda-item ${i === indice ? 'busqueda-activo' : ''}`} onMouseEnter={() => setIndice(i)} onClick={() => ir(r)}>
@@ -187,7 +187,7 @@ export function BusquedaGlobal({ estado, investigacionId, abierta, onCerrar }: {
                       >
                         <Chip>{r.tipo === 'hecho' ? 'Hecho' : r.tipo === 'hipotesis' ? tr('Hipótesis') : 'Fuente'}</Chip>
                         <span className="busqueda-titulo">{r.texto.slice(0, 120)}</span>
-                        <span className="meta">similitud {r.similitud.toFixed(2)}</span>
+                        <span className="meta">{trp("similitud {v}", { v: r.similitud.toFixed(2) })}</span>
                       </button>
                     </li>
                   );

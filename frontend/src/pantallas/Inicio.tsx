@@ -22,7 +22,7 @@ import { digest, loQueEspera } from '../lib/digest';
 import { ESTADO_CORRIDA, etiquetaCorrida, proponiendoPlan } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 const CABECERA_INICIO = traducido({
   titulo: 'Investigaciones',
@@ -92,17 +92,16 @@ export function Inicio({ estado, ahora }: { estado: EstadoRosa; ahora: number })
                 <h3>{inv.titulo}</h3>
                 {corrida ? (
                   <div className="ahora">
-                    <Chip tono={corrida.estado === 'en_marcha' ? 'acento' : corrida.estado === 'esperando_plan' || corrida.estado === 'esperando_aprobacion' || corrida.estado === 'pausada_por_presupuesto' || corrida.estado === 'esperando_modelo' ? 'aviso' : undefined}>
-                      Corrida {corrida.numero} · {etiquetaCorrida(corrida, it)}
+                    <Chip tono={corrida.estado === 'en_marcha' ? 'acento' : corrida.estado === 'esperando_plan' || corrida.estado === 'esperando_aprobacion' || corrida.estado === 'pausada_por_presupuesto' || corrida.estado === 'esperando_modelo' ? 'aviso' : undefined}>{trp("Corrida {numero} · {corrida}", { numero: corrida.numero, corrida: etiquetaCorrida(corrida, it) })}
                     </Chip>
                     <p>
                       {corrida.estado === 'en_marcha' && enCurso ? (
                         <>
-                          {tr("Iteración")} {corrida.iteracionActual}: <span className="shimmer-text">{enCurso.titulo.toLowerCase()}</span>
-                          {pistasVivas > 0 && ` (${pistasVivas} ${pistasVivas === 1 ? 'pista' : 'pistas'} en paralelo)`}
+                          {trp("Iteración {iteracionActual}: ", { iteracionActual: corrida.iteracionActual })}<span className="shimmer-text">{enCurso.titulo.toLowerCase()}</span>
+                          {pistasVivas > 0 && (pistasVivas === 1 ? trp(" ({pistasVivas} pista en paralelo)", { pistasVivas }) : trp(" ({pistasVivas} pistas en paralelo)", { pistasVivas }))}
                         </>
                       ) : corrida.estado === 'esperando_plan' ? (
-                        proponiendoPlan(corrida, it) ? `ROSA2018 está escribiendo el plan de la iteración ${corrida.iteracionActual}; en uno o dos minutos te lo enseña` : `El plan de la iteración ${corrida.iteracionActual} espera tu aprobación`
+                        proponiendoPlan(corrida, it) ? trp("ROSA2018 está escribiendo el plan de la iteración {iteracionActual}; en uno o dos minutos te lo enseña", { iteracionActual: corrida.iteracionActual }) : trp("El plan de la iteración {iteracionActual} espera tu aprobación", { iteracionActual: corrida.iteracionActual })
                       ) : corrida.motivoCierre ? (
                         corrida.motivoCierre
                       ) : (
@@ -117,7 +116,7 @@ export function Inicio({ estado, ahora }: { estado: EstadoRosa; ahora: number })
                   {espera.total > 0 ? (
                     <Chip tono={espera.masAntiguaMs > estado.politicaEsperas.horas * 3_600_000 ? 'mal' : 'aviso'}>
                       {espera.total} {espera.total === 1 ? tr('decisión espera') : tr('decisiones esperan')}
-                      {espera.masAntiguaMs > 60_000 && ` · la más antigua ${formatearDuracion(espera.masAntiguaMs)}`}
+                      {espera.masAntiguaMs > 60_000 && trp(" · la más antigua {masAntiguaMs}", { masAntiguaMs: formatearDuracion(espera.masAntiguaMs) })}
                     </Chip>
                   ) : (
                     <Chip tono="ok">{tr("Nada espera")}</Chip>

@@ -101,7 +101,10 @@ describe('el catálogo en inglés', () => {
     const malas: string[] = [];
     for (const t of TERMINOS) {
       for (const [k, v] of entradas) {
-        if (t.es.test(k) && !t.debe.test(v)) malas.push(`${t.nombre}: ${k.slice(0, 44)} -> ${v.slice(0, 44)}`);
+        // Sin los huecos: en «{sostenidas} de {total}» la palabra es el
+        // NOMBRE del hueco, que no se traduce, no texto.
+        const sinHuecos = k.replace(/\{\w+\}/g, ' ');
+        if (t.es.test(sinHuecos) && !t.debe.test(v)) malas.push(`${t.nombre}: ${k.slice(0, 44)} -> ${v.slice(0, 44)}`);
       }
     }
     expect(malas.slice(0, 6)).toEqual([]);

@@ -25,6 +25,19 @@ function pareceTexto(t) {
   if (/^[A-Z_]+$/.test(s)) return false;            // CONSTANTE
   if (/^\d[\d\s.,:%+-]*$/.test(s)) return false;    // solo numeros
   if (/^(?:https?:|\/|\.\.?\/)/.test(s)) return false;
+  // Lo mismo que sacan los desenvolver_*.mjs. Tienen que ser las MISMAS
+  // reglas: con reglas distintas, este volvia a envolver lo que aquellos
+  // quitaban (colores, clases, trazados) y se deshacian el uno al otro. Paso
+  // el 2 de octubre de 2026 y llego a un commit sin que nada lo dijera.
+  if (/var\(--|^-?[\d.]+%\s|^(?:center|left|right|top|bottom)\b/.test(s)) return false;
+  if (/^(?:rgba?|hsla?)\(/i.test(s) || /^#[0-9a-f]{3,8}$/i.test(s)) return false;
+  if (/^[Mm][\s-]?-?[\d.]+[\s,]/.test(s)) return false;
+  if (/^(?:anthropic|openai|google|meta|mistral|xai)\//.test(s)) return false;
+  if (/^(?:CC[ -]|MIT|Apache|GPL|BSD|ODbL)\b/.test(s)) return false;  // una licencia se llama como se llama
+  // Un selector CSS: «script, style, code, [data-sin-traducir], .mono».
+  if (/\[[\w-]+(?:=[^\]]*)?\]|(?:^|,\s*)\.[a-z][\w-]*/i.test(s) && s.split(',').every((x) => /^\s*[\w.#\[\]="\-]+\s*$/.test(x))) return false;
+  const fichas = s.split(/\s+/);
+  if (fichas.every((f) => /^[a-z][a-z0-9-]*$/.test(f)) && fichas.some((f) => f.includes('-'))) return false;
   return /[a-záéíóúñ]/i.test(s);
 }
 const METODOS_DE_BUSQUEDA = new Set(['includes', 'startsWith', 'endsWith', 'indexOf', 'lastIndexOf', 'has', 'get', 'set', 'delete', 'add', 'match', 'search', 'split', 'join', 'replace', 'replaceAll', 'querySelector', 'querySelectorAll', 'getAttribute', 'setAttribute', 'getItem', 'setItem', 'removeItem', 'localeCompare', 'normalize', 'padStart', 'padEnd', 'repeat', 'test', 'exec', 'toFixed']);
@@ -71,7 +84,12 @@ const PROHIBIDAS = new Set();
 // nada lo dijera. Por nombre no hay heuristica que fallar.
 for (const t of JSON.parse(readFileSync('scripts/i18n/no-traducir.json', 'utf8'))) PROHIBIDAS.add(t);
 {
-  const todos = execSync("find src -name '*.tsx' -o -name '*.ts'", { encoding: 'utf8' }).trim().split('\n');
+  // Sin los tests: `expect(x).toBe('PATOLOGÍA')` compara lo que se VE, no es
+  // una comparacion del programa, y con los tests dentro se quedaban sin
+  // envolver «Al laboratorio», «PATOLOGÍA» o «Búsqueda de la corrida» (2 de
+  // octubre de 2026). Los tests corren en castellano, donde tr() es la
+  // identidad, asi que envolver no los rompe.
+  const todos = execSync("find src -name '*.tsx' -o -name '*.ts' | grep -v '\\.test\\.'", { encoding: 'utf8' }).trim().split('\n');
   for (const f of todos) {
     const sf = ts.createSourceFile(f, readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const ver = (n) => {
@@ -96,7 +114,10 @@ const soloEstos = process.argv.slice(2).filter((x) => !x.startsWith('--'));
 const escribir = process.argv.includes('--escribir');
 // idioma.ts define tr() (no puede importarse a si mismo) y ademas los
 // nombres de los idiomas van cada uno en el suyo: «Español», no «Spanish».
-const FUERA = new Set(['src/lib/idioma.ts']);
+// idioma.ts define tr(); y los reductores (datos/acciones.ts) escriben en el
+// estado, que no puede depender del idioma de quien mira: ver
+// desenvolver_estado.mjs.
+const FUERA = new Set(['src/lib/idioma.ts', 'src/datos/acciones.ts']);
 const ficheros = (soloEstos.length ? soloEstos
   : execSync("find src -name '*.tsx' -o -name '*.ts' | grep -v '.test.' | grep -v '/i18n/'", { encoding: 'utf8' }).trim().split('\n')).filter((f) => !FUERA.has(f));
 
@@ -107,7 +128,11 @@ for (const f of ficheros) {
   const sf = ts.createSourceFile(f, src, ts.ScriptTarget.Latest, true, f.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const sitios = [];
   const visitar = (n) => {
-    if ((ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && !noSeToca(n)) {
+    let enLista = false;
+    for (let q = n.parent; q; q = q.parent) {
+      if (ts.isVariableDeclaration(q) && ts.isIdentifier(q.name) && /^(?:VACIAS|DIRECCION|NUMEROS|NEGACIONES|GENERICOS|PARADAS|CAUSALES|TEMPORALES|STOPWORDS)/.test(q.name.text)) { enLista = true; break; }
+    }
+    if ((ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && !noSeToca(n) && !enLista) {
       const t = n.text;
       if (pareceTexto(t) && !PROHIBIDAS.has(t)) sitios.push(n);
     }

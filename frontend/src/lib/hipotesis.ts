@@ -3,7 +3,7 @@
 
 import type { Afirmacion, EstadoHipotesis, HallazgoRevisor, Hipotesis } from '../datos/tipos';
 import { DECISION_KILLER, VEREDICTO } from './etiquetas';
-import { tr } from './idioma';
+import { tr, trp } from './idioma';
 
 /** Orden de la cola: primero lo que espera a una persona. */
 const PRIORIDAD_COLA: Record<EstadoHipotesis, number> = {
@@ -98,16 +98,16 @@ export function resumirVerificacion(afirmaciones: Afirmacion[]): ResumenVerifica
   const otraEntidad = afirmaciones.filter((a) => a.entidadDistinta).length;
   const noSostenidas = cuenta(afirmaciones, 'no_sostenida') - otraEntidad;
   const piezas = [
-    cuenta(afirmaciones, 'sin_cita') > 0 && `${cuenta(afirmaciones, 'sin_cita')} sin cita`,
+    cuenta(afirmaciones, 'sin_cita') > 0 && trp("{afirmaciones} sin cita", { afirmaciones: cuenta(afirmaciones, 'sin_cita') }),
     cuenta(afirmaciones, 'ausencia_refutada') > 0 && `${cuenta(afirmaciones, 'ausencia_refutada')} ausencia desmentida`,
-    cuenta(afirmaciones, 'cita_no_resuelve') > 0 && `${cuenta(afirmaciones, 'cita_no_resuelve')} cita sin fuente`,
-    otraEntidad > 0 && `${otraEntidad} dato de otra entidad`,
-    noSostenidas > 0 && `${noSostenidas} no sostenida`,
+    cuenta(afirmaciones, 'cita_no_resuelve') > 0 && trp("{afirmaciones} cita sin fuente", { afirmaciones: cuenta(afirmaciones, 'cita_no_resuelve') }),
+    otraEntidad > 0 && trp("{otraEntidad} dato de otra entidad", { otraEntidad }),
+    noSostenidas > 0 && trp("{noSostenidas} no sostenida", { noSostenidas }),
     cuenta(afirmaciones, 'parcial') > 0 && `${cuenta(afirmaciones, 'parcial')} parcial`,
-    cuenta(afirmaciones, 'sin_verificar') > 0 && `${cuenta(afirmaciones, 'sin_verificar')} sin comprobar`,
+    cuenta(afirmaciones, 'sin_verificar') > 0 && trp("{afirmaciones} sin comprobar", { afirmaciones: cuenta(afirmaciones, 'sin_verificar') }),
   ].filter((p): p is string => typeof p === 'string');
   if (piezas.length === 0) {
-    return { total, sostenidas, bloqueantes, frase: `${sostenidas} de ${total} afirmaciones respaldadas por su fuente`, tono: 'ok' };
+    return { total, sostenidas, bloqueantes, frase: trp("{sostenidas} de {total} afirmaciones respaldadas por su fuente", { sostenidas, total }), tono: 'ok' };
   }
   return {
     total,
@@ -140,9 +140,9 @@ export function hallazgosVisibles(hallazgos: HallazgoRevisor[], mostrarTodo: boo
  *  abiertos del revisor. Devuelve el motivo si no se puede. */
 export function motivoNoAceptable(h: Pick<Hipotesis, 'afirmaciones' | 'hallazgos' | 'comprobacion'>): string | null {
   const bloqueantes = h.afirmaciones.filter((a) => VEREDICTO[a.veredicto].bloquea).length;
-  if (bloqueantes > 0) return `${bloqueantes} ${bloqueantes === 1 ? tr('afirmación bloquea') : tr('afirmaciones bloquean')} la aceptación: hay que corregirlas o quitarlas`;
+  if (bloqueantes > 0) return (bloqueantes === 1 ? trp("{bloqueantes} afirmación bloquea la aceptación: hay que corregirlas o quitarlas", { bloqueantes }) : trp("{bloqueantes} afirmaciones bloquean la aceptación: hay que corregirlas o quitarlas", { bloqueantes }));
   const abiertos = h.hallazgos.filter((x) => x.estado === 'abierto').length;
-  if (abiertos > 0) return `${abiertos} ${abiertos === 1 ? tr('hallazgo del revisor sigue abierto') : tr('hallazgos del revisor siguen abiertos')}`;
+  if (abiertos > 0) return (abiertos === 1 ? trp("{abiertos} hallazgo del revisor sigue abierto", { abiertos }) : trp("{abiertos} hallazgos del revisor siguen abiertos", { abiertos }));
   if (h.comprobacion.biomarcador.trim() === '' && h.comprobacion.cohorte.trim() === '') {
     return tr('La hipótesis no dice con que biomarcador ni con que cohorte se comprobaría');
   }

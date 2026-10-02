@@ -4,6 +4,7 @@
 
 import type { EstadoRosa } from '../datos/tipos';
 import { rutaDe } from './ruta';
+import { trp } from './idioma';
 
 export interface Resultado {
   tipo: 'hipotesis' | 'hecho' | 'fuente' | 'artefacto' | 'iteracion' | 'evento';
@@ -41,7 +42,7 @@ export function buscar(estado: EstadoRosa, investigacionId: string, consulta: st
   const corridas = estado.corridas.filter((c) => c.investigacionId === investigacionId).map((c) => c.id);
   for (const it of estado.iteraciones) {
     if (corridas.includes(it.corridaId) && casa(it.resumen, ...it.plan.map((p) => p.titulo + ' ' + p.detalle), ...it.pistas.map((p) => p.titulo))) {
-      salida.push({ tipo: 'iteracion', titulo: `Iteración ${it.numero}`, detalle: it.resumen || 'en curso', ruta: rutaDe(investigacionId, 'corrida') });
+      salida.push({ tipo: 'iteracion', titulo: trp("Iteración {numero}", { numero: it.numero }), detalle: it.resumen || 'en curso', ruta: rutaDe(investigacionId, 'corrida') });
     }
   }
   for (const e of estado.eventos) {

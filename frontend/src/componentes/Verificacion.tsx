@@ -14,7 +14,7 @@ import { TIPO_AFIRMACION, tipoAfirmacion, VEREDICTO } from '../lib/etiquetas';
 import { resumirVerificacion } from '../lib/hipotesis';
 import { IconAlert, IconCheck, IconChevronDown } from './icons';
 import { Chip } from './piezas';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 interface Props {
   afirmaciones: Afirmacion[];
@@ -37,7 +37,7 @@ export function Verificacion({ afirmaciones, cobertura = null, ocultarCitas = fa
         <span className="verif-frase">{r.frase}</span>
         {porTipo.interpretacion > 0 && (
           <Chip tono="aviso" title={TIPO_AFIRMACION.interpretacion.nota}>
-            {porTipo.interpretacion} {porTipo.interpretacion === 1 ? 'interpretacion' : 'interpretaciones'}
+            {(porTipo.interpretacion === 1 ? trp("{interpretacion} interpretacion", { interpretacion: porTipo.interpretacion }) : trp("{interpretacion} interpretaciones", { interpretacion: porTipo.interpretacion }))}
           </Chip>
         )}
         {r.total > 0 && (
@@ -62,7 +62,7 @@ export function Verificacion({ afirmaciones, cobertura = null, ocultarCitas = fa
                   {a.relacion && (
                     <>
                       <br />
-                      <Chip tono={a.relacion === 'contradice' ? 'mal' : a.relacion === 'apoya' ? 'ok' : 'aviso'} title={`${a.motivoRelacion ?? ''}${a.relacion === 'socava' ? tr(' Ataca el método o la inferencia de otro apoyo de esta hipótesis, no la hipótesis; el apoyo socavado deja de contar para el techo de certeza.') : ''}${a.iteracion ? ` Enlazada al cerrar la iteración ${a.iteracion}, después de nacer la hipótesis.` : ''}`.trim()}>
+                      <Chip tono={a.relacion === 'contradice' ? 'mal' : a.relacion === 'apoya' ? 'ok' : 'aviso'} title={(a.relacion === 'socava' ? trp("{v} Ataca el método o la inferencia de otro apoyo de esta hipótesis, no la hipótesis; el apoyo socavado deja de contar para el techo de certeza.{v2}", { v: a.motivoRelacion ?? '', v2: a.iteracion ? trp(" Enlazada al cerrar la iteración {iteracion}, después de nacer la hipótesis.", { iteracion: a.iteracion }) : '' }) : trp("{v}{v2}", { v: a.motivoRelacion ?? '', v2: a.iteracion ? trp(" Enlazada al cerrar la iteración {iteracion}, después de nacer la hipótesis.", { iteracion: a.iteracion }) : '' })).trim()}>
                         {a.relacion === 'contradice' ? tr('En contra') : a.relacion === 'apoya' ? tr('A favor') : a.relacion === 'socava' ? tr('Socava un apoyo') : tr('Apoyo indirecto')}
                       </Chip>
                     </>
@@ -81,8 +81,7 @@ export function Verificacion({ afirmaciones, cobertura = null, ocultarCitas = fa
                     </details>
                   )}
                   {a.trayectoria && onVerTrayectoria && (
-                    <button type="button" className="chip chip-acento" style={{ alignSelf: 'flex-start' }} onClick={() => onVerTrayectoria(a.trayectoria!.id, a.trayectoria!.celda)}>
-                      Trayectoria {a.trayectoria.id}, celda {a.trayectoria.celda}
+                    <button type="button" className="chip chip-acento" style={{ alignSelf: 'flex-start' }} onClick={() => onVerTrayectoria(a.trayectoria!.id, a.trayectoria!.celda)}>{trp("Trayectoria {id}, celda {celda}", { id: a.trayectoria.id, celda: a.trayectoria.celda })}
                     </button>
                   )}
                   {!ocultarCitas && a.motivo !== '' && <span className="verif-motivo">{a.motivo}</span>}

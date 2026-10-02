@@ -33,7 +33,7 @@ import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
 import { AvisoMuestra } from '../componentes/piezas';
 import { fechaCorta, formatearEntero, plural } from '../lib/formato';
 import '../citas.css';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 const AYUDA =
   'Cada afirmación que ROSA2018 ha extraído, junto al trozo exacto de la fuente que la sostiene. A la izquierda la afirmación; a la derecha la página tal como ROSA2018 la leyó, con el pasaje resaltado.';
@@ -98,21 +98,17 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
       ) : n > 0 && datos ? (
         <>
           <p>
-            {plural(datos.bloqueosViejos, tr('afirmación de esta investigación sigue bloqueada'), tr('afirmaciones de esta investigación siguen bloqueadas'))} {tr("por reglas del verificador que ya no valen")}
-            {datos.sinJuez ? `, y ${plural(datos.sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez'))}` : ''}{tr(". Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.")}
-            {datos.corridasVivas ? tr(' Hay una corrida trabajando en esta investigación: empezará cuando pare.') : ''}
+            {(datos.corridasVivas ? trp("{bloqueosViejos} por reglas del verificador que ya no valen{v}. Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano. Hay una corrida trabajando en esta investigación: empezará cuando pare.", { bloqueosViejos: plural(datos.bloqueosViejos, tr('afirmación de esta investigación sigue bloqueada'), tr('afirmaciones de esta investigación siguen bloqueadas')), v: datos.sinJuez ? `, y ${plural(datos.sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez'))}` : '' }) : trp("{bloqueosViejos} por reglas del verificador que ya no valen{v}. Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.", { bloqueosViejos: plural(datos.bloqueosViejos, tr('afirmación de esta investigación sigue bloqueada'), tr('afirmaciones de esta investigación siguen bloqueadas')), v: datos.sinJuez ? `, y ${plural(datos.sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez'))}` : '' }))}
           </p>
           <button type="button" className="btn btn-s btn-primario" onClick={() => void pedir()} {...atributosEnVuelo(enVuelo)}>
-            {enVuelo ? 'Pidiendo...' : `Recuperar las ${formatearEntero(n)}`}
+            {enVuelo ? 'Pidiendo...' : trp("Recuperar las {n}", { n: formatearEntero(n) })}
           </button>
         </>
       ) : null}
       {terminada && reg && (
         <div className="citas-recuperar-informe">
           <p className="meta">
-            {tr("Última recuperación, pedida el")} {fechaCorta(reg.pedidaEn)} por {reg.quien}
-            {reg.corridaId ? tr(' (una sola corrida)') : ''}:
-          </p>
+            {(reg.corridaId ? trp("Última recuperación, pedida el {pedidaEn} por {quien} (una sola corrida):", { pedidaEn: fechaCorta(reg.pedidaEn), quien: reg.quien }) : trp("Última recuperación, pedida el {pedidaEn} por {quien}:", { pedidaEn: fechaCorta(reg.pedidaEn), quien: reg.quien }))}</p>
           {reg.estado === 'fallida' ? (
             <p>{avanceDeRecuperacion(reg)}</p>
           ) : (
@@ -228,11 +224,11 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
           <p>{tr(AYUDA)}</p>
           <p className="meta">
             {tr(META)}
-            {resumen ? ` En esta corrida, ${plural(resumen.conPagina, tr('afirmación resuelve'), tr('afirmaciones resuelven'))} a página exacta de ${resumen.total}.` : ''}
+            {resumen ? trp(" En esta corrida, {conPagina} a página exacta de {total}.", { conPagina: plural(resumen.conPagina, tr('afirmación resuelve'), tr('afirmaciones resuelven')), total: resumen.total }) : ''}
             {resumen && (resumen.bloqueosViejos ?? 0) > 0
-              ? ` ${plural(resumen.bloqueosViejos, tr('afirmación quedó bloqueada'), tr('afirmaciones quedaron bloqueadas'))} con una versión anterior del verificador y hoy el verificador ya no ${resumen.bloqueosViejos === 1 ? tr('la bloquearía') : tr('las bloquearía')}.` +
+              ? (resumen.bloqueosViejos === 1 ? trp(" {bloqueosViejos} con una versión anterior del verificador y hoy el verificador ya no la bloquearía.", { bloqueosViejos: plural(resumen.bloqueosViejos, tr('afirmación quedó bloqueada'), tr('afirmaciones quedaron bloqueadas')) }) : trp(" {bloqueosViejos} con una versión anterior del verificador y hoy el verificador ya no las bloquearía.", { bloqueosViejos: plural(resumen.bloqueosViejos, tr('afirmación quedó bloqueada'), tr('afirmaciones quedaron bloqueadas')) })) +
                 ((resumen.bloqueadasConCitaEnOrden ?? 0) > resumen.bloqueosViejos
-                  ? ` Otras ${(resumen.bloqueadasConCitaEnOrden ?? 0) - resumen.bloqueosViejos} tienen la cita en orden pero siguen bloqueadas por otra comprobación.`
+                  ? trp(" Otras {v} tienen la cita en orden pero siguen bloqueadas por otra comprobación.", { v: (resumen.bloqueadasConCitaEnOrden ?? 0) - resumen.bloqueosViejos })
                   : '')
               : ''}
           </p>
@@ -243,8 +239,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
               Corrida{' '}
               <select value={corridaId} onChange={(e) => setCorridaId(e.target.value)} aria-label={tr("Elegir corrida")}>
                 {corridas.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    Corrida {c.numero}
+                  <option key={c.id} value={c.id}>{trp("Corrida {numero}", { numero: c.numero })}
                   </option>
                 ))}
               </select>
@@ -291,7 +286,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 </button>
                 {(resumen?.bloqueosViejos ?? 0) > 0 && !recuperacionPendiente && (
                   <button type="button" className="btn btn-s btn-primario citas-recuperar" onClick={() => void recuperar()} {...atributosEnVuelo(enVuelo)} title={tr("Vuelve a juzgarlas, enlaza a las hipótesis las que salgan sostenidas y rehace sus conclusiones")}>
-                    {enVuelo ? 'Pidiendo...' : `Recuperar las ${resumen?.bloqueosViejos ?? 0} de esta corrida`}
+                    {enVuelo ? 'Pidiendo...' : trp("Recuperar las {v} de esta corrida", { v: resumen?.bloqueosViejos ?? 0 })}
                   </button>
                 )}
                 {(resumen?.bloqueosViejos ?? 0) > 0 && (
@@ -447,7 +442,7 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
             {tr("Texto leído")}
           </button>
           <button type="button" className={vista === 'pagina' ? 'activo' : ''} onClick={() => cambiarVista('pagina')} aria-pressed={vista === 'pagina'}>
-            {ficha.pagina !== null ? `Página ${ficha.pagina} del PDF` : tr('Página del PDF')}
+            {ficha.pagina !== null ? trp("Página {pagina} del PDF", { pagina: ficha.pagina }) : tr('Página del PDF')}
           </button>
         </div>
       )}
@@ -457,7 +452,7 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
           <img
             className="citas-pagina"
             src={acciones.paginaDeCita(corridaId, ficha.afirmacion.id)}
-            alt={ficha.completo ? `Página ${ficha.pagina ?? ''} del PDF con el pasaje citado marcado en naranja` : `Página ${ficha.pagina ?? ''} del PDF, sin marcar: el pasaje no se encontró en ella`}
+            alt={ficha.completo ? trp("Página {v} del PDF con el pasaje citado marcado en naranja", { v: ficha.pagina ?? '' }) : trp("Página {v} del PDF, sin marcar: el pasaje no se encontró en ella", { v: ficha.pagina ?? '' })}
           />
         </div>
       ) : ficha.texto ? (
@@ -478,7 +473,7 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
       <div className="citas-barra">
         {ficha.conPdf ? (
           <button type="button" className="btn btn-s btn-primario" onClick={() => cambiarVista('pagina')}>
-            {ficha.pagina !== null ? `Ver la cita marcada en la página ${ficha.pagina}` : tr('Ver la cita marcada en la página')}
+            {ficha.pagina !== null ? trp("Ver la cita marcada en la página {pagina}", { pagina: ficha.pagina }) : tr('Ver la cita marcada en la página')}
           </button>
         ) : (
           alPasaje && (
@@ -500,8 +495,7 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
       </div>
       {ficha.conPdf ? (
         <p className="meta citas-pista-enlace">
-          {tr("La marca la pinta ROSA2018 sobre la página: el visor de PDF del navegador solo sabe abrir por una página, no resaltar, así que abrir el PDF entero lleva a la página")} {ficha.pagina ?? ''} sin marcar.
-        </p>
+          {trp("La marca la pinta ROSA2018 sobre la página: el visor de PDF del navegador solo sabe abrir por una página, no resaltar, así que abrir el PDF entero lleva a la página {v} sin marcar.", { v: ficha.pagina ?? '' })}</p>
       ) : (
         alPasaje && (
           <p className="meta citas-pista-enlace">{tr("El navegador salta solo hasta el pasaje y lo resalta. Si la página ha cambiado desde que ROSA2018 la leyó, se abrirá por el principio.")}</p>
@@ -530,7 +524,7 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
           )}
           {!ficha.bloqueoViejo && hoy.resuelve && hoy.literal && ficha.veredictoDeHoy?.bloquea && (
             <p className="citas-sigue">
-              {tr("La cita está en orden, pero la afirmación sigue bloqueada hoy por otra comprobación:")} {ficha.veredictoDeHoy.motivo}
+              {trp("La cita está en orden, pero la afirmación sigue bloqueada hoy por otra comprobación: {motivo}", { motivo: ficha.veredictoDeHoy.motivo })}
             </p>
           )}
         </div>

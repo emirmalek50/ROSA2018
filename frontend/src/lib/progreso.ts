@@ -4,7 +4,7 @@
 // acumulados, lo que falló y las marcas de cambio de arnés (otra versión de
 // ROSA2018). Espejo de rosa/progreso.py; puro y probado.
 import type { Corrida, ProgresoIteracion } from '../datos/tipos';
-import { tr } from './idioma';
+import { tr, trp } from './idioma';
 
 export interface PuntoProgreso {
   /** Posición en el eje, de 0 a N-1, a través de todas las corridas. */
@@ -64,8 +64,8 @@ export function serieDeProgreso(corridas: Corrida[]): PuntoProgreso[] {
 export function resumenMetrica(m: Corrida['metrica']): string {
   if (!m) return '';
   const netos = m.peldanosNetos;
-  const partes = [`${netos >= 0 ? tr('subió') : tr('bajó')} ${Math.abs(netos)} ${Math.abs(netos) === 1 ? tr('peldaño') : tr('peldaños')} netos de certeza en ${m.iteraciones} ${m.iteraciones === 1 ? tr('iteración') : 'iteraciones'}`];
-  if (m.peldanosPorDolar !== null) partes.push(`${m.peldanosPorDolar} por dólar`);
-  if (m.hipotesisEnBajaOMas > 0) partes.push(`${m.hipotesisEnBajaOMas} hipótesis en certeza baja o más`);
+  const partes = [(netos >= 0 ? trp("subió {netos} {v} netos de certeza en {iteraciones} {v2}", { netos: Math.abs(netos), v: Math.abs(netos) === 1 ? tr("peldaño") : tr("peldaños"), iteraciones: m.iteraciones, v2: m.iteraciones === 1 ? tr("iteración") : tr("iteraciones") }) : trp("bajó {netos} {v} netos de certeza en {iteraciones} {v2}", { netos: Math.abs(netos), v: Math.abs(netos) === 1 ? tr("peldaño") : tr("peldaños"), iteraciones: m.iteraciones, v2: m.iteraciones === 1 ? tr("iteración") : tr("iteraciones") }))];
+  if (m.peldanosPorDolar !== null) partes.push(trp("{peldanosPorDolar} por dólar", { peldanosPorDolar: m.peldanosPorDolar }));
+  if (m.hipotesisEnBajaOMas > 0) partes.push(trp("{hipotesisEnBajaOMas} hipótesis en certeza baja o más", { hipotesisEnBajaOMas: m.hipotesisEnBajaOMas }));
   return partes.join('; ');
 }

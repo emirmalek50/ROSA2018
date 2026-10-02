@@ -47,7 +47,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Limite } from './componentes/Limite';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { cerrarAvisoConflicto, reintentarConexion, useAvisoConflicto, useRosa } from './datos/almacen';
+import { acciones, cerrarAvisoConflicto, reintentarConexion, useAvisoConflicto, useRosa } from './datos/almacen';
 import type { EstadoConexion } from './datos/tipos';
 import { BarraLateral } from './componentes/BarraLateral';
 import { BusquedaGlobal } from './componentes/BusquedaGlobal';
@@ -79,7 +79,8 @@ import { ModeloDeMundo } from './pantallas/ModeloDeMundo';
 import { NuevaInvestigacion } from './pantallas/NuevaInvestigacion';
 import { Panorama } from './pantallas/Panorama';
 import { Ranking } from './pantallas/Ranking';
-import { traducido, tr } from './lib/idioma';
+import { traducido, tr, useIdioma } from './lib/idioma';
+import { activar as activarTraductor, desactivar as desactivarTraductor } from './lib/traductorDom';
 
 const TITULO_PANTALLA = traducido({
   corrida: 'Corrida en vivo',
@@ -129,6 +130,17 @@ function usePrimerFrame(clave: string | null): boolean {
 }
 
 export default function App() {
+
+  // En inglés, lo que no está en el catálogo (lo que escribió ROSA2018, la
+  // prosa del servidor) se traduce al pintarse (lib/traductorDom.ts). Al
+  // volver al castellano cada nodo recupera su original.
+  const idiomaApp = useIdioma();
+  useEffect(() => {
+    const raiz = document.getElementById('root');
+    if (idiomaApp === 'en' && raiz) activarTraductor(raiz, acciones.traducirTextos);
+    else desactivarTraductor();
+    return () => desactivarTraductor();
+  }, [idiomaApp]);
   const remoto = useRosa();
   const aviso = useAvisoConflicto();
   const [ruta] = useRuta();

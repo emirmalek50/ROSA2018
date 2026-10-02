@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { ETAPAS } from './HiloDelProceso';
 import { useMovimientoReducido } from '../lib/movimiento';
-import { traducido } from '../lib/idioma';
+import { traducido, trp, tr } from '../lib/idioma';
 
 const CLAVE = 'rosa.recorrido.v1';
 
@@ -97,8 +97,7 @@ export function Recorrido({ abierto, onCerrar }: { abierto: boolean; onCerrar: (
             </div>
             <AnimatePresence mode="wait" initial={false}>
               <motion.div key={paso} initial={reducido ? { opacity: 0 } : { opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={reducido ? { opacity: 0 } : { opacity: 0, x: -24 }} transition={{ duration: 0.2 }}>
-                <p className="meta">
-                  Paso {paso + 1} de {PASOS.length}
+                <p className="meta">{trp("Paso {v} de {PASOS}", { v: paso + 1, PASOS: PASOS.length })}
                 </p>
                 <h2 id="recorrido-titulo">{p.titulo}</h2>
                 <p>{p.texto}</p>
@@ -113,7 +112,7 @@ export function Recorrido({ abierto, onCerrar }: { abierto: boolean; onCerrar: (
               </div>
               <div className="acciones">
                 <button type="button" className="btn btn-fantasma" onClick={cerrar}>
-                  {paso === PASOS.length - 1 ? 'Cerrar' : 'Saltar'}
+                  {(paso === PASOS.length - 1 ? tr("Cerrar") : tr("Saltar"))}
                 </button>
                 {paso > 0 && (
                   <button type="button" className="btn" onClick={() => setPaso(paso - 1)}>

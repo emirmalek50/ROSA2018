@@ -61,6 +61,11 @@ ACCIONES_INTERNAS = {"registrarPreguntaBases", "registrarEvaluacion", "registrar
 MAX_CUERPO_ACCION = 1_000_000
 MAX_CUERPO_PEQUENO = 4096
 MAX_CUERPO_PREGUNTA = 16_384
+# 80 textos de hasta 4000 caracteres, con margen para el JSON (rosa/traductor.py).
+MAX_CUERPO_TRADUCIR = 400_000
+# Textos NUEVOS que se mandan a traducir al modelo por día; lo que ya está en la
+# caché no cuenta. Es un freno contra un bucle, no un presupuesto.
+TRADUCCIONES_MAX_DIA = 20_000
 HOSTS_LOCALES = ("127.0.0.1", "localhost", "::1")
 # La puerta sin verificar sigue siendo pública aunque esté cerrada: así quien la
 # llame sin sesión (una interfaz antigua) recibe el 410 con la explicación y no
@@ -183,6 +188,7 @@ def crear_app(almacen: Almacen) -> FastAPI:
     app.state.token_interno = token_interno()
     app.state.semaforo_preguntas = asyncio.Semaphore(2)
     app.state.preguntas_hoy = {"dia": "", "n": 0}
+    app.state.traducidas_hoy = {"dia": "", "n": 0}
 
     def instalacion_local(request):
         # Solo instalación local directa, nunca por un proxy o desde la red.
@@ -1109,6 +1115,34 @@ def crear_app(almacen: Almacen) -> FastAPI:
             r["hilo"] = hilo
         almacen.aplicar("registrarPreguntaBases", {"investigacion_id": investigacion_id, "pregunta": r})
         return {"ok": r.get("error") is None, "resultado": {k: v for k, v in r.items() if k != "consultas"} | {"consultas": len(r.get("consultas", []))}, "version": almacen.version}
+
+    @app.post("/api/traducir")
+    async def traducir_textos(request: Request) -> dict[str, Any]:
+        """Traduce al inglés textos que no caben en un catálogo: lo que escribió
+        ROSA2018 y la prosa del servidor (rosa/traductor.py). Lo pide la
+        interfaz cuando está en inglés, con lo que tiene en pantalla. Lo ya
+        traducido sale de la caché; lo nuevo va al modelo, se comprueba con las
+        reglas del proyecto y se guarda. El original no se toca."""
+        from rosa import traductor as T
+
+        if "application/json" not in request.headers.get("content-type", ""):
+            raise HTTPException(415, "Los textos van como application/json")
+        cuerpo = await leer_json_acotado(request, MAX_CUERPO_TRADUCIR)
+        textos = T.limpiar(cuerpo.get("textos") if isinstance(cuerpo, dict) else None)
+        if not textos:
+            return {"traducciones": {}, "rechazadas": {}}
+        hoy = time.strftime("%Y-%m-%d")
+        cont = app.state.traducidas_hoy
+        if cont["dia"] != hoy:
+            cont.update(dia=hoy, n=0)
+        ya = await asyncio.to_thread(T.cache().leer, textos)
+        nuevas = len(textos) - len(ya)
+        # Pasado el tope del día, solo la caché: lo nuevo se queda en
+        # castellano, que se entiende, en vez de fallar la pantalla.
+        llamar = T.llamar_modelo if cont["n"] + nuevas <= TRADUCCIONES_MAX_DIA else None
+        if llamar is not None:
+            cont["n"] += nuevas
+        return await asyncio.to_thread(T.traducir, textos, llamar)
 
     @app.get("/api/preguntar/razonamiento/{seguimiento}")
     async def razonamiento_de_pregunta(seguimiento: str) -> dict[str, Any]:

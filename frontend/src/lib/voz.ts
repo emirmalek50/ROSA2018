@@ -12,7 +12,7 @@
 // Sin soporte (Firefox, o un navegador que no lo traiga) no se rompe nada: el
 // botón no sale y se escribe como siempre.
 
-import { idiomaActual } from './idioma';
+import { tr, idiomaActual } from './idioma';
 
 type Reconocedor = {
   lang: string;
@@ -56,15 +56,15 @@ export function errorDeVoz(codigo: string): string {
   switch (codigo) {
     case 'not-allowed':
     case 'service-not-allowed':
-      return 'El navegador no tiene permiso para usar el micrófono. Se da en el candado de la barra de direcciones.';
+      return tr('El navegador no tiene permiso para usar el micrófono. Se da en el candado de la barra de direcciones.');
     case 'no-speech':
-      return 'No te oí. Prueba otra vez, un poco más cerca del micrófono.';
+      return tr('No te oí. Prueba otra vez, un poco más cerca del micrófono.');
     case 'audio-capture':
-      return 'No encuentro ningún micrófono en este ordenador.';
+      return tr('No encuentro ningún micrófono en este ordenador.');
     case 'network':
-      return 'El reconocimiento de voz necesita internet y no hay conexión.';
+      return tr('El reconocimiento de voz necesita internet y no hay conexión.');
     default:
-      return 'No pude oírte. Puedes escribir la pregunta.';
+      return tr('No pude oírte. Puedes escribir la pregunta.');
   }
 }
 
@@ -97,7 +97,7 @@ export function escuchar(o: {
 }): Escucha {
   const C = claseReconocedor();
   if (!C) {
-    o.alError('Este navegador no reconoce la voz. Puedes escribir la pregunta.');
+    o.alError(tr('Este navegador no reconoce la voz. Puedes escribir la pregunta.'));
     o.alTerminar();
     return { enviar: () => undefined, soltar: () => undefined };
   }

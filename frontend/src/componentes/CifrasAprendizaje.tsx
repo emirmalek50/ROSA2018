@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
 import type { AgregadoAcierto, CasoPrerregistrado, CifrasAprendizaje as Cifras, ReutilizacionHeredada, TiempoHastaDecision } from '../datos/tipos';
 import { CERTEZA_EVIDENCIA } from '../lib/etiquetas';
 import { coma, formatearEntero, formatearPorcentaje, plural } from '../lib/formato';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp, trc } from '../lib/idioma';
 
 /** Glosario de reserva, copiado de rosa/cifras_aprendizaje.py GLOSARIO; el
  *  que llega con las cifras manda, este cubre un registro que no lo traiga. */
@@ -94,7 +94,7 @@ export function textoHoras(horas: number | null | undefined): string {
   if (typeof horas !== 'number' || !Number.isFinite(horas) || horas < 0) return 'todavía no se puede medir';
   if (horas < 1) return `${Math.round(horas * 60)} min`;
   if (horas < 48) return `${coma((Math.round(horas * 10) / 10).toString())} h`;
-  return `${coma((Math.round(horas / 2.4) / 10).toString())} días`;
+  return trp("{v} días", { v: coma((Math.round(horas / 2.4) / 10).toString()) });
 }
 
 function Cifra({ titulo, definicion, valor, nota, regla, detalle, hayDetalle }: { titulo: string; definicion: string; valor: string; nota: string; regla: string; detalle: ReactNode; hayDetalle: boolean }) {
@@ -107,7 +107,7 @@ function Cifra({ titulo, definicion, valor, nota, regla, detalle, hayDetalle }: 
       <p className="cifra-ap-valor">{valor}</p>
       <p className="meta">{nota}</p>
       <details className="cifra-ap-detalle">
-        <summary>{tr("Cómo se calcula")}{hayDetalle ? tr(' y el detalle') : ''}</summary>
+        <summary>{(hayDetalle ? tr("Cómo se calcula y el detalle") : tr("Cómo se calcula"))}</summary>
         <p className="meta cifra-ap-regla">{regla}</p>
         {hayDetalle ? detalle : <p className="meta">{tr("Sin casos que detallar todavía.")}</p>}
       </details>
@@ -117,24 +117,24 @@ function Cifra({ titulo, definicion, valor, nota, regla, detalle, hayDetalle }: 
 
 function notaAcierto(a: AgregadoAcierto): string {
   if (!cuenta(a.casos)) return tr('Ninguna predicción prerregistrada con resultado todavía.');
-  const partes = [`${plural(cuenta(a.aciertos), 'acierto')} de ${plural(cuenta(a.conDireccion), tr('predicción con dirección'), tr('predicciones con dirección'))}`];
-  if (cuenta(a.sinDireccion)) partes.push(`${cuenta(a.sinDireccion)} sin dirección declarada (no entran en la tasa)`);
-  if (cuenta(a.noEvaluables)) partes.push(`${cuenta(a.noEvaluables)} no evaluables`);
+  const partes = [trp("{v} de {v2}", { v: plural(cuenta(a.aciertos), tr("acierto")), v2: plural(cuenta(a.conDireccion), tr('predicción con dirección'), tr('predicciones con dirección')) })];
+  if (cuenta(a.sinDireccion)) partes.push(trp("{sinDireccion} sin dirección declarada (no entran en la tasa)", { sinDireccion: cuenta(a.sinDireccion) }));
+  if (cuenta(a.noEvaluables)) partes.push(trp("{noEvaluables} no evaluables", { noEvaluables: cuenta(a.noEvaluables) }));
   return `${partes.join('; ')}.`;
 }
 
 function notaTiempo(t: TiempoHastaDecision): string {
   const abiertas = cuenta(t.abiertasSinDecision);
-  if (!cuenta(t.casos)) return abiertas ? `${plural(abiertas, tr('hipótesis viva'), tr('hipótesis vivas'))} sin ninguna decisión todavía (${textoHoras(t.abiertasSinDecisionHoras)} esperando).` : tr('Ninguna hipótesis tiene todavía una decisión registrada.');
-  const partes = [`p90 ${textoHoras(t.p90Horas)}`, `${plural(cuenta(t.casos), tr('decisión'), 'decisiones')} sobre ${plural(cuenta(t.hipotesis), 'hipótesis', 'hipótesis')}`];
-  if (abiertas) partes.push(`${abiertas} vivas sin decidir`);
+  if (!cuenta(t.casos)) return abiertas ? trp("{abiertas} sin ninguna decisión todavía ({abiertasSinDecisionHoras} esperando).", { abiertas: plural(abiertas, tr('hipótesis viva'), tr('hipótesis vivas')), abiertasSinDecisionHoras: textoHoras(t.abiertasSinDecisionHoras) }) : tr('Ninguna hipótesis tiene todavía una decisión registrada.');
+  const partes = [`p90 ${textoHoras(t.p90Horas)}`, trp("{v} sobre {v2}", { v: plural(cuenta(t.casos), tr('decisión'), tr("decisiones")), v2: plural(cuenta(t.hipotesis), tr("hipótesis"), trc("plural", "hipótesis")) })];
+  if (abiertas) partes.push(trp("{abiertas} vivas sin decidir", { abiertas }));
   return `${partes.join(' · ')}.`;
 }
 
 function notaReutilizacion(r: ReutilizacionHeredada): string {
   const heredados = cuenta(r.hechosHeredados);
   if (!heredados) return tr('Esta investigación no heredó hechos de otra.');
-  return `${plural(cuenta(r.usados), tr('hecho heredado usado'), tr('hechos heredados usados'))} de ${formatearEntero(heredados)}; ${plural(cuenta(r.hipotesisConHerencia), tr('hipótesis viva'), tr('hipótesis vivas'))} de ${cuenta(r.hipotesisVivas)} se apoyan en alguno.`;
+  return trp("{v} de {heredados}; {v2} de {hipotesisVivas} se apoyan en alguno.", { v: plural(cuenta(r.usados), tr('hecho heredado usado'), tr('hechos heredados usados')), heredados: formatearEntero(heredados), v2: plural(cuenta(r.hipotesisConHerencia), tr('hipótesis viva'), tr('hipótesis vivas')), hipotesisVivas: cuenta(r.hipotesisVivas) });
 }
 
 /** La tarjeta "Aprendizaje" de la vista de programa. `cifras` en null o
@@ -171,7 +171,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
     <article className="tarjeta cifras-ap" aria-label="Aprendizaje">
       <div className="cifras-ap-cabecera">
         <h3>Aprendizaje</h3>
-        <span className="meta">{cuenta(cifras.iteracion) ? `Calculado al cerrar la iteración ${cuenta(cifras.iteracion)}.` : tr('Calculado a demanda.')}</span>
+        <span className="meta">{cuenta(cifras.iteracion) ? trp("Calculado al cerrar la iteración {iteracion}.", { iteracion: cuenta(cifras.iteracion) }) : tr('Calculado a demanda.')}</span>
       </div>
       {frases.length > 0 ? (
         <div className="cifras-ap-texto">
@@ -185,7 +185,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
       <div className="cifras-ap-rejilla">
         {a && (
           <Cifra
-            titulo="Acierto prerregistrado"
+            titulo={tr("Acierto prerregistrado")}
             definicion={`Acierto: ${glosario.acierto}. Prerregistro: ${glosario.prerregistro}.`}
             valor={textoTasa(a.tasa)}
             nota={notaAcierto(a)}
@@ -195,17 +195,14 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
               <>
                 {objeto(a.porFuente) && (
                   <p className="meta">
-                    {tr("Por fuente: análisis in silico")} {textoTasa(a.porFuente.analisis?.tasa)} ({cuenta(a.porFuente.analisis?.casos)} casos); laboratorio {textoTasa(a.porFuente.laboratorio?.tasa)} ({cuenta(a.porFuente.laboratorio?.casos)} casos).
-                  </p>
+                    {trp("Por fuente: análisis in silico {tasa} ({casos} casos); laboratorio {tasa2} ({casos2} casos).", { tasa: textoTasa(a.porFuente.analisis?.tasa), casos: cuenta(a.porFuente.analisis?.casos), tasa2: textoTasa(a.porFuente.laboratorio?.tasa), casos2: cuenta(a.porFuente.laboratorio?.casos) })}</p>
                 )}
                 {porNivel.length > 0 && (
                   <p className="meta">
-                    {tr("Por certeza GRADE de la hipótesis:")} {porNivel.map(([nivel, v]) => `${CERTEZA_EVIDENCIA[nivel as keyof typeof CERTEZA_EVIDENCIA]?.etiqueta.toLowerCase() ?? nivel} ${cuenta(v?.aciertos)} de ${cuenta(v?.casos)}`).join('; ')}.
-                  </p>
+                    {trp("Por certeza GRADE de la hipótesis: {v}.", { v: porNivel.map(([nivel, v]) => trp("{v} {aciertos} de {casos}", { v: CERTEZA_EVIDENCIA[nivel as keyof typeof CERTEZA_EVIDENCIA]?.etiqueta.toLowerCase() ?? nivel, aciertos: cuenta(v?.aciertos), casos: cuenta(v?.casos) })).join('; ') })}</p>
                 )}
                 {objeto(a.excluidos) && (
-                  <p className="meta">
-                    Excluidos: {cuenta(a.excluidos.planesSinCongelar)} planes sin congelar, {cuenta(a.excluidos.planesSinEjecucionValida)} sin ejecución válida, {cuenta(a.excluidos.planesReproduccion)} de reproducción, {cuenta(a.excluidos.laboratorioSinPrerregistro)} {tr("experimentos sin prerregistro.")}
+                  <p className="meta">{trp("Excluidos: {planesSinCongelar} planes sin congelar, {planesSinEjecucionValida} sin ejecución válida, {planesReproduccion} de reproducción, {laboratorioSinPrerregistro} experimentos sin prerregistro.", { planesSinCongelar: cuenta(a.excluidos.planesSinCongelar), planesSinEjecucionValida: cuenta(a.excluidos.planesSinEjecucionValida), planesReproduccion: cuenta(a.excluidos.planesReproduccion), laboratorioSinPrerregistro: cuenta(a.excluidos.laboratorioSinPrerregistro) })}
                   </p>
                 )}
                 {detalleAcierto.length > 0 && (
@@ -214,10 +211,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
                       <li key={`${texto(c.planId) || texto(c.ejecucionId) || texto(c.hipotesisId) || i}-${i}`}>
                         <span className={`chip chip-${CLASE_CASO[c.clase]?.tono ?? 'borde'}`}>{CLASE_CASO[c.clase]?.etiqueta ?? (texto(c.clase) || tr('sin clase'))}</span>
                         <span>
-                          {c.fuente === 'laboratorio' ? 'Laboratorio' : tr('Análisis')}
-                          {texto(c.hipotesisId) ? ` · ${texto(c.hipotesisId)}` : ''}
-                          {texto(c.direccionEsperada) ? ` · esperaba: ${texto(c.direccionEsperada)}` : ''}
-                          {texto(c.resultado) ? ` · salió: ${texto(c.resultado)}` : ''}
+                          {(c.fuente === 'laboratorio' ? trp("Laboratorio{v}{v2}{v3}", { v: texto(c.hipotesisId) ? ` · ${texto(c.hipotesisId)}` : '', v2: texto(c.direccionEsperada) ? ` · esperaba: ${texto(c.direccionEsperada)}` : '', v3: texto(c.resultado) ? trp(" · salió: {resultado}", { resultado: texto(c.resultado) }) : '' }) : trp("Análisis{v}{v2}{v3}", { v: texto(c.hipotesisId) ? ` · ${texto(c.hipotesisId)}` : '', v2: texto(c.direccionEsperada) ? ` · esperaba: ${texto(c.direccionEsperada)}` : '', v3: texto(c.resultado) ? trp(" · salió: {resultado}", { resultado: texto(c.resultado) }) : '' }))}
                         </span>
                         <span className="meta">{texto(c.motivo)}</span>
                       </li>
@@ -232,7 +226,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
           <Cifra
             titulo={tr("Tiempo hasta decidir")}
             definicion={`Decisión: ${glosario.decision}. Mediana: ${glosario.mediana}. p90: ${glosario.p90}.`}
-            valor={textoHoras(t.medianaHoras) === 'todavía no se puede medir' ? 'todavía no se puede medir' : `${textoHoras(t.medianaHoras)} de mediana`}
+            valor={textoHoras(t.medianaHoras) === 'todavía no se puede medir' ? 'todavía no se puede medir' : trp("{medianaHoras} de mediana", { medianaHoras: textoHoras(t.medianaHoras) })}
             nota={notaTiempo(t)}
             regla={texto(t.regla)}
             hayDetalle={detalleTiempo.length > 0 || porEtapa.length > 0}
@@ -244,7 +238,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
                       <li key={etapa}>
                         <span>{ETAPA[etapa] ?? etapa}</span>
                         <span className="meta">
-                          {plural(cuenta(v?.casos), tr('decisión'), 'decisiones')} · mediana {textoHoras(v?.medianaHoras)}
+                          {trp("{v} · mediana {medianaHoras}", { v: plural(cuenta(v?.casos), tr('decisión'), tr("decisiones")), medianaHoras: textoHoras(v?.medianaHoras) })}
                         </span>
                       </li>
                     ))}
@@ -252,7 +246,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
                 )}
                 {(cuenta(t.sinFechaCreacion) || cuenta(t.decisionesSinFecha) || cuenta(t.fechasInvertidas)) ? (
                   <p className="meta">
-                    {tr("Registros que no se pudieron medir:")} {cuenta(t.sinFechaCreacion)} {tr("hipótesis sin fecha de creación,")} {cuenta(t.decisionesSinFecha)} decisiones sin fecha, {cuenta(t.fechasInvertidas)} {tr("decisiones anteriores a la creación (cuentan como 0 horas).")}
+                    {trp("Registros que no se pudieron medir: {sinFechaCreacion} hipótesis sin fecha de creación, {decisionesSinFecha} decisiones sin fecha, {fechasInvertidas} decisiones anteriores a la creación (cuentan como 0 horas).", { sinFechaCreacion: cuenta(t.sinFechaCreacion), decisionesSinFecha: cuenta(t.decisionesSinFecha), fechasInvertidas: cuenta(t.fechasInvertidas) })}
                   </p>
                 ) : null}
               </>
@@ -271,7 +265,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
               <ul className="lista-limpia cifra-ap-casos">
                 {detalleReut.slice(0, 30).map((d, i) => (
                   <li key={`${texto(d.hechoId) || i}-${i}`}>
-                    <span className={`chip ${Array.isArray(d.usadoPor) && d.usadoPor.length > 0 ? 'chip-ok' : 'chip-borde'}`}>{Array.isArray(d.usadoPor) && d.usadoPor.length > 0 ? 'Usado' : tr('Sin usar')}</span>
+                    <span className={`chip ${Array.isArray(d.usadoPor) && d.usadoPor.length > 0 ? 'chip-ok' : 'chip-borde'}`}>{(Array.isArray(d.usadoPor) && d.usadoPor.length > 0 ? tr("Usado") : tr("Sin usar"))}</span>
                     <span>{texto(d.tema) || texto(d.hechoId) || tr('hecho sin tema')}</span>
                     <span className="meta">{texto(d.motivo)}</span>
                   </li>

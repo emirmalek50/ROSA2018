@@ -8,7 +8,7 @@ import { ESTADO_HALLAZGO, TIPO_HALLAZGO } from '../lib/etiquetas';
 import { hallazgosVisibles } from '../lib/hipotesis';
 import { IconChevronDown } from './icons';
 import { Chip } from './piezas';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 function TarjetaHallazgo({ h }: { h: HallazgoRevisor }) {
   const [abierto, setAbierto] = useState(h.estado === 'abierto');
@@ -51,8 +51,7 @@ export function Revisor({ hallazgos }: { hallazgos: HallazgoRevisor[] }) {
       </ul>
       {ocultos > 0 && (
         <button type="button" className="enlace" style={{ alignSelf: 'flex-start', fontSize: 13 }} onClick={() => setTodo(true)}>
-          {tr("Mostrar todo (")}{ocultos} mas)
-        </button>
+          {trp("Mostrar todo ({ocultos} mas)", { ocultos })}</button>
       )}
     </div>
   );

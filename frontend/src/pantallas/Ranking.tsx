@@ -50,7 +50,7 @@ function GraficaElo({ puntos }: { puntos: Hipotesis['historialElo'] }) {
   const d = puntos.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.iteracion).toFixed(1)},${y(p.elo).toFixed(1)}`).join(' ');
   const ultimo = puntos[puntos.length - 1]!;
   return (
-    <svg className="grafica-elo" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Elo de ${puntos[0]!.elo} a ${ultimo.elo}`}>
+    <svg className="grafica-elo" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={trp("Elo de {elo} a {elo2}", { elo: puntos[0]!.elo, elo2: ultimo.elo })}>
       <path d={d} />
       <circle cx={x(ultimo.iteracion)} cy={y(ultimo.elo)} r="2.2" />
     </svg>
@@ -76,14 +76,13 @@ function Fila({ h, i, invId, estado }: { h: Hipotesis; i: number; invId: string;
             </Chip>
           )}
           {(h.conflictoCon?.length ?? 0) > 0 && (
-            <Chip tono="aviso" title={`No puede ser cierta a la vez que: ${h.conflictoCon!.map((id) => estado.hipotesis.find((x) => x.id === id)?.titulo ?? id).join('; ')}. ROSA2018 lo marca; decide la persona.`}>
-              Se contradice con {h.conflictoCon!.length === 1 ? 'otra' : h.conflictoCon!.length}
+            <Chip tono="aviso" title={trp("No puede ser cierta a la vez que: {v}. ROSA2018 lo marca; decide la persona.", { v: h.conflictoCon!.map((id) => estado.hipotesis.find((x) => x.id === id)?.titulo ?? id).join('; ') })}>{trp("Se contradice con {v}", { v: h.conflictoCon!.length === 1 ? 'otra' : h.conflictoCon!.length })}
             </Chip>
           )}
           <span>
-            {h.rivales.length} {h.rivales.length === 1 ? 'rival' : 'rivales'}
+            {(h.rivales.length === 1 ? trp("{rivales} rival", { rivales: h.rivales.length }) : trp("{rivales} rivales", { rivales: h.rivales.length }))}
           </span>
-          <span>{coma((h.coste.literatura + h.coste.analisis).toFixed(1))} $ gastados</span>
+          <span>{trp("{v} $ gastados", { v: coma((h.coste.literatura + h.coste.analisis).toFixed(1)) })}</span>
         </div>
         {/* La franja explica por qué cada hipótesis está en ese puesto, así
             que se queda. Pero en modo compacto: en la tabla salían quince
@@ -140,7 +139,7 @@ export function calcularRanking(estado: EstadoRosa, invId: string): RankingCalcu
     .map((h) => {
       const b = bloqueosDe(estado, h);
       const pendiente = killerPendienteDe(h);
-      const motivo = b.length > 0 ? '' : pendiente ? `${pendiente}: la decisión que consta no es un juicio nuevo` : h.decisionKiller !== 'avanzar' ? (h.decisionKiller ? `El Killer decidió: ${(DECISION_KILLER[h.decisionKiller]?.etiqueta ?? String(h.decisionKiller)).toLowerCase()}` : tr('El Killer todavía no la juzgó')) : tr('Sin bloqueos, pero otras puntúan más o repiten su cluster');
+      const motivo = b.length > 0 ? '' : pendiente ? trp("{pendiente}: la decisión que consta no es un juicio nuevo", { pendiente }) : h.decisionKiller !== 'avanzar' ? (h.decisionKiller ? trp("El Killer decidió: {v}", { v: (DECISION_KILLER[h.decisionKiller]?.etiqueta ?? String(h.decisionKiller)).toLowerCase() }) : tr('El Killer todavía no la juzgó')) : tr('Sin bloqueos, pero otras puntúan más o repiten su cluster');
       return { h, bloqueos: b, motivo };
     });
   return { invId, estado, propias, lista, cal, clusters, cands, noCands };
@@ -364,8 +363,7 @@ export function Ranking({ inv, estado, detalleId, irA }: { inv: Investigacion; e
       {vista === 'podio' && esperanTuDecision > 0 && (
         <button type="button" className="tarjeta aviso-pendientes" onClick={() => setVista('pendientes')}>
           <span>
-            <strong>{esperanTuDecision}</strong>{' '}
-            {esperanTuDecision === 1 ? tr('hipótesis espera tu decisión') : tr('hipótesis esperan tu decisión')}
+            <strong>{esperanTuDecision}</strong>{(esperanTuDecision === 1 ? tr(" hipótesis espera tu decisión") : tr(" hipótesis esperan tu decisión"))}
           </span>
           <span className="enlace">{tr("Verlas")}</span>
         </button>
@@ -381,7 +379,7 @@ export function Ranking({ inv, estado, detalleId, irA }: { inv: Investigacion; e
 
           <div className="acciones" style={{ marginBottom: 14 }}>
             <Chip tono={cal.acuerdo === null ? undefined : cal.acuerdo >= 0.7 ? 'ok' : 'aviso'} title={tr("Cuántas veces la recomendación del revisor coincidió con lo que decidió una persona")}>
-              {tr("Acuerdo revisor y personas:")} {cal.acuerdo === null ? tr('sin decisiones todavía') : formatearPorcentaje(cal.acuerdo)}
+              {trp("Acuerdo revisor y personas: {v}", { v: cal.acuerdo === null ? tr('sin decisiones todavía') : formatearPorcentaje(cal.acuerdo) })}
             </Chip>
             <span className="meta">{tr("Las decisiones humanas de aceptar y descartar son la señal que calibra al juez del torneo.")}</span>
           </div>

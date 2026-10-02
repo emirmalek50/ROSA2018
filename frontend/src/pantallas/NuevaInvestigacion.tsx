@@ -13,7 +13,7 @@ import { IconAlert } from '../componentes/icons';
 import { avisosDelObjetivo, parafrasis, proponerConfiguracion } from '../lib/objetivo';
 import { partesAutomatizadas, textoAutomatizacion } from '../lib/parada';
 import { rutaDe } from '../lib/ruta';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (hash: string) => void }) {
   const [titulo, setTitulo] = useState('');
@@ -132,7 +132,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
           nota={tr("El objetivo puede ser amplio: ROSA2018 propone el marco (población, etapa, célula o tejido, mecanismo, tipo de intervención, capacidades del laboratorio) y las áreas por donde empezar, y tu lo apruebas con el primer plan. Si ya lo tienes claro, escribelo aquí y queda aprobado por ti.")}
           acciones={
             <button type="button" className="btn btn-s" onClick={() => setVerMision((v) => !v)}>
-              {verMision ? tr('Dejar que ROSA2018 la proponga') : tr('Escribirla yo')}
+              {(verMision ? tr("Dejar que ROSA2018 la proponga") : tr("Escribirla yo"))}
             </button>
           }
         >
@@ -162,7 +162,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
           nota={tr("Edison admite que las direcciones de Kosmos cambian con la redacción del objetivo. Antes de gastar, mira que primeras tareas propondría ROSA2018 con tres redacciones.")}
           acciones={
             <button type="button" className="btn btn-s" disabled={objetivo.trim() === ''} onClick={() => setVerParafrasis((v) => !v)}>
-              {verParafrasis ? 'Ocultar' : tr('Probar tres paráfrasis')}
+              {(verParafrasis ? tr("Ocultar") : tr("Probar tres paráfrasis"))}
             </button>
           }
         >
@@ -193,8 +193,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
               <option value="">{tr("Empezar en blanco")}</option>
               {estado.investigaciones.map((i) => (
                 <option key={i.id} value={i.id}>
-                  {i.titulo} ({estado.hechos.filter((h) => h.investigacionId === i.id).length} nodos)
-                </option>
+                  {trp("{titulo} ({length} nodos)", { titulo: i.titulo, length: estado.hechos.filter((h) => h.investigacionId === i.id).length })}</option>
               ))}
             </select>
             <small>{tr("ROSA2018 arranca sabiendo lo que ya se supo, se abrió y se descarto en esa investigación.")}</small>
@@ -213,7 +212,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
           <a className="btn btn-fantasma" href="#/">
             Cancelar
           </a>
-          {avisos.length > 0 && objetivo.trim() !== '' && <Chip tono="aviso">{avisos.length} {avisos.length === 1 ? tr('aviso sobre el objetivo') : tr('avisos sobre el objetivo')}</Chip>}
+          {avisos.length > 0 && objetivo.trim() !== '' && <Chip tono="aviso">{(avisos.length === 1 ? trp("{avisos} aviso sobre el objetivo", { avisos: avisos.length }) : trp("{avisos} avisos sobre el objetivo", { avisos: avisos.length }))}</Chip>}
         </div>
       </form>
     </div>

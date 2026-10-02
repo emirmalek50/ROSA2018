@@ -14,6 +14,7 @@ p.on('pageerror', (e) => console.log('ERROR:', String(e).slice(0, 160)));
 
 // Las rutas de una investigacion de verdad, sacadas del estado, mas las cinco
 // vistas del ranking. Antes la lista estaba a mano y se quedaba vieja.
+const ESPERA_MS = Number(process.env.ROSA_ESPERA_MS ?? 2500);
 const RUTAS = process.argv[2] ? process.argv[2].split(',') : null;
 await p.goto('http://127.0.0.1:8765/#/', { waitUntil: 'networkidle' });
 await p.waitForTimeout(4000);
@@ -29,7 +30,9 @@ const cuenta = new Map();
 const porRuta = new Map();
 for (const r of rutas) {
   await p.goto(`http://127.0.0.1:8765/#${r}`, { waitUntil: 'networkidle' }).catch(() => {});
-  await p.waitForTimeout(2500);
+  // La primera vez que se ve una pantalla, el traductor del servidor tiene
+  // que llamar al modelo: con ROSA_ESPERA_MS se le da tiempo.
+  await p.waitForTimeout(Number(process.env.ROSA_ESPERA_MS ?? 2500));
   const trozos = await p.evaluate(() => {
     const out = [];
     const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -44,8 +47,12 @@ for (const r of rutas) {
   }).catch(() => []);
   const ES = /[ñ¿¡áéíóú]|\b(?:de|la|el|los|las|que|con|para|por|una|sin|del|más|cada|como|está|son|hay|qué|se|lo|al|su|sus|ya|aún|entre|sobre|pero|cuando|donde)\b/i;
   const EN_SOLO = /^[\d\s.,:%()\-+/·$]+$/;
+  // Con la misma regla que el traductor (lib/traductorDom.ts): «et al.» o un
+  // apellido con tilde no hacen castellano una cita que ya está en inglés.
+  const INGLES = /\b(?:the|of|and|to|is|in|for|with|on|at|by|an|be|this|that|from|are|was|were|it|as|or|not|has|have|which|its|abstract|section|part|found|reported|described?)\b/i;
   for (const t of trozos) {
-    if (EN_SOLO.test(t) || !ES.test(t)) continue;
+    const sinCita = t.replace(/\bet al\.?/g, '').replace(/\[[^\]]*\]/g, '');
+    if (EN_SOLO.test(t) || !ES.test(sinCita) || (INGLES.test(sinCita) && !/[ñ¿¡]|\b(?:del|los|las|que|con|para|por|una|está|son|hay)\b/i.test(sinCita))) continue;
     cuenta.set(t, (cuenta.get(t) || 0) + 1);
     if (!porRuta.has(r)) porRuta.set(r, new Set());
     porRuta.get(r).add(t);
@@ -54,6 +61,7 @@ for (const r of rutas) {
 console.log('=== lo que sigue en castellano, por pantalla ===');
 for (const [r, s] of porRuta) console.log(`  ${String(s.size).padStart(4)}  ${r}`);
 const todas = [...cuenta.entries()].sort((a, b) => b[1] - a[1]);
+await import('node:fs').then((fs) => fs.writeFileSync('/tmp/en_pantalla_todas.json', JSON.stringify(todas.map(([t]) => t))));
 console.log(`\n=== ${todas.length} frases distintas; las 45 que mas se repiten ===`);
 for (const [t, n] of todas.slice(0, 45)) console.log(`  ${String(n).padStart(3)}x  ${t.slice(0, 110)}`);
 await p.screenshot({ path: '/tmp/en_investigacion.png', fullPage: false });

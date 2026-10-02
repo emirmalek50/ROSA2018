@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AnclaComentario, Comentario } from '../datos/tipos';
 import { IconMessage, IconPen, IconX } from './icons';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 const TOPE = 1000;
 
@@ -76,7 +76,7 @@ export function NuevoComentario({ ancla, onGuardar, onCancelar }: { ancla: Ancla
           Cancelar
         </button>
         <span className="meta" style={{ marginLeft: 'auto' }}>
-          {tr("Enter guarda, Shift+Enter salta de línea ·")} {nota.length} / {TOPE}
+          {trp("Enter guarda, Shift+Enter salta de línea · {nota} / {TOPE}", { nota: nota.length, TOPE })}
         </span>
       </div>
     </div>
@@ -139,7 +139,7 @@ export function BandejaComentarios({
       <div className="acciones" style={{ justifyContent: 'space-between' }}>
         <strong style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <IconMessage size={14} />
-          {pendientes.length} {pendientes.length === 1 ? tr('comentario pendiente') : tr('comentarios pendientes')}
+          {(pendientes.length === 1 ? trp("{pendientes} comentario pendiente", { pendientes: pendientes.length }) : trp("{pendientes} comentarios pendientes", { pendientes: pendientes.length }))}
         </strong>
         <span className="meta">{tr("Salen juntos con el siguiente mensaje")}</span>
       </div>

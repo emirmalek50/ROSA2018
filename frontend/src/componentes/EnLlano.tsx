@@ -7,12 +7,12 @@ import type { ConclusionHipotesis, ResumenLlano, ViabilidadPrueba } from '../dat
 import { CERTEZA_EVIDENCIA, DIRECCION_EVIDENCIA, FACTOR_CERTEZA } from '../lib/etiquetas';
 import { Chip } from './piezas';
 import { Momento, Seccion } from './piezas';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: ResumenLlano | null | undefined; numero: number; abierta?: boolean }) {
   if (resumen === undefined) return null;
   return (
-    <Seccion titulo={`Qué encontró ROSA2018 en la iteración ${numero}`} nota={tr("Contado en lenguaje corriente, con cada término técnico definido al final. El detalle con citas, veredictos y pistas está más abajo.")}>
+    <Seccion titulo={trp("Qué encontró ROSA2018 en la iteración {numero}", { numero })} nota={tr("Contado en lenguaje corriente, con cada término técnico definido al final. El detalle con citas, veredictos y pistas está más abajo.")}>
       {resumen === null ? (
         <p className="meta">{tr("ROSA2018 no pudo escribir el resumen de esta iteración (el modelo no respondió). El resumen técnico está en las iteraciones anteriores.")}</p>
       ) : (
@@ -94,11 +94,11 @@ export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: R
             ) : (
               tr('Sin consultas nuevas en esta iteración.')
             )}{' '}
-            {resumen.alDia?.fuentesSinRespuesta.length ? `No respondieron: ${resumen.alDia.fuentesSinRespuesta.join('; ')}.` : ''}
+            {resumen.alDia?.fuentesSinRespuesta.length ? trp("No respondieron: {v}.", { v: resumen.alDia.fuentesSinRespuesta.join('; ') }) : ''}
           </p>
           {resumen.terminos.length > 0 && (
             <details className="llano-glosario">
-              <summary>{tr("Los términos que aparecen arriba (")}{resumen.terminos.length})</summary>
+              <summary>{trp("Los términos que aparecen arriba ({terminos})", { terminos: resumen.terminos.length })}</summary>
               <dl>
                 {resumen.terminos.map((t) => (
                   <div key={t.termino}>
@@ -149,7 +149,7 @@ export function ViabilidadDeLaPrueba({ v }: { v: ViabilidadPrueba | null | undef
           ))}
         </ul>
       )}
-      {v.alternativa && <p className="meta">{tr("Dónde sí puede estar ese grupo:")} {v.alternativa}</p>}
+      {v.alternativa && <p className="meta">{trp("Dónde sí puede estar ese grupo: {alternativa}", { alternativa: v.alternativa })}</p>}
       {v.ensayos.length > 0 && (
         <p className="meta">
           {tr("Leído en ClinicalTrials.gov:")}{' '}
@@ -163,8 +163,8 @@ export function ViabilidadDeLaPrueba({ v }: { v: ViabilidadPrueba | null | undef
           .
         </p>
       )}
-      {v.sinRespuesta.length > 0 && <p className="meta">{tr("El registro no respondió para")} {v.sinRespuesta.join(', ')}{tr(": no se pudo consultar, y ROSA2018 lo vuelve a intentar.")}</p>}
-      {v.noEncontrados.length > 0 && <p className="meta">{tr("Sin ensayos de fase 2 o 3 en el registro para")} {v.noEncontrados.join(', ')}{tr("; pueden estar registrados con otro nombre.")}</p>}
+      {v.sinRespuesta.length > 0 && <p className="meta">{trp("El registro no respondió para {v}: no se pudo consultar, y ROSA2018 lo vuelve a intentar.", { v: v.sinRespuesta.join(', ') })}</p>}
+      {v.noEncontrados.length > 0 && <p className="meta">{trp("Sin ensayos de fase 2 o 3 en el registro para {v}; pueden estar registrados con otro nombre.", { v: v.noEncontrados.join(', ') })}</p>}
     </div>
   );
 }
@@ -201,7 +201,7 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
       nota={tr("Dos cosas distintas, como en GRADE: cuanto se puede fiar uno de la evidencia reunida (certeza) y hacia donde apunta (dirección). Ninguna dice si la hipótesis es cierta: eso lo decide un experimento. Se rehace al cerrar cada iteración: lo que ROSA2018 lee después de nacer la hipótesis se le suma (a favor, indirecto o en contra) y la certeza se recalcula.")}
       acciones={
         <span className="meta">
-          {tr("Iteración")} {conclusion.iteracion} · <Momento t={conclusion.fecha} ahora={ahora} />
+          {trp("Iteración {iteracion} · ", { iteracion: conclusion.iteracion })}<Momento t={conclusion.fecha} ahora={ahora} />
         </span>
       }
     >
@@ -211,16 +211,13 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
             {g.etiqueta}
           </Chip>
           <Chip tono={d.tono}>{d.etiqueta}</Chip>
-          <span className="meta">
-            Se apoya en {b.sostenidas} de {b.afirmaciones} {tr("afirmaciones sostenidas, de")} {b.fuentes} {b.fuentes === 1 ? 'fuente' : 'fuentes'}
-            {b.interpretaciones > 0 ? `; ${b.interpretaciones} ${b.interpretaciones === 1 ? tr('es interpretación') : tr('son interpretaciones')}, no datos` : ''}.
-          </span>
+          <span className="meta">{(b.fuentes === 1 ? trp("Se apoya en {sostenidas} de {afirmaciones} afirmaciones sostenidas, de {fuentes} fuente{v}.", { sostenidas: b.sostenidas, afirmaciones: b.afirmaciones, fuentes: b.fuentes, v: b.interpretaciones > 0 ? (b.interpretaciones === 1 ? trp("; {interpretaciones} es interpretación, no datos", { interpretaciones: b.interpretaciones }) : trp("; {interpretaciones} son interpretaciones, no datos", { interpretaciones: b.interpretaciones })) : '' }) : trp("Se apoya en {sostenidas} de {afirmaciones} afirmaciones sostenidas, de {fuentes} fuentes{v}.", { sostenidas: b.sostenidas, afirmaciones: b.afirmaciones, fuentes: b.fuentes, v: b.interpretaciones > 0 ? (b.interpretaciones === 1 ? trp("; {interpretaciones} es interpretación, no datos", { interpretaciones: b.interpretaciones }) : trp("; {interpretaciones} son interpretaciones, no datos", { interpretaciones: b.interpretaciones })) : '' }))}</span>
         </div>
         <p className="meta">{g.nota}</p>
         {conclusion.techo && (
           <p className="meta">
             {tr("Nivel máximo con lo que hay, por regla:")} <strong>{CERTEZA_EVIDENCIA[conclusion.techo.nivel].etiqueta.replace('Certeza ', '')}</strong>, porque {conclusion.techo.motivo}.
-            {conclusion.techo.acotada && ` El juez había dicho «${CERTEZA_EVIDENCIA[conclusion.techo.certezaDelJuez].etiqueta.toLowerCase()}»; la regla lo acotó.`}
+            {conclusion.techo.acotada && trp(" El juez había dicho «{v}»; la regla lo acotó.", { v: CERTEZA_EVIDENCIA[conclusion.techo.certezaDelJuez].etiqueta.toLowerCase() })}
           </p>
         )}
         {conclusion.escalera && conclusion.escalera.length > 0 && (
@@ -233,13 +230,13 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
                 </li>
               ))}
             </ol>
-            {conclusion.subiria && <p className="meta">{tr("Lo que el juez pide en concreto:")} {conclusion.subiria}</p>}
+            {conclusion.subiria && <p className="meta">{trp("Lo que el juez pide en concreto: {subiria}", { subiria: conclusion.subiria })}</p>}
           </div>
         )}
         <p className="conclusion-enunciado">{conclusion.enunciado}</p>
         {conclusion.cambio && (
           <p className="meta">
-            {tr("Cambio respecto a la iteración")} {conclusion.cambio.de.iteracion ?? '?'}: antes {conclusion.cambio.de.certeza ? CERTEZA_EVIDENCIA[conclusion.cambio.de.certeza].etiqueta.toLowerCase() : tr('sin certeza')} y {conclusion.cambio.de.direccion ? DIRECCION_EVIDENCIA[conclusion.cambio.de.direccion].etiqueta.toLowerCase() : tr('sin dirección')}. {conclusion.cambio.motivo}
+            {trp("Cambio respecto a la iteración {v}: antes {v2} y {v3}. {motivo}", { v: conclusion.cambio.de.iteracion ?? '?', v2: conclusion.cambio.de.certeza ? CERTEZA_EVIDENCIA[conclusion.cambio.de.certeza].etiqueta.toLowerCase() : tr('sin certeza'), v3: conclusion.cambio.de.direccion ? DIRECCION_EVIDENCIA[conclusion.cambio.de.direccion].etiqueta.toLowerCase() : tr('sin dirección'), motivo: conclusion.cambio.motivo })}
           </p>
         )}
         <p className="conclusion-texto">{conclusion.conclusion}</p>

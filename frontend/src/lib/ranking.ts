@@ -16,7 +16,7 @@
 import type { Bloqueo, CertezaEvidencia, DecisionKiller, DireccionEvidencia, EstadoRosa, Hipotesis, PasoRutaTerapeutica } from '../datos/tipos';
 import { CERTEZA_EVIDENCIA, VEREDICTO } from './etiquetas';
 import { bloqueosDe, cohortesDe } from './priorizacion';
-import { tr } from './idioma';
+import { tr, trp } from './idioma';
 
 /** La novedad de la hipótesis resumida a un estado: si nadie la propuso antes
  *  (nueva), si alguien ya la publicó (precedente), si hay algo parecido pero
@@ -222,7 +222,7 @@ export function novedadDe(h: Pick<Hipotesis, 'novedad'>): { estado: EstadoNoveda
   if (estado === 'parcial') return { estado: 'parcial', detalle: detalle || tr('Hay trabajos parecidos, pero ninguno con esta formulación.') };
   if (estado === 'ya_publicado') return { estado: 'precedente', detalle: detalle || tr('Alguien ya la publicó.') };
   const nombre = texto(p.estado) || 'sin nombre';
-  return { estado: 'no_comprobado', detalle: detalle ? `Estado de novedad que esta interfaz no conoce (${nombre}): ${detalle}` : `Estado de novedad que esta interfaz no conoce (${nombre}).` };
+  return { estado: 'no_comprobado', detalle: detalle ? trp("Estado de novedad que esta interfaz no conoce ({nombre}): {detalle}", { nombre, detalle }) : trp("Estado de novedad que esta interfaz no conoce ({nombre}).", { nombre }) };
 }
 
 function etiquetaCerteza(nivel: unknown): string {
@@ -379,15 +379,15 @@ export function queCambiariaElOrden(h: Pick<Hipotesis, 'conclusion'>): string {
     // Un peldaño sin "de" (registro a medias) parte de la certeza actual.
     const de = etiquetaCerteza(clave(peldano.de) ? peldano.de : c.certeza).toLowerCase();
     const a = clave(peldano.a) ? etiquetaCerteza(peldano.a).toLowerCase() : tr('el siguiente nivel');
-    partes.push(`Para pasar de ${de} a ${a} le falta: ${encajada(falta)}`);
+    partes.push(trp("Para pasar de {de} a {a} le falta: {falta}", { de, a, falta: encajada(falta) }));
   } else if (clave(c.certeza) === 'alta') {
     partes.push(tr('Está en certeza alta, el nivel más alto de GRADE: no hay peldaño por encima.'));
   } else {
-    partes.push(`Está en ${etiquetaCerteza(c.certeza).toLowerCase()} y esta conclusión no trae la escalera por regla (es anterior a que ROSA2018 la calculara): se rehará al cerrar la próxima iteración.`);
+    partes.push(trp("Está en {v} y esta conclusión no trae la escalera por regla (es anterior a que ROSA2018 la calculara): se rehará al cerrar la próxima iteración.", { v: etiquetaCerteza(c.certeza).toLowerCase() }));
   }
   const subiria = texto(c.subiria).trim();
   const bajaria = texto(c.bajaria).trim();
-  if (subiria) partes.push(`Lo que la subiría, según el juez: ${encajada(subiria)}`);
-  if (bajaria) partes.push(`Lo que la bajaría: ${encajada(bajaria)}`);
+  if (subiria) partes.push(trp("Lo que la subiría, según el juez: {subiria}", { subiria: encajada(subiria) }));
+  if (bajaria) partes.push(trp("Lo que la bajaría: {bajaria}", { bajaria: encajada(bajaria) }));
   return partes.join(' ');
 }

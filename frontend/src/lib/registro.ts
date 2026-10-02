@@ -24,7 +24,7 @@
 //   función heredada del prototipo.
 
 import { PASO_RUTA } from './etiquetas';
-import { traducido, tr } from './idioma';
+import { traducido, tr, trp } from './idioma';
 
 /** Los campos que se comparan, con su ruta en punto (la misma clave que
  *  guarda el servidor en versiones[].cambios). */
@@ -338,7 +338,7 @@ export function resumenDiff(cambios: readonly CambioRegistro[] | null | undefine
   }
   if (partes.length === 0) return tr(SIN_CAMBIOS);
   const lista = partes.length === 1 ? partes[0]! : `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]!}`;
-  return `Cambió ${lista}`;
+  return trp("Cambió {lista}", { lista });
 }
 
 /** Un número de versión: un entero (también 2.0), como `_entero` en Python.

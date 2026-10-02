@@ -117,7 +117,7 @@ export function Herramienta({ c, ahora, abiertaDeInicio = false }: { c: Consulta
             <h4>{tr('Invariante')}</h4>
             {c.invariante ? (
               <p className={c.invariante.ok ? '' : 'tono-aviso'}>
-                <Chip tono={c.invariante.ok ? 'ok' : 'aviso'}>{c.invariante.ok ? tr('se cumple') : tr('no se cumple')}</Chip>{' '}
+                <Chip tono={c.invariante.ok ? 'ok' : 'aviso'}>{(c.invariante.ok ? tr("se cumple") : tr("no se cumple"))}</Chip>{' '}
                 {c.invariante.detalle}
               </p>
             ) : (

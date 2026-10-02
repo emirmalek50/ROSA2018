@@ -1531,3 +1531,38 @@ escribe en `frontend/.capturas/traducciones.jsonl` nada más llegar. Lo que
 queda por hacer es la revisión humana de las frases que tocan una regla del
 proyecto (GRADE y los veredictos del verificador), que es donde una
 traducción mala es un error científico y no una errata.
+
+### El inglés, 2 de octubre de 2026: las tres partes cubiertas
+
+La interfaz con el catálogo (5.492 entradas, 0 pendientes) y, desde hoy, lo
+que no cabe en un catálogo traducido **al pintarse**: lo que escribió
+ROSA2018 y la prosa del servidor. Cómo:
+
+- `rosa/traductor.py` y `POST /api/traducir`: traduce con Opus 5 por el AI
+  Gateway, comprueba cada traducción con las reglas del proyecto (las mismas
+  que el catálogo, en un solo sitio) y la guarda en `datos/traducciones.db`.
+  Esa caché va aparte a propósito: `rosa.db` es el almacén auditado y el
+  original no se toca. Tope de 20.000 textos nuevos al día; pasado, solo la
+  caché.
+- `frontend/src/lib/traductorDom.ts`: con la interfaz en inglés, mira lo que
+  hay en pantalla y sustituye el `nodeValue` de los textos en castellano. No
+  mete ni quita nodos (es lo que rompe React con el traductor de Chrome). Al
+  volver al castellano devuelve cada original.
+- `frontend/scripts/i18n/agrupar.mjs`: junta las frases partidas en una sola
+  con sus huecos («{n} fuentes citadas en la investigación»), con el
+  comprobador de tipos de TypeScript para no meter en una frase algo que no
+  sea texto o número. 1.111 frases.
+
+Lo que queda, con fichero:
+
+- **Revisión humana de lo que traduce el modelo.** Se dice en el selector de
+  idioma (`componentes/Idioma.tsx`), pero nadie lo ha revisado. Es contenido
+  científico: una traducción mala de una conclusión no es una errata.
+- **Atributos** (`title`, `aria-label`, `placeholder`) con texto que viene del
+  servidor: `traductorDom.ts` solo mira nodos de texto.
+- **Frases partidas por un elemento** (`<strong>`, un enlace): se traducen en
+  trozos. `agrupar.mjs` solo junta lo que es texto o número.
+- **Envolver y desenvolver tenían reglas distintas** y se deshacían el uno al
+  otro: un pase había vuelto a envolver colores, clases y trazados, y llegó a
+  `main`. Corregido y vigilado por `src/lib/traduccion_segura.test.ts`, que
+  ahora recorre todo el código.

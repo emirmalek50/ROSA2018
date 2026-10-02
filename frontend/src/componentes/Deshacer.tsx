@@ -9,7 +9,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useAccionesPendientes, type AccionPendiente } from '../datos/almacen';
 import { useAhora } from '../lib/useAhora';
 import { useMovimientoReducido } from '../lib/movimiento';
-import { tr } from '../lib/idioma';
+import { tr, trp } from '../lib/idioma';
 
 function Aviso({ a, ahora }: { a: AccionPendiente; ahora: number }) {
   const restante = Math.max(0, a.hasta - ahora);
@@ -19,7 +19,7 @@ function Aviso({ a, ahora }: { a: AccionPendiente; ahora: number }) {
     <motion.div className="deshacer" role="status" layout initial={reducido ? { opacity: 0 } : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={reducido ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.98 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}>
       <div className="deshacer-texto">
         <strong>{a.etiqueta}</strong>
-        <span className="meta">Se envía en {Math.ceil(restante / 1000)} s</span>
+        <span className="meta">{trp("Se envía en {v} s", { v: Math.ceil(restante / 1000) })}</span>
       </div>
       <div className="acciones">
         <button type="button" className="btn btn-s" onClick={a.deshacer}>

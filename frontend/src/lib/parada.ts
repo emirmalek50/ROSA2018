@@ -3,7 +3,7 @@
 
 import type { ParadaCorrida } from '../datos/tipos';
 import type { CondicionAutomatizada } from '../datos/tipos';
-import { tr } from './idioma';
+import { tr, trp } from './idioma';
 
 export function partesAutomatizadas(texto: string): CondicionAutomatizada {
   const t = (texto ?? '').toLowerCase();
@@ -37,11 +37,11 @@ export function partesAutomatizadas(texto: string): CondicionAutomatizada {
 export function textoAutomatizacion(p: CondicionAutomatizada): string {
   const medibles: string[] = [];
   if (p.iteraciones !== null) medibles.push(`${p.iteraciones} iteraciones`);
-  if (p.tiempo) medibles.push(`${p.tiempo} de corrida`);
+  if (p.tiempo) medibles.push(trp("{tiempo} de corrida", { tiempo: p.tiempo }));
   if (p.llamadas !== null) medibles.push(`${p.llamadas} llamadas`);
   if (medibles.length === 0) return tr('ROSA2018 no puede medir esta condición: la corrida sigue hasta que la detengas o hasta agotar el presupuesto de la misión.');
-  let frase = `ROSA2018 para sola al llegar a ${medibles.join(' o ')} (y al agotar el presupuesto de la misión)`;
-  if (p.resto) frase += `. El resto ("${p.resto.slice(0, 80)}") lo decides tú con el botón de detener`;
+  let frase = trp("ROSA2018 para sola al llegar a {v} (y al agotar el presupuesto de la misión)", { v: medibles.join(' o ') });
+  if (p.resto) frase += trp(". El resto (\"{v}\") lo decides tú con el botón de detener", { v: p.resto.slice(0, 80) });
   return `${frase}.`;
 }
 
@@ -108,12 +108,12 @@ export function borradorDe(p: ParadaCorrida | null | undefined): ParadaBorrador 
 }
 
 function horasTexto(h: number): string {
-  if (h >= 24 && Number.isInteger(h / 24)) return `${h / 24} ${h === 24 ? 'día' : tr('días')}`;
+  if (h >= 24 && Number.isInteger(h / 24)) return (h === 24 ? trp("{v} día", { v: h / 24 }) : trp("{v} días", { v: h / 24 }));
   if (h < 1) {
     const m = Math.round(h * 60);
     return m === 1 ? tr('1 minuto') : `${m} minutos`;
   }
-  return `${h} ${h === 1 ? 'hora' : 'horas'}`;
+  return (h === 1 ? trp("{h} hora", { h }) : trp("{h} horas", { h }));
 }
 
 /** "2 horas o 6 iteraciones, lo que llegue primero". Vacío sin parada. */
@@ -121,16 +121,16 @@ export function resumenParada(p: ParadaCorrida | null | undefined): string {
   if (!p) return '';
   const partes: string[] = [];
   if (p.horas) partes.push(horasTexto(p.horas));
-  if (p.iteraciones) partes.push(`${p.iteraciones} ${p.iteraciones === 1 ? tr('iteración') : 'iteraciones'}`);
-  if (p.llamadas) partes.push(`${p.llamadas} llamadas al modelo`);
+  if (p.iteraciones) partes.push((p.iteraciones === 1 ? trp("{iteraciones} iteración", { iteraciones: p.iteraciones }) : trp("{iteraciones} iteraciones", { iteraciones: p.iteraciones })));
+  if (p.llamadas) partes.push(trp("{llamadas} llamadas al modelo", { llamadas: p.llamadas }));
   if (p.certeza) {
     const n = p.cuantas ?? 1;
-    partes.push(n > 1 ? `${n} hipótesis en certeza ${p.certeza}` : `una hipótesis en certeza ${p.certeza}`);
+    partes.push(n > 1 ? trp("{n} hipótesis en certeza {certeza}", { n, certeza: p.certeza }) : trp("una hipótesis en certeza {certeza}", { certeza: p.certeza }));
   }
-  if (p.sinCambio) partes.push(`${p.sinCambio} ${p.sinCambio === 1 ? tr('iteración') : 'iteraciones'} sin avance`);
+  if (p.sinCambio) partes.push((p.sinCambio === 1 ? trp("{sinCambio} iteración sin avance", { sinCambio: p.sinCambio }) : trp("{sinCambio} iteraciones sin avance", { sinCambio: p.sinCambio })));
   if (p.texto) partes.push(`«${p.texto}»`);
   if (partes.length === 0) return '';
   if (partes.length === 1) return partes[0] ?? '';
   const ultima = partes[partes.length - 1] ?? '';
-  return `${partes.slice(0, -1).join(', ')} o ${ultima}, lo que llegue primero`;
+  return trp("{v} o {ultima}, lo que llegue primero", { v: partes.slice(0, -1).join(', '), ultima });
 }

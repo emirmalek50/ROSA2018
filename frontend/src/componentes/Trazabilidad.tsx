@@ -24,7 +24,7 @@ import { construirArbol, enlaceDe, iteracionesDe, type Evidencia, type FiltroVer
 import { formatearEntero } from '../lib/formato';
 import { Cargando, Esqueleto } from './Esqueleto';
 import { Chip, Seccion } from './piezas';
-import { traducido, tr } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 const FILTROS: { clave: FiltroVeredicto; etiqueta: string }[] = traducido([
   { clave: 'todas', etiqueta: 'Todas' },
@@ -213,7 +213,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
           <div className="pestanas pestanas-s" role="tablist">
             {iteraciones.map((n) => (
               <button key={n} type="button" role="tab" aria-selected={n === actual} className={n === actual ? 'activa' : ''} onClick={() => setIteracion(n)}>
-                {tr("Iteración")} {n}
+                {trp("Iteración {n}", { n })}
               </button>
             ))}
           </div>
@@ -231,7 +231,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
         </div>
         <div className="embudo-paso">
           <strong>{formatearEntero(e.fuentes)}</strong>
-          <span>fuentes leídas · {e.textoCompleto} a texto completo</span>
+          <span>{trp("fuentes leídas · {textoCompleto} a texto completo", { textoCompleto: e.textoCompleto })}</span>
         </div>
         <div className="embudo-paso">
           <strong>{formatearEntero(e.afirmaciones)}</strong>
@@ -285,7 +285,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
                 <span className="arbol-texto">
                   {n.consulta ? (
                     <>
-                      <strong>Consulta {n.numero}</strong> <span className="meta">{n.consulta.base}</span>
+                      <strong>{trp("Consulta {numero}", { numero: n.numero })}</strong> <span className="meta">{n.consulta.base}</span>
                       {n.consulta.tema && <span className="arbol-detalle">{n.consulta.tema}</span>}
                     </>
                   ) : (
@@ -296,9 +296,9 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
                   )}
                 </span>
                 <span className="arbol-cuentas">
-                  {n.consulta && <span className="meta">{formatearEntero(n.consulta.resultados)} resultados</span>}
-                  <Chip tono="borde">{n.fuentes.length} fuentes</Chip>
-                  <Chip tono="borde">{nAf} afirmaciones</Chip>
+                  {n.consulta && <span className="meta">{trp("{resultados} resultados", { resultados: formatearEntero(n.consulta.resultados) })}</span>}
+                  <Chip tono="borde">{trp("{fuentes} fuentes", { fuentes: n.fuentes.length })}</Chip>
+                  <Chip tono="borde">{trp("{nAf} afirmaciones", { nAf })}</Chip>
                 </span>
               </button>
               {abierta && n.consulta && <code className="arbol-consulta">{n.consulta.consulta}</code>}
@@ -344,12 +344,11 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
           {f.retraccion === 'retractado' && <Chip tono="mal">Retractado</Chip>}
           {f.retraccion === 'preocupacion' && <Chip tono="aviso">{tr("Expresión de preocupación")}</Chip>}
           {f.retraccion === 'erratum' && <Chip tono="aviso">Erratum</Chip>}
-          <Chip tono="borde" title={tr("Puntuación de relevancia del cribado, 0 a 10")}>
-            relevancia {f.relevancia}
+          <Chip tono="borde" title={tr("Puntuación de relevancia del cribado, 0 a 10")}>{trp("relevancia {relevancia}", { relevancia: f.relevancia })}
           </Chip>
           <Chip tono={f.textoCompleto ? 'acento' : 'borde'}>{f.textoCompleto ? `texto completo · ${f.fragmentos} fragmentos` : tr('solo resumen')}</Chip>
           <Chip tono={bloqueadas > 0 ? 'mal' : 'borde'}>
-            {nodo.afirmaciones.length} afirmaciones{bloqueadas > 0 ? ` · ${bloqueadas} bloqueadas` : ''}
+            {trp("{afirmaciones} afirmaciones{v}", { afirmaciones: nodo.afirmaciones.length, v: bloqueadas > 0 ? ` · ${bloqueadas} bloqueadas` : '' })}
           </Chip>
         </span>
       </button>
@@ -362,9 +361,9 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
               </a>
             )}
             {f.anio && <span>{f.anio}</span>}
-            {f.modo === 'amplitud' && <Chip tono="acento" title={f.porque ? `Llegó por búsqueda en amplitud. Se conservó porque podría cambiar: ${f.porque}` : tr('Llegó por búsqueda en amplitud')}>Amplitud</Chip>}
-            {nodo.tambienEn.length > 0 && <span>{tr("También la trajo la consulta")} {nodo.tambienEn.join(', ')}</span>}
-            {f.retraccionDetalle && <span>Crossref: {f.retraccionDetalle}</span>}
+            {f.modo === 'amplitud' && <Chip tono="acento" title={f.porque ? trp("Llegó por búsqueda en amplitud. Se conservó porque podría cambiar: {porque}", { porque: f.porque }) : tr('Llegó por búsqueda en amplitud')}>Amplitud</Chip>}
+            {nodo.tambienEn.length > 0 && <span>{trp("También la trajo la consulta {v}", { v: nodo.tambienEn.join(', ') })}</span>}
+            {f.retraccionDetalle && <span>{trp("Crossref: {retraccionDetalle}", { retraccionDetalle: f.retraccionDetalle })}</span>}
             {!f.extraida && <span>{tr("Todavía sin extraer")}</span>}
           </div>
           <ul className="arbol-afirmaciones" role="group">
