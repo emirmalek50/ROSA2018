@@ -103,20 +103,25 @@ function BarraBT({ c, escala, reducido, retraso }: { c: ComponentesRanking; esca
   );
 }
 
-function Tarjeta({ p, i, escala, elegida, alElegir, reducido, retraso, refBoton }: { p: Puesto; i: number; escala: [number, number] | null; elegida: boolean; alElegir: () => void; reducido: boolean; retraso: number; refBoton: (b: HTMLButtonElement | null) => void }) {
+function Tarjeta({ p, i, invId, escala, elegida, alElegir, reducido, retraso, refBoton }: { p: Puesto; i: number; invId: string; escala: [number, number] | null; elegida: boolean; alElegir: () => void; reducido: boolean; retraso: number; refBoton: (b: HTMLAnchorElement | null) => void }) {
   const { h, c, delta } = p;
   const cohortes = c.cohortesDistintas.length;
   return (
     // La entrada va en un envoltorio: motion escribe `transform` en línea y,
     // puesto en el botón, anularía la elevación del :hover de la hoja de estilos.
     <motion.div className="podio-tarjeta-entrada" initial={reducido ? { opacity: 0 } : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DUR.lenta, ease: SALIDA, delay: retraso }}>
-      <button
+      {/* Un ENLACE, no un botón: pulsar la tarjeta abre la hipótesis (Emir,
+          2 de octubre de 2026). Elegirla, que es lo que despliega el panel
+          de abajo, se hace ahora al enfocarla o al señalarla con el ratón, y
+          con la fila de selectores. */}
+      <a
         ref={refBoton}
-        type="button"
+        href={rutaDe(invId, 'hipotesis', h.id)}
         className="podio-tarjeta"
-        aria-pressed={elegida}
-        aria-label={trp('{lugar}: {titulo}. Elo {elo}.', { lugar: LUGAR()[i]!, titulo: h.titulo, elo: h.elo })}
-        onClick={alElegir}
+        aria-current={elegida ? 'true' : undefined}
+        aria-label={trp('{lugar}: {titulo}. Elo {elo}. Abre la ficha.', { lugar: LUGAR()[i]!, titulo: h.titulo, elo: h.elo })}
+        onFocus={alElegir}
+        onMouseEnter={alElegir}
       >
         <span className="podio-tarjeta-cabecera">
           <span className="podio-lugar">
@@ -155,7 +160,7 @@ function Tarjeta({ p, i, escala, elegida, alElegir, reducido, retraso, refBoton 
             <Marcas n={c.partidos} max={MAX_CUADROS} forma="cuadro" />
           </span>
         </span>
-      </button>
+      </a>
     </motion.div>
   );
 }
@@ -347,7 +352,7 @@ export function PodioRanking({ lista, estado, invId, alVerLista }: { lista: Hipo
   );
   const escala = useMemo(() => escalaBT(puestos), [puestos]);
   const [elegidaId, setElegidaId] = useState<string | null>(null);
-  const botones = useRef<(HTMLButtonElement | null)[]>([]);
+  const botones = useRef<(HTMLAnchorElement | null)[]>([]);
   const vivas = lista.filter((h) => h.estado !== 'descartada').length;
   const descartadas = lista.length - vivas;
   const restantes = vivas - puestos.length;
@@ -390,7 +395,7 @@ export function PodioRanking({ lista, estado, invId, alVerLista }: { lista: Hipo
       <div className="podio-escenario" role="group" aria-label={TITULO(puestos.length)}>
         {puestos.map((p, i) => (
           <div key={p.h.id} className={`podio-columna podio-puesto-${i + 1} ${i === elegida ? 'podio-elegida' : ''}`.trim()}>
-            <Tarjeta p={p} i={i} escala={escala} elegida={i === elegida} alElegir={() => elegir(i)} reducido={reducido} retraso={retraso(i) + 0.1} refBoton={(b) => (botones.current[i] = b)} />
+            <Tarjeta p={p} i={i} invId={invId} escala={escala} elegida={i === elegida} alElegir={() => elegir(i)} reducido={reducido} retraso={retraso(i) + 0.1} refBoton={(b) => (botones.current[i] = b)} />
             <motion.div
               className="podio-pedestal"
               aria-hidden="true"
