@@ -78,7 +78,7 @@ export const DEFINICIONES_MAPA: { estadio: Record<string, string>; nivel: Record
 
 const ORDEN_ESTADIO = ['preclinica', 'prodromica_dcl', 'demencia_leve', 'demencia_moderada_grave', 'autosomico_dominante'];
 const ORDEN_NIVEL = ['molecular', 'celular', 'tisular', 'clinico'];
-const SIN = 'sin situar';
+const SIN = tr('sin situar');
 
 /** La etiqueta visible de un valor de un eje: la que trae el mapa, si no la de
  *  reserva, si no la clave tal cual. Con null, "sin situar". */
@@ -131,7 +131,7 @@ function Ficha({ celda, mapa }: { celda: CeldaMapa; mapa: Mapa }) {
   const porMision = cuentaDe(celda.porMision);
   const titulo = [
     `${tipo === tr(SIN) ? tr('Sin tipo celular') : tipo}: ${plural(hechos, tr("hecho"))}, ${plural(hipotesis, tr("hipótesis"), trc("plural", "hipótesis"))}${preguntas ? trp(", {preguntas} (no cuentan como cobertura)", { preguntas: plural(preguntas, tr('pregunta abierta'), tr('preguntas abiertas')) }) : ''}.`,
-    certeza ? `Certeza máxima: ${certeza.etiqueta.toLowerCase()}${certezaMotivo ? ` (${certezaMotivo})` : ''}.` : 'Sin conclusión con certeza GRADE todavía.',
+    certeza ? `Certeza máxima: ${certeza.etiqueta.toLowerCase()}${certezaMotivo ? ` (${certezaMotivo})` : ''}.` : tr('Sin conclusión con certeza GRADE todavía.'),
     cohortes.length ? `Cohortes: ${cohortes.join(', ')}.` : '',
     porMision ? trp("{porMision} situados aquí solo por heredar los ejes de la misión.", { porMision }) : '',
   ]
@@ -139,7 +139,7 @@ function Ficha({ celda, mapa }: { celda: CeldaMapa; mapa: Mapa }) {
     .join(' ');
   return (
     <div className={`mapa-enf-ficha ${certeza ? `mapa-enf-certeza-${certeza.tono}` : ''}`} title={titulo}>
-      <span className="mapa-enf-ficha-tipo">{tipo === tr(SIN) ? 'sin tipo celular' : tipo}</span>
+      <span className="mapa-enf-ficha-tipo">{tipo === tr(SIN) ? tr('sin tipo celular') : tipo}</span>
       <span className="mapa-enf-ficha-cifras">
         {trp("{hechos} h · {hipotesis} hip", { hechos, hipotesis })}</span>
       {certeza && <span className={`chip chip-${certeza.tono}`}>{certeza.etiqueta.replace('Certeza ', '')}</span>}

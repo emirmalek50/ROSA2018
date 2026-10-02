@@ -1,5 +1,9 @@
 /** Octavo lote: las frases más largas que quedaban. */
 export const FRASES5: Record<string, string> = {
+  // El plural va explicito: `plural()` anade una «s» y en ingles «match»
+  // hace «matches». Salia «13 matchs» en el ranking.
+  partidos: 'matches',
+
   'Las cajas y sus flechas grises son la cascada del campo (marco ATN), escrita a mano en': 'The boxes and their gray arrows are the field cascade (the ATN framework), written by hand in',
   'Sube primero el dataset publico del análisis que quieres reproducir (por ejemplo GSE1297, OASIS-1 o SEA-AD).': 'First upload the public dataset of the analysis you want to reproduce (for example GSE1297, OASIS-1 or SEA-AD).',
   'Anillo ámbar: solo literatura leída detrás. ROSA2018 lo sostiene con artículos, pero nunca lo ha medido ella.': 'Amber ring: only read literature behind it. ROSA2018 supports it with articles, but has never measured it itself.',

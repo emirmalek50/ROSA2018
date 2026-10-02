@@ -62,7 +62,7 @@ import type {
   TipoRevisionAutomatica,
   Veredicto,
 } from '../datos/tipos';
-import { traducido, trp } from './idioma';
+import { tr, traducido, trp } from './idioma';
 
 export const ESTADO_CORRIDA: Record<EstadoCorrida, string> = traducido({
   en_marcha: 'En marcha',
@@ -87,7 +87,7 @@ export function proponiendoPlan(corrida: Pick<Corrida, 'estado'>, iteracion: Pic
 /** La etiqueta del estado de una corrida tal como la ve la persona: distingue
  * "ROSA2018 está proponiendo el plan" de "Esperando que apruebes el plan". */
 export function etiquetaCorrida(corrida: Pick<Corrida, 'estado'>, iteracion: Pick<Iteracion, 'planAprobado' | 'terminadaEn'> | null): string {
-  return proponiendoPlan(corrida, iteracion) ? 'ROSA2018 está proponiendo el plan' : ESTADO_CORRIDA[corrida.estado];
+  return proponiendoPlan(corrida, iteracion) ? tr('ROSA2018 está proponiendo el plan') : ESTADO_CORRIDA[corrida.estado];
 }
 
 export const AMPLITUD: Record<Amplitud, { etiqueta: string; nota: string; fraccion: string }> = traducido({
@@ -212,7 +212,7 @@ function conRespaldo<K extends string, V>(tabla: Record<K, V>, respaldo: (clave:
 }
 
 function legible(clave: string): string {
-  return String(clave).replace(/_/g, ' ').trim() || 'sin nombre';
+  return String(clave).replace(/_/g, ' ').trim() || tr('sin nombre');
 }
 
 export type EtiquetaVeredicto = { etiqueta: string; tono: 'ok' | 'aviso' | 'mal'; bloquea: boolean };
@@ -228,11 +228,11 @@ export const VEREDICTO: Record<Veredicto, EtiquetaVeredicto> = conRespaldo(
   {
     sostenida: { etiqueta: 'Sostenida', tono: 'ok', bloquea: false },
     parcial: { etiqueta: 'Parcial', tono: 'aviso', bloquea: false },
-    no_sostenida: { etiqueta: 'No sostenida', tono: 'mal', bloquea: true },
-    cita_no_resuelve: { etiqueta: 'Cita sin fuente', tono: 'mal', bloquea: true },
-    sin_cita: { etiqueta: 'Sin ninguna cita', tono: 'mal', bloquea: true },
-    ausencia_refutada: { etiqueta: 'Dice que no está, y sí está', tono: 'mal', bloquea: true },
-    sin_verificar: { etiqueta: 'Sin comprobar', tono: 'aviso', bloquea: false },
+    no_sostenida: { etiqueta: tr('No sostenida'), tono: 'mal', bloquea: true },
+    cita_no_resuelve: { etiqueta: tr('Cita sin fuente'), tono: 'mal', bloquea: true },
+    sin_cita: { etiqueta: tr('Sin ninguna cita'), tono: 'mal', bloquea: true },
+    ausencia_refutada: { etiqueta: tr('Dice que no está, y sí está'), tono: 'mal', bloquea: true },
+    sin_verificar: { etiqueta: tr('Sin comprobar'), tono: 'aviso', bloquea: false },
   },
   respaldoVeredicto,
 );
@@ -240,7 +240,7 @@ export const VEREDICTO: Record<Veredicto, EtiquetaVeredicto> = conRespaldo(
 /** La entrada de VEREDICTO para cualquier valor, también uno raro (null, un
  *  número, una clave nueva): nunca lanza. */
 export function veredictoDe(v: unknown): EtiquetaVeredicto {
-  return typeof v === 'string' && Object.hasOwn(VEREDICTO, v) ? VEREDICTO[v as Veredicto] : respaldoVeredicto(typeof v === 'string' ? v : v === null || v === undefined ? 'sin veredicto' : String(v));
+  return typeof v === 'string' && Object.hasOwn(VEREDICTO, v) ? VEREDICTO[v as Veredicto] : respaldoVeredicto(typeof v === 'string' ? v : v === null || v === undefined ? tr('sin veredicto') : String(v));
 }
 
 export type EtiquetaCerteza = { etiqueta: string; tono: 'ok' | 'aviso' | 'mal' | 'borde'; nota: string; verbo: string };
@@ -249,7 +249,7 @@ export type EtiquetaCerteza = { etiqueta: string; tono: 'ok' | 'aviso' | 'mal' |
  *  legible y tono neutro, sin inventar nivel ni frase calibrada. */
 export function respaldoCerteza(clave: string): EtiquetaCerteza {
   const k = legible(clave);
-  return { etiqueta: trp("Certeza sin clasificar ({k})", { k }), tono: 'borde', nota: trp("El servidor guardó un nivel de certeza ({k}) que esta versión de la interfaz no conoce. No se puede interpretar hasta actualizarla.", { k }), verbo: 'no se puede decir si' };
+  return { etiqueta: trp("Certeza sin clasificar ({k})", { k }), tono: 'borde', nota: trp("El servidor guardó un nivel de certeza ({k}) que esta versión de la interfaz no conoce. No se puede interpretar hasta actualizarla.", { k }), verbo: tr('no se puede decir si') };
 }
 
 /** Sin respaldo automático (a diferencia de VEREDICTO): varias pantallas
@@ -265,7 +265,7 @@ export const CERTEZA_EVIDENCIA: Record<CertezaEvidencia, EtiquetaCerteza> = trad
 
 /** La entrada de CERTEZA_EVIDENCIA para cualquier valor, también uno raro: nunca lanza. */
 export function certezaDe(c: unknown): EtiquetaCerteza {
-  return typeof c === 'string' && Object.hasOwn(CERTEZA_EVIDENCIA, c) ? CERTEZA_EVIDENCIA[c as CertezaEvidencia] : respaldoCerteza(typeof c === 'string' ? c : c === null || c === undefined ? 'sin nivel' : String(c));
+  return typeof c === 'string' && Object.hasOwn(CERTEZA_EVIDENCIA, c) ? CERTEZA_EVIDENCIA[c as CertezaEvidencia] : respaldoCerteza(typeof c === 'string' ? c : c === null || c === undefined ? tr('sin nivel') : String(c));
 }
 
 export const DIRECCION_EVIDENCIA: Record<DireccionEvidencia, { etiqueta: string; tono: 'ok' | 'aviso' | 'mal' | 'borde' }> = traducido({
@@ -295,7 +295,7 @@ export const TIPO_AFIRMACION: Record<TipoAfirmacion, { etiqueta: string; nota: s
 /** Etiqueta de un tipo de afirmacion aunque el servidor mande uno que esta
  *  interfaz no conoce (version nueva del backend): no se rompe la pantalla. */
 export function tipoAfirmacion(t: string): { etiqueta: string; nota: string } {
-  return (TIPO_AFIRMACION as Record<string, { etiqueta: string; nota: string }>)[t] ?? { etiqueta: t || 'sin tipo', nota: 'Tipo de afirmación que esta versión de la interfaz no conoce.' };
+  return (TIPO_AFIRMACION as Record<string, { etiqueta: string; nota: string }>)[t] ?? { etiqueta: t || tr('sin tipo'), nota: tr('Tipo de afirmación que esta versión de la interfaz no conoce.') };
 }
 
 export const TIPO_HALLAZGO: Record<TipoHallazgo, string> = traducido({
@@ -463,7 +463,7 @@ export function killerPendienteDe(h: Pick<Hipotesis, 'decisionKiller'> & { kille
   const marca = (h as { killerPendiente?: unknown }).killerPendiente;
   if (marca === true || (marca && typeof marca === 'object')) {
     const detalle = marca && typeof marca === 'object' ? String((marca as { motivo?: unknown }).motivo ?? '').trim() : '';
-    return detalle ? trp("Pendiente de juicio: {detalle}", { detalle }) : 'Pendiente de juicio: el modelo no respondió';
+    return detalle ? trp("Pendiente de juicio: {detalle}", { detalle }) : tr('Pendiente de juicio: el modelo no respondió');
   }
   const revisiones = Array.isArray(h.revisiones) ? (h.revisiones as { accion?: unknown; nota?: unknown; fecha?: unknown }[]) : [];
   const ultima = [...revisiones].reverse().find((r) => r && typeof r === 'object' && r.accion === 'killer');
@@ -477,11 +477,11 @@ export function killerPendienteDe(h: Pick<Hipotesis, 'decisionKiller'> & { kille
   const aviso = [...mensajes].reverse().find((m) => m && typeof m === 'object' && m.de === 'revisor' && typeof m.texto === 'string' && /juez del Killer no respondi/i.test(m.texto));
   if (aviso && typeof aviso.creadoEn === 'number') {
     const fechaUltima = ultima && typeof ultima.fecha === 'number' ? ultima.fecha : Number.NEGATIVE_INFINITY;
-    if (aviso.creadoEn > fechaUltima) return 'Pendiente de juicio: el modelo no respondió';
+    if (aviso.creadoEn > fechaUltima) return tr('Pendiente de juicio: el modelo no respondió');
   }
   if (h.decisionKiller !== 'suspender') return null;
   const nota = ultima && typeof ultima.nota === 'string' ? ultima.nota : '';
-  return /juez no respondi|modelo no respondi|no se puede dar por revisada/i.test(nota) ? 'Pendiente de juicio: el modelo no respondió' : null;
+  return /juez no respondi|modelo no respondi|no se puede dar por revisada/i.test(nota) ? tr('Pendiente de juicio: el modelo no respondió') : null;
 }
 
 export const ETAPA_DECISION: Record<EtapaDecision, string> = traducido({

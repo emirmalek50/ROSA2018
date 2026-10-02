@@ -50,3 +50,4 @@ const porTipo = new Map();
 for (const o of out) porTipo.set(o.tipo, (porTipo.get(o.tipo) || 0) + 1);
 console.log('\npor donde aparecen:');
 for (const [t, n] of [...porTipo].sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${t}`);
+await import('node:fs').then((m) => m.writeFileSync('/tmp/resto_tsx.json', JSON.stringify(out, null, 1)));

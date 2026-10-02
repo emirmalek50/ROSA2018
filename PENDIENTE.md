@@ -1699,3 +1699,47 @@ Pendiente de verdad, otra vez: **nadie ha revisado las traducciones del
 modelo**, y son contenido científico. Y el precalentado de las
 investigaciones 5 y 6 se cortó por un tiempo agotado de `fetch`; el script
 ya sobrevive al fallo y sigue, pero hay que volver a correrlo.
+
+### El catalogo se envenenaba a si mismo (2 de octubre de 2026)
+
+Emir mando capturas: el panel del revisor, la franja del ranking, el grafo
+causal. Buscando por que seguian en castellano salio el fallo de fondo, y es
+el que explica la mayor parte de lo que quedaba.
+
+`scripts/i18n/envolver.mjs` construye primero una lista de «cadenas que se
+comparan en alguna parte», que nunca envuelve, para no romper una comparacion
+traduciendola. Para construirla recorria TODOS los ficheros de `src`,
+**incluido `src/i18n/`**. Y cada entrada del catalogo es una clave de objeto,
+que cuenta como comparacion. Resultado: **una frase que ya estaba traducida
+no se podia envolver nunca en ningun sitio**, que es exactamente al reves de
+lo que se quiere. Tenia bloqueados 144 sitios.
+
+Con el catalogo fuera de esa lista salieron 144 sitios en 20 ficheros. Las
+cuatro pasadas de seguridad (`desenvolver_*.mjs`) devolvieron dos: un trozo
+de codigo Python de los datos de muestra y una etiqueta de formato RIS.
+
+Lo demas de las capturas:
+
+- **«13 matchs»** en el ranking. `plural(n, tr('x'))` sin segunda forma anade
+  una «s»; en castellano siempre vale, en ingles «match» hace «matches». De
+  las 32 llamadas asi, las otras 31 funcionan por casualidad. Un test nuevo
+  en `catalogo.test.ts` vigila esas siete palabras.
+- **«Ruta 5/8, toca intervention options»**, media frase en cada idioma, y
+  **«4 razones en contra (juez)»**: se componian con plantillas. Van enteras.
+- **El grafo causal** (`amiloide`, `edad`, `tau`) seguia en castellano porque
+  el nodo es a la vez identificador y rotulo: traducir el id rompe la busqueda
+  de aristas, y el traductor de pantalla no ve palabras cortas sin tilde.
+  `nombreDeNodo()` en `lib/mecanismos.ts` separa las dos cosas con una tabla
+  del vocabulario, que es cerrado.
+- **«todavia no se puede medir»** hacia de centinela Y de texto: se comparaba
+  con la cadena suelta. Ahora con `sinMedir()`.
+
+El servidor estaba colgado (proceso vivo, nada escuchando en 8765, sin
+corridas vivas): parado con `--forzar --motivo` y reiniciado.
+
+Sin cerrar, y conviene tenerlo claro: quedan unas 85 cadenas sin envolver
+fuera de los reductores, de las que mas o menos la mitad son codigo (shaders
+GLSL, expresiones regulares, tipos de TypeScript, clases CSS) y no deben
+envolverse. La otra mitad son plantillas con huecos que `agrupar.mjs` no
+junta porque tiene el MISMO punto ciego (fuera del JSX exige tilde o palabra
+funcion). Y sigue sin revisar nadie las traducciones del modelo.

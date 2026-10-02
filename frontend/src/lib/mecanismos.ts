@@ -67,6 +67,41 @@ const ETIQUETA_DE_RESPALDO: Record<string, string> = traducido({
   'funcion renal': 'función renal',
 });
 
+/** El nombre de un nodo de la cascada, para LEERLO. El identificador no se
+ *  toca: una arista se busca por el id, y traducirlo rompe el grafo (paso con
+ *  «B:funcion renal» el 2 de octubre de 2026).
+ *
+ *  Hace falta una tabla porque el traductor de pantalla
+ *  (`lib/traductorDom.ts`) da por castellano lo que lleva tilde o palabra
+ *  funcion, y «amiloide», «edad» o «tau» no tienen ninguna de las dos: se
+ *  quedaban en castellano en el grafo causal. El vocabulario es cerrado, asi
+ *  que la tabla lo cubre entero. */
+const NOMBRE_DE_NODO: Record<string, string> = traducido({
+  amiloide: 'amiloide',
+  tau: 'tau',
+  edad: 'edad',
+  cognicion: 'cognición',
+  neurodegeneracion: 'neurodegeneración',
+  neuroinflamacion: 'neuroinflamación',
+  'funcion renal': 'función renal',
+  sexo: 'sexo',
+  'reserva cognitiva': 'reserva cognitiva',
+  'barrera hematoencefalica': 'barrera hematoencefálica',
+  'funcion hepatica': 'función hepática',
+  'indice de masa corporal': 'índice de masa corporal',
+  inflamacion: 'inflamación',
+  vasculopatia: 'vasculopatía',
+  sinapsis: 'sinapsis',
+  microglia: 'microglía',
+  astrocitos: 'astrocitos',
+});
+
+/** Como se escribe un nodo en pantalla. Si no esta en la tabla se deja tal
+ *  cual: mejor el castellano que inventarse una traduccion. */
+export function nombreDeNodo(etiqueta: string): string {
+  return NOMBRE_DE_NODO[sinTildes(etiqueta).toLowerCase()] ?? etiqueta;
+}
+
 /** Sin tildes. Se usa para IDENTIFICAR, nunca para enseñar. */
 export function sinTildes(texto: string): string {
   return (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');

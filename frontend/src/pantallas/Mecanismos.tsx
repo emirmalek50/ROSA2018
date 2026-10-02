@@ -17,33 +17,16 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { EstadoRosa, Hipotesis, Investigacion } from '../datos/tipos';
-import {
-  actoresDe,
-  amenazasDe,
-  cascada,
-  desvioDeArco,
-  EN_LLANO_IDENTIFICACION,
-  intensidad,
-  nombreDeSupuesto,
-  posicionesCascada,
-  recuentoAristas,
-  recuentoVeredictos,
-  supuestosAgregados,
-  supuestosDeLaFicha,
-  TITULO_CAPA,
-  veredictoPorRegla,
-  type Capa,
-  type NodoCascada,
-} from '../lib/mecanismos';
+import { EN_LLANO_IDENTIFICACION, TITULO_CAPA, actoresDe, amenazasDe, cascada, desvioDeArco, intensidad, nombreDeNodo, nombreDeSupuesto, posicionesCascada, recuentoAristas, recuentoVeredictos, supuestosAgregados, supuestosDeLaFicha, type Capa, type NodoCascada, veredictoPorRegla } from '../lib/mecanismos';
 import { rutaDe } from '../lib/ruta';
 import { AvisoMuestra } from '../componentes/piezas';
 import '../mecanismos.css';
 import { tr, trp } from '../lib/idioma';
 
 const AYUDA =
-  'El grafo causal de cada hipótesis: qué dice que causa qué, sobre el fondo de lo que el campo ya da por sentado, y con las explicaciones alternativas que tendrían que ser falsas para que el efecto sea del actor y no de otra cosa.';
+  tr('El grafo causal de cada hipótesis: qué dice que causa qué, sobre el fondo de lo que el campo ya da por sentado, y con las explicaciones alternativas que tendrían que ser falsas para que el efecto sea del actor y no de otra cosa.');
 const META =
-  'Un efecto es identificable cuando se puede estimar sin que lo confunda otra causa. Las tres amenazas clásicas son la causa inversa (que Y cause X), el confusor (una causa común de X y de Y) y el artefacto de medida (que lo que se mueva sea el instrumento). Un ensayo aleatorizado las cierra por diseño; sin él hacen falta temporalidad, ajuste por confusores y replicación independiente. ROSA2018 comprueba esos tres supuestos por regla, sin modelo, y de ahí sale el veredicto de la derecha.';
+  tr('Un efecto es identificable cuando se puede estimar sin que lo confunda otra causa. Las tres amenazas clásicas son la causa inversa (que Y cause X), el confusor (una causa común de X y de Y) y el artefacto de medida (que lo que se mueva sea el instrumento). Un ensayo aleatorizado las cierra por diseño; sin él hacen falta temporalidad, ajuste por confusores y replicación independiente. ROSA2018 comprueba esos tres supuestos por regla, sin modelo, y de ahí sale el veredicto de la derecha.');
 
 /** El lienzo de la cascada, en sus propias coordenadas. Las cajas se colocan
  *  en porcentaje sobre estas mismas medidas, así el dibujo y las etiquetas no
@@ -421,9 +404,9 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
                       top: `${(p.y / altoLienzo) * 100}%`,
                       width: `${(CAJA_ANCHO / ANCHO) * 100}%`,
                     }}
-                    title={trp("{etiqueta} entra en juego en {enJuego} de las {total} hipótesis, como actor o como confusor", { etiqueta: n.etiqueta, enJuego: n.enJuego, total: casc.total })}
+                    title={trp("{etiqueta} entra en juego en {enJuego} de las {total} hipótesis, como actor o como confusor", { etiqueta: nombreDeNodo(n.etiqueta), enJuego: n.enJuego, total: casc.total })}
                   >
-                    {partible(n.etiqueta)}
+                    {partible(nombreDeNodo(n.etiqueta))}
                     <span className="mec-cuantas">{trp("en {enJuego} de {total}", { enJuego: n.enJuego, total: casc.total })}
                     </span>
                   </div>

@@ -188,7 +188,7 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
       <div className="rejilla-2">
         {campo('poblacion', tr('Población'), tr('Adultos con deterioro cognitivo leve, amiloide positivos'))}
         {campo('etapa', tr('Etapa de la enfermedad'), 'Prodromica')}
-        {campo('celulaTejido', 'Célula o tejido', tr('Astrocitos; plasma'))}
+        {campo('celulaTejido', tr('Célula o tejido'), tr('Astrocitos; plasma'))}
         {campo('mecanismo', 'Mecanismo', tr('Reactividad astrocitaria'))}
         {campo('tipoIntervencion', tr('Tipo de intervención o resultado'), tr('Biomarcador de progresión'))}
         {campo('capacidades', tr('Capacidades del laboratorio (una por línea)'), tr('Inmunoensayo Simoa en plasma\nPET de amiloide'), 3)}
@@ -365,7 +365,7 @@ export function RutaTerapeutica({ paso, ruta = null }: { paso: PasoRutaTerapeuti
                 </span>
               )}
               {PASO_RUTA[p].etiqueta}
-              {evaluada && <span className="sr-only"> ({estado ? estado.etiqueta: 'no comprobable'})</span>}
+              {evaluada && <span className="sr-only"> ({estado ? estado.etiqueta: tr('no comprobable')})</span>}
             </li>
           );
         })}
@@ -462,7 +462,7 @@ export function PreguntaDeCampana({ corrida }: { corrida: Corrida }) {
           <div className="rejilla-2">
             {campo('contexto', tr('Contexto (C)'))}
             {campo('etapa', tr('Etapa (S)'))}
-            {campo('intervencion', 'Intervención (A)')}
+            {campo('intervencion', tr('Intervención (A)'))}
             {campo('comparador', tr('Comparador (B)'))}
             {campo('desenlace', tr('Desenlace (P), con medida y unidad'))}
             {campo('ventana', tr('Ventana de tiempo (T)'))}
@@ -744,7 +744,7 @@ export function EjecucionesInSilico({ h, estado, ahora }: { h: Hipotesis; estado
   const puerta = inv?.puertaReproduccion;
   const puertaOk = puerta ? puerta.estado === 'abierta' || puerta.estado === 'eximida' : false;
   return (
-    <Seccion detalle titulo="Análisis in silico" nota={tr("ROSA2018 congela un plan de análisis (sin ver las filas), escribe el código, lo ejecuta en un sandbox sin red con los datos en solo lectura, interpreta las cifras contra el umbral del plan y un auditor independiente (Killer II) dice si el análisis vale. Solo un análisis válido entra como evidencia.")}>
+    <Seccion detalle titulo={tr("Análisis in silico")} nota={tr("ROSA2018 congela un plan de análisis (sin ver las filas), escribe el código, lo ejecuta en un sandbox sin red con los datos en solo lectura, interpreta las cifras contra el umbral del plan y un auditor independiente (Killer II) dice si el análisis vale. Solo un análisis válido entra como evidencia.")}>
       {runs.length === 0 && <p className="meta">{tr("Sin análisis con datos todavía.")}</p>}
       {h.evidenciaSecuencial && (
         <div className="acciones">
@@ -935,7 +935,7 @@ export function PuertaYReproducciones({ inv, estado, ahora }: { inv: Investigaci
       plegable
       abierta={puerta.estado !== 'abierta'}
       resumen={<span>{puerta.estado === 'abierta' ? trp("Abierta: {superadas} de {requeridas} análisis publicados reproducidos. ROSA2018 ya puede descubrir con datos.", { superadas: puerta.superadas, requeridas: puerta.requeridas }) : puerta.estado === 'eximida' ? `Eximida por ${puerta.eximidaPor}: ${puerta.motivo}` : trp("Bloqueada: {superadas} de {requeridas} reproducidos. Hasta abrirla, ningún análisis con datos cuenta como descubrimiento.", { superadas: puerta.superadas, requeridas: puerta.requeridas })}</span>}
-      titulo="Puerta de reproducción"
+      titulo={tr("Puerta de reproducción")}
       nota={tr("Antes de descubrir nada con datos, ROSA2018 tiene que reproducir análisis ya publicados dentro de una tolerancia fijada de antemano. Si no lo consigue, un resultado nuevo no se distingue de un error del pipeline. Una persona puede eximirla dejando el motivo; queda como cambio de política.")}
       acciones={
         puerta.estado === 'eximida' ? (
@@ -2249,7 +2249,7 @@ export function PerfilDeLaDiana({ h }: { h: Hipotesis }) {
 }
 
 const TONO_VEREDICTO: Record<string, 'ok' | 'mal' | 'aviso' | 'borde'> = { confirma: 'ok', refuta: 'mal', inconcluso: 'aviso', no_evaluable: 'borde' };
-const ETIQUETA_VEREDICTO: Record<string, string> = { confirma: 'confirma', refuta: 'refuta', inconcluso: 'inconcluso', no_evaluable: 'no evaluable' };
+const ETIQUETA_VEREDICTO: Record<string, string> = { confirma: 'confirma', refuta: 'refuta', inconcluso: 'inconcluso', no_evaluable: tr('no evaluable') };
 
 function textoO(x: unknown, vacio: string): string {
   return typeof x === 'string' && x.trim() !== '' ? x : vacio;
@@ -2368,7 +2368,7 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
                       </td>
                       <td>
                         <Chip tono={enVocabulario ? 'borde' : 'aviso'} title={enVocabulario ? TIPOS_LECTURA[l.tipo].definicion: tr('Tipo fuera del vocabulario cerrado (compromiso de diana, viabilidad, función o mecanismo, biomarcador, seguridad); la lista de lo que le falta al contrato lo dice.')}>
-                          {etiquetaContrato(TIPOS_LECTURA, l.tipo) || 'sin tipo'}
+                          {etiquetaContrato(TIPOS_LECTURA, l.tipo) || tr('sin tipo')}
                         </Chip>
                       </td>
                       <td className={l.queConfirma ? '' : 'tono-mal'}>{textoO(l.queConfirma, tr('sin criterio'))}</td>
@@ -2415,12 +2415,12 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
             <>
               <div className="acciones">
                 <Chip tono="borde" title={sistemaInfo ? sistemaInfo.definicion: tr('Tipo de sistema fuera del vocabulario cerrado.')}>
-                  {etiquetaContrato(SISTEMAS_EXPERIMENTALES, sistema.tipo) || 'sin tipo'}
+                  {etiquetaContrato(SISTEMAS_EXPERIMENTALES, sistema.tipo) || tr('sin tipo')}
                 </Chip>
                 {sistemaInfo && <span className="meta">{sistemaInfo.definicion}</span>}
               </div>
               <p style={{ fontSize: 13 }}>
-                <strong>{tr("Qué prueba:")}</strong> {textoO(sistema.quePrueba, 'no declarado')}
+                <strong>{tr("Qué prueba:")}</strong> {textoO(sistema.quePrueba, tr('no declarado'))}
               </p>
               <p style={{ fontSize: 13 }}>
                 <strong>{tr("Qué no representa:")}</strong> {sistema.queNoRepresenta ? sistema.queNoRepresenta : <span className="meta">{trp("no declarado{v}", { v: sistemaInfo ? trp("; límite general de este sistema: {queNoRepresenta}", { queNoRepresenta: sistemaInfo.queNoRepresenta }) : '' })}</span>}
@@ -2507,11 +2507,11 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
                         </td>
                         <td>
                           <Chip tono="borde" title={typeof v.tipo === 'string' && Object.hasOwn(TIPOS_LECTURA, v.tipo) ? TIPOS_LECTURA[v.tipo].definicion : undefined}>
-                            {etiquetaContrato(TIPOS_LECTURA, v.tipo) || 'sin tipo'}
+                            {etiquetaContrato(TIPOS_LECTURA, v.tipo) || tr('sin tipo')}
                           </Chip>
                         </td>
                         <td>
-                          <Chip tono={de(TONO_VEREDICTO, clave) ?? 'borde'}>{de(ETIQUETA_VEREDICTO, clave) ?? (clave.replace(/_/g, ' ') || 'sin veredicto')}</Chip>
+                          <Chip tono={de(TONO_VEREDICTO, clave) ?? 'borde'}>{de(ETIQUETA_VEREDICTO, clave) ?? (clave.replace(/_/g, ' ') || tr('sin veredicto'))}</Chip>
                         </td>
                         <td className="meta">{textoO(v.motivo, '')}</td>
                         <td className="meta">{cifras.length > 0 ? cifras.join('; ') : tr('ninguna cifra la nombra')}</td>

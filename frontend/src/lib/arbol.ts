@@ -173,12 +173,12 @@ export function ordinalesDeIteraciones(iteraciones: readonly IteracionMinima[], 
 const ESTADO_EJECUCION_LEGIBLE: Record<string, string> = traducido({ no_ejecutado: 'no ejecutado', en_curso: 'en curso', error_tecnico: 'error técnico', completado: 'completado', tiempo_agotado: 'tiempo agotado' });
 const AUDITORIA_LEGIBLE: Record<string, string> = traducido({ valido: 'válido', no_valido: 'no válido', no_evaluable_computacionalmente: 'no evaluable' });
 const VEREDICTO_LEGIBLE: Record<string, string> = traducido({ sostenida: 'sostenida', parcial: 'parcial', no_sostenida: 'no sostenida', cita_no_resuelve: 'la cita no resuelve', sin_cita: 'sin cita', ausencia_refutada: 'ausencia refutada', sin_verificar: 'sin verificar' });
-const RESULTADO_LEGIBLE: Record<string, string> = { confirma: 'confirma', refuta: 'refuta', inconcluso: 'inconcluso', no_evaluable: 'no evaluable' };
+const RESULTADO_LEGIBLE: Record<string, string> = { confirma: 'confirma', refuta: 'refuta', inconcluso: 'inconcluso', no_evaluable: tr('no evaluable') };
 const NO_SOSTENIDOS = new Set(['no_sostenida', 'cita_no_resuelve', 'sin_cita', 'ausencia_refutada']);
 
 /** Un valor del servidor en castellano legible; uno desconocido (registro más
  *  nuevo que esta interfaz) se enseña tal cual, con espacios. */
-const legible = (mapa: Record<string, string>, valor: string | null | undefined): string => (valor ? mapa[valor] ?? valor.replace(/_/g, ' ') : 'sin dato');
+const legible = (mapa: Record<string, string>, valor: string | null | undefined): string => (valor ? mapa[valor] ?? valor.replace(/_/g, ' ') : tr('sin dato'));
 
 /** Recorta un texto a `maximo` caracteres, con puntos suspensivos. */
 export function recortar(texto: string, maximo: number): string {
@@ -344,10 +344,10 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
   // Una rama solo cuando agrupa dos o más hipótesis: un cluster con una sola
   // hipótesis no aporta nada como nodo y llenaba el árbol de círculos con
   // texto pegado. Esas hipótesis cuelgan directamente del tronco.
-  const clusters = [...new Set(hip.map((h) => h.cluster || 'Sin cluster'))];
+  const clusters = [...new Set(hip.map((h) => h.cluster || tr('Sin cluster')))];
   const conRama = new Set<string>();
   for (const c of clusters) {
-    const n = hip.filter((h) => (h.cluster || 'Sin cluster') === c);
+    const n = hip.filter((h) => (h.cluster || tr('Sin cluster')) === c);
     if (n.length < 2) continue;
     conRama.add(c);
     anadir({ id: `rama-${c}`, tipo: 'rama', etiqueta: c, sub: trp("{n} hipótesis", { n: n.length }), peso: 2 + Math.min(3, n.length) * 0.4, iteracion: Math.min(...n.map((h) => ordinalDe(h))), href: rutaDe(inv.id, 'ranking') });
@@ -358,12 +358,12 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
   }
   for (const h of hip) {
     const bloqueos = h.bloqueos ?? [];
-    const alerta = h.estado === 'descartada' ? 'descartada' : h.decisionKiller === 'descartar_en_contexto' ? 'el Killer propone descartar' : bloqueos.length ? (bloqueos.length === 1 ? trp("{bloqueos} bloqueo", { bloqueos: bloqueos.length }) : trp("{bloqueos} bloqueos", { bloqueos: bloqueos.length })) : undefined;
+    const alerta = h.estado === 'descartada' ? 'descartada' : h.decisionKiller === 'descartar_en_contexto' ? tr('el Killer propone descartar') : bloqueos.length ? (bloqueos.length === 1 ? trp("{bloqueos} bloqueo", { bloqueos: bloqueos.length }) : trp("{bloqueos} bloqueos", { bloqueos: bloqueos.length })) : undefined;
     // Sin Elo (registro anterior al torneo) vale el de salida, 1500: un peso NaN
     // dejaría el círculo sin radio y la disposición por fuerzas sin posición.
     const elo = typeof h.elo === 'number' && Number.isFinite(h.elo) ? h.elo : 1500;
-    anadir({ id: h.id, tipo: 'hipotesis', etiqueta: h.titulo ?? h.id, sub: `${h.cluster || 'Sin cluster'} · Elo ${elo}${h.candidata ? tr(' · candidata') : ''}`, peso: pesoHipotesis(h, elo), iteracion: ordinalDe(h), href: rutaDe(inv.id, 'hipotesis', h.id), estado: h.estado, alerta });
-    enlazar(conRama.has(h.cluster || 'Sin cluster') ? `rama-${h.cluster || 'Sin cluster'}` : 'objetivo', h.id, 'rama');
+    anadir({ id: h.id, tipo: 'hipotesis', etiqueta: h.titulo ?? h.id, sub: `${h.cluster || tr('Sin cluster')} · Elo ${elo}${h.candidata ? tr(' · candidata') : ''}`, peso: pesoHipotesis(h, elo), iteracion: ordinalDe(h), href: rutaDe(inv.id, 'hipotesis', h.id), estado: h.estado, alerta });
+    enlazar(conRama.has(h.cluster || tr('Sin cluster')) ? `rama-${h.cluster || tr('Sin cluster')}` : 'objetivo', h.id, 'rama');
     if (h.experimento && h.experimento.estado !== 'propuesto') {
       anadir({ id: `ex-${h.id}`, tipo: 'experimento', etiqueta: h.experimento.laboratorio ? `Experimento en ${h.experimento.laboratorio}` : 'Experimento', sub: h.experimento.estado.replace('_', ' ') + (h.experimento.prerregistradoEn ? tr(' · prerregistrado') : ''), peso: 2, iteracion: ordinalDe(h), href: rutaDe(inv.id, 'hipotesis', h.id), estado: h.experimento.estado });
       enlazar(h.id, `ex-${h.id}`, 'experimento');
@@ -471,7 +471,7 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
       const iteracion = a.iteracion != null ? desplazamientoDe(h) + a.iteracion : (a.trayectoria?.id ? iteracionDeEjecucion(h, ejecucionPorId.get(a.trayectoria.id)) : ordinalDe(h));
       if (!vistos.has(id)) {
         const medicion = medicionDeAfirmacion(a) ?? undefined;
-        const alerta = a.sintetico ? 'dato sintético: no cuenta como observación' : NO_SOSTENIDOS.has(a.veredicto) ? 'el verificador no la sostiene' : undefined;
+        const alerta = a.sintetico ? tr('dato sintético: no cuenta como observación') : NO_SOSTENIDOS.has(a.veredicto) ? tr('el verificador no la sostiene') : undefined;
         anadir({ id, tipo: 'afirmacion', etiqueta: recortar(a.texto, 60), sub: (medicion ? trp("medición propia · {VEREDICTO_LEGIBLE}", { VEREDICTO_LEGIBLE: legible(VEREDICTO_LEGIBLE, a.veredicto) }) : trp("dato · {VEREDICTO_LEGIBLE}", { VEREDICTO_LEGIBLE: legible(VEREDICTO_LEGIBLE, a.veredicto) })), peso: medicion ? 1.4 : 1, iteracion, href: rutaDe(inv.id, 'hipotesis', h.id), estado: a.veredicto, alerta, medicion });
       } else {
         const n = porId.get(id)!;
@@ -484,8 +484,8 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
       const iteracion = iteracionDeEjecucion(h, run);
       if (!vistos.has(id)) {
         const medicion = medicionDeEjecucion(run) ?? undefined;
-        const auditoria = run.auditoria ? trp("auditoría: {AUDITORIA_LEGIBLE}", { AUDITORIA_LEGIBLE: legible(AUDITORIA_LEGIBLE, run.auditoria.veredicto) }) : 'sin auditar';
-        anadir({ id, tipo: 'ejecucion', etiqueta: 'Análisis in silico', sub: `${legible(ESTADO_EJECUCION_LEGIBLE, run.estado)} · ${auditoria}`, peso: medicion ? 1.8 : 1.4, iteracion, href: rutaDe(inv.id, 'hipotesis', h.id), estado: run.estado, alerta: alertaEjecucion(run), medicion });
+        const auditoria = run.auditoria ? trp("auditoría: {AUDITORIA_LEGIBLE}", { AUDITORIA_LEGIBLE: legible(AUDITORIA_LEGIBLE, run.auditoria.veredicto) }) : tr('sin auditar');
+        anadir({ id, tipo: 'ejecucion', etiqueta: tr('Análisis in silico'), sub: `${legible(ESTADO_EJECUCION_LEGIBLE, run.estado)} · ${auditoria}`, peso: medicion ? 1.8 : 1.4, iteracion, href: rutaDe(inv.id, 'hipotesis', h.id), estado: run.estado, alerta: alertaEjecucion(run), medicion });
       } else {
         const n = porId.get(id)!;
         n.iteracion = Math.min(n.iteracion, iteracion);
@@ -509,7 +509,7 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
       const r = h.experimento.resultado;
       // El resultado llega fechado: aparece en la iteración en que llegó, como los análisis.
       const iteracion = Math.max(ordinalDe(h), ordinalEn(r.fecha) ?? ordinalDe(h));
-      anadir({ id, tipo: 'laboratorio', etiqueta: 'Resultado del laboratorio', sub: `${legible(RESULTADO_LEGIBLE, r.veredicto)}${h.experimento.laboratorio ? ` · ${h.experimento.laboratorio}` : ''}`, peso: 2, iteracion, href: rutaDe(inv.id, 'hipotesis', h.id), estado: r.veredicto, medicion: 'resultado del laboratorio sobre el prerregistro' });
+      anadir({ id, tipo: 'laboratorio', etiqueta: tr('Resultado del laboratorio'), sub: `${legible(RESULTADO_LEGIBLE, r.veredicto)}${h.experimento.laboratorio ? ` · ${h.experimento.laboratorio}` : ''}`, peso: 2, iteracion, href: rutaDe(inv.id, 'hipotesis', h.id), estado: r.veredicto, medicion: tr('resultado del laboratorio sobre el prerregistro') });
       enlazar(vistos.has(`ex-${h.id}`) ? `ex-${h.id}` : h.id, id, 'dato');
     }
   }

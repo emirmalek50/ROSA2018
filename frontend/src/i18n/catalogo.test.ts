@@ -142,3 +142,19 @@ describe('el catálogo en inglés', () => {
     expect(malas.slice(0, 5)).toEqual([]);
   });
 });
+
+describe('los plurales que se forman con una «s»', () => {
+  it('ninguna palabra que se pluraliza sola necesita «es» en inglés', () => {
+    // `plural(n, tr('x'))` sin segunda forma anade una «s». En castellano
+    // siempre vale; en ingles no: «match» hace «matches», y salia
+    // «13 matchs» en el ranking (2 de octubre de 2026). Estas son las
+    // palabras que hoy se usan con una sola forma.
+    const SOLAS = ['hecho', 'celda', 'fase', 'acierto', 'registro', 'cohorte', 'conteo'];
+    const NECESITA_ES = /(?:s|x|z|ch|sh)$/i;
+    const malas = SOLAS
+      .map((k) => [k, (EN as Record<string, string>)[k]] as const)
+      .filter(([, v]) => typeof v === 'string' && NECESITA_ES.test(v))
+      .map(([k, v]) => `${k} -> ${v} (en inglés pide «es», no «s»)`);
+    expect(malas).toEqual([]);
+  });
+});

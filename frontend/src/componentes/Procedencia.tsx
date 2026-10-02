@@ -60,7 +60,7 @@ export function TarjetaFuente({ f, ahora }: { f: Fuente; ahora: number }) {
           {f.retraccion !== null && (
             <>
               {' · '}
-              <span className="fuente-retractada">{f.retraccion === 'retractado' ? 'Retractado' : f.retraccion === 'preocupacion' ? 'Expresión de preocupación' : 'Erratum'}</span>
+              <span className="fuente-retractada">{f.retraccion === 'retractado' ? 'Retractado' : f.retraccion === 'preocupacion' ? tr('Expresión de preocupación') : 'Erratum'}</span>
             </>
           )}
         </span>

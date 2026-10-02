@@ -297,7 +297,7 @@ function hojaComoTexto(d: DianaDeLaboratorio): string {
 }
 
 const LECTURA: Record<string, string> = {
-  compromiso_diana: 'compromiso de diana',
+  compromiso_diana: tr('compromiso de diana'),
   mecanismo: 'mecanismo',
   desenlace: 'desenlace',
   seguridad: 'seguridad',
@@ -858,7 +858,7 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
     ...(d.fiabilidad
       ? [
           '='.repeat(60),
-          'DE QUÉ FIARSE Y DE QUÉ NO',
+          tr('DE QUÉ FIARSE Y DE QUÉ NO'),
           '',
           ...d.fiabilidad.niveles.flatMap((nv) => [
             nv.titulo.toUpperCase(),
@@ -1279,10 +1279,10 @@ function FichaEspecies({ c }: { c: CandidatoAso }) {
       <h3>{tr("¿SE PUEDE PROBAR EN UN ROEDOR?")}</h3>
       <p className="aso-criba-titulo">
         {e.veredicto === 'se puede probar'
-          ? 'Sí: el experimento se hace con esta misma molécula'
+          ? tr('Sí: el experimento se hace con esta misma molécula')
           : e.veredicto === 'hace falta un sustituto'
-            ? 'No: haría falta un oligo sustituto para el animal'
-            : 'No se pudo comprobar'}
+            ? tr('No: haría falta un oligo sustituto para el animal')
+            : tr('No se pudo comprobar')}
       </p>
       <p className="aso-criba-porque">{e.porQue}</p>
       <table className="esp-tabla">
@@ -1417,7 +1417,7 @@ function FichaSitio({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
     <section className={`aso-criba ${clase}`}>
       <h3>{tr("¿ESTÁ ABIERTO EL SITIO EN EL ARN?")}</h3>
       <p className="aso-criba-titulo">
-        {s.etiqueta === 'abierto' ? 'El tramo está abierto' : s.etiqueta === 'medio' ? 'El tramo está a medias' : 'El tramo está tapado'}
+        {s.etiqueta === 'abierto' ? tr('El tramo está abierto') : s.etiqueta === 'medio' ? tr('El tramo está a medias') : tr('El tramo está tapado')}
       </p>
       <p className="aso-criba-porque">{s.comoSeLee}</p>
       <dl className="aso-criba-cuentas">
@@ -1467,17 +1467,17 @@ function FichaSitio({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
 function tituloCriba(v: string | undefined): { titulo: string; clase: 'bien' | 'mal' | 'duda' } {
   switch (v) {
     case 'descartado':
-      return { titulo: 'No se puede pedir: encaja en otro gen donde la RNasa H1 cortaría', clase: 'mal' };
+      return { titulo: tr('No se puede pedir: encaja en otro gen donde la RNasa H1 cortaría'), clase: 'mal' };
     case 'sin parecido':
-      return { titulo: 'Sin parecido peligroso en ningún otro ARN humano', clase: 'bien' };
+      return { titulo: tr('Sin parecido peligroso en ningún otro ARN humano'), clase: 'bien' };
     case 'sin choque exacto':
-      return { titulo: 'Sin choque exacto en ningún otro ARN humano', clase: 'bien' };
+      return { titulo: tr('Sin choque exacto en ningún otro ARN humano'), clase: 'bien' };
     case 'al borde del azar':
-      return { titulo: 'Se parece a otros genes, pero al borde de lo que da el azar', clase: 'duda' };
+      return { titulo: tr('Se parece a otros genes, pero al borde de lo que da el azar'), clase: 'duda' };
     case 'revisar':
-      return { titulo: 'No aparece ni en su propio gen: hay que aclararlo', clase: 'duda' };
+      return { titulo: tr('No aparece ni en su propio gen: hay que aclararlo'), clase: 'duda' };
     default:
-      return { titulo: 'Sin cribar contra el transcriptoma', clase: 'duda' };
+      return { titulo: tr('Sin cribar contra el transcriptoma'), clase: 'duda' };
   }
 }
 
@@ -1547,7 +1547,7 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
                 const az = cr.nulo?.[String(k)];
                 return (
                   <tr key={k} className={cuantos && k <= 1 ? 'aso-fallos-mal' : ''}>
-                    <th>{k === 0 ? 'ninguno (idéntico)' : k === 1 ? '1' : k}</th>
+                    <th>{k === 0 ? tr('ninguno (idéntico)') : k === 1 ? '1' : k}</th>
                     <td className="lab-mono">
                       {cuantos ? `${n(cuantos)}: ${(cr.porFallos?.[String(k)] ?? []).slice(0, 5).join(', ')}${cuantos > 5 ? '…' : ''}` : '—'}
                     </td>
@@ -2409,7 +2409,7 @@ function FichaCompuesto({ c }: { c: CompuestoDeLaboratorio }) {
               ? tr('perfil compatible con llegar al cerebro')
               : c.cerebro.veredicto === 'improbable'
                 ? tr('improbable por difusión')
-                : 'no comprobable'}
+                : tr('no comprobable')}
           </span>
         ) : (
           <span className="lab-cerebro">{tr("sin ficha de molécula pequeña")}</span>

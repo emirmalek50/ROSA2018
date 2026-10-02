@@ -260,9 +260,9 @@ export function nuevoHilo(ahora = Date.now()): string {
 }
 
 const INTERNAS: Record<string, string> = {
-  leer_modelo_de_mundo: 'leyó el modelo de mundo',
-  buscar_en_proyecto: 'buscó en el proyecto',
-  leer_cuestiones: 'repasó las preguntas abiertas',
+  leer_modelo_de_mundo: tr('leyó el modelo de mundo'),
+  buscar_en_proyecto: tr('buscó en el proyecto'),
+  leer_cuestiones: tr('repasó las preguntas abiertas'),
 };
 
 /** El nombre legible de una herramienta, para cuando aparece en el texto. */
@@ -329,10 +329,10 @@ export function inicialFuente(fuente: string): string {
 }
 
 export const ESTADO_COBERTURA: Record<EstadoCobertura, string> = {
-  respondido: 'Respondido con lo consultado',
-  en_parte: 'En parte',
-  no_esta: 'No está en lo consultado',
-  no_pude_comprobar: 'No pude comprobar',
+  respondido: tr('Respondido con lo consultado'),
+  en_parte: tr('En parte'),
+  no_esta: tr('No está en lo consultado'),
+  no_pude_comprobar: tr('No pude comprobar'),
 };
 
 /** El pie de la respuesta: si cada referencia que cita sale de lo que

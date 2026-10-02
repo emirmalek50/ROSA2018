@@ -124,7 +124,7 @@ function QueToca({ inv, corridas, irA }: { inv: Inv; corridas: EstadoRosa['corri
   if (inv.mision && !inv.mision.aprobadaEn) tareas.push({ texto: tr('ROSA2018 propuso la misión (población, etapa, mecanismo, presupuesto). Falta que la apruebes o la corrijas.'), accion: () => ir('mision'), etiqueta: tr('Ver la misión') });
   if (pendientes > 0) tareas.push({ texto: (pendientes === 1 ? trp("{pendientes} dataset espera que completes su libro de procedencia y lo apruebes.", { pendientes }) : trp("{pendientes} datasets esperan que completes su libro de procedencia y lo apruebes.", { pendientes })), accion: () => ir('datos'), etiqueta: tr('Ver los datos') });
   if (puerta && puerta.estado === 'bloqueada') tareas.push({ texto: trp("La puerta de reproducción está bloqueada ({superadas} de {requeridas}): hasta abrirla, ningún análisis con datos cuenta como descubrimiento.", { superadas: puerta.superadas, requeridas: puerta.requeridas }), accion: () => ir('puerta'), etiqueta: tr('Ver la puerta') });
-  if (corridas.length === 0) tareas.push({ texto: tr('Esta investigación no tiene corridas: ROSA2018 todavía no ha empezado a trabajar en ella.'), accion: () => irA(rutaDe(inv.id, 'corrida')), etiqueta: 'Arrancar la primera corrida' });
+  if (corridas.length === 0) tareas.push({ texto: tr('Esta investigación no tiene corridas: ROSA2018 todavía no ha empezado a trabajar en ella.'), accion: () => irA(rutaDe(inv.id, 'corrida')), etiqueta: tr('Arrancar la primera corrida') });
   return (
     <div className={`quetoca ${tareas.length === 0 ? 'quetoca-vacio' : ''}`} role="status">
       <strong>{tareas.length === 0 ? tr('Nada te espera aquí.') : tareas.length === 1 ? tr('Te espera una cosa:') : trp("Te esperan {tareas} cosas:", { tareas: tareas.length })}</strong>
@@ -331,7 +331,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         </div>
       </div>
 
-      <Seccion id="mision" titulo="Misión" nota={tr("El marco que fija el programa antes de la primera corrida (etapa 0 de ROSA2018): a quién aplica, en qué etapa, en qué célula o tejido, qué mecanismo, qué tipo de resultado se busca, qué puede hacer el laboratorio y con qué presupuesto. ROSA2018 propone; una persona aprueba. Debajo, las áreas de investigación que ROSA2018 comparó para elegir por dónde empezar.")}>
+      <Seccion id="mision" titulo={tr("Misión")} nota={tr("El marco que fija el programa antes de la primera corrida (etapa 0 de ROSA2018): a quién aplica, en qué etapa, en qué célula o tejido, qué mecanismo, qué tipo de resultado se busca, qué puede hacer el laboratorio y con qué presupuesto. ROSA2018 propone; una persona aprueba. Debajo, las áreas de investigación que ROSA2018 comparó para elegir por dónde empezar.")}>
         {inv.mision === undefined || inv.mision === null ? <p className="meta">{tr("ROSA2018 propondrá la misión al arrancar la primera corrida. También puedes escribirla tú: arriba a la derecha, \"Editar\".")}</p> : null}
         <FormularioMision inv={inv} corridas={corridas} />
       </Seccion>
@@ -505,20 +505,20 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
           <Cargando activo={esperaPrograma && !inv.cifrasAprendizaje} rotulo={tr("las cifras de aprendizaje")} esqueleto={<SiluetaPrograma clase="cifras-ap" titulo="Aprendizaje" forma="texto" />}>
             <CifrasAprendizaje cifras={inv.cifrasAprendizaje ?? null} />
           </Cargando>
-          <Cargando activo={esperaPrograma && !inv.mapaRuta} rotulo={tr("el mapa de la ruta terapéutica")} esqueleto={<SiluetaPrograma clase="mapa-ruta" titulo="Mapa de la ruta terapéutica" forma="tabla" />}>
+          <Cargando activo={esperaPrograma && !inv.mapaRuta} rotulo={tr("el mapa de la ruta terapéutica")} esqueleto={<SiluetaPrograma clase="mapa-ruta" titulo={tr("Mapa de la ruta terapéutica")} forma="tabla" />}>
             <MapaRuta mapa={inv.mapaRuta ?? null} estado={estado} />
           </Cargando>
-          <Cargando activo={esperaPrograma && !inv.mapaEnfermedad} rotulo={tr("el mapa de la enfermedad")} esqueleto={<SiluetaPrograma clase="mapa-enf" titulo="Mapa de la enfermedad" forma="rejilla" />}>
+          <Cargando activo={esperaPrograma && !inv.mapaEnfermedad} rotulo={tr("el mapa de la enfermedad")} esqueleto={<SiluetaPrograma clase="mapa-enf" titulo={tr("Mapa de la enfermedad")} forma="rejilla" />}>
             <MapaEnfermedad mapa={inv.mapaEnfermedad ?? null} />
           </Cargando>
-          <Cargando activo={esperaPrograma && (estado.datasetsPrograma ?? []).length === 0} rotulo={tr("los datasets del programa")} esqueleto={<SiluetaPrograma clase="dsp" titulo="Datasets del programa" forma="tabla" />}>
+          <Cargando activo={esperaPrograma && (estado.datasetsPrograma ?? []).length === 0} rotulo={tr("los datasets del programa")} esqueleto={<SiluetaPrograma clase="dsp" titulo={tr("Datasets del programa")} forma="tabla" />}>
             <DatasetsPrograma key={inv.id} datasets={estado.datasetsPrograma ?? []} investigacionId={inv.id} />
           </Cargando>
         </div>
       </Seccion>
 
       <Seccion
-        titulo="Cómo está investigando ROSA2018"
+        titulo={tr("Cómo está investigando ROSA2018")}
         nota={tr("El tablero del método: cifras calculadas por regla sobre lo que ROSA2018 dejó escrito mientras trabajaba, sin gastar ninguna llamada. Es lo que un jefe de laboratorio mira antes de opinar. No decide nada: al terminar cada corrida lo lee el revisor del arnés, que propone cambios, y los cambios los decide una persona.")}
       >
         <TableroMetodo tablero={inv.metodo ?? null} />
@@ -682,7 +682,7 @@ export function ColaDeTriaje({ inv, estado }: { inv: Inv; estado: EstadoRosa }) 
             <li key={t.id} className="cuestion cuestion-cerrada">
               <div>
                 <Chip tono={t.estado === 'hecha' ? 'ok' : 'borde'}>{t.estado === 'hecha' ? 'Hecha' : t.estado === 'caducada' ? 'Caducada' : 'Rechazada'}</Chip> <span>{t.queHaria}</span>
-                <div className="meta">{t.motivo || 'sin motivo registrado'}</div>
+                <div className="meta">{t.motivo || tr('sin motivo registrado')}</div>
               </div>
             </li>
           ))}

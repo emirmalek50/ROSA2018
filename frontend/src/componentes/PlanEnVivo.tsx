@@ -220,7 +220,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
                 {paso.estado === 'sin_trabajo' && <Chip tono="borde">{tr("Sin trabajo")}</Chip>}
                 {paso.comprobacion && paso.comprobacion.resultado !== 'pasa' && (
                   <Chip tono={paso.comprobacion.resultado === 'falla' ? 'mal' : 'aviso'}>
-                    {paso.comprobacion.resultado === 'falla' ? tr('La etapa no produjo nada') : paso.comprobacion.resultado === 'no_comprobable' ? 'No se pudo comprobar' : tr('Sin materia')}
+                    {paso.comprobacion.resultado === 'falla' ? tr('La etapa no produjo nada') : paso.comprobacion.resultado === 'no_comprobable' ? tr('No se pudo comprobar') : tr('Sin materia')}
                   </Chip>
                 )}
                 {paso.presupuesto !== null && <span className="meta">{trp("hasta {presupuesto} llamadas", { presupuesto: paso.presupuesto })}</span>}

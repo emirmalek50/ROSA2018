@@ -213,7 +213,7 @@ const ALTO = 560;
 
 /** La ayuda de la cabecera. Es una constante para que la silueta y la pantalla
  *  real la pinten idéntica y la cabecera no cambie de alto al llegar el árbol. */
-const AYUDA = 'El objetivo es el tronco; las ramas, los clusters con varias hipótesis; las hojas, las hipótesis; alrededor, lo que las sostiene. Pasa el ratón por un nodo para ver sus conexiones; pulsa para desplegar lo que toca; dos veces para abrir su ficha; arrastra un nodo para moverlo (los demás lo siguen). Las etiquetas pequeñas aparecen al acercar con la rueda. Escribe una palabra o un identificador (GFAP, HGNC:4235) para iluminar todo lo que lo nombra. Por defecto el relleno de cada nodo dice qué es (las hipótesis, el color de su familia de mecanismo) y el anillo cuánto lo sostiene: verde si está a un paso de una medición propia de ROSA2018 (un análisis in silico validado, un resultado del laboratorio o una observación original), ámbar si solo hay literatura leída detrás, gris punteado si nada todavía. Con «Por distancia al dato» esa distancia pasa al relleno con una escala secuencial. Con «Vista 3D» el mismo árbol se despliega en tres dimensiones: arrastra el fondo para girarlo (en horizontal gira, en vertical se inclina), usa la rueda para acercar la cámara, y los nodos lejanos se ven más pequeños y tenues; si nadie lo toca durante unos segundos, gira solo. En 3D los nodos no se arrastran: el fondo gira el árbol.';
+const AYUDA = tr('El objetivo es el tronco; las ramas, los clusters con varias hipótesis; las hojas, las hipótesis; alrededor, lo que las sostiene. Pasa el ratón por un nodo para ver sus conexiones; pulsa para desplegar lo que toca; dos veces para abrir su ficha; arrastra un nodo para moverlo (los demás lo siguen). Las etiquetas pequeñas aparecen al acercar con la rueda. Escribe una palabra o un identificador (GFAP, HGNC:4235) para iluminar todo lo que lo nombra. Por defecto el relleno de cada nodo dice qué es (las hipótesis, el color de su familia de mecanismo) y el anillo cuánto lo sostiene: verde si está a un paso de una medición propia de ROSA2018 (un análisis in silico validado, un resultado del laboratorio o una observación original), ámbar si solo hay literatura leída detrás, gris punteado si nada todavía. Con «Por distancia al dato» esa distancia pasa al relleno con una escala secuencial. Con «Vista 3D» el mismo árbol se despliega en tres dimensiones: arrastra el fondo para girarlo (en horizontal gira, en vertical se inclina), usa la rueda para acercar la cámara, y los nodos lejanos se ven más pequeños y tenues; si nadie lo toca durante unos segundos, gira solo. En 3D los nodos no se arrastran: el fondo gira el árbol.');
 
 /** Dónde van los nodos de la silueta (en tanto por ciento del lienzo) y su
  *  diámetro en píxeles: el tronco en el centro, cinco ramas alrededor y hojas
@@ -316,7 +316,7 @@ function SiluetaArbol({ conexion }: { conexion: EstadoRosa['conexion'] }) {
   );
 }
 
-const ROTULO_ARBOL = 'el árbol de la investigación';
+const ROTULO_ARBOL = tr('el árbol de la investigación');
 
 /** La silueta del árbol con su aria-busy y su rótulo oculto, lista para que
  *  App la pinte en el primer frame tras el clic (App.tsx, SILUETA_AL_CAMBIAR):
@@ -659,16 +659,16 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
   }, [vista3d, reducido, vacio]);
   const nodoSel = seleccion ? grafo.porId.get(seleccion) ?? null : null;
   // Familias de mecanismo: orden estable por primera aparición entre las hipótesis visibles.
-  const clusterDe = useMemo(() => new Map(estado.hipotesis.filter((x) => x.investigacionId === inv.id).map((x) => [x.id, x.cluster || 'Sin cluster'])), [estado.hipotesis, inv.id]);
+  const clusterDe = useMemo(() => new Map(estado.hipotesis.filter((x) => x.investigacionId === inv.id).map((x) => [x.id, x.cluster || tr('Sin cluster')])), [estado.hipotesis, inv.id]);
   const familias = useMemo(() => {
     const vistas: string[] = [];
-    for (const x of estado.hipotesis) if (x.investigacionId === inv.id && x.estado !== 'descartada' && !vistas.includes(x.cluster || 'Sin cluster')) vistas.push(x.cluster || 'Sin cluster');
-    for (const x of estado.hipotesis) if (x.investigacionId === inv.id && !vistas.includes(x.cluster || 'Sin cluster')) vistas.push(x.cluster || 'Sin cluster');
+    for (const x of estado.hipotesis) if (x.investigacionId === inv.id && x.estado !== 'descartada' && !vistas.includes(x.cluster || tr('Sin cluster'))) vistas.push(x.cluster || tr('Sin cluster'));
+    for (const x of estado.hipotesis) if (x.investigacionId === inv.id && !vistas.includes(x.cluster || tr('Sin cluster'))) vistas.push(x.cluster || tr('Sin cluster'));
     return vistas;
   }, [estado.hipotesis, inv.id]);
   const colorFamilia = (nombre: string) => PALETA_CLUSTER[Math.max(0, familias.indexOf(nombre)) % PALETA_CLUSTER.length]!;
   const colorPorTipo = (n: NodoArbol) => {
-    if (n.tipo === 'hipotesis') return colorFamilia(clusterDe.get(n.id) ?? 'Sin cluster');
+    if (n.tipo === 'hipotesis') return colorFamilia(clusterDe.get(n.id) ?? tr('Sin cluster'));
     if (n.tipo === 'rama') return colorFamilia(n.id.slice('rama-'.length));
     return COLOR[n.tipo];
   };

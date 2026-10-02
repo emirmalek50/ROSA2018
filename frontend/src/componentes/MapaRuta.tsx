@@ -18,14 +18,14 @@ export const PASOS_RUTA: PasoRutaTerapeutica[] = ['mecanismo', 'opciones_interve
 /** Qué comprueba cada paso, en una frase. Copiado de rosa/ruta.py
  *  DEFINICIONES_PASO; si cambia allí, cambia aquí. */
 export const DEFINICIONES_PASO: Record<PasoRutaTerapeutica, string> = {
-  mecanismo: 'qué proceso biológico explica el efecto y con qué evidencia',
-  opciones_intervencion: 'con qué se podría actuar sobre la diana (fármaco, anticuerpo, modulación) y en qué dirección',
-  compromiso_diana: 'que la intervención o la medida llega a la diana y la cambia de forma medible',
-  efecto_funcional: 'que cambiar la diana cambia algo que importa: cognición, síntomas, función celular',
-  selectividad_toxicidad: 'que el efecto es sobre la diana y no sobre otras, y qué daño produce',
-  exposicion: 'que el fármaco o el marcador llega a donde tiene que llegar (sangre, LCR, cerebro), con qué dosis y cuánto tiempo',
-  replicacion_independiente: 'que el efecto se ha visto en al menos dos cohortes distintas (grupos de personas estudiados por separado)',
-  evidencia_poblacion: 'que hay estudios primarios en personas (cohortes, casos y controles, transversales o ensayos) con al menos 50 participantes',
+  mecanismo: tr('qué proceso biológico explica el efecto y con qué evidencia'),
+  opciones_intervencion: tr('con qué se podría actuar sobre la diana (fármaco, anticuerpo, modulación) y en qué dirección'),
+  compromiso_diana: tr('que la intervención o la medida llega a la diana y la cambia de forma medible'),
+  efecto_funcional: tr('que cambiar la diana cambia algo que importa: cognición, síntomas, función celular'),
+  selectividad_toxicidad: tr('que el efecto es sobre la diana y no sobre otras, y qué daño produce'),
+  exposicion: tr('que el fármaco o el marcador llega a donde tiene que llegar (sangre, LCR, cerebro), con qué dosis y cuánto tiempo'),
+  replicacion_independiente: tr('que el efecto se ha visto en al menos dos cohortes distintas (grupos de personas estudiados por separado)'),
+  evidencia_poblacion: tr('que hay estudios primarios en personas (cohortes, casos y controles, transversales o ensayos) con al menos 50 participantes'),
 };
 
 function celdaVacia(): CeldaMapaRuta {

@@ -174,11 +174,11 @@ const PASO_RUTA_LEGIBLE: Record<string, string> = Object.fromEntries(Object.entr
  *  sola línea; un enunciado de tres frases se nombra pero no se copia. */
 export const LARGO_MAXIMO_EN_RESUMEN = 40;
 
-export const SIN_CAMBIOS = 'Sin cambios en los campos de la hipótesis';
+export const SIN_CAMBIOS = tr('Sin cambios en los campos de la hipótesis');
 
 /** Cómo se nombra en el resumen un cambio guardado sin campo (registro roto):
  *  se dice que algo cambió, no se calla. Misma frase que en rosa/registro.py. */
-export const CAMPO_SIN_NOMBRE = 'un campo sin nombre';
+export const CAMPO_SIN_NOMBRE = tr('un campo sin nombre');
 
 const SEPARADOR_RIESGOS = '; ';
 

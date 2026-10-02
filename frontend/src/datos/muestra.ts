@@ -1463,7 +1463,7 @@ export function estadoDeMuestra(): EstadoRosa {
     gepa: GEPA,
     memoria: MEMORIA,
     planesGuardados: [
-      { id: 'plan-1', nombre: tr('Validación de diana en single-cell'), pasos: [tr('Descargar el conjunto de GEO'), tr('Control de calidad y normalización'), 'Expresión por tipo celular', tr('Comparar con Agora')], vecesUsado: 3, exitos: 2 },
+      { id: 'plan-1', nombre: tr('Validación de diana en single-cell'), pasos: [tr('Descargar el conjunto de GEO'), tr('Control de calidad y normalización'), tr('Expresión por tipo celular'), tr('Comparar con Agora')], vecesUsado: 3, exitos: 2 },
       { id: 'plan-2', nombre: tr('Comprobación de novedad estándar'), pasos: [tr('Open Targets'), tr('ClinicalTrials.gov v2'), 'Agora', tr('Precedente en literatura')], vecesUsado: 11, exitos: 11 },
     ],
     criteriosRevision: CRITERIOS,

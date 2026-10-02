@@ -7,6 +7,21 @@
  *  Y las frases de GRADE van con la redacción en inglés de GRADE, que es su
  *  idioma original: `very low certainty`, no `certainty very low`. */
 export const DOMINIO: Record<string, string> = {
+  // Los nodos del grafo causal. Vocabulario cerrado: ver `lib/mecanismos.ts`.
+  sexo: 'sex',
+  sinapsis: 'synapses',
+  astrocitos: 'astrocytes',
+  'inflamación': 'inflammation',
+  'vasculopatía': 'vascular disease',
+  'función hepática': 'liver function',
+  'reserva cognitiva': 'cognitive reserve',
+  'índice de masa corporal': 'body mass index',
+  'barrera hematoencefálica': 'blood-brain barrier',
+  'todavía no se puede medir': 'cannot be measured yet',
+  'Ruta {cubiertos}/8: completa': 'Route {cubiertos}/8: complete',
+  'Ruta {cubiertos}/8, toca {paso}': 'Route {cubiertos}/8, next is {paso}',
+  '{n} razones en contra (juez)': '{n} reasons against (judge)',
+
   // El revisor del registro: la gravedad y la procedencia se pintaban con el
   // valor crudo de la enumeracion, que es castellano.
   regla: 'rule',
@@ -14,7 +29,6 @@ export const DOMINIO: Record<string, string> = {
   alta: 'high',
   media: 'medium',
   baja: 'low',
-  Descartado: 'Dismissed',
   Respuesta: 'Answer',
   Motivo: 'Reason',
   'Vuelta {vuelta}': 'Round {vuelta}',

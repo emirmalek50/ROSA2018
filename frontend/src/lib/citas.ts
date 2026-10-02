@@ -298,17 +298,17 @@ export function enLlanoElVeredicto(veredicto: string): { texto: string; tono: 'b
     case 'parcial':
       return { texto: 'parcial', tono: 'medio' };
     case 'no_sostenida':
-      return { texto: 'no sostenida', tono: 'mal' };
+      return { texto: tr('no sostenida'), tono: 'mal' };
     case 'cita_no_resuelve':
-      return { texto: 'la cita no resuelve', tono: 'mal' };
+      return { texto: tr('la cita no resuelve'), tono: 'mal' };
     case 'sin_cita':
-      return { texto: 'sin cita', tono: 'mal' };
+      return { texto: tr('sin cita'), tono: 'mal' };
     case 'ausencia_refutada':
-      return { texto: 'ausencia refutada', tono: 'mal' };
+      return { texto: tr('ausencia refutada'), tono: 'mal' };
     case 'no_comprobable':
-      return { texto: 'no comprobable', tono: 'medio' };
+      return { texto: tr('no comprobable'), tono: 'medio' };
     default:
-      return { texto: veredicto || 'sin veredicto', tono: 'medio' };
+      return { texto: veredicto || tr('sin veredicto'), tono: 'medio' };
   }
 }
 

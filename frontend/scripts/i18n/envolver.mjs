@@ -89,7 +89,11 @@ for (const t of JSON.parse(readFileSync('scripts/i18n/no-traducir.json', 'utf8')
   // envolver «Al laboratorio», «PATOLOGÍA» o «Búsqueda de la corrida» (2 de
   // octubre de 2026). Los tests corren en castellano, donde tr() es la
   // identidad, asi que envolver no los rompe.
-  const todos = execSync("find src -name '*.tsx' -o -name '*.ts' | grep -v '\\.test\\.'", { encoding: 'utf8' }).trim().split('\n');
+  // Sin el catalogo (`src/i18n/`): sus claves son claves de objeto, y la
+  // regla de «clave de objeto, no valor» las marcaba como intocables. O sea
+  // que una frase YA traducida no se podia envolver nunca, que es justo al
+  // reves. Tenia bloqueadas unas 200 (2 de octubre de 2026).
+  const todos = execSync("find src -name '*.tsx' -o -name '*.ts' | grep -v '\\.test\\.' | grep -v '/i18n/'", { encoding: 'utf8' }).trim().split('\n');
   for (const f of todos) {
     const sf = ts.createSourceFile(f, readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const ver = (n) => {

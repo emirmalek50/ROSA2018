@@ -50,7 +50,7 @@ export function Verificacion({ afirmaciones, cobertura = null, ocultarCitas = fa
         <ul className="verif-lista">
           {efectivas.map(({ a, veredicto, nota }, i) => {
             const v = VEREDICTO[veredicto];
-            const etiqueta = a.entidadDistinta ? 'Dato de otra entidad' : v.etiqueta;
+            const etiqueta = a.entidadDistinta ? tr('Dato de otra entidad') : v.etiqueta;
             return (
               <li key={i} className="verif-item">
                 <span className={`verif-veredicto tono-${v.tono}`}>

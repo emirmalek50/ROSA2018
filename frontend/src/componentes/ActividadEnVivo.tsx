@@ -67,7 +67,7 @@ export function queHaceAhora(corrida: Corrida, iteracion: Iteracion | null): { t
     return { titulo: enCurso.titulo, detalle };
   }
   if (iteracion && !iteracion.terminadaEn) return { titulo: tr('Entre pasos'), detalle: tr('Guardando lo del paso anterior y preparando el siguiente.') };
-  return { titulo: 'En marcha', detalle: tr('Cerrando la iteración.') };
+  return { titulo: tr('En marcha'), detalle: tr('Cerrando la iteración.') };
 }
 
 /** Una cifra que rueda hasta su valor y no baila: los dígitos van en cifra

@@ -81,9 +81,9 @@ function etiquetaPaso(p: PasoRutaTerapeutica): string {
 
 /** La ruta evaluada por regla: cuántos pasos de ocho cubre la evidencia y cuál toca. */
 function etiquetaRuta(r: NonNullable<ComponentesRanking['ruta']>): string {
-  if (!r.siguiente) return `Ruta ${r.cubiertos}/8: completa`;
+  if (!r.siguiente) return trp('Ruta {cubiertos}/8: completa', { cubiertos: r.cubiertos });
   const e = de(PASO_RUTA as Record<string, { etiqueta: string; orden: number }>, r.siguiente);
-  return `Ruta ${r.cubiertos}/8, toca ${e ? e.etiqueta.toLowerCase() : legible(r.siguiente)}`;
+  return trp('Ruta {cubiertos}/8, toca {paso}', { cubiertos: r.cubiertos, paso: e ? e.etiqueta.toLowerCase() : legible(r.siguiente) });
 }
 
 function ChipCerteza({ c }: { c: ComponentesRanking }) {
@@ -174,7 +174,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
         </Chip>}
         {!compacto && c.razonesEnContra > 0 && (
           <Chip tono="aviso" title={tr("Razones en contra que el juez enumera en la conclusión: no son afirmaciones verificadas (esas son las de 'en contra' y 'socavan'), sino ataques al paso inferencial o cosas que faltan. Se cuentan aparte para que '0 en contra' no se lea como 'sin objeciones'.")}>
-            {c.razonesEnContra === 1 ? tr('1 razón en contra (juez)') : `${formatearEntero(c.razonesEnContra)} razones en contra (juez)`}
+            {c.razonesEnContra === 1 ? tr('1 razón en contra (juez)') : trp('{n} razones en contra (juez)', { n: formatearEntero(c.razonesEnContra) })}
           </Chip>
         )}
         {c.killer ? (
@@ -196,7 +196,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           </Chip>
         )}
         <Chip tono={pocos ? 'aviso' : 'neutro'} title={DEFINICIONES.partidos}>
-          {plural(c.partidos, tr("partido"))}
+          {plural(c.partidos, tr("partido"), tr("partidos"))}
         </Chip>
         {!compacto && <Chip tono={novedad.tono} title={`${novedad.nota}${c.novedad.detalle ? ` Detalle: ${c.novedad.detalle}` : ''}`}>
           {novedad.etiqueta}

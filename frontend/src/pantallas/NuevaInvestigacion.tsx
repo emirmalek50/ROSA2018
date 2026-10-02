@@ -142,7 +142,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
                 [
                   ['poblacion', tr('Población'), tr('Adultos con deterioro cognitivo leve, amiloide positivos')],
                   ['etapa', 'Etapa', 'Prodromica'],
-                  ['celulaTejido', 'Célula o tejido', tr('Astrocitos; plasma')],
+                  ['celulaTejido', tr('Célula o tejido'), tr('Astrocitos; plasma')],
                   ['mecanismo', 'Mecanismo', tr('Reactividad astrocitaria')],
                   ['tipoIntervencion', tr('Tipo de intervención o resultado'), tr('Biomarcador de progresión')],
                   ['capacidades', tr('Capacidades del laboratorio (una por línea)'), tr('Inmunoensayo Simoa en plasma')],

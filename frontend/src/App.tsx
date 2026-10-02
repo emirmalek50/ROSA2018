@@ -209,20 +209,20 @@ export default function App() {
     return () => window.removeEventListener('keydown', alTeclear);
   }, []);
 
-  let titulo = 'Investigaciones';
+  let titulo = tr('Investigaciones');
   let miga: string | null = null;
   let pantalla: JSX.Element;
 
   if (ruta.tipo === 'nueva') {
-    titulo = 'Nueva investigación';
+    titulo = tr('Nueva investigación');
     pantalla = <NuevaInvestigacion estado={estado} irA={irA} />;
   } else if (ruta.tipo === 'ajustes') {
-    titulo = 'Ajustes';
+    titulo = tr('Ajustes');
     pantalla = <Ajustes estado={estado} ahora={ahora} />;
   } else if (ruta.tipo === 'laboratorio') {
     // Global a propósito: reúne lo que ROSA2018 ha verificado en TODAS sus
     // investigaciones, no lo de una.
-    titulo = 'Al laboratorio';
+    titulo = tr('Al laboratorio');
     pantalla = <Laboratorio dianaId={ruta.dianaId} panel={ruta.panel} alAbrirDiana={(u, panel) => irA(rutaLaboratorio(u, panel ?? null))} />;
   } else if (ruta.tipo === 'investigacion') {
     if (!inv) {

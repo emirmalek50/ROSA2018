@@ -84,21 +84,27 @@ const cuenta = (x: unknown): number => (typeof x === 'number' && Number.isFinite
 /** Texto seguro para pintar: nunca "[object Object]" ni "undefined". */
 const texto = (x: unknown): string => (typeof x === 'string' ? x : typeof x === 'number' && Number.isFinite(x) ? String(x) : '');
 
+/** La frase hace de centinela Y se lee en pantalla: se compara con
+ *  `sinMedir()`, no con la cadena suelta, para que traducirla no rompa la
+ *  comparacion. */
+export const sinMedir = (): string => tr('todavía no se puede medir');
+export const noAplica = (): string => tr('no aplica');
+
 /** "todavía no se puede medir" cuando la tasa es null; nunca 0 %. */
 export function textoTasa(tasa: number | null | undefined): string {
-  return typeof tasa === 'number' && Number.isFinite(tasa) ? formatearPorcentaje(tasa) : 'todavía no se puede medir';
+  return typeof tasa === 'number' && Number.isFinite(tasa) ? formatearPorcentaje(tasa) : sinMedir();
 }
 
 /** Horas en llano: menos de un día en horas, después en días con una decimal. */
 export function textoHoras(horas: number | null | undefined): string {
-  if (typeof horas !== 'number' || !Number.isFinite(horas) || horas < 0) return 'todavía no se puede medir';
+  if (typeof horas !== 'number' || !Number.isFinite(horas) || horas < 0) return sinMedir();
   if (horas < 1) return `${Math.round(horas * 60)} min`;
   if (horas < 48) return `${coma((Math.round(horas * 10) / 10).toString())} h`;
   return trp("{v} días", { v: coma((Math.round(horas / 2.4) / 10).toString()) });
 }
 
 function Cifra({ titulo, definicion, valor, nota, regla, detalle, hayDetalle }: { titulo: string; definicion: string; valor: string; nota: string; regla: string; detalle: ReactNode; hayDetalle: boolean }) {
-  const medible = valor !== 'todavía no se puede medir' && valor !== 'no aplica';
+  const medible = valor !== sinMedir() && valor !== noAplica();
   return (
     <article className={`cifra-ap ${medible ? '' : 'cifra-ap-vacia'}`}>
       <h4 className="cifra-ap-titulo" title={definicion}>
@@ -226,7 +232,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
           <Cifra
             titulo={tr("Tiempo hasta decidir")}
             definicion={`Decisión: ${glosario.decision}. Mediana: ${glosario.mediana}. p90: ${glosario.p90}.`}
-            valor={textoHoras(t.medianaHoras) === 'todavía no se puede medir' ? 'todavía no se puede medir' : trp("{medianaHoras} de mediana", { medianaHoras: textoHoras(t.medianaHoras) })}
+            valor={textoHoras(t.medianaHoras) === sinMedir() ? sinMedir() : trp("{medianaHoras} de mediana", { medianaHoras: textoHoras(t.medianaHoras) })}
             nota={notaTiempo(t)}
             regla={texto(t.regla)}
             hayDetalle={detalleTiempo.length > 0 || porEtapa.length > 0}
@@ -257,7 +263,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
           <Cifra
             titulo={tr("Reutilización de lo heredado")}
             definicion={`Hecho heredado: ${glosario.hecho_heredado}.`}
-            valor={!cuenta(r.hechosHeredados) ? 'no aplica' : textoTasa(r.tasa)}
+            valor={!cuenta(r.hechosHeredados) ? noAplica() : textoTasa(r.tasa)}
             nota={notaReutilizacion(r)}
             regla={texto(r.regla)}
             hayDetalle={detalleReut.length > 0}

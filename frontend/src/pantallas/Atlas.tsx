@@ -91,7 +91,7 @@ const HECHOS_EN_PANEL = 8;
 /** Las figuras que se pintan: todas menos las dos localizaciones fallidas, que van a la bandeja. */
 const DIBUJADAS: RegionDibujo[] = REGIONES_DIBUJO.filter((r) => !NO_LOCALIZADAS.has(r.clave));
 /** Lo que se dice de la bandeja, palabra por palabra como se acordó. */
-const TEXTO_BANDEJA = 'ROSA2018 los leyó pero no supo situarlos; releerlos con el catálogo de regiones es trabajo pendiente.';
+const TEXTO_BANDEJA = tr('ROSA2018 los leyó pero no supo situarlos; releerlos con el catálogo de regiones es trabajo pendiente.');
 /** Cuántas entradas tiene la leyenda real (Leyenda, abajo): la silueta pinta las mismas. */
 const ENTRADAS_LEYENDA = 6;
 /** El crédito de la ilustración base, tal como se ve en el lienzo y en la leyenda (src/datos/atlas/LICENCIA.md). */
@@ -116,15 +116,15 @@ const LAMINA = (
   </g>
 );
 /** El rótulo oculto de la silueta, el mismo desde App.tsx y desde aquí. */
-export const ROTULO_ATLAS = 'el atlas de la enfermedad';
+export const ROTULO_ATLAS = tr('el atlas de la enfermedad');
 /** El texto FIJO de la cabecera (no depende del cálculo): el párrafo de ayuda
  *  y la primera frase del `p.meta`. Lo pintan igual la silueta (EsqueletoAtlas)
  *  y el contenido, así la cabecera mide lo mismo en el frame de la espera y en
  *  el siguiente (unas 15 líneas a 68ch: con bloques grises la silueta medía
  *  unos 200 px menos y todo lo de debajo bajaba de golpe al llegar el mapa).
  *  Compartir la cadena evita que las dos copias diverjan. */
-const AYUDA_ATLAS = 'El cerebro visto de lado y partido por la mitad (un corte sagital), con la frente a la izquierda, sobre una ilustración anatómica en colores naturales. Cada región lleva dos cifras: el color dice cuántas cohortes distintas nombran sus hipótesis (un tinte ámbar tenue, pocas o ninguna; ámbar pleno, muchas) y el número junto al nombre, cuántos registros (hechos e hipótesis) ha situado ROSA2018 en ella. A rayas, las regiones que no tienen registros: tenues si nadie las buscó, con contorno y punto si alguna consulta o fuente las nombró sin hallazgo. Un borde punteado rojo marca discordia entre hechos. Fuera del cerebro están los sitios donde también se mide la enfermedad (la sangre, la retina y el intestino) y, bajo la figura, la bandeja de lo que ROSA2018 leyó y no supo situar. Pasa el ratón por una región para ver su nombre y sus conteos; púlsala para leer qué es y qué la sostiene. Los filtros de arriba recortan por fase de la enfermedad y por tipo de célula; el deslizador de abajo enseña cómo se fue llenando el mapa iteración a iteración.';
-const META_ATLAS = 'Se recalcula al cerrar cada iteración: el mapa es una instantánea, no el modelo de mundo en vivo.';
+const AYUDA_ATLAS = tr('El cerebro visto de lado y partido por la mitad (un corte sagital), con la frente a la izquierda, sobre una ilustración anatómica en colores naturales. Cada región lleva dos cifras: el color dice cuántas cohortes distintas nombran sus hipótesis (un tinte ámbar tenue, pocas o ninguna; ámbar pleno, muchas) y el número junto al nombre, cuántos registros (hechos e hipótesis) ha situado ROSA2018 en ella. A rayas, las regiones que no tienen registros: tenues si nadie las buscó, con contorno y punto si alguna consulta o fuente las nombró sin hallazgo. Un borde punteado rojo marca discordia entre hechos. Fuera del cerebro están los sitios donde también se mide la enfermedad (la sangre, la retina y el intestino) y, bajo la figura, la bandeja de lo que ROSA2018 leyó y no supo situar. Pasa el ratón por una región para ver su nombre y sus conteos; púlsala para leer qué es y qué la sostiene. Los filtros de arriba recortan por fase de la enfermedad y por tipo de célula; el deslizador de abajo enseña cómo se fue llenando el mapa iteración a iteración.');
+const META_ATLAS = tr('Se recalcula al cerrar cada iteración: el mapa es una instantánea, no el modelo de mundo en vivo.');
 
 /** Tramo de resplandor de una intensidad: 0 (sin resplandor) a 4. */
 function tramo(t: number): number {
@@ -467,7 +467,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   const dibujadas = new Set(DIBUJADAS.map((r) => r.clave));
   const sinDibujo = enFigura.filter((r) => !dibujadas.has(r.clave));
   const bandeja = atlas.regiones.filter((r) => NO_LOCALIZADAS.has(r.clave));
-  const etiquetaEstadio = (clave: string) => base.estadios.find((e) => e.clave === clave)?.etiqueta ?? ETIQUETAS_MAPA.estadio[clave] ?? (clave === '' ? 'sin fase identificada' : clave);
+  const etiquetaEstadio = (clave: string) => base.estadios.find((e) => e.clave === clave)?.etiqueta ?? ETIQUETAS_MAPA.estadio[clave] ?? (clave === '' ? tr('sin fase identificada') : clave);
   const etiquetaCelula = (clave: string) => base.celulas.find((c) => c.clave === clave)?.etiqueta ?? ETIQUETAS_MAPA.tipoCelular[clave] ?? clave;
   const seleccionar = (clave: string) => setSeleccion((s) => (s === clave ? null : clave));
   const alTeclado = (e: React.KeyboardEvent, clave: string) => {

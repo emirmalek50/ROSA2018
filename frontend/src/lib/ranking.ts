@@ -221,7 +221,7 @@ export function novedadDe(h: Pick<Hipotesis, 'novedad'>): { estado: EstadoNoveda
   if (estado === 'sin_precedente') return { estado: 'nueva', detalle: detalle || tr('Nadie la propuso antes en la literatura buscada.') };
   if (estado === 'parcial') return { estado: 'parcial', detalle: detalle || tr('Hay trabajos parecidos, pero ninguno con esta formulación.') };
   if (estado === 'ya_publicado') return { estado: 'precedente', detalle: detalle || tr('Alguien ya la publicó.') };
-  const nombre = texto(p.estado) || 'sin nombre';
+  const nombre = texto(p.estado) || tr('sin nombre');
   return { estado: 'no_comprobado', detalle: detalle ? trp("Estado de novedad que esta interfaz no conoce ({nombre}): {detalle}", { nombre, detalle }) : trp("Estado de novedad que esta interfaz no conoce ({nombre}).", { nombre }) };
 }
 
