@@ -501,3 +501,23 @@ export function IconBookmark({ size = 14, ...props }: IconProps) {
     </svg>
   );
 }
+
+/** Un micrófono: hablar con ROSA2018 de viva voz. */
+export function IconMic({ size = 14, ...props }: IconProps) {
+  return (
+    <svg {...base(size, props)}>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+    </svg>
+  );
+}
+
+/** Un altavoz: leer una respuesta en voz alta. */
+export function IconVolumen({ size = 14, ...props }: IconProps) {
+  return (
+    <svg {...base(size, props)}>
+      <path d="M11 5 6 9H3v6h3l5 4z" />
+      <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+    </svg>
+  );
+}

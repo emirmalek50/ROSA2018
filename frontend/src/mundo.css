@@ -2443,3 +2443,91 @@
 @media (prefers-reduced-motion: reduce) {
   .persona:has(.persona-marca) .persona-orbe { animation: none; }
 }
+
+/* La cara como boton de hablar (lib/voz.ts). El microfono pequeño en la
+   esquina dice que se puede pulsar; escuchando, la cara crece un poco y el
+   microfono se pone rojo, que es la señal universal de «grabando». */
+.mundo-hablar {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition: transform var(--dur-2, 0.24s) ease;
+}
+
+.mundo-hablar:hover:not(:disabled) { transform: scale(1.06); }
+.mundo-hablar:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.mundo-hablar:disabled { cursor: default; }
+.mundo-hablar-escuchando { transform: scale(1.1); }
+
+.mundo-hablar-mic {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+}
+
+.mundo-hablar-escuchando .mundo-hablar-mic {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+.mundo-voz-error {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--amber);
+}
+
+.mundo-voz-nota {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* La cuenta atras de la voz: cuanto falta para enviar lo dicho. La barra se
+   vacia en el silencio y se llena de nuevo en cuanto vuelves a hablar. */
+.mundo-voz-cuenta {
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  margin-right: 8px;
+}
+
+.mundo-voz-barra {
+  display: inline-block;
+  vertical-align: middle;
+  width: 60px;
+  height: 3px;
+  margin-right: 10px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.mundo-voz-barra i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform 0.2s linear;
+}
+
+.mundo-voz-donde {
+  display: block;
+  margin-top: 3px;
+  font-size: 11.5px;
+  opacity: 0.8;
+}

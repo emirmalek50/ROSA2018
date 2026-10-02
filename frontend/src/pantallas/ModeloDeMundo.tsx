@@ -40,6 +40,8 @@ import {
   IconAlert,
   IconAlertCircle,
   IconArrowUp,
+  IconMic,
+  IconVolumen,
   IconCheck,
   IconCheckCircle,
   IconChevronDown,
@@ -76,6 +78,7 @@ import { PasosDeBusqueda, pasosDeConsultas } from "../componentes/PasosDeBusqued
 import { Shimmer } from "../componentes/Shimmer";
 import { Checkpoint, GuardarEnMemoria } from "../componentes/Checkpoint";
 import { Persona, type EstadoPersona } from "../componentes/Persona";
+import { SILENCIO_PARA_ENVIAR_MS, callar, escuchar, hablar, puedeEscuchar, puedeHablar, type Escucha } from "../lib/voz";
 import {
   ESTADO_COBERTURA,
   SIN_TEMA,
@@ -568,6 +571,77 @@ function CuerpoMundo({
     })();
   };
 
+  // Hablar de viva voz. Pulsar la cara: si está callada, escucha; si está
+  // escuchando, para y manda lo oído; si está leyendo una respuesta, se
+  // calla. Lo que se pregunta por voz se contesta también por voz.
+  const [voz, setVoz] = useState<EstadoVoz>("nada");
+  const [errorVoz, setErrorVoz] = useState<string | null>(null);
+  const [leerAlLlegar, setLeerAlLlegar] = useState<{ hilo: string; pregunta: string; desde: number } | null>(null);
+  const escucha = useRef<Escucha | null>(null);
+  const [cuenta, setCuenta] = useState<number | null>(null);
+
+  const leer = (q: PreguntaABases) => {
+    if (!puedeHablar() || !q.respuesta) return;
+    setVoz("hablando");
+    hablar(q.respuesta, () => setVoz((v) => (v === "hablando" ? "nada" : v)));
+  };
+
+  const pulsarCara = () => {
+    setErrorVoz(null);
+    if (voz === "hablando") {
+      callar();
+      setVoz("nada");
+      return;
+    }
+    // Escuchando, pulsar la cara la envia ya, sin esperar al silencio.
+    if (voz === "escuchando") {
+      escucha.current?.enviar();
+      return;
+    }
+    if (pendiente) return;
+    setVoz("escuchando");
+    escucha.current = escuchar({
+      alParcial: (t) => setTexto(t),
+      alCuenta: setCuenta,
+      alFinal: (t) => {
+        // Se manda sola al callarte: hablar y luego tener que pulsar enviar
+        // es justo lo que la voz quiere ahorrar.
+        const h = hilo ?? "";
+        setLeerAlLlegar({ hilo: h, pregunta: t.trim(), desde: Date.now() });
+        enviar(t, "bases");
+      },
+      alError: (m) => setErrorVoz(tr(m)),
+      alTerminar: () => {
+        escucha.current = null;
+        setCuenta(null);
+        setVoz((v) => (v === "escuchando" ? "nada" : v));
+      },
+    });
+  };
+
+  // Cuando llega la respuesta a lo que se preguntó por voz, se lee.
+  useEffect(() => {
+    if (!leerAlLlegar) return;
+    const q = guardadas.find(
+      (x) => (x.pregunta ?? "").trim() === leerAlLlegar.pregunta && x.fecha >= leerAlLlegar.desde - 5000,
+    );
+    if (!q) return;
+    setLeerAlLlegar(null);
+    leer(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guardadas, leerAlLlegar]);
+
+  // Al salir de la pantalla, ni escucha ni habla: una voz que sigue sonando
+  // en otra sección no se sabe de dónde sale.
+  useEffect(() => () => {
+    escucha.current?.soltar();
+    callar();
+  }, []);
+
+  /** Tocar el teclado mientras escucha: deja de escuchar SIN enviar, y lo
+   *  oido se queda en la caja para corregirlo. */
+  const soltarVoz = () => escucha.current?.soltar();
+
   const abrirHecho = (id: string) => {
     setFiltro(FILTRO_VACIO);
     setSeleccion(id);
@@ -638,6 +712,12 @@ function CuerpoMundo({
           }}
           abrirHecho={abrirHecho}
           enfocar={() => enfocar()}
+          voz={voz}
+          pulsarCara={pulsarCara}
+          errorVoz={errorVoz}
+          cuentaVoz={cuenta}
+          soltarVoz={soltarVoz}
+          leer={leer}
         />
       )}
       {vista === "hechos" && (
@@ -685,7 +765,18 @@ type PropsConversar = {
   reintentar: (e: ErrorLocal) => void;
   abrirHecho: (id: string) => void;
   enfocar: () => void;
+  /** Hablar de viva voz (lib/voz.ts): en qué está y qué hacer al pulsar la cara. */
+  voz: EstadoVoz;
+  pulsarCara: () => void;
+  errorVoz: string | null;
+  /** Ms que faltan para enviar lo dicho, o null si no hay cuenta en marcha. */
+  cuentaVoz: number | null;
+  soltarVoz: () => void;
+  leer: (q: PreguntaABases) => void;
 };
+
+/** En qué está la voz: callada, oyéndote o leyéndote una respuesta. */
+type EstadoVoz = "nada" | "escuchando" | "hablando";
 
 type Turno =
   | { tipo: "guardada"; fecha: number; q: PreguntaABases }
@@ -779,6 +870,7 @@ function Conversar(p: PropsConversar) {
                 reintentar={() => p.enviar(t.q.pregunta, "bases")}
                 ocupado={pendiente !== null}
                 recordar={(texto) => acciones.anadirMemoria(p.inv.id, texto)}
+                leer={() => p.leer(t.q)}
               />
             )}
             {/* Lo que ROSA2018 se guardo justo despues de este turno. La
@@ -860,6 +952,11 @@ function Compositor({
   pendiente,
   base,
   grande = false,
+  voz,
+  pulsarCara,
+  errorVoz,
+  cuentaVoz,
+  soltarVoz,
 }: PropsConversar & { grande?: boolean }) {
   // La caja crece con el texto hasta un tope; después aparece la barra de desplazamiento.
   useEffect(() => {
@@ -891,7 +988,10 @@ function Compositor({
             : tr("Busca entre lo que ya sabe...")
         }
         aria-label={tr("Pregunta al modelo de mundo")}
-        onChange={(e) => setTexto(e.target.value)}
+        onChange={(e) => {
+          if (voz === "escuchando") soltarVoz();
+          setTexto(e.target.value);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
@@ -904,12 +1004,52 @@ function Compositor({
             mientras busca. Es lo que hace que se sienta que hay alguien al
             otro lado, sin escribir «ROSA2018 está escuchando» en ningun
             sitio. */}
-        <Persona
-          estado={pendiente !== null ? "pensando" : vacio ? "quieta" : "escuchando"}
-          tamano={26}
-          marca
-          className="mundo-compositor-cara"
-        />
+        {/* La cara es el boton de hablar. Pulsarla: si esta callada, te
+            escucha (y lo que dices se va escribiendo en la caja); si te esta
+            escuchando, para y lo manda; si te esta leyendo una respuesta, se
+            calla. Sin reconocimiento de voz en el navegador, es solo la cara,
+            sin boton que no funcione. */}
+        {puedeEscuchar() ? (
+          <button
+            type="button"
+            className={`mundo-hablar mundo-hablar-${voz}`}
+            onClick={pulsarCara}
+            disabled={pendiente !== null && voz !== "hablando"}
+            aria-pressed={voz === "escuchando"}
+            aria-label={
+              voz === "escuchando"
+                ? tr("Dejar de escuchar y enviar")
+                : voz === "hablando"
+                  ? tr("Que se calle")
+                  : tr("Hablar con ROSA2018")
+            }
+            title={
+              voz === "escuchando"
+                ? tr("Te está escuchando. Pulsa para enviar, o cállate y se envía sola.")
+                : voz === "hablando"
+                  ? tr("Te está leyendo la respuesta. Pulsa para que se calle.")
+                  : tr("Hablar con ROSA2018. Lo que digas se escribe aquí y se envía al callarte; la respuesta te la lee en voz alta.")
+            }
+          >
+            <Persona
+              estado={
+                voz === "escuchando" ? "escuchando" : voz === "hablando" ? "hablando" : pendiente !== null ? "pensando" : "quieta"
+              }
+              tamano={30}
+              marca
+            />
+            <span className="mundo-hablar-mic" aria-hidden="true">
+              <IconMic size={11} />
+            </span>
+          </button>
+        ) : (
+          <Persona
+            estado={pendiente !== null ? "pensando" : vacio ? "quieta" : "escuchando"}
+            tamano={26}
+            marca
+            className="mundo-compositor-cara"
+          />
+        )}
         <p className="mundo-compositor-nota">
           {modo === "bases"
             ? trp(
@@ -921,6 +1061,33 @@ function Compositor({
                 { n },
               )}
         </p>
+        {errorVoz && (
+          <p className="mundo-voz-error" role="alert">
+            {errorVoz}
+          </p>
+        )}
+        {/* Adonde va el audio, dicho mientras se escucha y no enterrado en
+            un comentario: en un proyecto medico eso se dice en pantalla. */}
+        {voz === "escuchando" && !errorVoz && (
+          <p className="mundo-voz-nota" role="status">
+            {cuentaVoz !== null ? (
+              <>
+                <span className="mundo-voz-cuenta">
+                  {trp("Se envía en {n} s", { n: Math.ceil(cuentaVoz / 1000) })}
+                </span>
+                <span className="mundo-voz-barra" aria-hidden="true">
+                  <i style={{ transform: `scaleX(${cuentaVoz / SILENCIO_PARA_ENVIAR_MS})` }} />
+                </span>
+                {tr("Sigue hablando y espera. Pulsa la cara para enviar ya, o escribe para corregir.")}
+              </>
+            ) : (
+              tr("Te escucho. Puedes pararte a pensar: se envía tras unos segundos de silencio.")
+            )}{" "}
+            <span className="mundo-voz-donde">
+              {tr("Tu voz la transcribe el navegador: Chrome en servidores de Google, Safari en los de Apple o en el propio Mac. La respuesta se lee con las voces del Mac y no sale de la máquina.")}
+            </span>
+          </p>
+        )}
         <button
           type="submit"
           className="mundo-enviar"
@@ -1356,6 +1523,7 @@ function TurnoGuardado({
   reintentar,
   ocupado,
   recordar,
+  leer,
 }: {
   q: PreguntaABases;
   ahora: number;
@@ -1365,6 +1533,7 @@ function TurnoGuardado({
   reintentar: () => void;
   ocupado: boolean;
   recordar: (texto: string) => void;
+  leer: () => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   const fuentes = fuentesDeConsultas(q);
@@ -1466,6 +1635,12 @@ function TurnoGuardado({
                   en una lista de ajustes. Aqui se guarda donde pasa, y lo
                   guarda una persona: ROSA2018 no se apunta nada sola. */}
               <GuardarEnMemoria propuesta={q.pregunta} alGuardar={recordar} />
+              {puedeHablar() && q.respuesta && (
+                <button type="button" className="mundo-accion" onClick={leer}>
+                  <IconVolumen size={13} />
+                  {tr("Léemela")}
+                </button>
+              )}
               {!veredicto && comprobables > 0 && (
                 <span className="mundo-accion-meta">
                   {trp(
