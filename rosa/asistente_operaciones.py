@@ -9,6 +9,19 @@ from rosa.asistente_conversaciones import conversacion
 from rosa.estado import plantilla as P
 
 
+async def modelos_del_asistente(app: Any) -> Any:
+    """Inicialización compartida, también al retomar operaciones tras reiniciar."""
+    if getattr(app.state, 'modelos', None) is not None:
+        return app.state.modelos
+    if not hasattr(app.state, 'carga_modelos_asistente'):
+        app.state.carga_modelos_asistente = asyncio.Lock()
+    async with app.state.carga_modelos_asistente:
+        if getattr(app.state, 'modelos', None) is None:
+            from rosa.gateway import modelos
+            app.state.modelos = await asyncio.to_thread(modelos)
+    return app.state.modelos
+
+
 def localizar(e: dict, inv_id: str, pregunta_id: str, op_id: str, quien: str) -> tuple[dict, dict]:
     inv = conversacion(e, inv_id) or {}
     q = next((q for q in inv.get('preguntasABases', []) if q['id'] == pregunta_id), None)
@@ -38,9 +51,7 @@ async def continuar(app: Any, almacen: Any, servicios: Any, ids: tuple[str, str,
     if datos is None:
         return {'ok': True, 'repetida': True}
     try:
-        modelos = getattr(app.state, 'modelos', None)
-        if modelos is None:
-            raise ValueError('El modelo del asistente todavía no está disponible')
+        modelos = await modelos_del_asistente(app)
         servicios.hilo = datos['hilo']
         contexto = _turnos_previos(conversacion(almacen.instantanea(), ids[0]) or {}, datos['hilo'])
         pregunta = ('Continúa la petición original después de la operación confirmada. Comprueba su resultado y atiende lo pendiente. '

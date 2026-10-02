@@ -1135,7 +1135,7 @@ def crear_app(almacen: Almacen) -> FastAPI:
         la autoría es la sesión, no lo que mande el navegador (M-29)."""
         from rosa import herramientas as H
         from rosa.bucle.pasos import _texto_mision
-        from rosa.gateway import modelos as cargar_modelos
+        from rosa.asistente_operaciones import modelos_del_asistente
 
         if "application/json" not in request.headers.get("content-type", ""):
             raise HTTPException(415, "La pregunta va como application/json")
@@ -1167,8 +1167,7 @@ def crear_app(almacen: Almacen) -> FastAPI:
         progreso = RZ.abrir(seguimiento) if seguimiento else RZ.Progreso()
         # El asistente no hereda la cuota global de 40 preguntas del antiguo
         # buscador. La concurrencia sigue acotada por el semáforo del servidor.
-        modelos_ = getattr(app.state, "modelos", None) or cargar_modelos()
-        app.state.modelos = modelos_
+        modelos_ = await modelos_del_asistente(app)
         async with app.state.semaforo_preguntas:
             try:
                 with dspy.context(callbacks=RZ.callbacks_con(progreso)):

@@ -1071,3 +1071,25 @@ pantallas. `npm run build` en `frontend/` genera también
 `dist/servicios-vistas.cjs`; el servidor necesita Node para ejecutar ese cálculo.
 En desarrollo puede regenerarse con `npm run build:vistas`. Si falta el cálculo,
 ROSA muestra que no pudo comprobarlo, nunca un resultado vacío inventado.
+
+
+La conversación global conserva el alcance de todas las investigaciones también
+en las herramientas de búsqueda heredadas. **Conversaciones anteriores** permite
+buscar y recuperar hilos guardados al abrir otra pestaña. **Adjuntar datos** en
+el chat global pide la investigación destinataria y ofrece sus experimentos;
+si todavía no existe ninguna, enlaza a la creación de una investigación.
+
+Las continuaciones inicializan el modelo por el Gateway cuando el servidor acaba
+de reiniciar. Los PDF adjuntos autorizados comparten la lectura de documentos:
+si una página no tiene capa de texto, se intenta leer visualmente, indicando su
+procedencia y que esa lectura no es evidencia verificada. Un fallo visual queda
+explícito y puede reintentarse.
+
+Las tablas CSV, TSV y JSON se leen en flujo y se indexan una vez por versión en
+`datos/_asistente_indices/`, con permisos locales restringidos. Las siguientes
+páginas y filtros consultan SQLite. Un cambio en el archivo invalida el índice;
+la autorización de procedencia se comprueba antes de cada consulta. El lector
+JSON incremental usa [ijson](https://github.com/ICRAR/ijson). GEPA pagina los ciclos
+separadamente con `desde_ciclos` y `limite_ciclos`; las respuestas incluyen
+`siguienteCiclos`, `hasta` y `hastaCiclos` para recorrer el historial sin incorporar
+las nuevas inserciones a mitad de la consulta.

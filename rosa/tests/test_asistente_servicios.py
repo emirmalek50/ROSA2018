@@ -15,7 +15,10 @@ from rosa.servidor import crear_app
 
 @pytest.fixture
 def entorno(tmp_path, monkeypatch):
-    from rosa import config
+    from rosa import config, gateway
+    def sin_modelo_real():
+        raise RuntimeError('Esta prueba no llama al Gateway')
+    monkeypatch.setattr(gateway, 'modelos', sin_modelo_real)
     monkeypatch.setattr(config, 'RAIZ', tmp_path)
     al = Almacen(tmp_path / 'rosa.db')
     al.aplicar('crearInvestigacion', {'datos': {'titulo': 'MAPT', 'objetivo': 'Revisar tau', 'condicionParada': '2 iteraciones'}, 'id_': 'inv-a'})

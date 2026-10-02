@@ -176,36 +176,12 @@ class Servicios:
         contenido = self.archivos.get(ruta)
         if contenido is None:
             return await self.consultar(nombre, parametros)
-        import base64
-        import hashlib
-        import fitz
-
-        imagen = None
-        datos: dict[str, Any]
-        if nombre == "pagina_cita":
-            imagen = contenido
-            datos = {"origen": ruta, "pagina": "Página exacta de la cita indicada por el servicio", "texto": "Imagen: requiere lectura visual"}
+        from rosa.asistente_documentos import interpretar, leer_pdf
+        if nombre == 'pagina_cita':
+            datos = {'origen': ruta, 'pagina': 'Página exacta de la cita indicada por el servicio'}
+            datos.update(await interpretar(contenido, pregunta_figura or 'Describe y transcribe esta página. Señala lo ilegible.'))
         else:
-            with fitz.open(stream=contenido, filetype="pdf") as pdf:
-                if not 1 <= pagina <= len(pdf):
-                    return paginar({"ok": False, "error": "Página fuera del documento", "paginas": len(pdf)})
-                hoja = pdf[pagina - 1]
-                datos = {"origen": ruta, "pagina": pagina, "paginas": len(pdf), "siguientePagina": pagina + 1 if pagina < len(pdf) else None,
-                         "texto": hoja.get_text(), "sha256": hashlib.sha256(contenido).hexdigest()}
-                if pregunta_figura:
-                    imagen = hoja.get_pixmap(matrix=fitz.Matrix(1.5, 1.5)).tobytes("png")
-                if not datos["texto"]:
-                    datos["aviso"] = "Sin capa de texto. Usa pregunta_figura para inspeccionar la página escaneada."
-        if pregunta_figura and imagen:
-            class LeerFigura(dspy.Signature):
-                """Describe únicamente lo visible. Conserva ejes, unidades y leyendas.
-                Declara lo ilegible; no inventes cifras ni conviertas interpretación en evidencia verificada."""
-                imagen: dspy.Image = dspy.InputField()
-                pregunta: str = dspy.InputField()
-                lectura: str = dspy.OutputField()
-            r = await dspy.Predict(LeerFigura).acall(imagen=dspy.Image(url="data:image/png;base64," + base64.b64encode(imagen).decode()), pregunta=pregunta_figura)
-            datos["interpretacionVisual"] = r.lectura
-            datos["avisoVisual"] = "Interpretación del modelo, no afirmación verificada. Contrasta con la página original."
+            datos = await leer_pdf(contenido, ruta, pagina, pregunta_figura)
         return paginar(datos, desde)
 
     async def ejecutar(self, nombre: str, argumentos: dict) -> dict:
@@ -247,6 +223,8 @@ class Servicios:
 
 def herramientas_locales(almacen: Any) -> list[dspy.Tool]:
     vistas: dict[str, Any] = {}
+    paginas_pdf: dict[str, Any] = {}
+    paginas_gepa: dict[str, Any] = {}
 
     def leer_skill(nombre: str, desde: int = 0) -> str:
         """Lee el método científico completo de una skill del catálogo de ROSA.
@@ -295,12 +273,13 @@ def herramientas_locales(almacen: Any) -> list[dspy.Tool]:
         except OSError:
             return paginar({"error": "Documento no disponible en esta instalación"})
 
-    async def consultar_dataset(investigacion_id: str, dataset_id: str, desde: int = 0, limite: int = 50, columnas: list[str] | None = None, filtros: dict[str, str] | None = None, campo: str = "", pagina_texto: int = 0, pagina_pdf: int = 1) -> str:
+    async def consultar_dataset(investigacion_id: str, dataset_id: str, desde: int = 0, limite: int = 50, columnas: list[str] | None = None, filtros: dict[str, str] | None = None, campo: str = "", pagina_texto: int = 0, pagina_pdf: int = 1, pregunta_figura: str = "") -> str:
         """Recorre TODAS las filas autorizadas de un CSV, TSV o JSON por páginas.
         desde es índice de fila filtrada; filtros compara valores exactos;
         columnas selecciona campos, campo selecciona una lista dentro de JSON.
         pagina_texto pagina caracteres si una página de filas supera el contexto.
-        Para PDF usa pagina_pdf (página física empezando por 1); conserva el texto completo."""
+        Para PDF usa pagina_pdf (página física empezando por 1). Los escaneados se leen
+        visualmente; pregunta_figura permite consultar gráficos incluso si hay texto."""
         from rosa import datos as D
         from rosa.asistente_lecturas import filas_dataset
         inv = next((i for i in almacen.instantanea().get("investigaciones", []) if i["id"] == investigacion_id), None)
@@ -310,24 +289,31 @@ def herramientas_locales(almacen: Any) -> list[dspy.Tool]:
         try:
             ruta = D.ruta_dataset(investigacion_id, dataset_id, ds["procedencia"].get("fichero", ""))
             if ruta.suffix.lower() == '.pdf':
-                import fitz
-                with fitz.open(str(ruta)) as pdf:
-                    if not 1 <= pagina_pdf <= len(pdf):
-                        return paginar({'ok': False, 'error': 'Página fuera del documento', 'paginas': len(pdf)})
-                    return paginar({'datasetId': dataset_id, 'pagina': pagina_pdf, 'paginas': len(pdf),
-                                    'siguientePagina': pagina_pdf + 1 if pagina_pdf < len(pdf) else None,
-                                    'texto': pdf[pagina_pdf - 1].get_text()}, pagina_texto)
+                from rosa.asistente_documentos import leer_pdf
+                stat = ruta.stat()
+                clave = json.dumps([str(ruta), stat.st_mtime_ns, stat.st_size, pagina_pdf, pregunta_figura])
+                if clave not in paginas_pdf:
+                    r = await leer_pdf(ruta, f'dataset:{investigacion_id}/{dataset_id}', pagina_pdf, pregunta_figura)
+                    if not r.get('lecturaVisualFallida'):
+                        paginas_pdf[clave] = r
+                else:
+                    r = paginas_pdf[clave]
+                return paginar({'datasetId': dataset_id, **r}, pagina_texto)
             r = await asyncio.to_thread(filas_dataset, ruta, desde, limite, columnas or [], filtros or {}, campo)
             return paginar(r, pagina_texto)
         except (OSError, ValueError, KeyError, IndexError, TypeError) as ex:
             return paginar({"ok": False, "error": f"No pude consultar el dataset ({type(ex).__name__})"})
 
-    async def consultar_gepa(desde: int = 0, limite: int = 25, tipo: str = "", programa: str = "", corrida: str = "", pagina_texto: int = 0) -> str:
+    async def consultar_gepa(desde: int = 0, limite: int = 25, tipo: str = "", programa: str = "", corrida: str = "", pagina_texto: int = 0, desde_ciclos: int = 0, limite_ciclos: int = 10, hasta: int | None = None, hasta_ciclos: int | None = None) -> str:
         """Historial completo y paginado de trazas, evaluaciones y ciclos GEPA.
-        Filtra por tipo, programa o corrida. Las credenciales se redactan."""
+        Filtra trazas por tipo, programa o corrida. Los ciclos globales tienen
+        desde_ciclos y limite_ciclos propios. Conserva hasta y hasta_ciclos al
+        avanzar con siguiente y siguienteCiclos. Las credenciales se redactan."""
         from rosa.asistente_lecturas import trazas_gepa
-        r = await asyncio.to_thread(trazas_gepa, almacen, desde, limite, tipo, programa, corrida)
-        return paginar(r, pagina_texto)
+        clave = json.dumps([desde, limite, tipo, programa, corrida, desde_ciclos, limite_ciclos, hasta, hasta_ciclos])
+        if clave not in paginas_gepa:
+            paginas_gepa[clave] = await asyncio.to_thread(trazas_gepa, almacen, desde, limite, tipo, programa, corrida, desde_ciclos, limite_ciclos, hasta, hasta_ciclos)
+        return paginar(paginas_gepa[clave], pagina_texto)
 
     async def consultar_vista_calculada(investigacion_id: str, vista: str, filtros: dict[str, Any] | None = None, desde: int = 0, camino: str = "") -> str:
         """Atlas o mecanismos calculados por las MISMAS funciones de la interfaz.

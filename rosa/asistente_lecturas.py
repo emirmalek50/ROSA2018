@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import csv
-import io
 import json
 import sqlite3
 import subprocess
 from pathlib import Path
+from contextlib import closing
 from typing import Any
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -29,56 +29,46 @@ def filas_dataset(ruta: Path, desde: int, limite: int, columnas: list[str], filt
     """Página de filas seleccionadas; el llamador ya comprobó procedencia."""
     if ruta.suffix.lower() not in {'.csv', '.tsv', '.json', '.txt'}:
         return {'ok': False, 'error': 'Este archivo no es una tabla CSV, TSV o JSON ni texto legible'}
-    desde, limite = max(0, desde), max(1, min(200, limite))
-    try:
-        raw = ruta.read_text(encoding='utf-8-sig')
-    except UnicodeDecodeError:
-        raw = ruta.read_text(encoding='latin-1')
-    csv.field_size_limit(max(csv.field_size_limit(), len(raw)))
-    if ruta.suffix.lower() == '.json':
-        datos = json.loads(raw)
-        for clave in campo.split('/') if campo else []:
-            datos = datos[int(clave)] if isinstance(datos, list) else datos[clave]
-        if not isinstance(datos, list):
-            return {'error': 'Selecciona una lista de filas mediante campo', 'campos': list(datos) if isinstance(datos, dict) else []}
-        filas = [f if isinstance(f, dict) else {'valor': f} for f in datos]
-        cabecera = sorted({k for f in filas for k in f})
-    else:
+    from rosa.asistente_datasets import consultar_filas
+    if ruta.suffix.lower() == '.txt':
+        with ruta.open(encoding='utf-8-sig', errors='replace') as f:
+            muestra = f.read(10000)
         try:
-            dialecto = csv.Sniffer().sniff(raw[:10000], delimiters=',;\t|')
+            csv.Sniffer().sniff(muestra, delimiters=',;\t|')
         except csv.Error:
-            if ruta.suffix.lower() == '.txt':
-                return {'texto': raw}
-            dialecto = csv.excel_tab if ruta.suffix.lower() == '.tsv' else csv.excel
-        lector = csv.DictReader(io.StringIO(raw), dialect=dialecto)
-        cabecera = list(lector.fieldnames or [])
-        filas = list(lector)
-    desconocidas = (set(columnas) | set(filtros)) - set(cabecera)
-    if desconocidas:
-        return {'error': 'Columnas desconocidas', 'columnas': cabecera}
-    seleccion = [(n, f) for n, f in enumerate(filas) if all(str(f.get(k, '')) == v for k, v in filtros.items())]
-    return {'totalFilas': len(filas), 'totalFiltrado': len(seleccion), 'columnas': cabecera, 'desde': desde,
-            'siguiente': desde + limite if desde + limite < len(seleccion) else None,
-            'filas': [{'indice': n, 'valores': {k: f.get(k) for k in columnas or cabecera}} for n, f in seleccion[desde:desde + limite]]}
+            return {'texto': ruta.read_text(encoding='utf-8-sig', errors='replace')}
+    return consultar_filas(ruta, desde, limite, columnas, filtros, campo)
 
 
-def trazas_gepa(almacen: Any, desde: int = 0, limite: int = 25, tipo: str = '', programa: str = '', corrida: str = '') -> dict:
+def trazas_gepa(almacen: Any, desde: int = 0, limite: int = 25, tipo: str = '', programa: str = '', corrida: str = '', desde_ciclos: int = 0, limite_ciclos: int = 10, hasta: int | None = None, hasta_ciclos: int | None = None) -> dict:
     ruta = almacen.ruta.parent / 'datos' / '_gepa' / almacen.ruta.name / 'trazas.db'
     if not ruta.is_file():
         return {'ok': False, 'error': 'No hay archivo de trazas GEPA disponible en esta instalación'}
-    filtros, args = [], []
+    desde, limite = max(0, desde), max(1, min(100, limite))
+    desde_ciclos, limite_ciclos = max(0, desde_ciclos), max(1, min(50, limite_ciclos))
+    filtros: list[str] = []
+    args: list[Any] = []
     for clave, valor in (('tipo', tipo), ('programa', programa), ('corrida', corrida)):
         if valor:
             filtros.append(clave + '=?')
             args.append(valor)
-    where = ' WHERE ' + ' AND '.join(filtros) if filtros else ''
+    filtros.append('seq <= ?')
+    where = ' WHERE ' + ' AND '.join(filtros)
     from rosa.gepa_continuo import sanear
-    with sqlite3.connect(ruta.as_uri() + '?mode=ro', uri=True) as db:
+    with closing(sqlite3.connect(ruta.as_uri() + '?mode=ro', uri=True)) as db:
         db.execute('BEGIN')
+        if hasta is None:
+            hasta = db.execute('SELECT COALESCE(MAX(seq),0) FROM trazas').fetchone()[0]
+        if hasta_ciclos is None:
+            hasta_ciclos = db.execute('SELECT COALESCE(MAX(rowid),0) FROM ciclos').fetchone()[0]
+        args.append(hasta)
+        total_ciclos = db.execute('SELECT count(*) FROM ciclos WHERE rowid<=?', (hasta_ciclos,)).fetchone()[0]
         total = db.execute('SELECT count(*) FROM trazas' + where, args).fetchone()[0]
         filas = db.execute('SELECT seq,fecha,tipo,programa,corrida,json FROM trazas' + where + ' ORDER BY seq LIMIT ? OFFSET ?', [*args, max(1, min(100, limite)), max(0, desde)]).fetchall()
-        ciclos = [json.loads(r[0]) for r in db.execute('SELECT json FROM ciclos ORDER BY fecha DESC')]
-    return {'total': total, 'desde': desde, 'siguiente': desde + len(filas) if desde + len(filas) < total else None,
+        ciclos = [json.loads(r[0]) for r in db.execute('SELECT json FROM ciclos WHERE rowid<=? ORDER BY rowid DESC LIMIT ? OFFSET ?', (hasta_ciclos, limite_ciclos, desde_ciclos))]
+    return {'total': total, 'desde': desde, 'hasta': hasta, 'hastaCiclos': hasta_ciclos,
+            'totalCiclos': total_ciclos, 'desdeCiclos': desde_ciclos,
+            'siguienteCiclos': desde_ciclos + len(ciclos) if desde_ciclos + len(ciclos) < total_ciclos else None, 'siguiente': desde + len(filas) if desde + len(filas) < total else None,
             'trazas': [dict(zip(('secuencia', 'fecha', 'tipo', 'programa', 'corrida'), f[:5]), contenido=sanear(json.loads(f[5]))) for f in filas], 'ciclos': sanear(ciclos)}
 
 

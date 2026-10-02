@@ -110,6 +110,7 @@
 
 .mundo-barra-acciones {
   display: flex;
+  gap: 6px;
   justify-content: flex-end;
 }
 
@@ -2705,3 +2706,15 @@
 .mundo-adjuntos, .mundo-adjuntos fieldset > * { min-width: 0; overflow-wrap: anywhere; }
 .mundo-adjuntos select { width: 100%; }
 .mundo-adjuntos input[type="file"] { width: 100%; }
+
+/* Historial persistido del asistente, accesible también desde una pestaña nueva. */
+.mundo-historial { position: relative; min-width: 0; }
+.mundo-historial-panel { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: min(360px, calc(100vw - 32px)); max-height: 65vh; overflow: auto; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px #0002; }
+.mundo-historial-panel label { display: grid; gap: 6px; font-size: 12px; }
+.mundo-historial-panel input { min-width: 0; width: 100%; box-sizing: border-box; padding: 8px; background: var(--surface); color: inherit; border: 1px solid var(--border); border-radius: 6px; }
+.mundo-historial-panel ul { list-style: none; margin: 10px 0 0; padding: 0; }
+.mundo-historial-panel li button { display: grid; gap: 5px; width: 100%; padding: 10px; text-align: left; color: inherit; background: transparent; border: 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.mundo-historial-panel li button:hover, .mundo-historial-panel li button[aria-current] { background: var(--hover); }
+.mundo-historial-panel strong { font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.mundo-historial-panel span { font-size: 11px; opacity: .65; }
+@media (max-width: 600px) { .mundo-barra-acciones { flex-wrap: wrap; } .mundo-historial-panel { position: fixed; left: 16px; right: 16px; top: 120px; width: auto; } }

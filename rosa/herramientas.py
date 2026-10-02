@@ -99,12 +99,12 @@ def herramientas(estado: dict[str, Any], investigacion_id: str, registro: list[d
     async def leer_modelo_de_mundo(tema: str) -> str:
         # Por significado si hay índice semántico y almacén (encuentra "astrocitos
         # antes que axones" aunque el hecho diga GFAP y NfL); si no, por texto.
-        hechos = [h for h in estado.get("hechos", []) if h["investigacionId"] == investigacion_id and h.get("estado") in ("sabido", "abierto")]
+        hechos = [h for h in estado.get("hechos", []) if (investigacion_id == "global" or h["investigacionId"] == investigacion_id) and h.get("estado") in ("sabido", "abierto")]
         hits: list[dict[str, Any]] = []
         if almacen is not None and indice_semantico.disponible():
             try:
                 por_id = {h["id"]: h for h in hechos}
-                for hit in await indice_semantico.de_almacen(almacen).buscar(tema, k=12, investigacion_id=investigacion_id, tipos=("hecho",)):
+                for hit in await indice_semantico.de_almacen(almacen).buscar(tema, k=12, investigacion_id=None if investigacion_id == "global" else investigacion_id, tipos=("hecho",)):
                     h = por_id.get(str(hit["id"]).split(":", 1)[-1])
                     if h is not None:
                         hits.append(h)
@@ -128,10 +128,10 @@ def herramientas(estado: dict[str, Any], investigacion_id: str, registro: list[d
                 vecinos = {}
         cuestiones_por_hecho: dict[str, list[str]] = {}
         for c in estado.get("cuestiones", []):
-            if c.get("investigacionId") == investigacion_id and c.get("estado") == "abierta":
+            if (investigacion_id == "global" or c.get("investigacionId") == investigacion_id) and c.get("estado") == "abierta":
                 for hid in c.get("hechoIds", []):
                     cuestiones_por_hecho.setdefault(hid, []).append(c.get("texto", "")[:100])
-        return _recortar([{"id": h["id"], "tipo": h.get("tipo"), "estado": h.get("estado"), "enunciado": h.get("enunciado"), "fuentes": [p.get("referencia") for p in h.get("procedencia", [])][:3], "respaldaHipotesis": vecinos.get(h["id"], []), "cuestionesLigadas": cuestiones_por_hecho.get(h["id"], []), "sustituidoPor": h.get("sustituidoPor"), "contradiceA": h.get("contradiceA") or []} for h in hits] or "Sin hechos sobre ese tema en el modelo de mundo")
+        return _recortar([{"id": h["id"], "investigacionId": h["investigacionId"], "tipo": h.get("tipo"), "estado": h.get("estado"), "enunciado": h.get("enunciado"), "fuentes": [p.get("referencia") for p in h.get("procedencia", [])][:3], "respaldaHipotesis": vecinos.get(h["id"], []), "cuestionesLigadas": cuestiones_por_hecho.get(h["id"], []), "sustituidoPor": h.get("sustituidoPor"), "contradiceA": h.get("contradiceA") or []} for h in hits] or "Sin hechos sobre ese tema en el modelo de mundo")
 
     async def leer_cuestiones(estado_filtro: str) -> str:
         # Las cuestiones persistentes de la investigación (rosa/cuestiones.py): qué está
@@ -139,9 +139,9 @@ def herramientas(estado: dict[str, Any], investigacion_id: str, registro: list[d
         filtro = (estado_filtro or "abierta").strip().lower()
         if filtro not in ("abierta", "resuelta", "descartada", "todas"):
             filtro = "abierta"
-        lista = [c for c in estado.get("cuestiones", []) if c.get("investigacionId") == investigacion_id and (filtro == "todas" or c.get("estado") == filtro)]
+        lista = [c for c in estado.get("cuestiones", []) if (investigacion_id == "global" or c.get("investigacionId") == investigacion_id) and (filtro == "todas" or c.get("estado") == filtro)]
         lista.sort(key=lambda c: (c.get("prioridad", 5), -(c.get("actualizadaEn") or 0)))
-        return _recortar([{"id": c["id"], "estado": c.get("estado"), "texto": c.get("texto"), "queLaResolveria": c.get("queLaResolveria"), "origen": c.get("origen"), "prioridad": c.get("prioridad"), "hipotesisIds": c.get("hipotesisIds", []), "resolucion": c.get("resolucion")} for c in lista[:15]] or f"Sin cuestiones en estado «{filtro}»")
+        return _recortar([{"id": c["id"], "investigacionId": c.get("investigacionId"), "estado": c.get("estado"), "texto": c.get("texto"), "queLaResolveria": c.get("queLaResolveria"), "origen": c.get("origen"), "prioridad": c.get("prioridad"), "hipotesisIds": c.get("hipotesisIds", []), "resolucion": c.get("resolucion")} for c in lista[:15]] or f"Sin cuestiones en estado «{filtro}»")
 
     tools.append(dspy.Tool(leer_cuestiones, name="leer_cuestiones", desc="Las cuestiones de la investigación (lo que está abierto, de dónde salió y qué lo resolvería; o lo ya resuelto). Usar antes de abrir una pregunta nueva.", args={"estado_filtro": {"type": "string", "description": "abierta, resuelta, descartada o todas"}}, arg_types={"estado_filtro": str}))
     tools.append(dspy.Tool(buscar_en_proyecto, name="buscar_en_proyecto", desc="Busca en el propio proyecto: hipótesis, hechos, artefactos, decisiones, fuentes y datasets de esta investigación. Usar antes de preguntar a una persona por algo que ya esta decidido.", args={"consulta": {"type": "string", "description": "Palabras del dominio, un identificador o una frase"}}, arg_types={"consulta": str}))
@@ -162,41 +162,41 @@ def buscar_proyecto(estado: dict[str, Any], investigacion_id: str, consulta: str
 
     hits: list[dict[str, Any]] = []
     for h in estado.get("hipotesis", []):
-        if h["investigacionId"] != investigacion_id:
+        if investigacion_id != "global" and h["investigacionId"] != investigacion_id:
             continue
         p = punt(h.get("titulo", "") + " " + h.get("enunciado", ""))
         if p:
-            hits.append({"tipo": "hipotesis", "id": h["id"], "puntos": p, "texto": h["titulo"][:140], "estado": h.get("estado"), "decision": h.get("decisionKiller"), "quien": h.get("origen")})
+            hits.append({"tipo": "hipotesis", "id": h["id"], "investigacionId": h.get("investigacionId"), "puntos": p, "texto": h["titulo"][:140], "estado": h.get("estado"), "decision": h.get("decisionKiller"), "quien": h.get("origen")})
     for hch in estado.get("hechos", []):
-        if hch["investigacionId"] != investigacion_id:
+        if investigacion_id != "global" and hch["investigacionId"] != investigacion_id:
             continue
         p = punt(hch.get("enunciado", ""))
         if p:
-            hits.append({"tipo": "hecho", "id": hch["id"], "puntos": p, "texto": hch["enunciado"][:160], "estado": hch.get("estado")})
+            hits.append({"tipo": "hecho", "id": hch["id"], "investigacionId": hch.get("investigacionId"), "puntos": p, "texto": hch["enunciado"][:160], "estado": hch.get("estado")})
     for a in estado.get("artefactos", []):
-        if a["investigacionId"] != investigacion_id:
+        if investigacion_id != "global" and a["investigacionId"] != investigacion_id:
             continue
         ult = a["versiones"][-1] if a.get("versiones") else {}
         p = punt(a.get("nombre", "") + " " + ult.get("resumen", "") + " " + ult.get("contenido", "")[:3000])
         if p:
-            hits.append({"tipo": "artefacto", "id": a["id"], "puntos": p, "texto": f"{a['nombre']} (versión {ult.get('n')})", "estado": a.get("tipo")})
+            hits.append({"tipo": "artefacto", "id": a["id"], "investigacionId": a.get("investigacionId"), "puntos": p, "texto": f"{a['nombre']} (versión {ult.get('n')})", "estado": a.get("tipo")})
     for d in estado.get("decisiones", []):
-        if d.get("investigacionId") != investigacion_id:
+        if investigacion_id != "global" and d.get("investigacionId") != investigacion_id:
             continue
         p = punt(d.get("motivo", "") + " " + d.get("decision", ""))
         if p:
-            hits.append({"tipo": "decision", "id": d["id"], "puntos": p, "texto": f"{d.get('etapa')}: {d.get('decision')} ({d.get('motivo', '')[:100]})", "quien": d.get("quien"), "es_de_persona": d.get("etapa") == "persona"})
+            hits.append({"tipo": "decision", "id": d["id"], "investigacionId": d.get("investigacionId"), "puntos": p, "texto": f"{d.get('etapa')}: {d.get('decision')} ({d.get('motivo', '')[:100]})", "quien": d.get("quien"), "es_de_persona": d.get("etapa") == "persona"})
     for inv in estado.get("investigaciones", []):
-        if inv["id"] != investigacion_id:
+        if investigacion_id != "global" and inv["id"] != investigacion_id:
             continue
         for ds in inv.get("datasets", []):
             p = punt(ds.get("nombre", "") + " " + ds.get("descripcion", ""))
             if p:
-                hits.append({"tipo": "dataset", "id": ds["id"], "puntos": p, "texto": ds["nombre"][:140], "estado": ds.get("estado")})
+                hits.append({"tipo": "dataset", "id": ds["id"], "investigacionId": inv["id"], "puntos": p, "texto": ds["nombre"][:140], "estado": ds.get("estado")})
         for m in inv.get("memoria", []) or []:
             p = punt(m.get("texto", ""))
             if p:
-                hits.append({"tipo": "memoria", "id": m["id"], "puntos": p, "texto": m["texto"][:160], "quien": m.get("quien")})
+                hits.append({"tipo": "memoria", "id": m["id"], "investigacionId": inv["id"], "puntos": p, "texto": m["texto"][:160], "quien": m.get("quien")})
     hits.sort(key=lambda x: -x["puntos"])
     return hits[:maximo]
 

@@ -5,7 +5,7 @@ import { expect, it, vi } from 'vitest';
 import { AdjuntosAsistente } from './AdjuntosAsistente';
 const subirDataset = vi.fn();
 const subirDatosExperimento = vi.fn();
-vi.mock('../datos/almacen', () => ({ acciones: { subirDataset: (...args: unknown[]) => subirDataset(...args), subirDatosExperimento: (...args: unknown[]) => subirDatosExperimento(...args) }, useRosa: () => ({ hipotesis: [{ id: 'h-1', investigacionId: 'inv-1', titulo: 'MAPT', experimento: {} }, { id: 'h-otra', investigacionId: 'otra', titulo: 'Otra', experimento: {} }] }) }));
+vi.mock('../datos/almacen', () => ({ acciones: { subirDataset: (...args: unknown[]) => subirDataset(...args), subirDatosExperimento: (...args: unknown[]) => subirDatosExperimento(...args) }, useRosa: () => ({ investigaciones: [{ id: 'inv-1', titulo: 'Principal' }, { id: 'otra', titulo: 'Otra investigación' }], hipotesis: [{ id: 'h-1', investigacionId: 'inv-1', titulo: 'MAPT', experimento: {} }, { id: 'h-otra', investigacionId: 'otra', titulo: 'Otra', experimento: {} }] }) }));
 it.each(['dataset', 'h-1'])('adjunta %s solo al guardar y conserva la marca sintética', async destino => {
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   subirDataset.mockReset().mockResolvedValue(null);
@@ -30,5 +30,29 @@ it.each(['dataset', 'h-1'])('adjunta %s solo al guardar y conserva la marca sint
   else expect(subirDatosExperimento).toHaveBeenCalledWith('h-1', fichero, '', true);
   expect(alSubir).toHaveBeenCalledWith(expect.stringContaining('prueba.csv'));
   expect(nodo.textContent).toContain('Archivo guardado');
+  await act(async () => root.unmount());
+});
+it.each(['dataset', 'h-otra'])('desde global exige destinatario y sube %s a la investigación elegida', async destino => {
+  subirDataset.mockReset().mockResolvedValue(null);
+  subirDatosExperimento.mockReset().mockResolvedValue(null);
+  const nodo = document.createElement('div');
+  const root = createRoot(nodo);
+  const alSubir = vi.fn();
+  await act(async () => root.render(<AdjuntosAsistente investigacionId="global" alSubir={alSubir} />));
+  await act(async () => nodo.querySelector('button')!.click());
+  const fichero = new File(['a,b\n1,2'], 'tabla.csv');
+  const archivo = nodo.querySelector('input[type="file"]')!;
+  Object.defineProperty(archivo, 'files', { value: [fichero] });
+  await act(async () => archivo.dispatchEvent(new Event('change', { bubbles: true })));
+  const guardar = nodo.querySelector<HTMLButtonElement>('fieldset button')!;
+  expect(guardar.disabled).toBe(true);
+  const [inv, tipo] = nodo.querySelectorAll('select');
+  await act(async () => { inv!.value = 'otra'; inv!.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(nodo.querySelector('option[value="h-1"]')).toBeNull();
+  await act(async () => { tipo!.value = destino; tipo!.dispatchEvent(new Event('change', { bubbles: true })); });
+  await act(async () => guardar.click());
+  if (destino === 'dataset') expect(subirDataset).toHaveBeenCalledWith('otra', fichero, 'tabla.csv', '', false);
+  else expect(subirDatosExperimento).toHaveBeenCalledWith('h-otra', fichero, '', false);
+  expect(alSubir).toHaveBeenCalledWith(expect.stringContaining('otra'));
   await act(async () => root.unmount());
 });

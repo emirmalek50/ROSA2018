@@ -126,6 +126,10 @@ def test_operacion_persiste_tras_reabrir(al):
 
 
 def test_endpoint_conserva_auth_y_no_acepta_argumentos_alterados(al, monkeypatch):
+    from rosa import gateway
+    def sin_modelo_real():
+        raise RuntimeError('Esta prueba no llama al Gateway')
+    monkeypatch.setattr(gateway, 'modelos', sin_modelo_real)
     app = crear_app(al)
     app.state.acceso = SimpleNamespace(usuario=lambda token: 'persona@rosa.test' if token == 'sesion' else None)
     app.state.correo = SimpleNamespace(preferencias=lambda email: al.instantanea()['avisos'])

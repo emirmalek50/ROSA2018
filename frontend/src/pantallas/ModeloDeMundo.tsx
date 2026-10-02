@@ -19,6 +19,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { acciones } from "../datos/almacen";
+import { HistorialAsistente } from "../componentes/HistorialAsistente";
 import { AdjuntosAsistente } from "../componentes/AdjuntosAsistente";
 import { AccionesAsistente } from "../componentes/AccionesAsistente";
 import {
@@ -207,6 +208,7 @@ function BarraMundo({
   onNueva,
   desactivada = false,
   soloConversar = false,
+  historial,
 }: {
   vista: Vista;
   setVista?: (v: Vista) => void;
@@ -216,6 +218,7 @@ function BarraMundo({
   onNueva?: () => void;
   desactivada?: boolean;
   soloConversar?: boolean;
+  historial?: ReactNode;
 }) {
   const boton = (
     v: Vista,
@@ -258,6 +261,7 @@ function BarraMundo({
         )}
       </div>
       <div className="mundo-barra-acciones">
+        {historial}
         <button
           type="button"
           className="btn btn-s mundo-nueva"
@@ -720,6 +724,7 @@ function CuerpoMundo({
         meta={inv.id === "global" ? <span>{tr("Consulta y opera todas las investigaciones de ROSA")}</span> : meta}
         soloConversar={inv.id === "global"}
         onNueva={nueva}
+        historial={<HistorialAsistente preguntas={guardadas} hilo={hilo} disabled={!!pendiente} alElegir={h => { fijarHilo(h); setVista("conversar"); setTexto(""); }} />}
       />
       {vista === "conversar" && (
         <Conversar
@@ -1030,7 +1035,7 @@ function Compositor({
           }
         }}
       />
-      {modo === "bases" && inv.id !== "global" && <AdjuntosAsistente investigacionId={inv.id} alSubir={setTexto} disabled={pendiente !== null} />}
+      {modo === "bases" && <AdjuntosAsistente investigacionId={inv.id} alSubir={setTexto} disabled={pendiente !== null} />}
       <div className="mundo-compositor-pie">
         {/* La cara junto a la caja: escucha mientras escribes y piensa
             mientras busca. Es lo que hace que se sienta que hay alguien al
