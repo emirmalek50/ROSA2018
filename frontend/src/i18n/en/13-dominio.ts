@@ -7,6 +7,8 @@
  *  Y las frases de GRADE van con la redacción en inglés de GRADE, que es su
  *  idioma original: `very low certainty`, no `certainty very low`. */
 export const DOMINIO: Record<string, string> = {
+  Temporalidad: 'Temporality',
+
   // Los nodos del grafo causal. Vocabulario cerrado: ver `lib/mecanismos.ts`.
   sexo: 'sex',
   sinapsis: 'synapses',

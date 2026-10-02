@@ -252,6 +252,13 @@ const NOMBRE_ANTIGUO: Record<string, string> = traducido({
   ajuste: 'Ajuste por confusores',
   confusion: 'Ajuste por confusores',
   replicacion: 'Replicación independiente',
+  // Y los nombres de ahora, que no eran «antiguos» y por eso no estaban:
+  // sin entrada aqui la cabeza salia tal cual, en castellano, y ademas
+  // convivian «Adjustment for confounders» (de la tabla) y «Ajuste por
+  // confusores» (crudo) como si fueran dos supuestos (2 de octubre de 2026).
+  temporalidad: 'Temporalidad',
+  'ajuste por confusores': 'Ajuste por confusores',
+  'replicacion independiente': 'Replicación independiente',
 });
 
 /** El nombre corto de un supuesto: lo que va antes de los dos puntos.

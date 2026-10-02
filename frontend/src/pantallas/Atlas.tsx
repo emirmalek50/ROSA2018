@@ -467,8 +467,8 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   const dibujadas = new Set(DIBUJADAS.map((r) => r.clave));
   const sinDibujo = enFigura.filter((r) => !dibujadas.has(r.clave));
   const bandeja = atlas.regiones.filter((r) => NO_LOCALIZADAS.has(r.clave));
-  const etiquetaEstadio = (clave: string) => base.estadios.find((e) => e.clave === clave)?.etiqueta ?? ETIQUETAS_MAPA.estadio[clave] ?? (clave === '' ? tr('sin fase identificada') : clave);
-  const etiquetaCelula = (clave: string) => base.celulas.find((c) => c.clave === clave)?.etiqueta ?? ETIQUETAS_MAPA.tipoCelular[clave] ?? clave;
+  const etiquetaEstadio = (clave: string) => { const d = base.estadios.find((e) => e.clave === clave)?.etiqueta; return (d && tr(d)) ?? ETIQUETAS_MAPA.estadio[clave] ?? (clave === '' ? tr('sin fase identificada') : clave); };
+  const etiquetaCelula = (clave: string) => { const d = base.celulas.find((c) => c.clave === clave)?.etiqueta; return (d && tr(d)) ?? ETIQUETAS_MAPA.tipoCelular[clave] ?? clave; };
   const seleccionar = (clave: string) => setSeleccion((s) => (s === clave ? null : clave));
   const alTeclado = (e: React.KeyboardEvent, clave: string) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -504,7 +504,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   // cefalorraquídeo (LCR)", no el corto de la figura) y los conteos.
   const flotante = (() => {
     if (!focoDibujo) return null;
-    const nombre = focoDatos?.etiqueta ?? ETIQUETAS_MAPA.region[focoDibujo.clave] ?? nombreCorto(focoDibujo.clave, focoDatos);
+    const nombre = (focoDatos?.etiqueta && tr(focoDatos.etiqueta)) ?? ETIQUETAS_MAPA.region[focoDibujo.clave] ?? nombreCorto(focoDibujo.clave, focoDatos);
     // Un hueco no dice "0 · 0 hechos, 0 hipótesis · 0 cohortes": dice que es un hueco y si alguien lo buscó.
     const cifra =
       (focoDatos?.conteo ?? 0) === 0
@@ -636,7 +636,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                   const buscada = cobertura === 'buscada_sin_hallazgo';
                   const discordia = datosRegion?.discordia.length ?? 0;
                   const clases = ['atlas-region', `atlas-capa-${capa}`, conteo === 0 ? `atlas-hueco ${buscada ? 'atlas-buscada' : 'atlas-no-buscada'}` : nivel > 0 ? `atlas-resplandor-${nivel}` : '', seleccion === r.clave ? 'atlas-seleccionada' : '', foco === r.clave ? 'atlas-foco' : '', discordia > 0 ? 'atlas-con-discordia' : ''].filter(Boolean).join(' ');
-                  const nombre = datosRegion?.etiqueta ?? ETIQUETAS_MAPA.region[r.clave] ?? nombreCorto(r.clave, datosRegion);
+                  const nombre = (datosRegion?.etiqueta && tr(datosRegion.etiqueta)) ?? ETIQUETAS_MAPA.region[r.clave] ?? nombreCorto(r.clave, datosRegion);
                   const hueco = conteo === 0 ? (buscada ? tr("; hueco: sin evidencia situada todavía (buscada sin hallazgo)") : tr("; hueco: sin evidencia situada todavía (no buscada)")) : '';
                   const choque = discordia > 0 ? trp("; discordia: {discordia} con otro hecho", { discordia: plural(discordia, tr('hecho choca'), tr('hechos chocan')) }) : '';
                   const etiquetaAccesible = `${nombre}: ${fraseConteo(datosRegion)}; ${plural(cohortes, tr('cohorte distinta'), tr('cohortes distintas'))}${hueco}${choque}`;

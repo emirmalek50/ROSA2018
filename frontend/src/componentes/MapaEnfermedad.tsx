@@ -80,12 +80,22 @@ const ORDEN_ESTADIO = ['preclinica', 'prodromica_dcl', 'demencia_leve', 'demenci
 const ORDEN_NIVEL = ['molecular', 'celular', 'tisular', 'clinico'];
 const SIN = tr('sin situar');
 
-/** La etiqueta visible de un valor de un eje: la que trae el mapa, si no la de
- *  reserva, si no la clave tal cual. Con null, "sin situar". */
+/** La etiqueta visible de un valor de un eje. Con null, "sin situar".
+ *
+ *  Manda la que trae el mapa, despues la de reserva, despues la clave.
+ *
+ *  La del mapa va por `tr()`: viene del servidor en castellano y es la MISMA
+ *  frase que la de reserva (esta tabla esta copiada de
+ *  `rosa/mapa_enfermedad.py`), asi que esta en el catalogo. Sin eso los
+ *  filtros del atlas se quedaban en castellano con la interfaz en ingles
+ *  («preclinica», «astrocito», «celula inmune periferica»), porque la de
+ *  reserva, que si pasa por `traducido()`, nunca llegaba a usarse (2 de
+ *  octubre de 2026). */
 export function etiquetaEje(mapa: Mapa | null | undefined, eje: EjeMapa, valor: string | null | undefined): string {
   if (valor === null || valor === undefined || valor === '') return tr(SIN);
   const propias = mapa?.etiquetas && typeof mapa.etiquetas === 'object' ? mapa.etiquetas[eje] : undefined;
-  return (propias && typeof propias === 'object' && typeof propias[valor] === 'string' && propias[valor]) || ETIQUETAS_MAPA[eje][valor] || valor;
+  const delServidor = propias && typeof propias === 'object' && typeof propias[valor] === 'string' ? propias[valor] : undefined;
+  return (delServidor && tr(delServidor)) || ETIQUETAS_MAPA[eje][valor] || valor;
 }
 
 function definicion(mapa: Mapa | null | undefined, eje: 'estadio' | 'nivel', valor: string | null): string | undefined {
