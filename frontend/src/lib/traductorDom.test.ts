@@ -248,3 +248,22 @@ describe('lo que se lee fuera del árbol', () => {
     expect(visto).toBeNull();
   });
 });
+
+describe('lo corto que escribe ROSA2018', () => {
+  it('detecta las duraciones y los sustantivos del dominio sin tilde', () => {
+    // «1 hora» es la condición de parada de una investigación: la escribe
+    // ROSA2018, no lleva tilde y ninguna palabra función, y se quedaba en
+    // castellano (2 de octubre de 2026).
+    expect(pareceCastellano('1 hora')).toBe(true);
+    expect(pareceCastellano('72 horas')).toBe(true);
+    expect(pareceCastellano('10 hipotesis sin revisar')).toBe(true);
+    expect(pareceCastellano('3 corridas')).toBe(true);
+    expect(pareceCastellano('2 citas')).toBe(true);
+  });
+
+  it('y no confunde el inglés que lleva esas letras', () => {
+    expect(pareceCastellano('1 hour')).toBe(false);
+    expect(pareceCastellano('Run 3 of the mission')).toBe(false);
+    expect(pareceCastellano('No data available')).toBe(false);
+  });
+});

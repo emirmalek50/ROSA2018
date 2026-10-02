@@ -25,13 +25,19 @@
 // y lo que ya está en inglés. Ante la duda no se manda: un texto en
 // castellano se entiende, uno mal traducido no.
 
-/** Marcas de castellano. Una tilde o una eñe bastan. Sin ellas, hacen falta
+/** Marcas de castellano. A las palabras función se les suman unos cuantos
+ *  sustantivos del dominio que en inglés no existen («hora», «hipótesis»,
+ *  «corrida», «cita»): sin ellos, lo corto y sin tilde que escribe ROSA2018
+ *  («1 hora» en la condición de parada) no se detectaba y se quedaba en
+ *  castellano (2 de octubre de 2026).
+ *
+ *  Marcas de castellano. Una tilde o una eñe bastan. Sin ellas, hacen falta
  *  palabras que en inglés no existen; y para no confundir el inglés, se
  *  cuentan también las que solo existen en inglés. Así «la cita no resuelve»
  *  (una sola palabra de la lista, sin tildes) se manda, y «No data available»
  *  (un «no» que es de los dos idiomas) no. */
 const TILDES = /[ñáéíóúü¿¡]/i;
-const PALABRAS_ES = /\b(?:de|del|la|las|los|el|que|con|para|por|una|un|sin|más|cada|como|está|son|hay|qué|se|lo|al|su|sus|aún|entre|sobre|pero|cuando|donde|todavía|ningún|ninguna|y|es|ya|desde|hasta|tras|muy|otra|otro|esta|este|esto|ese|esa|también|porque|según|nos|le|les|ni|o)\b/gi;
+const PALABRAS_ES = /\b(?:de|del|la|las|los|el|que|con|para|por|una|un|sin|más|cada|como|está|son|hay|qué|se|lo|al|su|sus|aún|entre|sobre|pero|cuando|donde|todavía|ningún|ninguna|y|es|ya|desde|hasta|tras|muy|otra|otro|esta|este|esto|ese|esa|también|porque|según|nos|le|les|ni|o|hora|horas|día|días|dia|dias|minuto|minutos|semana|semanas|mes|meses|año|años|ano|anos|vez|veces|hipótesis|hipotesis|corrida|corridas|iteración|iteraciones|hecho|hechos|fuente|fuentes|cohorte|cohortes|afirmación|afirmaciones|cita|citas|ninguno|ninguna|ninguna|nada|todo|todos|todas)\b/gi;
 const PALABRAS_EN = /\b(?:the|of|and|to|is|in|for|with|on|at|by|an|be|this|that|from|are|was|were|it|as|or|not|has|have|which|its|yes|data|page)\b/gi;
 
 export function pareceCastellano(t: string): boolean {

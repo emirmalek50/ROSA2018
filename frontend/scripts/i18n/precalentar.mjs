@@ -40,7 +40,7 @@ const p = await ctx.newPage();
 // La misma regla que lib/traductorDom.ts pareceCastellano.
 const juntar = () => p.evaluate(() => {
   const TILDES = /[ñáéíóúü¿¡]/i;
-  const ES = /\b(?:de|del|la|las|los|el|que|con|para|por|una|un|sin|más|cada|como|está|son|hay|qué|se|lo|al|su|sus|aún|entre|sobre|pero|cuando|donde|todavía|ningún|ninguna|y|es|ya|desde|hasta|tras|muy|otra|otro|esta|este|esto|ese|esa|también|porque|según|nos|le|les|ni|o)\b/gi;
+  const ES = /\b(?:de|del|la|las|los|el|que|con|para|por|una|un|sin|más|cada|como|está|son|hay|qué|se|lo|al|su|sus|aún|entre|sobre|pero|cuando|donde|todavía|ningún|ninguna|y|es|ya|desde|hasta|tras|muy|otra|otro|esta|este|esto|ese|esa|también|porque|según|nos|le|les|ni|o|hora|horas|día|días|dia|dias|minuto|minutos|semana|semanas|mes|meses|año|años|ano|anos|vez|veces|hipótesis|hipotesis|corrida|corridas|iteración|iteraciones|hecho|hechos|fuente|fuentes|cohorte|cohortes|afirmación|afirmaciones|cita|citas|ninguno|ninguna|ninguna|nada|todo|todos|todas)\b/gi;
   const EN = /\b(?:the|of|and|to|is|in|for|with|on|at|by|an|be|this|that|from|are|was|were|it|as|or|not|has|have|which|its|yes|data|page)\b/gi;
   const es = (s) => {
     if (s.length < 3 || !/[a-záéíóúñ]{2}/i.test(s)) return false;
@@ -72,25 +72,34 @@ const juntar = () => p.evaluate(() => {
   return [...out];
 });
 
+/** Un lote. `fetch` de Node corta la espera de CABECERAS a los 5 minutos y
+ *  `AbortSignal.timeout` no lo anula: con frases largas (los supuestos de
+ *  una hipótesis) el servidor tarda más y la petición muere. Por eso, si
+ *  falla, se parte en dos y se reintenta: la mitad tarda la mitad, y lo que
+ *  ya se tradujo está en la caché, así que la segunda vuelta no se paga. */
+async function unLote(l, vuelta = 0) {
+  try {
+    const r = await fetch(`${BASE}/api/traducir`, { method: 'POST', headers: cab, body: JSON.stringify({ textos: l }), signal: AbortSignal.timeout(900_000) });
+    if (r.ok) return await r.json();
+    throw new Error(`HTTP ${r.status}`);
+  } catch (e) {
+    if (l.length > 4 && vuelta < 3) {
+      const m = Math.ceil(l.length / 2);
+      const [a, b] = await Promise.all([unLote(l.slice(0, m), vuelta + 1), unLote(l.slice(m), vuelta + 1)]);
+      return { traducciones: { ...a.traducciones, ...b.traducciones }, rechazadas: { ...a.rechazadas, ...b.rechazadas }, fallo: a.fallo || b.fallo };
+    }
+    console.log(`    lote de ${l.length} sin traducir: ${String(e).slice(0, 70)}`);
+    return { traducciones: {}, rechazadas: {}, fallo: true };
+  }
+}
+
 async function traducir(textos) {
   let hechas = 0, rechazadas = 0, fallos = 0;
   const lotes = [];
-  for (let i = 0; i < textos.length; i += 40) lotes.push(textos.slice(i, i + 40));
+  for (let i = 0; i < textos.length; i += 25) lotes.push(textos.slice(i, i + 25));
   // Tres a la vez, que es lo que admite el servidor.
   for (let i = 0; i < lotes.length; i += 3) {
-    const rs = await Promise.all(lotes.slice(i, i + 3).map(async (l) => {
-      try {
-        // `fetch` de Node corta la espera de cabeceras a los 5 minutos y un
-        // lote grande tarda más: sin esto, un lote lento mataba la corrida
-        // entera (2 de octubre de 2026). Lo que ya se tradujo está en la
-        // caché, así que al volver a correr se sigue por donde iba.
-        const r = await fetch(`${BASE}/api/traducir`, { method: 'POST', headers: cab, body: JSON.stringify({ textos: l }), signal: AbortSignal.timeout(900_000) });
-        return r.ok ? await r.json() : { traducciones: {}, rechazadas: {}, fallo: true };
-      } catch (e) {
-        console.log(`    lote de ${l.length} sin traducir: ${String(e).slice(0, 80)}`);
-        return { traducciones: {}, rechazadas: {}, fallo: true };
-      }
-    }));
+    const rs = await Promise.all(lotes.slice(i, i + 3).map((l) => unLote(l)));
     for (const r of rs) { hechas += Object.keys(r.traducciones ?? {}).length; rechazadas += Object.keys(r.rechazadas ?? {}).length; if (r.fallo) fallos++; }
   }
   return { hechas, rechazadas, fallos };
