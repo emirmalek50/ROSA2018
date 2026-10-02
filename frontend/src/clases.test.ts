@@ -48,3 +48,34 @@ describe('clases CSS del JSX', () => {
     expect([...faltan]).toEqual([]);
   });
 });
+
+describe('las barras pegadas no dejan ver lo de detrás', () => {
+  it('ninguna barra sticky tiene el fondo transparente en su borde', () => {
+    // El compositor del chat iba con `linear-gradient(transparent, var(--bg)
+    // 22px)`: los primeros 22 px eran transparentes, así que lo que pasaba
+    // por debajo al hacer scroll se veía a través de la barra, y con los
+    // avatares de los modelos (círculos de alto contraste) se leía como si
+    // la atravesaran (Emir, 2 de octubre de 2026). El desvanecido va en un
+    // ::before ARRIBA de la barra, donde no hay nada que tapar.
+    const css = ['mundo.css', 'styles.css', 'vivo.css', 'citas.css']
+      .map((f) => {
+        try { return readFileSync(join(__dirname, f), 'utf8'); } catch { return ''; }
+      })
+      .join('\n');
+    const malas: string[] = [];
+    // Cada regla con `position: sticky` y, en el MISMO bloque, un fondo que
+    // empieza en transparente.
+    for (const m of css.matchAll(/([.#][\w-]+(?:[^{};]*)?)\{([^}]*)\}/g)) {
+      const cuerpo = m[2]!;
+      if (!/position:\s*sticky/.test(cuerpo)) continue;
+      const fondo = /background(?:-image)?:\s*([^;]+)/.exec(cuerpo)?.[1] ?? '';
+      // `::before`/`::after` pueden ser transparentes: son la franja de
+      // desvanecido, no la barra.
+      if (/^::/.test(m[1]!.split(/\s/).pop() ?? '')) continue;
+      if (/linear-gradient\(\s*to bottom\s*,\s*transparent/.test(fondo) || /^\s*transparent/.test(fondo)) {
+        malas.push(`${m[1]!.trim()} -> ${fondo.trim().slice(0, 60)}`);
+      }
+    }
+    expect(malas).toEqual([]);
+  });
+});

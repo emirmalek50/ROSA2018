@@ -1101,13 +1101,31 @@
   gap: 8px;
 }
 
+/* La barra del compositor va PEGADA abajo y OPACA. Antes su fondo era un
+   degradado que empezaba transparente y solo tapaba a partir de 22 px, asi
+   que lo que pasaba por debajo al hacer scroll se veia a traves de esa
+   franja: con los avatares de los modelos, que son circulos de alto
+   contraste, se leia como si atravesaran la barra (Emir, 2 de octubre de
+   2026). El desvanecido no se pierde: se hace ARRIBA de la barra, donde no
+   hay nada que tapar. */
 .mundo-chat-pie {
   position: sticky;
   bottom: 0;
   z-index: 2;
   margin-top: 30px;
   padding: 14px 0 18px;
-  background: linear-gradient(to bottom, transparent, var(--bg) 22px);
+  background: var(--bg);
+}
+
+.mundo-chat-pie::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 28px;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+  pointer-events: none;
 }
 
 @keyframes mundo-punto {
