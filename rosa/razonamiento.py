@@ -99,6 +99,8 @@ class Progreso(BaseCallback):
             return
         siguiente = str(getattr(outputs, "next_tool_name", "") or "")
         with self._candado:
+            if self.terminado:
+                return
             self._pasos.append(
                 {
                     "id": f"p{len(self._pasos) + 1}",
@@ -130,6 +132,8 @@ class Progreso(BaseCallback):
             "resumen": "",
         }
         with self._candado:
+            if self.terminado:
+                return
             self._pasos.append(paso)
             self._por_llamada[call_id] = paso
             self.tocado = time.time()

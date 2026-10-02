@@ -370,6 +370,15 @@
   animation: mundo-latido 1.2s ease-in-out infinite;
 }
 
+.mundo-detener:disabled {
+  opacity: 0.55;
+}
+
+.mundo-detener:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
 .mundo-compositor-nota {
   margin: 0;
   font-size: 11.5px;

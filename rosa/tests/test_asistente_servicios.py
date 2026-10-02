@@ -213,6 +213,7 @@ def test_toda_ruta_api_tiene_clasificacion_explicita(entorno):
         '/api/eventos': 'SSE de la interfaz',
         '/api/acciones/{nombre}': 'catálogo de reducers y confirmación',
         '/api/investigaciones/{investigacion_id}/preguntar': 'entrada de la conversación',
+        '/api/investigaciones/{investigacion_id}/preguntar/{seguimiento}/cancelar': 'control de la respuesta por su autor',
         '/api/investigaciones/{investigacion_id}/asistente/{pregunta_id}/{operacion_id}': 'confirmación',
         '/api/preguntar/razonamiento/{seguimiento}': 'progreso del chat',
         '/api/corridas/{corrida_id}/citas/reverificar': 'acción pedirRecuperacionCitas',

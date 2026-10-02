@@ -1130,12 +1130,24 @@ export const acciones = {
       return { ok: false, error: tr('No se pudo comprobar el resultado. Recarga antes de volver a intentarlo.') };
     }
   },
+  cancelarRespuesta: async (investigacionId: string, seguimiento: string): Promise<string | null> => {
+    if (modo !== 'servidor') return tr('Detener la respuesta requiere conexión con ROSA.');
+    try {
+      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/preguntar/${encodeURIComponent(seguimiento)}/cancelar`, { method: 'POST', headers: cabeceras() });
+      if (!r.ok) return tr('No se pudo detener la respuesta. Vuelve a intentarlo.');
+      return null;
+    } catch {
+      return tr('No se pudo confirmar la cancelación. Comprueba la conexión e inténtalo de nuevo.');
+    }
+  },
   preguntarALasBases: async (investigacionId: string, pregunta: string, hilo?: string, seguimiento?: string, vista?: Record<string, unknown>): Promise<string | null> => {
     if (modo !== 'servidor') return tr('Preguntar a las bases requiere el servidor de ROSA2018.');
     try {
       const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/preguntar`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ pregunta, asistente: true, quien: QUIEN, ...(hilo ? { hilo } : {}), ...(seguimiento ? { seguimiento } : {}), ...(vista ? { vista } : {}) }) });
       if (!r.ok) return trp("El servidor no pudo responder ({status}).", { status: r.status });
       const d = (await r.json()) as { ok: boolean; resultado?: { error?: string | null } };
+      // Recupera también el turno si el canal en vivo se ha cortado.
+      void resincronizar();
       return d.ok ? null : d.resultado?.error ?? tr('La pregunta falló.');
     } catch {
       return tr('Sin conexión con el servidor.');

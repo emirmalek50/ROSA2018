@@ -690,7 +690,7 @@ def registrar_pregunta_bases(e: Estado, investigacion_id: str, pregunta: dict, a
     inv = conversacion(e, investigacion_id, crear=True)
     if not inv or not isinstance(pregunta, dict) or not pregunta.get("pregunta"):
         return False
-    inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}, **{k: pregunta[k] for k in ("cobertura", "atribucion", "duracionMs", "acciones", "descargas") if pregunta.get(k) is not None}, **({"pasos": _pasos_de_razonamiento(pregunta["pasos"])} if isinstance(pregunta.get("pasos"), list) else {}), **({"hilo": str(pregunta["hilo"])[:40]} if pregunta.get("hilo") else {})})
+    inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}, **{k: pregunta[k] for k in ("cobertura", "atribucion", "duracionMs", "acciones", "descargas", "cancelada", "seguimiento") if pregunta.get(k) is not None}, **({"pasos": _pasos_de_razonamiento(pregunta["pasos"])} if isinstance(pregunta.get("pasos"), list) else {}), **({"hilo": str(pregunta["hilo"])[:40]} if pregunta.get("hilo") else {})})
     return True
 
 

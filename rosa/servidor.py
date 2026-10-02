@@ -1209,6 +1209,8 @@ def crear_app(almacen: Almacen) -> FastAPI:
                     raise asyncio.CancelledError
                 solicitud.tarea = asyncio.create_task(responder())
                 r = await solicitud.tarea
+                if solicitud.cancelada:
+                    raise asyncio.CancelledError
             except asyncio.CancelledError:
                 if not solicitud.cancelada:
                     raise

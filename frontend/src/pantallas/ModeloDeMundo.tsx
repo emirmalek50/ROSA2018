@@ -67,7 +67,6 @@ import { COBERTURA_MINIMA, faltanParaCobertura } from "../lib/cobertura";
 import {
   atributosEnVuelo,
   useCalculoDiferido,
-  useEnVuelo,
 } from "../lib/diferido";
 import {
   CLASIFICACION_CITA,
@@ -449,6 +448,8 @@ type Pendiente = {
   pregunta: string;
   desde: number;
   listo: boolean;
+  cancelando?: boolean;
+  errorCancelacion?: string | null;
   /** Con el que se le piden al servidor los pasos mientras piensa
    *  (rosa/razonamiento.py). */
   seguimiento: string;
@@ -475,8 +476,9 @@ function leerHilo(invId: string): string | null {
  *  mismo texto y de después de enviarla (con margen por relojes desfasados). */
 const esLaPendiente = (
   q: PreguntaABases,
-  p: { hilo: string; pregunta: string; desde: number },
+  p: { hilo: string; pregunta: string; desde: number; seguimiento?: string },
 ) =>
+  q.seguimiento && p.seguimiento ? q.seguimiento === p.seguimiento :
   hiloDe(q) === p.hilo &&
   (q.pregunta ?? "").trim() === p.pregunta &&
   q.fecha >= p.desde - 5000;
@@ -509,7 +511,7 @@ function CuerpoMundo({
   const [locales, setLocales] = useState<TurnoLocal[]>([]);
   const [errores, setErrores] = useState<ErrorLocal[]>([]);
   const [pendiente, setPendiente] = useState<Pendiente | null>(null);
-  const [, envolver] = useEnVuelo();
+  const enVuelo = useRef<string | null>(null);
   const entrada = useRef<HTMLTextAreaElement>(null);
   const guardadas = inv.preguntasABases ?? [];
 
@@ -543,8 +545,10 @@ function CuerpoMundo({
 
   // La respuesta llega por el canal en vivo: cuando aparece guardada, la pregunta deja de estar en vuelo.
   useEffect(() => {
-    if (pendiente && guardadas.some((q) => esLaPendiente(q, pendiente)))
+    if (pendiente && guardadas.some((q) => esLaPendiente(q, pendiente))) {
+      if (enVuelo.current === pendiente.seguimiento) enVuelo.current = null;
       setPendiente(null);
+    }
   }, [guardadas, pendiente]);
 
   const enfocar = (prefijo?: string) => {
@@ -560,7 +564,7 @@ function CuerpoMundo({
 
   const enviar = (bruta: string, modoEnvio: ModoPregunta = modo) => {
     const pregunta = bruta.trim();
-    if (pregunta === "" || pendiente) return;
+    if (pregunta === "" || pendiente || enVuelo.current) return;
     const h = hilo ?? nuevoHilo();
     if (h !== hilo) fijarHilo(h);
     setTexto("");
@@ -586,22 +590,34 @@ function CuerpoMundo({
       return;
     }
     const seguimiento = `seg-${fecha.toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    enVuelo.current = seguimiento;
     setPasosEnVivo([]);
     setPendiente({ hilo: h, pregunta, desde: fecha, listo: false, seguimiento });
-    void envolver(async () => {
+    void (async () => {
       const error = await acciones.preguntarALasBases(inv.id, pregunta, h, seguimiento, { pantalla: "modelo_de_mundo", vista, filtro, seleccion, investigacionId: inv.id });
       if (error) {
-        setPendiente((p) => (p && p.desde === fecha ? null : p));
+        if (enVuelo.current !== seguimiento) return;
+        enVuelo.current = null;
+        setPendiente((p) => (p?.seguimiento === seguimiento ? null : p));
         setErrores((es) => [
           ...es,
           { id: `error-${fecha}`, hilo: h, fecha, pregunta, error },
         ]);
       } else {
         setPendiente((p) =>
-          p && p.desde === fecha ? { ...p, listo: true } : p,
+          p?.seguimiento === seguimiento ? { ...p, listo: true } : p,
         );
       }
     })();
+  };
+
+  const cancelar = async () => {
+    if (!pendiente || pendiente.cancelando || pendiente.listo) return;
+    const seguimiento = pendiente.seguimiento;
+    setPendiente(p => p?.seguimiento === seguimiento ? { ...p, cancelando: true, errorCancelacion: null } : p);
+    setLeerAlLlegar(null);
+    const error = await acciones.cancelarRespuesta(inv.id, seguimiento);
+    if (error) setPendiente(p => p?.seguimiento === seguimiento ? { ...p, cancelando: false, errorCancelacion: error } : p);
   };
 
   // Hablar de viva voz. Pulsar la cara: si está callada, escucha; si está
@@ -614,7 +630,7 @@ function CuerpoMundo({
   const [cuenta, setCuenta] = useState<number | null>(null);
 
   const leer = (q: PreguntaABases) => {
-    if (!puedeHablar() || !q.respuesta) return;
+    if (!puedeHablar() || !q.respuesta || q.cancelada) return;
     setVoz("hablando");
     hablar(q.respuesta, () => setVoz((v) => (v === "hablando" ? "nada" : v)));
   };
@@ -741,6 +757,7 @@ function CuerpoMundo({
           modo={modo}
           entrada={entrada}
           enviar={enviar}
+          cancelar={cancelar}
           reintentar={(e) => {
             setErrores((es) => es.filter((x) => x.id !== e.id));
             enviar(e.pregunta, "bases");
@@ -798,6 +815,7 @@ type PropsConversar = {
   modo: ModoPregunta;
   entrada: React.RefObject<HTMLTextAreaElement>;
   enviar: (pregunta: string, modo?: ModoPregunta) => void;
+  cancelar: () => void;
   reintentar: (e: ErrorLocal) => void;
   abrirHecho: (id: string) => void;
   enfocar: () => void;
@@ -985,6 +1003,7 @@ function Compositor({
   modo,
   entrada,
   enviar,
+  cancelar,
   pendiente,
   base,
   grande = false,
@@ -1125,7 +1144,19 @@ function Compositor({
             </span>
           </p>
         )}
-        <button
+        {pendiente?.errorCancelacion && <p className="mundo-voz-error" role="alert">{pendiente.errorCancelacion}</p>}
+        {pendiente ? (
+          <button
+            type="button"
+            className="mundo-enviar mundo-detener"
+            onClick={cancelar}
+            disabled={pendiente.cancelando || pendiente.listo}
+            aria-label={tr(pendiente.cancelando ? "Deteniendo respuesta" : "Detener respuesta")}
+            title={tr(pendiente.cancelando ? "Deteniendo respuesta…" : "Detener respuesta")}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="2" /></svg>
+          </button>
+        ) : <button
           type="submit"
           className="mundo-enviar"
           disabled={vacio || pendiente !== null}
@@ -1134,7 +1165,7 @@ function Compositor({
           {...atributosEnVuelo(pendiente !== null)}
         >
           <IconArrowUp size={17} />
-        </button>
+        </button>}
       </div>
     </form>
   );
@@ -1592,7 +1623,7 @@ function TurnoGuardado({
     <>
       <BurbujaPregunta texto={q.pregunta} />
       <div className="mundo-respuesta">
-        <CabezaRespuesta estado={ahora - q.fecha < SEGUNDOS_HABLANDO * 1000 ? "hablando" : "quieta"}>
+        <CabezaRespuesta estado={!q.cancelada && ahora - q.fecha < SEGUNDOS_HABLANDO * 1000 ? "hablando" : "quieta"}>
           {(pasos.length > 0 || (q.consultas ?? []).length > 0) && (
             <ResumenDeBusqueda
               q={q}
@@ -1628,7 +1659,9 @@ function TurnoGuardado({
             )}
           </div>
         )}
-        {q.error ? (
+        {q.cancelada ? (
+          <p className="meta" role="status">{tr("Respuesta detenida.")}</p>
+        ) : q.error ? (
           <>
             <div className="mundo-error" role="alert">
               <IconAlert size={15} />
@@ -1857,7 +1890,9 @@ function TurnoPendiente({ p, pasos }: { p: Pendiente; pasos: PasoRazonamiento[] 
         <CabezaRespuesta estado="pensando">
           <div className="mundo-pensando" role="status">
             <Shimmer>
-              {p.listo
+              {p.cancelando
+                ? tr("Deteniendo respuesta…")
+                : p.listo
                 ? tr("Respuesta lista. Llegando...")
                 : pasos.length === 0
                   ? tr("Empezando...")

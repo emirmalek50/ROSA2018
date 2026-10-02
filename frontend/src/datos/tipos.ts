@@ -2498,6 +2498,9 @@ export interface AccionAsistente {
 }
 
 export interface PreguntaABases {
+  /** La respuesta fue detenida por su autor; no es un fallo del modelo. */
+  cancelada?: boolean;
+  seguimiento?: string;
   descargas?: { url: string; nombre: string; tipo?: string; bytes?: number }[];
   acciones?: AccionAsistente[];
   id: string;
