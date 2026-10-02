@@ -1226,11 +1226,11 @@ function FichaDuplex({ c }: { c: CandidatoAso }) {
           <dd>{dec(d.largoAngstroms, 1)} Å</dd>
         </div>
         <div>
-          <dt>vueltas de hélice</dt>
+          <dt>{tr("vueltas de hélice")}</dt>
           <dd>{dec(d.vueltas, 2)}</dd>
         </div>
         <div>
-          <dt>giro por par</dt>
+          <dt>{tr("giro por par")}</dt>
           <dd>{dec(d.giroPorPar, 1)}°</dd>
         </div>
         <div>
@@ -1440,7 +1440,7 @@ function FichaSitio({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
           <dd>{dec(s.accesibilidad, 4)}</dd>
         </div>
         <div>
-          <dt>en su transcrito</dt>
+          <dt>{tr("en su transcrito")}</dt>
           <dd>mejor que el {s.percentil.toFixed(0)} %</dd>
         </div>
         <div>
@@ -1448,7 +1448,7 @@ function FichaSitio({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
           <dd>{dec(s.mejorDelTranscrito, 3)} en la posición {n(s.posicionMejor)}</dd>
         </div>
         <div>
-          <dt>mediana del transcrito</dt>
+          <dt>{tr("mediana del transcrito")}</dt>
           <dd>{dec(s.medianaDelTranscrito, 4)}</dd>
         </div>
       </dl>
@@ -1518,14 +1518,14 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
             <dd>{n(cr.propios)} transcritos</dd>
           </div>
           <div>
-            <dt>en otros genes</dt>
+            <dt>{tr("en otros genes")}</dt>
             <dd className={cr.genesFuera ? "mal" : ""}>
               {cr.genesFuera ? `${n(cr.genesFuera)} genes, ${n(cr.transcritosFuera)} transcritos` : "ninguno"}
             </dd>
           </div>
           {cr.genesMismoSitio ? (
             <div>
-              <dt>mismo sitio, otro nombre</dt>
+              <dt>{tr("mismo sitio, otro nombre")}</dt>
               <dd>{n(cr.transcritosMismoSitio)} transcritos</dd>
             </div>
           ) : null}
@@ -1545,14 +1545,14 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
       {cr?.cribadoConDesajustes ? (
         <div className="aso-fallos">
           <p className="aso-fallos-que">
-            {tr("Esto no cuenta fallos, mira")} <b>dónde caen</b>{tr(". La RNasa H1 no lee las veinte letras: reconoce la dúplex que forma el")} <b>hueco de ADN</b> {tr("(las posiciones")} {cr.huecoDesde} a {cr.huecoHasta}{tr("). Con el hueco perfecto corta aunque fallen las alas; con un fallo dentro del hueco, no.")}
+            {tr("Esto no cuenta fallos, mira")} <b>{tr("dónde caen")}</b>{tr(". La RNasa H1 no lee las veinte letras: reconoce la dúplex que forma el")} <b>{tr("hueco de ADN")}</b> {tr("(las posiciones")} {cr.huecoDesde} a {cr.huecoHasta}{tr("). Con el hueco perfecto corta aunque fallen las alas; con un fallo dentro del hueco, no.")}
           </p>
           <table className="aso-fallos-tabla">
             <thead>
               <tr>
                 <th>{tr("fallos en las alas")}</th>
                 <th>{tr("genes ajenos donde cortaría")}</th>
-                <th>al azar</th>
+                <th>{tr("al azar")}</th>
               </tr>
             </thead>
             <tbody>
@@ -1572,7 +1572,7 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
             </tbody>
           </table>
           <p className="aso-criba-como">
-            {tr("La columna «al azar» es el porcentaje de")} {n(cr.nuloN ?? 300)} {tr("secuencias de veinte letras")} <b>al azar</b>{tr(", con el mismo reparto de G y C, que tienen un encaje de ese nivel al pasar por esta misma tubería. Está aquí para que no haya que fiarse de la regla: por debajo del 1 % un encaje dice algo, por encima del 5 % es lo que pasa solo.")}
+            {tr("La columna «al azar» es el porcentaje de")} {n(cr.nuloN ?? 300)} {tr("secuencias de veinte letras")} <b>{tr("al azar")}</b>{tr(", con el mismo reparto de G y C, que tienen un encaje de ese nivel al pasar por esta misma tubería. Está aquí para que no haya que fiarse de la regla: por debajo del 1 % un encaje dice algo, por encima del 5 % es lo que pasa solo.")}
             {cr.conFalloEnElHueco ? (
               <>
                 {' '}
@@ -1585,7 +1585,7 @@ function FichaCriba({ c, d }: { c: CandidatoAso; d: DisenoAso }) {
       {criba?.hecho ? (
         <>
           <p className="aso-criba-como">
-            Comparado contra {n(criba.transcritos)} {tr("transcritos de Ensembl (GRCh38")}
+            {tr("Comparado contra")} {n(criba.transcritos)} {tr("transcritos de Ensembl (GRCh38")}
             {criba.ficheros.length ? `, ${criba.ficheros.join(" y ")}` : ""})
             {criba.segundos ? ` en ${criba.segundos} s` : ""}{tr(". Se busca el complemento inverso del oligo, que es el tramo al que se pega.")}
           </p>
@@ -1804,7 +1804,7 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
                           ) : v === 'revisar' ? (
                             <b className="aso-fila-sello duda">revisar</b>
                           ) : v === 'sin cribar' ? (
-                            <b className="aso-fila-sello duda">sin cribar</b>
+                            <b className="aso-fila-sello duda">{tr("sin cribar")}</b>
                           ) : null}
                         </span>
                       </button>
@@ -2384,7 +2384,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
           <span>
             pLDDT {residuo.r.plddt.toFixed(0)} · confianza <em>{confianzaEnPalabras(residuo.r.plddt)}</em>
           </span>
-          <i>pulsa para abrirlo</i>
+          <i>{tr("pulsa para abrirlo")}</i>
         </div>
       ) : null}
 
@@ -2536,7 +2536,7 @@ function Decision({
           {o.tambienLlamada ? <i> · {o.tambienLlamada}</i> : null}
         </h2>
         <p className="lab-decision-entrada">
-          {tr("No existe un oligonucleótido que las apague todas: encaja con una secuencia y la de una proteína no es la de otra. Lo que sí se puede reunir de todo lo que ROSA2018 ha verificado es")} <b>a cuál apuntar</b>{tr(", y esta es la cuenta.")}
+          {tr("No existe un oligonucleótido que las apague todas: encaja con una secuencia y la de una proteína no es la de otra. Lo que sí se puede reunir de todo lo que ROSA2018 ha verificado es")} <b>{tr("a cuál apuntar")}</b>{tr(", y esta es la cuenta.")}
         </p>
       </header>
 

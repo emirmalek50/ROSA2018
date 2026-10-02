@@ -165,7 +165,7 @@ export function Procedencia({
                 <code>{p.codigo}</code>
               </pre>
               <button type="button" className="btn btn-s" onClick={() => descargar(`${hipotesis.id}-codigo.py`, p.codigo, 'text/x-python')}>
-                Descargar como script
+                {tr("Descargar como script")}
               </button>
             </>
           ))}

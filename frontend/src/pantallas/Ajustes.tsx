@@ -343,7 +343,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                   Correo
                 </label>
                 <p>{tr("Los avisos llegan a la cuenta verificada que inició cada corrida. No se utiliza una dirección global.")}</p>
-                <p className="campo-etiqueta">Avisar cuando</p>
+                <p className="campo-etiqueta">{tr("Avisar cuando")}</p>
                 <label className="interruptor">
                   <input type="checkbox" checked={avisos.cuando.hipotesisNueva} onChange={(e) => acciones.actualizarAvisos({ ...avisos, cuando: { ...avisos.cuando, hipotesisNueva: e.target.checked } })} />
                   {tr("Hay una hipótesis nueva en la cola")}

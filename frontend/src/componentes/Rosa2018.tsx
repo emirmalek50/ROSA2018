@@ -730,7 +730,7 @@ export function DecisionesKiller({ h, decisiones, ahora, conjuntoDorado = [] }: 
                     {nombreActor(d.quien)}
                   </td>
                   <td className="meta">{d.motivo}</td>
-                  <td>{d.auditoria ? <Chip tono={d.auditoria.acuerdo ? 'ok' : 'mal'} title={d.auditoria.motivo}>{d.auditoria.acuerdo ? tr('De acuerdo') : tr('En desacuerdo')}</Chip> : <span className="meta">sin auditar</span>}</td>
+                  <td>{d.auditoria ? <Chip tono={d.auditoria.acuerdo ? 'ok' : 'mal'} title={d.auditoria.motivo}>{d.auditoria.acuerdo ? tr('De acuerdo') : tr('En desacuerdo')}</Chip> : <span className="meta">{tr("sin auditar")}</span>}</td>
                 </tr>
               ))}
             </tbody>
@@ -862,7 +862,7 @@ export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: Pla
             </dd>
             <dt>{tr("Efecto mínimo y umbral")}</dt>
             <dd>
-              {plan.tamanoEfectoMinimo}. Cuenta como efecto si: {plan.umbralEfecto}
+              {plan.tamanoEfectoMinimo}{tr(". Cuenta como efecto si:")} {plan.umbralEfecto}
             </dd>
             {(plan.siConfirma || plan.siRefuta || plan.siNoEvaluable) && (
               <>
@@ -1138,11 +1138,11 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
         </div>
         <dl className="comprobacion">
           <dt>Origen</dt>
-          <dd>{p.origen || <span className="tono-mal">sin declarar</span>}</dd>
+          <dd>{p.origen || <span className="tono-mal">{tr("sin declarar")}</span>}</dd>
           <dt>{tr("Versión")}</dt>
           <dd>{p.version || tr('sin declarar')}</dd>
           <dt>Licencia</dt>
-          <dd>{p.licencia || <span className="tono-mal">sin declarar</span>}</dd>
+          <dd>{p.licencia || <span className="tono-mal">{tr("sin declarar")}</span>}</dd>
           <dt>Permisos</dt>
           <dd>{p.permisos || tr('sin declarar')}</dd>
           <dt>Cohorte</dt>
@@ -1190,7 +1190,7 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
       <div className="rejilla-2">
         {campo('origen', tr('Origen (portal, laboratorio, publicación)'), tr('GEO GSE1297'))}
         {campo('version', tr('Versión del dataset'), tr('v1, 2004'))}
-        {campo('licencia', tr('Licencia o condiciones de uso'), 'CC-BY 4.0; Allen Terms of Use')}
+        {campo('licencia', tr('Licencia o condiciones de uso'), tr('CC-BY 4.0; Allen Terms of Use'))}
         {campo('permisos', tr('Permisos y acuerdo de uso (id, fecha)'), tr('DUC Synapse v8.2, aprobado 2026-09-01'))}
         {campo('cohorte', tr('Cohorte de origen'), 'ADNI')}
         {campo('restriccionIA', tr('Cláusula de IA del acuerdo (literal)'), tr('Use of AI tools must be described in your IDU'))}
@@ -2074,7 +2074,7 @@ export function TablaConsultas({ consultas, ahora }: { consultas: ConsultaBase[]
             <td className="meta">
               {c.error ? <span className="tono-aviso">{c.error}</span> : `${c.n ?? '?'} resultados${c.ids.length ? `; ids: ${c.ids.slice(0, 4).join(', ')}${c.ids.length > 4 ? '...' : ''}` : ''}${c.version ? `; version ${c.version}` : ''}`}
             </td>
-            <td>{c.invariante ? <Chip tono={c.invariante.ok ? 'ok' : 'aviso'}>{c.invariante.detalle.slice(0, 80)}</Chip> : <span className="meta">sin invariante</span>}</td>
+            <td>{c.invariante ? <Chip tono={c.invariante.ok ? 'ok' : 'aviso'}>{c.invariante.detalle.slice(0, 80)}</Chip> : <span className="meta">{tr("sin invariante")}</span>}</td>
             <td className="meta">
               <Momento t={c.fecha} ahora={ahora} /> ({c.ms} ms)
             </td>
@@ -2571,7 +2571,7 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
             </div>
           )}
           {negativo && (
-            <div className={negativoDestacado ? 'experimento-bloque criterio-mal' : 'experimento-bloque'} data-lectura-negativo={negativoDestacado ? 'destacada' : 'discreta'}>
+            <div className={negativoDestacado ? tr('experimento-bloque criterio-mal') : 'experimento-bloque'} data-lectura-negativo={negativoDestacado ? 'destacada' : 'discreta'}>
               <div className="acciones">
                 <strong style={{ fontSize: 13 }}>{tr("Qué dice el negativo")}</strong>
                 {rama && (
@@ -2714,7 +2714,7 @@ export function Skills({ skills }: { skills: SkillCatalogo[] | undefined }) {
             <tr>
               <th>Skill</th>
               <th>{tr("Qué hace")}</th>
-              <th>Se activa con</th>
+              <th>{tr("Se activa con")}</th>
               <th>{tr("Entorno y módulos")}</th>
             </tr>
           </thead>

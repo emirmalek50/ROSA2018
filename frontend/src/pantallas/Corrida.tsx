@@ -131,7 +131,7 @@ function NuevaCorrida({ inv, anterior }: { inv: Investigacion; anterior: Corrida
     return (
       <div className="acciones">
         <button type="button" className="btn btn-primario" onClick={() => setAbierto(true)} title={tr("Elige cuánto debe durar la corrida y ROSA2018 propone el plan de la iteración 1 sobre el modelo de mundo actual")}>
-          <IconPlay size={13} /> Nueva corrida
+          <IconPlay size={13} /> {tr("Nueva corrida")}
         </button>
       </div>
     );
@@ -436,24 +436,24 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
             )}
             <div className="gasto-item">
               <strong>{formatearEntero(corrida.gasto.articulosLeidos)}</strong>
-              <span>artículos leídos</span>
+              <span>{tr("artículos leídos")}</span>
             </div>
             <div className="gasto-item">
               <strong>{formatearEntero(corrida.gasto.llamadas)}</strong>
-              <span>llamadas al modelo</span>
+              <span>{tr("llamadas al modelo")}</span>
             </div>
             <div className="gasto-item">
               <strong>{formatearCompacto(corrida.gasto.tokensEntrada)}</strong>
-              <span>tokens de entrada</span>
+              <span>{tr("tokens de entrada")}</span>
             </div>
             <div className="gasto-item">
               <strong>{formatearCompacto(corrida.gasto.tokensSalida)}</strong>
-              <span>tokens de salida</span>
+              <span>{tr("tokens de salida")}</span>
             </div>
             {(corrida.gasto.exaUsd ?? 0) > 0 && (
               <div className="gasto-item" title={tr("Búsquedas semánticas en Exa: 7 USD por mil búsquedas y 1 USD por mil páginas. Se suma al coste por decisión.")}>
                 <strong>{(corrida.gasto.exaUsd ?? 0).toFixed(3)} USD</strong>
-                <span>en Exa</span>
+                <span>{tr("en Exa")}</span>
               </div>
             )}
             <div className="gasto-item" title={tr("Cuánto del contexto del cerebro está ocupado y cuántas veces se ha resumido el historial. Explica por qué ROSA2018 puede 'olvidar' tras días.")}>
@@ -575,7 +575,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                 <th>{tr("Dónde")}</th>
                 <th className="num">CPU</th>
                 <th className="num">Memoria</th>
-                <th>Desde</th>
+                <th>{tr("Desde")}</th>
                 <th></th>
               </tr>
             </thead>

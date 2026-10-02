@@ -50,7 +50,7 @@ export function GraficaProgreso({ corridas }: { corridas: Corrida[] }) {
         ))}
         <text className="gp-eje" x={ml - 4} y={yPeld(maxPeld) + 4} textAnchor="end">{maxReal > 0 ? maxPeld : 'ninguno'}</text>
         <text className="gp-eje" x={ml - 4} y={yPeld(0) + 4} textAnchor="end">0</text>
-        <text className="gp-eje gp-titulo-eje" x={ml - 4} y={mt - 10} textAnchor="end">peldaños</text>
+        <text className="gp-eje gp-titulo-eje" x={ml - 4} y={mt - 10} textAnchor="end">{tr("peldaños")}</text>
         {puntos.filter((p) => p.cambioDeArnes).map((p) => (
           <g key={`arnes-${p.indice}`}>
             <line className="gp-arnes" x1={x(p.indice)} x2={x(p.indice)} y1={mt} y2={H - mb + 4} />

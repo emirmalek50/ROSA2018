@@ -47,7 +47,7 @@ function trasElPintado(): Promise<void> {
 /** Un botón que descarga un fichero armado en el momento. Va en vuelo desde el
  *  clic hasta que el navegador recibe el fichero, y mientras tanto ignora los
  *  clics repetidos (una descarga, no dos). */
-function BotonDescarga({ etiqueta, nombre, tipo, construir, disabled, className = 'btn btn-s' }: { etiqueta: string; nombre: string; tipo?: string; construir: () => string; disabled?: boolean; className?: string }) {
+function BotonDescarga({ etiqueta, nombre, tipo, construir, disabled, className = tr('btn btn-s') }: { etiqueta: string; nombre: string; tipo?: string; construir: () => string; disabled?: boolean; className?: string }) {
   const [enVuelo, envolver] = useEnVuelo();
   const bajar = envolver(async () => {
     await trasElPintado();
@@ -109,7 +109,7 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
         </div>
         {a.versiones.length > 1 && (
           <>
-            <span className="meta">Comparar con</span>
+            <span className="meta">{tr("Comparar con")}</span>
             <select className="entrada" style={{ width: 'auto', minHeight: 30 }} value={contra ?? ''} onChange={(e) => setContra(e.target.value === '' ? null : Number(e.target.value))} aria-label={tr("Comparar con")}>
               <option value="">{tr("Sin comparar")}</option>
               {a.versiones

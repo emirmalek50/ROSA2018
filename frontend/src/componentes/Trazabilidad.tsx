@@ -290,7 +290,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
                     </>
                   ) : (
                     <>
-                      <strong>Otras fuentes</strong>
+                      <strong>{tr("Otras fuentes")}</strong>
                       <span className="arbol-detalle">{tr("Ensayos registrados y fuentes sin consulta anotada")}</span>
                     </>
                   )}
@@ -380,7 +380,7 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
                     <span>{a.texto}</span>
                     <span className="arbol-detalle">
                       <Chip tono={v.tono}>{v.etiqueta}</Chip> <Chip tono="borde">{tipoAfirmacion(a.tipo).etiqueta}</Chip> <span className="meta">{a.cita}</span>
-                      {a.entidadDistinta && <Chip tono="mal">otra entidad</Chip>}
+                      {a.entidadDistinta && <Chip tono="mal">{tr("otra entidad")}</Chip>}
                     </span>
                     {a.motivo && a.veredicto !== 'sostenida' && <span className="arbol-motivo meta">{a.motivo}</span>}
                   </div>

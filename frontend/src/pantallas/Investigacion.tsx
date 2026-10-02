@@ -282,7 +282,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
             {inv.vigilarLiteraturaHasta && inv.vigilarLiteraturaHasta > ahora && (
               <>
                 {' '}
-                <Chip tono="borde">Vigilando literatura hasta <Momento t={inv.vigilarLiteraturaHasta} ahora={ahora} soloRelativo /></Chip>
+                <Chip tono="borde">{tr("Vigilando literatura hasta")} <Momento t={inv.vigilarLiteraturaHasta} ahora={ahora} soloRelativo /></Chip>
               </>
             )}
           </p>
@@ -451,7 +451,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
                 <th>Conjunto</th>
                 <th>{tr("Qué es")}</th>
                 <th>Acceso</th>
-                <th className="num">Tamaño</th>
+                <th className="num">{tr("Tamaño")}</th>
                 <th></th>
               </tr>
             </thead>

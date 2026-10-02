@@ -150,7 +150,7 @@ export function Correo({ servidor }: { servidor: boolean }) {
     {form && estado ? <>
       {estado.administrador && <form onSubmit={(e) => { e.preventDefault(); void guardar(); }}>
         <fieldset disabled={ocupado} style={{ border: 0, padding: 0 }}>
-          <div className="campo"><label htmlFor="correo-proveedor">Proveedor</label><select id="correo-proveedor" value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value as 'resend' | 'smtp' })}><option value="smtp">Google Workspace u otro servidor SMTP</option><option value="resend">Resend</option></select></div>
+          <div className="campo"><label htmlFor="correo-proveedor">Proveedor</label><select id="correo-proveedor" value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value as 'resend' | 'smtp' })}><option value="smtp">{tr("Google Workspace u otro servidor SMTP")}</option><option value="resend">Resend</option></select></div>
           {form.proveedor === 'smtp' && <>
             <div className="campo"><label htmlFor="correo-smtp-servidor">Servidor SMTP</label><input id="correo-smtp-servidor" required value={form.smtpServidor} onChange={(e) => setForm({ ...form, smtpServidor: e.target.value })} /></div>
             <div className="campo"><label htmlFor="correo-smtp-puerto">{tr("Puerto (587 con STARTTLS, 465 con TLS)")}</label><input id="correo-smtp-puerto" type="number" min={1} max={65535} required value={form.smtpPuerto} onChange={(e) => setForm({ ...form, smtpPuerto: Number(e.target.value) })} /></div>

@@ -156,7 +156,7 @@ export function copiaTraducida<T>(v: T): T {
   const proto = Object.getPrototypeOf(v);
   if (proto !== Object.prototype && proto !== null) return v;
   const out: Record<string, unknown> = {};
-  for (const [k, x] of Object.entries(v as Record<string, unknown>)) out[k] = copiaTraducida(x);
+  for (const [k, x] of Object.entries(v as Record<string, unknown>)) out[k] = typeof x === 'string' && CAMPOS_DE_DATOS.has(k) ? x : copiaTraducida(x);
   return out as T;
 }
 
@@ -172,6 +172,24 @@ function sePuedeEnvolver(v: unknown): v is object {
   return proto === Object.prototype || proto === null;
 }
 
+/** Los campos que son DATOS aunque lleven texto: identificadores, enlaces del
+ *  grafo, alias con los que se reconoce algo en la literatura, rutas. El
+ *  Proxy no los traduce NUNCA, esté o no la cadena en el catálogo.
+ *
+ *  Antes dependía de que la cadena no estuviera en el catálogo, y eso es
+ *  casualidad: con cuatro mil entradas, un id acaba coincidiendo con algo.
+ *  Pasó el 2 de octubre de 2026: «B:funcion renal», el id de un nodo del
+ *  grafo causal, entró al catálogo y en inglés se leía «B:renal function»,
+ *  así que los enlaces del grafo dejaban de encontrar su nodo. */
+export const CAMPOS_DE_DATOS: ReadonlySet<string> = new Set([
+  'id', 'clave', 'key', 'de', 'a', 'origen', 'destino', 'ref', 'slug', 'ruta', 'path', 'href',
+  'alias', 'sinonimos', 'patron', 'patrones', 'regex', 'excepto', 'noTras', 'nct',
+  'terminos', 'palabras', 'codigo', 'consulta', 'query', 'endpoint', 'host', 'tipo', 'estado',
+  'investigacionId', 'hipotesisId', 'corridaId', 'fuenteId', 'valor', 'modelo', 'base',
+  // Las cifras ya formateadas no se traducen: el separador lo pone `coma()`.
+  'fraccion',
+]);
+
 function envolver<T extends object>(o: T): T {
   const cache = new Map<string, unknown>();
   let paraIdioma: Idioma = idioma;
@@ -184,7 +202,7 @@ function envolver<T extends object>(o: T): T {
         cache.clear();
         paraIdioma = idioma;
       }
-      if (typeof v === 'string') return tr(v);
+      if (typeof v === 'string') return CAMPOS_DE_DATOS.has(clave) ? v : tr(v);
       if (!sePuedeEnvolver(v)) return v;
       const k = clave;
       if (!cache.has(k)) cache.set(k, envolver(v));

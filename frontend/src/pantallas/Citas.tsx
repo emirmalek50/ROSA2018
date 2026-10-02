@@ -368,7 +368,7 @@ function FilaAfirmacion({ a, elegida, onElegir }: { a: AfirmacionCitada; elegida
         <Veredicto veredicto={a.veredicto} />
         <span className="citas-cita">{a.cita}</span>
         <span className="meta">{enLlanoLaClase(a.clase, a.localizador)}</span>
-        {Boolean(a.bloqueoViejo) && <span className="citas-marca-rancio">ya no bloquearía</span>}
+        {Boolean(a.bloqueoViejo) && <span className="citas-marca-rancio">{tr("ya no bloquearía")}</span>}
       </div>
     </button>
   );

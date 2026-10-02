@@ -13,9 +13,13 @@ import ts from 'typescript';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const ATRIBUTOS = new Set(['title', 'aria-label', 'placeholder', 'alt', 'aria-description', 'aria-roledescription']);
-const ESP = /[áéíóúñÁÉÍÓÚÑ¿¡]|\b(el|la|los|las|de|del|que|para|con|sin|por|una|un|este|esta|esto|no|se|su|lo|al|y|o|en|más|menos|cada|todo|toda|hay|son|está|ser|hace|dice|puede|sobre)\b/i;
+// Castellano sin tildes y sin ninguna de estas palabras se escapaba: a
+// «Inyectar como criterio» le faltaba «como» y se quedo sin traducir con
+// el recuento diciendo cero. Mas vale que sobre una palabra y la
+// revisemos que no que falte y no se vea.
+const ESP = /[áéíóúñÁÉÍÓÚÑ¿¡]|\b(el|la|los|las|de|del|que|para|con|sin|por|una|un|este|esta|esto|no|se|su|lo|al|y|o|en|más|menos|cada|todo|toda|hay|son|está|ser|hace|dice|puede|sobre|como|desde|hasta|entre|pero|aunque|mientras|cuando|donde|muy|ya|aun|tras|ante|bajo|según|contra|nada|algo|otro|otra|otros|otras|mismo|misma|tan|tanto|solo|sólo|aqui|aquí|aun|aún|aquel|ese|esa|esos|esas|aquella|nuevo|nueva|aquello)\b/i;
 
-export function esVisible(s) {
+export function esVisible(s, entero = false) {
   const t = s.trim();
   if (t.length < 2) return false;
   // Trozos intraducibles: texto partido por marcado anidado (un <b> en medio
@@ -26,7 +30,12 @@ export function esVisible(s) {
   const palabras = t.split(/\s+/).filter(Boolean);
   const empiezaMal = /^[,.;:)\u00bb\u2014-]|^[a-z\u00e1\u00e9\u00ed\u00f3\u00fa\u00f1]/.test(t);
   const acabaColgando = /\b(con|de|en|por|para|que|y|o|del|al|la|el|los|las|un|una)$/.test(t);
-  if (t.length < 24 && (empiezaMal || acabaColgando) && palabras.length <= 3) return false;
+  // `entero`: el texto es el UNICO hijo de su elemento, asi que es una
+  // etiqueta completa y no un trozo. Sin esto se perdian las etiquetas cortas
+  // en minuscula como «ya no bloquearia» (Citas.tsx), que el filtro tomaba
+  // por fragmento: 3 palabras, minuscula y menos de 24 caracteres. El
+  // recuento decia 0 pendientes y la pantalla seguia en castellano.
+  if (!entero && t.length < 24 && (empiezaMal || acabaColgando) && palabras.length <= 3) return false;
   if (!/[a-záéíóúñ]/i.test(t)) return false;        // solo signos o números
   if (/^[\d\s.,%:+-]+$/.test(t)) return false;       // solo cifras
   if (/^[a-z][a-z0-9-]*$/.test(t) && !t.includes(' ')) return false;  // clase o id
@@ -55,7 +64,10 @@ export function procesar(ruta, { escribir = false } = {}) {
       // JSX COLAPSA el espacio interior: un salto de línea con su sangría se
       // pinta como un espacio. Una cadena no.
       const texto = crudo.replace(/\s+/g, ' ');
-      if (esVisible(texto)) {
+      // Unico hijo con contenido: ni expresiones ni elementos hermanos.
+      const hermanos = (n.parent?.children ?? []).filter((h) => !(ts.isJsxText(h) && h.getText().trim() === ''));
+      const entero = hermanos.length === 1 && hermanos[0] === n;
+      if (esVisible(texto, entero)) {
         const antes = bruto.slice(0, bruto.indexOf(crudo));
         const despues = bruto.slice(bruto.indexOf(crudo) + crudo.length);
         cadenas.add(texto);

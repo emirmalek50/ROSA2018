@@ -8,6 +8,7 @@ import { observarSistema } from './lib/theme';
 import './styles.css';
 import './vivo.css';
 import './mundo.css';
+import { tr } from './lib/idioma';
 
 // El tema ya lo aplico el script inline de index.html. Esto solo engancha los
 // cambios del sistema para que la opcion 'sistema' siga al SO en vivo.
@@ -16,7 +17,7 @@ observarSistema();
 // No cargar estado de investigación antes de verificar la sesión.
 
 const raiz = document.getElementById('root');
-if (!raiz) throw new Error('No se encontró el elemento #root');
+if (!raiz) throw new Error(tr('No se encontró el elemento #root'));
 
 createRoot(raiz).render(
   <StrictMode>

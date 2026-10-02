@@ -86,7 +86,8 @@ describe('el catálogo en inglés', () => {
     // inglés cree que son dos estados. Pasó: el catálogo escrito a mano decía
     // «Not supported» en un sitio y «not upheld» en otro.
     const TERMINOS: { es: RegExp; debe: RegExp; nombre: string }[] = [
-      { es: /\bsostenid[ao]s?\b/i, debe: /\bsupport/i, nombre: 'sostenida -> supported' },
+      // «unsupported» cuenta: es «no sostenida» en una sola palabra.
+      { es: /\bsostenid[ao]s?\b/i, debe: /support/i, nombre: 'sostenida -> supported' },
       { es: /\bcerteza\b/i, debe: /\bcertainty\b/i, nombre: 'certeza -> certainty (GRADE)' },
       { es: /\brefuta\b/i, debe: /\brefute/i, nombre: 'refuta -> refutes' },
       { es: /\bdiana\b/i, debe: /\btarget\b/i, nombre: 'diana -> target' },

@@ -64,6 +64,12 @@ function noSeToca(n) {
 // comparacion rota en ingles no la cazan las pruebas, que corren en
 // castellano. Mejor una frase sin traducir que un `if` que deja de valer.
 const PROHIBIDAS = new Set();
+// Las listas de vocabulario para comparar texto, nombradas una a una en
+// no-traducir.json (sale de las constantes de acciones.ts). Un pase del
+// codemod las volvio a envolver despues de haberlas sacado, y el catalogo
+// las tradujo: la deteccion de negaciones se habria roto en ingles sin que
+// nada lo dijera. Por nombre no hay heuristica que fallar.
+for (const t of JSON.parse(readFileSync('scripts/i18n/no-traducir.json', 'utf8'))) PROHIBIDAS.add(t);
 {
   const todos = execSync("find src -name '*.tsx' -o -name '*.ts'", { encoding: 'utf8' }).trim().split('\n');
   for (const f of todos) {

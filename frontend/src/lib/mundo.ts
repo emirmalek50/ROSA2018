@@ -18,14 +18,14 @@ import { idiomaActual, tr, trp } from './idioma';
  *  etiqueta en inglés («cerebrospinal fluid»); a un médico se le habla en su
  *  idioma. Los genes conservan su símbolo, que es como se nombran. */
 const NOMBRES: Record<string, { nombre: string; clase?: string }> = {
-  'CHEBI:64645': { nombre: 'Amiloide β', clase: 'péptido' },
-  'HGNC:6893': { nombre: 'Tau (MAPT)' },
+  'CHEBI:64645': { nombre: 'Amiloide β', clase: tr('péptido') },
+  'HGNC:6893': { nombre: tr('Tau (MAPT)') },
   'MONDO:0004975': { nombre: 'Enfermedad de Alzheimer' },
-  'CHEBI:229272': { nombre: 'Lecanemab', clase: 'fármaco' },
+  'CHEBI:229272': { nombre: 'Lecanemab', clase: tr('fármaco') },
   'UBERON:0001359': { nombre: 'Líquido cefalorraquídeo', clase: 'fluido' },
-  'HGNC:7739': { nombre: 'NfL (NEFL)' },
+  'HGNC:7739': { nombre: tr('NfL (NEFL)') },
   'UBERON:0002421': { nombre: 'Hipocampo', clase: 'región cerebral' },
-  'CL:0000129': { nombre: 'Microglía' },
+  'CL:0000129': { nombre: tr('Microglía') },
   'UBERON:0001969': { nombre: 'Plasma', clase: 'fluido' },
   'CL:0000540': { nombre: 'Neurona' },
   'CL:0000127': { nombre: 'Astrocito' },
@@ -39,7 +39,7 @@ const CLASES: Record<string, string> = {
   compuesto: 'compuesto',
   enfermedad: 'enfermedad',
   tejido: 'tejido',
-  celula: 'célula',
+  celula: tr('célula'),
   proceso: 'proceso',
   componente: 'componente celular',
 };

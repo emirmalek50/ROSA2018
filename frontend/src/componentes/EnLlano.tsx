@@ -258,7 +258,7 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
         <div className="conclusion-columnas">
           <div className="llano-bloque">
             <h4>A favor</h4>
-            {conclusion.aFavor.length === 0 ? <p className="meta">Nada directo.</p> : <ul>{conclusion.aFavor.map((t, i) => <li key={i}>{t}</li>)}</ul>}
+            {conclusion.aFavor.length === 0 ? <p className="meta">{tr("Nada directo.")}</p> : <ul>{conclusion.aFavor.map((t, i) => <li key={i}>{t}</li>)}</ul>}
           </div>
           <div className="llano-bloque">
             <h4>{tr("En contra o que la debilita")}</h4>

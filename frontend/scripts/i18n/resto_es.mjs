@@ -12,10 +12,22 @@ await ctx.addInitScript(() => { localStorage.setItem('rosa.recorrido.v1', '1'); 
 const p = await ctx.newPage();
 p.on('pageerror', (e) => console.log('ERROR:', String(e).slice(0, 160)));
 
-const RUTAS = process.argv[2] ? process.argv[2].split(',') : ['/', '/investigacion', '/corrida', '/ranking', '/calidad', '/laboratorio', '/arbol', '/atlas', '/modelo', '/ajustes'];
+// Las rutas de una investigacion de verdad, sacadas del estado, mas las cinco
+// vistas del ranking. Antes la lista estaba a mano y se quedaba vieja.
+const RUTAS = process.argv[2] ? process.argv[2].split(',') : null;
+await p.goto('http://127.0.0.1:8765/#/', { waitUntil: 'networkidle' });
+await p.waitForTimeout(4000);
+const inv = await p.evaluate(() => {
+  const a = [...document.querySelectorAll('a[href*="/investigaciones/"]')].map((x) => x.getAttribute('href') ?? '');
+  const m = a.map((h) => h.match(/investigaciones\/([^/]+)/)).find(Boolean);
+  return m ? m[1] : null;
+});
+const rutas = RUTAS ?? ['/', '/ajustes', '/laboratorio',
+  ...['corrida', 'ranking', 'ranking/pendientes', 'ranking/lista', 'ranking/laboratorio', 'panorama', 'mundo', 'arbol', 'atlas', 'mecanismos', 'citas', 'artefactos', 'calidad', 'investigacion'].map((x) => `/investigaciones/${inv}/${x}`)];
+
 const cuenta = new Map();
 const porRuta = new Map();
-for (const r of RUTAS) {
+for (const r of rutas) {
   await p.goto(`http://127.0.0.1:8765/#${r}`, { waitUntil: 'networkidle' }).catch(() => {});
   await p.waitForTimeout(2500);
   const trozos = await p.evaluate(() => {

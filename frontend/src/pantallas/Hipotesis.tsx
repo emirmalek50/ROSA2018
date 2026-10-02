@@ -274,7 +274,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           <dd>{h.comprobacion.biomarcador}</dd>
           <dt>Cohorte</dt>
           <dd>{h.comprobacion.cohorte}</dd>
-          <dt>Diseño</dt>
+          <dt>{tr("Diseño")}</dt>
           <dd>{h.comprobacion.diseno}</dd>
         </dl>
       </Seccion>
@@ -874,7 +874,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           <p className="meta">
             {tr("Último dossier:")}{' '}
             <a className="enlace" href={rutaDe(h.investigacionId, 'artefactos', h.dossierArtefactoId)}>
-              abrir en Artefactos
+              {tr("abrir en Artefactos")}
             </a>
             {tr(". Cada generación es una versión nueva; las anteriores se conservan.")}
           </p>

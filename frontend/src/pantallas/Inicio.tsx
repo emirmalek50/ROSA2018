@@ -120,7 +120,7 @@ export function Inicio({ estado, ahora }: { estado: EstadoRosa; ahora: number })
                       {espera.masAntiguaMs > 60_000 && ` · la más antigua ${formatearDuracion(espera.masAntiguaMs)}`}
                     </Chip>
                   ) : (
-                    <Chip tono="ok">Nada espera</Chip>
+                    <Chip tono="ok">{tr("Nada espera")}</Chip>
                   )}
                   {inv.ramaDe && <Chip tono="borde">Rama</Chip>}
                   {inv.vigilarLiteraturaHasta && inv.vigilarLiteraturaHasta > ahora && <Chip tono="borde">Vigilando literatura</Chip>}

@@ -126,7 +126,7 @@ function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id 
           <span className="mono dsp-accession">{accession}</span>
         )}
         <Chip tono={TONO_ACCESO[acceso]} title={DEFINICION_ACCESO[acceso]}>{ETIQUETA_ACCESO[acceso]}</Chip>
-        {usado && <Chip tono="acento" title={tr("Alguna corrida de esta investigación lo consultó o lo analizó.")}>usado aquí</Chip>}
+        {usado && <Chip tono="acento" title={tr("Alguna corrida de esta investigación lo consultó o lo analizó.")}>{tr("usado aquí")}</Chip>}
         {!usado && usadoEn > 0 && <Chip title={tr("Lo usó otra investigación de este programa.")}>usado en {usadoEn} {usadoEn === 1 ? tr('investigación') : 'investigaciones'}</Chip>}
       </div>
       <p className="dsp-titulo">{titulo}</p>

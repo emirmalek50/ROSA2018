@@ -92,7 +92,7 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
           <p>{CABECERA_PANORAMA.descripcion}</p>
         </div>
         <button type="button" className="btn" onClick={exportarAims} disabled={hipotesis.length === 0} {...atributosEnVuelo(exportando)}>
-          Exportar como Specific Aims
+          {tr("Exportar como Specific Aims")}
         </button>
       </div>
 
@@ -189,10 +189,10 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
                       )}
                     </div>
                     {d.inyectada ? (
-                      <span className="debilidad-hecha">Ya es criterio</span>
+                      <span className="debilidad-hecha">{tr("Ya es criterio")}</span>
                     ) : (
                       <button type="button" className="btn btn-s" onClick={() => corrida && acciones.inyectarDebilidad(corrida.id, d.id)}>
-                        Inyectar como criterio
+                        {tr("Inyectar como criterio")}
                       </button>
                     )}
                   </li>

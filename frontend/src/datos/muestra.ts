@@ -612,9 +612,9 @@ function procedencia(fuentes: Fuente[], codigo: string, registro: string[], mens
         { nombre: 'pydantic', version: '2.11.4' },
       ],
       modelos: [
-        { nombre: 'openai/gpt-6-astra (cerebro)', version: 'gateway' },
-        { nombre: 'anthropic/claude-opus-5 (juez)', version: 'gateway' },
-        { nombre: 'anthropic/claude-sonnet-5 (extractor)', version: 'gateway' },
+        { nombre: tr('openai/gpt-6-astra (cerebro)'), version: 'gateway' },
+        { nombre: tr('anthropic/claude-opus-5 (juez)'), version: 'gateway' },
+        { nombre: tr('anthropic/claude-sonnet-5 (extractor)'), version: 'gateway' },
       ],
     },
     fuentes,
@@ -1404,7 +1404,7 @@ export const CASOS: CasoControl[] = traducido([
 export const METRICAS: MetricasJuez[] = [
   { fecha: hace(2 * DIA), juez: 'anthropic/claude-opus-5', casos: 17, acuerdoConHumanos: 0, sostenidas: 0.89, cobertura: 0.81, ausenciasRefutadas: 2, entidadDistinta: 1, sinVerificar: 0.04, aciertoPorTipo: { dato: null, literatura: null, interpretacion: null } },
   { fecha: hace(1 * DIA), juez: 'anthropic/claude-opus-5', casos: 17, acuerdoConHumanos: 0, sostenidas: 0.91, cobertura: 0.84, ausenciasRefutadas: 1, entidadDistinta: 1, sinVerificar: 0.03, aciertoPorTipo: { dato: 0.86, literatura: 0.83, interpretacion: 0.6 } },
-  { fecha: hace(1 * DIA), juez: 'openai/gpt-6-astra (comparado)', casos: 17, acuerdoConHumanos: 0, sostenidas: 0.9, cobertura: 0.84, ausenciasRefutadas: 1, entidadDistinta: 2, sinVerificar: 0.07, aciertoPorTipo: { dato: 0.85, literatura: 0.8, interpretacion: 0.55 } },
+  { fecha: hace(1 * DIA), juez: tr('openai/gpt-6-astra (comparado)'), casos: 17, acuerdoConHumanos: 0, sostenidas: 0.9, cobertura: 0.84, ausenciasRefutadas: 1, entidadDistinta: 2, sinVerificar: 0.07, aciertoPorTipo: { dato: 0.85, literatura: 0.8, interpretacion: 0.55 } },
 ];
 
 export const GEPA: CorridaGepa[] = [

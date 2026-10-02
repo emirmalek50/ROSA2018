@@ -370,7 +370,7 @@ export function PodioRanking({ lista, estado, invId, alVerLista }: { lista: Hipo
   const teclas = (e: KeyboardEvent<HTMLElement>) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     const objetivo = e.target as HTMLElement;
-    if (objetivo.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (objetivo.closest(tr('input, textarea, select, [contenteditable="true"]'))) return;
     if (e.key === '1' || e.key === '2' || e.key === '3') {
       const k = Number(e.key) - 1;
       if (k < puestos.length) {

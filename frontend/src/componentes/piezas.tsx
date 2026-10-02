@@ -25,7 +25,7 @@ export function Momento({ t, ahora, soloRelativo = false }: { t: number; ahora: 
   if (!Number.isFinite(t) || t <= 0) {
     // Un momento ausente o corrupto (null convertido, NaN) no puede tumbar la
     // pantalla entera por un toISOString que lanza.
-    return <span className="momento meta">sin fecha</span>;
+    return <span className="momento meta">{tr("sin fecha")}</span>;
   }
   const abs = fechaCorta(t);
   const rel = tiempoRelativo(t, ahora);

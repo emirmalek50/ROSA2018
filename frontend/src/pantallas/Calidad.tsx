@@ -310,7 +310,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
       <Seccion detalle titulo={tr("Agujeros de conejo y coste")} nota={tr("Hipótesis con evidencia estadística fuerte que una persona votó poco relevantes: lo que Kosmos reconoce como su fallo. Y cuánto costó cada una.")}>
         <div className="rejilla-2">
           <div className="tarjeta">
-            <p className="campo-etiqueta">Significativas pero irrelevantes</p>
+            <p className="campo-etiqueta">{tr("Significativas pero irrelevantes")}</p>
             <p style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{conejos.length}</p>
             {conejos.map((h) => (
               <a key={h.id} className="enlace" href={rutaDe(inv.id, 'hipotesis', h.id)} style={{ display: 'block', fontSize: 13 }}>

@@ -149,7 +149,7 @@ const distanciaReposo = (radio: number): number => distanciaParaEncuadrar(radio 
  *  desaturado lee como el fondo de un estudio y deja respirar al tejido. */
 const FONDO: [number, number, number] = [0.043, 0.047, 0.059];
 const TEXTO = '#f4efe4';
-const TEXTO_TENUE = 'rgba(244, 239, 228, 0.72)';
+const TEXTO_TENUE = tr('rgba(244, 239, 228, 0.72)');
 const AMBAR = '#f0a030';
 
 /** Los compartimentos de fuera del cerebro, como cuerpos en la escena. Las
@@ -704,7 +704,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         const esMirada = r.clave === mirada;
         const conDatos = r.prioridad > 1;
         // La guía corta, del ancla al borde de la caja, con su punto en el ancla.
-        rotulador.strokeStyle = esMirada ? AMBAR : 'rgba(244, 239, 228, 0.55)';
+        rotulador.strokeStyle = esMirada ? AMBAR : tr('rgba(244, 239, 228, 0.55)');
         rotulador.lineWidth = 1.2;
         rotulador.beginPath();
         rotulador.moveTo(r.x, r.y);
@@ -712,7 +712,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
         rotulador.stroke();
         rotulador.beginPath();
         rotulador.arc(r.x, r.y, 2.6, 0, Math.PI * 2);
-        rotulador.fillStyle = esMirada ? AMBAR : 'rgba(244, 239, 228, 0.9)';
+        rotulador.fillStyle = esMirada ? AMBAR : tr('rgba(244, 239, 228, 0.9)');
         rotulador.fill();
         // El texto con halo del color del fondo, para que se lea sobre el tejido.
         rotulador.font = fuente(conDatos || esMirada);

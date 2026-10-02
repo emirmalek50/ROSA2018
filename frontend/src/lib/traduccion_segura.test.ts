@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { QUIEN } from '../datos/almacen';
 import { canonizarCohorte } from './priorizacion';
-import { fijarIdioma, tr } from './idioma';
+import { copiaTraducida, fijarIdioma, tr, traducido } from './idioma';
 
 afterEach(() => {
   fijarIdioma('es');
@@ -50,6 +50,21 @@ describe('en inglés, lo que sirve para comparar sigue comparando', () => {
     for (const n of ['ADNI', 'ROSMAP', 'TRAILBLAZER-ALZ', 'Rotterdam Study', 'Knight ADRC', 'Three-City']) {
       expect(tr(n), `${n} es un nombre propio`).toBe(n);
     }
+  });
+
+  it('un id no se traduce aunque su texto SÍ esté en el catálogo', () => {
+    // La barrera no puede depender de la casualidad de que el id no coincida
+    // con ninguna entrada: «Al laboratorio» está en el catálogo a propósito,
+    // y aun así, puesto en el campo `id`, se queda como está.
+    const m = traducido({ id: 'Al laboratorio', de: 'Al laboratorio', etiqueta: 'Al laboratorio' });
+    fijarIdioma('en');
+    expect(m.etiqueta).toBe('To the lab');
+    expect(m.id).toBe('Al laboratorio');
+    expect(m.de).toBe('Al laboratorio');
+    // Y la copia plana, que es la que usa el estado de muestra, igual.
+    const c = copiaTraducida({ id: 'Al laboratorio', etiqueta: 'Al laboratorio' });
+    expect(c.id).toBe('Al laboratorio');
+    expect(c.etiqueta).toBe('To the lab');
   });
 
   it('lo que se GUARDA no depende del idioma de la pantalla', () => {

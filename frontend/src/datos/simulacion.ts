@@ -242,7 +242,7 @@ function hipotesisSimulada(investigacionId: string, iteracion: number, ahora: nu
     ],
     procedencia: {
       mensajes: [{ id: nuevoId('m'), de: 'rosa', texto: tr('Hipótesis generada por la simulación de la interfaz a partir de la pregunta abierta sobre NfL y GFAP.'), creadoEn: ahora }],
-      codigo: 'salida = generar(hechos=hechos_iteracion, pregunta_abierta="orden de NfL y GFAP")',
+      codigo: tr('salida = generar(hechos=hechos_iteracion, pregunta_abierta="orden de NfL y GFAP")'),
       registro: ['(simulación) generar -> 1 hipótesis', '(simulación) juez -> parcial', '(simulación) novedad -> sin ensayo'],
       entorno: { lenguaje: 'Python', version: '3.12.14', paquetes: [{ nombre: 'dspy', version: '3.3.1' }], modelos: [{ nombre: 'openai/gpt-6-astra', version: 'gateway' }] },
       fuentes: [f],

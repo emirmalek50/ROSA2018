@@ -106,7 +106,12 @@ def comprobar(original: str, traducido: str) -> str | None:
     if huecos_o != huecos_t:
         return f"los huecos no coinciden: {sorted(huecos_o)} frente a {sorted(huecos_t)}"
     bajo = traducido.lower()
-    if re.search(r"\b(?:proven|confirmed|demonstrates|demonstrated)\b", bajo):
+    # Comparativa, igual que la prueba del catálogo: «No confirmado» -> «Not
+    # confirmed» es fiel, porque el castellano ya lo dice. Lo que no vale es
+    # que el inglés afirme algo que el castellano no afirma.
+    afirma_en = re.search(r"\b(?:proven|proves|confirmed|confirms|demonstrates|demonstrated|establishes)\b", bajo)
+    afirma_es = re.search(r"\b(?:demostrad|demuestra|confirmad|confirma|establece|prueba que)", original.lower())
+    if afirma_en and not afirma_es:
         return "afirma de más (proven/confirmed)"
     if "no pude comprobar" in original.lower() or "no se pudo comprobar" in original.lower():
         if not re.search(r"could not (?:be )?check", bajo):
@@ -164,8 +169,30 @@ def traducir(cadenas: list[str], modelo: str) -> dict[str, str]:
     return fuera
 
 
+# Lo que tiene pinta de DATO no se escribe en el catálogo aunque esté en la
+# memoria de traducción: un id del grafo («B:funcion renal»), un id de
+# registro («hip-2 ...»), una cifra («34 %»). Es la segunda barrera; la
+# primera es que el Proxy de la interfaz no traduce los campos de datos.
+NO_ES_TEXTO = [
+    re.compile(r"^[A-Z]{1,4}:\S"),
+    re.compile(r"^(?:hip|he|inv|cor|art|fu|af|cohorte|ensayo)[-:]"),
+    re.compile(r"^[\d\s.,%+\-]+$"),
+]
+
+
+def es_dato(clave: str) -> bool:
+    if any(r.search(clave) for r in NO_ES_TEXTO):
+        return True
+    # Las listas de vocabulario NO se filtran aqui por su forma. Se intento
+    # («muchas palabras y sin puntuacion») y se llevo por delante 87 frases
+    # buenas, entre ellas titulos de hipotesis. Van nombradas una a una en
+    # frontend/scripts/i18n/no-traducir.json, que sale de las constantes del
+    # codigo, y ademas el codemod ya no las envuelve: no llegan hasta aqui.
+    return False
+
+
 def escribir_ts(destino: pathlib.Path) -> int:
-    hechas = ya_hechas()
+    hechas = {k: v for k, v in ya_hechas().items() if not es_dato(k)}
     if not hechas:
         print("no hay traducciones que escribir")
         return 0

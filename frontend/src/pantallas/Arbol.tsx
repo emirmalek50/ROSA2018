@@ -948,7 +948,7 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
               {nodoSel.alias && nodoSel.alias.length > 1 && <p className="meta">Alias: {nodoSel.alias.slice(0, 8).join(', ')}</p>}
               <p className="meta">{tr("Aparece desde la iteración")} {nodoSel.iteracion || 1} de {grafo.iteracionMax} {tr("(contando seguidas todas las corridas).")}</p>
               {!SIN_DISTANCIA.has(nodoSel.tipo) && <p className="meta">{fraseProfundidad(nodoSel)}</p>}
-              <h4>Conectado con</h4>
+              <h4>{tr("Conectado con")}</h4>
               <ul className="grafo-vecinos">
                 {grafo.enlaces
                   .filter((e) => e.de === nodoSel.id || e.a === nodoSel.id)

@@ -68,7 +68,7 @@ const FONDO = '#0b0a14';
 const TEXTO = '#f4efe4';
 const DISCORDIA = '#d1352b';
 const SELECCION = '#2b1b10';
-const BORDE = 'rgba(255, 255, 255, 0.78)';
+const BORDE = tr('rgba(255, 255, 255, 0.78)');
 const TINTA = CEREBRO_BASE.tinta;
 /** Las regiones que llegan de verdad a la superficie del hemisferio y por eso
  *  se tiñen en ella. Las profundas (tálamo, hipocampo, amígdala, sustancia
@@ -234,7 +234,7 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
     const tile = document.createElement('canvas');
     tile.width = tile.height = 8;
     const tc = tile.getContext('2d')!;
-    tc.strokeStyle = 'rgba(83, 46, 31, 0.45)';
+    tc.strokeStyle = tr('rgba(83, 46, 31, 0.45)');
     tc.lineWidth = 1.2;
     tc.moveTo(0, 8); tc.lineTo(8, 0); tc.stroke();
     const rayas = contexto.createPattern(tile, 'repeat');
@@ -433,7 +433,7 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
           } else {
             // Se ve el hemisferio desde fuera: el corte solo hace de fondo del
             // canto, donde la malla no llega por quedarse sin celda entera.
-            contexto.fillStyle = 'rgb(176, 152, 146)'; contexto.fill(silueta, 'evenodd');
+            contexto.fillStyle = tr('rgb(176, 152, 146)'); contexto.fill(silueta, 'evenodd');
             pintarSuperficie(c);
           }
         } else if (s.clave === 'retina') {
@@ -464,7 +464,7 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
           contexto.strokeStyle = '#8a6a5a'; contexto.lineWidth = 1; contexto.stroke(esfera);
           // El brillo, arriba a la izquierda.
           contexto.beginPath(); contexto.ellipse(q.x - 0.38 * R, q.y - 0.4 * R, 0.2 * R, 0.12 * R, 0, 0, Math.PI * 2);
-          contexto.fillStyle = 'rgba(255, 255, 255, 0.6)'; contexto.fill();
+          contexto.fillStyle = tr('rgba(255, 255, 255, 0.6)'); contexto.fill();
         } else {
           const zc = (Math.cos(c.guinada) * Math.cos(c.cabeceo) >= 0 ? -1 : 1) * s.grosor;
           if (s.grosor > 0) pintarParedes(s.contorno, s.grosor, PARED[s.clave] ?? PARED.plasma!);
@@ -476,7 +476,7 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
           }
         }
         const zFinos = s.clave === 'cerebro' ? z : zDe.get(s.clave) ?? 0;
-        contexto.strokeStyle = 'rgba(238, 233, 255, 0.4)'; contexto.lineWidth = 0.9;
+        contexto.strokeStyle = tr('rgba(238, 233, 255, 0.4)'); contexto.lineWidth = 0.9;
         for (const f of finosConSolido) if (f.solido === s.clave) contexto.stroke(camino(f.trazos, zFinos, c));
       }
       const porClave = new Map(datos.current.atlas.regiones.map((r) => [r.clave, r]));
@@ -516,7 +516,7 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
           // Hueco: rayas en la tinta de la lámina, tenues si nadie lo buscó y marcadas con contorno si se buscó sin hallazgo.
           const buscada = dato?.cobertura === 'buscada_sin_hallazgo';
           if (rayas) { contexto.fillStyle = rayas; contexto.globalAlpha = buscada || conFoco ? 0.85 : 0.5; contexto.fill(path, 'evenodd'); contexto.globalAlpha = 1; }
-          contexto.strokeStyle = buscada ? 'rgba(83, 46, 31, 0.72)' : 'rgba(83, 46, 31, 0.16)'; contexto.lineWidth = buscada ? 1.1 : 0.8;
+          contexto.strokeStyle = buscada ? tr('rgba(83, 46, 31, 0.72)') : tr('rgba(83, 46, 31, 0.16)'); contexto.lineWidth = buscada ? 1.1 : 0.8;
           if (conFoco) { contexto.strokeStyle = TEXTO; contexto.lineWidth = 1.4; }
           contexto.stroke(path);
         }
@@ -577,10 +577,10 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
           const a = punto(r.centro, zr, c);
           const b = punto(finGuia(r, texto), zr, c);
           contexto.beginPath(); contexto.moveTo(a.x, a.y); contexto.lineTo(b.x, b.y);
-          contexto.strokeStyle = 'rgba(238, 233, 255, 0.34)'; contexto.lineWidth = 0.8; contexto.stroke();
+          contexto.strokeStyle = tr('rgba(238, 233, 255, 0.34)'); contexto.lineWidth = 0.8; contexto.stroke();
         }
         contexto.strokeStyle = FONDO; contexto.lineWidth = 3 / escala;
-        contexto.strokeText(texto, p.x, p.y); contexto.fillStyle = conteo ? TEXTO : 'rgba(244, 239, 228, 0.78)'; contexto.fillText(texto, p.x, p.y);
+        contexto.strokeText(texto, p.x, p.y); contexto.fillStyle = conteo ? TEXTO : tr('rgba(244, 239, 228, 0.78)'); contexto.fillText(texto, p.x, p.y);
       }
     };
     const pedir = () => { if (!frame) frame = requestAnimationFrame(pintar); };

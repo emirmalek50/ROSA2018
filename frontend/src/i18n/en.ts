@@ -36,9 +36,14 @@ import { DOMINIO } from './en/13-dominio';
 import { DOMINIO2 } from './en/14-dominio';
 import { DOMINIO3 } from './en/15-dominio';
 import { ARBOL_ATLAS } from './en/16-arbol-atlas';
+import { GENERADO } from './en/17-generado';
 import { MUNDO } from './en/17-mundo';
 
 export const EN: Record<string, string> = {
+  // Lo generado por el modelo va PRIMERO: en un objeto gana lo que se
+  // escribe después, así que si una frase está en los dos sitios manda la
+  // versión escrita y revisada a mano, no la del modelo.
+  ...GENERADO,
   ...CASCARA,
   ...LABORATORIO,
   ...ETIQUETAS,
