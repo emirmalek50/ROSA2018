@@ -2311,6 +2311,7 @@ export interface Evento {
    --------------------------------------------------------------------- */
 
 export interface EstadoRosa {
+  asistenteGlobal?: Investigacion;
   conexion: EstadoConexion;
   investigaciones: Investigacion[];
   corridas: Corrida[];
@@ -2483,6 +2484,10 @@ export interface MemoriaProyecto {
 }
 
 export interface AccionAsistente {
+  continuacion?: string;
+  errorContinuacion?: string;
+  comprobadaEn?: number;
+  comprobacion?: unknown;
   contexto?: unknown;
   id: string;
   nombre: string;

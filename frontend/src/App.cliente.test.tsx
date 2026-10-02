@@ -6,7 +6,7 @@
 // saldria aqui, no al abrirla.
 
 import { act } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import App from './App';
 import { estadoDeMuestra } from './datos/muestra';
@@ -38,16 +38,22 @@ beforeAll(() => {
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-afterEach(() => {
+let montada: Root | null = null;
+
+afterEach(async () => {
+  if (montada) await act(async () => montada!.unmount());
+  montada = null;
   document.body.innerHTML = '';
   window.location.hash = '';
 });
 
 async function montar(hash: string): Promise<HTMLElement> {
+  if (montada) await act(async () => montada!.unmount());
   window.location.hash = hash;
   const raiz = document.createElement('div');
   document.body.appendChild(raiz);
   const root = createRoot(raiz);
+  montada = root;
   await act(async () => {
     root.render(<App />);
   });
@@ -62,6 +68,17 @@ async function montar(hash: string): Promise<HTMLElement> {
 }
 
 describe('la aplicacion montada en el cliente', () => {
+  it('abre el asistente global sin crear una investigación ficticia', async () => {
+    localStorage.setItem('rosa.recorrido.v1', '1');
+    const base = { ...estadoDeMuestra(), investigaciones: [], corridas: [] };
+    await act(async () => aplicar(() => base));
+    const raiz = await montar('#/asistente');
+    expect(raiz.textContent).toContain('Asistente de ROSA');
+    expect(raiz.querySelector('textarea')).toBeTruthy();
+    expect(raiz.textContent).toContain('Consulta y opera todas las investigaciones de ROSA');
+    expect(raiz.querySelector('.hilo')).toBeNull();
+    await act(async () => aplicar(() => estadoDeMuestra()));
+  });
   it('conserva la pantalla si una actualización omite la investigación y se recupera después', async () => {
     const base = estadoDeMuestra();
     const inv = base.investigaciones[0]!;
@@ -119,7 +136,13 @@ describe('la aplicacion montada en el cliente', () => {
     }
     // En el arbol, pulsar una esfera abre su panel con las conexiones.
     const arbol = await montar(rutaDe(inv.id, 'arbol'));
-    const esfera = arbol.querySelector<SVGGElement>('.grafo-nodo.grafo-hipotesis');
+    let esfera = arbol.querySelector<SVGGElement>('.grafo-nodo.grafo-hipotesis');
+    // El árbol se calcula después del montaje: esperamos su resultado, no un
+    // número fijo de fotogramas que depende de la carga de la suite.
+    for (let i = 0; !esfera && i < 100; i++) {
+      await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+      esfera = arbol.querySelector<SVGGElement>('.grafo-nodo.grafo-hipotesis');
+    }
     expect(esfera).toBeTruthy();
     await act(async () => {
       esfera!.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));

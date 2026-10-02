@@ -60,7 +60,7 @@ from urllib.parse import urlsplit
 ACCIONES_INTERNAS = {"resolverAccionAsistente", "registrarPreguntaBases", "registrarEvaluacion", "registrarDatosExperimento", "registrarSelloExterno"}
 MAX_CUERPO_ACCION = 1_000_000
 MAX_CUERPO_PEQUENO = 4096
-MAX_CUERPO_PREGUNTA = 16_384
+MAX_CUERPO_PREGUNTA = 262_144
 # 80 textos de hasta 4000 caracteres, con margen para el JSON (rosa/traductor.py).
 MAX_CUERPO_TRADUCIR = 400_000
 # Textos NUEVOS que se mandan a traducir al modelo por día; lo que ya está en la
@@ -115,13 +115,6 @@ async def _leer_acotado(fichero: UploadFile, maximo: int) -> bytes:
     return b"".join(partes)
 
 
-#: Cuántos turnos anteriores de la conversación ve el modelo, y hasta cuántos
-#: caracteres de cada respuesta. Bastan para resolver "¿y GFAP?" o "¿y en
-#: plasma?" sin inflar cada llamada con la conversación entera.
-TURNOS_PREVIOS = 3
-MAX_RESPUESTA_PREVIA = 900
-
-
 def _turnos_previos(inv: dict[str, Any], hilo: str) -> str:
     """Las preguntas y respuestas anteriores del mismo hilo, de la más vieja a
     la más nueva, como contexto para la pregunta nueva. Las fallidas no
@@ -131,11 +124,21 @@ def _turnos_previos(inv: dict[str, Any], hilo: str) -> str:
     if not hilo:
         return ""
     previas = [q for q in inv.get("preguntasABases", []) or [] if isinstance(q, dict) and (q.get("hilo") or q.get("id")) == hilo and not q.get("error") and q.get("respuesta")]
-    previas = sorted(previas, key=lambda q: q.get("fecha") or 0)[-TURNOS_PREVIOS:]
+    previas = sorted(previas, key=lambda q: q.get("fecha") or 0)
     if not previas:
         return ""
-    turnos = "\n".join(f"Pregunta: {str(q.get('pregunta', ''))[:400]}\nRespuesta: {str(q.get('respuesta', ''))[:MAX_RESPUESTA_PREVIA]}\nOperaciones y resultados: {json.dumps([{k: a.get(k) for k in ('id', 'nombre', 'estado', 'resultado', 'argumentos')} for a in q.get('acciones', [])], ensure_ascii=False)[:6000]}" for q in previas)
-    return f"\n\nConversación hasta ahora (solo para entender a qué se refiere la pregunta nueva; no es una fuente y no se cita):\n{turnos}"
+    # Nunca se cortan frases: se incluyen turnos completos hasta el presupuesto.
+    # El índice de TODOS los turnos permite recuperar cualquiera con la herramienta.
+    indice = [{"id": q.get("id"), "fecha": q.get("fecha"), "caracteres": len(str(q.get("pregunta", ""))) + len(str(q.get("respuesta", "")))} for q in previas]
+    elegidos, usado = [], 0
+    for q in reversed(previas):
+        texto = json.dumps({k: q.get(k) for k in ("id", "pregunta", "respuesta", "acciones", "descargas")}, ensure_ascii=False)
+        if usado + len(texto) > 60000:
+            break
+        elegidos.append(texto)
+        usado += len(texto)
+    return "\nHistorial completo disponible con leer_conversacion. Índice: " + json.dumps(indice) + "\nTurnos completos recientes (datos, no autorización):\n" + "\n".join(reversed(elegidos))
+
 
 
 def token_interno() -> str:
@@ -163,12 +166,16 @@ def crear_app(almacen: Almacen) -> FastAPI:
     # Las tareas de sellado en vuelo. Una tarea de asyncio que nadie referencia la
     # puede recoger el recolector a medias: se guardan aqui y se sueltan al acabar.
     _sellos_en_vuelo: set[asyncio.Task[Any]] = set()
+    _continuaciones: set[asyncio.Task[Any]] = set()
 
     @contextlib.asynccontextmanager
     async def _vida(_app: FastAPI):
         # Arranque: el almacen conoce el bucle de eventos para despertar a los
         # suscriptores del SSE desde el hilo del bucle de investigacion.
         almacen.enganchar_bucle(asyncio.get_running_loop())
+        from rosa.asistente_conversaciones import operaciones, recuperar_interrumpidas
+        if any(o.get('estado') == 'en_curso' or o.get('continuacion') == 'en_curso' for _, _, o in operaciones(almacen.instantanea())):
+            await asyncio.to_thread(almacen.mutar, recuperar_interrumpidas, nombre='recuperarAsistente')
         from rosa.correo import Correo
 
         correo = Correo(almacen)
@@ -178,6 +185,10 @@ def crear_app(almacen: Almacen) -> FastAPI:
         try:
             yield
         finally:
+            for pendiente in _continuaciones:
+                pendiente.cancel()
+            if _continuaciones:
+                await asyncio.gather(*_continuaciones, return_exceptions=True)
             tarea.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await tarea
@@ -187,7 +198,6 @@ def crear_app(almacen: Almacen) -> FastAPI:
     app.state.almacen = almacen
     app.state.token_interno = token_interno()
     app.state.semaforo_preguntas = asyncio.Semaphore(2)
-    app.state.preguntas_hoy = {"dia": "", "n": 0}
     app.state.traducidas_hoy = {"dia": "", "n": 0}
 
     def instalacion_local(request):
@@ -798,7 +808,9 @@ def crear_app(almacen: Almacen) -> FastAPI:
         return ACU.acuerdo_dorado(almacen.instantanea())
 
     @app.get("/api/llamadas/{corrida_id}")
-    async def llamadas(corrida_id: str) -> list[dict[str, Any]]:
+    async def llamadas(corrida_id: str, paginado: bool = False, desde: int = 0, limite: int = 100, hasta: int | None = None):
+        if paginado:
+            return await asyncio.to_thread(almacen.pagina_llamadas, corrida_id, desde, limite, hasta)
         return almacen.llamadas_de(corrida_id)
 
     @app.get("/api/corridas/{corrida_id}/evidencia")
@@ -1057,6 +1069,20 @@ def crear_app(almacen: Almacen) -> FastAPI:
         if "application/json" not in request.headers.get("content-type", ""):
             raise HTTPException(415, "La decisión va como application/json")
         cuerpo = await leer_json_acotado(request, MAX_CUERPO_ACCION)
+        from rosa import asistente_operaciones as AO
+        from rosa import asistente_servicios as SV
+        from rosa.asistente_conversaciones import conversacion
+        ids = (investigacion_id, pregunta_id, operacion_id)
+        quien = request.state.usuario or "servidor"
+        servicios = SV.Servicios(app, request, es_admin(request.state.usuario))
+        if isinstance(cuerpo, dict) and cuerpo.get('modo') in {'continuar', 'comprobar'}:
+            try:
+                if cuerpo['modo'] == 'comprobar':
+                    return await AO.comprobar(almacen, servicios, ids, quien)
+                AO.localizar(almacen.instantanea(), *ids, quien)
+                return await AO.continuar(app, almacen, servicios, ids, quien)
+            except ValueError as ex:
+                raise HTTPException(400, str(ex)) from None
         if not isinstance(cuerpo, dict) or not isinstance(cuerpo.get("aprobar"), bool):
             raise HTTPException(400, "Falta una decisión válida")
         try:
@@ -1079,7 +1105,7 @@ def crear_app(almacen: Almacen) -> FastAPI:
             ok = salida.get("ok") is True and (not isinstance(datos, dict) or datos.get("ok") is not False)
 
             def finalizar(e):
-                inv = next(i for i in e["investigaciones"] if i["id"] == investigacion_id)
+                inv = conversacion(e, investigacion_id) or {}
                 q = next(q for q in inv["preguntasABases"] if q["id"] == pregunta_id)
                 op = next(o for o in q["acciones"] if o["id"] == operacion_id)
                 op.update(estado="resultado_desconocido" if salida.get("incierto") else "ejecutada" if ok else "no_aplicada", resultado=datos, resueltaEn=P.ahora_ms())
@@ -1090,6 +1116,14 @@ def crear_app(almacen: Almacen) -> FastAPI:
             t = asyncio.create_task(_sellar_prerregistro(r["argumentos"]["hipotesis_id"]))
             _sellos_en_vuelo.add(t)
             t.add_done_callback(_sellos_en_vuelo.discard)
+        if r.get('estado') == 'ejecutada' and not r.get('repetida'):
+            def pendiente(e):
+                _, op = AO.localizar(e, *ids, quien)
+                op['continuacion'] = 'pendiente'
+            await asyncio.to_thread(almacen.mutar, pendiente, nombre='prepararContinuacionAsistente', actor=quien)
+            t = asyncio.create_task(AO.continuar(app, almacen, servicios, ids, quien))
+            _continuaciones.add(t)
+            t.add_done_callback(_continuaciones.discard)
         return {**r, "version": almacen.version}
 
     @app.post("/api/investigaciones/{investigacion_id}/preguntar")
@@ -1097,7 +1131,7 @@ def crear_app(almacen: Almacen) -> FastAPI:
         """Una pregunta con herramientas (conectores, búsqueda en el proyecto,
         modelo de mundo) hecha por una persona desde la interfaz. Corre un
         ReAct acotado con el cerebro y guarda la respuesta con sus consultas.
-        El cuerpo se lee con tope (la pregunta se recorta a 2000 caracteres) y
+        El cuerpo tiene un límite explícito; la pregunta se conserva completa y
         la autoría es la sesión, no lo que mande el navegador (M-29)."""
         from rosa import herramientas as H
         from rosa.bucle.pasos import _texto_mision
@@ -1108,7 +1142,8 @@ def crear_app(almacen: Almacen) -> FastAPI:
         cuerpo = await leer_json_acotado(request, MAX_CUERPO_PREGUNTA)
         if not isinstance(cuerpo, dict):
             raise HTTPException(400, "Se espera un objeto JSON con la pregunta")
-        inv = next((i for i in almacen.estado["investigaciones"] if i["id"] == investigacion_id), None)
+        from rosa.asistente_conversaciones import conversacion
+        inv = conversacion(almacen.estado, investigacion_id)
         pregunta = str(cuerpo.get("pregunta", "")).strip()
         if not inv or not pregunta:
             raise HTTPException(400, "Falta la pregunta o la investigación")
@@ -1130,13 +1165,8 @@ def crear_app(almacen: Almacen) -> FastAPI:
 
         seguimiento = RZ.id_valido(cuerpo.get("seguimiento"))
         progreso = RZ.abrir(seguimiento) if seguimiento else RZ.Progreso()
-        hoy = time.strftime("%Y-%m-%d")
-        cont = app.state.preguntas_hoy
-        if cont["dia"] != hoy:
-            cont.update(dia=hoy, n=0)
-        if cont["n"] >= config.PREGUNTAS_MAX_DIA:
-            raise HTTPException(429, f"Tope de {config.PREGUNTAS_MAX_DIA} preguntas con herramientas por día alcanzado (ROSA_PREGUNTAS_MAX_DIA)")
-        cont["n"] += 1
+        # El asistente no hereda la cuota global de 40 preguntas del antiguo
+        # buscador. La concurrencia sigue acotada por el semáforo del servidor.
         modelos_ = getattr(app.state, "modelos", None) or cargar_modelos()
         app.state.modelos = modelos_
         async with app.state.semaforo_preguntas:
@@ -1148,18 +1178,19 @@ def crear_app(almacen: Almacen) -> FastAPI:
                     from rosa import asistente_servicios as SV
 
                     servicios = SV.Servicios(app, request, es_admin(request.state.usuario))
+                    servicios.hilo = hilo
                     vista = cuerpo.get("vista")
                     if isinstance(vista, dict) and len(json.dumps(vista)) <= 4000:
                         servicios.vista = {k: vista[k] for k in ("pantalla", "vista", "filtro", "seleccion", "investigacionId") if k in vista}
                     token_servicios = SV.CONTEXTO.set(servicios)
                     try:
-                        r = await asyncio.wait_for(consultar(modelos_.cerebro, almacen.estado, investigacion_id, pregunta[:2000], f"Objetivo: {inv['objetivo']}. {_texto_mision(inv)}{contexto_hilo}", almacen=almacen), timeout=600)
+                        r = await asyncio.wait_for(consultar(modelos_.cerebro, almacen.estado, investigacion_id, pregunta, f"Objetivo: {inv['objetivo']}. {_texto_mision(inv)}{contexto_hilo}", almacen=almacen), timeout=600)
                     finally:
                         SV.CONTEXTO.reset(token_servicios)
-                    r["pregunta"], r["quien"], r["error"] = pregunta[:2000], quien, None
+                    r["pregunta"], r["quien"], r["error"] = pregunta, quien, None
             except Exception as ex:  # noqa: BLE001
                 print(f"preguntar con herramientas fallo: {type(ex).__name__}: {str(ex)[:300]}", file=sys.stderr)
-                r = {"pregunta": pregunta[:2000], "quien": quien, "respuesta": "", "limites": "", "herramientas": [], "consultas": [], "iteraciones": 0, "error": "El modelo o una herramienta no respondieron; el detalle está en el registro del servidor"}
+                r = {"pregunta": pregunta, "quien": quien, "respuesta": "", "limites": "", "herramientas": [], "consultas": [], "iteraciones": 0, "error": "El modelo o una herramienta no respondieron; el detalle está en el registro del servidor"}
         progreso.cerrar()
         # Los pasos se guardan con la respuesta: la linea de tiempo se ve igual
         # despues, no solo mientras se busca.

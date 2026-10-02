@@ -808,11 +808,15 @@ export function fijarPermisoConector(estado: EstadoRosa, nombre: string, nivel: 
 
 export function anadirMemoria(estado: EstadoRosa, investigacionId: string, texto: string, quien: string, ahora: number): EstadoRosa {
   const limpio = texto.trim();
+  if (investigacionId === 'global' && estado.asistenteGlobal && limpio && limpio.length <= 400) {
+    return { ...estado, asistenteGlobal: { ...estado.asistenteGlobal, memoria: [...(estado.asistenteGlobal.memoria ?? []), { id: nuevoId('mem'), texto: limpio, quien: quien.trim() || 'persona', fecha: ahora }] } };
+  }
   if (limpio === '' || limpio.length > 400 || !estado.investigaciones.some((i) => i.id === investigacionId)) return estado;
   return { ...estado, investigaciones: estado.investigaciones.map((i) => (i.id === investigacionId ? { ...i, memoria: [...(i.memoria ?? []), { id: nuevoId('mem'), texto: limpio, quien: quien.trim() || 'persona', fecha: ahora }] } : i)) };
 }
 
 export function quitarMemoria(estado: EstadoRosa, investigacionId: string, memoriaId: string): EstadoRosa {
+  if (investigacionId === 'global' && estado.asistenteGlobal) return { ...estado, asistenteGlobal: { ...estado.asistenteGlobal, memoria: (estado.asistenteGlobal.memoria ?? []).filter(m => m.id !== memoriaId) } };
   return { ...estado, investigaciones: estado.investigaciones.map((i) => (i.id === investigacionId ? { ...i, memoria: (i.memoria ?? []).filter((m) => m.id !== memoriaId) } : i)) };
 }
 

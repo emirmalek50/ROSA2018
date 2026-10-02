@@ -1031,8 +1031,9 @@ credencial privilegiada. GEPA, gestión de cuentas, configuración de correo sin
 claves, avisos, prueba de correo, sellado y reanclaje se proponen con confirmación.
 Los permisos se comprueban de nuevo al ejecutar. Los servicios con efectos externos
 se marcan `en_curso` antes de llamarlos: un doble clic no repite el efecto. Si se
-interrumpe el servidor entre el efecto y su registro, quedan en ese estado y hay
-que comprobar el resultado antes de preparar otra operación. No se promete una
+interrumpe el servidor entre el efecto y su registro, el arranque los marca como
+resultado desconocido. La conversación consulta el estado sin repetir el efecto,
+guarda la comprobación y conserva la incertidumbre cuando no existe un comprobante. No se promete una
 transacción atómica entre SQLite y un proveedor externo.
 
 El chat permite adjuntar datasets o resultados experimentales mediante los mismos
@@ -1042,3 +1043,31 @@ terceros; de lo contrario entrega metadatos. Contraseñas y claves se introducen
 exclusivamente en sus formularios de Ajustes. La pantalla del modelo de mundo
 transmite su vista, filtros y selección como contexto, nunca como autorización;
 no transmite la cámara ni los filtros de otras pestañas.
+
+
+La entrada **Asistente de ROSA** de la barra lateral funciona incluso sin
+investigaciones. Su conversación se guarda por separado, sin crear investigaciones
+ficticias. Tras aplicar una operación, ROSA continúa la petición en el mismo hilo;
+si falla esa continuación, se puede reintentar sin repetir el cambio. Las
+continuaciones simultáneas se deduplican dentro de la transacción.
+
+Las preguntas se conservan completas, con un límite explícito de 256 KiB por
+petición (HTTP 413 al superarlo), sin la antigua cuota global de 40 preguntas.
+El contexto automático incluye turnos completos hasta 60.000 caracteres y un
+índice del historial; `leer_conversacion` permite recuperar el resto por páginas.
+Una fuente con identificador repetido exige indicar su investigación o corrida.
+
+Las llamadas al modelo tienen paginación con un límite de secuencia estable:
+se conserva `hasta` al avanzar con `siguiente`. `consultar_dataset` recorre filas
+CSV, TSV y JSON autorizadas, con columnas y filtros exactos. `consultar_gepa`
+recupera trazas y evaluaciones detalladas. La documentación disponible incluye
+los Markdown versionados del proyecto, sin archivos de configuración ni secretos.
+`leer_documento` extrae el texto por página física de PDF y puede interpretar
+figuras mediante el modelo del Gateway; esa interpretación se etiqueta como no
+verificada y conserva el enlace a la página original.
+
+Atlas y Mecanismos se calculan con las mismas funciones TypeScript de sus
+pantallas. `npm run build` en `frontend/` genera también
+`dist/servicios-vistas.cjs`; el servidor necesita Node para ejecutar ese cálculo.
+En desarrollo puede regenerarse con `npm run build:vistas`. Si falta el cálculo,
+ROSA muestra que no pudo comprobarlo, nunca un resultado vacío inventado.

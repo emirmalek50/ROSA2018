@@ -206,6 +206,7 @@ function BarraMundo({
   meta,
   onNueva,
   desactivada = false,
+  soloConversar = false,
 }: {
   vista: Vista;
   setVista?: (v: Vista) => void;
@@ -214,6 +215,7 @@ function BarraMundo({
   meta: ReactNode;
   onNueva?: () => void;
   desactivada?: boolean;
+  soloConversar?: boolean;
 }) {
   const boton = (
     v: Vista,
@@ -240,13 +242,13 @@ function BarraMundo({
       <div className="mundo-barra-meta">{meta}</div>
       <div className="mundo-vistas" role="tablist" aria-label={tr("Vista")}>
         {boton("conversar", <IconMessage size={15} />, tr("Conversar"))}
-        {boton(
+        {!soloConversar && boton(
           "hechos",
           <IconLayers size={15} />,
           tr("Los hechos"),
           total !== null && <span className="mundo-vista-cuenta">{total}</span>,
         )}
-        {boton(
+        {!soloConversar && boton(
           "cambios",
           <IconClock size={15} />,
           tr("Qué cambió"),
@@ -715,7 +717,8 @@ function CuerpoMundo({
         setVista={setVista}
         total={propios.length}
         movimientos={base.movimientos.length}
-        meta={meta}
+        meta={inv.id === "global" ? <span>{tr("Consulta y opera todas las investigaciones de ROSA")}</span> : meta}
+        soloConversar={inv.id === "global"}
         onNueva={nueva}
       />
       {vista === "conversar" && (
@@ -1027,7 +1030,7 @@ function Compositor({
           }
         }}
       />
-      {modo === "bases" && <AdjuntosAsistente investigacionId={inv.id} alSubir={setTexto} disabled={pendiente !== null} />}
+      {modo === "bases" && inv.id !== "global" && <AdjuntosAsistente investigacionId={inv.id} alSubir={setTexto} disabled={pendiente !== null} />}
       <div className="mundo-compositor-pie">
         {/* La cara junto a la caja: escucha mientras escribes y piensa
             mientras busca. Es lo que hace que se sienta que hay alguien al

@@ -79,7 +79,7 @@ def test_mismos_resultados_que_la_pantalla(entorno, nombre, parametros):
     al, _, cliente, crear = entorno
     parametros = parametros if parametros is not None else {'corrida_id': al.estado['corridas'][0]['id']}
     ruta = SV.construir_ruta(SV.LECTURAS[nombre][0], parametros)
-    normal = cliente.get(ruta)
+    normal = cliente.get(ruta, params={'paginado': True} if nombre == 'llamadas' else {})
     assert normal.status_code == 200
     servicio = crear()
     asyncio.run(servicio.consultar(nombre, parametros))
@@ -178,15 +178,18 @@ def test_paginacion_y_metodos_no_abren_archivos_arbitrarios(entorno):
     assert 'Campo desconocido' in SV.paginar({}, camino='no/existe')
 
 
-def test_dataset_sin_permiso_no_abre_fichero(entorno, monkeypatch):
+@pytest.mark.parametrize('nombre_tool', ['leer_dataset', 'consultar_dataset'])
+def test_dataset_sin_permiso_no_abre_fichero(entorno, monkeypatch, nombre_tool):
     from rosa import datos as D
     al, _, _, _ = entorno
     al.mutar(lambda e: e['investigaciones'][0].update(datasets=[{'id': 'ds-a', 'procedencia': {'fichero': 'datos.csv', 'permiteLlmTerceros': False}}]) or True)
     def prohibido(*args, **kwargs):
         pytest.fail('No debe leer filas sin autorización')
     monkeypatch.setattr(D, 'esquema_para_modelo', prohibido)
-    tool = {t.name: t.func for t in SV.herramientas_locales(al)}['leer_dataset']
-    assert 'no autoriza' in asyncio.run(tool('inv-a', 'ds-a'))
+    tool = {t.name: t.func for t in SV.herramientas_locales(al)}[nombre_tool]
+    monkeypatch.setattr(D, 'ruta_dataset', prohibido)
+    salida = asyncio.run(tool('inv-a', 'ds-a'))
+    assert 'no autoriza' in salida or 'sin autorización' in salida
 
 
 def test_servicios_prohibidos_no_se_preparan(entorno):

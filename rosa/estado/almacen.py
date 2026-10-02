@@ -843,6 +843,17 @@ class Almacen:
         claves = ["t", "modelo", "rol", "iteracion", "tokensEntrada", "tokensSalida", "ms", "ok", "error"]
         return [dict(zip(claves, f)) for f in filas]
 
+    def pagina_llamadas(self, corrida_id: str, desde: int = 0, limite: int = 100, hasta: int | None = None) -> dict:
+        """Cursor estable: la primera página fija la última secuencia visible."""
+        desde, limite = max(0, desde), max(1, min(500, limite))
+        with self._lock:
+            if hasta is None:
+                hasta = self._con.execute("SELECT COALESCE(MAX(seq),0) FROM llamadas WHERE corrida_id=?", (corrida_id,)).fetchone()[0]
+            total = self._con.execute("SELECT count(*) FROM llamadas WHERE corrida_id=? AND seq<=?", (corrida_id, hasta)).fetchone()[0]
+            filas = self._con.execute("SELECT seq,t,modelo,rol,iteracion,tokens_entrada,tokens_salida,ms,ok,error FROM llamadas WHERE corrida_id=? AND seq<=? ORDER BY seq DESC LIMIT ? OFFSET ?", (corrida_id, hasta, limite, desde)).fetchall()
+        claves = ('secuencia', 't', 'modelo', 'rol', 'iteracion', 'tokensEntrada', 'tokensSalida', 'ms', 'ok', 'error')
+        return {'total': total, 'desde': desde, 'hasta': hasta, 'siguiente': desde + len(filas) if desde + len(filas) < total else None, 'llamadas': [dict(zip(claves, f)) for f in filas]}
+
     # -- suscripciones (SSE) ----------------------------------------------
 
     def enganchar_bucle(self, bucle: asyncio.AbstractEventLoop) -> None:

@@ -216,6 +216,14 @@ export default function App() {
   if (ruta.tipo === 'nueva') {
     titulo = tr('Nueva investigación');
     pantalla = <NuevaInvestigacion estado={estado} irA={irA} />;
+  } else if (ruta.tipo === 'asistente') {
+    titulo = tr('Asistente de ROSA');
+    pantalla = <ModeloDeMundo estado={estado} ahora={ahora} inv={estado.asistenteGlobal ?? {
+      id: 'global', titulo, objetivo: 'Operar y consultar todo ROSA', relevancia: '', limites: [],
+      condicionParada: '', revisores: [], estado: 'activa', creadaEn: 0, ramaDe: null,
+      configuracion: { preferencias: '', atributos: [], restricciones: [], amplitud: 'equilibrada' },
+      datasets: [], vigilarLiteraturaHasta: null, preguntasABases: [], memoria: [],
+    }} />;
   } else if (ruta.tipo === 'ajustes') {
     titulo = tr('Ajustes');
     pantalla = <Ajustes estado={estado} ahora={ahora} />;

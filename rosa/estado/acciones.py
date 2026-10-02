@@ -652,7 +652,8 @@ def anadir_memoria(e: Estado, investigacion_id: str, texto: str, quien: str, aho
     cortos y estables que ROSA2018 lee en cada misión (preferencias, restricciones,
     decisiones confirmadas). Los escribe y borra una persona; nunca resultados
     ni copias de literatura."""
-    inv = _buscar(e["investigaciones"], investigacion_id)
+    from rosa.asistente_conversaciones import conversacion
+    inv = conversacion(e, investigacion_id, crear=True)
     limpio = texto.strip()
     if not inv or not limpio or len(limpio) > 400:
         return False
@@ -661,7 +662,8 @@ def anadir_memoria(e: Estado, investigacion_id: str, texto: str, quien: str, aho
 
 
 def quitar_memoria(e: Estado, investigacion_id: str, memoria_id: str) -> bool:
-    inv = _buscar(e["investigaciones"], investigacion_id)
+    from rosa.asistente_conversaciones import conversacion
+    inv = conversacion(e, investigacion_id, crear=True)
     if not inv:
         return False
     antes = len(inv.get("memoria", []) or [])
@@ -684,7 +686,8 @@ def _pasos_de_razonamiento(pasos: list) -> list[dict]:
 def registrar_pregunta_bases(e: Estado, investigacion_id: str, pregunta: dict, ahora: int) -> bool:
     """La respuesta de una pregunta con herramientas entra a la investigación
     con sus consultas, para que se vea de donde salió cada dato."""
-    inv = _buscar(e["investigaciones"], investigacion_id)
+    from rosa.asistente_conversaciones import conversacion
+    inv = conversacion(e, investigacion_id, crear=True)
     if not inv or not isinstance(pregunta, dict) or not pregunta.get("pregunta"):
         return False
     inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}, **{k: pregunta[k] for k in ("cobertura", "atribucion", "duracionMs", "acciones", "descargas") if pregunta.get(k) is not None}, **({"pasos": _pasos_de_razonamiento(pregunta["pasos"])} if isinstance(pregunta.get("pasos"), list) else {}), **({"hilo": str(pregunta["hilo"])[:40]} if pregunta.get("hilo") else {})})

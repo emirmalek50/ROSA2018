@@ -17,6 +17,7 @@ export const PANTALLAS: Pantalla[] = ['corrida', 'hipotesis', 'ranking', 'panora
 
 export type Ruta =
   | { tipo: 'inicio' }
+  | { tipo: 'asistente' }
   | { tipo: 'nueva' }
   | { tipo: 'ajustes' }
   // «Al laboratorio» no cuelga de una investigación: reúne lo que ROSA2018 ha
@@ -39,6 +40,7 @@ export function parsearRuta(hash: string): Ruta {
   } catch {
     return { tipo: 'inicio' }; // un % suelto en la URL no tumba la aplicacion
   }
+  if (partes[0] === 'asistente') return { tipo: 'asistente' };
   if (partes[0] === 'nueva') return { tipo: 'nueva' };
   if (partes[0] === 'ajustes') return { tipo: 'ajustes' };
   // #/laboratorio/<uniprot>/aso abre directo el oligonucleótido, para poder
@@ -80,6 +82,8 @@ export function formatearRuta(ruta: Ruta): string {
   switch (ruta.tipo) {
     case 'inicio':
       return '#/';
+    case 'asistente':
+      return '#/asistente';
     case 'nueva':
       return '#/nueva';
     case 'ajustes':

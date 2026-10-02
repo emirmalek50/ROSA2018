@@ -35,7 +35,7 @@ LECTURAS = {
     "contrato": ("/api/hipotesis/{hipotesis_id}/contrato", "Validador del experimento: problemas, texto y hash."),
     "integridad": ("/api/registro/integridad", "Verificación de la cadena de auditoría."),
     "acuerdo": ("/api/calidad/acuerdo", "Acuerdo entre juez y humanos, calculado."),
-    "llamadas": ("/api/llamadas/{corrida_id}", "Llamadas al modelo, errores, tiempos y tokens."),
+    "llamadas": ("/api/llamadas/{corrida_id}", "Todas las llamadas al modelo, errores, tiempos y tokens. Usa desde=siguiente y conserva hasta para recorrer una instantánea estable."),
     "busqueda_semantica": ("/api/buscar", "Búsqueda por significado global; q es la pregunta, investigacion es opcional."),
     "skills": ("/api/skills", "Catálogo de métodos científicos; leer_skill abre su contenido."),
     "conectores": ("/api/conectores", "Todos los conectores, disponibilidad y motivos de bloqueo."),
@@ -92,6 +92,8 @@ def construir_ruta(plantilla: str, parametros: dict) -> str:
 
 
 def paginar(datos: Any, desde: int = 0, camino: str = "") -> str:
+    if isinstance(datos, dict) and datos.get("ok") is False:
+        camino = ""
     claves = list(datos) if isinstance(datos, dict) else []
     try:
         for parte in camino.split("/") if camino else []:
@@ -116,6 +118,8 @@ class Servicios:
         self.vista: dict[str, Any] = {}
         self.cache: dict[str, Any] = {}
         self.descargas: list[dict] = []
+        self.archivos: dict[str, bytes] = {}
+        self.hilo = ""
 
     async def peticion(self, metodo: str, ruta: str, **kwargs) -> dict:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app), base_url="http://127.0.0.1", headers=self.headers) as cliente:
@@ -124,6 +128,7 @@ class Servicios:
             return {"ok": False, "incierto": metodo != "GET" and r.status_code >= 500, "estadoHttp": r.status_code, "error": r.json().get("detail", "No pude comprobar") if "application/json" in r.headers.get("content-type", "") else "No pude comprobar el servicio"}
         if "application/json" in r.headers.get("content-type", ""):
             return {"ok": True, "datos": r.json()}
+        self.archivos[ruta] = r.content
         descarga = {"url": ruta, "nombre": r.headers.get("content-disposition", "").split("filename=")[-1].strip('"') or ruta.rsplit("/", 1)[-1], "tipo": r.headers.get("content-type"), "bytes": len(r.content)}
         if descarga not in self.descargas:
             self.descargas.append(descarga)
@@ -152,13 +157,56 @@ class Servicios:
         permitidos = {p["name"] for p in esquema}
         if not isinstance(parametros, dict) or set(parametros) - permitidos:
             return paginar({"ok": False, "error": "Parámetros desconocidos", "permitidos": sorted(permitidos)})
+        if nombre == "llamadas":
+            parametros = {"paginado": True, **parametros}
         ruta = construir_ruta(plantilla, parametros)
         consulta = {p["name"]: parametros[p["name"]] for p in esquema if p["in"] == "query" and p["name"] in parametros}
         clave = json.dumps([nombre, parametros], sort_keys=True)
         if clave not in self.cache:
             self.cache[clave] = await self.peticion("GET", ruta, params=consulta)
         r = self.cache[clave]
-        return paginar(r["datos"] if r["ok"] else r, desde, camino)
+        return paginar(r["datos"], desde, camino) if r["ok"] else paginar(r)
+
+    async def leer_documento(self, nombre: str, parametros: dict, pagina: int = 1, desde: int = 0, pregunta_figura: str = "") -> str:
+        """Lee una página física exacta de un PDF autorizado o su figura."""
+        if nombre not in {"pdf_cita", "exportar_artefacto", "exportar_documento", "pagina_cita"}:
+            return paginar({"ok": False, "error": "Selecciona un servicio de PDF o página de cita"})
+        await self.consultar(nombre, parametros)
+        ruta = construir_ruta(LECTURAS[nombre][0], parametros)
+        contenido = self.archivos.get(ruta)
+        if contenido is None:
+            return await self.consultar(nombre, parametros)
+        import base64
+        import hashlib
+        import fitz
+
+        imagen = None
+        datos: dict[str, Any]
+        if nombre == "pagina_cita":
+            imagen = contenido
+            datos = {"origen": ruta, "pagina": "Página exacta de la cita indicada por el servicio", "texto": "Imagen: requiere lectura visual"}
+        else:
+            with fitz.open(stream=contenido, filetype="pdf") as pdf:
+                if not 1 <= pagina <= len(pdf):
+                    return paginar({"ok": False, "error": "Página fuera del documento", "paginas": len(pdf)})
+                hoja = pdf[pagina - 1]
+                datos = {"origen": ruta, "pagina": pagina, "paginas": len(pdf), "siguientePagina": pagina + 1 if pagina < len(pdf) else None,
+                         "texto": hoja.get_text(), "sha256": hashlib.sha256(contenido).hexdigest()}
+                if pregunta_figura:
+                    imagen = hoja.get_pixmap(matrix=fitz.Matrix(1.5, 1.5)).tobytes("png")
+                if not datos["texto"]:
+                    datos["aviso"] = "Sin capa de texto. Usa pregunta_figura para inspeccionar la página escaneada."
+        if pregunta_figura and imagen:
+            class LeerFigura(dspy.Signature):
+                """Describe únicamente lo visible. Conserva ejes, unidades y leyendas.
+                Declara lo ilegible; no inventes cifras ni conviertas interpretación en evidencia verificada."""
+                imagen: dspy.Image = dspy.InputField()
+                pregunta: str = dspy.InputField()
+                lectura: str = dspy.OutputField()
+            r = await dspy.Predict(LeerFigura).acall(imagen=dspy.Image(url="data:image/png;base64," + base64.b64encode(imagen).decode()), pregunta=pregunta_figura)
+            datos["interpretacionVisual"] = r.lectura
+            datos["avisoVisual"] = "Interpretación del modelo, no afirmación verificada. Contrasta con la página original."
+        return paginar(datos, desde)
 
     async def ejecutar(self, nombre: str, argumentos: dict) -> dict:
         validar_operacion(nombre, argumentos)
@@ -182,15 +230,24 @@ class Servicios:
             durante este turno. Devuelve errores explícitos, nunca ausencia falsa."""
             return await self.consultar(nombre, parametros, desde, camino)
 
+        async def leer_documento(nombre: str, parametros: dict[str, Any], pagina: int = 1, desde: int = 0, pregunta_figura: str = "") -> str:
+            """Lee PDFs completos por página física (1 es la primera), sin truncar el texto:
+            usa siguientePagina y siguiente para continuar. Servicios: pdf_cita,
+            exportar_artefacto, exportar_documento, pagina_cita. Pregunta_figura
+            activa lectura visual de gráficos o páginas escaneadas con el modelo."""
+            return await self.leer_documento(nombre, parametros, pagina, desde, pregunta_figura)
+
         def consultar_vista() -> str:
             """Contexto de pantalla, filtros y selección que mandó el navegador.
             Es contexto declarado por el cliente, no evidencia científica ni
             autorización. No conoce cámaras ni paneles de otras pestañas."""
             return paginar(self.vista or {"limite": "Esta petición no incluyó el contexto visual del navegador."})
-        return [dspy.Tool(catalogo_servicios), dspy.Tool(consultar_servicio), dspy.Tool(consultar_vista)]
+        return [dspy.Tool(catalogo_servicios), dspy.Tool(consultar_servicio), dspy.Tool(consultar_vista), dspy.Tool(leer_documento)]
 
 
 def herramientas_locales(almacen: Any) -> list[dspy.Tool]:
+    vistas: dict[str, Any] = {}
+
     def leer_skill(nombre: str, desde: int = 0) -> str:
         """Lee el método científico completo de una skill del catálogo de ROSA.
         Incluye sus scripts de referencia, sin ejecutarlos. Página por caracteres."""
@@ -223,16 +280,63 @@ def herramientas_locales(almacen: Any) -> list[dspy.Tool]:
         """Catálogo y lectura de la documentación de ROSA: arquitectura,
         funcionamiento, alcance y guía de uso. No representa el estado vivo.
         Sin nombre lista documentos. No admite rutas ni archivos de configuración."""
-        from pathlib import Path
-        raiz = Path(__file__).resolve().parent.parent
-        nombres = ("README.md", "GUIA-ROSA.md", "UI-ROSA.md", "ROSA2018_SYSTEM_PLAN.md", "PLAN-ROSA2018.md", "INVESTIGACION-BACKEND.md", "INVESTIGACION-CONCLUSIONES.md", "INVESTIGACION-ROSA2018.md", "INVESTIGACION-AI-SCIENTIST-2026.md")
+        from rosa.asistente_lecturas import documentos
+        from rosa.gepa_continuo import _SECRETOS
+        catalogo = documentos()
         if not nombre:
-            return paginar({"documentos": nombres})
-        if nombre not in nombres:
-            return paginar({"error": "Documento desconocido", "documentos": nombres})
+            return paginar({"documentos": list(catalogo)})
+        if nombre not in catalogo:
+            return paginar({"error": "Documento desconocido", "documentos": list(catalogo)})
         try:
-            return paginar({"documento": nombre, "texto": (raiz / nombre).read_text()}, desde)
+            # Redacción sin recortar el documento: cada bloque conserva su posición.
+            texto = catalogo[nombre].read_text()
+            texto = _SECRETOS.sub('[REDACTADO]', texto)
+            return paginar({"documento": nombre, "texto": texto}, desde)
         except OSError:
             return paginar({"error": "Documento no disponible en esta instalación"})
 
-    return [dspy.Tool(leer_skill), dspy.Tool(leer_dataset), dspy.Tool(consultar_documentacion)]
+    async def consultar_dataset(investigacion_id: str, dataset_id: str, desde: int = 0, limite: int = 50, columnas: list[str] | None = None, filtros: dict[str, str] | None = None, campo: str = "", pagina_texto: int = 0, pagina_pdf: int = 1) -> str:
+        """Recorre TODAS las filas autorizadas de un CSV, TSV o JSON por páginas.
+        desde es índice de fila filtrada; filtros compara valores exactos;
+        columnas selecciona campos, campo selecciona una lista dentro de JSON.
+        pagina_texto pagina caracteres si una página de filas supera el contexto.
+        Para PDF usa pagina_pdf (página física empezando por 1); conserva el texto completo."""
+        from rosa import datos as D
+        from rosa.asistente_lecturas import filas_dataset
+        inv = next((i for i in almacen.instantanea().get("investigaciones", []) if i["id"] == investigacion_id), None)
+        ds = next((d for d in (inv or {}).get("datasets", []) if d["id"] == dataset_id), None)
+        if not ds or (ds.get("procedencia") or {}).get("permiteLlmTerceros") is not True:
+            return paginar({"ok": False, "error": "Dataset desconocido o sin autorización para modelos de terceros"})
+        try:
+            ruta = D.ruta_dataset(investigacion_id, dataset_id, ds["procedencia"].get("fichero", ""))
+            if ruta.suffix.lower() == '.pdf':
+                import fitz
+                with fitz.open(str(ruta)) as pdf:
+                    if not 1 <= pagina_pdf <= len(pdf):
+                        return paginar({'ok': False, 'error': 'Página fuera del documento', 'paginas': len(pdf)})
+                    return paginar({'datasetId': dataset_id, 'pagina': pagina_pdf, 'paginas': len(pdf),
+                                    'siguientePagina': pagina_pdf + 1 if pagina_pdf < len(pdf) else None,
+                                    'texto': pdf[pagina_pdf - 1].get_text()}, pagina_texto)
+            r = await asyncio.to_thread(filas_dataset, ruta, desde, limite, columnas or [], filtros or {}, campo)
+            return paginar(r, pagina_texto)
+        except (OSError, ValueError, KeyError, IndexError, TypeError) as ex:
+            return paginar({"ok": False, "error": f"No pude consultar el dataset ({type(ex).__name__})"})
+
+    async def consultar_gepa(desde: int = 0, limite: int = 25, tipo: str = "", programa: str = "", corrida: str = "", pagina_texto: int = 0) -> str:
+        """Historial completo y paginado de trazas, evaluaciones y ciclos GEPA.
+        Filtra por tipo, programa o corrida. Las credenciales se redactan."""
+        from rosa.asistente_lecturas import trazas_gepa
+        r = await asyncio.to_thread(trazas_gepa, almacen, desde, limite, tipo, programa, corrida)
+        return paginar(r, pagina_texto)
+
+    async def consultar_vista_calculada(investigacion_id: str, vista: str, filtros: dict[str, Any] | None = None, desde: int = 0, camino: str = "") -> str:
+        """Atlas o mecanismos calculados por las MISMAS funciones de la interfaz.
+        vista: atlas o mecanismos. Sin filtros reproduce la vista predeterminada.
+        El atlas usa el mapa guardado igual que la pantalla; no lo inventa."""
+        from rosa.asistente_lecturas import vista_compartida
+        clave = json.dumps([investigacion_id, vista, filtros or {}], sort_keys=True)
+        if clave not in vistas:
+            vistas[clave] = await asyncio.to_thread(vista_compartida, almacen.instantanea(), investigacion_id, vista, filtros or {})
+        return paginar(vistas[clave], desde, camino)
+
+    return [dspy.Tool(leer_skill), dspy.Tool(leer_dataset), dspy.Tool(consultar_documentacion), dspy.Tool(consultar_dataset), dspy.Tool(consultar_gepa), dspy.Tool(consultar_vista_calculada)]

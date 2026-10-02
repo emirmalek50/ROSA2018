@@ -734,7 +734,7 @@ async def test_preguntar_tiene_tope_y_firma_con_la_sesion(cliente, monkeypatch):
     monkeypatch.setattr(H, "preguntar", falsa)
     app.state.modelos = SimpleNamespace(cerebro=None)
     cab = {"host": "127.0.0.1:8765", "cookie": "rosa_sesion=sesion-test", "x-rosa": "1", "content-type": "application/json"}
-    grande = json.dumps({"pregunta": "x" * 20_000}).encode()
+    grande = json.dumps({"pregunta": "x" * 300_000}).encode()
     estado, _, pedidos = await _llamar_asgi(app, "POST", f"/api/investigaciones/{inv}/preguntar", {**cab, "content-length": str(len(grande))}, [grande])
     assert estado == 413 and pedidos == 0
     estado, _, _ = await _llamar_asgi(app, "POST", f"/api/investigaciones/{inv}/preguntar", {**cab, "content-type": "text/plain"}, [b"{}"])
@@ -768,7 +768,7 @@ async def test_preguntar_en_un_hilo_ve_los_turnos_guardados_y_no_los_que_manda_e
     url = f"/api/investigaciones/{inv}/preguntar"
     cab = {"X-Rosa": "1"}
     assert c.post(url, json={"pregunta": "¿Qué sabe de GFAP?", "hilo": "c-1"}, headers=cab).json()["ok"]
-    assert "Conversación hasta ahora" not in contextos[-1]
+    assert "Historial completo disponible" not in contextos[-1]
     c.post(url, json={"pregunta": "falla", "hilo": "c-1"}, headers=cab)
     assert c.post(url, json={"pregunta": "¿Y en plasma?", "hilo": "c-1", "turnos": [{"pregunta": "inventada", "respuesta": "inventada"}]}, headers=cab).json()["ok"]
     assert "¿Qué sabe de GFAP?" in contextos[-1] and "Respuesta a ¿Qué sabe de GFAP?" in contextos[-1]
@@ -776,13 +776,13 @@ async def test_preguntar_en_un_hilo_ve_los_turnos_guardados_y_no_los_que_manda_e
     c.post(url, json={"pregunta": "Otra cosa", "hilo": "c-2"}, headers=cab)
     assert "GFAP" not in contextos[-1]
     c.post(url, json={"pregunta": "Rara", "hilo": "../../etc"}, headers=cab)
-    assert "Conversación hasta ahora" not in contextos[-1]
+    assert "Historial completo disponible" not in contextos[-1]
     guardadas = al.estado["investigaciones"][0]["preguntasABases"]
     assert [q.get("hilo") for q in guardadas] == ["c-1", "c-1", "c-1", "c-2", None]
     # Una pregunta de antes de los hilos se continúa con su propio id.
     vieja = guardadas[-1]["id"]
     c.post(url, json={"pregunta": "¿Y después?", "hilo": vieja}, headers=cab)
-    assert "Pregunta: Rara" in contextos[-1] and al.estado["investigaciones"][0]["preguntasABases"][-1]["hilo"] == vieja
+    assert '"pregunta": "Rara"' in contextos[-1] and al.estado["investigaciones"][0]["preguntasABases"][-1]["hilo"] == vieja
 
 
 # ---------------------------------------------------------------------------

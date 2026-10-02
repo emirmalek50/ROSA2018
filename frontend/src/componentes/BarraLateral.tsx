@@ -188,6 +188,7 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
           <div className="barra-titulo">
             <span>{tr('De todas las investigaciones')}</span>
           </div>
+          <a className="nav-item" href="#/asistente" aria-current={ruta.tipo === 'asistente' ? 'page' : undefined} onClick={onCerrar}>{tr('Asistente de ROSA')}</a>
           <a className="nav-item" href={rutaLaboratorio()} aria-current={ruta.tipo === 'laboratorio' ? 'page' : undefined} onClick={onCerrar}>
             <IconEstructura size={15} />
             {tr('Al laboratorio')}

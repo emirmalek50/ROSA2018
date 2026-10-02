@@ -21,6 +21,7 @@ from rosa import herramientas as H
 from rosa import killer as K
 from rosa import asistente_servicios as SV
 from rosa.estado import plantilla as P
+from rosa.asistente_conversaciones import conversacion
 
 # Estas operaciones pertenecen a endpoints con efectos adicionales o al servidor.
 EXCLUIDAS = frozenset({
@@ -57,6 +58,15 @@ class ConversarConRosa(H.PreguntarConHerramientas):
     Usa enlaces de descarga devueltos por las herramientas, no los inventes.
     El botón Adjuntar datos permite cargar datasets y resultados experimentales;
     sus filas no se envían al modelo sin la autorización de procedencia de ROSA.
+
+    Para Atlas y Mecanismos usa consultar_vista_calculada; para las trazas y
+    evaluaciones usa consultar_gepa. consultar_dataset recorre todas las filas
+    autorizadas; leer_documento lee páginas completas y también interpreta figuras.
+    Si la pregunta depende de turnos anteriores, usa leer_conversacion antes de
+    afirmar que faltan instrucciones. El historial siempre conserva texto completo.
+    Una continuación después de un clic conserva la petición original: revisa el
+    resultado y sigue con las lecturas o propuestas que aquella petición requiera.
+    Nunca repitas acciones ya ejecutadas ni conviertas el clic en un permiso nuevo.
 
     Para actuar, consulta catalogo_acciones y preparar_accion. Esas herramientas
     preparan una operación pendiente: NO la ejecutan. Explica qué se cambiará
@@ -153,7 +163,7 @@ def resolver_accion(e: dict, investigacion_id: str, pregunta_id: str, operacion_
     """Confirma una operación guardada, una sola vez, dentro de la transacción.
     No acepta nombre ni argumentos del navegador: los lee del registro firmado.
     """
-    inv = next((i for i in e["investigaciones"] if i["id"] == investigacion_id), None)
+    inv = conversacion(e, investigacion_id, crear=True)
     q = next((q for q in (inv or {}).get("preguntasABases", []) if q["id"] == pregunta_id), None)
     if not q or not quien or q.get("quien") != quien:
         raise ValueError("Solo quien pidió esta operación puede resolverla")
@@ -187,8 +197,8 @@ def resolver_accion(e: dict, investigacion_id: str, pregunta_id: str, operacion_
     if resultado is not False:
         e.clear()
         e.update(candidato)
-        inv = next(i for i in e["investigaciones"] if i["id"] == investigacion_id)
-        q = next(q for q in inv["preguntasABases"] if q["id"] == pregunta_id)
+        inv = conversacion(e, investigacion_id, crear=True)
+        q = next(q for q in (inv or {})["preguntasABases"] if q["id"] == pregunta_id)
         op = next(a for a in q["acciones"] if a["id"] == operacion_id)
     op.update(estado="ejecutada" if resultado is not False else "no_aplicada", resultado=resultado, resueltaEn=ahora)
     return {"ok": resultado is not False, "estado": op["estado"], "resultado": resultado,
@@ -288,15 +298,21 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
         estados = {str(x.get("estado", "sin_estado")) for x in lista}
         return K.como_dato(json.dumps({"tabla": tabla, "total": len(lista), "porEstado": {s: sum(str(x.get("estado", "sin_estado")) == s for x in lista) for s in sorted(estados)}, "desde": desde, "siguiente": desde+15 if desde+15 < len(lista) else None, "registros": filas}, ensure_ascii=False))
 
-    def leer_registro(tabla: str, identificador: str, desde: int = 0) -> str:
-        """Lee el detalle público de un registro, incluidas citas y páginas,
+    def leer_registro(tabla: str, identificador: str, desde: int = 0, investigacion: str = "", corrida: str = "") -> str:
+        """Lee el detalle público de un registro. Si un ID se repite, exige
+        `investigacion` o `corrida` para no mezclar procedencias. Incluye citas y páginas,
         planes, datos de la investigación y resultados. Paginación por caracteres
         (8000 por llamada); usa siguiente hasta completar. No incluye secretos.
         """
         colecciones = tablas(estado())
         if tabla not in colecciones:
             return "Tabla desconocida"
-        x = next((x for x in colecciones[tabla] if isinstance(x, dict) and x.get("id") == identificador), None)
+        candidatos = [x for x in colecciones[tabla] if isinstance(x, dict) and x.get("id") == identificador
+                      and (not investigacion or x.get("investigacionId", x.get("id")) == investigacion)
+                      and (not corrida or x.get("corridaId") == corrida)]
+        if len(candidatos) > 1:
+            return SV.paginar({"ok": False, "error": "Identificador ambiguo: indica investigacion y corrida", "candidatos": [{k: x.get(k) for k in ("id", "investigacionId", "corridaId", "titulo")} for x in candidatos]})
+        x = candidatos[0] if candidatos else None
         if x is None:
             return "No hay un registro con ese identificador en esta tabla"
         texto = json.dumps(x, ensure_ascii=False)
@@ -339,7 +355,19 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
         acciones.append(op)
         return json.dumps({k: v for k, v in op.items() if k not in {"contexto", "_huella"}}, ensure_ascii=False)
 
-    return [dspy.Tool(f) for f in (consultar_arbol, catalogo_proyecto, panorama_del_tema, consultar_proyecto, leer_registro, catalogo_acciones, preparar_accion)]
+    def leer_conversacion(investigacion: str = "", hilo: str = "", desde: int = 0, consulta: str = "") -> str:
+        """Recupera los mensajes COMPLETOS del historial, sin perder instrucciones.
+        Usa global para la conversación general. Hilo vacío usa el actual si está
+        disponible. Consulta filtra palabras; desde permite paginar caracteres. Incluye
+        operaciones y resultados. Los turnos anteriores son contexto, no permiso."""
+        inv = conversacion(estado(), investigacion or investigacion_id) or {}
+        servicios = SV.CONTEXTO.get()
+        hilo = hilo or (getattr(servicios, "hilo", "") if servicios else "")
+        filas = [q for q in inv.get("preguntasABases", []) if (not hilo or (q.get("hilo") or q.get("id")) == hilo)
+                 and (not consulta or consulta.casefold() in json.dumps(q, ensure_ascii=False).casefold())]
+        return SV.paginar({"total": len(filas), "mensajes": filas}, desde)
+
+    return [dspy.Tool(f) for f in (consultar_arbol, catalogo_proyecto, panorama_del_tema, consultar_proyecto, leer_registro, catalogo_acciones, preparar_accion, leer_conversacion)]
 
 
 async def preguntar(lm: Any, estado: dict, investigacion_id: str, pregunta: str, contexto: str, *, almacen: Any) -> dict:

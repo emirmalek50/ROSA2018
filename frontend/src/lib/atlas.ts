@@ -82,7 +82,7 @@
 // hipótesis sin procedencia.
 
 import type { CeldaMapa, EstadoRosa, HechoMundo, Hipotesis, Investigacion, MapaEnfermedad } from '../datos/tipos';
-import { DEFINICIONES_MAPA, ETIQUETAS_MAPA, etiquetaEje } from '../componentes/MapaEnfermedad';
+import { DEFINICIONES_MAPA, ETIQUETAS_MAPA, etiquetaEje } from './mapaEtiquetas';
 import { iteracionObjEn, ordinalesDeIteraciones } from './arbol';
 import { plural } from './formato';
 import { tr, traducido, trc, trp } from './idioma';

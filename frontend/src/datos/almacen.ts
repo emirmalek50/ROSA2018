@@ -1120,10 +1120,10 @@ export const acciones = {
     if (!/^\/api\/(hipotesis|artefactos|documentos|corridas)\/[\w./-]+$/.test(url) || url.includes('..')) return '';
     return conToken(url);
   },
-  resolverAccionAsistente: async (investigacionId: string, preguntaId: string, operacionId: string, aprobar: boolean): Promise<{ ok: boolean; estado?: string; resultado?: unknown; error?: string }> => {
+  resolverAccionAsistente: async (investigacionId: string, preguntaId: string, operacionId: string, aprobar: boolean, modoOperacion?: 'continuar' | 'comprobar'): Promise<{ ok: boolean; estado?: string; resultado?: unknown; error?: string }> => {
     if (modo !== 'servidor') return { ok: false, error: tr('Esta acción requiere conexión con ROSA.') };
     try {
-      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/asistente/${encodeURIComponent(preguntaId)}/${encodeURIComponent(operacionId)}`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ aprobar }) });
+      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/asistente/${encodeURIComponent(preguntaId)}/${encodeURIComponent(operacionId)}`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ aprobar, ...(modoOperacion ? { modo: modoOperacion } : {}) }) });
       const d = await r.json();
       return r.ok ? d : { ok: false, error: d.detail || tr('No se pudo aplicar la operación.') };
     } catch {
@@ -1134,7 +1134,6 @@ export const acciones = {
     if (modo !== 'servidor') return tr('Preguntar a las bases requiere el servidor de ROSA2018.');
     try {
       const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/preguntar`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ pregunta, asistente: true, quien: QUIEN, ...(hilo ? { hilo } : {}), ...(seguimiento ? { seguimiento } : {}), ...(vista ? { vista } : {}) }) });
-      if (r.status === 429) return tr('Hoy ya se llegó al tope de preguntas con búsqueda en publicaciones. Mañana vuelve a haber; mientras tanto, «Solo lo que ya sabe» responde al instante.');
       if (!r.ok) return trp("El servidor no pudo responder ({status}).", { status: r.status });
       const d = (await r.json()) as { ok: boolean; resultado?: { error?: string | null } };
       return d.ok ? null : d.resultado?.error ?? tr('La pregunta falló.');
