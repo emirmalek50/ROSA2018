@@ -310,7 +310,7 @@ export default function App() {
     <div className={`app ${conCajon ? 'con-cajon' : ''}`}>
       <BarraLateral estado={estado} ruta={ruta} abierta={menuAbierto} onCerrar={() => setMenuAbierto(false)} onBuscar={() => setBuscando(true)} onAyuda={() => setRecorrido(true)} />
       <main className="principal">
-        <Cabecera miga={miga} titulo={titulo} esperan={esperan} onMenu={() => setMenuAbierto(true)} onBuscar={() => setBuscando(true)} />
+        <Cabecera miga={miga} titulo={titulo} onMenu={() => setMenuAbierto(true)} />
         {estado.conexion === 'sin_conexion' && (
           <div className="panel-sin-conexion" role="alert">
             <span>{tr("Sin conexión a internet")}</span>
