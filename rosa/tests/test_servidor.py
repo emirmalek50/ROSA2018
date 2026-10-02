@@ -189,3 +189,26 @@ def test_el_pdf_de_una_cita_solo_sale_del_directorio_de_pdf(cliente, tmp_path, m
     # Con el directorio en otro sitio, la ruta guardada en el estado no basta.
     monkeypatch.setattr(config, "DIR_PDFS", tmp_path / "otro")
     assert c.get("/api/corridas/cor-citas/citas/af-1/pdf").status_code == 404
+
+
+def test_el_index_no_se_guarda_en_cache_y_los_assets_si(cliente, monkeypatch):
+    """Los ficheros de `assets/` llevan el hash del contenido en el nombre, así
+    que el navegador solo se trae los nuevos si antes se trae el index nuevo.
+    Sin `no-store` en el index se quedaba con el viejo y seguía viendo la
+    interfaz de antes del despliegue: el 2 de octubre de 2026 un arreglo de la
+    barra del chat parecía no haber surtido efecto por esto."""
+    c, _ = cliente
+    from rosa import config as cfg
+
+    (cfg.FRONTEND_DIST / "assets" / "index-abc123.css").write_text("body{color:red}")
+
+    # La raíz y cualquier ruta de la interfaz devuelven el index.
+    for ruta in ("/", "/investigaciones/inv-1/mundo"):
+        r = c.get(ruta)
+        assert r.status_code == 200, ruta
+        assert r.headers.get("cache-control") == "no-store", ruta
+
+    # Un asset con hash NO lleva no-store: cachearlo es lo que se quiere.
+    r = c.get("/assets/index-abc123.css")
+    assert r.status_code == 200
+    assert r.headers.get("cache-control") != "no-store"

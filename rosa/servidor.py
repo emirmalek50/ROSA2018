@@ -163,6 +163,8 @@ def igual_secreto(dado: Any, esperado: Any) -> bool:
 
 
 def crear_app(almacen: Almacen) -> FastAPI:
+    from rosa.asistente_cancelacion import Respuestas
+    respuestas = Respuestas()
     # Las tareas de sellado en vuelo. Una tarea de asyncio que nadie referencia la
     # puede recoger el recolector a medias: se guardan aqui y se sueltan al acabar.
     _sellos_en_vuelo: set[asyncio.Task[Any]] = set()
@@ -185,6 +187,7 @@ def crear_app(almacen: Almacen) -> FastAPI:
         try:
             yield
         finally:
+            await respuestas.cerrar()
             for pendiente in _continuaciones:
                 pendiente.cancel()
             if _continuaciones:
@@ -1126,6 +1129,16 @@ def crear_app(almacen: Almacen) -> FastAPI:
             t.add_done_callback(_continuaciones.discard)
         return {**r, "version": almacen.version}
 
+    @app.post("/api/investigaciones/{investigacion_id}/preguntar/{seguimiento}/cancelar")
+    async def cancelar_respuesta(investigacion_id: str, seguimiento: str, request: Request) -> dict[str, Any]:
+        from rosa.asistente_conversaciones import conversacion
+        from rosa.razonamiento import id_valido
+        if not id_valido(seguimiento):
+            raise HTTPException(400, "Identificador de respuesta inválido")
+        if not conversacion(almacen.estado, investigacion_id):
+            raise HTTPException(404, "No se encontró la conversación")
+        return respuestas.cancelar(seguimiento, str(request.state.usuario or "servidor"), investigacion_id)
+
     @app.post("/api/investigaciones/{investigacion_id}/preguntar")
     async def preguntar_con_herramientas(investigacion_id: str, request: Request) -> dict[str, Any]:
         """Una pregunta con herramientas (conectores, búsqueda en el proyecto,
@@ -1164,12 +1177,13 @@ def crear_app(almacen: Almacen) -> FastAPI:
         from rosa import razonamiento as RZ
 
         seguimiento = RZ.id_valido(cuerpo.get("seguimiento"))
+        solicitud = respuestas.abrir(seguimiento or secrets.token_hex(16), quien, investigacion_id)
         progreso = RZ.abrir(seguimiento) if seguimiento else RZ.Progreso()
         # El asistente no hereda la cuota global de 40 preguntas del antiguo
         # buscador. La concurrencia sigue acotada por el semáforo del servidor.
-        modelos_ = await modelos_del_asistente(app)
-        async with app.state.semaforo_preguntas:
-            try:
+        async def responder() -> dict[str, Any]:
+            modelos_ = await modelos_del_asistente(app)
+            async with app.state.semaforo_preguntas:
                 with dspy.context(callbacks=RZ.callbacks_con(progreso)):
                     from rosa import asistente as AS
 
@@ -1187,16 +1201,31 @@ def crear_app(almacen: Almacen) -> FastAPI:
                     finally:
                         SV.CONTEXTO.reset(token_servicios)
                     r["pregunta"], r["quien"], r["error"] = pregunta, quien, None
+                    return r
+
+        try:
+            try:
+                if solicitud.cancelada:
+                    raise asyncio.CancelledError
+                solicitud.tarea = asyncio.create_task(responder())
+                r = await solicitud.tarea
+            except asyncio.CancelledError:
+                if not solicitud.cancelada:
+                    raise
+                r = {"pregunta": pregunta, "quien": quien, "respuesta": "Respuesta detenida.", "cancelada": True, "limites": "", "herramientas": [], "consultas": [], "iteraciones": 0, "error": None}
             except Exception as ex:  # noqa: BLE001
                 print(f"preguntar con herramientas fallo: {type(ex).__name__}: {str(ex)[:300]}", file=sys.stderr)
                 r = {"pregunta": pregunta, "quien": quien, "respuesta": "", "limites": "", "herramientas": [], "consultas": [], "iteraciones": 0, "error": "El modelo o una herramienta no respondieron; el detalle está en el registro del servidor"}
-        progreso.cerrar()
-        # Los pasos se guardan con la respuesta: la linea de tiempo se ve igual
-        # despues, no solo mientras se busca.
-        r["pasos"] = progreso.pasos()
-        if hilo:
-            r["hilo"] = hilo
-        almacen.aplicar("registrarPreguntaBases", {"investigacion_id": investigacion_id, "pregunta": r})
+            progreso.cerrar()
+            r["pasos"] = progreso.pasos()
+            if hilo:
+                r["hilo"] = hilo
+            if seguimiento:
+                r["seguimiento"] = seguimiento
+            almacen.aplicar("registrarPreguntaBases", {"investigacion_id": investigacion_id, "pregunta": r})
+        finally:
+            progreso.cerrar()
+            respuestas.terminar(solicitud)
         return {"ok": r.get("error") is None, "resultado": {k: v for k, v in r.items() if k != "consultas"} | {"consultas": len(r.get("consultas", []))}, "version": almacen.version}
 
     @app.post("/api/traducir")
@@ -1289,12 +1318,21 @@ def crear_app(almacen: Almacen) -> FastAPI:
 
         raiz_dist = config.FRONTEND_DIST.resolve()
 
+        # `index.html` NO se guarda en caché. Los ficheros de `assets/` llevan
+        # el hash del contenido en el nombre, así que el navegador solo coge
+        # los nuevos si antes se trae el index nuevo; sin esta cabecera se
+        # quedaba con el viejo y seguía viendo la versión anterior de la
+        # interfaz después de desplegar (2 de octubre de 2026: un arreglo de
+        # la barra del chat parecía no haber surtido efecto).
+        SIN_CACHE = {"Cache-Control": "no-store"}
+
         @app.get("/{ruta:path}")
         async def frontend(ruta: str) -> FileResponse:
             # Sin salto de directorio: el fichero tiene que quedar dentro de dist.
             candidato = (raiz_dist / ruta).resolve()
             if ruta and candidato.is_relative_to(raiz_dist) and candidato.is_file():
-                return FileResponse(candidato)
-            return FileResponse(raiz_dist / "index.html")
+                es_index = candidato.name == "index.html"
+                return FileResponse(candidato, headers=SIN_CACHE if es_index else None)
+            return FileResponse(raiz_dist / "index.html", headers=SIN_CACHE)
 
     return app
