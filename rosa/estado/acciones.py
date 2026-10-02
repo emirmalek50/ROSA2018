@@ -687,7 +687,7 @@ def registrar_pregunta_bases(e: Estado, investigacion_id: str, pregunta: dict, a
     inv = _buscar(e["investigaciones"], investigacion_id)
     if not inv or not isinstance(pregunta, dict) or not pregunta.get("pregunta"):
         return False
-    inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}, **{k: pregunta[k] for k in ("cobertura", "atribucion", "duracionMs") if pregunta.get(k) is not None}, **({"pasos": _pasos_de_razonamiento(pregunta["pasos"])} if isinstance(pregunta.get("pasos"), list) else {}), **({"hilo": str(pregunta["hilo"])[:40]} if pregunta.get("hilo") else {})})
+    inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}, **{k: pregunta[k] for k in ("cobertura", "atribucion", "duracionMs", "acciones") if pregunta.get(k) is not None}, **({"pasos": _pasos_de_razonamiento(pregunta["pasos"])} if isinstance(pregunta.get("pasos"), list) else {}), **({"hilo": str(pregunta["hilo"])[:40]} if pregunta.get("hilo") else {})})
     return True
 
 
@@ -2190,3 +2190,27 @@ def iniciar_corrida(e: Estado, investigacion_id: str, ahora: int, limite: int | 
     resumen = PARADA.resumen_parada(parada_n)
     con_evento(e, investigacion_id, "corrida_estado", f"Corrida {c['numero']} creada; ROSA2018 propone el plan de la iteración 1" + (f". Se detiene con {resumen}" if resumen else ""), f"#/investigaciones/{investigacion_id}/corrida", ahora)
     return c["id"]
+
+
+def resolver_accion_asistente(e: Estado, investigacion_id: str, pregunta_id: str, operacion_id: str, aprobar: bool, quien: str, ahora: int) -> dict:
+    """Aplica una operación del asistente aprobada por la sesión que la pidió."""
+    from rosa.asistente import resolver_accion
+
+    return resolver_accion(e, investigacion_id, pregunta_id, operacion_id, aprobar, quien, ahora)
+
+
+def crear_investigacion_e_iniciar(e: Estado, datos: dict, quien: str, ahora: int, limite: int | None = None, parada: dict | None = None) -> dict | bool:
+    """Crea una investigación y su primera corrida. datos exige titulo, objetivo
+    y condicionParada. La corrida espera su plan y conserva su aprobación.
+    limite es exclusivamente el presupuesto de llamadas al modelo, NO el número
+    de iteraciones. Omitirlo si la persona no pidió un presupuesto de llamadas.
+    parada admite iteraciones, horas, llamadas o texto.
+    Devuelve los identificadores reales de la investigación y la corrida.
+    """
+    investigacion_id = crear_investigacion(e, {**datos, "quien": quien}, ahora)
+    if not isinstance(investigacion_id, str):
+        return False
+    corrida_id = iniciar_corrida(e, investigacion_id, ahora, limite, parada)
+    if corrida_id is False:
+        raise ValueError("No se pudo iniciar la primera corrida")
+    return {"investigacionId": investigacion_id, "corridaId": corrida_id, "estado": "esperando_plan"}

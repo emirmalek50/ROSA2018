@@ -2482,7 +2482,18 @@ export interface MemoriaProyecto {
   fecha: number;
 }
 
+export interface AccionAsistente {
+  contexto?: unknown;
+  id: string;
+  nombre: string;
+  argumentos: Record<string, unknown>;
+  resumen: string;
+  estado: 'pendiente' | 'ejecutada' | 'no_aplicada' | 'cancelada';
+  resultado?: unknown;
+}
+
 export interface PreguntaABases {
+  acciones?: AccionAsistente[];
   id: string;
   fecha: number;
   pregunta: string;

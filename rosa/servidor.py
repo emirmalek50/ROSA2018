@@ -57,7 +57,7 @@ from urllib.parse import urlsplit
 
 # Acciones que solo aplica el propio servidor (subidas, panel del Killer,
 # preguntas con herramientas): no se aceptan desde el navegador.
-ACCIONES_INTERNAS = {"registrarPreguntaBases", "registrarEvaluacion", "registrarDatosExperimento", "registrarSelloExterno"}
+ACCIONES_INTERNAS = {"resolverAccionAsistente", "registrarPreguntaBases", "registrarEvaluacion", "registrarDatosExperimento", "registrarSelloExterno"}
 MAX_CUERPO_ACCION = 1_000_000
 MAX_CUERPO_PEQUENO = 4096
 MAX_CUERPO_PREGUNTA = 16_384
@@ -134,7 +134,7 @@ def _turnos_previos(inv: dict[str, Any], hilo: str) -> str:
     previas = sorted(previas, key=lambda q: q.get("fecha") or 0)[-TURNOS_PREVIOS:]
     if not previas:
         return ""
-    turnos = "\n".join(f"Pregunta: {str(q.get('pregunta', ''))[:400]}\nRespuesta: {str(q.get('respuesta', ''))[:MAX_RESPUESTA_PREVIA]}" for q in previas)
+    turnos = "\n".join(f"Pregunta: {str(q.get('pregunta', ''))[:400]}\nRespuesta: {str(q.get('respuesta', ''))[:MAX_RESPUESTA_PREVIA]}\nOperaciones y resultados: {json.dumps([{k: a.get(k) for k in ('id', 'nombre', 'estado', 'resultado', 'argumentos')} for a in q.get('acciones', [])], ensure_ascii=False)[:6000]}" for q in previas)
     return f"\n\nConversación hasta ahora (solo para entender a qué se refiere la pregunta nueva; no es una fuente y no se cita):\n{turnos}"
 
 
@@ -1052,6 +1052,27 @@ def crear_app(almacen: Almacen) -> FastAPI:
 
         return politicas.resumen()
 
+    @app.post("/api/investigaciones/{investigacion_id}/asistente/{pregunta_id}/{operacion_id}")
+    async def resolver_operacion_asistente(investigacion_id: str, pregunta_id: str, operacion_id: str, request: Request) -> dict[str, Any]:
+        if "application/json" not in request.headers.get("content-type", ""):
+            raise HTTPException(415, "La decisión va como application/json")
+        cuerpo = await leer_json_acotado(request, MAX_CUERPO_ACCION)
+        if not isinstance(cuerpo, dict) or not isinstance(cuerpo.get("aprobar"), bool):
+            raise HTTPException(400, "Falta una decisión válida")
+        try:
+            r = await asyncio.to_thread(almacen.aplicar, "resolverAccionAsistente", {
+                "investigacion_id": investigacion_id, "pregunta_id": pregunta_id,
+                "operacion_id": operacion_id, "aprobar": cuerpo["aprobar"],
+                "quien": request.state.usuario or "servidor",
+            }, actor=request.state.usuario or "servidor")
+        except (TypeError, ValueError, KeyError, AttributeError, OverflowError, IndexError) as ex:
+            raise HTTPException(400, f"No se pudo aplicar la operación: {str(ex)[:200]}") from None
+        if r.get("ok") and not r.get("repetida") and r.get("nombre") == "asignarExperimento":
+            t = asyncio.create_task(_sellar_prerregistro(r["argumentos"]["hipotesis_id"]))
+            _sellos_en_vuelo.add(t)
+            t.add_done_callback(_sellos_en_vuelo.discard)
+        return {**r, "version": almacen.version}
+
     @app.post("/api/investigaciones/{investigacion_id}/preguntar")
     async def preguntar_con_herramientas(investigacion_id: str, request: Request) -> dict[str, Any]:
         """Una pregunta con herramientas (conectores, búsqueda en el proyecto,
@@ -1072,7 +1093,7 @@ def crear_app(almacen: Almacen) -> FastAPI:
         pregunta = str(cuerpo.get("pregunta", "")).strip()
         if not inv or not pregunta:
             raise HTTPException(400, "Falta la pregunta o la investigación")
-        quien = str(request.state.usuario or "servidor")[:80]
+        quien = str(request.state.usuario or "servidor")
         # La conversación (1 de octubre de 2026): un "¿Y GFAP?" solo se
         # entiende con lo que se preguntó antes. El navegador manda el id del
         # hilo, nunca el texto de los turnos: las preguntas y respuestas
@@ -1102,7 +1123,10 @@ def crear_app(almacen: Almacen) -> FastAPI:
         async with app.state.semaforo_preguntas:
             try:
                 with dspy.context(callbacks=RZ.callbacks_con(progreso)):
-                    r = await asyncio.wait_for(H.preguntar(modelos_.cerebro, almacen.estado, investigacion_id, pregunta[:2000], f"Objetivo: {inv['objetivo']}. {_texto_mision(inv)}{contexto_hilo}", almacen=almacen), timeout=600)
+                    from rosa import asistente as AS
+
+                    consultar = AS.preguntar if cuerpo.get("asistente") is True else H.preguntar
+                    r = await asyncio.wait_for(consultar(modelos_.cerebro, almacen.estado, investigacion_id, pregunta[:2000], f"Objetivo: {inv['objetivo']}. {_texto_mision(inv)}{contexto_hilo}", almacen=almacen), timeout=600)
                     r["pregunta"], r["quien"], r["error"] = pregunta[:2000], quien, None
             except Exception as ex:  # noqa: BLE001
                 print(f"preguntar con herramientas fallo: {type(ex).__name__}: {str(ex)[:300]}", file=sys.stderr)

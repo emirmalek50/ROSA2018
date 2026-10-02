@@ -2682,3 +2682,14 @@
 .razon-pensar .razon-texto { font-style: italic; }
 .razon-ms { opacity: 0.75; }
 .razon-resumen-abierto { color: var(--text); }
+
+/* Operaciones del asistente: el cambio concreto y su resultado junto al turno. */
+.mundo-operaciones { margin: 18px 0; border-block: 1px solid var(--borde, #d8d5df); }
+.mundo-operacion { padding: 16px 0; }
+.mundo-operacion + .mundo-operacion { border-top: 1px solid var(--borde, #d8d5df); }
+.mundo-operacion > strong { display: block; margin-bottom: 10px; }
+.mundo-operacion summary { cursor: pointer; font-size: 13px; padding: 6px 0; }
+.mundo-operacion dl { margin: 10px 0; }
+.mundo-operacion dt { font-size: 12px; font-weight: 600; margin-top: 10px; }
+.mundo-operacion dd { margin: 4px 0 0 12px; overflow-wrap: anywhere; }
+.mundo-operacion p { font-size: 13px; }

@@ -1510,6 +1510,7 @@ _TABLA: dict[str, Callable] = {
     "inyectarDebilidad": A.inyectar_debilidad,
     "recomprobarRetracciones": A.recomprobar_retracciones,
     "crearInvestigacion": A.crear_investigacion,
+    "crearInvestigacionEIniciar": A.crear_investigacion_e_iniciar,
     "bifurcarInvestigacion": A.bifurcar_investigacion,
     "editarInvestigacion": A.editar_investigacion,
     "actualizarConfiguracion": A.actualizar_configuracion,
@@ -1569,6 +1570,7 @@ _TABLA: dict[str, Callable] = {
     "anadirMemoria": A.anadir_memoria,
     "quitarMemoria": A.quitar_memoria,
     "registrarPreguntaBases": A.registrar_pregunta_bases,
+    "resolverAccionAsistente": A.resolver_accion_asistente,
     "pedirRecuperacionCitas": A.pedir_recuperacion_citas,
 }
 

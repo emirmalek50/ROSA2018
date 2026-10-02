@@ -19,6 +19,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { acciones } from "../datos/almacen";
+import { AccionesAsistente } from "../componentes/AccionesAsistente";
 import {
   preguntarAlModeloDeMundo,
   type CitaComprobable,
@@ -890,6 +891,7 @@ function Conversar(p: PropsConversar) {
           >
             {t.tipo === "guardada" && (
               <TurnoGuardado
+                investigacionId={p.inv.id}
                 q={t.q}
                 ahora={ahora}
                 base={base}
@@ -1007,7 +1009,7 @@ function Compositor({
         placeholder={
           modo === "bases"
             ? tr(
-                "Pregunta lo que quieras: qué se sabe, qué falta, dónde chocan las fuentes...",
+                "Habla con ROSA: consulta una proteína, revisa los hechos o pon una investigación en marcha...",
               )
             : tr("Busca entre lo que ya sabe...")
         }
@@ -1077,7 +1079,7 @@ function Compositor({
         <p className="mundo-compositor-nota">
           {modo === "bases"
             ? trp(
-                "Responde con los {n} hechos del modelo de mundo y, si hace falta, con bases públicas. Lo que no encuentra, lo dice.",
+                "ROSA consulta todo el proyecto y sus bases públicas. Los cambios que le pidas se revisan y aplican aquí.",
                 { n },
               )
             : trp(
@@ -1537,6 +1539,7 @@ function HechosCitados({
 }
 
 function TurnoGuardado({
+  investigacionId,
   q,
   ahora,
   base,
@@ -1547,6 +1550,7 @@ function TurnoGuardado({
   recordar,
   leer,
 }: {
+  investigacionId: string;
   q: PreguntaABases;
   ahora: number;
   base: BaseMundo;
@@ -1634,6 +1638,7 @@ function TurnoGuardado({
         ) : (
           <>
             <TextoRico bloques={bloques} c={c} />
+            {!!q.acciones?.length && <AccionesAsistente investigacionId={investigacionId} preguntaId={q.id} operaciones={q.acciones} />}
             <HechosCitados hechos={citados} abrirHecho={abrirHecho} />
             {cobertura.length > 0 && <CoberturaPregunta partes={cobertura} />}
             {cobertura.length === 0 && limites.length > 0 && (

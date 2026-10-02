@@ -990,3 +990,30 @@ la primera corrida el 15 de septiembre de 2026.
 - `INVESTIGACION-AI-SCIENTIST-2026.md`: los quince huecos de un AI scientist
   profesional verificados contra las fuentes, con las correcciones al informe
   externo y lo que ROSA2018 tomo de cada uno.
+
+## ROSA como asistente del proyecto (2 de octubre de 2026)
+
+La conversación del modelo de mundo usa `rosa/asistente.py`: ROSA tiene identidad
+propia, conserva el contexto del hilo y consulta todas las investigaciones, no
+solo la abierta. Comparte los conectores permitidos de `rosa/herramientas.py` y
+puede contar registros, buscar proteínas y leer hechos, citas, hipótesis,
+corridas, planes, fuentes, datasets, memoria y el estado público del programa.
+Las búsquedas devuelven el total y páginas explícitas; no confunden una página
+parcial con todos los resultados. No se exponen claves privadas ni ficheros del
+servidor.
+
+Para operar el proyecto, ROSA consulta el catálogo de acciones de la interfaz y
+prepara un cambio con sus argumentos. La conversación muestra el cambio y los
+botones para aplicarlo o cancelarlo. Solo la sesión que lo pidió puede resolverlo.
+La ejecución se guarda con su autoría y su resultado, dentro de la transacción
+del almacén; repetir una confirmación no repite la operación. Si el estado cambió
+o una regla del dominio impide actuar, aparece «No se aplicó». Las propuestas no
+se presentan como operaciones ya ejecutadas.
+
+Ejemplos: «¿Qué hechos tiene ROSA sobre MAPT en todas las investigaciones?»,
+«Inicia la investigación de GFAP», «Pausa esta corrida», «Prepara la revisión de
+esta hipótesis». Para crear y arrancar una investigación nueva hace falta su
+título, objetivo y condición de parada. Crear una corrida conserva las puertas
+de aprobación del plan, de la evidencia y de los permisos; el asistente no las
+salta. Archivos, cuentas, correo y credenciales conservan sus pantallas y
+endpoints específicos, en lugar de dar al modelo acceso al sistema operativo.

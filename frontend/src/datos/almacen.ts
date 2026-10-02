@@ -1116,10 +1116,20 @@ export const acciones = {
       return null;
     }
   },
+  resolverAccionAsistente: async (investigacionId: string, preguntaId: string, operacionId: string, aprobar: boolean): Promise<{ ok: boolean; estado?: string; resultado?: unknown; error?: string }> => {
+    if (modo !== 'servidor') return { ok: false, error: tr('Esta acción requiere conexión con ROSA.') };
+    try {
+      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/asistente/${encodeURIComponent(preguntaId)}/${encodeURIComponent(operacionId)}`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ aprobar }) });
+      const d = await r.json();
+      return r.ok ? d : { ok: false, error: d.detail || tr('No se pudo aplicar la operación.') };
+    } catch {
+      return { ok: false, error: tr('No se pudo comprobar el resultado. Recarga antes de volver a intentarlo.') };
+    }
+  },
   preguntarALasBases: async (investigacionId: string, pregunta: string, hilo?: string, seguimiento?: string): Promise<string | null> => {
     if (modo !== 'servidor') return tr('Preguntar a las bases requiere el servidor de ROSA2018.');
     try {
-      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/preguntar`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ pregunta, quien: QUIEN, ...(hilo ? { hilo } : {}), ...(seguimiento ? { seguimiento } : {}) }) });
+      const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/preguntar`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ pregunta, asistente: true, quien: QUIEN, ...(hilo ? { hilo } : {}), ...(seguimiento ? { seguimiento } : {}) }) });
       if (r.status === 429) return tr('Hoy ya se llegó al tope de preguntas con búsqueda en publicaciones. Mañana vuelve a haber; mientras tanto, «Solo lo que ya sabe» responde al instante.');
       if (!r.ok) return trp("El servidor no pudo responder ({status}).", { status: r.status });
       const d = (await r.json()) as { ok: boolean; resultado?: { error?: string | null } };
