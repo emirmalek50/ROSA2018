@@ -378,7 +378,7 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
                   <div className="arbol-texto">
                     <span>{a.texto}</span>
                     <span className="arbol-detalle">
-                      <Chip tono={v.tono}>{v.etiqueta}</Chip> <Chip tono="borde">{tipoAfirmacion(a.tipo).etiqueta}</Chip> <span className="meta">{a.cita}</span>
+                      <Chip tono={v.tono}>{v.etiqueta}</Chip> <Chip tono="borde">{tipoAfirmacion(a.tipo).etiqueta}</Chip> <span className="meta" data-sin-traducir>{a.cita}</span>
                       {a.entidadDistinta && <Chip tono="mal">{tr("otra entidad")}</Chip>}
                     </span>
                     {a.motivo && a.veredicto !== 'sostenida' && <span className="arbol-motivo meta">{a.motivo}</span>}

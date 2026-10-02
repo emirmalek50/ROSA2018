@@ -131,3 +131,93 @@ describe('la velocidad', () => {
     expect([...raiz.querySelectorAll('p')].every((p) => p.textContent?.startsWith('EN '))).toBe(true);
   });
 });
+
+describe('lo que se lee fuera del texto', () => {
+  it('traduce title, aria-label, placeholder y alt', async () => {
+    // Un botón cuyo globo sigue en castellano no está traducido.
+    raiz.innerHTML = `
+      <button title="La hipótesis tal como está">x</button>
+      <span aria-label="Confusión por fisiología sistémica">y</span>
+      <input placeholder="Escribe una pregunta" />
+      <img src="z.png" alt="El árbol del proyecto" />`;
+    activar(raiz, falso({
+      'La hipótesis tal como está': 'The hypothesis as it stands',
+      'Confusión por fisiología sistémica': 'Confounding by systemic physiology',
+      'Escribe una pregunta': 'Type a question',
+      'El árbol del proyecto': "The project's tree",
+    }));
+    await espera();
+    expect(raiz.querySelector('button')!.title).toBe('The hypothesis as it stands');
+    expect(raiz.querySelector('span')!.getAttribute('aria-label')).toBe('Confounding by systemic physiology');
+    expect(raiz.querySelector('input')!.placeholder).toBe('Type a question');
+    expect(raiz.querySelector('img')!.alt).toBe("The project's tree");
+  });
+
+  it('el texto de un <option> sí, pero su value no se toca', async () => {
+    // Los desplegables salían enteros en castellano: `select` estaba en la
+    // lista de lo que no se toca. Lo que se compara con el servidor es el
+    // value, que no es texto que se lea.
+    raiz.innerHTML = '<select><option value="h-7">La dosis de APOE modifica la brecha</option></select>';
+    activar(raiz, falso({ 'La dosis de APOE modifica la brecha': 'APOE dose changes the gap' }));
+    await espera();
+    const o = raiz.querySelector('option')!;
+    expect(o.textContent).toBe('APOE dose changes the gap');
+    expect(o.value).toBe('h-7');
+  });
+
+  it('lo que la persona escribe no se le toca', async () => {
+    // Un textarea guarda lo que hay dentro: traducírselo sería cambiarle lo
+    // que va a guardar. El placeholder sí, que ese no se guarda.
+    raiz.innerHTML = '<textarea placeholder="Escribe aquí">La respuesta que debe dar</textarea>';
+    activar(raiz, falso({ 'La respuesta que debe dar': 'MAL', 'Escribe aquí': 'Type here' }));
+    await espera();
+    expect(raiz.querySelector('textarea')!.textContent).toBe('La respuesta que debe dar');
+    expect(raiz.querySelector('textarea')!.placeholder).toBe('Type here');
+  });
+
+  it('[data-sin-traducir] también vale para los atributos', async () => {
+    raiz.innerHTML = '<button data-sin-traducir aria-label="Español">ES</button>';
+    const pedir = falso({ 'Español': 'Spanish' });
+    activar(raiz, pedir);
+    await espera();
+    expect(raiz.querySelector('button')!.getAttribute('aria-label')).toBe('Español');
+    expect(pedir).not.toHaveBeenCalled();
+  });
+
+  it('un atributo que aparece después también se traduce', async () => {
+    raiz.innerHTML = '<div></div>';
+    activar(raiz, falso({ 'Sin diana conocida': 'No known target' }));
+    await espera();
+    const b = document.createElement('button');
+    b.title = 'Sin diana conocida';
+    raiz.querySelector('div')!.append(b);
+    await espera();
+    expect(b.title).toBe('No known target');
+  });
+
+  it('al volver al castellano los atributos vuelven', async () => {
+    raiz.innerHTML = '<button title="La hipótesis tal como está">x</button>';
+    activar(raiz, falso({ 'La hipótesis tal como está': 'The hypothesis as it stands' }));
+    await espera();
+    expect(raiz.querySelector('button')!.title).toBe('The hypothesis as it stands');
+    desactivar();
+    expect(raiz.querySelector('button')!.title).toBe('La hipótesis tal como está');
+  });
+});
+
+describe('lo que ya está en inglés no se paga', () => {
+  it('un marcador de cita con «et al.» no se manda', () => {
+    // «al» es palabra castellana, pero el «et al.» de una cita es latín. Sin
+    // esto, Citas mandaba 169 frases inglesas al modelo en cada corrida.
+    expect(pareceCastellano('[Dark et al., 2024, Results section]')).toBe(false);
+    expect(pareceCastellano('[Pettigrew et al., 2025, abstract]')).toBe(false);
+    expect(pareceCastellano('Pettigrew et al., 2025 · doi:10.1002/dad2.70081')).toBe(false);
+    expect(pareceCastellano('Xie et al. describe GFAP abnormality preceding NfL')).toBe(false);
+  });
+
+  it('y el castellano de verdad sigue pasando', () => {
+    expect(pareceCastellano('Valor pronóstico de la brecha GFAP–NfL')).toBe(true);
+    expect(pareceCastellano('la cita no resuelve')).toBe(true);
+    expect(pareceCastellano('Al mes 24 la cohorte sigue abierta')).toBe(true);
+  });
+});

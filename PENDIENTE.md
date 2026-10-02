@@ -1558,11 +1558,55 @@ Lo que queda, con fichero:
 - **Revisión humana de lo que traduce el modelo.** Se dice en el selector de
   idioma (`componentes/Idioma.tsx`), pero nadie lo ha revisado. Es contenido
   científico: una traducción mala de una conclusión no es una errata.
-- **Atributos** (`title`, `aria-label`, `placeholder`) con texto que viene del
-  servidor: `traductorDom.ts` solo mira nodos de texto.
+- ~~**Atributos** (`title`, `aria-label`, `placeholder`) con texto que viene
+  del servidor~~. Hecho el 2 de octubre de 2026, ver abajo.
 - **Frases partidas por un elemento** (`<strong>`, un enlace): se traducen en
   trozos. `agrupar.mjs` solo junta lo que es texto o número.
 - **Envolver y desenvolver tenían reglas distintas** y se deshacían el uno al
   otro: un pase había vuelto a envolver colores, clases y trazados, y llegó a
   `main`. Corregido y vigilado por `src/lib/traduccion_segura.test.ts`, que
   ahora recorre todo el código.
+
+### Lo que de verdad faltaba en inglés, 2 de octubre de 2026
+
+Emir avisó de que artefactos, calidad, citas, mecanismos y panorama seguían en
+castellano. No era que faltaran frases en la caché: eran tres fallos del
+traductor de pantalla (`frontend/src/lib/traductorDom.ts`), encontrados
+clasificando por QUÉ no se traducía cada cosa en vez de precalentando a
+ciegas.
+
+1. **Los atributos no se traducían.** `title`, `aria-label`, `placeholder` y
+   `alt` se leen en pantalla como cualquier otro texto, y el traductor solo
+   miraba nodos de texto. En las cinco pantallas quedaban 19 textos en
+   castellano solo por esto, todos los globos del ratón de Mecanismos y del
+   panel del Killer. Ahora el observador vigila también
+   `attributeFilter: ['title','aria-label','placeholder','alt']`, y al volver
+   al castellano se devuelven igual que el texto.
+2. **Los desplegables salían enteros en castellano.** `select` estaba en
+   `NO_TOCAR` junto a `input` y `textarea`. Pero el texto de un `<option>` se
+   lee, y lo que se compara con el servidor es su `value`: los 40 `<option>`
+   del proyecto lo llevan explícito, así que traducir el texto es seguro.
+   `input` y `textarea` se quedan fuera, que ahí lo que hay es lo que escribió
+   la persona y traducírselo sería cambiarle lo que va a guardar (los 15 casos
+   de evaluación de Calidad siguen en castellano a propósito).
+3. **Las citas se mandaban al modelo para nada, y era peligroso.** El «al» de
+   «et al.» hacía que `pareceCastellano` diera por castellanos los 169
+   marcadores de Citas («[Dark et al., 2024, Results section]»), que ya están
+   en inglés. Dos arreglos: la regla descuenta «et al.» antes de contar, y el
+   localizador de una cita va con `data-sin-traducir` en `Citas.tsx`,
+   `Trazabilidad.tsx` y `Verificacion.tsx`. Esto último no es coste sino
+   corrección: un localizador tiene que coincidir letra por letra con el
+   documento fuente, y «Results section» traducido no existe en el PDF.
+
+Medido antes y después en las cinco pantallas (castellano visible en inglés):
+artefactos 2→2, calidad 55→18, mecanismos 63→3, citas 170→7, panorama 7→1. Lo
+que queda no es traducción pendiente: son los 15 textarea de los casos de
+evaluación, el nombre del laboratorio («Laboratorio de prueba (INTEC)», que es
+un dato) y el «Español» del propio selector de idioma, que va en su idioma
+como en cualquier selector.
+
+`scripts/i18n/precalentar.mjs` recoge ahora lo mismo que el traductor (de 1195
+a 1323 frases en `inv-gfap`).
+
+Sigue faltando la revisión humana de lo que traduce el modelo, que es lo de
+arriba y lo importante.

@@ -355,13 +355,17 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   );
 }
 
+// El localizador de una cita (`a.cita`) NO se traduce: es la referencia al
+// sitio exacto del documento fuente, y tiene que coincidir con él letra por
+// letra para que la cita resuelva. Traducir «Results section» cambiaría el
+// localizador por uno que no existe en el PDF.
 function FilaAfirmacion({ a, elegida, onElegir }: { a: AfirmacionCitada; elegida: boolean; onElegir: () => void }) {
   return (
     <button type="button" className={`citas-fila citas-af${elegida ? ' elegida' : ''}`} aria-current={elegida ? 'true' : undefined} onClick={onElegir}>
       <p>{a.texto}</p>
       <div className="citas-meta">
         <Veredicto veredicto={a.veredicto} />
-        <span className="citas-cita">{a.cita}</span>
+        <span className="citas-cita" data-sin-traducir>{a.cita}</span>
         <span className="meta">{enLlanoLaClase(a.clase, a.localizador)}</span>
         {Boolean(a.bloqueoViejo) && <span className="citas-marca-rancio">{tr("ya no bloquearía")}</span>}
       </div>

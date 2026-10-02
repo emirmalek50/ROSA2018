@@ -19,6 +19,9 @@ export function SelectorIdioma() {
           key={i.clave}
           type="button"
           aria-pressed={idioma === i.clave}
+          // El nombre de cada idioma va en SU idioma, como en cualquier
+          // selector: «Español» no se traduce a «Spanish».
+          data-sin-traducir=""
           aria-label={i.nombre}
           onClick={() => fijarIdioma(i.clave)}
         >

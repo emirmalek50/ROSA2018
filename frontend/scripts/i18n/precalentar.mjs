@@ -40,11 +40,13 @@ const juntar = () => p.evaluate(() => {
   const es = (s) => {
     if (s.length < 3 || !/[a-záéíóúñ]{2}/i.test(s)) return false;
     if (TILDES.test(s)) return true;
-    const a = new Set((s.match(ES) ?? []).map((x) => x.toLowerCase()));
-    const b = new Set((s.match(EN) ?? []).map((x) => x.toLowerCase()));
+    const c = s.replace(/\bet\s+al\.?/gi, ' '); // «et al.» es latin de una cita inglesa
+    const a = new Set((c.match(ES) ?? []).map((x) => x.toLowerCase()));
+    const b = new Set((c.match(EN) ?? []).map((x) => x.toLowerCase()));
     return a.size >= 2 || (a.size >= 1 && b.size === 0);
   };
-  const NO = 'script, style, code, pre, kbd, samp, textarea, input, select, [contenteditable="true"], [data-sin-traducir], .mono';
+  const NO = 'script, style, code, pre, kbd, samp, textarea, input, [contenteditable="true"], [data-sin-traducir], .mono';
+  const ATR = ['title', 'aria-label', 'placeholder', 'alt'];
   const out = new Set();
   const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = w.nextNode(); n; n = w.nextNode()) {
@@ -52,6 +54,15 @@ const juntar = () => p.evaluate(() => {
     if (!e || e.closest(NO)) continue;
     const t = (n.nodeValue ?? '').trim();
     if (t && es(t)) out.add(t);
+  }
+  // Y lo que se lee sin ser texto: el globo del ratón, lo que dice el lector
+  // de pantalla, el aviso de una caja vacía y el alt de una imagen.
+  for (const el of document.querySelectorAll('[title],[aria-label],[placeholder],[alt]')) {
+    if (el.closest('[data-sin-traducir]')) continue;
+    for (const a of ATR) {
+      const v = (el.getAttribute(a) ?? '').trim();
+      if (v && es(v)) out.add(v);
+    }
   }
   return [...out];
 });

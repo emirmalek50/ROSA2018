@@ -15,6 +15,11 @@
 // castellano en un nodo, el observador lo ve y lo vuelve a traducir. Y al
 // volver al castellano se devuelve el original a cada nodo tocado.
 //
+// Además del texto se traducen cuatro atributos que se LEEN en pantalla:
+// title (el globo al pasar el ratón), aria-label (lo que dice el lector de
+// pantalla), placeholder y alt. Un botón cuyo globo sigue en castellano no
+// está traducido, por mucho que su etiqueta lo esté.
+//
 // Lo que NO se traduce: código, identificadores (dentro de <code>, <pre>,
 // .mono o [data-sin-traducir]), lo que se está escribiendo (textarea, input)
 // y lo que ya está en inglés. Ante la duda no se manda: un texto en
@@ -33,20 +38,36 @@ export function pareceCastellano(t: string): boolean {
   const s = t.trim();
   if (s.length < 3 || !/[a-záéíóúñ]{2}/i.test(s)) return false;
   if (TILDES.test(s)) return true;
-  const es = new Set((s.match(PALABRAS_ES) ?? []).map((p) => p.toLowerCase()));
-  const en = new Set((s.match(PALABRAS_EN) ?? []).map((p) => p.toLowerCase()));
+  // El «al» de «et al.» es latín de una cita en inglés, no el «al» castellano.
+  // Sin quitarlo, los 169 marcadores de Citas («[Dark et al., 2024, Results
+  // section]») se mandaban al modelo en cada corrida para que los devolviera
+  // igual.
+  const limpio = s.replace(/\bet\s+al\.?/gi, ' ');
+  const es = new Set((limpio.match(PALABRAS_ES) ?? []).map((p) => p.toLowerCase()));
+  const en = new Set((limpio.match(PALABRAS_EN) ?? []).map((p) => p.toLowerCase()));
   // «no» no está en la lista inglesa aunque sea inglés: es de los dos
   // idiomas, y contarlo como inglés dejaba fuera «la cita no resuelve».
   return es.size >= 2 || (es.size >= 1 && en.size === 0);
 }
 
-const NO_TOCAR = 'script, style, code, pre, kbd, samp, textarea, input, select, [contenteditable="true"], [data-sin-traducir], .mono';
+/** `select` NO está en la lista: el texto de un `<option>` se lee en pantalla
+ *  como cualquier otro, y lo que se compara con el servidor es su `value`, que
+ *  no se toca. `textarea` e `input` sí: ahí lo que hay es lo que escribió la
+ *  persona, y traducírselo sería cambiarle lo que va a guardar. */
+const NO_TOCAR = 'script, style, code, pre, kbd, samp, textarea, input, [contenteditable="true"], [data-sin-traducir], .mono';
+
+/** Atributos que se leen en pantalla. El resto (value, id, href...) no. */
+const ATRIBUTOS = ['title', 'aria-label', 'placeholder', 'alt'] as const;
+const CON_ATRIBUTO = '[title],[aria-label],[placeholder],[alt]';
 
 export type Pedir = (textos: string[]) => Promise<Record<string, string>>;
 
 /** El original de cada nodo que se ha traducido, para devolvérselo. */
 const originales = new WeakMap<Text, string>();
 const tocados = new Set<WeakRef<Text>>();
+/** Lo mismo para los atributos: por elemento, el valor de antes de cada uno. */
+const originalesAtr = new WeakMap<Element, Map<string, string>>();
+const tocadosAtr = new Set<WeakRef<Element>>();
 /** Lo que ya se sabe: original -> inglés. Lo que el servidor rechazó también
  *  se recuerda (con el original como valor) para no pedirlo en bucle. */
 const memoria = new Map<string, string>();
@@ -102,6 +123,36 @@ function mirar(n: Text): void {
   programar();
 }
 
+function aplicarAtr(el: Element, atr: string): void {
+  const actual = el.getAttribute(atr);
+  if (actual === null) return;
+  const { antes, nucleo, despues } = partir(actual);
+  const en = memoria.get(nucleo);
+  if (en === undefined || en === nucleo) return;
+  let previos = originalesAtr.get(el);
+  if (!previos) { previos = new Map(); originalesAtr.set(el, previos); }
+  previos.set(atr, actual);
+  tocadosAtr.add(new WeakRef(el));
+  el.setAttribute(atr, antes + en + despues);
+}
+
+function mirarAtr(el: Element, atr: string): void {
+  if (el.closest('[data-sin-traducir]')) return;
+  const v = el.getAttribute(atr);
+  if (v === null) return;
+  // Lo que ya pusimos nosotros no se vuelve a mirar.
+  const orig = originalesAtr.get(el)?.get(atr);
+  if (orig !== undefined && memoria.get(partir(orig).nucleo) === partir(v).nucleo) return;
+  const { nucleo } = partir(v);
+  if (!pareceCastellano(nucleo)) return;
+  if (memoria.has(nucleo)) {
+    aplicarAtr(el, atr);
+    return;
+  }
+  pendientes.add(nucleo);
+  programar();
+}
+
 function recorrer(raiz: Node): void {
   if (raiz.nodeType === Node.TEXT_NODE) {
     mirar(raiz as Text);
@@ -109,6 +160,12 @@ function recorrer(raiz: Node): void {
   }
   const w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT);
   for (let n = w.nextNode(); n; n = w.nextNode()) mirar(n as Text);
+  if (raiz.nodeType !== Node.ELEMENT_NODE) return;
+  const el = raiz as Element;
+  for (const a of ATRIBUTOS) if (el.hasAttribute(a)) mirarAtr(el, a);
+  for (const hijo of el.querySelectorAll(CON_ATRIBUTO)) {
+    for (const a of ATRIBUTOS) if (hijo.hasAttribute(a)) mirarAtr(hijo, a);
+  }
 }
 
 function programar(): void {
@@ -149,10 +206,16 @@ export function activar(raiz: Element, pedir: Pedir): void {
   observador = new MutationObserver((cambios) => {
     for (const c of cambios) {
       if (c.type === 'characterData') mirar(c.target as Text);
-      else c.addedNodes.forEach((n) => recorrer(n));
+      else if (c.type === 'attributes') {
+        const a = c.attributeName as (typeof ATRIBUTOS)[number] | null;
+        if (a && (ATRIBUTOS as readonly string[]).includes(a)) mirarAtr(c.target as Element, a);
+      } else c.addedNodes.forEach((n) => recorrer(n));
     }
   });
-  observador.observe(raiz, { subtree: true, childList: true, characterData: true });
+  observador.observe(raiz, {
+    subtree: true, childList: true, characterData: true,
+    attributes: true, attributeFilter: [...ATRIBUTOS],
+  });
   recorrer(raiz);
 }
 
@@ -177,6 +240,18 @@ export function desactivar(): void {
     }
   }
   tocados.clear();
+  for (const ref of tocadosAtr) {
+    const el = ref.deref();
+    const previos = el ? originalesAtr.get(el) : undefined;
+    if (!el || !previos) continue;
+    for (const [atr, orig] of previos) {
+      // Igual que con el texto: solo si sigue estando NUESTRA traducción.
+      const { antes, nucleo, despues } = partir(orig);
+      if (el.getAttribute(atr) === antes + (memoria.get(nucleo) ?? nucleo) + despues) el.setAttribute(atr, orig);
+    }
+    originalesAtr.delete(el);
+  }
+  tocadosAtr.clear();
 }
 
 /** Para las pruebas: lo que hay en vuelo y vaciar la memoria. */
