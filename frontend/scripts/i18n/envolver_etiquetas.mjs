@@ -22,6 +22,14 @@ import { execSync } from 'node:child_process';
 const escribir = process.argv.includes('--escribir');
 const ATRIBUTOS = new Set(['title', 'aria-label', 'placeholder', 'alt']);
 
+/** Props que NO se leen: identificadores, rutas, estilo y atributos de SVG.
+ *  Misma lista que `envolver.mjs`. Cualquier otra prop con una cadena dentro
+ *  es un rotulo: `titulo="Enunciado"` en un <Seccion> se ve en pantalla, y
+ *  como es una palabra sola sin tilde no la cogia ningun codemod (los
+ *  encabezados Enunciado, Novedad, Supuestos, Revisor, Rivales e Historial
+ *  llevaban asi desde siempre; 2 de octubre de 2026). */
+const PROPS_QUE_NO_SE_VEN = new Set(['className', 'id', 'key', 'type', 'name', 'htmlFor', 'role', 'href', 'src', 'rel', 'target', 'method', 'action', 'value', 'data-tipo', 'data-eje', 'data-estado', 'data-sin-traducir', 'style', 'xmlns', 'd', 'fill', 'stroke', 'viewBox', 'transform', 'points', 'rx', 'ry', 'cx', 'cy', 'r', 'x', 'y', 'x1', 'x2', 'y1', 'y2', 'width', 'height', 'preserveAspectRatio', 'strokeLinecap', 'strokeLinejoin', 'strokeWidth', 'fontFamily', 'textAnchor', 'dominantBaseline', 'autoComplete', 'inputMode', 'pattern', 'accept', 'encType', 'clave', 'ambito', 'icono', 'tono', 'variante', 'modo', 'vista', 'panel', 'orden', 'formato']);
+
 /** Marcas, formatos, siglas y unidades: se escriben igual en los dos
  *  idiomas, y traducirlas seria un error. */
 const TAL_CUAL = new Set([
@@ -47,6 +55,14 @@ function esTexto(t) {
   if (/^[\w.+-]+@[\w.-]+\.\w+$/.test(t)) return false;     // correo
   if (/^(https?:\/\/|www\.|\/)/.test(t)) return false;     // url o ruta
   if (/^[\w.-]+\/[\w.-]+$/.test(t)) return false;          // proveedor/modelo, ruta de fichero
+  // Un rotulo empieza por mayuscula, o lleva un espacio, o lleva tilde. Lo
+  // que no cumple nada de eso y va de una pieza es un identificador: un
+  // nombre de clase («btn-s», «ajuste-tab-general»), un valor de SVG
+  // («currentColor», «evenodd», «userSpaceOnUse»), un modo («auto»,
+  // «lazy»). Con esto entran «Enunciado» y «Descartar» y no entra el resto.
+  if (!/\s/.test(t) && !/[ñáéíóúÁÉÍÓÚÑ]/.test(t) && !/^[A-ZÁÉÍÓÚÑ]/.test(t)) return false;
+  if (/^(?:var\(|url\(|rotate\(|translate\(|scale\()/.test(t)) return false;  // valor CSS o SVG
+  if (/^[A-Z][a-z]+[A-Z]/.test(t)) return false;           // SourceGraphic, PascalCase de SVG
   if (/^[a-z][a-zA-Z0-9]*$/.test(t) && t.length <= 3) return false; // doc, ms, nt
   return true;
 }
@@ -73,9 +89,14 @@ for (const f of ficheros) {
       // Los espacios y saltos de linea de alrededor los pinta React: se
       // conservan tal cual y solo se envuelve el nucleo.
       if (esTexto(t)) sitios.push({ tipo: 'texto', a: n.pos + n.text.indexOf(t.charAt(0), 0), nodo: n, t });
-    } else if (ts.isJsxAttribute(n) && n.name && ATRIBUTOS.has(n.name.getText(sf)) && n.initializer && ts.isStringLiteral(n.initializer)) {
-      const t = n.initializer.text.trim();
-      if (esTexto(t)) sitios.push({ tipo: 'atributo', nodo: n.initializer, t });
+    } else if (ts.isJsxAttribute(n) && n.name && n.initializer && ts.isStringLiteral(n.initializer)) {
+      const prop = n.name.getText(sf);
+      // Los cuatro de siempre, y ademas cualquier prop que no este en la
+      // lista de las que no se leen.
+      if (ATRIBUTOS.has(prop) || !(PROPS_QUE_NO_SE_VEN.has(prop) || prop.startsWith('data-') || prop.startsWith('on'))) {
+        const t = n.initializer.text.trim();
+        if (esTexto(t)) sitios.push({ tipo: 'atributo', nodo: n.initializer, t });
+      }
     }
     ts.forEachChild(n, visitar);
   };

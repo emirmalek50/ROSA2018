@@ -287,7 +287,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
           </p>
         </div>
         <Confirmar
-          etiqueta="Bifurcar"
+          etiqueta={tr("Bifurcar")}
           pregunta={tr("Se crea una investigación nueva con el mismo objetivo y una copia del modelo de mundo. La original sigue igual.")}
           pedirTexto={{ etiqueta: tr('Nombre de la rama (di para que es)'), marcador: tr('Secuencia GFAP-NfL solo en Alzheimer familiar') }}
           onConfirmar={(motivo) => {
@@ -429,7 +429,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
       </Seccion>
 
       <Seccion id="datos"
-        titulo="Datos"
+        titulo={tr("Datos")}
         nota={tr("Antes de una corrida larga, la comprobación de datos: columnas sin diccionario, valores centinela y nombres duplicados contaminaron horas de una corrida de Kosmos. Nada se aprueba con esos contadores en rojo.")}
         acciones={
           <button type="button" className="btn btn-s" onClick={() => setVerCatalogo((v) => !v)}>
@@ -497,12 +497,12 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
 
       <Seccion
         id="programa"
-        titulo="Programa"
+        titulo={tr("Programa")}
         nota={tr("La vista de programa de ROSA2018: lo que la investigación aporta al conjunto, no a una hipótesis. Cuatro piezas, calculadas por regla al cerrar cada iteración. Aprendizaje: si las predicciones que ROSA2018 dejó escritas antes de mirar los datos (prerregistro) acertaron, cuánto tarda cada hipótesis en recibir una decisión y si se reutiliza lo heredado de otras investigaciones. Mapa de la ruta terapéutica: por cada diana, cuáles de los ocho pasos entre un mecanismo y un beneficio para una persona están cubiertos. Mapa de la enfermedad: dónde cae la evidencia por fase, región del cerebro y tipo de célula, y qué huecos nombra la misión. Datasets del programa: los conjuntos de datos públicos que ROSA2018 encontró, con su acceso. Los campos que aún no se han calculado lo dicen.")}
       >
         {esperaHumana !== '' && <p className="meta esqueleto-nota">{esperaHumana}</p>}
         <div className="programa">
-          <Cargando activo={esperaPrograma && !inv.cifrasAprendizaje} rotulo={tr("las cifras de aprendizaje")} esqueleto={<SiluetaPrograma clase="cifras-ap" titulo="Aprendizaje" forma="texto" />}>
+          <Cargando activo={esperaPrograma && !inv.cifrasAprendizaje} rotulo={tr("las cifras de aprendizaje")} esqueleto={<SiluetaPrograma clase="cifras-ap" titulo={tr("Aprendizaje")} forma="texto" />}>
             <CifrasAprendizaje cifras={inv.cifrasAprendizaje ?? null} />
           </Cargando>
           <Cargando activo={esperaPrograma && !inv.mapaRuta} rotulo={tr("el mapa de la ruta terapéutica")} esqueleto={<SiluetaPrograma clase="mapa-ruta" titulo={tr("Mapa de la ruta terapéutica")} forma="tabla" />}>
@@ -546,7 +546,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         ) : null;
       })()}
 
-      <Seccion detalle titulo="Corridas" nota={tr("Cada corrida es un arranque del bucle con estas instrucciones.")}>
+      <Seccion detalle titulo={tr("Corridas")} nota={tr("Cada corrida es un arranque del bucle con estas instrucciones.")}>
         {corridas.length === 0 ? (
           <p className="meta">{tr("Sin corridas todavía.")}</p>
         ) : (
@@ -642,7 +642,7 @@ export function ColaDeTriaje({ inv, estado }: { inv: Inv; estado: EstadoRosa }) 
             </div>
             {t.estado !== 'programada' && (
               <span className="acciones">
-                <Confirmar etiqueta="Rechazar" pregunta={tr("La tarea sale de la cola y no se vuelve a proponer igual.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('Ya lo sabemos por el estudio X') }} onConfirmar={(m) => acciones.decidirTarea(t.id, 'rechazada', m)} />
+                <Confirmar etiqueta={tr("Rechazar")} pregunta={tr("La tarea sale de la cola y no se vuelve a proponer igual.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('Ya lo sabemos por el estudio X') }} onConfirmar={(m) => acciones.decidirTarea(t.id, 'rechazada', m)} />
               </span>
             )}
           </li>
@@ -718,8 +718,8 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
               </div>
             </div>
             <span className="acciones">
-              <Confirmar etiqueta="Resuelta" pregunta={tr("La cuestión queda resuelta y deja de guiar la búsqueda.")} pedirTexto={{ etiqueta: tr('Con qué se resolvió'), marcador: tr('El estudio X lo responde') }} onConfirmar={(m) => acciones.resolverCuestion(c.id, m)} />
-              <Confirmar etiqueta="Descartar" pregunta={tr("La cuestión se descarta con un motivo y no se vuelve a plantear.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('No es pertinente para el objetivo') }} onConfirmar={(m) => acciones.descartarCuestion(c.id, m)} />
+              <Confirmar etiqueta={tr("Resuelta")} pregunta={tr("La cuestión queda resuelta y deja de guiar la búsqueda.")} pedirTexto={{ etiqueta: tr('Con qué se resolvió'), marcador: tr('El estudio X lo responde') }} onConfirmar={(m) => acciones.resolverCuestion(c.id, m)} />
+              <Confirmar etiqueta={tr("Descartar")} pregunta={tr("La cuestión se descarta con un motivo y no se vuelve a plantear.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('No es pertinente para el objetivo') }} onConfirmar={(m) => acciones.descartarCuestion(c.id, m)} />
             </span>
           </li>
         ))}

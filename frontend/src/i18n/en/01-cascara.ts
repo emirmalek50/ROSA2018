@@ -1,5 +1,20 @@
 /** Navegación, cabecera, botones y lo que se ve en cualquier pantalla. */
 export const CASCARA: Record<string, string> = {
+  // Encabezados de seccion y botones que iban en una prop de componente
+  // propio (titulo="Enunciado"): una palabra sola sin tilde, invisible para
+  // los dos codemods hasta el 2 de octubre de 2026.
+  Datos: 'Data',
+  Novedad: 'Novelty',
+  Rivales: 'Rivals',
+  Revocar: 'Revoke',
+  Fusionar: 'Merge',
+  Revertir: 'Revert',
+  Bifurcar: 'Branch',
+  Corridas: 'Runs',
+  Supuestos: 'Assumptions',
+  Historial: 'History',
+  Apariencia: 'Appearance',
+
   // La corrida del menu. Entera, que el numero va en medio.
   'Corrida {n} · {estado}': 'Run {n} · {estado}',
   'Esta acción requiere conexión con ROSA.': 'This action needs a connection to ROSA.',

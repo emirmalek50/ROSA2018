@@ -23,6 +23,11 @@ const PANTALLAS = ['corrida', 'ranking', 'ranking/pendientes', 'ranking/lista', 
 
 const estado = await (await fetch(`${BASE}/api/estado`, { headers: cab })).json();
 const invs = process.argv[2] ? [process.argv[2]] : estado.investigaciones.map((i) => i.id);
+// La ficha de cada hipotesis, que es donde esta casi todo el texto que
+// escribe ROSA2018 (enunciado, mecanismo, supuestos, alternativas, como se
+// comprobaria, resumen en llano). Sin esto el precalentado recorria solo las
+// pantallas de lista y dejaba fuera miles de frases (2 de octubre de 2026).
+const fichasDe = (inv) => estado.hipotesis.filter((h) => h.investigacionId === inv).map((h) => `/investigaciones/${inv}/hipotesis/${h.id}`);
 
 const nav = await chromium.launch();
 const ctx = await nav.newContext({ viewport: { width: 1500, height: 1000 }, extraHTTPHeaders: { 'x-rosa-interno': token } });
@@ -95,7 +100,7 @@ let total = 0, totalRech = 0, totalFallos = 0;
 const t0 = Date.now();
 for (const inv of invs) {
   const textos = new Set();
-  for (const pant of ['/', '/ajustes', '/laboratorio', ...PANTALLAS.map((x) => `/investigaciones/${inv}/${x}`)]) {
+  for (const pant of ['/', '/ajustes', '/laboratorio', ...PANTALLAS.map((x) => `/investigaciones/${inv}/${x}`), ...fichasDe(inv)]) {
     await p.goto(`${BASE}/#${pant}`, { waitUntil: 'networkidle' }).catch(() => {});
     await p.waitForTimeout(2200);
     (await juntar().catch(() => [])).forEach((t) => textos.add(t));

@@ -254,7 +254,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
       <FusionYConflictos h={h} estado={estado} />
       <DecisionesKiller h={h} decisiones={estado.decisiones ?? []} ahora={ahora} conjuntoDorado={estado.conjuntoDorado ?? []} />
 
-      <Seccion titulo="Enunciado">
+      <Seccion titulo={tr("Enunciado")}>
         <TextoConFuertes texto={h.enunciado} campo="enunciado" />
       </Seccion>
 
@@ -303,7 +303,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         </div>
       </Seccion>
 
-      <Seccion detalle titulo="Novedad" nota={tr("Consultas baratas antes de gastar una corrida: Open Targets, ClinicalTrials.gov, Agora, la genética humana (GWAS Catalog, ClinVar), los fármacos contra la diana (ChEMBL, DGIdb), los datos públicos para comprobarla (GEO, CELLxGENE) y si alguien ya lo propuso en la literatura. Con Exa, además, patentes y proyectos financiados anteriores a la hipótesis: una idea ya protegida o ya financiada no es nueva aunque no esté publicada.")}>
+      <Seccion detalle titulo={tr("Novedad")} nota={tr("Consultas baratas antes de gastar una corrida: Open Targets, ClinicalTrials.gov, Agora, la genética humana (GWAS Catalog, ClinVar), los fármacos contra la diana (ChEMBL, DGIdb), los datos públicos para comprobarla (GEO, CELLxGENE) y si alguien ya lo propuso en la literatura. Con Exa, además, patentes y proyectos financiados anteriores a la hipótesis: una idea ya protegida o ya financiada no es nueva aunque no esté publicada.")}>
         <div className="novedad novedad-4">
           <div className="novedad-item">
             <strong>Open Targets</strong>
@@ -468,7 +468,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
       <EjecucionesInSilico h={h} estado={estado} ahora={ahora} />
 
       {h.supuestos.length > 0 && (
-        <Seccion detalle titulo="Supuestos" nota={tr("La hipótesis descompuesta en lo que da por cierto, independiente de las citas (la verificación profunda de Co-Scientist).")}>
+        <Seccion detalle titulo={tr("Supuestos")} nota={tr("La hipótesis descompuesta en lo que da por cierto, independiente de las citas (la verificación profunda de Co-Scientist).")}>
           <ArbolSupuestos supuestos={h.supuestos} />
         </Seccion>
       )}
@@ -494,7 +494,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         </ul>
       </Seccion>
 
-      <Seccion detalle titulo="Revisor" nota={tr("ROSA2018 atiende cada hallazgo en su siguiente mensaje: corrige o explica por qué no aplica. Un descarte que el Killer propuso y después retiró se enseña como atendido.")}>
+      <Seccion detalle titulo={tr("Revisor")} nota={tr("ROSA2018 atiende cada hallazgo en su siguiente mensaje: corrige o explica por qué no aplica. Un descarte que el Killer propuso y después retiró se enseña como atendido.")}>
         <Revisor hallazgos={vigentes} />
       </Seccion>
 
@@ -556,7 +556,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
       </Seccion>
 
       {rivales.length > 0 && (
-        <Seccion detalle titulo="Rivales" nota={tr("Hipótesis que compiten por la misma pregunta.")}>
+        <Seccion detalle titulo={tr("Rivales")} nota={tr("Hipótesis que compiten por la misma pregunta.")}>
           <div className="rivales">
             {rivales.map((r) => (
               <a key={r.id} className="chip chip-borde" href={rutaDe(h.investigacionId, 'hipotesis', r.id)} title={r.titulo}>
@@ -759,7 +759,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         </Seccion>
       )}
 
-      <Seccion detalle titulo="Historial">
+      <Seccion detalle titulo={tr("Historial")}>
         <ul className="lista-limpia">
           {h.revisiones.map((r, i) => (
             <li key={i}>
@@ -835,7 +835,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                 onConfirmar={(m) => decidir('no_puedo_juzgar', m)}
               />
               <Confirmar
-                etiqueta="Descartar"
+                etiqueta={tr("Descartar")}
                 peligro
                 disabled={decisionEnVuelo}
                 pregunta={tr("El motivo queda en el modelo de mundo para que ROSA2018 no vuelva a proponer lo mismo.")}

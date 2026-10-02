@@ -144,7 +144,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               </Seccion>
             )}
 
-            <Seccion titulo="Apariencia" nota={tr("Elige cómo quieres ver tu espacio. Se guarda en este navegador.")}>
+            <Seccion titulo={tr("Apariencia")} nota={tr("Elige cómo quieres ver tu espacio. Se guarda en este navegador.")}>
               <div className="ajustes-temas" role="group" aria-label={tr("Tema")}>
                 {(['claro', 'oscuro', 'sistema'] as Tema[]).map((t) => (
                   <button className="ajustes-tema" data-tema={t} key={t} type="button" aria-pressed={tema === t} onClick={() => setTema(t)}>
@@ -237,7 +237,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                       {i ? ` · ${i.titulo}` : ''} · <Momento t={p.concedidoEn} ahora={ahora} />
                     </small>
                   </div>
-                  <Confirmar etiqueta="Revocar" pregunta={tr("ROSA2018 dejará de tener este acceso y lo pedirá de nuevo si lo necesita.")} onConfirmar={() => acciones.revocarPermiso(p.id)} />
+                  <Confirmar etiqueta={tr("Revocar")} pregunta={tr("ROSA2018 dejará de tener este acceso y lo pedirá de nuevo si lo necesita.")} onConfirmar={() => acciones.revocarPermiso(p.id)} />
                 </div>
               );
             })}
@@ -322,7 +322,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
             <RegistroAprendizaje estado={estado} ahora={ahora} />
           </div>
           <div className="ajustes-panel" role="tabpanel" id="ajuste-panel-avisos" aria-labelledby="ajuste-tab-avisos" hidden={categoria !== 'avisos'} tabIndex={0}>
-            <Seccion titulo="Avisos" nota={tr("El bucle trabaja cuando nadie mira. Estos ajustes son de tu cuenta; el correo lleva contadores y un enlace, sin datos sensibles.")}>
+            <Seccion titulo={tr("Avisos")} nota={tr("El bucle trabaja cuando nadie mira. Estos ajustes son de tu cuenta; el correo lleva contadores y un enlace, sin datos sensibles.")}>
               <div className="tarjeta seccion">
                 <label className="interruptor">
                   <input type="checkbox" checked={avisos.slack.activo} onChange={(e) => acciones.actualizarAvisos({ ...avisos, slack: { ...avisos.slack, activo: e.target.checked } })} />

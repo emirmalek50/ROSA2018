@@ -586,7 +586,7 @@ export function FusionYConflictos({ h, estado }: { h: Hipotesis; estado: EstadoR
             <strong>{tr("ROSA2018 propone fusionar esta hipótesis")}</strong>{trp(" en «{con}» ({v}). {motivo} Si aceptas, la otra hereda las afirmaciones y fuentes de esta y esta queda cerrada como fusionada, no como refutada.", { con: titulo(fp.con), v: RELACION_TORNEO[fp.relacion], motivo: fp.motivo })}
           </span>
           <span className="acciones">
-            <Confirmar etiqueta="Fusionar" pregunta={trp("«{con}» hereda la evidencia de esta hipótesis y esta se cierra como fusionada.", { con: titulo(fp.con) })} onConfirmar={() => acciones.fusionarHipotesis(fp.con, h.id, fp.motivo)} />
+            <Confirmar etiqueta={tr("Fusionar")} pregunta={trp("«{con}» hereda la evidencia de esta hipótesis y esta se cierra como fusionada.", { con: titulo(fp.con) })} onConfirmar={() => acciones.fusionarHipotesis(fp.con, h.id, fp.motivo)} />
             <button type="button" className="btn btn-s" onClick={() => acciones.rechazarFusion(h.id)}>
               {tr("No fusionar")}
             </button>
@@ -878,8 +878,8 @@ export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: Pla
         </p>
       )}
       <div className="conclusion-columnas">
-        <Cifras titulo="Resultados" cifras={run.resultados} />
-        <Cifras titulo="Baseline" cifras={run.baseline} />
+        <Cifras titulo={tr("Resultados")} cifras={run.resultados} />
+        <Cifras titulo={tr("Baseline")} cifras={run.baseline} />
         <Cifras titulo={tr("Control negativo (etiquetas barajadas)")} cifras={run.controlNegativo} />
       </div>
       {run.auditoria && (
@@ -1391,10 +1391,10 @@ function FilaAprendizaje({ c, ahora }: { c: CambioAprendizaje; ahora: number }) 
           >
             {tr("Promover")}
           </button>
-          <Confirmar etiqueta="Revertir" pregunta={tr("El cambio no se aplica y queda registrado como revertido.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('Empeora el acuerdo con las decisiones humanas') }} onConfirmar={(m) => acciones.revertirAprendizaje(c.id, m)} />
+          <Confirmar etiqueta={tr("Revertir")} pregunta={tr("El cambio no se aplica y queda registrado como revertido.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('Empeora el acuerdo con las decisiones humanas') }} onConfirmar={(m) => acciones.revertirAprendizaje(c.id, m)} />
         </div>
       )}
-      {c.nivel === 2 && c.estado === 'promovido' && <Confirmar etiqueta="Revertir" pregunta={tr("Se quita el criterio y queda registrado.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('Sesga al Killer contra hipotesis de una cohorte') }} onConfirmar={(m) => acciones.revertirAprendizaje(c.id, m)} />}
+      {c.nivel === 2 && c.estado === 'promovido' && <Confirmar etiqueta={tr("Revertir")} pregunta={tr("Se quita el criterio y queda registrado.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('Sesga al Killer contra hipotesis de una cohorte') }} onConfirmar={(m) => acciones.revertirAprendizaje(c.id, m)} />}
     </li>
   );
 }

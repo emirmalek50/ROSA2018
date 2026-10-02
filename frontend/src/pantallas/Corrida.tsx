@@ -289,7 +289,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
             )}
             {viva && (
               <Confirmar
-                etiqueta="Detener"
+                etiqueta={tr("Detener")}
                 peligro
                 clase="btn-vivo"
                 disabled={corridaEnVuelo}
