@@ -2001,3 +2001,121 @@
     animation: none;
   }
 }
+
+/* Las llamadas a bases, una tarjeta por llamada dentro del hilo
+   (componentes/Herramienta.tsx). La idea es del componente `tool` de AI
+   Elements; el estilo es de ROSA2018. El borde de la izquierda lleva el
+   estado, para poder recorrer una lista larga sin leer los chips: verde
+   respondió, gris sin resultados, ámbar no pude comprobar. */
+.llamadas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.llamadas-cuenta {
+  margin: 0 0 2px;
+}
+
+.llamada {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.llamada-bien { border-left-color: var(--green); }
+.llamada-vacia { border-left-color: var(--border); }
+.llamada-sin_respuesta { border-left-color: var(--amber); }
+
+.llamada-cabeza {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.llamada-cabeza:hover { background: var(--elevated); }
+
+.llamada-nombre {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.llamada-nombre strong { font-size: 13.5px; }
+.llamada-fn { font-size: 12px; }
+.llamada-tiempo { font-variant-numeric: tabular-nums; }
+
+.llamada-cuerpo {
+  padding: 2px 12px 11px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.llamada-bloque h4 {
+  margin: 10px 0 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.66;
+}
+
+.llamada-bloque p { margin: 0; }
+
+/* Un argumento por fila. En dos columnas, un valor largo (la pregunta a Exa
+   ocupa seis lineas) empujaba el siguiente par al otro lado y parecia que
+   faltaba algo. */
+.llamada-args {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.llamada-args > div {
+  display: grid;
+  grid-template-columns: minmax(70px, auto) 1fr;
+  gap: 2px 12px;
+  align-items: baseline;
+}
+
+.llamada-args dt {
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.llamada-args dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.llamada-ids {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.llamada-pie { margin: 0; }
+
+@media (max-width: 640px) {
+  .llamada-args { grid-template-columns: 1fr; }
+  .llamada-args dt { margin-top: 6px; }
+}

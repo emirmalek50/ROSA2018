@@ -56,7 +56,7 @@ import {
   IconShieldCheck,
   IconX,
 } from "../componentes/icons";
-import { RelacionesCausales, TablaConsultas } from "../componentes/Rosa2018";
+import { RelacionesCausales } from "../componentes/Rosa2018";
 import { COBERTURA_MINIMA, faltanParaCobertura } from "../lib/cobertura";
 import {
   atributosEnVuelo,
@@ -71,6 +71,7 @@ import {
 } from "../lib/etiquetas";
 import { formatearPorcentaje } from "../lib/formato";
 import { tr, trp } from "../lib/idioma";
+import { Herramientas } from "../componentes/Herramienta";
 import {
   ESTADO_COBERTURA,
   SIN_TEMA,
@@ -1371,7 +1372,7 @@ function TurnoGuardado({
               </p>
             )}
             {(q.consultas ?? []).length > 0 ? (
-              <TablaConsultas consultas={q.consultas} ahora={ahora} />
+              <Herramientas consultas={q.consultas} ahora={ahora} />
             ) : (
               <p className="meta">
                 {tr("No quedaron consultas registradas para esta respuesta.")}
