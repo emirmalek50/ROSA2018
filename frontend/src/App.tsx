@@ -79,7 +79,7 @@ import { ModeloDeMundo } from './pantallas/ModeloDeMundo';
 import { NuevaInvestigacion } from './pantallas/NuevaInvestigacion';
 import { Panorama } from './pantallas/Panorama';
 import { Ranking } from './pantallas/Ranking';
-import { traducido, tr, useIdioma } from './lib/idioma';
+import { tr, traducido, trp, useIdioma } from './lib/idioma';
 import { activar as activarTraductor, desactivar as desactivarTraductor, traducirSuelto } from './lib/traductorDom';
 
 const TITULO_PANTALLA = traducido({
@@ -328,7 +328,7 @@ export default function App() {
         )}
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.div key={clavePagina} className="pagina" variants={pagina} initial="oculto" animate="visible" exit="salida">
-            <Limite clave={claveRuta} ambito={`la pantalla ${titulo ?? ruta.tipo}`}>{cuerpo}</Limite>
+            <Limite clave={claveRuta} ambito={trp('la pantalla {pantalla}', { pantalla: titulo ?? ruta.tipo })}>{cuerpo}</Limite>
           </motion.div>
         </AnimatePresence>
       </main>

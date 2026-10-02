@@ -17,9 +17,12 @@ for (const f of ficheros) {
     const envuelto = (x) => {
       let p = x.parent;
       if (p && ts.isCallExpression(p) && ts.isIdentifier(p.expression) && ['tr', 'trc', 'trp', 'traducido'].includes(p.expression.text)) return true;
-      // dentro de un objeto ya envuelto en traducido(...)
+      // Dentro de un traducido(...), y tambien el ternario que va DENTRO de
+      // un trp(): `trp(n === 1 ? 'A {n}' : 'B {n}', { n })` ya esta
+      // envuelto, y mirando solo el padre inmediato salian las dos ramas
+      // como pendientes (2 de octubre de 2026).
       while (p) {
-        if (ts.isCallExpression(p) && ts.isIdentifier(p.expression) && p.expression.text === 'traducido') return true;
+        if (ts.isCallExpression(p) && ts.isIdentifier(p.expression) && ['traducido', 'tr', 'trc', 'trp'].includes(p.expression.text)) return true;
         p = p.parent;
       }
       return false;

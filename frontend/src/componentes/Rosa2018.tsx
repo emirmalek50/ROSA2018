@@ -453,7 +453,7 @@ export function PreguntaDeCampana({ corrida }: { corrida: Corrida }) {
             <dt>{tr("Decisión que se toma")}</dt>
             <dd>{q.decision || tr('sin fijar')}</dd>
             <dt>{tr("Umbral de efecto")}</dt>
-            <dd className={q.umbralResuelto ? '' : 'tono-aviso'}>{q.umbralEfecto || 'sin resolver'}</dd>
+            <dd className={q.umbralResuelto ? '' : 'tono-aviso'}>{q.umbralEfecto || tr('sin resolver')}</dd>
           </dl>
           <RutaTerapeutica paso={q.pasoRuta} />
         </div>
@@ -1447,7 +1447,7 @@ export function Politicas({ politicas }: { politicas: EstadoRosa['politicas'] })
 /** Las candidatas al laboratorio y por que las demas no lo son. */
 export function Candidatas({ inv, estado, candidatas, noCandidatas }: { inv: Investigacion; estado: EstadoRosa; candidatas: Hipotesis[]; noCandidatas: { h: Hipotesis; bloqueos: NonNullable<Hipotesis['bloqueos']>; motivo: string }[] }) {
   return (
-    <Seccion titulo={tr("Candidatas al laboratorio")} nota={`Hasta ${estado.politicas?.maxCandidatos ?? 3} por ciclo, elegidas entre las que el Killer dejó avanzar y no tienen bloqueos no compensables, por Elo y sin repetir cluster mientras haya otros. Cero candidatas es un resultado legítimo: significa abstenerse.`}>
+    <Seccion titulo={tr("Candidatas al laboratorio")} nota={trp('Hasta {max} por ciclo, elegidas entre las que el Killer dejó avanzar y no tienen bloqueos no compensables, por Elo y sin repetir cluster mientras haya otros. Cero candidatas es un resultado legítimo: significa abstenerse.', { max: Number(estado.politicas?.maxCandidatos ?? 3) })}>
       {candidatas.length === 0 ? <p className="meta">{tr("Hoy ninguna hipótesis cumple: ROSA2018 se abstiene de proponer nada al laboratorio.")}</p> : (
         <ol className="lista-limpia">
           {candidatas.map((h) => (
@@ -2869,7 +2869,7 @@ export function IntegridadRegistro() {
         <p className="meta">{tr("Sin servidor no hay registro que comprobar.")}</p>
       ) : (
         <div className="acciones">
-          <Chip tono={estado.ok ? 'ok' : 'mal'}>{estado.ok ? tr('Cadena intacta') : `Cadena rota en la fila ${estado.rotaEn}`}</Chip>
+          <Chip tono={estado.ok ? 'ok' : 'mal'}>{estado.ok ? tr('Cadena intacta') : trp('Cadena rota en la fila {fila}', { fila: estado.rotaEn ?? '?' })}</Chip>
           <span className="meta">
             {trp("{filas} acciones registradas, {encadenadas} encadenadas{v}{v2}", { filas: estado.filas, encadenadas: estado.encadenadas, v: estado.sinHash > 0 ? trp(", {sinHash} anteriores al encadenado (sin hash)", { sinHash: estado.sinHash }) : '', v2: estado.motivo ? `. ${estado.motivo}` : '' })}
           </span>

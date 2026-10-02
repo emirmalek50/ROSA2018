@@ -576,7 +576,7 @@ function experimentoComoTexto(d: DianaDeLaboratorio, h: ExperimentoDeDiana): str
     '',
     ...d.quimica.flatMap((q) => [
       `COMPUESTO NOMBRADO JUNTO A ESTA DIANA: ${q.nombre} (en ${q.juntas} afirmaciones)${q.ontologiaId ? ` · ${q.ontologiaId}` : ''}`,
-      q.formula ? `  FÓRMULA: ${q.formula}  ·  PESO: ${q.peso} g/mol` : '',
+      q.formula ? trp('  FÓRMULA: {formula}  ·  PESO: {peso} g/mol', { formula: q.formula, peso: q.peso ?? '' }) : '',
       q.smiles ? `  SMILES: ${q.smiles}` : '',
       q.inchikey ? `  INCHIKEY: ${q.inchikey}` : '',
       !q.enPubchem ? tr('  Sin ficha de molécula pequeña en PubChem: no hay SMILES que mandar.') : '',
@@ -817,7 +817,7 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
     `  citosinas: ${d.quimica.citosinas}`,
     '',
     `TRANSCRITO: ${d.transcrito} (${d.largo} nt, build ${d.build})`,
-    `POSICIÓN EN EL TRANSCRITO: ${c.posicion} a ${c.hasta}${c.region ? ` (${c.region})` : ''}`,
+    trp('POSICIÓN EN EL TRANSCRITO: {desde} a {hasta}{zona}', { desde: c.posicion, hasta: c.hasta, zona: c.region ? ` (${c.region})` : '' }),
     `TRAMO DIANA: 5'-${c.diana}-3'`,
     '',
     trp("PROPORCIÓN G+C: {v} %", { v: Math.round(c.gc * 100) }),

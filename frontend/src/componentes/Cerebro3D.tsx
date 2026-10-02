@@ -787,7 +787,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
             const ruta = Object.keys(FICHEROS).find((k) => k.endsWith(`/${e.fichero}`));
             if (!ruta) continue;
             const respuesta = await fetch(FICHEROS[ruta]!);
-            if (!respuesta.ok) throw new Error(`No se pudo leer ${e.fichero}: el servidor respondió ${respuesta.status}.`);
+            if (!respuesta.ok) throw new Error(trp('No se pudo leer {fichero}: el servidor respondió {estado}.', { fichero: e.fichero, estado: respuesta.status }));
             bytes = await respuesta.arrayBuffer();
           }
           mallas.push({ malla: leerMalla(bytes), estructura: e });

@@ -1,5 +1,11 @@
 /** Octavo lote: las frases más largas que quedaban. */
 export const FRASES5: Record<string, string> = {
+  // Los huecos llevan nombre neutro: `acentuar.py` acentua «decision»,
+  // «institucion» y «region» DENTRO del hueco, que es un identificador.
+  'Decisión: {d}. Mediana: {m}. p90: {p}.': 'Decision: {d}. Median: {m}. p90: {p}.',
+  'POSICIÓN EN EL TRANSCRITO: {desde} a {hasta}{zona}': 'POSITION IN THE TRANSCRIPT: {desde} to {hasta}{zona}',
+  'Ilustración base: {autores}, {centro}, {licencia} (adaptada: escala, recorte y regiones superpuestas)': 'Base illustration: {autores}, {centro}, {licencia} (adapted: scale, crop and overlaid regions)',
+
   // El plural va explicito: `plural()` anade una «s» y en ingles «match»
   // hace «matches». Salia «13 matchs» en el ranking.
   partidos: 'matches',

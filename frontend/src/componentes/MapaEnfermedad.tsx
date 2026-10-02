@@ -131,7 +131,7 @@ function Ficha({ celda, mapa }: { celda: CeldaMapa; mapa: Mapa }) {
   const porMision = cuentaDe(celda.porMision);
   const titulo = [
     `${tipo === tr(SIN) ? tr('Sin tipo celular') : tipo}: ${plural(hechos, tr("hecho"))}, ${plural(hipotesis, tr("hipótesis"), trc("plural", "hipótesis"))}${preguntas ? trp(", {preguntas} (no cuentan como cobertura)", { preguntas: plural(preguntas, tr('pregunta abierta'), tr('preguntas abiertas')) }) : ''}.`,
-    certeza ? `Certeza máxima: ${certeza.etiqueta.toLowerCase()}${certezaMotivo ? ` (${certezaMotivo})` : ''}.` : tr('Sin conclusión con certeza GRADE todavía.'),
+    certeza ? trp('Certeza máxima: {nivel}{motivo}.', { nivel: certeza.etiqueta.toLowerCase(), motivo: certezaMotivo ? ` (${certezaMotivo})` : '' }) : tr('Sin conclusión con certeza GRADE todavía.'),
     cohortes.length ? `Cohortes: ${cohortes.join(', ')}.` : '',
     porMision ? trp("{porMision} situados aquí solo por heredar los ejes de la misión.", { porMision }) : '',
   ]

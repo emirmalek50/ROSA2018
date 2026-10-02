@@ -337,7 +337,7 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
         </span>
         <span className="arbol-cuentas">
           {f.riesgoSesgo && f.riesgoSesgo.global !== 'no_aplica' && (
-            <Chip tono={RIESGO_SESGO[f.riesgoSesgo.global]?.tono ?? 'borde'} title={`${f.riesgoSesgo.instrumento}: ${f.riesgoSesgo.dominios.map((d) => `${d.id} ${d.nombre}: ${d.juicio.replace('_', ' ')}`).join('; ')}. Veredicto por regla desde las preguntas de señalización.`}>
+            <Chip tono={RIESGO_SESGO[f.riesgoSesgo.global]?.tono ?? 'borde'} title={trp('{instrumento}: {dominios}. Veredicto por regla desde las preguntas de señalización.', { instrumento: f.riesgoSesgo.instrumento, dominios: f.riesgoSesgo.dominios.map((d) => `${d.id} ${d.nombre}: ${d.juicio.replace('_', ' ')}`).join('; ') })}>
               {f.riesgoSesgo.instrumento} {RIESGO_SESGO[f.riesgoSesgo.global]?.etiqueta ?? f.riesgoSesgo.global}
             </Chip>
           )}

@@ -95,7 +95,7 @@ const TEXTO_BANDEJA = tr('ROSA2018 los leyó pero no supo situarlos; releerlos c
 /** Cuántas entradas tiene la leyenda real (Leyenda, abajo): la silueta pinta las mismas. */
 const ENTRADAS_LEYENDA = 6;
 /** El crédito de la ilustración base, tal como se ve en el lienzo y en la leyenda (src/datos/atlas/LICENCIA.md). */
-export const CREDITO_LAMINA = `Ilustración base: ${CEREBRO_BASE.credito.autores}, ${CEREBRO_BASE.credito.institucion}, ${CEREBRO_BASE.credito.licencia} (adaptada: escala, recorte y regiones superpuestas)`;
+export const CREDITO_LAMINA = (): string => trp('Ilustración base: {autores}, {centro}, {licencia} (adaptada: escala, recorte y regiones superpuestas)', { autores: CEREBRO_BASE.credito.autores, centro: CEREBRO_BASE.credito.institucion, licencia: CEREBRO_BASE.credito.licencia });
 /** La lámina anatómica y los compartimentos exteriores en su color natural:
  *  un elemento creado UNA vez (150 trazados que no cambian) para que React no
  *  los vuelva a reconciliar en cada pasada del ratón por una región. */
@@ -240,7 +240,7 @@ function Leyenda({ atlas, conFiltros }: { atlas: DatosAtlas; conFiltros: boolean
           <span>{atlas.cohortesMax}</span>
         </span>
         <span>
-          <strong>{tr("Color: cuántas cohortes distintas nombran sus hipótesis; número: cuántos registros.")}</strong>{trp(" El color base es la lámina anatómica en tonos naturales; el tinte ámbar encima es la evidencia: cuántas cohortes distintas nombran las hipótesis situadas en la región (las cohortes se cuentan de las afirmaciones de las hipótesis, no de los hechos): {extremos}. El número junto al nombre es cuántos registros (hechos e hipótesis) hay situados en ella. Dos hechos de la misma cohorte no son dos evidencias independientes. {CREDITO_LAMINA}.", { extremos, CREDITO_LAMINA })}</span>
+          <strong>{tr("Color: cuántas cohortes distintas nombran sus hipótesis; número: cuántos registros.")}</strong>{trp(" El color base es la lámina anatómica en tonos naturales; el tinte ámbar encima es la evidencia: cuántas cohortes distintas nombran las hipótesis situadas en la región (las cohortes se cuentan de las afirmaciones de las hipótesis, no de los hechos): {extremos}. El número junto al nombre es cuántos registros (hechos e hipótesis) hay situados en ella. Dos hechos de la misma cohorte no son dos evidencias independientes. {CREDITO_LAMINA}.", { extremos, CREDITO_LAMINA: CREDITO_LAMINA() })}</span>
       </li>
       <li>
         <span className="atlas-muestra atlas-muestra-rayas-tenues" aria-hidden="true" />
@@ -726,7 +726,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
               </g>
               {flotante}
               <text className="atlas-credito" x={10} y={VISTA.alto - 7} aria-hidden="true">
-                {CREDITO_LAMINA}
+                {CREDITO_LAMINA()}
               </text>
             </svg>
           </div>}

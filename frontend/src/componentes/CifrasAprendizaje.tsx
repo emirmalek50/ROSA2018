@@ -231,7 +231,7 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
         {t && (
           <Cifra
             titulo={tr("Tiempo hasta decidir")}
-            definicion={`Decisión: ${glosario.decision}. Mediana: ${glosario.mediana}. p90: ${glosario.p90}.`}
+            definicion={trp('Decisión: {d}. Mediana: {m}. p90: {p}.', { d: glosario.decision ?? '', m: glosario.mediana ?? '', p: glosario.p90 ?? '' })}
             valor={textoHoras(t.medianaHoras) === sinMedir() ? sinMedir() : trp("{medianaHoras} de mediana", { medianaHoras: textoHoras(t.medianaHoras) })}
             nota={notaTiempo(t)}
             regla={texto(t.regla)}

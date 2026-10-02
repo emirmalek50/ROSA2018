@@ -1743,3 +1743,47 @@ GLSL, expresiones regulares, tipos de TypeScript, clases CSS) y no deben
 envolverse. La otra mitad son plantillas con huecos que `agrupar.mjs` no
 junta porque tiene el MISMO punto ciego (fuera del JSX exige tilde o palabra
 funcion). Y sigue sin revisar nadie las traducciones del modelo.
+
+### Cerrado el ingles de la interfaz (2 de octubre de 2026)
+
+Barrido final de las 16 pantallas de una investigacion, en ingles, contando
+texto y los cuatro atributos que se leen: **quedan 10 frases**, y son rutas
+de fichero (`rosa/skills/eleccion-de-problema/SKILL.md`) e identificadores
+dentro de frases ya inglesas (`es_heredado`, `rosa/politicas.py`). Nada que
+traducir.
+
+Lo ultimo que se arreglo:
+
+- El medidor `resto_tsx.mjs` daba por pendientes las dos ramas de
+  `trp(n === 1 ? 'A {n}' : 'B {n}', { n })`, porque solo miraba el padre
+  inmediato. Eran 17 falsos positivos; el numero real era 63, no 80.
+- Las plantillas que quedaban con texto: la certeza maxima del mapa, el
+  riesgo de sesgo de trazabilidad, el glosario de cifras, la cadena del
+  registro, el credito de la lamina, la formula y la posicion en el
+  transcrito, el error de lectura de la malla y el ambito del limite.
+
+Lo que se deja en castellano A PROPOSITO, y por que:
+
+- `datos/acciones.ts` (174 cadenas): los reductores escriben en el estado,
+  que no puede depender del idioma de quien mira.
+- `lib/objetivo.ts` y `lib/hipotesis.ts:171`: lo que producen se GUARDA
+  (la configuracion de una investigacion nueva, la respuesta al revisor).
+- Los valores de enumeracion del laboratorio (`sin cribar`, `se puede
+  probar`, `al borde del azar`): son el valor que se compara, y se traducen
+  al pintarlos, no al asignarlos.
+- `digest.ts` compara con `startsWith` contra texto que escriben los
+  reductores.
+- Shaders GLSL, expresiones regulares del atlas, selectores CSS, tipos de
+  TypeScript y `Español` en el selector de idioma.
+
+Dos trampas que saltaron tres veces y conviene no repetir: `acentuar.py`
+acentua los nombres de los huecos de `trp()` (`{numero}`, `{decision}`,
+`{institucion}`, `{region}`), que son identificadores; por eso los huecos van
+con nombre neutro (`{n}`, `{d}`, `{centro}`, `{zona}`). Y al regenerar el
+catalogo hay que volver a pasar `normalizar_eeuu.mjs`, que ya toca tambien la
+memoria y es idempotente.
+
+Queda abierto, y es lo importante: **nadie ha revisado las traducciones del
+modelo**. Son contenido cientifico; una mala traduccion de una conclusion es
+un error, no una errata. Y las 10 cadenas de la funcion del asistente, que
+otro agente estaba escribiendo.
