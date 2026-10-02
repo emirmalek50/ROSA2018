@@ -129,7 +129,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
           <div>
             <strong style={{ fontSize: 13 }}>{trp("Plan propuesto para la iteración {numero}", { numero: iteracion.numero })}</strong>
             <p className="meta">
-              Propuesto <Momento t={iteracion.planPropuestoEn} ahora={ahora} />{tr(". ROSA2018 no ejecuta nada hasta que lo apruebes. Reordena, quita o añade pasos y fija el presupuesto de cada uno.")}
+              {tr("Propuesto")} <Momento t={iteracion.planPropuestoEn} ahora={ahora} />{tr(". ROSA2018 no ejecuta nada hasta que lo apruebes. Reordena, quita o añade pasos y fija el presupuesto de cada uno.")}
             </p>
           </div>
           <button type="button" className="btn btn-primario" onClick={onAprobarPlan}>
@@ -160,7 +160,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
                     min={0}
                     key={`p-${paso.id}-${paso.presupuesto ?? ''}`}
                     defaultValue={paso.presupuesto ?? ''}
-                    placeholder="llamadas"
+                    placeholder={tr("llamadas")}
                     style={{ maxWidth: 110 }}
                     onBlur={(e) => {
                       const nuevo = e.target.value === '' ? null : Number(e.target.value);
@@ -169,10 +169,10 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
                     }}
                     aria-label={trp("Presupuesto del paso {v}", { v: i + 1 })}
                   />
-                  <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label="Subir" disabled={i === 0} onClick={() => mover(i, -1)}>
+                  <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label={tr("Subir")} disabled={i === 0} onClick={() => mover(i, -1)}>
                     <IconChevronDown size={12} style={{ transform: 'rotate(180deg)' }} />
                   </button>
-                  <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label="Bajar" disabled={i === iteracion.plan.length - 1} onClick={() => mover(i, 1)}>
+                  <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label={tr("Bajar")} disabled={i === iteracion.plan.length - 1} onClick={() => mover(i, 1)}>
                     <IconChevronDown size={12} />
                   </button>
                   <button type="button" className="btn btn-fantasma btn-icono btn-s" aria-label={tr("Quitar paso")} disabled={iteracion.plan.length === 1} onClick={() => onEditarPlan?.(iteracion.plan.filter((p) => p.id !== paso.id))}>
@@ -216,7 +216,7 @@ export function PlanEnVivo({ iteracion, ahora, onDetenerPista, onEditarPlan, onA
               <div className="paso-titulo">
                 <span className={paso.estado === 'en_curso' ? 'shimmer-text' : ''}>{paso.titulo}</span>
                 {paso.indicacionHumana && <Chip tono="acento">{tr("Indicación tuya")}</Chip>}
-                {paso.estado === 'fallido' && <Chip tono="mal">Fallido</Chip>}
+                {paso.estado === 'fallido' && <Chip tono="mal">{tr("Fallido")}</Chip>}
                 {paso.estado === 'sin_trabajo' && <Chip tono="borde">{tr("Sin trabajo")}</Chip>}
                 {paso.comprobacion && paso.comprobacion.resultado !== 'pasa' && (
                   <Chip tono={paso.comprobacion.resultado === 'falla' ? 'mal' : 'aviso'}>

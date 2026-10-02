@@ -879,11 +879,11 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
     <section className="atlas-3d" aria-label={tr("Cerebro en tres dimensiones")}>
       <div className="atlas-lienzo atlas-3d-lienzo">
         <div className="atlas-3d-herramientas">
-          <button type="button" className="btn btn-s" onClick={() => { detener.current(); camara.current = { ...REPOSO, distancia: distanciaReposo(radioRef.current) }; redibujar.current(); }}>Restablecer vista</button>
+          <button type="button" className="btn btn-s" onClick={() => { detener.current(); camara.current = { ...REPOSO, distancia: distanciaReposo(radioRef.current) }; redibujar.current(); }}>{tr("Restablecer vista")}</button>
           <button type="button" className="btn btn-s" aria-label={tr("Girar a la izquierda")} onClick={() => girar(-0.25, 0)}>◄</button>
           <button type="button" className="btn btn-s" aria-label={tr("Girar a la derecha")} onClick={() => girar(0.25, 0)}>►</button>
-          <label>Estructura <select aria-label={tr("Seleccionar estructura del cerebro")} value={seleccion ?? ''} onChange={(e) => { if (e.target.value) seleccionar(e.target.value); }}>
-            <option value="">Explorar estructuras</option>
+          <label>{tr("Estructura")} <select aria-label={tr("Seleccionar estructura del cerebro")} value={seleccion ?? ''} onChange={(e) => { if (e.target.value) seleccionar(e.target.value); }}>
+            <option value="">{tr("Explorar estructuras")}</option>
             {seleccionables.map((e) => <option key={e.clave} value={e.clave}>{e.nombre}</option>)}
           </select></label>
         </div>

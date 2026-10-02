@@ -20,7 +20,7 @@ export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: R
           {resumen.titulo && <p className="llano-pregunta">{resumen.titulo}</p>}
           {resumen.mensajesClave.length > 0 && (
             <div className="llano-bloque llano-clave">
-              <h4>Mensajes clave</h4>
+              <h4>{tr("Mensajes clave")}</h4>
               <ul>
                 {resumen.mensajesClave.map((t, i) => (
                   <li key={i}>{t}</li>
@@ -254,7 +254,7 @@ export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: Conclusion
         )}
         <div className="conclusion-columnas">
           <div className="llano-bloque">
-            <h4>A favor</h4>
+            <h4>{tr("A favor")}</h4>
             {conclusion.aFavor.length === 0 ? <p className="meta">{tr("Nada directo.")}</p> : <ul>{conclusion.aFavor.map((t, i) => <li key={i}>{t}</li>)}</ul>}
           </div>
           <div className="llano-bloque">

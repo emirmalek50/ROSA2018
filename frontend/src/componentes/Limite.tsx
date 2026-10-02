@@ -46,13 +46,13 @@ export class Limite extends Component<Props, Estado> {
         <pre className="limite-detalle">{mensaje}</pre>
         <div className="acciones">
           <button type="button" className="btn btn-primario" onClick={() => this.setState({ error: null })}>
-            Volver a intentar
+            {tr("Volver a intentar")}
           </button>
           <a className="btn" href="#/">
             {tr("Ir al inicio")}
           </a>
           <button type="button" className="btn btn-fantasma" onClick={() => window.location.reload()}>
-            Recargar ROSA2018
+            {tr("Recargar ROSA2018")}
           </button>
         </div>
       </div>

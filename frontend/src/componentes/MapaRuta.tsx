@@ -50,7 +50,7 @@ function Celda({ celda, hueco, paso, diana }: { celda: CeldaMapaRuta | undefined
   if (hueco || (hip === 0 && parciales === 0 && hechos === 0)) {
     return (
       <td className="num ruta-celda ruta-hueco" title={trp("{diana}, {v}: ninguna hipótesis viva de esta diana cubre el paso{v2}.", { diana, v: etiquetaPaso.toLowerCase(), v2: hechos ? trp("; {hechos} del modelo de mundo lo tocan", { hechos: plural(hechos, tr("hecho")) }) : '' })}>
-        <span className="ruta-hueco-texto">hueco</span>
+        <span className="ruta-hueco-texto">{tr("hueco")}</span>
         {hechos > 0 && <span className="meta ruta-celda-hechos">{plural(hechos, tr("hecho"))}</span>}
       </td>
     );

@@ -72,6 +72,8 @@ const tocadosAtr = new Set<WeakRef<Element>>();
  *  se recuerda (con el original como valor) para no pedirlo en bucle. */
 const memoria = new Map<string, string>();
 const pendientes = new Set<string>();
+/** Textos que se leen pero no están en el árbol: el título de la pestaña. */
+const sueltos: { texto: string; cuando: (en: string) => void }[] = [];
 let enVuelo = 0;
 let reloj: ReturnType<typeof setTimeout> | null = null;
 let raizActiva: Element | null = null;
@@ -194,8 +196,33 @@ async function enviar(): Promise<void> {
   } finally {
     enVuelo--;
   }
+  for (let i = sueltos.length - 1; i >= 0; i--) {
+    const s = sueltos[i]!;
+    const en = memoria.get(s.texto);
+    if (en === undefined) continue;
+    sueltos.splice(i, 1);
+    if (en !== s.texto) s.cuando(en);
+  }
   if (raizActiva && pedirActivo) recorrer(raizActiva);
   if (pendientes.size > 0) programar();
+}
+
+/** Traduce un texto que se lee pero no está en el árbol: el título de la
+ *  pestaña del navegador vive en `document.title`, fuera de `#root`, y el
+ *  observador no llega. Llama a `cuando` solo si consigue traducirlo; si no,
+ *  se queda el castellano, que se entiende. */
+export function traducirSuelto(texto: string, cuando: (en: string) => void): void {
+  const t = texto.trim();
+  if (!pedirActivo || !pareceCastellano(t)) return;
+  const ya = memoria.get(t);
+  if (ya !== undefined) {
+    if (ya !== t) cuando(ya);
+    return;
+  }
+  if (sueltos.some((s) => s.texto === t)) return;
+  sueltos.push({ texto: t, cuando });
+  pendientes.add(t);
+  programar();
 }
 
 /** Empieza a traducir lo que hay bajo `raiz` y lo que vaya apareciendo. */
@@ -228,6 +255,7 @@ export function desactivar(): void {
   pedirActivo = null;
   raizActiva = null;
   pendientes.clear();
+  sueltos.length = 0;
   for (const ref of tocados) {
     const n = ref.deref();
     const orig = n ? originales.get(n) : undefined;

@@ -257,7 +257,7 @@ function Leyenda({ atlas, conFiltros }: { atlas: DatosAtlas; conFiltros: boolean
       <li>
         <span className="atlas-muestra atlas-muestra-discordia" aria-hidden="true" />
         <span>
-          <strong>Borde punteado rojo: discordia.</strong> {tr("Algún hecho de la región choca con otro hecho del modelo de mundo sin sustituirlo. La dirección de las citas no se pinta: hoy todas nacen marcadas «apoya» por código.")}
+          <strong>{tr("Borde punteado rojo: discordia.")}</strong> {tr("Algún hecho de la región choca con otro hecho del modelo de mundo sin sustituirlo. La dirección de las citas no se pinta: hoy todas nacen marcadas «apoya» por código.")}
         </span>
       </li>
       <li>
@@ -549,13 +549,13 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
 
       <div className="atlas-controles">
         <div className="atlas-grupo" role="group" aria-label={tr("Vista del atlas")}>
-          <button type="button" className="atlas-chip" aria-pressed={!vista3d} onClick={() => setVista3d(false)}>Vista 2D</button>
-          <button type="button" className="atlas-chip" aria-pressed={vista3d} onClick={() => setVista3d(true)}>Vista 3D</button>
+          <button type="button" className="atlas-chip" aria-pressed={!vista3d} onClick={() => setVista3d(false)}>{tr("Vista 2D")}</button>
+          <button type="button" className="atlas-chip" aria-pressed={vista3d} onClick={() => setVista3d(true)}>{tr("Vista 3D")}</button>
         </div>
         <div className="atlas-grupo" role="group" aria-label={tr("Fase de la enfermedad")}>
-          <span className="atlas-grupo-titulo">Fase</span>
+          <span className="atlas-grupo-titulo">{tr("Fase")}</span>
           <button type="button" className="atlas-chip" aria-pressed={estadio === null} onClick={() => setEstadio(null)} title={tr("Toda la evidencia, en cualquier fase de la enfermedad")}>
-            Todas
+            {tr("Todas")}
           </button>
           {base.estadios.map((e) => (
             <button key={e.clave || 'sin'} type="button" className="atlas-chip" aria-pressed={estadio === e.clave} onClick={() => setEstadio((actual) => (actual === e.clave ? null : e.clave))} title={base.definiciones.estadio?.[e.clave] ?? (e.clave === '' ? tr('Registros con región o célula pero sin fase identificada por su contenido ni por la misión.') : undefined)}>
@@ -816,7 +816,7 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
               )}
               {sel.discordia.length > 0 && (
                 <div className="atlas-discordia-aviso">
-                  <strong>Discordia:</strong> {plural(sel.discordia.length, tr('hecho de esta región choca'), tr('hechos de esta región chocan'))} {tr("con otro hecho del modelo de mundo sin sustituirlo. La dirección de las citas no se usa para esta marca.")}
+                  <strong>{tr("Discordia:")}</strong> {plural(sel.discordia.length, tr('hecho de esta región choca'), tr('hechos de esta región chocan'))} {tr("con otro hecho del modelo de mundo sin sustituirlo. La dirección de las citas no se usa para esta marca.")}
                   {discordiaSel.length > 0 && (
                     <ul>
                       {discordiaSel.map((h) => {

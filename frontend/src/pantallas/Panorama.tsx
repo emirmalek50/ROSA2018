@@ -175,7 +175,7 @@ export function Panorama({ inv, estado, ahora }: { inv: Investigacion; estado: E
                       <p>{d.texto}</p>
                       {d.hipotesisAfectadas.length > 0 && (
                         <p className="debilidad-afecta">
-                          Afecta a{' '}
+                          {tr("Afecta a")}{' '}
                           {d.hipotesisAfectadas.map((id, k) => {
                             const h = hipotesis.find((x) => x.id === id);
                             return h ? (

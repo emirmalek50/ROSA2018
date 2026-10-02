@@ -220,7 +220,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
       <AvisoMuestra conexion={estado.conexion} />
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
-          <h2>Citas</h2>
+          <h2>{tr("Citas")}</h2>
           <p>{tr(AYUDA)}</p>
           <p className="meta">
             {tr(META)}
@@ -236,7 +236,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
         {corridas.length > 1 && (
           <div className="acciones">
             <label className="citas-selector">
-              Corrida{' '}
+              {tr("Corrida")}{' '}
               <select value={corridaId} onChange={(e) => setCorridaId(e.target.value)} aria-label={tr("Elegir corrida")}>
                 {corridas.map((c) => (
                   <option key={c.id} value={c.id}>{trp("Corrida {numero}", { numero: c.numero })}
@@ -270,16 +270,16 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
         <div className="citas-cuerpo">
           <section className="citas-col" aria-label={tr("Afirmaciones de la corrida")}>
             <header>
-              <h3>Afirmaciones</h3>
+              <h3>{tr("Afirmaciones")}</h3>
               <div className="citas-filtros" role="group" aria-label={tr("Filtrar afirmaciones")}>
                 <button type="button" className="atlas-chip" aria-pressed={filtro === 'todas'} onClick={() => setFiltro('todas')}>
-                  Todas <span className="atlas-cifra">{resumen?.total ?? 0}</span>
+                  {tr("Todas")} <span className="atlas-cifra">{resumen?.total ?? 0}</span>
                 </button>
                 <button type="button" className="atlas-chip" aria-pressed={filtro === 'sostenidas'} onClick={() => setFiltro('sostenidas')}>
-                  Sostenidas <span className="atlas-cifra">{sostenidas}</span>
+                  {tr("Sostenidas")} <span className="atlas-cifra">{sostenidas}</span>
                 </button>
                 <button type="button" className="atlas-chip" aria-pressed={filtro === 'fallidas'} onClick={() => setFiltro('fallidas')}>
-                  Fallidas <span className="atlas-cifra">{fallidas}</span>
+                  {tr("Fallidas")} <span className="atlas-cifra">{fallidas}</span>
                 </button>
                 <button type="button" className="atlas-chip" aria-pressed={filtro === 'pagina'} onClick={() => setFiltro('pagina')}>
                   {tr("Con página")} <span className="atlas-cifra">{resumen?.conPagina ?? 0}</span>
@@ -322,7 +322,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
 
           <section className="citas-col" aria-label={tr("La fuente y su página")}>
             <header>
-              <h3>Fuente</h3>
+              <h3>{tr("Fuente")}</h3>
               {ficha && ficha.leidos.length > 1 && (
                 <div className="citas-leidos">
                   <span className="meta">{tr("Se leyeron")}</span>

@@ -23,10 +23,10 @@ function Aviso({ a, ahora }: { a: AccionPendiente; ahora: number }) {
       </div>
       <div className="acciones">
         <button type="button" className="btn btn-s" onClick={a.deshacer}>
-          Deshacer
+          {tr("Deshacer")}
         </button>
         <button type="button" className="btn btn-s btn-fantasma" onClick={a.enviar} title={tr("No esperar: enviar ahora")}>
-          Ahora
+          {tr("Ahora")}
         </button>
       </div>
       <i className="deshacer-barra" style={{ transform: `scaleX(${fraccion})` }} aria-hidden="true" />

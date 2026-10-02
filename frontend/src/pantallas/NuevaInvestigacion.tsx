@@ -73,7 +73,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
           <input id="n-titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder={tr("Biomarcadores plasmáticos y progresión en Alzheimer familiar")} />
         </div>
         <div className="campo">
-          <label htmlFor="n-objetivo">Objetivo</label>
+          <label htmlFor="n-objetivo">{tr("Objetivo")}</label>
           <textarea id="n-objetivo" value={objetivo} onChange={(e) => setObjetivo(e.target.value)} rows={3} placeholder={tr("Qué quieres que ROSA2018 encuentre, en una o dos frases. Un solo objetivo por investigación.")} />
           {objetivo.trim() !== '' && avisos.length > 0 && (
             <ul className="avisos-objetivo" aria-label={tr("Avisos sobre el objetivo")}>
@@ -107,7 +107,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
 
         <Seccion titulo={tr("Configuración que ROSA2018 leerá")} nota={tr("Propuesta a partir del objetivo. Es lo que alimenta la generación, la revisión y los debates del torneo. Edítala si no encaja.")}>
           <div className="campo">
-            <label htmlFor="n-pref">Preferencias</label>
+            <label htmlFor="n-pref">{tr("Preferencias")}</label>
             <textarea id="n-pref" value={configEfectiva.preferencias} rows={2} onChange={(e) => setConfig({ ...configEfectiva, preferencias: e.target.value })} />
           </div>
           <div className="rejilla-2">
@@ -171,7 +171,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
               {tres.map((p, i) => (
                 <div key={i} className="tarjeta" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <p style={{ fontSize: 13 }}>{p.redaccion}</p>
-                  <p className="campo-etiqueta">Primeras tareas</p>
+                  <p className="campo-etiqueta">{tr("Primeras tareas")}</p>
                   <ol className="lista-limpia" style={{ fontSize: 12.5, color: 'var(--text-2)' }}>
                     {p.primerasTareas.map((t) => (
                       <li key={t}>{t}</li>
@@ -210,7 +210,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
             {tr("Crear investigación")}
           </button>
           <a className="btn btn-fantasma" href="#/">
-            Cancelar
+            {tr("Cancelar")}
           </a>
           {avisos.length > 0 && objetivo.trim() !== '' && <Chip tono="aviso">{(avisos.length === 1 ? trp("{avisos} aviso sobre el objetivo", { avisos: avisos.length }) : trp("{avisos} avisos sobre el objetivo", { avisos: avisos.length }))}</Chip>}
         </div>

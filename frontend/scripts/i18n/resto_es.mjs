@@ -40,8 +40,20 @@ for (const r of rutas) {
       const t = (n.textContent || '').trim();
       if (t.length < 3) continue;
       const e = n.parentElement;
-      if (!e || e.closest('script,style') || !e.offsetParent) continue;
+      if (!e || e.closest('script,style')) continue;
+      // Un <option> no tiene offsetParent aunque se lea: el desplegable sí.
+      if (!e.offsetParent && !e.closest('select')) continue;
       out.push(t);
+    }
+    // Lo que se lee sin ser texto. Los globos del ratón de Mecanismos y del
+    // panel del Killer se quedaron en castellano hasta el 2 de octubre
+    // porque esto no se miraba.
+    for (const el of document.querySelectorAll('[title],[aria-label],[placeholder],[alt]')) {
+      if (el.closest('[data-sin-traducir]')) continue;
+      for (const a of ['title', 'aria-label', 'placeholder', 'alt']) {
+        const v = (el.getAttribute(a) || '').trim();
+        if (v.length >= 3) out.push(v);
+      }
     }
     return out;
   }).catch(() => []);

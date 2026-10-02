@@ -653,11 +653,11 @@ export function Atlas3D({ atlas, seleccion, seleccionar }: { atlas: Atlas; selec
     <section className="atlas-3d" aria-label={tr("Atlas en tres dimensiones")}>
       <div className="atlas-lienzo atlas-3d-lienzo">
         <div className="atlas-3d-herramientas">
-          <button type="button" className="btn btn-s" onClick={restablecer}>Restablecer vista</button>
+          <button type="button" className="btn btn-s" onClick={restablecer}>{tr("Restablecer vista")}</button>
           <button type="button" className="btn btn-s" aria-label={tr("Acercar atlas")} onClick={() => zoom(0.85)}>+</button>
           <button type="button" className="btn btn-s" aria-label={tr("Alejar atlas")} onClick={() => zoom(1.18)}>−</button>
           <label>{tr("Región")} <select aria-label={tr("Seleccionar región del atlas 3D")} value={seleccion ?? ''} onChange={(e) => { if (e.target.value) seleccionar(e.target.value); }}>
-            <option value="">Explorar regiones</option>
+            <option value="">{tr("Explorar regiones")}</option>
             {atlas.regiones.filter((r) => regiones.some((g) => g.clave === r.clave)).map((r) => <option key={r.clave} value={r.clave}>{r.etiqueta} · {r.conteo}</option>)}
           </select></label>
         </div>

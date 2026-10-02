@@ -122,7 +122,7 @@ export function Procedencia({
   const abiertos = hipotesis.hallazgos.filter((h) => h.estado === 'abierto').length;
   const fecha = new Date(ahora).toISOString().slice(0, 10);
   return (
-    <aside className="cajon" aria-label="Procedencia">
+    <aside className="cajon" aria-label={tr("Procedencia")}>
       <div className="cajon-cabecera">
         <h3>{trp("Procedencia · {titulo}", { titulo: hipotesis.titulo })}</h3>
         <button type="button" className="btn btn-fantasma btn-icono" aria-label={tr("Cerrar procedencia")} onClick={onCerrar}>
@@ -183,7 +183,7 @@ export function Procedencia({
             <table className="tabla">
               <thead>
                 <tr>
-                  <th>Paquete</th>
+                  <th>{tr("Paquete")}</th>
                   <th>{tr("Versión")}</th>
                 </tr>
               </thead>
@@ -199,7 +199,7 @@ export function Procedencia({
             <table className="tabla">
               <thead>
                 <tr>
-                  <th>Modelo</th>
+                  <th>{tr("Modelo")}</th>
                   <th>{tr("Vía")}</th>
                 </tr>
               </thead>
@@ -225,7 +225,7 @@ export function Procedencia({
                 <span className="meta">{tr("La página es la del visor de PDF, no la impresa al pie.")}</span>
               </div>
               <div className="acciones">
-                <span className="meta">Exportar:</span>
+                <span className="meta">{tr("Exportar:")}</span>
                 <button type="button" className="btn btn-s" onClick={() => descargar(`rosa-fuentes-${fecha}.bib`, aBibtex(p.fuentes))}>
                   BibTeX
                 </button>

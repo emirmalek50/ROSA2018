@@ -132,15 +132,15 @@ function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id 
       <p className="dsp-titulo">{titulo}</p>
       <dl className="dsp-datos">
         <div>
-          <dt title={tr("Qué clase de dato es: expresión de genes en tejido entero (bulk), célula a célula (célula única), proteínas, variantes genéticas o imagen.")}>Tipo</dt>
+          <dt title={tr("Qué clase de dato es: expresión de genes en tejido entero (bulk), célula a célula (célula única), proteínas, variantes genéticas o imagen.")}>{tr("Tipo")}</dt>
           <dd>{ETIQUETA_TIPO[tipo]}</dd>
         </div>
         <div>
-          <dt>Tejido</dt>
+          <dt>{tr("Tejido")}</dt>
           <dd>{tejido}</dd>
         </div>
         <div>
-          <dt title={tr("Fase de la enfermedad de los donantes o participantes, si la ficha la dice.")}>Fase</dt>
+          <dt title={tr("Fase de la enfermedad de los donantes o participantes, si la ficha la dice.")}>{tr("Fase")}</dt>
           <dd>{estadio}</dd>
         </div>
         <div>
@@ -149,13 +149,13 @@ function Fila({ d, investigacionId }: { d: DatasetPrograma; investigacionId: Id 
         </div>
         {texto(d.organismo) && (
           <div>
-            <dt>Organismo</dt>
+            <dt>{tr("Organismo")}</dt>
             <dd>{texto(d.organismo)}</dd>
           </div>
         )}
         {texto(d.plataforma) && (
           <div>
-            <dt>Plataforma</dt>
+            <dt>{tr("Plataforma")}</dt>
             <dd>{texto(d.plataforma)}</dd>
           </div>
         )}

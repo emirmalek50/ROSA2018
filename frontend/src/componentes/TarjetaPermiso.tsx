@@ -47,7 +47,7 @@ export function TarjetaPermiso({ solicitud, ahora, horasEspera, seleccionada, on
         <span className="permiso-recurso">{solicitud.recurso}</span>
         <Chip>{TIPO_PERMISO[solicitud.tipo]}</Chip>
         <span className="meta">
-          Pedido <Momento t={solicitud.creadaEn} ahora={ahora} />
+          {tr("Pedido")} <Momento t={solicitud.creadaEn} ahora={ahora} />
         </span>
         {!resuelta && esperaMs > 60_000 && (
           <Chip tono={tarde ? 'mal' : undefined} title={tarde ? trp("Supera las {horasEspera} h de la política de esperas", { horasEspera }) : undefined}>{trp("esperando {esperaMs}", { esperaMs: formatearDuracion(esperaMs) })}
@@ -90,14 +90,14 @@ export function TarjetaPermiso({ solicitud, ahora, horasEspera, seleccionada, on
         </motion.div>
       ) : (
         <div className="permiso-alcances">
-          <span className="meta">Permitir:</span>
+          <span className="meta">{tr("Permitir:")}</span>
           {solicitud.alcances.map((a) => (
             <button key={a} type="button" className="btn btn-s" onClick={() => onResolver('conceder', a, valores)}>
               {ALCANCE[a]}
             </button>
           ))}
           <button type="button" className="btn btn-s btn-peligro" onClick={() => onResolver('denegar', null, valores)}>
-            Denegar
+            {tr("Denegar")}
           </button>
         </div>
       )}

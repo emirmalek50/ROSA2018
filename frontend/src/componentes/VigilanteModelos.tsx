@@ -166,9 +166,9 @@ export function VigilanteModelos({ salud, incidencias = [], estadoCorrida, esper
   const esperando = estadoCorrida === 'esperando_modelo';
   if (!viva && automaticas.length === 0) return null;
   return (
-    <section className={`vigilante${esperando ? ' vigilante-esperando' : ''}`} aria-label="Modelos">
+    <section className={`vigilante${esperando ? ' vigilante-esperando' : ''}`} aria-label={tr("Modelos")}>
       <div className="vigilante-cabecera">
-        <h3>Modelos</h3>
+        <h3>{tr("Modelos")}</h3>
         <span className="meta" title={tr("Los modelos de lenguaje del AI Gateway que ROSA2018 usa, por rol: el cerebro planifica y razona (GPT-6 Astra), el juez verifica (Claude Opus 5), el volumen lee y extrae en masa (Claude Sonnet 5). Cuando uno no responde, ROSA2018 reintenta con el mismo; no lo cambia por otro.")}>
           {viva ? resumenDeSalud(filas) : tr('la corrida está cerrada; la salud de los modelos se enseña en la corrida viva')}
         </span>
@@ -223,7 +223,7 @@ export function AvisoEsperandoModelo({ espera, ahora, onReintentar }: { espera: 
         <p className="meta">{detalles.join(' · ')}.</p>
       </div>
       <button type="button" className="btn btn-primario btn-s" onClick={onReintentar} title={trp("Vuelve a intentarlo con {nombre} ahora mismo, sin esperar al próximo sondeo. No cambia de modelo.", { nombre })}>
-        <IconPlay size={13} /> Reintentar ahora
+        <IconPlay size={13} /> {tr("Reintentar ahora")}
       </button>
     </div>
   );

@@ -116,16 +116,16 @@ export function Recorrido({ abierto, onCerrar }: { abierto: boolean; onCerrar: (
                 </button>
                 {paso > 0 && (
                   <button type="button" className="btn" onClick={() => setPaso(paso - 1)}>
-                    Atras
+                    {tr("Atrás")}
                   </button>
                 )}
                 {paso < PASOS.length - 1 ? (
                   <button type="button" className="btn btn-primario" onClick={() => setPaso(paso + 1)} autoFocus>
-                    Siguiente
+                    {tr("Siguiente")}
                   </button>
                 ) : (
                   <button type="button" className="btn btn-primario" onClick={cerrar} autoFocus>
-                    Empezar
+                    {tr("Empezar")}
                   </button>
                 )}
               </div>

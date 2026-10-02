@@ -143,8 +143,8 @@ function notaReutilizacion(r: ReutilizacionHeredada): string {
 export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefined }) {
   if (!cifras || typeof cifras !== 'object') {
     return (
-      <article className="tarjeta cifras-ap" aria-label="Aprendizaje">
-        <h3 className="cifras-ap-cabecera">Aprendizaje</h3>
+      <article className="tarjeta cifras-ap" aria-label={tr("Aprendizaje")}>
+        <h3 className="cifras-ap-cabecera">{tr("Aprendizaje")}</h3>
         <p className="meta">{tr("Se calcula al cerrar la primera iteración: acierto de las predicciones prerregistradas, tiempo hasta cada decisión y reutilización de lo heredado.")}</p>
       </article>
     );
@@ -168,9 +168,9 @@ export function CifrasAprendizaje({ cifras }: { cifras: Cifras | null | undefine
   const porEtapa = t && objeto(t.porEtapa) ? Object.entries(t.porEtapa) : [];
   const porNivel = a && objeto(a.porNivel) ? Object.entries(a.porNivel) : [];
   return (
-    <article className="tarjeta cifras-ap" aria-label="Aprendizaje">
+    <article className="tarjeta cifras-ap" aria-label={tr("Aprendizaje")}>
       <div className="cifras-ap-cabecera">
-        <h3>Aprendizaje</h3>
+        <h3>{tr("Aprendizaje")}</h3>
         <span className="meta">{cuenta(cifras.iteracion) ? trp("Calculado al cerrar la iteración {iteracion}.", { iteracion: cuenta(cifras.iteracion) }) : tr('Calculado a demanda.')}</span>
       </div>
       {frases.length > 0 ? (

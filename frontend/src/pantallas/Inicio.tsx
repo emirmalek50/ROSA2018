@@ -121,10 +121,10 @@ export function Inicio({ estado, ahora }: { estado: EstadoRosa; ahora: number })
                   ) : (
                     <Chip tono="ok">{tr("Nada espera")}</Chip>
                   )}
-                  {inv.ramaDe && <Chip tono="borde">Rama</Chip>}
-                  {inv.vigilarLiteraturaHasta && inv.vigilarLiteraturaHasta > ahora && <Chip tono="borde">Vigilando literatura</Chip>}
+                  {inv.ramaDe && <Chip tono="borde">{tr("Rama")}</Chip>}
+                  {inv.vigilarLiteraturaHasta && inv.vigilarLiteraturaHasta > ahora && <Chip tono="borde">{tr("Vigilando literatura")}</Chip>}
                   <span>
-                    Creada <Momento t={inv.creadaEn} ahora={ahora} soloRelativo />
+                    {tr("Creada")} <Momento t={inv.creadaEn} ahora={ahora} soloRelativo />
                   </span>
                 </footer>
               </a>

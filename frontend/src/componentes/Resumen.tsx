@@ -39,7 +39,7 @@ export function Resumen({ d, titulo, ahora, onVisto }: { d: Digest; titulo: stri
             {copiado ? <IconCheck size={13} /> : <IconCopy size={13} />} {copiado ? 'Copiado' : 'Copiar'}
           </button>
           <button type="button" className="btn btn-s" onClick={onVisto}>
-            Visto
+            {tr("Visto")}
           </button>
         </div>
       </div>

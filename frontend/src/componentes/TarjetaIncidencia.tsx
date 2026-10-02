@@ -32,7 +32,7 @@ export function TarjetaIncidencia({ incidencia, ahora, onResolver }: { incidenci
       </div>
       {resuelta ? (
         <div className="acciones">
-          <Chip tono="ok">Resuelta: {incidencia.resolucion}</Chip>
+          <Chip tono="ok">{tr("Resuelta:")} {incidencia.resolucion}</Chip>
           {incidencia.resueltaEn !== null && (
             <span className="meta">
               <Momento t={incidencia.resueltaEn} ahora={ahora} />
@@ -49,7 +49,7 @@ export function TarjetaIncidencia({ incidencia, ahora, onResolver }: { incidenci
           <div className="dirigir">
             <input className="entrada" value={otra} placeholder={tr("Otra resolución (por ejemplo: saltar ese artículo y anotarlo)")} onChange={(e) => setOtra(e.target.value)} aria-label={tr("Otra resolución")} />
             <button type="button" className="btn" disabled={otra.trim() === ''} onClick={() => onResolver(otra)}>
-              Aplicar
+              {tr("Aplicar")}
             </button>
           </div>
         </div>

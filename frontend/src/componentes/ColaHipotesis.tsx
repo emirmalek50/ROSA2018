@@ -80,7 +80,7 @@ function FilaCola({ h, ahora, href, horasEspera, estado }: { h: Hip; ahora: numb
               seis filas ponían "Propuesta", y un dato que se repite en todas
               no ayuda a elegir ninguna (Emir, 28 de septiembre de 2026). */}
           {h.estado !== 'propuesta' && <Chip tono={TONO_ESTADO[h.estado]}>{ESTADO_HIPOTESIS[h.estado]}</Chip>}
-          {h.origen === 'humana' && <Chip tono="acento">Humana</Chip>}
+          {h.origen === 'humana' && <Chip tono="acento">{tr("Humana")}</Chip>}
           <span className={`tono-${r.tono === 'vacio' ? 'aviso' : r.tono}`}>{r.frase}</span>
           {h.conclusion && (
             <Chip tono={certezaDe(h.conclusion.certeza).tono} title={h.conclusion.escalera?.[0] ? trp("Para subir a {v}: {falta}", { v: certezaDe(h.conclusion.escalera[0].a).etiqueta.toLowerCase(), falta: h.conclusion.escalera[0].falta }) : certezaDe(h.conclusion.certeza).nota}>
@@ -97,7 +97,7 @@ function FilaCola({ h, ahora, href, horasEspera, estado }: { h: Hip; ahora: numb
             </Chip>
           )}
           {(h.version ?? 1) > 1 && <Chip tono="borde">v{h.version}</Chip>}
-          {h.candidata && bloqueos.length === 0 && <Chip tono="ok">Candidata</Chip>}
+          {h.candidata && bloqueos.length === 0 && <Chip tono="ok">{tr("Candidata")}</Chip>}
           {bloqueos.length > 0 && <span className="tono-mal">{(bloqueos.length === 1 ? trp("{bloqueos} bloqueo", { bloqueos: bloqueos.length }) : trp("{bloqueos} bloqueos", { bloqueos: bloqueos.length }))}</span>}
           {abiertos > 0 && <span className="tono-mal">{(abiertos === 1 ? trp("{abiertos} hallazgo abierto", { abiertos }) : trp("{abiertos} hallazgos abiertos", { abiertos }))}</span>}
           {retractadas.length > 0 && <span className="tono-mal">{tr("depende de una fuente retractada")}</span>}
@@ -177,7 +177,7 @@ export function FormularioHipotesis({ inv, onCerrar, irA }: { inv: Investigacion
           {tr("Meter al torneo")}
         </button>
         <button type="button" className="btn btn-fantasma" onClick={onCerrar}>
-          Cancelar
+          {tr("Cancelar")}
         </button>
       </div>
     </form>
@@ -297,7 +297,7 @@ export function ColaHipotesis({ inv, estado, vista }: { inv: Investigacion; esta
                     <Chip tono="borde">{trp("Idea desde la iteración {iteracion}", { iteracion: s.iteracion })}</Chip>
                     <Chip tono="borde">{(s.afirmaciones.length === 1 ? trp("{afirmaciones} afirmación", { afirmaciones: s.afirmaciones.length }) : trp("{afirmaciones} afirmaciones", { afirmaciones: s.afirmaciones.length }))}</Chip>
                     <Chip tono="borde">{(s.fuentes.length === 1 ? trp("{fuentes} fuente", { fuentes: s.fuentes.length }) : trp("{fuentes} fuentes", { fuentes: s.fuentes.length }))}</Chip>
-                    <span className="meta">Actualizada <Momento t={s.actualizadaEn} ahora={ahora} /></span>
+                    <span className="meta">{tr("Actualizada")} <Momento t={s.actualizadaEn} ahora={ahora} /></span>
                   </div>
                   <p className="meta"><strong>{tr("Le falta para nacer:")}</strong> {s.falta}</p>
                 </div>

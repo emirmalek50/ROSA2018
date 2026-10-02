@@ -127,7 +127,7 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
           <div className="acciones">
             {m.aprobadaEn ? (
               <Chip tono="ok" title={trp("Aprobada por {v}", { v: m.aprobadaPor ?? tr('una persona') })}>
-                Aprobada <Momento t={m.aprobadaEn} ahora={Date.now()} soloRelativo />
+                {tr("Aprobada")} <Momento t={m.aprobadaEn} ahora={Date.now()} soloRelativo />
               </Chip>
             ) : (
               <Chip tono="aviso">{tr("Propuesta por ROSA2018: falta tu aprobación")}</Chip>
@@ -137,7 +137,7 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
           <div className="acciones">
             {!m.aprobadaEn && (
               <button type="button" className="btn btn-primario btn-s" onClick={() => acciones.aprobarMision(inv.id, {})}>
-                Aprobar tal cual
+                {tr("Aprobar tal cual")}
               </button>
             )}
             <button type="button" className="btn btn-s" onClick={() => setEditando(true)}>
@@ -148,20 +148,20 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
         <dl className={`comprobacion ${compacto ? 'mision-compacta' : ''}`}>
           <dt>{tr("Población")}</dt>
           <dd>{m.poblacion || tr('sin fijar')}</dd>
-          <dt>Etapa</dt>
+          <dt>{tr("Etapa")}</dt>
           <dd>{m.etapa || tr('sin fijar')}</dd>
           <dt>{tr("Célula o tejido")}</dt>
           <dd>{m.celulaTejido || tr('sin fijar')}</dd>
-          <dt>Mecanismo</dt>
+          <dt>{tr("Mecanismo")}</dt>
           <dd>{m.mecanismo || tr('sin fijar')}</dd>
           <dt>{tr("Tipo de intervención")}</dt>
           <dd>{m.tipoIntervencion || tr('sin fijar')}</dd>
           <dt>{tr("Capacidades del laboratorio")}</dt>
           <dd>{m.capacidadesLaboratorio.length ? m.capacidadesLaboratorio.join('; ') : tr('sin declarar')}</dd>
-          <dt>Presupuesto</dt>
+          <dt>{tr("Presupuesto")}</dt>
           <dd>
             {trp("{llamadas} llamadas · {v} USD estimados · {horas} h", { llamadas: m.presupuesto.llamadas, v: m.presupuesto.usd.toFixed(0), horas: m.presupuesto.horas })}</dd>
-          <dt>Responsables</dt>
+          <dt>{tr("Responsables")}</dt>
           <dd>
             {m.responsables && Object.values(m.responsables).some((v) => v) ? (
               ROLES.filter((r) => m.responsables?.[r.k]).map((r) => `${r.label}: ${m.responsables?.[r.k]}`).join(' · ')
@@ -182,12 +182,12 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
               <thead>
                 <tr>
                   <th>{tr("Área")}</th>
-                  <th>Familia</th>
-                  <th>Relevancia</th>
-                  <th>Comprobabilidad</th>
+                  <th>{tr("Familia")}</th>
+                  <th>{tr("Relevancia")}</th>
+                  <th>{tr("Comprobabilidad")}</th>
                   <th>{tr("Coste y demora")}</th>
-                  <th>Estado</th>
-                  <th>Gobierno</th>
+                  <th>{tr("Estado")}</th>
+                  <th>{tr("Gobierno")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -236,7 +236,7 @@ export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv
         </button>
         {m && (
           <button type="button" className="btn btn-fantasma" onClick={() => setEditando(false)}>
-            Cancelar
+            {tr("Cancelar")}
           </button>
         )}
       </div>
@@ -270,7 +270,7 @@ export function TarjetaDeHipotesis({ h }: { h: Hipotesis }) {
           </dd>
           <dt>{tr("Célula o tejido")}</dt>
           <dd>{t.celula || tr('sin especificar')}</dd>
-          <dt>Etapa</dt>
+          <dt>{tr("Etapa")}</dt>
           <dd>{t.etapa || tr('sin especificar')}</dd>
           <dt>{tr("Intervención")}</dt>
           <dd>
@@ -278,7 +278,7 @@ export function TarjetaDeHipotesis({ h }: { h: Hipotesis }) {
           </dd>
           <dt>{tr("Predicción falsable")}</dt>
           <dd className={t.prediccionFalsable ? '' : 'tono-mal'}>{t.prediccionFalsable || tr('NINGUNA: así no es evaluable')}</dd>
-          <dt>Riesgos</dt>
+          <dt>{tr("Riesgos")}</dt>
           <dd>{t.riesgos.length ? <ul className="lista-limpia">{t.riesgos.map((r, i) => <li key={i}>{r}</li>)}</ul> : tr('ninguno declarado')}</dd>
           <dt>{tr("Ruta terapéutica")}</dt>
           <dd>
@@ -410,8 +410,8 @@ export function Dimensiones({ d }: { d: DimensionesResultado | undefined }) {
   const activas = (Object.keys(DIMENSION_RESULTADO) as (keyof typeof DIMENSION_RESULTADO)[]).filter((k) => d[k]);
   return (
     <div className="acciones" style={{ gap: 4 }}>
-      <span className="meta">Dimensiones:</span>
-      {activas.length === 0 ? <span className="meta">ninguna marcada</span> : activas.map((k) => <Chip key={k} tono={k === 'efectoPredicho' ? 'ok' : k === 'falloTecnico' || k === 'toxicidad' ? 'mal' : 'aviso'}>{DIMENSION_RESULTADO[k]}</Chip>)}
+      <span className="meta">{tr("Dimensiones:")}</span>
+      {activas.length === 0 ? <span className="meta">{tr("ninguna marcada")}</span> : activas.map((k) => <Chip key={k} tono={k === 'efectoPredicho' ? 'ok' : k === 'falloTecnico' || k === 'toxicidad' ? 'mal' : 'aviso'}>{DIMENSION_RESULTADO[k]}</Chip>)}
       {d.nota && <span className="meta">{d.nota}</span>}
     </div>
   );
@@ -442,7 +442,7 @@ export function PreguntaDeCampana({ corrida }: { corrida: Corrida }) {
       nota={tr("ROSA2018 la fórmula desde la meta y el área elegida con una plantilla fija: contexto, etapa, intervención, comparador, desenlace, ventana, unidad biológica independiente, mecanismos que distingue, decisión que se toma con la respuesta y umbral de efecto. Un umbral sin base queda 'sin resolver'. Se aprueba con el primer plan.")}
       acciones={
         <div className="acciones">
-          {q.aprobadaEn ? <Chip tono="ok">Aprobada</Chip> : <Chip tono="aviso">{tr("Propuesta por ROSA2018")}</Chip>}
+          {q.aprobadaEn ? <Chip tono="ok">{tr("Aprobada")}</Chip> : <Chip tono="aviso">{tr("Propuesta por ROSA2018")}</Chip>}
           {!q.umbralResuelto && <Chip tono="aviso" title={tr("No hay un valor defendible del efecto mínimo que importaría")}>{tr("Umbral sin resolver")}</Chip>}
           <button type="button" className="btn btn-s" onClick={() => setEditando((v) => !v)}>
             {(editando ? tr("Cancelar") : tr("Corregir"))}
@@ -454,17 +454,17 @@ export function PreguntaDeCampana({ corrida }: { corrida: Corrida }) {
         <div className="seccion">
           {(q as PreguntaCampana & { enunciado?: string }).enunciado && <p className="llano-pregunta">{(q as PreguntaCampana & { enunciado?: string }).enunciado}</p>}
           <dl className="comprobacion">
-            <dt>Contexto (C)</dt>
+            <dt>{tr("Contexto (C)")}</dt>
             <dd>{q.contexto || tr('sin fijar')}</dd>
-            <dt>Etapa (S)</dt>
+            <dt>{tr("Etapa (S)")}</dt>
             <dd>{q.etapa || tr('sin fijar')}</dd>
             <dt>{tr("Intervención (A)")}</dt>
             <dd>{q.intervencion || tr('sin fijar')}</dd>
-            <dt>Comparador (B)</dt>
+            <dt>{tr("Comparador (B)")}</dt>
             <dd>{q.comparador || tr('sin fijar')}</dd>
-            <dt>Desenlace (P)</dt>
+            <dt>{tr("Desenlace (P)")}</dt>
             <dd>{q.desenlace || tr('sin fijar')}</dd>
-            <dt>Ventana (T)</dt>
+            <dt>{tr("Ventana (T)")}</dt>
             <dd>{q.ventana || tr('sin fijar')}</dd>
             <dt>{tr("Unidad biológica")}</dt>
             <dd>{q.unidadBiologica || tr('sin fijar')}</dd>
@@ -658,7 +658,7 @@ function ListaComprobaciones({ comprobaciones, etiquetas, onEtiquetar }: { compr
                       {(mia?.veredictoHumano === v ? trp("Tu: {v}", { v: v === 'no_comprobable' ? 'no comprobable' : v }) : trp("{v}", { v: v === 'no_comprobable' ? 'no comprobable' : v }))}
                     </button>
                   ))}
-                  {mia && mia.veredictoHumano !== c.resultado && <Chip tono="aviso">desacuerdo</Chip>}
+                  {mia && mia.veredictoHumano !== c.resultado && <Chip tono="aviso">{tr("desacuerdo")}</Chip>}
                 </span>
               )}
             </span>
@@ -699,11 +699,11 @@ export function DecisionesKiller({ h, decisiones, ahora, conjuntoDorado = [] }: 
             <thead>
               <tr>
                 <th>{tr("Cuándo")}</th>
-                <th>Etapa</th>
+                <th>{tr("Etapa")}</th>
                 <th>{tr("Versión")}</th>
                 <th>{tr("Decisión")}</th>
                 <th>{tr("Quién")}</th>
-                <th>Motivo</th>
+                <th>{tr("Motivo")}</th>
                 <th>{tr("Auditoría")}</th>
               </tr>
             </thead>
@@ -783,7 +783,7 @@ export function EjecucionesInSilico({ h, estado, ahora }: { h: Hipotesis; estado
           {!puertaOk && <p className="tono-aviso" style={{ fontSize: 13 }}>{trp("La puerta de reproducción está bloqueada ({v} de {v2}): el análisis quedará en \"no ejecutado\" hasta reproducir los análisis publicados o eximir la puerta con motivo.", { v: puerta?.superadas ?? 0, v2: puerta?.requeridas ?? 3 })}</p>}
           <div className="rejilla-2">
             <div className="campo">
-              <label htmlFor="an-ds">Dataset</label>
+              <label htmlFor="an-ds">{tr("Dataset")}</label>
               <select id="an-ds" value={ds} onChange={(e) => setDs(e.target.value)}>
                 {datasets.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -799,7 +799,7 @@ export function EjecucionesInSilico({ h, estado, ahora }: { h: Hipotesis; estado
           </div>
           <div className="acciones">
             <button type="button" className="btn" disabled={ds === ''} onClick={() => acciones.pedirAnalisis(h.id, ds, pregunta)}>
-              Pedir analisis in silico
+              {tr("Pedir análisis in silico")}
             </button>
             <span className="meta">{trp("Cuenta como evaluación costosa (máximo {v} por corrida).", { v: Number(estado.politicas?.maxEvaluacionesCostosas ?? 5) })}</span>
           </div>
@@ -834,13 +834,13 @@ export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: Pla
         <details className="versiones">
           <summary>{trp("Plan congelado {hashPlan} ({tipo}) el {v}", { hashPlan: plan.hashPlan, tipo: plan.tipo, v: new Date(plan.congeladoEn).toLocaleString('es') })}</summary>
           <dl className="comprobacion">
-            <dt>Pregunta</dt>
+            <dt>{tr("Pregunta")}</dt>
             <dd>{plan.pregunta}</dd>
-            <dt>Variables</dt>
+            <dt>{tr("Variables")}</dt>
             <dd>{plan.variables.join('; ')}</dd>
             <dt>{tr("Población")}</dt>
             <dd>{plan.poblacion}</dd>
-            <dt>Prueba</dt>
+            <dt>{tr("Prueba")}</dt>
             <dd>{plan.prueba}</dd>
             <dt>H0 / H1</dt>
             <dd>
@@ -873,11 +873,11 @@ export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: Pla
                 <dd>{plan.selloExterno.ok ? trp("Sellado (RFC 3161) el {v}", { v: plan.selloExterno.primeraHora ?? '' }) : `Sin sello externo${plan.selloExterno.error ? `: ${plan.selloExterno.error}` : ''}`}</dd>
               </>
             )}
-            <dt>Baseline</dt>
+            <dt>{tr("Baseline")}</dt>
             <dd>{plan.baseline}</dd>
-            <dt>Control negativo</dt>
+            <dt>{tr("Control negativo")}</dt>
             <dd>{plan.controlNegativo}</dd>
-            <dt>Multiplicidad</dt>
+            <dt>{tr("Multiplicidad")}</dt>
             <dd>{plan.correccionMultiplicidad}</dd>
             <dt>{tr("No evaluable si")}</dt>
             <dd>{plan.criterioNoEvaluable}</dd>
@@ -960,7 +960,7 @@ export function PuertaYReproducciones({ inv, estado, ahora }: { inv: Investigaci
       acciones={
         puerta.estado === 'eximida' ? (
           <button type="button" className="btn btn-s" onClick={() => acciones.cerrarPuerta(inv.id)}>
-            Volver a exigirla
+            {tr("Volver a exigirla")}
           </button>
         ) : (
           <Confirmar etiqueta={tr("Eximir la puerta")} pregunta={tr("Es una excepción de política (nivel 3). Queda en el registro de aprendizaje con tu nombre y el motivo.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('Demostración con datos sintéticos; no se afirma nada científico') }} onConfirmar={(m) => acciones.eximirPuerta(inv.id, m)} />
@@ -976,12 +976,12 @@ export function PuertaYReproducciones({ inv, estado, ahora }: { inv: Investigaci
         <table className="tabla">
           <thead>
             <tr>
-              <th>Referencia</th>
+              <th>{tr("Referencia")}</th>
               <th>{tr("Qué se reproduce")}</th>
-              <th className="num">Publicado</th>
-              <th className="num">Obtenido</th>
-              <th className="num">Tolerancia</th>
-              <th>Estado</th>
+              <th className="num">{tr("Publicado")}</th>
+              <th className="num">{tr("Obtenido")}</th>
+              <th className="num">{tr("Tolerancia")}</th>
+              <th>{tr("Estado")}</th>
             </tr>
           </thead>
           <tbody>
@@ -1004,7 +1004,7 @@ export function PuertaYReproducciones({ inv, estado, ahora }: { inv: Investigaci
           <div className="acciones" style={{ justifyContent: 'space-between' }}>
             <p className="campo-etiqueta">{tr("Registrar un análisis publicado para reproducir")}</p>
             <button type="button" className="btn btn-fantasma btn-s" onClick={() => setFormulario(false)}>
-              Ocultar
+              {tr("Ocultar")}
             </button>
           </div>
           <div className="acciones">
@@ -1016,7 +1016,7 @@ export function PuertaYReproducciones({ inv, estado, ahora }: { inv: Investigaci
           </div>
           <div className="rejilla-2">
             <div className="campo">
-              <label htmlFor="rep-ds">Dataset</label>
+              <label htmlFor="rep-ds">{tr("Dataset")}</label>
               <select id="rep-ds" value={ds} onChange={(e) => setDs(e.target.value)}>
                 {datasets.map((x) => (
                   <option key={x.id} value={x.id}>
@@ -1026,7 +1026,7 @@ export function PuertaYReproducciones({ inv, estado, ahora }: { inv: Investigaci
               </select>
             </div>
             <div className="campo">
-              <label htmlFor="rep-ref">Referencia</label>
+              <label htmlFor="rep-ref">{tr("Referencia")}</label>
               <input id="rep-ref" value={d.referencia} onChange={(e) => setD({ ...d, referencia: e.target.value })} placeholder={tr("Blalock et al., 2004")} />
             </div>
           </div>
@@ -1036,15 +1036,15 @@ export function PuertaYReproducciones({ inv, estado, ahora }: { inv: Investigaci
           </div>
           <div className="rejilla-3">
             <div className="campo">
-              <label htmlFor="rep-cifra">Cifra publicada (nombre)</label>
+              <label htmlFor="rep-cifra">{tr("Cifra publicada (nombre)")}</label>
               <input id="rep-cifra" value={d.cifraPublicada} onChange={(e) => setD({ ...d, cifraPublicada: e.target.value })} />
             </div>
             <div className="campo">
-              <label htmlFor="rep-valor">Valor publicado</label>
+              <label htmlFor="rep-valor">{tr("Valor publicado")}</label>
               <input id="rep-valor" value={d.valorPublicado} onChange={(e) => setD({ ...d, valorPublicado: e.target.value })} />
             </div>
             <div className="campo">
-              <label htmlFor="rep-tol">Tolerancia relativa (0,1 = 10 %)</label>
+              <label htmlFor="rep-tol">{tr("Tolerancia relativa (0,1 = 10 %)")}</label>
               <input id="rep-tol" value={d.tolerancia} onChange={(e) => setD({ ...d, tolerancia: e.target.value })} />
             </div>
           </div>
@@ -1121,19 +1121,19 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
           </button>
         </div>
         <dl className="comprobacion">
-          <dt>Origen</dt>
+          <dt>{tr("Origen")}</dt>
           <dd>{p.origen || <span className="tono-mal">{tr("sin declarar")}</span>}</dd>
           <dt>{tr("Versión")}</dt>
           <dd>{p.version || tr('sin declarar')}</dd>
-          <dt>Licencia</dt>
+          <dt>{tr("Licencia")}</dt>
           <dd>{p.licencia || <span className="tono-mal">{tr("sin declarar")}</span>}</dd>
-          <dt>Permisos</dt>
+          <dt>{tr("Permisos")}</dt>
           <dd>{p.permisos || tr('sin declarar')}</dd>
-          <dt>Cohorte</dt>
+          <dt>{tr("Cohorte")}</dt>
           <dd>{p.cohorte || tr('sin declarar')}</dd>
-          <dt>Fichero</dt>
+          <dt>{tr("Fichero")}</dt>
           <dd className="mono" style={{ fontSize: 12 }}>
-            {p.fichero} · {p.filas} filas · sha256 {p.hash.slice(0, 16)}
+            {p.fichero} · {p.filas} {tr("filas · sha256")} {p.hash.slice(0, 16)}
           </dd>
           {p.restriccionIA && (
             <>
@@ -1181,7 +1181,7 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
       </div>
       <div className="rejilla-3">
         <div className="campo">
-          <label htmlFor="pd-acceso">Acceso</label>
+          <label htmlFor="pd-acceso">{tr("Acceso")}</label>
           <select id="pd-acceso" value={f.acceso} onChange={(e) => setF({ ...f, acceso: e.target.value as ProcedenciaDataset['acceso'] })}>
             {(Object.keys(ACCESO_DATASET) as ProcedenciaDataset['acceso'][]).map((a) => (
               <option key={a} value={a}>
@@ -1235,7 +1235,7 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
                     </select>
                   </td>
                   <td>
-                    <input className="entrada entrada-s" value={c.unidad} placeholder="unidad" onChange={(e) => setF({ ...f, diccionario: f.diccionario.map((x, j) => (j === i ? { ...x, unidad: e.target.value } : x)) })} aria-label={trp("Unidad de {columna}", { columna: c.columna })} />
+                    <input className="entrada entrada-s" value={c.unidad} placeholder={tr("unidad")} onChange={(e) => setF({ ...f, diccionario: f.diccionario.map((x, j) => (j === i ? { ...x, unidad: e.target.value } : x)) })} aria-label={trp("Unidad de {columna}", { columna: c.columna })} />
                   </td>
                   <td>
                     <input className="entrada entrada-s" value={c.descripcion} placeholder={tr("que mide")} onChange={(e) => setF({ ...f, diccionario: f.diccionario.map((x, j) => (j === i ? { ...x, descripcion: e.target.value } : x)) })} aria-label={trp("Descripción de {columna}", { columna: c.columna })} />
@@ -1258,7 +1258,7 @@ export function LibroDeProcedencia({ inv, d }: { inv: Investigacion; d: Dataset 
           {tr("Guardar el libro de procedencia")}
         </button>
         <button type="button" className="btn btn-fantasma btn-s" onClick={() => setEditando(false)}>
-          Cancelar
+          {tr("Cancelar")}
         </button>
       </div>
     </div>
@@ -1289,17 +1289,17 @@ export function SubirDataset({ inv }: { inv: Investigacion }) {
       <div className="acciones" style={{ justifyContent: 'space-between' }}>
         <p className="campo-etiqueta">{tr("Subir un dataset con fichero")}</p>
         <button type="button" className="btn btn-fantasma btn-s" onClick={() => setAbierto(false)}>
-          Cancelar
+          {tr("Cancelar")}
         </button>
       </div>
       <p className="meta">{tr("CSV, TSV o JSON (lista de objetos), hasta 200 MB. El servidor calcula el hash, cuenta filas y columnas, detecta valores centinela y prepara el diccionario para que lo completes. Ninguna fila pasa por un modelo al subir.")}</p>
       <div className="rejilla-2">
         <div className="campo">
-          <label htmlFor="ds-fich">Fichero</label>
+          <label htmlFor="ds-fich">{tr("Fichero")}</label>
           <input id="ds-fich" type="file" accept=".csv,.tsv,.txt,.json" onChange={(e) => setFichero(e.target.files?.[0] ?? null)} />
         </div>
         <div className="campo">
-          <label htmlFor="ds-nom">Nombre</label>
+          <label htmlFor="ds-nom">{tr("Nombre")}</label>
           <input id="ds-nom" value={nombre} placeholder={tr("GSE1297 hipocampo")} onChange={(e) => setNombre(e.target.value)} />
         </div>
       </div>
@@ -1346,7 +1346,7 @@ export function RegistroAprendizaje({ estado, ahora }: { estado: EstadoRosa; aho
   const visibles = cambios.filter((c) => c.nivel === nivel);
   return (
     <Seccion detalle titulo={tr("Registro de aprendizaje")} nota={tr("Todo lo que ROSA2018 cambia al aprender, en tres niveles. El nivel 1 es automático; el nivel 2 lo propone ROSA2018 y lo promueve una persona tras evaluarlo sobre el conjunto reservado; el nivel 3 solo lo cambia una persona.")}>
-      <div className="segmentos" role="group" aria-label="Nivel">
+      <div className="segmentos" role="group" aria-label={tr("Nivel")}>
         {([1, 2, 3] as const).map((n) => (
           <button key={n} type="button" aria-pressed={nivel === n} onClick={() => setNivel(n)} title={NIVEL_APRENDIZAJE[n].nota}>
             {NIVEL_APRENDIZAJE[n].etiqueta} ({cambios.filter((c) => c.nivel === n).length})
@@ -1399,7 +1399,7 @@ function FilaAprendizaje({ c, ahora }: { c: CambioAprendizaje; ahora: number }) 
         <div className="acciones">
           {c.tipo === 'criterio' && (
             <button type="button" className="btn btn-s" onClick={() => acciones.evaluarAprendizaje(c.id)} title={tr("Corre el Killer con y sin este criterio sobre las hipótesis que ya decidió una persona y mide el acuerdo. Gasta llamadas al juez.")}>
-              Evaluar
+              {tr("Evaluar")}
             </button>
           )}
           <button
@@ -1409,7 +1409,7 @@ function FilaAprendizaje({ c, ahora }: { c: CambioAprendizaje; ahora: number }) 
             title={empeoraAlEvaluar(c) ? tr('No se puede promover: la evaluación dice que empeora el acuerdo con las decisiones humanas. Solo se promueve lo que iguala o mejora.') : tr('Aplicar el cambio a ROSA2018.')}
             onClick={() => acciones.promoverAprendizaje(c.id)}
           >
-            Promover
+            {tr("Promover")}
           </button>
           <Confirmar etiqueta="Revertir" pregunta={tr("El cambio no se aplica y queda registrado como revertido.")} pedirTexto={{ etiqueta: 'Motivo', marcador: tr('Empeora el acuerdo con las decisiones humanas') }} onConfirmar={(m) => acciones.revertirAprendizaje(c.id, m)} />
         </div>
@@ -1597,7 +1597,7 @@ export function ProtocoloYEnmiendas({ h, ahora }: { h: Hipotesis; ahora: number 
             ))}
           </select>
           <input className="entrada" value={despues} placeholder={`Texto nuevo (ahora: ${(x[campo] ?? '').slice(0, 60) || 'vacio'})`} onChange={(e) => setDespues(e.target.value)} aria-label={tr("Texto nuevo")} />
-          <input className="entrada" value={motivo} placeholder={tr("Motivo de la enmienda")} onChange={(e) => setMotivo(e.target.value)} aria-label="Motivo" />
+          <input className="entrada" value={motivo} placeholder={tr("Motivo de la enmienda")} onChange={(e) => setMotivo(e.target.value)} aria-label={tr("Motivo")} />
           <button
             type="button"
             className="btn"
@@ -1608,7 +1608,7 @@ export function ProtocoloYEnmiendas({ h, ahora }: { h: Hipotesis; ahora: number 
               setMotivo('');
             }}
           >
-            Registrar enmienda fechada
+            {tr("Registrar enmienda fechada")}
           </button>
         </div>
       ) : (
@@ -1616,10 +1616,10 @@ export function ProtocoloYEnmiendas({ h, ahora }: { h: Hipotesis; ahora: number 
       )}
       {x.protocoloReal && (
         <p className="meta">
-          Protocolo real registrado <Momento t={x.protocoloReal.registradoEn} ahora={ahora} />{trp(" por {quien}. Desviaciones: {v}. Muestras: {v2}.", { quien: x.protocoloReal.quien, v: x.protocoloReal.desviaciones || tr('ninguna declarada'), v2: x.protocoloReal.identidadMuestras || tr('no declaradas') })}</p>
+          {tr("Protocolo real registrado")} <Momento t={x.protocoloReal.registradoEn} ahora={ahora} />{trp(" por {quien}. Desviaciones: {v}. Muestras: {v2}.", { quien: x.protocoloReal.quien, v: x.protocoloReal.desviaciones || tr('ninguna declarada'), v2: x.protocoloReal.identidadMuestras || tr('no declaradas') })}</p>
       )}
       <div className="campo">
-        <label htmlFor={`pr-texto-${h.id}`}>Protocolo realmente ejecutado</label>
+        <label htmlFor={`pr-texto-${h.id}`}>{tr("Protocolo realmente ejecutado")}</label>
         <textarea id={`pr-texto-${h.id}`} className="entrada" rows={3} value={texto} placeholder={tr("Lo que el laboratorio hizo, paso a paso, aunque coincida con lo planeado")} onChange={(e) => setTexto(e.target.value)} />
       </div>
       <div className="campo">
@@ -1735,7 +1735,7 @@ export function Jerarquia({ inv, corridas }: { inv: Investigacion; corridas: Cor
     <Seccion detalle titulo={tr("Programa, áreas, campañas y preguntas")} nota={tr("La jerarquía del plan completo: una meta amplia se reparte en áreas comparables; cada área se trabaja en campañas (corridas) con una pregunta concreta y comprobable. Aquí se ve qué área tiene campaña, cuál está pausada y con qué condición, y qué campaña todavía no tiene pregunta.")}>
       <ul className="arbol">
         <li>
-          <strong>Programa:</strong> {m.metaAmplia || inv.objetivo}
+          <strong>{tr("Programa:")}</strong> {m.metaAmplia || inv.objetivo}
           <ul>
             {areas.length === 0 && <li className="meta">{tr("Sin áreas comparadas todavía.")}</li>}
             {areas.map((a) => {
@@ -1824,7 +1824,7 @@ export function GrafoCausalDeHipotesis({ h }: { h: Hipotesis }) {
         <ul className="lista-plana">
           {g.aristas.map((a, i) => (
             <li key={i}>
-              <strong style={{ fontSize: 13 }}>{etiqueta(a.de)}</strong> causa <strong style={{ fontSize: 13 }}>{etiqueta(a.a)}</strong> <Chip tono={a.tipo === 'inferencia_con_evidencia' ? 'ok' : 'borde'}>{TIPO_ARISTA[a.tipo] ?? a.tipo}</Chip>
+              <strong style={{ fontSize: 13 }}>{etiqueta(a.de)}</strong> {tr("causa")} <strong style={{ fontSize: 13 }}>{etiqueta(a.a)}</strong> <Chip tono={a.tipo === 'inferencia_con_evidencia' ? 'ok' : 'borde'}>{TIPO_ARISTA[a.tipo] ?? a.tipo}</Chip>
               <p className="meta">{a.contexto}</p>
             </li>
           ))}
@@ -1847,10 +1847,10 @@ export function RelacionesCausales({ estado, inv }: { estado: EstadoRosa; inv: I
       <ul className="lista-plana">
         {propias.map((r) => (
           <li key={r.id}>
-            <strong style={{ fontSize: 13 }}>{r.de}</strong> causa <strong style={{ fontSize: 13 }}>{r.a}</strong> <Chip tono={r.tipo === 'inferencia_con_evidencia' ? 'ok' : 'borde'}>{TIPO_ARISTA[r.tipo] ?? r.tipo}</Chip>{' '}
+            <strong style={{ fontSize: 13 }}>{r.de}</strong> {tr("causa")} <strong style={{ fontSize: 13 }}>{r.a}</strong> <Chip tono={r.tipo === 'inferencia_con_evidencia' ? 'ok' : 'borde'}>{TIPO_ARISTA[r.tipo] ?? r.tipo}</Chip>{' '}
             {r.hipotesisId && (
               <a className="enlace" href={rutaDe(inv.id, 'hipotesis', r.hipotesisId)}>
-                abrir hipotesis
+                {tr("abrir hipótesis")}
               </a>
             )}
             <p className="meta">{r.contexto}</p>
@@ -1912,12 +1912,12 @@ export function PanelKiller({ estado }: { estado: EstadoRosa }) {
             <table className="tabla">
               <thead>
                 <tr>
-                  <th>Fallo plantado</th>
-                  <th>Casos</th>
-                  <th>Detectados</th>
+                  <th>{tr("Fallo plantado")}</th>
+                  <th>{tr("Casos")}</th>
+                  <th>{tr("Detectados")}</th>
                   <th>{tr("Lo vio el juez")}</th>
-                  <th>Suspendidas</th>
-                  <th>Descartadas</th>
+                  <th>{tr("Suspendidas")}</th>
+                  <th>{tr("Descartadas")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1966,11 +1966,11 @@ export function Conectores({ conectores }: { conectores: ConectorCatalogo[] | un
             <table className="tabla">
               <thead>
                 <tr>
-                  <th>Fuente</th>
+                  <th>{tr("Fuente")}</th>
                   <th>{tr("Qué aporta")}</th>
                   <th>{tr("Límite y licencia")}</th>
-                  <th>Estado</th>
-                  <th>Usos</th>
+                  <th>{tr("Estado")}</th>
+                  <th>{tr("Usos")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2002,9 +2002,9 @@ export function Conectores({ conectores }: { conectores: ConectorCatalogo[] | un
                         {c.errores ? trp(" ({errores} sin respuesta)", { errores: c.errores }) : ''}
                         {c.estado === 'disponible' && (
                           <select className="entrada" value={c.permiso ?? 'permitir'} onChange={(e) => acciones.fijarPermisoConector(c.nombre, e.target.value as NivelPermisoConector)} aria-label={trp("Permiso de {fuente}", { fuente: c.fuente })} title={tr("Permitir: el bucle y las personas lo usan. Solo persona: solo cuando alguien pregunta desde aquí. Bloquear: nadie.")}>
-                            <option value="permitir">Permitir</option>
+                            <option value="permitir">{tr("Permitir")}</option>
                             <option value="solo_persona">{tr("Solo si pregunta una persona")}</option>
-                            <option value="bloquear">Bloquear</option>
+                            <option value="bloquear">{tr("Bloquear")}</option>
                           </select>
                         )}
                       </td>
@@ -2028,10 +2028,10 @@ export function TablaConsultas({ consultas, ahora }: { consultas: ConsultaBase[]
     <table className="tabla">
       <thead>
         <tr>
-          <th>Base</th>
-          <th>Argumentos</th>
-          <th>Resultados</th>
-          <th>Invariante</th>
+          <th>{tr("Base")}</th>
+          <th>{tr("Argumentos")}</th>
+          <th>{tr("Resultados")}</th>
+          <th>{tr("Invariante")}</th>
           <th>{tr("Cuándo")}</th>
         </tr>
       </thead>
@@ -2052,7 +2052,7 @@ export function TablaConsultas({ consultas, ahora }: { consultas: ConsultaBase[]
             </td>
             <td>{c.invariante ? <Chip tono={c.invariante.ok ? 'ok' : 'aviso'}>{c.invariante.detalle.slice(0, 80)}</Chip> : <span className="meta">{tr("sin invariante")}</span>}</td>
             <td className="meta">
-              <Momento t={c.fecha} ahora={ahora} /> ({c.ms} ms)
+              <Momento t={c.fecha} ahora={ahora} /> ({c.ms} {tr("ms)")}
             </td>
           </tr>
         ))}
@@ -2092,7 +2092,7 @@ export function MemoriaDelProyecto({ inv }: { inv: Investigacion }) {
               {nombreActor(m.quien)}, {new Date(m.fecha).toLocaleDateString('es')}
             </span>
             <button type="button" className="btn btn-pequeno" onClick={() => acciones.quitarMemoria(inv.id, m.id)}>
-              Quitar
+              {tr("Quitar")}
             </button>
           </li>
         ))}
@@ -2108,7 +2108,7 @@ export function MemoriaDelProyecto({ inv }: { inv: Investigacion }) {
             setTexto('');
           }}
         >
-          Recordar
+          {tr("Recordar")}
         </button>
       </div>
     </Seccion>
@@ -2227,8 +2227,8 @@ export function PerfilDeLaDiana({ h }: { h: Hipotesis }) {
       <table className="tabla">
         <thead>
           <tr>
-            <th>Capa</th>
-            <th>Estado</th>
+            <th>{tr("Capa")}</th>
+            <th>{tr("Estado")}</th>
             <th>{tr("Qué dicen las bases")}</th>
           </tr>
         </thead>
@@ -2369,13 +2369,13 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
             <table className="tabla">
               <thead>
                 <tr>
-                  <th>Lectura</th>
-                  <th>Tipo</th>
-                  <th>Confirma si</th>
-                  <th>Refuta si</th>
-                  <th>Control</th>
-                  <th>Unidad</th>
-                  {puedeEnmendar && <th>Enmienda</th>}
+                  <th>{tr("Lectura")}</th>
+                  <th>{tr("Tipo")}</th>
+                  <th>{tr("Confirma si")}</th>
+                  <th>{tr("Refuta si")}</th>
+                  <th>{tr("Control")}</th>
+                  <th>{tr("Unidad")}</th>
+                  {puedeEnmendar && <th>{tr("Enmienda")}</th>}
                 </tr>
               </thead>
               <tbody>
@@ -2430,7 +2430,7 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
       {Boolean(x.prerregistradoEn) && !x.resultado && derivadas && <p className="meta">{tr("La lectura derivada de los criterios antiguos se enmienda desde los campos de texto (criterio de confirmación, de refutación, controles), no desde aquí.")}</p>}
       <div className="conclusion-columnas">
         <div className="experimento-bloque">
-          <h4>Sistema experimental</h4>
+          <h4>{tr("Sistema experimental")}</h4>
           {sistema ? (
             <>
               <div className="acciones">
@@ -2509,11 +2509,11 @@ export function ContratoDelExperimento({ h }: { h: Hipotesis }) {
               <table className="tabla">
                 <thead>
                   <tr>
-                    <th>Lectura</th>
-                    <th>Tipo</th>
-                    <th>Veredicto</th>
-                    <th>Motivo</th>
-                    <th>Cifras</th>
+                    <th>{tr("Lectura")}</th>
+                    <th>{tr("Tipo")}</th>
+                    <th>{tr("Veredicto")}</th>
+                    <th>{tr("Motivo")}</th>
+                    <th>{tr("Cifras")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2685,7 +2685,7 @@ export function Skills({ skills }: { skills: SkillCatalogo[] | undefined }) {
         <table className="tabla">
           <thead>
             <tr>
-              <th>Skill</th>
+              <th>{tr("Skill")}</th>
               <th>{tr("Qué hace")}</th>
               <th>{tr("Se activa con")}</th>
               <th>{tr("Entorno y módulos")}</th>
@@ -2759,7 +2759,7 @@ function SinRespuesta({ que, onReintentar }: { que: string; onReintentar: () => 
     <div className="acciones">
       <span className="meta">{trp("No pude comprobar {que}: el servidor no respondió a tiempo.", { que })}</span>
       <button type="button" className="btn btn-s" onClick={onReintentar}>
-        Volver a comprobar
+        {tr("Volver a comprobar")}
       </button>
     </div>
   );
@@ -2846,7 +2846,7 @@ export function EspejoConvex({ ahora }: { ahora: number }) {
         <div className="acciones">
           <Chip tono={esp.error ? 'mal' : esp.pendiente ? 'aviso' : 'ok'}>{esp.error ? tr('Con error') : esp.pendiente ? 'Sincronizando' : tr('Al día')}</Chip>
           <span className="meta">
-            {esp.url} · {esp.entidades} entidades · versión {esp.ultimaVersion ?? '?'}
+            {esp.url} · {esp.entidades} {tr("entidades · versión")} {esp.ultimaVersion ?? '?'}
             {esp.sincronizadoEn ? (
               <>
                 {' '}
@@ -2916,8 +2916,8 @@ export function ConocimientoOperativoDelLaboratorio({ inv }: { inv: Investigacio
         {lista.map((x) => (
           <li key={x.id}>
             <Chip tono="borde">{TIPO_OPERATIVO[x.tipo]}</Chip> {x.texto} <span className="meta">({x.quien}, {new Date(x.fecha).toLocaleDateString('es')})</span>{' '}
-            <button type="button" className="btn btn-fantasma btn-s" onClick={() => acciones.quitarConocimientoOperativo(inv.id, x.id)} aria-label="Quitar">
-              Quitar
+            <button type="button" className="btn btn-fantasma btn-s" onClick={() => acciones.quitarConocimientoOperativo(inv.id, x.id)} aria-label={tr("Quitar")}>
+              {tr("Quitar")}
             </button>
           </li>
         ))}
@@ -2930,9 +2930,9 @@ export function ConocimientoOperativoDelLaboratorio({ inv }: { inv: Investigacio
             </option>
           ))}
         </select>
-        <input className="entrada" value={texto} placeholder={tr("El lote 2024-B del anticuerpo anti-GFAP da fondo alto en plasma")} onChange={(e) => setTexto(e.target.value)} aria-label="Conocimiento operativo" />
+        <input className="entrada" value={texto} placeholder={tr("El lote 2024-B del anticuerpo anti-GFAP da fondo alto en plasma")} onChange={(e) => setTexto(e.target.value)} aria-label={tr("Conocimiento operativo")} />
         <button type="button" className="btn" disabled={texto.trim().length < 8} onClick={() => { acciones.anadirConocimientoOperativo(inv.id, texto.trim(), tipo); setTexto(''); }}>
-          Registrar
+          {tr("Registrar")}
         </button>
       </div>
     </Seccion>

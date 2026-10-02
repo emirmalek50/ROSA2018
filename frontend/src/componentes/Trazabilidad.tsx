@@ -186,7 +186,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
         <div className="acciones">
           <span className="meta">{tr("No pude comprobar la cadena de evidencia: el servidor no respondió a tiempo.")}</span>
           <button type="button" className="btn btn-s" onClick={() => setIntento((i) => i + 1)}>
-            Volver a pedir
+            {tr("Volver a pedir")}
           </button>
         </div>
       </Seccion>
@@ -223,11 +223,11 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
       <div className="embudo embudo-compacto">
         <div className="embudo-paso">
           <strong>{formatearEntero(e.consultas)}</strong>
-          <span>consultas</span>
+          <span>{tr("consultas")}</span>
         </div>
         <div className="embudo-paso">
           <strong>{formatearEntero(e.identificados)}</strong>
-          <span>identificados</span>
+          <span>{tr("identificados")}</span>
         </div>
         <div className="embudo-paso">
           <strong>{formatearEntero(e.fuentes)}</strong>
@@ -235,7 +235,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
         </div>
         <div className="embudo-paso">
           <strong>{formatearEntero(e.afirmaciones)}</strong>
-          <span>afirmaciones</span>
+          <span>{tr("afirmaciones")}</span>
         </div>
         <div className="embudo-paso">
           <strong>
@@ -254,9 +254,9 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
           ))}
         </div>
         <label className="campo-inline">
-          Tipo
+          {tr("Tipo")}
           <select value={tipo} onChange={(ev) => setTipo(ev.target.value as TipoAfirmacion | 'todos')}>
-            <option value="todos">Todos</option>
+            <option value="todos">{tr("Todos")}</option>
             {(Object.keys(TIPO_AFIRMACION) as TipoAfirmacion[]).map((t) => (
               <option key={t} value={t}>
                 {TIPO_AFIRMACION[t].etiqueta}
@@ -341,7 +341,7 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
               {f.riesgoSesgo.instrumento} {RIESGO_SESGO[f.riesgoSesgo.global]?.etiqueta ?? f.riesgoSesgo.global}
             </Chip>
           )}
-          {f.retraccion === 'retractado' && <Chip tono="mal">Retractado</Chip>}
+          {f.retraccion === 'retractado' && <Chip tono="mal">{tr("Retractado")}</Chip>}
           {f.retraccion === 'preocupacion' && <Chip tono="aviso">{tr("Expresión de preocupación")}</Chip>}
           {f.retraccion === 'erratum' && <Chip tono="aviso">Erratum</Chip>}
           <Chip tono="borde" title={tr("Puntuación de relevancia del cribado, 0 a 10")}>{trp("relevancia {relevancia}", { relevancia: f.relevancia })}
@@ -361,7 +361,7 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
               </a>
             )}
             {f.anio && <span>{f.anio}</span>}
-            {f.modo === 'amplitud' && <Chip tono="acento" title={f.porque ? trp("Llegó por búsqueda en amplitud. Se conservó porque podría cambiar: {porque}", { porque: f.porque }) : tr('Llegó por búsqueda en amplitud')}>Amplitud</Chip>}
+            {f.modo === 'amplitud' && <Chip tono="acento" title={f.porque ? trp("Llegó por búsqueda en amplitud. Se conservó porque podría cambiar: {porque}", { porque: f.porque }) : tr('Llegó por búsqueda en amplitud')}>{tr("Amplitud")}</Chip>}
             {nodo.tambienEn.length > 0 && <span>{trp("También la trajo la consulta {v}", { v: nodo.tambienEn.join(', ') })}</span>}
             {f.retraccionDetalle && <span>{trp("Crossref: {retraccionDetalle}", { retraccionDetalle: f.retraccionDetalle })}</span>}
             {!f.extraida && <span>{tr("Todavía sin extraer")}</span>}

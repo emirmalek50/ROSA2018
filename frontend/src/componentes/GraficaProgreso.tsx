@@ -75,13 +75,13 @@ export function GraficaProgreso({ corridas }: { corridas: Corrida[] }) {
             )}
           </g>
         ))}
-        <text className="gp-eje gp-fallido-etiqueta" x={ml - 4} y={yBanda} textAnchor="end">fallos</text>
+        <text className="gp-eje gp-fallido-etiqueta" x={ml - 4} y={yBanda} textAnchor="end">{tr("fallos")}</text>
       </svg>
       {maxReal === 0 && <p className="meta">{tr("Ninguna hipótesis ha subido un peldaño de certeza todavía: la línea morada está en cero y el eje marca hasta dónde llegaría el primero.")}</p>}
       <div className="gp-leyenda meta">
-        <span><i className="gp-muestra gp-muestra-peldanos" /> peldaños de certeza</span>
-        <span><i className="gp-muestra gp-muestra-hechos" /> hechos acumulados</span>
-        <span><i className="gp-muestra gp-muestra-fallos" /> fallos</span>
+        <span><i className="gp-muestra gp-muestra-peldanos" /> {tr("peldaños de certeza")}</span>
+        <span><i className="gp-muestra gp-muestra-hechos" /> {tr("hechos acumulados")}</span>
+        <span><i className="gp-muestra gp-muestra-fallos" /> {tr("fallos")}</span>
       </div>
       {terminadas.length > 0 && (
         <ul className="lista-limpia gp-balances">

@@ -128,7 +128,7 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
         {resumen && (
           <>
             {' · '}
-            <span className="subida">+{resumen.anadidas}</span> <span className="bajada">-{resumen.quitadas}</span> frente a v{contra}
+            <span className="subida">+{resumen.anadidas}</span> <span className="bajada">-{resumen.quitadas}</span> {tr("frente a v")}{contra}
           </>
         )}
       </p>

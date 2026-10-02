@@ -115,8 +115,8 @@ export function CuentasDelEquipo() {
     <div className="cuentas-equipo">
       <h4>{tr("Cuentas del equipo")}</h4>
       <p className="meta">{trp("Cualquier persona con correo @{DOMINIO} puede pedir cuenta desde la pantalla de acceso. Aprueba solo si sabes que esa persona la pidió: si no, entraría quien haya escrito su correo.", { DOMINIO })}</p>
-      {cuentas === null && !error && <p className="meta">Cargando…</p>}
-      {cuentas !== null && pendientes.length === 0 && <p className="meta">Ninguna solicitud pendiente.</p>}
+      {cuentas === null && !error && <p className="meta">{tr("Cargando…")}</p>}
+      {cuentas !== null && pendientes.length === 0 && <p className="meta">{tr("Ninguna solicitud pendiente.")}</p>}
       {pendientes.length > 0 && (
         <ul className="cuentas-lista">
           {pendientes.map((c) => (
@@ -126,10 +126,10 @@ export function CuentasDelEquipo() {
               </span>
               <span className="acciones">
                 <button type="button" className="btn btn-s" disabled={ocupada === c.correo} onClick={() => void decidir(c.correo, 'activa')}>
-                  Aprobar
+                  {tr("Aprobar")}
                 </button>
                 <button type="button" className="btn btn-fantasma btn-s" disabled={ocupada === c.correo} onClick={() => void decidir(c.correo, 'rechazada')}>
-                  Rechazar
+                  {tr("Rechazar")}
                 </button>
               </span>
             </li>
@@ -147,7 +147,7 @@ export function CuentasDelEquipo() {
                 </span>
                 {c.estado === 'activa' && (
                   <button type="button" className="btn btn-fantasma btn-s" disabled={ocupada === c.correo} onClick={() => void decidir(c.correo, 'rechazada')}>
-                    Quitar acceso
+                    {tr("Quitar acceso")}
                   </button>
                 )}
               </li>
@@ -297,7 +297,7 @@ export function Acceso({ children }: { children: ReactNode }) {
       return (
         <main className="contenido">
           <p role="status">{mensaje}</p>
-          <button type="button" className="btn" onClick={() => window.location.reload()}>Reintentar</button>
+          <button type="button" className="btn" onClick={() => window.location.reload()}>{tr("Reintentar")}</button>
         </main>
       );
     }
@@ -396,7 +396,7 @@ export function Acceso({ children }: { children: ReactNode }) {
               {(registrando ? tr("Ya tengo cuenta: iniciar sesión") : tr("¿No tienes cuenta? Pídela con tu correo del proyecto"))}
             </button>
             <p className="acceso-privacidad">
-              Acceso exclusivo para <span className="acceso-dominio">@{DOMINIO}</span>{tr(". Los avisos de tus corridas llegarán a esta misma cuenta.")}
+              {tr("Acceso exclusivo para")} <span className="acceso-dominio">@{DOMINIO}</span>{tr(". Los avisos de tus corridas llegarán a esta misma cuenta.")}
             </p>
           </motion.div>
 
@@ -488,11 +488,11 @@ export function Instalacion({ onGuardar }: { onGuardar: () => Promise<void> }) {
             <input id="instalacion-clave" type="password" autoComplete="new-password" required value={clave} onChange={(e) => setClave(e.target.value.replace(/\s+/g, ''))} />
             <div className="acceso-instalacion-fila">
               <div>
-                <label htmlFor="instalacion-servidor">Servidor SMTP</label>
+                <label htmlFor="instalacion-servidor">{tr("Servidor SMTP")}</label>
                 <input id="instalacion-servidor" required value={servidor} onChange={(e) => setServidor(e.target.value)} />
               </div>
               <div>
-                <label htmlFor="instalacion-puerto">Puerto</label>
+                <label htmlFor="instalacion-puerto">{tr("Puerto")}</label>
                 <input id="instalacion-puerto" type="number" min={1} max={65535} required value={puerto} onChange={(e) => setPuerto(e.target.value)} />
               </div>
             </div>

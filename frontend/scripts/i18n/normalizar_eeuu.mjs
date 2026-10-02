@@ -63,6 +63,8 @@ const NOMBRES = [
   'Sydney Memory and Ageing Study',
   'Australian Imaging, Biomarkers and Lifestyle',
   'Centre for', 'Cochrane Centre',
+  // El PREVENT Dementia programme se llama asi: es un estudio britanico.
+  'PREVENT Dementia programme',
 ];
 
 function aEEUU(s) {

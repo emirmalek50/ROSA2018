@@ -80,7 +80,7 @@ import { NuevaInvestigacion } from './pantallas/NuevaInvestigacion';
 import { Panorama } from './pantallas/Panorama';
 import { Ranking } from './pantallas/Ranking';
 import { traducido, tr, useIdioma } from './lib/idioma';
-import { activar as activarTraductor, desactivar as desactivarTraductor } from './lib/traductorDom';
+import { activar as activarTraductor, desactivar as desactivarTraductor, traducirSuelto } from './lib/traductorDom';
 
 const TITULO_PANTALLA = traducido({
   corrida: 'Corrida en vivo',
@@ -185,10 +185,18 @@ export default function App() {
     if (!(ruta.tipo === 'investigacion' && ruta.pantalla === 'hipotesis' && ruta.detalleId)) setCajonAbierto(false);
   }, [claveRuta, ruta]);
 
+  // El título de la pestaña está fuera de `#root`, así que el traductor de
+  // pantalla no llega: se pide aparte y se recuerda por título.
+  const [titulosEn, setTitulosEn] = useState<Record<string, string>>({});
   useEffect(() => {
-    const base = inv ? `${inv.titulo} · ROSA2018` : tr('ROSA2018 · Alzheimer Project');
+    const propio = inv?.titulo;
+    const enIngles = propio ? titulosEn[propio] : undefined;
+    const base = propio ? `${enIngles ?? propio} · ROSA2018` : tr('ROSA2018 · Alzheimer Project');
     document.title = esperan > 0 ? `(${esperan}) ${base}` : base;
-  }, [inv, esperan]);
+    if (propio && idiomaApp === 'en' && enIngles === undefined) {
+      traducirSuelto(propio, (en) => setTitulosEn((previos) => ({ ...previos, [propio]: en })));
+    }
+  }, [inv, esperan, idiomaApp, titulosEn]);
 
   useEffect(() => {
     const alTeclear = (e: KeyboardEvent) => {
@@ -314,7 +322,7 @@ export default function App() {
           <div className={`aviso-conflicto ${aviso.tono === 'info' ? 'aviso-info' : ''}`} role={aviso.tono === 'info' ? 'status' : 'alert'}>
             <span>{aviso.texto}</span>
             <button type="button" className="btn btn-s" onClick={cerrarAvisoConflicto}>
-              Entendido
+              {tr("Entendido")}
             </button>
           </div>
         )}

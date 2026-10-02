@@ -81,7 +81,7 @@ export function Seccion({ titulo, nota, acciones, children, detalle = false, ple
             ) : (
               titulo
             )}
-            {detalle && <span className="chip chip-borde seccion-etiqueta-detalle" title={tr("Es información de ingeniería o de auditoría: en modo Detalle se abre sola.")}>detalle</span>}
+            {detalle && <span className="chip chip-borde seccion-etiqueta-detalle" title={tr("Es información de ingeniería o de auditoría: en modo Detalle se abre sola.")}>{tr("detalle")}</span>}
             {hayAyuda && (
               <button type="button" className="seccion-ayuda" aria-expanded={ayuda} aria-label={`Explicar ${titulo}`} title={tr("Qué es esto y que significan sus términos")} onClick={() => setAyuda((v) => !v)}>
                 ?
@@ -190,7 +190,7 @@ export function Confirmar({ etiqueta, pregunta, pedirTexto, extra, peligro, prim
           {etiqueta}
         </button>
         <button type="button" className="btn btn-fantasma" onClick={() => setAbierto(false)}>
-          Cancelar
+          {tr("Cancelar")}
         </button>
       </div>
     </div>
@@ -248,7 +248,7 @@ export function SoloDetalle({ resumen, children }: { resumen: ReactNode; childre
     <p className="solo-detalle meta">
       {resumen}{' '}
       <button type="button" className="enlace" onClick={() => setVer(true)}>
-        Ver detalle
+        {tr("Ver detalle")}
       </button>
     </p>
   );

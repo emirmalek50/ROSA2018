@@ -70,10 +70,10 @@ export function NuevoComentario({ ancla, onGuardar, onCancelar }: { ancla: Ancla
       />
       <div className="acciones">
         <button type="button" className="btn btn-primario btn-s" disabled={nota.trim() === ''} onClick={() => onGuardar(nota)}>
-          Guardar comentario
+          {tr("Guardar comentario")}
         </button>
         <button type="button" className="btn btn-fantasma btn-s" onClick={onCancelar}>
-          Cancelar
+          {tr("Cancelar")}
         </button>
         <span className="meta" style={{ marginLeft: 'auto' }}>
           {trp("Enter guarda, Shift+Enter salta de línea · {nota} / {TOPE}", { nota: nota.length, TOPE })}
@@ -158,7 +158,7 @@ export function BandejaComentarios({
             setMensaje('');
           }}
         >
-          Enviar a ROSA2018
+          {tr("Enviar a ROSA2018")}
         </button>
       </div>
     </div>

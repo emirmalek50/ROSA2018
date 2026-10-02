@@ -99,7 +99,7 @@ function TarjetaDataset({ d, inv }: { d: Dataset; inv: Inv }) {
               {tr("Aprobar contrato de datos")}
             </button>
             <button type="button" className="btn btn-s" onClick={() => acciones.decidirDataset(inv.id, d.id, 'rechazado')}>
-              Rechazar
+              {tr("Rechazar")}
             </button>
           </div>
         )}
@@ -275,7 +275,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
             <Chip>{ESTADO_INVESTIGACION[inv.estado]}</Chip>{' '}
             {origen && (
               <>
-                Rama de <a className="enlace" href={rutaDe(origen.id, 'investigacion')}>{origen.titulo}</a>
+                {tr("Rama de")} <a className="enlace" href={rutaDe(origen.id, 'investigacion')}>{origen.titulo}</a>
               </>
             )}
             {inv.vigilarLiteraturaHasta && inv.vigilarLiteraturaHasta > ahora && (
@@ -301,7 +301,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
 
       <div className="rejilla-2">
         <div className="tarjeta seccion">
-          <h3 style={{ fontSize: 13, fontWeight: 600 }}>Objetivo</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 600 }}>{tr("Objetivo")}</h3>
           <p style={{ whiteSpace: 'pre-wrap' }}>{inv.objetivo}</p>
         </div>
         <div className="tarjeta seccion">
@@ -320,7 +320,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
           <h3 style={{ fontSize: 13, fontWeight: 600 }}>{tr("Condición de parada")}</h3>
           <p>{inv.condicionParada}</p>
           <p className="meta">{textoAutomatizacion(inv.condicionParadaAutomatizada ?? partesAutomatizadas(inv.condicionParada))}</p>
-          <h3 style={{ fontSize: 13, fontWeight: 600, marginTop: 8 }}>Quien revisa</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 600, marginTop: 8 }}>{tr("Quien revisa")}</h3>
           <div className="acciones">
             {inv.revisores.map((r) => (
               <Chip key={r} tono="borde">
@@ -355,15 +355,15 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
                   setEditando(false);
                 }}
               >
-                Guardar
+                {tr("Guardar")}
               </button>
               <button type="button" className="btn btn-fantasma btn-s" onClick={() => setEditando(false)}>
-                Cancelar
+                {tr("Cancelar")}
               </button>
             </>
           ) : (
             <button type="button" className="btn btn-s" onClick={() => setEditando(true)}>
-              Editar
+              {tr("Editar")}
             </button>
           )
         }
@@ -371,7 +371,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         {editando ? (
           <div className="seccion">
             <div className="campo">
-              <label htmlFor="c-pref">Preferencias</label>
+              <label htmlFor="c-pref">{tr("Preferencias")}</label>
               <textarea id="c-pref" value={pref} rows={2} onChange={(e) => setPref(e.target.value)} />
             </div>
             <div className="rejilla-2">
@@ -388,11 +388,11 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
         ) : (
           <div className="rejilla-3">
             <div className="tarjeta">
-              <p className="campo-etiqueta">Preferencias</p>
+              <p className="campo-etiqueta">{tr("Preferencias")}</p>
               <p style={{ fontSize: 13, marginTop: 6 }}>{inv.configuracion.preferencias || tr('Sin definir')}</p>
             </div>
             <div className="tarjeta">
-              <p className="campo-etiqueta">Atributos deseables</p>
+              <p className="campo-etiqueta">{tr("Atributos deseables")}</p>
               <ul className="lista-limpia" style={{ marginTop: 6, fontSize: 13 }}>
                 {inv.configuracion.atributos.map((a) => (
                   <li key={a}>{a}</li>
@@ -400,7 +400,7 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
               </ul>
             </div>
             <div className="tarjeta">
-              <p className="campo-etiqueta">Restricciones</p>
+              <p className="campo-etiqueta">{tr("Restricciones")}</p>
               <ul className="lista-limpia" style={{ marginTop: 6, fontSize: 13 }}>
                 {inv.configuracion.restricciones.map((r) => (
                   <li key={r}>{r}</li>
@@ -447,9 +447,9 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
           <table className="tabla tabla-ancha">
             <thead>
               <tr>
-                <th>Conjunto</th>
+                <th>{tr("Conjunto")}</th>
                 <th>{tr("Qué es")}</th>
-                <th>Acceso</th>
+                <th>{tr("Acceso")}</th>
                 <th className="num">{tr("Tamaño")}</th>
                 <th></th>
               </tr>
@@ -554,13 +554,13 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
           <table className="tabla tabla-ancha">
             <thead>
               <tr>
-                <th>Corrida</th>
-                <th>Estado</th>
+                <th>{tr("Corrida")}</th>
+                <th>{tr("Estado")}</th>
                 <th>{tr("Empezó")}</th>
-                <th className="num">Iteraciones</th>
+                <th className="num">{tr("Iteraciones")}</th>
                 <th className="num">{tr("Duración")}</th>
-                <th className="num">Llamadas</th>
-                <th>Cierre</th>
+                <th className="num">{tr("Llamadas")}</th>
+                <th>{tr("Cierre")}</th>
               </tr>
             </thead>
             <tbody>
@@ -668,7 +668,7 @@ export function ColaDeTriaje({ inv, estado }: { inv: Inv; estado: EstadoRosa }) 
           ))}
         </select>
         <button type="submit" className="btn btn-s" disabled={vio.trim() === '' || haria.trim() === ''}>
-          Pedir
+          {tr("Pedir")}
         </button>
       </form>
       {cerradas.length > 0 && (
@@ -737,7 +737,7 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
         <input value={texto} onChange={(ev) => setTexto(ev.target.value)} placeholder={tr("Abrir una cuestión: ¿qué falta por saber?")} aria-label={tr("Cuestión nueva")} />
         <input value={resolveria} onChange={(ev) => setResolveria(ev.target.value)} placeholder={tr("Qué la resolvería (opcional)")} aria-label={tr("Qué la resolvería")} />
         <button type="submit" className="btn btn-s" disabled={texto.trim() === ''}>
-          Abrir
+          {tr("Abrir")}
         </button>
       </form>
       {cerradas.length > 0 && (
@@ -758,7 +758,7 @@ export function Cuestiones({ inv, estado }: { inv: Inv; estado: EstadoRosa }) {
               </div>
               <span className="acciones">
                 <button type="button" className="btn btn-s" onClick={() => acciones.reabrirCuestion(c.id, tr('reabierta por una persona'))}>
-                  Reabrir
+                  {tr("Reabrir")}
                 </button>
               </span>
             </li>

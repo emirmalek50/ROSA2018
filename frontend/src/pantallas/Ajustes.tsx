@@ -75,7 +75,7 @@ function Recuerdo({ id, texto }: { id: string; texto: string }) {
           if (valor.trim() === '') setValor(texto);
           else acciones.editarRecuerdo(id, valor);
         }}
-        aria-label="Recuerdo"
+        aria-label={tr("Recuerdo")}
       />
       <button type="button" className="btn btn-fantasma btn-icono" aria-label={tr("Borrar recuerdo")} onClick={() => acciones.borrarRecuerdo(id)}>
         <IconTrash size={14} />
@@ -107,13 +107,13 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
     <div className="contenido ajustes">
       <header className="ajustes-cabecera">
         <div className="ajustes-emblema"><IconSettings size={25} /></div>
-        <div><h2>Ajustes</h2><p>{tr("Tu forma de trabajar con ROSA2018.")}</p></div>
+        <div><h2>{tr("Ajustes")}</h2><p>{tr("Tu forma de trabajar con ROSA2018.")}</p></div>
         <span className="ajustes-contexto">Alzheimer Project</span>
         <img className="ajustes-arbol" src="/arbol-marca.png" alt="" aria-hidden="true" />
       </header>
       <div className="ajustes-layout">
         <nav className="ajustes-nav" aria-label={tr("Categorías de ajustes")}>
-          <div role="tablist" aria-label="Ajustes" aria-orientation="vertical" onKeyDown={(e) => {
+          <div role="tablist" aria-label={tr("Ajustes")} aria-orientation="vertical" onKeyDown={(e) => {
             const indice = CATEGORIAS.findIndex((c) => c.id === categoria);
             let siguiente = indice;
             if (e.key === 'ArrowDown' || e.key === 'ArrowRight') siguiente = (indice + 1) % CATEGORIAS.length;
@@ -132,7 +132,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               </button>
             ))}
           </div>
-          <p className="ajustes-nav-nota"><IconShieldCheck size={17} />ROSA2018 investiga.<br />{tr("Tú marcas los límites.")}</p>
+          <p className="ajustes-nav-nota"><IconShieldCheck size={17} />{tr("ROSA2018 investiga.")}<br />{tr("Tú marcas los límites.")}</p>
         </nav>
         <div className="ajustes-cuerpo">
           <header className="ajustes-intro"><h3>{actual.titulo}</h3><p>{actual.nota}</p></header>
@@ -145,7 +145,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
             )}
 
             <Seccion titulo="Apariencia" nota={tr("Elige cómo quieres ver tu espacio. Se guarda en este navegador.")}>
-              <div className="ajustes-temas" role="group" aria-label="Tema">
+              <div className="ajustes-temas" role="group" aria-label={tr("Tema")}>
                 {(['claro', 'oscuro', 'sistema'] as Tema[]).map((t) => (
                   <button className="ajustes-tema" data-tema={t} key={t} type="button" aria-pressed={tema === t} onClick={() => setTema(t)}>
                     <span className="ajustes-miniatura" aria-hidden="true">
@@ -157,9 +157,9 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                 ))}
               </div>
               <div className="ajustes-recorrido">
-                <div><strong>Vuelve a descubrir ROSA2018</strong><p>{tr("Un recorrido breve por tu espacio de investigación.")}</p></div>
+                <div><strong>{tr("Vuelve a descubrir ROSA2018")}</strong><p>{tr("Un recorrido breve por tu espacio de investigación.")}</p></div>
                 <button type="button" className="btn btn-s" onClick={() => { try { localStorage.removeItem('rosa.recorrido.v1'); } catch { /* sin almacenamiento */ } window.location.reload(); }}>
-                  Ver recorrido
+                  {tr("Ver recorrido")}
                 </button>
               </div>
             </Seccion>
@@ -197,7 +197,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               <input id="pe-horas" type="number" min={1} value={politica.horas} onChange={(e) => setPolitica({ ...politica, horas: Number(e.target.value) })} />
             </div>
             <div className="campo">
-              <label htmlFor="pe-accion">Entonces</label>
+              <label htmlFor="pe-accion">{tr("Entonces")}</label>
               <select id="pe-accion" value={politica.accion} onChange={(e) => setPolitica({ ...politica, accion: e.target.value as PoliticaEsperas['accion'] })}>
                 {(Object.keys(ACCION_ESPERA) as PoliticaEsperas['accion'][]).map((a) => (
                   <option key={a} value={a}>
@@ -207,13 +207,13 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               </select>
             </div>
             <div className="campo">
-              <label htmlFor="pe-escalar">Escalar a</label>
+              <label htmlFor="pe-escalar">{tr("Escalar a")}</label>
               <input id="pe-escalar" value={politica.escalarA} disabled={politica.accion !== 'escalar'} onChange={(e) => setPolitica({ ...politica, escalarA: e.target.value })} />
             </div>
           </div>
           <div className="acciones">
             <button type="button" className="btn btn-primario btn-s" disabled={JSON.stringify(politica) === JSON.stringify(estado.politicaEsperas)} onClick={() => acciones.actualizarPoliticaEsperas(politica)}>
-              Guardar
+              {tr("Guardar")}
             </button>
             <span className="meta">
               {trp("Hoy: si nadie decide en {horas} h, {v}{v2}.", { horas: estado.politicaEsperas.horas, v: ACCION_ESPERA[estado.politicaEsperas.accion].toLowerCase(), v2: estado.politicaEsperas.accion === 'escalar' ? ` (${estado.politicaEsperas.escalarA})` : '' })}</span>
@@ -326,18 +326,18 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
               <div className="tarjeta seccion">
                 <label className="interruptor">
                   <input type="checkbox" checked={avisos.slack.activo} onChange={(e) => acciones.actualizarAvisos({ ...avisos, slack: { ...avisos.slack, activo: e.target.checked } })} />
-                  Slack
+                  {tr("Slack")}
                 </label>
                 {avisos.slack.activo && (
                   <div className="campo">
-                    <label htmlFor="slack-canal">Canal</label>
+                    <label htmlFor="slack-canal">{tr("Canal")}</label>
                     <EntradaDiferida id="slack-canal" valor={avisos.slack.canal} onGuardar={(v) => acciones.actualizarAvisos({ ...avisos, slack: { ...avisos.slack, canal: v } })} />
                     <small>{tr("La conexión con Slack se hará con un botón \"Conectar con Slack\" cuando ROSA2018 esté en su servidor; aquí solo se elige el canal.")}</small>
                   </div>
                 )}
                 <label className="interruptor">
                   <input type="checkbox" checked={avisos.correo.activo} onChange={(e) => acciones.actualizarAvisos({ ...avisos, correo: { ...avisos.correo, activo: e.target.checked } })} />
-                  Correo
+                  {tr("Correo")}
                 </label>
                 <p>{tr("Los avisos llegan a la cuenta verificada que inició cada corrida. No se utiliza una dirección global.")}</p>
                 <p className="campo-etiqueta">{tr("Avisar cuando")}</p>
@@ -377,28 +377,28 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                 <tbody>
                   <tr>
                     <td>{tr("Cerebro del bucle")}</td>
-                    <td className="mono">openai/gpt-6-astra</td>
+                    <td className="mono">{"openai/gpt-6-astra"}</td>
                     <td>
-                      <Chip tono="ok">Elegido</Chip>
+                      <Chip tono="ok">{tr("Elegido")}</Chip>
                     </td>
                   </tr>
                   <tr>
                     <td>{tr("Juez del verificador")}</td>
-                    <td className="mono">anthropic/claude-opus-5</td>
+                    <td className="mono">{"anthropic/claude-opus-5"}</td>
                     <td>
                       <Chip tono="aviso">{tr("A confirmar frente a Astra con casos aprobados")}</Chip>
                     </td>
                   </tr>
                   <tr>
                     <td>{tr("Alto volumen sin veto")}</td>
-                    <td className="mono">anthropic/claude-sonnet-5</td>
+                    <td className="mono">{"anthropic/claude-sonnet-5"}</td>
                     <td>
-                      <Chip tono="ok">Elegido</Chip>
+                      <Chip tono="ok">{tr("Elegido")}</Chip>
                     </td>
                   </tr>
                   <tr>
-                    <td>Reserva</td>
-                    <td className="mono">anthropic/claude-fable-5.1</td>
+                    <td>{tr("Reserva")}</td>
+                    <td className="mono">{"anthropic/claude-fable-5.1"}</td>
                     <td>
                       <Chip tono="mal">{tr("Fuera: filtros de doble uso en biología")}</Chip>
                     </td>

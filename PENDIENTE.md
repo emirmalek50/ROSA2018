@@ -1610,3 +1610,44 @@ a 1323 frases en `inv-gfap`).
 
 Sigue faltando la revisión humana de lo que traduce el modelo, que es lo de
 arriba y lo importante.
+
+### Las etiquetas cortas, 2 de octubre de 2026
+
+Después de lo anterior Emir seguía viendo castellano. El hueco era otro, y
+más grande: **303 etiquetas cortas que nunca se envolvieron en `tr()`** y que
+ninguna de las dos medidas contaba.
+
+El motivo es que `envolver.mjs`, `resto_tsx.mjs` y `lib/traductorDom.ts`
+deciden si algo es castellano por la misma regla: una tilde o una palabra
+función (de, la, que). «Entendido», «Aplicar», «Denegar», «Respuesta
+esperada», «Zona horaria» no tienen ninguna de las dos cosas. No las veía el
+escáner estático (así que nadie las envolvía) ni el traductor en vivo (así
+que tampoco se arreglaban al vuelo). Caían entre las dos redes.
+
+`scripts/i18n/envolver_etiquetas.mjs`, nuevo, usa el criterio contrario: lo
+que se LEE se envuelve, salvo que esté en la lista de lo que no se traduce
+(marcas, siglas, formatos, unidades). Solo mira dos sitios, que son prosa
+siempre y nunca un identificador: el texto JSX y los cuatro atributos que se
+leen. 373 sitios en 44 ficheros.
+
+Dos cosas que salieron de ahí:
+
+- Envolvió cuatro identificadores de modelo (`anthropic/claude-opus-5`).
+  `desenvolver_codigo.mjs` los cazó, y la regla descarta ya la forma
+  `algo/algo`. Los dos codemods convergen a 0 en los dos sentidos.
+- Cinco cadenas visibles estaban sin tildes desde antes («Atras», «Pedir
+  analisis in silico», «abrir hipotesis», «Persona acepto», «Persona
+  descarto»), y `acentuar.py` no las veía porque no estaban envueltas.
+  Corregidas en el código y en la clave del catálogo a la vez: la clave ES el
+  castellano, y cambiar una sin la otra deja la frase sin traducir.
+
+El catálogo pasa de 5510 a 5768 entradas. `normalizar_eeuu.mjs` pasó 43
+valores a inglés de Estados Unidos, y lleva ahora el «PREVENT Dementia
+programme» en la lista de nombres propios, porque el estudio se llama así.
+
+`traductorDom.ts` gana `traducirSuelto()` para el título de la pestaña del
+navegador, que vive en `document.title`, fuera de `#root`, donde el
+observador no llega.
+
+Lo que queda sigue siendo lo mismo y es lo importante: **nadie ha revisado
+las traducciones del modelo**, y son contenido científico.

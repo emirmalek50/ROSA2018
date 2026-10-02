@@ -150,9 +150,9 @@ export function Correo({ servidor }: { servidor: boolean }) {
     {form && estado ? <>
       {estado.administrador && <form onSubmit={(e) => { e.preventDefault(); void guardar(); }}>
         <fieldset disabled={ocupado} style={{ border: 0, padding: 0 }}>
-          <div className="campo"><label htmlFor="correo-proveedor">Proveedor</label><select id="correo-proveedor" value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value as 'resend' | 'smtp' })}><option value="smtp">{tr("Google Workspace u otro servidor SMTP")}</option><option value="resend">Resend</option></select></div>
+          <div className="campo"><label htmlFor="correo-proveedor">{tr("Proveedor")}</label><select id="correo-proveedor" value={form.proveedor} onChange={(e) => setForm({ ...form, proveedor: e.target.value as 'resend' | 'smtp' })}><option value="smtp">{tr("Google Workspace u otro servidor SMTP")}</option><option value="resend">Resend</option></select></div>
           {form.proveedor === 'smtp' && <>
-            <div className="campo"><label htmlFor="correo-smtp-servidor">Servidor SMTP</label><input id="correo-smtp-servidor" required value={form.smtpServidor} onChange={(e) => setForm({ ...form, smtpServidor: e.target.value })} /></div>
+            <div className="campo"><label htmlFor="correo-smtp-servidor">{tr("Servidor SMTP")}</label><input id="correo-smtp-servidor" required value={form.smtpServidor} onChange={(e) => setForm({ ...form, smtpServidor: e.target.value })} /></div>
             <div className="campo"><label htmlFor="correo-smtp-puerto">{tr("Puerto (587 con STARTTLS, 465 con TLS)")}</label><input id="correo-smtp-puerto" type="number" min={1} max={65535} required value={form.smtpPuerto} onChange={(e) => setForm({ ...form, smtpPuerto: Number(e.target.value) })} /></div>
             <div className="campo"><label htmlFor="correo-smtp-usuario">{tr("Usuario (la cuenta que envía)")}</label><input id="correo-smtp-usuario" type="email" required value={form.smtpUsuario} onChange={(e) => setForm({ ...form, smtpUsuario: e.target.value })} /></div>
           </>}
@@ -160,20 +160,20 @@ export function Correo({ servidor }: { servidor: boolean }) {
           <div className="campo"><label htmlFor="correo-clave">{(form.proveedor === 'smtp' ? trp("Contraseña de aplicación {v}", { v: estado.claveGuardada ? tr("(guardada; deja vacío para conservarla)") : "" }) : trp("Clave de Resend {v}", { v: estado.claveGuardada ? tr("(guardada; deja vacío para conservarla)") : "" }))}</label><input id="correo-clave" type="password" autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} /></div>
           <div className="campo"><label htmlFor="correo-url">{tr("Dirección web para abrir ROSA2018 desde el correo")}</label><input id="correo-url" type="url" required value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /><small>{tr("Localhost solo funciona en el equipo que ejecuta ROSA2018. No incluyas tokens de acceso en esta URL.")}</small></div>
           <div className="campo"><label htmlFor="correo-hora">{tr("Hora del resumen diario (0 a 23)")}</label><input id="correo-hora" type="number" min={0} max={23} required value={form.hora} onChange={(e) => setForm({ ...form, hora: Number(e.target.value) })} /></div>
-          <div className="campo"><label htmlFor="correo-zona">Zona horaria</label><input id="correo-zona" required value={form.zona} onChange={(e) => setForm({ ...form, zona: e.target.value })} /></div>
+          <div className="campo"><label htmlFor="correo-zona">{tr("Zona horaria")}</label><input id="correo-zona" required value={form.zona} onChange={(e) => setForm({ ...form, zona: e.target.value })} /></div>
           <button className="btn" type="submit" {...atributosEnVuelo(guardando)}>{tr("Guardar conexión")}</button>
         </fieldset>
       </form>}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
         <button className="btn" type="button" disabled={ocupado || !estado.configurado} {...atributosEnVuelo(probando)} onClick={() => void probar()}>{tr("Enviar correo de prueba")}</button>
-        {estado.administrador && <button className="btn btn-fantasma" type="button" disabled={ocupado || !estado.claveGuardada} {...atributosEnVuelo(desconectando)} onClick={() => void desconectar()}>Desconectar correo</button>}
+        {estado.administrador && <button className="btn btn-fantasma" type="button" disabled={ocupado || !estado.claveGuardada} {...atributosEnVuelo(desconectando)} onClick={() => void desconectar()}>{tr("Desconectar correo")}</button>}
       </div>
       <p>{tr("La prueba envía un correo aunque los avisos automáticos estén apagados. No consume tokens; el proveedor de correo puede cobrar por los envíos. ROSA2018 debe permanecer encendida.")}</p>
       <p>{tr("Solo se envían contadores y un enlace, sin títulos, documentos ni datos clínicos. Los avisos empiezan con las novedades, sin reenviar todo el historial.")}</p>
       <h4>{tr("Últimos envíos")}</h4>
       <p>{tr("Aceptado por el proveedor no confirma llegada al buzón. Consulta entregas o rebotes en el panel del proveedor o en el buzón remitente.")}</p>
       {estado.historial.length === 0 ? <p>{tr("Todavía no hay envíos.")}</p> : <ul>{estado.historial.map((x) => <li key={x.id}>
-        {new Date(x.creado * 1000).toLocaleString()} · {x.destinatario} · {ETIQUETAS[x.estado] ?? x.estado} · {x.intentos} intento(s){x.error && <p>{x.error}</p>}
+        {new Date(x.creado * 1000).toLocaleString()} · {x.destinatario} · {ETIQUETAS[x.estado] ?? x.estado} · {x.intentos} {tr("intento(s)")}{x.error && <p>{x.error}</p>}
       </li>)}</ul>}
       {estado.error && <p role="alert">{estado.error}</p>}
     </> : mensaje === '' ? <EsqueletoCorreo forma={leerFormaCorreo()} /> : null}

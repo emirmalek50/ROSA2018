@@ -150,18 +150,18 @@ function NuevaCorrida({ inv, anterior }: { inv: Investigacion; anterior: Corrida
         {trp("Cuánto debe durar esta corrida como mucho. Se detiene con lo que llegue primero. Deja todo vacío para que solo mande la condición de la investigación: «{v}».", { v: inv.condicionParada || tr('sin condición declarada') })}</p>
       <div className="nueva-corrida-campos">
         <div className="campo">
-          <label className="campo-etiqueta" htmlFor="nueva-corrida-tiempo">Tiempo</label>
+          <label className="campo-etiqueta" htmlFor="nueva-corrida-tiempo">{tr("Tiempo")}</label>
           <div className="nueva-corrida-duracion">
             <input id="nueva-corrida-tiempo" type="number" inputMode="decimal" min={b.unidadTiempo === 'minutos' ? 1 : b.unidadTiempo === 'dias' ? 1 / 1440 : 1 / 60} max={b.unidadTiempo === 'minutos' ? 20160 : b.unidadTiempo === 'dias' ? 14 : 336} step="any" placeholder={tr("por ejemplo 2")} value={b.horas} onChange={campo('horas')} />
             <select aria-label={tr("Unidad de tiempo")} value={b.unidadTiempo ?? 'horas'} onChange={(e) => setB((x) => ({ ...x, unidadTiempo: e.target.value as ParadaBorrador['unidadTiempo'] }))}>
-              <option value="minutos">Minutos</option>
-              <option value="horas">Horas</option>
+              <option value="minutos">{tr("Minutos")}</option>
+              <option value="horas">{tr("Horas")}</option>
               <option value="dias">{tr("Días")}</option>
             </select>
           </div>
         </div>
         <label className="campo">
-          <span className="campo-etiqueta">Iteraciones</span>
+          <span className="campo-etiqueta">{tr("Iteraciones")}</span>
           <input type="number" inputMode="numeric" min={1} step={1} placeholder={tr("por ejemplo 6")} value={b.iteraciones} onChange={campo('iteraciones')} />
         </label>
         <label className="campo nueva-corrida-certeza">
@@ -193,7 +193,7 @@ function NuevaCorrida({ inv, anterior }: { inv: Investigacion; anterior: Corrida
           <IconPlay size={13} /> {parada ? trp("Empezar: se detiene con {parada}", { parada: resumenParada(parada) }) : tr('Empezar sin parada propia')}
         </button>
         <button type="button" className="btn" onClick={() => { setAbierto(false); setB(borradorDe(anterior) ?? BORRADOR_VACIO); }}>
-          Cancelar
+          {tr("Cancelar")}
         </button>
       </div>
     </form>
@@ -279,12 +279,12 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
             {!viva && estado.conexion !== 'muestra' && <NuevaCorrida inv={inv} anterior={corrida.parada ?? null} />}
             {viva && corrida.estado === 'en_marcha' && (
               <button type="button" className="btn-vivo" disabled={corridaEnVuelo} {...atributosEnVuelo(corridaEnVuelo)} onClick={envolverCorrida(() => acciones.pausarCorrida(corrida.id))}>
-                <IconPause size={12} /> Pausar
+                <IconPause size={12} /> {tr("Pausar")}
               </button>
             )}
             {viva && corrida.estado === 'pausada' && (
               <button type="button" className="btn-vivo btn-vivo-primario" disabled={corridaEnVuelo} {...atributosEnVuelo(corridaEnVuelo)} onClick={envolverCorrida(() => acciones.reanudarCorrida(corrida.id))}>
-                <IconPlay size={12} /> Reanudar
+                <IconPlay size={12} /> {tr("Reanudar")}
               </button>
             )}
             {viva && (
@@ -391,7 +391,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                     setSeleccion(new Set());
                   })}
                 >
-                  Denegar seleccionadas
+                  {tr("Denegar seleccionadas")}
                 </button>
               </div>
             ) : undefined
@@ -549,7 +549,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                   setIndicacion('');
                 }}
               >
-                Dirigir
+                {tr("Dirigir")}
               </button>
             </div>
           )}
@@ -561,10 +561,10 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
           <table className="tabla">
             <thead>
               <tr>
-                <th>Proceso</th>
+                <th>{tr("Proceso")}</th>
                 <th>{tr("Dónde")}</th>
                 <th className="num">CPU</th>
-                <th className="num">Memoria</th>
+                <th className="num">{tr("Memoria")}</th>
                 <th>{tr("Desde")}</th>
                 <th></th>
               </tr>
@@ -600,7 +600,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
         acciones={
           <div className="acciones">
             <button type="button" className="btn btn-s" disabled={prismaEnVuelo} {...atributosEnVuelo(prismaEnVuelo)} title={tr("Descarga el flujo en PRISMA 2020 (variables oficiales del diagrama, ítems 6, 7, 8, 16a y 16b), la extensión para revisiones vivas y la declaración de la IA usada, en JSON y en Markdown. Sin ningún modelo: sale del registro.")} onClick={envolverPrisma(() => acciones.exportarPrisma(corrida.id))}>
-              Exportar PRISMA 2020
+              {tr("Exportar PRISMA 2020")}
             </button>
             <button type="button" className="btn btn-fantasma btn-s" onClick={() => setVerBusqueda((v) => !v)}>
               {(verBusqueda ? tr("Ocultar") : tr("Ver"))}
@@ -626,12 +626,12 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
           <table className="tabla">
             <thead>
               <tr>
-                <th>Modo</th>
-                <th>Base</th>
-                <th>Consulta exacta</th>
-                <th>Fecha</th>
-                <th className="num">Resultados</th>
-                <th className="num">Relevantes</th>
+                <th>{tr("Modo")}</th>
+                <th>{tr("Base")}</th>
+                <th>{tr("Consulta exacta")}</th>
+                <th>{tr("Fecha")}</th>
+                <th className="num">{tr("Resultados")}</th>
+                <th className="num">{tr("Relevantes")}</th>
               </tr>
             </thead>
             <tbody>
@@ -753,7 +753,7 @@ function BotonDetenerProceso({ onDetener }: { onDetener: () => void }) {
   const [enVuelo, envolver] = useEnVuelo();
   return (
     <button type="button" className="btn btn-s btn-peligro" disabled={enVuelo} {...atributosEnVuelo(enVuelo)} onClick={envolver(onDetener)}>
-      Detener
+      {tr("Detener")}
     </button>
   );
 }
@@ -768,7 +768,7 @@ function VolverOpciones({ onElegir }: { onElegir: (que: 'plan' | 'mundo' | 'ambo
         {tr("Solo el modelo de mundo")}
       </button>
       <button type="button" className="btn btn-s" onClick={() => onElegir('ambos')}>
-        Ambos
+        {tr("Ambos")}
       </button>
     </div>
   );

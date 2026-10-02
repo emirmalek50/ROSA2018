@@ -68,7 +68,7 @@ function Fila({ h, i, invId, estado }: { h: Hipotesis; i: number; invId: string;
           {/* El estado solo cuando no es "propuesta": salía idéntico en las
               seis filas (Emir, 28 de septiembre de 2026). */}
           {h.estado !== 'propuesta' && <Chip>{ESTADO_HIPOTESIS[h.estado]}</Chip>}
-          {h.origen === 'humana' && <Chip tono="acento">Humana</Chip>}
+          {h.origen === 'humana' && <Chip tono="acento">{tr("Humana")}</Chip>}
           <Chip tono="borde">{h.cluster}</Chip>
           {killerPendienteDe(h) && (
             <Chip tono="aviso" title={tr("La última pasada del Killer no fue un juicio: el modelo no respondió o su respuesta no se pudo leer. La decisión que se ve es la anterior; ROSA2018 repite la revisión en el siguiente paso o cuando la pidas.")}>

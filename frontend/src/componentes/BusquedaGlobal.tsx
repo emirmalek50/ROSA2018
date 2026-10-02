@@ -144,9 +144,9 @@ export function BusquedaGlobal({ estado, investigacionId, abierta, onCerrar }: {
               }
               if (e.key === 'Enter' && resultados[indice]) ir(resultados[indice]!);
             }}
-            aria-label="Buscar"
+            aria-label={tr("Buscar")}
           />
-          <button type="button" className="btn btn-fantasma btn-icono" aria-label="Cerrar" onClick={onCerrar}>
+          <button type="button" className="btn btn-fantasma btn-icono" aria-label={tr("Cerrar")} onClick={onCerrar}>
             <IconX size={14} />
           </button>
         </div>

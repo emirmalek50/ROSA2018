@@ -3,7 +3,7 @@
 // falso, así que se puede hacer que traduzca, que falle o que tarde.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { _olvidar, activar, desactivar, pareceCastellano } from './traductorDom';
+import { _olvidar, activar, desactivar, pareceCastellano, traducirSuelto } from './traductorDom';
 
 let raiz: HTMLDivElement;
 const espera = () => new Promise((r) => setTimeout(r, 260));
@@ -219,5 +219,32 @@ describe('lo que ya está en inglés no se paga', () => {
     expect(pareceCastellano('Valor pronóstico de la brecha GFAP–NfL')).toBe(true);
     expect(pareceCastellano('la cita no resuelve')).toBe(true);
     expect(pareceCastellano('Al mes 24 la cohorte sigue abierta')).toBe(true);
+  });
+});
+
+describe('lo que se lee fuera del árbol', () => {
+  it('traduce el título de la pestaña, que no está en el DOM', async () => {
+    activar(raiz, falso({ 'GFAP y NfL en portadores de APOE4': 'GFAP and NfL in APOE4 carriers' }));
+    let visto: string | null = null;
+    traducirSuelto('GFAP y NfL en portadores de APOE4', (en) => { visto = en; });
+    await espera();
+    expect(visto).toBe('GFAP and NfL in APOE4 carriers');
+  });
+
+  it('si no se puede traducir, no llama y se queda el castellano', async () => {
+    activar(raiz, falso({}));
+    let visto: string | null = null;
+    traducirSuelto('Una frase que el servidor no devuelve', (en) => { visto = en; });
+    await espera();
+    expect(visto).toBeNull();
+  });
+
+  it('apagado no pide nada', async () => {
+    const pedir = falso({ 'Progresión en Alzheimer': 'Progression in Alzheimer' });
+    let visto: string | null = null;
+    traducirSuelto('Progresión en Alzheimer', (en) => { visto = en; });
+    await espera();
+    expect(pedir).not.toHaveBeenCalled();
+    expect(visto).toBeNull();
   });
 });

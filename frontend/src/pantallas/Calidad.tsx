@@ -24,7 +24,7 @@ function Caso({ c }: { c: CasoControl }) {
     <article className="tarjeta caso">
       <div className="caso-cabecera">
         <Chip>{CATEGORIA_CASO[c.categoria]}</Chip>
-        {c.critico && <Chip tono="aviso">Importante</Chip>}
+        {c.critico && <Chip tono="aviso">{tr("Importante")}</Chip>}
         <Chip tono={c.estado === 'aprobado' ? 'ok' : c.estado === 'descartado' ? 'mal' : undefined}>{ESTADO_CASO[c.estado]}</Chip>
         <span className="meta" style={{ marginLeft: 'auto' }}>
           {(c.origen === 'generado' ? tr("Propuesto por el RAG") : tr("Escrito a mano"))}
@@ -32,7 +32,7 @@ function Caso({ c }: { c: CasoControl }) {
       </div>
       <p className="caso-pregunta">{c.pregunta}</p>
       <div className="campo">
-        <label htmlFor={`resp-${c.clave}`}>Respuesta esperada</label>
+        <label htmlFor={`resp-${c.clave}`}>{tr("Respuesta esperada")}</label>
         <textarea
           id={`resp-${c.clave}`}
           className="caso-respuesta"
@@ -52,12 +52,12 @@ function Caso({ c }: { c: CasoControl }) {
       <div className="acciones">
         {c.estado !== 'aprobado' && (
           <button type="button" className="btn btn-primario btn-s" onClick={() => acciones.cambiarEstadoCaso(c.clave, 'aprobado')}>
-            Aprobar
+            {tr("Aprobar")}
           </button>
         )}
         {c.estado !== 'descartado' && (
           <button type="button" className="btn btn-s" onClick={() => acciones.cambiarEstadoCaso(c.clave, 'descartado')}>
-            Descartar
+            {tr("Descartar")}
           </button>
         )}
         {c.estado !== 'propuesto' && (
@@ -104,7 +104,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
       <AvisoMuestra conexion={estado.conexion} />
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
-          <h2>Calidad</h2>
+          <h2>{tr("Calidad")}</h2>
           <p>
             {trp("El juez se calibra con casos aprobados por personas antes de fijarlo. Hoy hay {aprobados} de {casos} aprobados: con cero, las métricas de acuerdo no significan nada.", { aprobados, casos: estado.casos.length })}
           </p>
@@ -116,11 +116,11 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
           <div className="metricas">
             <div className="gasto-item">
               <strong>{ultima.acuerdoConHumanos === null || ultima.acuerdoConHumanos === undefined ? tr('Sin etiquetas') : `kappa ${ultima.acuerdoConHumanos}`}</strong>
-              <span>acuerdo juez-humano (conjunto dorado)</span>
+              <span>{tr("acuerdo juez-humano (conjunto dorado)")}</span>
             </div>
             <div className="gasto-item">
               <strong>{formatearPorcentaje(ultima.sostenidas)}</strong>
-              <span>afirmaciones sostenidas</span>
+              <span>{tr("afirmaciones sostenidas")}</span>
             </div>
             <div className="gasto-item">
               <strong>{formatearPorcentaje(ultima.cobertura)}</strong>
@@ -128,7 +128,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
             </div>
             <div className="gasto-item">
               <strong>{ultima.ausenciasRefutadas}</strong>
-              <span>ausencias refutadas</span>
+              <span>{tr("ausencias refutadas")}</span>
             </div>
             <div className="gasto-item">
               <strong>{ultima.entidadDistinta}</strong>
@@ -158,10 +158,10 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
                 <thead>
                   <tr>
                     <th>{tr("Comprobación")}</th>
-                    <th>Etiquetas</th>
-                    <th>Acuerdo bruto</th>
-                    <th>Kappa</th>
-                    <th>Lectura</th>
+                    <th>{tr("Etiquetas")}</th>
+                    <th>{tr("Acuerdo bruto")}</th>
+                    <th>{tr("Kappa")}</th>
+                    <th>{tr("Lectura")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -222,9 +222,9 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
               <thead>
                 <tr>
                   <th>{tr("Modelo de mundo al decidir")}</th>
-                  <th>Etiquetas</th>
-                  <th>Acuerdo bruto</th>
-                  <th>Kappa</th>
+                  <th>{tr("Etiquetas")}</th>
+                  <th>{tr("Acuerdo bruto")}</th>
+                  <th>{tr("Kappa")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -264,25 +264,25 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
             <thead>
               <tr>
                 <th></th>
-                <th>Persona descarto</th>
-                <th>Persona acepto</th>
+                <th>{tr("Persona descartó")}</th>
+                <th>{tr("Persona aceptó")}</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <th>Revisor: bloquear</th>
+                <th>{tr("Revisor: bloquear")}</th>
                 <td className="num tono-ok">{cal.bloquearYDescartada}</td>
                 <td className="num tono-mal">{cal.bloquearYAceptada}</td>
               </tr>
               <tr>
-                <th>Revisor: pasar</th>
+                <th>{tr("Revisor: pasar")}</th>
                 <td className="num tono-mal">{cal.pasarYDescartada}</td>
                 <td className="num tono-ok">{cal.pasarYAceptada}</td>
               </tr>
             </tbody>
           </table>
           <div className="tarjeta">
-            <p className="campo-etiqueta">Acuerdo</p>
+            <p className="campo-etiqueta">{tr("Acuerdo")}</p>
             <p style={{ fontSize: 22, fontWeight: 600, marginTop: 4 }}>{cal.acuerdo === null ? tr('Sin decisiones') : formatearPorcentaje(cal.acuerdo)}</p>
             {cal.desacuerdos.length > 0 ? (
               <ul className="lista-limpia" style={{ marginTop: 8 }}>
@@ -362,8 +362,8 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
           <p className="meta">{tr("Con datos de muestra no hay servicio que controlar.")}</p>
         ) : (
         <div className="acciones">
-          <button type="button" className="btn" disabled={controlandoGepa} {...atributosEnVuelo(accionGepa === 'pausar')} onClick={() => void controlarGepa('pausar')}>Pausar promociones</button>
-          <button type="button" className="btn" disabled={controlandoGepa} {...atributosEnVuelo(accionGepa === 'reanudar')} onClick={() => void controlarGepa('reanudar')}>Reanudar</button>
+          <button type="button" className="btn" disabled={controlandoGepa} {...atributosEnVuelo(accionGepa === 'pausar')} onClick={() => void controlarGepa('pausar')}>{tr("Pausar promociones")}</button>
+          <button type="button" className="btn" disabled={controlandoGepa} {...atributosEnVuelo(accionGepa === 'reanudar')} onClick={() => void controlarGepa('reanudar')}>{tr("Reanudar")}</button>
           <Confirmar etiqueta={tr("Volver a programas base")} pregunta={tr("Se pausará GEPA y las nuevas corridas usarán los programas base. No cambia las corridas existentes ni borra las versiones guardadas. ¿Continuar?")} disabled={controlandoGepa} onConfirmar={() => void controlarGepa('restablecer')} />
         </div>
         )}
@@ -372,14 +372,14 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
         <table className="tabla">
           <thead>
             <tr>
-              <th>Fecha</th>
-              <th>Programa</th>
-              <th>Presupuesto</th>
+              <th>{tr("Fecha")}</th>
+              <th>{tr("Programa")}</th>
+              <th>{tr("Presupuesto")}</th>
               <th className="num">{tr("Métrica inicial")}</th>
               <th className="num">{tr("Métrica final")}</th>
-              <th className="num">Candidatos</th>
-              <th className="num">Gasto</th>
-              <th>Estado</th>
+              <th className="num">{tr("Candidatos")}</th>
+              <th className="num">{tr("Gasto")}</th>
+              <th>{tr("Estado")}</th>
               <th></th>
             </tr>
           </thead>
@@ -397,7 +397,7 @@ export function Calidad({ inv, estado, ahora }: { inv: Investigacion; estado: Es
                   <td className={`num ${g.metricaFinal > g.metricaInicial ? 'subida' : ''}`}>{g.estado === 'terminada' ? formatearPorcentaje(g.metricaFinal) : 'Pendiente'}</td>
                   <td className="num">{g.candidatos}</td>
                   <td className="num">{g.gasto ? `${coma(g.gasto.usd.toFixed(2))} $ · ${g.gasto.llamadas} llamadas` : 'sin dato'}</td>
-                  <td>{g.estado === 'en_marcha' ? <Chip tono="acento">{tr("En marcha")}</Chip> : g.estado === 'terminada' ? <Chip tono={g.promovido ? 'ok' : 'borde'}>{(g.promovido ? tr("Activado para nuevas corridas") : tr("Terminada"))}</Chip> : <Chip tono="mal">Fallida</Chip>}<p className="meta">{g.nota}</p></td>
+                  <td>{g.estado === 'en_marcha' ? <Chip tono="acento">{tr("En marcha")}</Chip> : g.estado === 'terminada' ? <Chip tono={g.promovido ? 'ok' : 'borde'}>{(g.promovido ? tr("Activado para nuevas corridas") : tr("Terminada"))}</Chip> : <Chip tono="mal">{tr("Fallida")}</Chip>}<p className="meta">{g.nota}</p></td>
                   <td>
                     {g.enlaceMlflow && <a className="enlace" href={g.enlaceMlflow} target="_blank" rel="noopener noreferrer">
                       MLflow <IconExternal />

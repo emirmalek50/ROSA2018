@@ -197,10 +197,10 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           )}
           <Bloqueos bloqueos={bloqueosDe(estado, h)} candidata={h.candidata} />
           <span className="meta">
-            Prerregistrada <Momento t={h.prerregistradaEn} ahora={ahora} />
+            {tr("Prerregistrada")} <Momento t={h.prerregistradaEn} ahora={ahora} />
           </span>
           <button type="button" className="enlace" style={{ marginLeft: 'auto', fontSize: 13 }} onClick={() => onAbrirProcedencia('fuentes')}>
-            Ver procedencia
+            {tr("Ver procedencia")}
           </button>
         </div>
         <TextoConFuertes texto={h.titulo} campo="enunciado" como="h2" />
@@ -268,9 +268,9 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
 
       <Seccion titulo={tr("Cómo se comprobaría")} nota={tr("Siempre con biomarcador, cohorte y diseño: es lo que el investigador clínico principal necesita para juzgarla.")}>
         <dl className="comprobacion texto-comentable" data-campo="comprobacion">
-          <dt>Biomarcador</dt>
+          <dt>{tr("Biomarcador")}</dt>
           <dd>{h.comprobacion.biomarcador}</dd>
-          <dt>Cohorte</dt>
+          <dt>{tr("Cohorte")}</dt>
           <dd>{h.comprobacion.cohorte}</dd>
           <dt>{tr("Diseño")}</dt>
           <dd>{h.comprobacion.diseno}</dd>
@@ -427,7 +427,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               tr('Todavía sin comprobar')
             )}
             {' · '}
-            {h.vigilancia.comprobaciones} comprobación{h.vigilancia.comprobaciones === 1 ? '' : 'es'} · {h.vigilancia.costeUsd.toFixed(3)} USD
+            {h.vigilancia.comprobaciones} {tr("comprobación")}{h.vigilancia.comprobaciones === 1 ? '' : 'es'} · {h.vigilancia.costeUsd.toFixed(3)} USD
           </p>
           {h.vigilancia.ultimoError && <p className="tono-aviso">{h.vigilancia.ultimoError}</p>}
           {h.vigilancia.nuevas.length === 0 ? (
@@ -444,7 +444,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                     ) : (
                       <strong>{n.titulo}</strong>
                     )}{' '}
-                    {n.preprint && <Chip tono="aviso">preprint</Chip>}
+                    {n.preprint && <Chip tono="aviso">{tr("preprint")}</Chip>}
                   </div>
                   <p className="meta" style={{ margin: tr('2px 0') }}>
                     {n.referencia}
@@ -504,9 +504,9 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             <thead>
               <tr>
                 <th>{tr("Iteración")}</th>
-                <th>Rival</th>
-                <th>Resultado</th>
-                <th>Eje decisivo</th>
+                <th>{tr("Rival")}</th>
+                <th>{tr("Resultado")}</th>
+                <th>{tr("Eje decisivo")}</th>
                 <th>{tr("Por qué")}</th>
               </tr>
             </thead>
@@ -538,7 +538,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         nota={tr("Kosmos confirmó sus hallazgos clave con cinco trayectorias independientes. Gasta presupuesto de la iteración.")}
         acciones={
           <button type="button" className="btn btn-s" disabled={replicaEnVuelo || h.replicacion?.estado === 'en_curso' || !corrida || corrida.estado !== 'en_marcha'} {...atributosEnVuelo(replicaEnVuelo)} onClick={envolverReplica(() => acciones.replicarHipotesis(h.id, 5))}>
-            Replicar x5
+            {tr("Replicar x5")}
           </button>
         }
       >
@@ -547,7 +547,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             <Chip tono={h.replicacion.estado === 'en_curso' ? 'acento' : h.replicacion.contradicen === 0 ? 'ok' : 'aviso'}>
               {trp("{hechas} de {total} trayectorias · {sostienen} sostienen · {contradicen} contradicen", { hechas: h.replicacion.hechas, total: h.replicacion.total, sostienen: h.replicacion.sostienen, contradicen: h.replicacion.contradicen })}</Chip>
             <span className="meta">
-              Lanzada <Momento t={h.replicacion.empezadaEn} ahora={ahora} />
+              {tr("Lanzada")} <Momento t={h.replicacion.empezadaEn} ahora={ahora} />
             </span>
           </div>
         ) : (
@@ -571,7 +571,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         <Seccion titulo={tr("Experimento propuesto")} nota={tr("El traspaso al laboratorio: protocolo, ensayo y criterios de éxito y refutación fijados de antemano. Al asignarlo a un laboratorio queda prerregistrado: la hipótesis y el protocolo se congelan con fecha en un artefacto, antes de que exista ningún dato. Los datos vuelven para que ROSA2018 actualice su conclusión.")}>
           <div className="tarjeta seccion">
             <div className="experimento-bloque">
-              <h4>Protocolo</h4>
+              <h4>{tr("Protocolo")}</h4>
               <ol className="protocolo">
                 {h.experimento.protocolo
                   .split('\n')
@@ -583,7 +583,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               </ol>
             </div>
             <div className="experimento-bloque">
-              <h4>Ensayo</h4>
+              <h4>{tr("Ensayo")}</h4>
               <p>{h.experimento.ensayo}</p>
             </div>
             {(h.experimento.confirma || h.experimento.refuta) && (
@@ -603,7 +603,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               <div className="conclusion-columnas">
                 {h.experimento.controles && (
                   <div className="experimento-bloque">
-                    <h4>Controles</h4>
+                    <h4>{tr("Controles")}</h4>
                     <p>{h.experimento.controles}</p>
                   </div>
                 )}
@@ -628,7 +628,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               </div>
             )}
             <div className="experimento-bloque">
-              <h4>Coste estimado</h4>
+              <h4>{tr("Coste estimado")}</h4>
               <p>{h.experimento.costeEstimado}</p>
             </div>
             {h.experimento.analisisPedido && h.experimento.estado === 'propuesto' && (
@@ -661,7 +661,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                   <p className="meta">
                     {tr("Hipótesis derivada:")}{' '}
                     <a className="enlace" href={rutaDe(h.investigacionId, 'hipotesis', h.experimento.resultado.hipotesisDerivadaId)}>
-                      abrir
+                      {tr("abrir")}
                     </a>
                   </p>
                 )}
@@ -685,12 +685,12 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               </Chip>
               {h.experimento.prerregistradoEn && h.experimento.prerregistroArtefactoId && (
                 <a className="chip chip-ok" href={rutaDe(h.investigacionId, 'artefactos', h.experimento.prerregistroArtefactoId)} title={tr("Hipótesis, protocolo y criterios congelados antes de los datos")}>
-                  Prerregistrado <Momento t={h.experimento.prerregistradoEn} ahora={ahora} />
+                  {tr("Prerregistrado")} <Momento t={h.experimento.prerregistradoEn} ahora={ahora} />
                 </a>
               )}
               {h.experimento.prerregistradoEn && h.experimento.selloExterno?.ok && (
                 <Chip tono="ok" title={`sha256 ${h.experimento.selloExterno.hash}. Hora firmada por ${h.experimento.selloExterno.testigos.join(' y ')}: ${h.experimento.selloExterno.primeraHora}. Se verifica sin ROSA2018 con openssl ts -verify sobre el token guardado.`}>
-                  Sellado por {h.experimento.selloExterno.testigos.join(' y ')} ({h.experimento.selloExterno.primeraHora?.slice(0, 16).replace('T', ' ')} UTC)
+                  {tr("Sellado por")} {h.experimento.selloExterno.testigos.join(' y ')} ({h.experimento.selloExterno.primeraHora?.slice(0, 16).replace('T', ' ')} {tr("UTC)")}
                 </Chip>
               )}
               {h.experimento.prerregistradoEn && !h.experimento.selloExterno?.ok && (
@@ -701,9 +701,9 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             </div>
             {h.experimento.estado === 'propuesto' && (
               <div className="dirigir">
-                <input className="entrada" value={lab} placeholder={tr("Laboratorio (por ejemplo FLENI, Buenos Aires)")} onChange={(e) => setLab(e.target.value)} aria-label="Laboratorio" />
+                <input className="entrada" value={lab} placeholder={tr("Laboratorio (por ejemplo FLENI, Buenos Aires)")} onChange={(e) => setLab(e.target.value)} aria-label={tr("Laboratorio")} />
                 <button type="button" className="btn" disabled={lab.trim() === '' || laboratorioEnVuelo} {...atributosEnVuelo(laboratorioEnVuelo)} onClick={envolverLaboratorio(() => acciones.asignarExperimento(h.id, lab))}>
-                  Asignar a laboratorio
+                  {tr("Asignar a laboratorio")}
                 </button>
               </div>
             )}
@@ -765,7 +765,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
             <li key={i}>
               <span>
                 <strong style={{ fontWeight: 550 }}>{r.quien}</strong> · {r.accion.replace(/_/g, ' ')}
-                {r.aCiegas && <Chip tono="borde">a ciegas</Chip>}
+                {r.aCiegas && <Chip tono="borde">{tr("a ciegas")}</Chip>}
                 {r.nota !== '' && <span className="meta"> · {r.nota}</span>}
               </span>
               <span className="meta">
@@ -813,7 +813,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               <textarea id="rev-lit" rows={3} value={rev.literaturaQueFalta} onChange={(e) => setRev({ ...rev, literaturaQueFalta: e.target.value })} />
             </div>
             <div className="campo">
-              <label htmlFor="rev-exp">Problema experimental</label>
+              <label htmlFor="rev-exp">{tr("Problema experimental")}</label>
               <textarea id="rev-exp" rows={3} value={rev.problemaExperimental} onChange={(e) => setRev({ ...rev, problemaExperimental: e.target.value })} />
             </div>
           </div>
@@ -822,7 +822,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           {!cerrada && !aclarando && (
             <>
               <button type="button" className="btn btn-primario" disabled={motivo !== null || decisionEnVuelo} {...atributosEnVuelo(decisionEnVuelo)} title={motivo ?? tr('Aceptar y pasarla al modelo de mundo como hipótesis a perseguir')} onClick={() => decidir('aceptar', nota)}>
-                Aceptar
+                {tr("Aceptar")}
               </button>
               <button type="button" className="btn" disabled={decisionEnVuelo} {...atributosEnVuelo(decisionEnVuelo)} onClick={() => decidir('refinar', nota)}>
                 {tr("Pedir que la refine")}
@@ -846,7 +846,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           )}
           {cerrada && (
             <button type="button" className="btn" disabled={decisionEnVuelo} {...atributosEnVuelo(decisionEnVuelo)} onClick={() => decidir('reabrir', nota)}>
-              Reabrir
+              {tr("Reabrir")}
             </button>
           )}
         </div>
@@ -884,10 +884,10 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
         <div className="dirigir">
           <input className="entrada" value={aplicableA} placeholder={tr("Aplicable a (cohorte, modelo, condición): por ejemplo portadores de APOE4 con genotipo de TREM2")} onChange={(e) => setAplicableA(e.target.value)} aria-label={tr("Aplicable a")} />
           <a className="btn" href={`/api/hipotesis/${encodeURIComponent(h.id)}/rocrate`} download={`rosa-${h.id}.crate.zip`} title={tr("RO-Crate 1.2 (perfil Process Run Crate) con procedencia W3C PROV: la hipótesis, el dossier, las decisiones, las fuentes con su riesgo de sesgo, el código y resultado de cada análisis, el prerregistro y sus sellos RFC 3161. Se verifica con herramientas de terceros, sin ROSA2018.")}>
-            Exportar RO-Crate (PROV)
+            {tr("Exportar RO-Crate (PROV)")}
           </a>
           <button type="button" className="btn" onClick={() => descargar(`${h.id}-expediente.json`, expediente(h, estado.hechos, aplicableA.trim() || tr('sin limite declarado')), 'application/json')}>
-            Descargar expediente
+            {tr("Descargar expediente")}
           </button>
         </div>
       </Seccion>

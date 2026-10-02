@@ -256,10 +256,10 @@ function SiluetaArbol({ conexion }: { conexion: EstadoRosa['conexion'] }) {
         <div className="acciones" aria-hidden="true">
           <div className="segmentos" role="group" aria-label={tr("Vista del árbol")}>
             <button type="button" aria-pressed disabled>
-              Vista plana
+              {tr("Vista plana")}
             </button>
             <button type="button" disabled>
-              Vista 3D
+              {tr("Vista 3D")}
             </button>
           </div>
           <div className="segmentos" role="group" aria-label={tr("Color de los nodos")}>
@@ -898,10 +898,10 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
         <div className="acciones">
           <div className="segmentos" role="group" aria-label={tr("Vista del árbol")}>
             <button type="button" aria-pressed={!vista3d} onClick={() => cambiarVista('plana')} title={tr("El árbol en el plano: arrastra el fondo para desplazarlo y los nodos para moverlos")}>
-              Vista plana
+              {tr("Vista plana")}
             </button>
             <button type="button" aria-pressed={vista3d} onClick={() => cambiarVista('3d')} title={tr("El árbol en tres dimensiones: arrastra el fondo para girarlo, rueda para acercar; lo lejano se ve pequeño y tenue")}>
-              Vista 3D
+              {tr("Vista 3D")}
             </button>
           </div>
           <div className="segmentos" role="group" aria-label={tr("Color de los nodos")}>
@@ -968,13 +968,13 @@ function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: Esta
               </ul>
               {nodoSel.href && (
                 <a className="btn btn-s" href={nodoSel.href}>
-                  Abrir
+                  {tr("Abrir")}
                 </a>
               )}
             </>
           ) : (
             <>
-              <h3>Leyenda</h3>
+              <h3>{tr("Leyenda")}</h3>
               <p className="meta">{tr("Cada nodo tiene dos colores con dos mensajes: el de dentro dice qué es; el borde dice cuánta evidencia lo sostiene.")}</p>
               {modoColor === 'dato' ? (
                 <>

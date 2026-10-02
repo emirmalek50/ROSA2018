@@ -217,7 +217,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
         <AvisoMuestra conexion={estado.conexion} />
         <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
           <div>
-            <h2>Mecanismos</h2>
+            <h2>{tr("Mecanismos")}</h2>
             <p>{tr(AYUDA)}</p>
           </div>
         </div>
@@ -236,7 +236,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
       <AvisoMuestra conexion={estado.conexion} />
       <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
         <div>
-          <h2>Mecanismos</h2>
+          <h2>{tr("Mecanismos")}</h2>
           <p>{tr(AYUDA)}</p>
           <p className="meta">{tr(META)}</p>
         </div>
@@ -477,7 +477,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
 
             <p className="mec-pie">
               {tr("Las cajas y sus flechas grises son la cascada del campo (marco ATN), escrita a mano en")}{' '}
-              <code>rosa/causal.py</code>{trp(" y revisable: es contexto declarado, no verdad comprobada. Debajo de cada caja, en cuántas de las {total} hipótesis entra en juego ese nodo, como actor o como confusor. No es cuántas lo estudian.", { total: casc.total })}
+              <code>{tr("rosa/causal.py")}</code>{trp(" y revisable: es contexto declarado, no verdad comprobada. Debajo de cada caja, en cuántas de las {total} hipótesis entra en juego ese nodo, como actor o como confusor. No es cuántas lo estudian.", { total: casc.total })}
             </p>
           </div>
 
@@ -544,7 +544,7 @@ export function Mecanismos({ inv, estado }: { inv: Investigacion; estado: Estado
           {ficha.flojos > 0 && (
             <p className="mec-ojo">
               <b>{trp("Ojo: {flojos} de {total} supuestos de su ficha no sostienen nada", { flojos: ficha.flojos, total: ficha.total })}
-              </b>{trp(" ({sin_evidencia} sin evidencia{v}). Los tres de aquí abajo dicen si el efecto sería ", { sin_evidencia: ficha.sin_evidencia, v: ficha.contradicho ? `, ${ficha.contradicho} contradicho${ficha.contradicho === 1 ? '' : 's'}` : '' })}<i>identificable</i>{tr("; esos dicen si los")} <i>ingredientes</i>{' '}
+              </b>{trp(" ({sin_evidencia} sin evidencia{v}). Los tres de aquí abajo dicen si el efecto sería ", { sin_evidencia: ficha.sin_evidencia, v: ficha.contradicho ? `, ${ficha.contradicho} contradicho${ficha.contradicho === 1 ? '' : 's'}` : '' })}<i>{tr("identificable")}</i>{tr("; esos dicen si los")} <i>{tr("ingredientes")}</i>{' '}
               {tr("existen, y son cosas distintas.")}{' '}
               {elegida && (
                 <a href={rutaDe(inv.id, 'hipotesis', elegida.id)}>{tr("Verlos en la hipótesis")}</a>
