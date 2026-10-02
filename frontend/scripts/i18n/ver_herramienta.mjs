@@ -22,7 +22,7 @@ await p.waitForTimeout(3500);
 await p.evaluate(() => { document.querySelectorAll('button.mundo-busqueda').forEach((b) => b.click()); });
 await new Promise((r) => setTimeout(r, 500));
 // abrir la primera tarjeta, para ver tambien el detalle
-await p.evaluate(() => { document.querySelector('button.llamada-cabeza')?.click(); });
+
 await p.waitForTimeout(1200);
 const d = await p.evaluate(() => ({
   turnos: document.querySelectorAll('.mundo-turno, .mundo-respuesta').length,
@@ -35,6 +35,6 @@ console.log('  turnos:', d.turnos, '| tarjetas:', d.llamadas);
 console.log('  recuento:', d.cuenta);
 console.log('  estados:', JSON.stringify(d.estados));
 for (const c of d.cabezas) console.log('   ', c);
-const el = await p.$('.llamadas');
+const el = await p.$('.rastro-pasos');
 if (el) { await el.screenshot({ path: '/tmp/herramienta.png' }); console.log('  captura: /tmp/herramienta.png'); }
 await nav.close();

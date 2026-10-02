@@ -72,6 +72,8 @@ import {
 import { formatearPorcentaje } from "../lib/formato";
 import { tr, trp } from "../lib/idioma";
 import { Herramientas } from "../componentes/Herramienta";
+import { PasosDeBusqueda, pasosDeConsultas } from "../componentes/PasosDeBusqueda";
+import { Shimmer } from "../componentes/Shimmer";
 import {
   ESTADO_COBERTURA,
   SIN_TEMA,
@@ -1372,7 +1374,10 @@ function TurnoGuardado({
               </p>
             )}
             {(q.consultas ?? []).length > 0 ? (
-              <Herramientas consultas={q.consultas} ahora={ahora} />
+              <>
+                <PasosDeBusqueda pasos={pasosDeConsultas(q.consultas)} />
+                <Herramientas consultas={q.consultas} ahora={ahora} />
+              </>
             ) : (
               <p className="meta">
                 {tr("No quedaron consultas registradas para esta respuesta.")}
@@ -1616,11 +1621,11 @@ function TurnoPendiente({
               <i />
               <i />
             </span>
-            <span>
+            <Shimmer>
               {p.listo
                 ? tr("Respuesta lista. Llegando...")
                 : tr("Consultando el modelo de mundo y las publicaciones...")}
-            </span>
+            </Shimmer>
             <span className="mundo-pensando-tiempo">
               {trp("{n} s", { n: segundos })}
             </span>

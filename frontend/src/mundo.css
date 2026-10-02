@@ -2119,3 +2119,133 @@
   .llamada-args { grid-template-columns: 1fr; }
   .llamada-args dt { margin-top: 6px; }
 }
+
+/* El brillo que recorre el texto mientras ROSA2018 piensa
+   (componentes/Shimmer.tsx). El texto va transparente y lo que se ve es el
+   degradado recortado a la forma de las letras. */
+.brillo,
+.brillo-quieto {
+  display: inline-block;
+}
+
+.brillo {
+  background-image:
+    linear-gradient(90deg, transparent calc(50% - var(--brillo-ancho)), var(--text), transparent calc(50% + var(--brillo-ancho))),
+    linear-gradient(var(--text-3), var(--text-3));
+  background-size: 250% 100%, auto;
+  background-repeat: no-repeat, padding-box;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.brillo-quieto {
+  color: var(--text-3);
+}
+
+/* Los pasos de la búsqueda, en columna y unidos por una línea
+   (componentes/PasosDeBusqueda.tsx). El color del punto lleva el estado,
+   para recorrer la columna sin leer: verde respondió, hueco sin resultados,
+   ámbar no pude comprobar, y el que está en marcha late. */
+.rastro-pasos {
+  margin-top: 10px;
+}
+
+.rastro-ceja {
+  margin: 0 0 8px;
+}
+
+.rastro-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rastro-paso {
+  display: flex;
+  gap: 10px;
+  font-size: 13.5px;
+}
+
+/* El punto manda y la linea cuelga de el, centrada y absoluta: en flujo
+   normal quedaba descolgada a la derecha y partida entre pasos. */
+.rastro-carril {
+  position: relative;
+  width: 10px;
+  flex: none;
+}
+
+.rastro-punto {
+  position: absolute;
+  top: 6px;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  box-sizing: border-box;
+}
+
+.rastro-linea {
+  position: absolute;
+  top: 18px;
+  bottom: -4px;
+  left: 50%;
+  width: 1px;
+  margin-left: -0.5px;
+  background: var(--border);
+}
+
+.rastro-bien .rastro-punto { background: var(--green); border-color: var(--green); }
+.rastro-sin-respuesta .rastro-punto { background: var(--amber); border-color: var(--amber); }
+.rastro-vacia .rastro-punto { background: var(--surface); }
+.rastro-en-marcha .rastro-punto {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: rastro-late 1.4s ease-in-out infinite;
+}
+
+@keyframes rastro-late {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); }
+  50% { box-shadow: 0 0 0 5px transparent; }
+}
+
+.rastro-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.rastro-titulo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.rastro-tiempo { font-variant-numeric: tabular-nums; }
+.rastro-nota { font-size: 12.5px; }
+
+.rastro-hallazgos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.rastro-hallazgo {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rastro-en-marcha .rastro-punto { animation: none; }
+}
