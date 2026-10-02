@@ -6,12 +6,14 @@
 // aviso cuando supera la politica de esperas.
 
 import { useState } from 'react';
+import { motion } from 'motion/react';
 import type { SolicitudPermiso } from '../datos/tipos';
 import { ALCANCE, TIPO_PERMISO } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { IconLock } from './icons';
 import { Chip, Momento } from './piezas';
 import { tr } from '../lib/idioma';
+import { DUR, useMovimientoReducido } from '../lib/movimiento';
 
 interface Props {
   solicitud: SolicitudPermiso;
@@ -25,11 +27,12 @@ interface Props {
 
 export function TarjetaPermiso({ solicitud, ahora, horasEspera, seleccionada, onSeleccionar, onResolver }: Props) {
   const resuelta = solicitud.estado !== 'pendiente';
+  const reducido = useMovimientoReducido();
   const [valores, setValores] = useState<Record<string, string>>(() => Object.fromEntries(solicitud.argumentos.map((a) => [a.nombre, a.valor])));
   const esperaMs = ahora - solicitud.creadaEn;
   const tarde = !resuelta && esperaMs > horasEspera * 3_600_000;
   return (
-    <article className={`permiso ${resuelta ? 'permiso-resuelto' : ''} ${tarde ? 'permiso-tarde' : ''}`} aria-live="polite">
+    <article className={`permiso permiso-${solicitud.estado} ${resuelta ? 'permiso-resuelto' : ''} ${tarde ? 'permiso-tarde' : ''}`} aria-live="polite">
       <div className="permiso-cabecera">
         {!resuelta && onSeleccionar && (
           <input type="checkbox" className="permiso-check" checked={seleccionada ?? false} onChange={(e) => onSeleccionar(e.target.checked)} aria-label={tr("Seleccionar para aprobar en lote")} />
@@ -69,7 +72,14 @@ export function TarjetaPermiso({ solicitud, ahora, horasEspera, seleccionada, on
         </dl>
       )}
       {resuelta ? (
-        <div className="acciones">
+        // La resolucion entra animada: lo que cambia es el estado de algo que
+        // tocaba el mundo real, y conviene que se vea que cambio.
+        <motion.div
+          className="acciones"
+          initial={reducido ? { opacity: 0 } : { opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: DUR.media }}
+        >
           <Chip tono={solicitud.estado === 'concedida' ? 'ok' : 'mal'}>
             {solicitud.estado === 'concedida' ? `Concedido: ${solicitud.alcanceConcedido ? ALCANCE[solicitud.alcanceConcedido] : ''}` : 'Denegado'}
           </Chip>
@@ -78,7 +88,7 @@ export function TarjetaPermiso({ solicitud, ahora, horasEspera, seleccionada, on
               <Momento t={solicitud.resueltaEn} ahora={ahora} />
             </span>
           )}
-        </div>
+        </motion.div>
       ) : (
         <div className="permiso-alcances">
           <span className="meta">Permitir:</span>

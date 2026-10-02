@@ -28,7 +28,7 @@ import { ResumenEnLlano } from '../componentes/EnLlano';
 import { AvisoMuestra, Barra, Chip, Confirmar, Momento, Seccion, SoloDetalle, Vacio } from '../componentes/piezas';
 import { IconPause, IconPlay } from '../componentes/icons';
 import { ALCANCE, MODO_BUSQUEDA, etiquetaCorrida, proponiendoPlan } from '../lib/etiquetas';
-import { coma, formatearCompacto, formatearDuracion, formatearEntero, formatearPorcentaje } from '../lib/formato';
+import { coma, formatearCompacto, formatearDuracion, formatearEntero } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
 import { atributosEnVuelo, useCalculoDiferido, useEnVuelo } from '../lib/diferido';
 import { BORRADOR_VACIO, NIVELES_OBJETIVO, borradorDe, normalizarParada, resumenParada, type ParadaBorrador } from '../lib/parada';
@@ -36,6 +36,7 @@ import { GraficaProgreso } from '../componentes/GraficaProgreso';
 import { ActividadEnVivo } from '../componentes/ActividadEnVivo';
 import { resumenMetrica } from '../lib/progreso';
 import { tr } from '../lib/idioma';
+import { Contexto } from '../componentes/Contexto';
 
 type PropsCorrida = { inv: Investigacion; estado: EstadoRosa; ahora: number; irA: (hash: string) => void };
 
@@ -235,7 +236,6 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
     return (['una_vez', 'esta_corrida', 'esta_investigacion', 'siempre'] as AlcancePermiso[]).filter((a) => sel.every((s) => s.alcances.includes(a)));
   }, [pendientes, seleccion]);
   const procesosVivos = corrida.procesos.filter((p) => p.estado === 'en_marcha');
-  const contextoPct = corrida.contexto.tokensUsados / corrida.contexto.tokensLimite;
   // Un frame de silueta antes del panel entero. Lo pesado aquí no es un
   // cálculo sino el render (plan en vivo, gráfica, trazabilidad, permisos):
   // diferirlo al frame siguiente deja que el esqueleto llegue a pintarse en
@@ -456,12 +456,9 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                 <span>{tr("en Exa")}</span>
               </div>
             )}
-            <div className="gasto-item" title={tr("Cuánto del contexto del cerebro está ocupado y cuántas veces se ha resumido el historial. Explica por qué ROSA2018 puede 'olvidar' tras días.")}>
-              <strong>{formatearPorcentaje(contextoPct)}</strong>
-              <span>
-                contexto ocupado · {corrida.contexto.compactaciones} {corrida.contexto.compactaciones === 1 ? tr('compactación') : 'compactaciones'}
-              </span>
-              <Barra fraccion={contextoPct} tono={contextoPct > 0.8 ? 'aviso' : undefined} />
+            <div className="gasto-item gasto-item-ctx">
+              <Contexto c={corrida.contexto} ahora={ahora} />
+              <span>{tr("contexto ocupado")}</span>
             </div>
           </div>
           </SoloDetalle>

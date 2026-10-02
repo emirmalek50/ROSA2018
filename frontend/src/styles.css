@@ -5724,3 +5724,111 @@ details.versiones > :not(summary) {
 .aviso-pendientes:hover {
   border-color: var(--amber, #d98324);
 }
+
+/* El estado de una solicitud de permiso, en el borde izquierdo: se recorre
+   una lista larga sin leer los chips. Ambar espera tu decision, verde
+   concedida, rojo denegada. Mismo lenguaje que las tarjetas de llamada del
+   modelo de mundo. */
+.permiso {
+  border-left: 3px solid var(--amber);
+}
+
+.permiso-concedida { border-left-color: var(--green); }
+.permiso-denegada { border-left-color: var(--red); }
+
+/* El contexto ocupado, con su anillo (componentes/Contexto.tsx). La ficha
+   sale al pasar por encima o al llegar con el teclado. */
+.ctx {
+  position: relative;
+  display: inline-flex;
+}
+
+.ctx-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  font: inherit;
+  color: var(--text-3);
+  cursor: default;
+}
+
+.ctx-boton:hover,
+.ctx-boton:focus-visible {
+  border-color: var(--border);
+  background: var(--elevated);
+}
+
+.ctx-pct {
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ctx-anillo { flex: none; }
+.ctx-alto .ctx-boton { color: var(--amber); }
+.ctx-lleno .ctx-boton { color: var(--red); }
+
+.ctx-ficha {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 280px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--elevated);
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.5);
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.ctx-fila {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ctx-cifra {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.ctx-barra {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.ctx-barra i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+.ctx-alto .ctx-barra i { background: var(--amber); }
+.ctx-lleno .ctx-barra i { background: var(--red); }
+
+.ctx-nota {
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
+/* La celda del gasto que lleva el anillo: el anillo ya trae su propio hueco,
+   asi que la cifra no va en <strong> como las demas. */
+.gasto-item-ctx {
+  align-items: flex-start;
+}
