@@ -6,6 +6,13 @@
  *  original: lo que no encuentra, lo dice, y «no pudo comprobar» es «could
  *  not check», nunca «there is none». */
 export const MUNDO: Record<string, string> = {
+  'Subir un dataset': 'Upload a dataset',
+  'De qué experimento': 'Which experiment',
+  'Investigación: {t}. Cambiar': 'Investigation: {t}. Change',
+  'Subir resultados de un experimento': 'Upload results of an experiment',
+  'Se contrastan con lo prerregistrado': 'Checked against what was preregistered',
+  'Datos para analizar; pasan por aprobación': 'Data to analyze; goes through approval',
+
   // El menu «+» de adjuntar datos, rehecho el 2 de octubre de 2026.
   'Guardar en ROSA': 'Save to ROSA',
   'Quitar el archivo': 'Remove the file',

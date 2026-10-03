@@ -2,9 +2,10 @@
 // El menú «+» de adjuntar datos. Lo que se comprueba es lo mismo que antes
 // del rediseño del 2 de octubre de 2026: que no se sube nada hasta pulsar
 // guardar, que el destino y la marca de sintético llegan bien al endpoint, y
-// que desde la vista global hay que elegir investigación primero. Lo que
-// cambia es el camino: una fila del menú elige el destino y abre el selector
-// de archivos; el archivo elegido sale en un chip, y ahí se guarda.
+// que desde la vista global hay que elegir investigación primero. El camino:
+// el menú tiene DOS acciones (subir un dataset, subir resultados de un
+// experimento); elegir una abre el selector de archivos; el archivo sale en
+// un chip, y si son resultados, AHÍ se elige de qué experimento.
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
@@ -29,7 +30,7 @@ const fila = (nodo: HTMLElement, texto: string) => [...nodo.querySelectorAll<HTM
  *  seguir en el DOM un instante mientras AnimatePresence lo saca. */
 const abierto = (nodo: HTMLElement) => nodo.querySelector('.mundo-adjuntar')!.getAttribute('aria-expanded') === 'true';
 
-it.each([['dataset', 'Dataset'], ['h-1', 'MAPT']])('adjunta %s solo al guardar y conserva la marca sintética', async (destino, rotulo) => {
+it.each([['dataset', 'Subir un dataset'], ['h-1', 'Subir resultados']])('adjunta %s solo al guardar y conserva la marca sintética', async (destino, rotulo) => {
   subirDataset.mockReset().mockResolvedValue(null);
   subirDatosExperimento.mockReset().mockResolvedValue(null);
   const nodo = document.createElement('div');
@@ -37,15 +38,22 @@ it.each([['dataset', 'Dataset'], ['h-1', 'MAPT']])('adjunta %s solo al guardar y
   const alSubir = vi.fn();
   await act(async () => root.render(<AdjuntosAsistente investigacionId="inv-1" alSubir={alSubir} />));
   await act(async () => nodo.querySelector<HTMLButtonElement>('.mundo-adjuntar')!.click());
-  // Solo los experimentos de ESTA investigación.
-  expect(fila(nodo, 'Otra')).toBeUndefined();
-  // Elegir la fila cierra el menú y deja el destino fijado.
+  // Dos acciones, no una fila por hipótesis: eso va en el chip.
+  expect(nodo.querySelectorAll('.adjuntos-fila').length).toBe(2);
+  // Elegir la acción cierra el menú.
   await act(async () => fila(nodo, rotulo).click());
   expect(abierto(nodo)).toBe(false);
   const fichero = new File(['grupo,valor\nA,1'], 'prueba.csv');
   await elegirArchivo(nodo, fichero);
-  // El chip, con el nombre del archivo.
+  // El chip, con el nombre del archivo. Para resultados, el desplegable de
+  // experimento solo lleva los de ESTA investigación.
   expect(nodo.querySelector('.adjuntos-chip')?.textContent).toContain('prueba.csv');
+  const selector = nodo.querySelector<HTMLSelectElement>('.adjuntos-chip select');
+  if (destino === 'dataset') expect(selector).toBeNull();
+  else {
+    expect([...selector!.options].map(o => o.value)).toEqual(['h-1']);
+    await act(async () => { selector!.value = destino; selector!.dispatchEvent(new Event('change', { bubbles: true })); });
+  }
   await act(async () => nodo.querySelector<HTMLInputElement>('.adjuntos-chip input[type="checkbox"]')!.click());
   expect(subirDataset).not.toHaveBeenCalled();
   expect(subirDatosExperimento).not.toHaveBeenCalled();
@@ -57,7 +65,7 @@ it.each([['dataset', 'Dataset'], ['h-1', 'MAPT']])('adjunta %s solo al guardar y
   await act(async () => root.unmount());
 });
 
-it.each([['dataset', 'Dataset'], ['h-otra', 'Otra']])('desde global exige investigación y sube %s a la elegida', async (destino, rotulo) => {
+it.each([['dataset', 'Subir un dataset'], ['h-otra', 'Subir resultados']])('desde global exige investigación y sube %s a la elegida', async (destino, rotulo) => {
   subirDataset.mockReset().mockResolvedValue(null);
   subirDatosExperimento.mockReset().mockResolvedValue(null);
   const nodo = document.createElement('div');
@@ -65,16 +73,16 @@ it.each([['dataset', 'Dataset'], ['h-otra', 'Otra']])('desde global exige invest
   const alSubir = vi.fn();
   await act(async () => root.render(<AdjuntosAsistente investigacionId="global" alSubir={alSubir} />));
   await act(async () => nodo.querySelector<HTMLButtonElement>('.mundo-adjuntar')!.click());
-  // Primero las investigaciones; todavía no hay destinos.
+  // Primero las investigaciones; todavía no hay acciones.
   expect(fila(nodo, 'Principal')).toBeTruthy();
-  expect(fila(nodo, 'Dataset')).toBeUndefined();
+  expect(fila(nodo, 'Subir un dataset')).toBeUndefined();
   await act(async () => fila(nodo, 'Otra investigación').click());
   expect(abierto(nodo)).toBe(true);
-  // Ahora los destinos de ESA investigación, y no los de la otra.
-  expect(fila(nodo, 'MAPT')).toBeUndefined();
   await act(async () => fila(nodo, rotulo).click());
   const fichero = new File(['a,b\n1,2'], 'tabla.csv');
   await elegirArchivo(nodo, fichero);
+  // Los experimentos del chip son los de la investigación ELEGIDA, no los de la otra.
+  if (destino !== 'dataset') expect([...nodo.querySelector<HTMLSelectElement>('.adjuntos-chip select')!.options].map(o => o.value)).toEqual(['h-otra']);
   await act(async () => nodo.querySelector<HTMLButtonElement>('[data-accion="guardar"]')!.click());
   if (destino === 'dataset') expect(subirDataset).toHaveBeenCalledWith('otra', fichero, 'tabla.csv', '', false);
   else expect(subirDatosExperimento).toHaveBeenCalledWith('h-otra', fichero, '', false);
@@ -88,7 +96,7 @@ it('quitar el archivo del chip no sube nada y deja volver a empezar', async () =
   const root = createRoot(nodo);
   await act(async () => root.render(<AdjuntosAsistente investigacionId="inv-1" alSubir={vi.fn()} />));
   await act(async () => nodo.querySelector<HTMLButtonElement>('.mundo-adjuntar')!.click());
-  await act(async () => fila(nodo, 'Dataset').click());
+  await act(async () => fila(nodo, 'Subir un dataset').click());
   await elegirArchivo(nodo, new File(['x'], 'borrar.csv'));
   expect(nodo.querySelector('.adjuntos-chip')).toBeTruthy();
   await act(async () => nodo.querySelector<HTMLButtonElement>('.adjuntos-chip-quitar')!.click());

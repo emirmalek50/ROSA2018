@@ -1,16 +1,19 @@
 // Adjuntar datos desde el chat, como el «+» de Claude.
 //
-// El «+» abre una LISTA de destinos, no un formulario: una fila por sitio al
-// que puede ir el archivo (el dataset de la investigación, o los resultados
-// de cada experimento). Elegir una fila abre el selector de archivos del
-// sistema directamente: un paso, no dos. Con el archivo elegido aparece un
-// chip encima del «+», con el nombre, el destino y una × para quitarlo, y
-// ahí se guarda.
+// El «+» abre DOS acciones, con el verbo primero y para qué sirve debajo:
+// «Subir un dataset» y «Subir resultados de un experimento». Se entienden
+// sin leer, como las tres del menú de Claude. Elegir una abre el selector de
+// archivos del sistema directamente: un paso, no dos. Con el archivo elegido
+// aparece un chip encima del «+», con el nombre y una × para quitarlo; si
+// son resultados, AHÍ se elige de qué experimento, en un desplegable, que es
+// cuando ya hay contexto para esa decisión. Y ahí se guarda.
 //
-// Rehecho el 2 de octubre de 2026 (Emir: «se ve tan feo, cero minimalista,
-// no parece Claude en nada»). La versión anterior era el formulario entero
-// metido en un panel: destino, archivo, casilla, aviso legal y dos botones.
-// Por bonito que fuera el panel, seguía siendo un formulario.
+// Tres vueltas el 2 de octubre de 2026. La primera era el formulario entero
+// en un panel (Emir: «se ve feísimo»). La segunda, una lista con una fila
+// por hipótesis: nueve títulos recortados que había que leer (Emir: «ni se
+// comprende a simple vista, se perdió el entendimiento rápido»). Esta
+// separa las dos decisiones: QUÉ subes, en el menú, de un vistazo; A CUÁL
+// experimento, en el chip, cuando toca.
 //
 // La carga sigue yendo por los endpoints del laboratorio: el fichero NO
 // entra en el prompt.
@@ -28,13 +31,6 @@ import { IconDocument, IconFlask, IconLayers, IconPlus, IconX } from './icons';
  *  despacio, sin rebote. */
 const SALIDA = [0.16, 1, 0.3, 1] as const;
 
-interface Destino {
-  id: string;
-  nombre: string;
-  detalle?: string;
-  icono: typeof IconDocument;
-}
-
 export function AdjuntosAsistente({ investigacionId, alSubir, disabled = false }: {
   investigacionId: string; alSubir: (texto: string) => void; disabled?: boolean;
 }) {
@@ -45,6 +41,7 @@ export function AdjuntosAsistente({ investigacionId, alSubir, disabled = false }
   const investigacionDestino = investigacionId === 'global' ? investigacionElegida : investigacionId;
   const investigaciones = e.investigaciones ?? [];
   const investigacion = investigaciones.find(i => i.id === investigacionDestino);
+  const [accion, setAccion] = useState<'dataset' | 'experimento'>('dataset');
   const [destino, setDestino] = useState('dataset');
   const [fichero, setFichero] = useState<File | null>(null);
   const [sintetico, setSintetico] = useState(false);
@@ -61,21 +58,14 @@ export function AdjuntosAsistente({ investigacionId, alSubir, disabled = false }
   };
   const caja = useCerrarAlSalir(abierto, cerrar);
 
-  // Las filas del menú. En la vista global falta elegir investigación: ahí la
-  // lista son las investigaciones, y al elegir una se pasa a sus destinos.
-  const destinos: Destino[] = investigacion
-    ? [
-        { id: 'dataset', nombre: tr('Dataset de esta investigación'), detalle: investigacionId === 'global' ? investigacion.titulo : undefined, icono: IconLayers },
-        ...hipotesis.map(h => ({ id: h.id, nombre: tr('Resultados del experimento'), detalle: h.titulo, icono: IconFlask })),
-        // Solo para el chip: el menú pinta los experimentos como sección.
-      ]
-    : [];
-
-  const elegirDestino = (id: string) => {
-    setDestino(id);
+  const elegir = (que: 'dataset' | 'experimento') => {
+    setAccion(que);
+    // Para resultados, el experimento se concreta en el chip; de entrada, el
+    // primero que haya, para que guardar funcione aunque no se toque.
+    setDestino(que === 'dataset' ? 'dataset' : (hipotesis[0]?.id ?? ''));
     setAviso('');
     setAbierto(false);
-    // Un paso: elegir el destino abre el selector del sistema.
+    // Un paso: elegir la acción abre el selector del sistema.
     entrada.current?.click();
   };
 
@@ -112,7 +102,6 @@ export function AdjuntosAsistente({ investigacionId, alSubir, disabled = false }
     }
   };
 
-  const destinoElegido = destinos.find(d => d.id === destino);
   const entradaPanel = reducido ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 6 };
   const salidaPanel = reducido ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 4 };
   const transicion = reducido ? { duration: DUR.rapida } : { duration: DUR.media, ease: SALIDA };
@@ -178,29 +167,25 @@ export function AdjuntosAsistente({ investigacionId, alSubir, disabled = false }
               )
             ) : (
               <>
-                <button type="button" className="adjuntos-fila" role="menuitem" onClick={() => elegirDestino('dataset')}>
+                <button type="button" className="adjuntos-fila" role="menuitem" onClick={() => elegir('dataset')}>
                   <IconLayers size={16} />
                   <span className="adjuntos-fila-texto">
-                    <span>{tr('Dataset de esta investigación')}</span>
-                    {investigacionId === 'global' && <small>{investigacion.titulo}</small>}
+                    <span>{tr('Subir un dataset')}</span>
+                    <small>{tr('Datos para analizar; pasan por aprobación')}</small>
                   </span>
                 </button>
                 {hipotesis.length > 0 && (
-                  <>
-                    <p className="adjuntos-menu-titulo">{tr('Resultados de un experimento')}</p>
-                    <div className="adjuntos-menu-lista">
-                      {hipotesis.map(h => (
-                        <button key={h.id} type="button" className="adjuntos-fila" role="menuitem" title={h.titulo} onClick={() => elegirDestino(h.id)}>
-                          <IconFlask size={16} />
-                          <span className="adjuntos-fila-texto"><span>{h.titulo}</span></span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
+                  <button type="button" className="adjuntos-fila" role="menuitem" onClick={() => elegir('experimento')}>
+                    <IconFlask size={16} />
+                    <span className="adjuntos-fila-texto">
+                      <span>{tr('Subir resultados de un experimento')}</span>
+                      <small>{tr('Se contrastan con lo prerregistrado')}</small>
+                    </span>
+                  </button>
                 )}
                 {investigacionId === 'global' && (
                   <button type="button" className="adjuntos-fila adjuntos-fila-volver" role="menuitem" onClick={() => setInvestigacionElegida('')}>
-                    <span className="adjuntos-fila-texto"><small>{tr('Otra investigación')}</small></span>
+                    <span className="adjuntos-fila-texto"><small>{trp('Investigación: {t}. Cambiar', { t: investigacion.titulo })}</small></span>
                   </button>
                 )}
               </>
@@ -225,12 +210,20 @@ export function AdjuntosAsistente({ investigacionId, alSubir, disabled = false }
               <IconDocument size={16} />
               <span className="adjuntos-chip-texto">
                 <span className="adjuntos-chip-nombre">{fichero.name}</span>
-                <small>{destinoElegido ? (destinoElegido.detalle ? trp('{destino}: {detalle}', { destino: destinoElegido.nombre, detalle: destinoElegido.detalle }) : destinoElegido.nombre) : ''}</small>
+                <small>{accion === 'dataset' ? tr('Dataset') : tr('Resultados de un experimento')}{investigacionId === 'global' && investigacion ? ` · ${investigacion.titulo}` : ''}</small>
               </span>
               <button type="button" className="adjuntos-chip-quitar" aria-label={tr('Quitar el archivo')} disabled={ocupado} onClick={quitar}>
                 <IconX size={14} />
               </button>
             </div>
+            {accion === 'experimento' && hipotesis.length > 0 && (
+              <label className="adjuntos-chip-campo">
+                <span>{tr('De qué experimento')}</span>
+                <select value={destino} disabled={ocupado} onChange={ev => setDestino(ev.target.value)}>
+                  {hipotesis.map(h => <option key={h.id} value={h.id}>{h.titulo}</option>)}
+                </select>
+              </label>
+            )}
             <div className="adjuntos-chip-pie">
               <label className="adjuntos-casilla">
                 <input type="checkbox" checked={sintetico} disabled={ocupado} onChange={ev => setSintetico(ev.target.checked)} />
