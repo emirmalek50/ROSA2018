@@ -263,12 +263,18 @@ describe('lo que se toca en el modelo de mundo', () => {
     // Acciones solo con icono, pero con nombre para el lector de pantalla.
     expect(r.querySelector('.mundo-acciones-iconos .mundo-accion-nombre')?.textContent).toBe('Copiar');
     expect(r.textContent).not.toContain('Seguir preguntando');
-    // Como «Pensó 8 s» en ChatGPT: los pasos y las consultas se abren desde
-    // la cabecera, y la respuesta queda arriba.
+    // Como en Kimi: la línea de tiempo se QUEDA, plegada en una línea encima
+    // de la respuesta («Usó 1 herramienta, ...»), y se abre desde ahí. Lo que
+    // se abre desde la cabecera es el detalle de cada consulta, otra cosa.
+    // (Antes iba oculta «como Pensó 8 s en ChatGPT»; Emir, 3 de octubre de
+    // 2026: las filas que se estaban viendo se esfumaban al llegar la
+    // respuesta.)
+    const resumen = r.querySelector<HTMLButtonElement>('.razon-resumen');
+    expect(resumen).not.toBeNull();
+    expect(resumen!.textContent).toContain('Usó');
     expect(r.querySelector('.mundo-rastro-detalle')).toBeNull();
-    expect(r.querySelector('.rastro-pasos')).toBeNull();
     await pulsar(cabeza);
-    expect(r.querySelector('.mundo-rastro-detalle .rastro-pasos')).not.toBeNull();
+    expect(r.querySelector('.mundo-rastro-detalle')).not.toBeNull();
     expect(cabeza.getAttribute('aria-expanded')).toBe('true');
   });
 

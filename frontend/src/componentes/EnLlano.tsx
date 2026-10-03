@@ -1,12 +1,11 @@
 // Lo que hizo ROSA2018, contado para quien no es cientifico. Dos piezas: el
 // resumen en llano de una iteracion (que buscaba, que encontro, que propone,
-// que falta, que te toca, glosario) y la hipotesis en tres frases. Van
-// antes del detalle tecnico, no despues: es lo primero que se lee.
+// que falta, que te toca, glosario) y la viabilidad de la prueba. La hipotesis
+// en llano y su conclusion viven desde el 3 de octubre de 2026 en
+// FichaHipotesis.tsx, con la ficha rehecha.
 
-import type { ConclusionHipotesis, ResumenLlano, ViabilidadPrueba } from '../datos/tipos';
-import { CERTEZA_EVIDENCIA, DIRECCION_EVIDENCIA, FACTOR_CERTEZA } from '../lib/etiquetas';
-import { Chip } from './piezas';
-import { Momento, Seccion } from './piezas';
+import type { ResumenLlano, ViabilidadPrueba } from '../datos/tipos';
+import { Chip, Momento, Seccion } from './piezas';
 import { traducido, tr, trp } from '../lib/idioma';
 
 export function ResumenEnLlano({ resumen, numero, abierta = true }: { resumen: ResumenLlano | null | undefined; numero: number; abierta?: boolean }) {
@@ -166,134 +165,5 @@ export function ViabilidadDeLaPrueba({ v }: { v: ViabilidadPrueba | null | undef
       {v.sinRespuesta.length > 0 && <p className="meta">{trp("El registro no respondió para {v}: no se pudo consultar, y ROSA2018 lo vuelve a intentar.", { v: v.sinRespuesta.join(', ') })}</p>}
       {v.noEncontrados.length > 0 && <p className="meta">{trp("Sin ensayos de fase 2 o 3 en el registro para {v}; pueden estar registrados con otro nombre.", { v: v.noEncontrados.join(', ') })}</p>}
     </div>
-  );
-}
-
-export function HipotesisEnLlano({ texto }: { texto: string | null | undefined }) {
-  if (texto === undefined) return null;
-  return (
-    <div className="llano llano-hipotesis">
-      <h4>{tr("En pocas palabras")}</h4>
-      {texto === null ? <p className="meta">{tr("ROSA2018 todavía no escribió el resumen de esta hipótesis.")}</p> : <p>{texto}</p>}
-    </div>
-  );
-}
-
-
-/** La conclusion provisional de ROSA2018: cuanto apoya la evidencia reunida a la
- *  hipotesis, que la apoya, que la debilita, de que depende y que la
- *  cambiaria. Distinta de la prueba, que es un experimento. */
-export function ConclusionDeRosa({ conclusion, ahora }: { conclusion: ConclusionHipotesis | null | undefined; ahora: number }) {
-  if (conclusion === undefined) return null;
-  if (conclusion === null) {
-    return (
-      <Seccion titulo={tr("Conclusión de ROSA2018")}>
-        <p className="meta">{tr("ROSA2018 todavía no escribió su conclusión sobre esta hipótesis. La escribe al crearla y la rehace al cerrar cada iteración con la evidencia que le haya llegado desde entonces.")}</p>
-      </Seccion>
-    );
-  }
-  const g = CERTEZA_EVIDENCIA[conclusion.certeza];
-  const d = DIRECCION_EVIDENCIA[conclusion.direccion];
-  const b = conclusion.base;
-  return (
-    <Seccion
-      titulo={tr("Conclusión de ROSA2018")}
-      nota={tr("Dos cosas distintas, como en GRADE: cuanto se puede fiar uno de la evidencia reunida (certeza) y hacia donde apunta (dirección). Ninguna dice si la hipótesis es cierta: eso lo decide un experimento. Se rehace al cerrar cada iteración: lo que ROSA2018 lee después de nacer la hipótesis se le suma (a favor, indirecto o en contra) y la certeza se recalcula.")}
-      acciones={
-        <span className="meta">
-          {trp("Iteración {iteracion} · ", { iteracion: conclusion.iteracion })}<Momento t={conclusion.fecha} ahora={ahora} />
-        </span>
-      }
-    >
-      <div className="llano conclusion">
-        <div className="conclusion-grado">
-          <Chip tono={g.tono} title={g.nota}>
-            {g.etiqueta}
-          </Chip>
-          <Chip tono={d.tono}>{d.etiqueta}</Chip>
-          <span className="meta">{(b.fuentes === 1 ? trp("Se apoya en {sostenidas} de {afirmaciones} afirmaciones sostenidas, de {fuentes} fuente{v}.", { sostenidas: b.sostenidas, afirmaciones: b.afirmaciones, fuentes: b.fuentes, v: b.interpretaciones > 0 ? (b.interpretaciones === 1 ? trp("; {interpretaciones} es interpretación, no datos", { interpretaciones: b.interpretaciones }) : trp("; {interpretaciones} son interpretaciones, no datos", { interpretaciones: b.interpretaciones })) : '' }) : trp("Se apoya en {sostenidas} de {afirmaciones} afirmaciones sostenidas, de {fuentes} fuentes{v}.", { sostenidas: b.sostenidas, afirmaciones: b.afirmaciones, fuentes: b.fuentes, v: b.interpretaciones > 0 ? (b.interpretaciones === 1 ? trp("; {interpretaciones} es interpretación, no datos", { interpretaciones: b.interpretaciones }) : trp("; {interpretaciones} son interpretaciones, no datos", { interpretaciones: b.interpretaciones })) : '' }))}</span>
-        </div>
-        <p className="meta">{g.nota}</p>
-        {conclusion.techo && (
-          <p className="meta">
-            {tr("Nivel máximo con lo que hay, por regla:")} <strong>{CERTEZA_EVIDENCIA[conclusion.techo.nivel].etiqueta.replace('Certeza ', '')}</strong>, porque {conclusion.techo.motivo}.
-            {conclusion.techo.acotada && trp(" El juez había dicho «{v}»; la regla lo acotó.", { v: CERTEZA_EVIDENCIA[conclusion.techo.certezaDelJuez].etiqueta.toLowerCase() })}
-          </p>
-        )}
-        {conclusion.escalera && conclusion.escalera.length > 0 && (
-          <div className="conclusion-escalera">
-            <h4>{tr("Para subir")}</h4>
-            <ol>
-              {conclusion.escalera.map((p) => (
-                <li key={p.a}>
-                  <strong>A {CERTEZA_EVIDENCIA[p.a].etiqueta.replace('Certeza ', 'certeza ')}:</strong> {p.falta}.
-                </li>
-              ))}
-            </ol>
-            {conclusion.subiria && <p className="meta">{trp("Lo que el juez pide en concreto: {subiria}", { subiria: conclusion.subiria })}</p>}
-          </div>
-        )}
-        <p className="conclusion-enunciado">{conclusion.enunciado}</p>
-        {conclusion.cambio && (
-          <p className="meta">
-            {trp("Cambio respecto a la iteración {v}: antes {v2} y {v3}. {motivo}", { v: conclusion.cambio.de.iteracion ?? '?', v2: conclusion.cambio.de.certeza ? CERTEZA_EVIDENCIA[conclusion.cambio.de.certeza].etiqueta.toLowerCase() : tr('sin certeza'), v3: conclusion.cambio.de.direccion ? DIRECCION_EVIDENCIA[conclusion.cambio.de.direccion].etiqueta.toLowerCase() : tr('sin dirección'), motivo: conclusion.cambio.motivo })}
-          </p>
-        )}
-        <p className="conclusion-texto">{conclusion.conclusion}</p>
-        {conclusion.factores.length > 0 && (
-          <div className="llano-bloque">
-            <h4>{tr("Por qué esta certeza")}</h4>
-            <ul className="factores">
-              {conclusion.factores.map((f, i) => (
-                <li key={i}>
-                  <Chip tono={f.efecto === 'baja' ? 'mal' : f.efecto === 'sube' ? 'ok' : 'borde'}>{f.efecto === 'baja' ? 'Baja' : f.efecto === 'sube' ? 'Sube' : 'Neutro'}</Chip> <strong>{FACTOR_CERTEZA[f.factor]}.</strong> {f.explicacion}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        <div className="conclusion-columnas">
-          <div className="llano-bloque">
-            <h4>{tr("A favor")}</h4>
-            {conclusion.aFavor.length === 0 ? <p className="meta">{tr("Nada directo.")}</p> : <ul>{conclusion.aFavor.map((t, i) => <li key={i}>{t}</li>)}</ul>}
-          </div>
-          <div className="llano-bloque">
-            <h4>{tr("En contra o que la debilita")}</h4>
-            {conclusion.enContra.length === 0 ? <p className="meta">{tr("Nada encontrado, lo cual no es lo mismo que nada que encontrar.")}</p> : <ul>{conclusion.enContra.map((t, i) => <li key={i}>{t}</li>)}</ul>}
-          </div>
-        </div>
-        <div className="llano-bloque">
-          <h4>{tr("De que depende más")}</h4>
-          <p>{conclusion.loMasFragil}</p>
-        </div>
-        <div className="conclusion-columnas">
-          <div className="llano-bloque llano-accion">
-            <h4>{tr("Subiría la certeza si")}</h4>
-            <p>{conclusion.subiria}</p>
-          </div>
-          <div className="llano-bloque llano-accion">
-            <h4>{tr("Bajaría si")}</h4>
-            <p>{conclusion.bajaria}</p>
-          </div>
-        </div>
-        {conclusion.noComprobado.length > 0 && (
-          <div className="llano-bloque">
-            <h4>{tr("Qué no pudimos comprobar")}</h4>
-            <ul>
-              {conclusion.noComprobado.map((t, i) => (
-                <li key={i} className="meta">
-                  {t}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {conclusion.fechaBusqueda && (
-          <p className="meta">
-            {tr("Evidencia buscada hasta el")} <Momento t={conclusion.fechaBusqueda} ahora={ahora} />.
-          </p>
-        )}
-      </div>
-    </Seccion>
   );
 }

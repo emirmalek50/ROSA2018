@@ -65,6 +65,11 @@ import {
 import { RelacionesCausales } from "../componentes/Rosa2018";
 import { COBERTURA_MINIMA, faltanParaCobertura } from "../lib/cobertura";
 import { useSeguirFondo } from "../lib/seguirFondo";
+import { motion } from "motion/react";
+import { DUR, useMovimientoReducido } from "../lib/movimiento";
+
+/** La curva de los menús de Claude y de la línea de tiempo: arranca rápido y se posa despacio. */
+const SALIDA_TURNO = [0.16, 1, 0.3, 1] as const;
 import {
   atributosEnVuelo,
   useCalculoDiferido,
@@ -78,11 +83,10 @@ import {
 import { formatearPorcentaje } from "../lib/formato";
 import { tr, trp } from "../lib/idioma";
 import { Herramientas } from "../componentes/Herramienta";
-import { PasosDeBusqueda, pasosDeConsultas } from "../componentes/PasosDeBusqueda";
 import { Shimmer } from "../componentes/Shimmer";
 import { Checkpoint, GuardarEnMemoria } from "../componentes/Checkpoint";
 import { Persona, type EstadoPersona } from "../componentes/Persona";
-import { Razonamiento } from "../componentes/Razonamiento";
+import { Razonamiento, pasosDeConsultas } from "../componentes/Razonamiento";
 import { SILENCIO_PARA_ENVIAR_MS, callar, escuchar, hablar, puedeEscuchar, puedeHablar, type Escucha } from "../lib/voz";
 import {
   ESTADO_COBERTURA,
@@ -859,6 +863,7 @@ function Conversar(p: PropsConversar) {
       )
       .map((e) => ({ tipo: "error" as const, fecha: e.fecha, e })),
   ].sort((a, b) => a.fecha - b.fecha);
+  const reducido = useMovimientoReducido();
   const final = useRef<HTMLDivElement>(null);
   const cuantos = turnos.length + (pendiente ? 1 : 0);
   // El chat sigue el fondo mientras CRECE: con cada paso que llega en vivo,
@@ -904,7 +909,7 @@ function Conversar(p: PropsConversar) {
     <div className="mundo-chat">
       <ol className="mundo-turnos">
         {turnos.map((t) => (
-          <li
+          <motion.li
             key={
               t.tipo === "guardada"
                 ? t.q.id
@@ -913,6 +918,10 @@ function Conversar(p: PropsConversar) {
                   : t.e.id
             }
             className="mundo-turno"
+            layout={!reducido}
+            initial={reducido ? { opacity: 0 } : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DUR.media, ease: SALIDA_TURNO }}
           >
             {t.tipo === "guardada" && (
               <TurnoGuardado
@@ -977,12 +986,19 @@ function Conversar(p: PropsConversar) {
                 </div>
               </>
             )}
-          </li>
+          </motion.li>
         ))}
         {pendiente && (
-          <li className="mundo-turno">
+          <motion.li
+            key={pendiente.seguimiento}
+            className="mundo-turno"
+            layout={!reducido}
+            initial={reducido ? { opacity: 0 } : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DUR.media, ease: SALIDA_TURNO }}
+          >
             <TurnoPendiente p={pendiente} pasos={p.pasosEnVivo} />
-          </li>
+          </motion.li>
         )}
       </ol>
       <div ref={final} />
@@ -1657,17 +1673,23 @@ function TurnoGuardado({
             />
           )}
         </CabezaRespuesta>
-        {/* Como «Pensó 8 s» en ChatGPT y Claude: la respuesta va primero y
-            el camino (pasos y cada llamada) se abre desde la cabecera. */}
+        {/* La línea de tiempo se QUEDA, plegada en una línea encima de la
+            respuesta, como en Kimi («Used 1 tool, ...»). Antes desaparecía
+            de golpe al llegar la respuesta y había que abrirla desde la
+            cabecera «como Pensó 8 s en ChatGPT»: las treinta filas que se
+            estaban viendo se esfumaban (Emir, 3 de octubre de 2026: «las
+            cosas aparecen de repente»). Lo que se abre desde la cabecera es
+            el detalle de cada consulta, que es otra cosa. */}
+        {/* Las de antes del 2 de octubre no guardaron el razonamiento: se
+            pintan sus consultas con la misma línea de tiempo. */}
+        <Razonamiento
+          pasos={(q.pasos ?? []).length > 0 ? q.pasos! : pasosDeConsultas(q.consultas)}
+          ahora={ahora}
+          plegable
+          recienLlegada={ahora - q.fecha < 8000}
+        />
         {abierto && (
           <div className="mundo-rastro-detalle">
-            {(q.pasos ?? []).length > 0 ? (
-              <Razonamiento pasos={q.pasos!} ahora={ahora} />
-            ) : (
-              // Las de antes del 2 de octubre no guardaban el razonamiento: se
-              // enseñan sus consultas, que es lo que sí quedó registrado.
-              (q.consultas ?? []).length > 0 && <PasosDeBusqueda pasos={pasosDeConsultas(q.consultas)} />
-            )}
             {pasos.length > 0 && (
               <p className="mundo-rastro-frase">
                 {cuentaPasos(Math.max(1, q.iteraciones || 0))} ·{" "}

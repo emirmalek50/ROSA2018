@@ -25,12 +25,12 @@
 // va a hacer; la herramienta es una llamada real. Si falló se dice «no pude
 // comprobar», nunca «sin resultados».
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 import { IconBulb, IconChevronDown, IconGlobe, IconLayers, IconMessage, IconSearch } from './icons';
 import { Shimmer } from './Shimmer';
-import type { PasoRazonamiento } from '../datos/tipos';
+import type { ConsultaBase, PasoRazonamiento } from '../datos/tipos';
 import { formatearDuracion } from '../lib/formato';
 import { tr, trp } from '../lib/idioma';
 import { DUR, useMovimientoReducido } from '../lib/movimiento';
@@ -43,6 +43,29 @@ const ICONO: Record<NonNullable<PasoRazonamiento['familia']>, (p: { size?: numbe
   cuestiones: IconMessage,
   otra: IconSearch,
 };
+
+/** Las respuestas de antes del 2 de octubre de 2026 no guardaron el
+ *  razonamiento, pero sí cada consulta a una base. Con esto se pintan con la
+ *  MISMA línea de tiempo que las nuevas (solo herramientas, sin
+ *  pensamientos), en vez de con otro componente de otro aspecto. */
+export function pasosDeConsultas(consultas: ConsultaBase[] | undefined): PasoRazonamiento[] {
+  return [...(consultas ?? [])]
+    .sort((a, b) => a.fecha - b.fecha)
+    .map((c): PasoRazonamiento => ({
+      id: c.id,
+      tipo: 'herramienta',
+      herramienta: c.herramienta,
+      familia: 'base',
+      nombre: c.fuente || c.herramienta,
+      argumentos: c.argumentos,
+      inicio: c.fecha,
+      fin: c.fecha + Math.max(0, c.ms || 0),
+      error: c.error || null,
+      resumen: c.resumen || '',
+      fuente: c.fuente || '',
+      n: c.n,
+    }));
+}
 
 /** La curva de Kimi y de Claude para lo que aparece: arranca rápido y se
  *  posa despacio. */
@@ -246,8 +269,19 @@ function FilaEmpezando() {
 
 /** La línea de tiempo entera. `enMarcha`: la pregunta sigue en vuelo, así que
  *  el último paso late y, si aún no hay ninguno, se dice que está empezando. */
-export function Razonamiento({ pasos, ahora, enMarcha = false, plegable = false }: { pasos: PasoRazonamiento[]; ahora: number; enMarcha?: boolean; plegable?: boolean }) {
-  const [abierto, setAbierto] = useState(!plegable);
+export function Razonamiento({ pasos, ahora, enMarcha = false, plegable = false, recienLlegada = false }: { pasos: PasoRazonamiento[]; ahora: number; enMarcha?: boolean; plegable?: boolean; recienLlegada?: boolean }) {
+  // Una respuesta que ACABA de llegar arranca con la línea abierta, que es
+  // como se estaba viendo mientras trabajaba, y se pliega sola al momento.
+  // Así el paso de «en marcha» a «contestada» es un pliegue, no treinta
+  // filas que se esfuman (Emir, 3 de octubre de 2026). Las viejas, al abrir
+  // el chat, ya vienen plegadas.
+  const [abierto, setAbierto] = useState(!plegable || recienLlegada);
+  useEffect(() => {
+    if (!plegable || !recienLlegada) return;
+    const id = window.setTimeout(() => setAbierto(false), 1400);
+    return () => window.clearTimeout(id);
+  }, [plegable, recienLlegada]);
+  const reducido = useMovimientoReducido();
   const herramientas = pasos.filter((p) => p.tipo === 'herramienta');
   const fallidas = herramientas.filter((p) => p.error).length;
 
@@ -260,29 +294,18 @@ export function Razonamiento({ pasos, ahora, enMarcha = false, plegable = false 
     );
   }
 
-  // Plegada, como el «Used 1 tool, Fetch multiple GitHub raw URLs in one
-  // request» de Kimi: cuántas herramientas y la primera, en una línea.
-  if (plegable && !abierto) {
-    const primera = herramientas[0];
-    const nombrePrimera = primera ? etiqueta(primera.nombre ?? primera.herramienta ?? '') : '';
-    return (
-      <button type="button" className="razon-resumen" onClick={() => setAbierto(true)}>
-        <IconBulb size={14} />
-        <span>
-          {herramientas.length === 0
-            ? tr('Respondió sin herramientas')
-            : herramientas.length === 1
-              ? trp('Usó 1 herramienta, {nombre}', { nombre: nombrePrimera })
-              : trp('Usó {n} herramientas, la primera {nombre}', { n: herramientas.length, nombre: nombrePrimera })}
-          {fallidas > 0 && <span className="tono-aviso"> · {trp('{n} sin poder comprobar', { n: fallidas })}</span>}
-        </span>
-        <IconChevronDown size={13} />
-      </button>
-    );
-  }
+  // La línea de resumen, como el «Used 1 tool, Fetch multiple GitHub raw
+  // URLs in one request» de Kimi: cuántas herramientas y la primera. Cuando
+  // se puede plegar, es el botón que abre y cierra.
+  const primera = herramientas[0];
+  const nombrePrimera = primera ? etiqueta(primera.nombre ?? primera.herramienta ?? '') : '';
+  const resumen = herramientas.length === 0
+    ? tr('Respondió sin herramientas')
+    : herramientas.length === 1
+      ? trp('Usó 1 herramienta, {nombre}', { nombre: nombrePrimera })
+      : trp('Usó {n} herramientas, la primera {nombre}', { n: herramientas.length, nombre: nombrePrimera });
 
-  // Las filas, con el sub-paso de cada herramienta que trajo algo, y los
-  // pensamientos largos como prosa.
+  // Las filas, con el sub-paso de cada herramienta que trajo algo.
   const filas: JSX.Element[] = [];
   pasos.forEach((p, i) => {
     const ultimoPaso = i === pasos.length - 1;
@@ -298,18 +321,37 @@ export function Razonamiento({ pasos, ahora, enMarcha = false, plegable = false 
     if (p.resumen && !p.error && !yaLoDiceLaFila) filas.push(<SubPaso key={`${p.id}-sub`} texto={p.resumen} ultimo={ultimoPaso} />);
   });
 
+  // Plegar y desplegar es una TRANSICIÓN, no un cambio de árbol: la lista se
+  // cierra en altura mientras la línea de resumen se queda. Si fuera un `if`
+  // que devuelve otro árbol, las treinta filas se esfumarían de golpe.
   return (
-    <div className="razon-bloque">
+    <motion.div className="razon-bloque" layout={!reducido}>
       {plegable && (
-        <button type="button" className="razon-resumen razon-resumen-abierto" onClick={() => setAbierto(false)}>
+        <button type="button" className={`razon-resumen ${abierto ? 'razon-resumen-abierto' : ''}`.trim()} onClick={() => setAbierto((v) => !v)} aria-expanded={abierto}>
           <IconBulb size={14} />
-          <span>{tr('Cómo lo pensó')}</span>
-          <IconChevronDown size={13} className="razon-flecha-abierta" />
+          <span>
+            {abierto ? tr('Cómo lo pensó') : resumen}
+            {!abierto && fallidas > 0 && <span className="tono-aviso"> · {trp('{n} sin poder comprobar', { n: fallidas })}</span>}
+          </span>
+          <IconChevronDown size={13} className={`razon-flecha ${abierto ? 'razon-flecha-abierta' : ''}`} />
         </button>
       )}
-      <ol className="razon" aria-live={enMarcha ? 'polite' : undefined}>
-        {filas}
-      </ol>
-    </div>
+      <AnimatePresence initial={false}>
+        {abierto && (
+          <motion.ol
+            key="lista"
+            className="razon"
+            aria-live={enMarcha ? 'polite' : undefined}
+            initial={plegable ? (reducido ? { opacity: 0 } : { opacity: 0, height: 0 }) : false}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={reducido ? { opacity: 0 } : { opacity: 0, height: 0 }}
+            transition={{ duration: DUR.media, ease: SALIDA }}
+            style={{ overflow: 'hidden' }}
+          >
+            {filas}
+          </motion.ol>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

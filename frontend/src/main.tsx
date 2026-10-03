@@ -8,6 +8,7 @@ import { observarSistema } from './lib/theme';
 import './styles.css';
 import './vivo.css';
 import './mundo.css';
+import './ficha.css';
 import { tr } from './lib/idioma';
 
 // El tema ya lo aplico el script inline de index.html. Esto solo engancha los
