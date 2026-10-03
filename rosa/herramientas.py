@@ -88,7 +88,8 @@ def herramientas(estado: dict[str, Any], investigacion_id: str, registro: list[d
                 if reg["error"]:
                     return f"NO PUDE COMPROBAR ({reg['fuente']}): {reg['error']}"
                 # La salida de una base es dato, no instruccion: va delimitada.
-                return K.como_dato(_recortar({"fuente": reg["fuente"], "n": reg["n"], "invariante": reg["invariante"], "datos": datos}))
+                maximo = 14000 if nombre in {"buscar_web", "leer_pagina_web"} else MAX_TEXTO_HERRAMIENTA
+                return K.como_dato(_recortar({"fuente": reg["fuente"], "n": reg["n"], "invariante": reg["invariante"], "datos": datos}, maximo))
 
             return fn
         tools.append(dspy.Tool(hacer(), name=nombre, desc=f"{c.fuente}: {c.descripcion}. Aporta: {c.aporta}. Licencia: {c.licencia}.", args={k: {"type": "string", "description": v.get("description", "")} for k, v in props.items()}, arg_types={k: str for k in props}, arg_desc={k: v.get("description", "") for k, v in props.items()}))
@@ -249,17 +250,35 @@ def leer_cobertura(texto: str) -> list[dict[str, str]]:
 
 
 _RE_REFERENCIA = re.compile(r"(10\.\d{4,9}/[^\s`\"'<>()\[\]]+)|\b(NCT\d{8})\b|\bPMID:?\s?(\d{6,9})\b|\b(he-[a-z0-9]+-\d+)\b")
+_RE_URL = re.compile(r"https?://[^\s<>\"'`\\]+")
+
+
+def _urls(texto: str) -> list[str]:
+    urls: list[str] = []
+    for m in _RE_URL.finditer(texto or ""):
+        url = m.group().rstrip(".,;:!?")
+        # Cierra el enlace Markdown o la lista JSON, sin romper paréntesis
+        # que pertenecen a la ruta de una página.
+        while url and url[-1] in ")]}":
+            cierre = url[-1]
+            apertura = {")": "(", "]": "[", "}": "{"}[cierre]
+            if url.count(cierre) <= url.count(apertura):
+                break
+            url = url[:-1].rstrip(".,;:!?")
+        if url not in urls:
+            urls.append(url)
+    return urls
 
 
 def referencias_citadas(texto: str) -> list[str]:
     """Los identificadores comprobables que cita una respuesta: DOI, ensayo,
-    PMID y hecho del modelo de mundo, sin repetir y en orden de aparición."""
+    PMID, hecho del modelo de mundo y URL pública, sin repetir."""
     vistas: list[str] = []
     for m in _RE_REFERENCIA.finditer(texto or ""):
         ref = (m.group(1) or "").rstrip(".,;:") or m.group(2) or (f"PMID {m.group(3)}" if m.group(3) else "") or m.group(4)
         if ref and ref not in vistas:
             vistas.append(ref)
-    return vistas
+    return vistas + [u for u in _urls(texto) if u not in vistas]
 
 
 def atribucion(respuesta: str, devuelto: str) -> dict[str, list[str]]:
@@ -268,7 +287,9 @@ def atribucion(respuesta: str, devuelto: str) -> dict[str, list[str]]:
     compara sin mayúsculas; el PMID, por el número."""
     base = (devuelto or "").lower()
     citadas = referencias_citadas(respuesta)
-    sin = [r for r in citadas if (r[5:] if r.startswith("PMID ") else r).lower() not in base]
+    urls_devueltas = set(_urls(devuelto))
+    sin = [r for r in citadas if (r not in urls_devueltas if r.startswith(("https://", "http://"))
+                                else (r[5:] if r.startswith("PMID ") else r).lower() not in base)]
     return {"citadas": citadas, "sinRespaldo": sin}
 
 
