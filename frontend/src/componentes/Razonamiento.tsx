@@ -107,30 +107,39 @@ const ENTRADA = (reducido: boolean) => ({
   transition: { duration: DUR.media, ease: SALIDA },
 });
 
-/** Un pensamiento largo: prosa, como en Kimi. Lleva su carril para que el
- *  hilo no se corte, pero sin bombilla ni etiqueta. */
-function Prosa({ p, ultimo }: { p: PasoRazonamiento; ultimo: boolean }) {
-  const reducido = useMovimientoReducido();
-  return (
-    <motion.li className="razon-fila razon-prosa" {...ENTRADA(reducido)}>
-      <span className="razon-carril" aria-hidden="true">
-        <span className="razon-punto-prosa" />
-        {!ultimo && <i className="razon-linea" />}
-      </span>
-      <p className="razon-prosa-texto">{p.texto}</p>
-    </motion.li>
-  );
-}
-
+/** Un pensamiento. Mientras es el ÚLTIMO y la respuesta sigue en marcha, es
+ *  una fila con bombilla («Pensando | ...»): es lo que piensa ahora. Cuando
+ *  llega el siguiente paso, si era largo pasa a ser prosa, como en Kimi.
+ *
+ *  Es UN componente que cambia de forma por dentro, no dos. Con dos
+ *  componentes y la misma key, React desmontaba uno y montaba el otro, y la
+ *  fila cambiaba de golpe sin animación: medido en el navegador el 3 de
+ *  octubre de 2026, el nodo nuevo llegaba al DOM ya con `opacity: 1`. Con
+ *  uno solo, la entrada se anima una vez y el cambio de forma va con
+ *  `layout`. */
 function Pensamiento({ p, ultimo, enMarcha }: { p: PasoRazonamiento; ultimo: boolean; enMarcha: boolean }) {
   const reducido = useMovimientoReducido();
   const [abierta, setAbierta] = useState(false);
   const texto = p.texto ?? '';
   const ahora = ultimo && enMarcha && !p.cierra;
+  const prosa = texto.length > PENSAMIENTO_CORTO && !ahora;
   const frase = primeraFrase(texto);
   const hayMas = texto.length > frase.length;
+
+  if (prosa) {
+    return (
+      <motion.li className="razon-fila razon-prosa" layout={!reducido} {...ENTRADA(reducido)}>
+        <span className="razon-carril" aria-hidden="true">
+          <span className="razon-punto-prosa" />
+          {!ultimo && <i className="razon-linea" />}
+        </span>
+        <motion.p className="razon-prosa-texto" layout={!reducido ? 'position' : false}>{texto}</motion.p>
+      </motion.li>
+    );
+  }
+
   return (
-    <motion.li className={`razon-fila razon-pensar ${ahora ? 'razon-viva' : ''}`.trim()} {...ENTRADA(reducido)}>
+    <motion.li className={`razon-fila razon-pensar ${ahora ? 'razon-viva' : ''}`.trim()} layout={!reducido} {...ENTRADA(reducido)}>
       <Carril Icono={IconBulb} ultimo={ultimo} viva={ahora} />
       <div className="razon-cuerpo">
         <button type="button" className="razon-cabeza" onClick={() => hayMas && setAbierta((v) => !v)} aria-expanded={hayMas ? abierta : undefined} disabled={!hayMas}>
@@ -171,8 +180,8 @@ function Herramienta({ p, ahora, ultimo, enMarcha }: { p: PasoRazonamiento; ahor
   const cuenta = typeof p.n === 'number' ? (p.n === 1 ? tr('1 resultado') : trp('{n} resultados', { n: p.n })) : null;
 
   return (
-    <motion.li className={`razon-fila razon-herramienta ${corriendo ? 'razon-viva' : ''} ${fallo ? 'razon-fallo' : ''}`.trim()} {...ENTRADA(reducido)}>
-      <Carril Icono={Icono} ultimo={ultimo && !p.resumen} viva={corriendo} />
+    <motion.li className={`razon-fila razon-herramienta ${corriendo ? 'razon-viva' : ''} ${fallo ? 'razon-fallo' : ''}`.trim()} layout={!reducido} {...ENTRADA(reducido)}>
+      <Carril Icono={Icono} ultimo={ultimo && !(p.resumen && !p.error && !(p.fuente && typeof p.n === 'number'))} viva={corriendo} />
       <div className="razon-cuerpo">
         <button type="button" className="razon-cabeza" onClick={() => hayMas && setAbierta((v) => !v)} aria-expanded={hayMas ? abierta : undefined} disabled={!hayMas}>
           <span className="razon-etiqueta">{corriendo ? <Shimmer>{nombre}</Shimmer> : nombre}</span>
@@ -207,12 +216,30 @@ function Herramienta({ p, ahora, ultimo, enMarcha }: { p: PasoRazonamiento; ahor
 function SubPaso({ texto, ultimo }: { texto: string; ultimo: boolean }) {
   const reducido = useMovimientoReducido();
   return (
-    <motion.li className="razon-fila razon-sub" {...ENTRADA(reducido)}>
+    <motion.li className="razon-fila razon-sub" layout={!reducido} {...ENTRADA(reducido)}>
       <span className="razon-carril" aria-hidden="true">
         <span className="razon-punto" />
         {!ultimo && <i className="razon-linea" />}
       </span>
       <span className="razon-sub-texto">{primeraFrase(texto)}</span>
+    </motion.li>
+  );
+}
+
+/** La primera fila, antes de que llegue ningún paso: «Pensando | leyendo la
+ *  pregunta...». Antes era un <li> plano y aparecía de golpe. */
+function FilaEmpezando() {
+  const reducido = useMovimientoReducido();
+  return (
+    <motion.li className="razon-fila razon-pensar razon-viva" {...ENTRADA(reducido)}>
+      <Carril Icono={IconBulb} ultimo viva />
+      <div className="razon-cuerpo">
+        <span className="razon-cabeza">
+          <span className="razon-etiqueta"><Shimmer>{tr('Pensando')}</Shimmer></span>
+          <i className="razon-sep" aria-hidden="true" />
+          <span className="razon-texto">{tr('leyendo la pregunta y lo que ya sabe')}</span>
+        </span>
+      </div>
     </motion.li>
   );
 }
@@ -228,16 +255,7 @@ export function Razonamiento({ pasos, ahora, enMarcha = false, plegable = false 
     if (!enMarcha) return null;
     return (
       <ol className="razon">
-        <li className="razon-fila razon-pensar razon-viva">
-          <Carril Icono={IconBulb} ultimo viva />
-          <div className="razon-cuerpo">
-            <span className="razon-cabeza">
-              <span className="razon-etiqueta"><Shimmer>{tr('Pensando')}</Shimmer></span>
-              <i className="razon-sep" aria-hidden="true" />
-              <span className="razon-texto">{tr('leyendo la pregunta y lo que ya sabe')}</span>
-            </span>
-          </div>
-        </li>
+        <FilaEmpezando />
       </ol>
     );
   }
@@ -269,12 +287,15 @@ export function Razonamiento({ pasos, ahora, enMarcha = false, plegable = false 
   pasos.forEach((p, i) => {
     const ultimoPaso = i === pasos.length - 1;
     if (p.tipo === 'pensar') {
-      const largo = (p.texto ?? '').length > PENSAMIENTO_CORTO && !(ultimoPaso && enMarcha && !p.cierra);
-      filas.push(largo ? <Prosa key={p.id} p={p} ultimo={ultimoPaso} /> : <Pensamiento key={p.id} p={p} ultimo={ultimoPaso} enMarcha={enMarcha} />);
+      filas.push(<Pensamiento key={p.id} p={p} ultimo={ultimoPaso} enMarcha={enMarcha} />);
       return;
     }
     filas.push(<Herramienta key={p.id} p={p} ahora={ahora} ultimo={ultimoPaso} enMarcha={enMarcha} />);
-    if (p.resumen && !p.error) filas.push(<SubPaso key={`${p.id}-sub`} texto={p.resumen} ultimo={ultimoPaso} />);
+    // El sub-paso solo si dice algo que la fila no diga ya: con fuente y
+    // cuenta, la fila ya lo dice («Exa | (E) 10 resultados») y repetirlo
+    // debajo era ruido.
+    const yaLoDiceLaFila = !!p.fuente && typeof p.n === 'number';
+    if (p.resumen && !p.error && !yaLoDiceLaFila) filas.push(<SubPaso key={`${p.id}-sub`} texto={p.resumen} ultimo={ultimoPaso} />);
   });
 
   return (

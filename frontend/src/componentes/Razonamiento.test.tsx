@@ -123,6 +123,15 @@ describe('lo que hace que se parezca a Kimi', () => {
     expect(subpasos()[0]!.textContent).toContain('12 hechos');
   });
 
+  it('con fuente y cuenta en la fila, el sub-paso no repite lo mismo debajo', async () => {
+    const pasos: PasoRazonamiento[] = [
+      { id: 'a', tipo: 'herramienta', herramienta: 'exa', familia: 'base', nombre: 'Exa', argumentos: { consulta: 'GFAP' }, inicio: T, fin: T + 900, error: null, resumen: 'Exa: 10 resultados', fuente: 'Exa', n: 10 },
+    ];
+    await pintar(<Razonamiento pasos={pasos} ahora={T + 2000} />);
+    expect(subpasos()).toHaveLength(0);
+    expect(nodo.textContent).toContain('10 resultados');
+  });
+
   it('un pensamiento largo es prosa, no una fila con bombilla', async () => {
     const largo = 'El modelo de mundo ya tiene cuatro hechos sobre GFAP en portadores de APOE4, pero ninguno longitudinal. Voy a buscar en la literatura cohortes con medidas seriadas antes de contestar.';
     const pasos: PasoRazonamiento[] = [

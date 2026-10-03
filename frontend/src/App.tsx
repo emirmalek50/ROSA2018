@@ -153,6 +153,8 @@ export default function App() {
   }, [idActual, faltaActual, remoto]);
   const ahora = useAhora();
   const [menuAbierto, setMenuAbierto] = useState(false);
+  // Solo la primera página salta su fundido de entrada: la app abre quieta.
+  const primeraPagina = useRef(true);
   const [cajonAbierto, setCajonAbierto] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [recorrido, setRecorrido] = useState(() => !recorridoVisto());
@@ -329,8 +331,16 @@ export default function App() {
             </button>
           </div>
         )}
-        <AnimatePresence mode="popLayout" initial={false}>
-          <motion.div key={clavePagina} className="pagina" variants={pagina} initial="oculto" animate="visible" exit="salida">
+        {/* OJO con `initial={false}` aquí: en AnimatePresence se hereda hacia
+            abajo y hace que TODO motion.* del árbol salte su entrada al
+            montarse. Estuvo así y ninguna fila de la línea de tiempo del chat,
+            ningún menú ni ningún turno animaba al aparecer; se veía todo de
+            golpe (Emir, 3 de octubre de 2026: «las cosas aparecen de
+            repente»). Lo que se quería era que la PRIMERA página no hiciera
+            fundido al cargar: eso va en el initial del motion.div de la
+            página, que solo afecta a la página. */}
+        <AnimatePresence mode="popLayout">
+          <motion.div key={clavePagina} className="pagina" variants={pagina} initial={primeraPagina.current ? false : 'oculto'} animate="visible" exit="salida" onAnimationComplete={() => { primeraPagina.current = false; }}>
             <Limite clave={claveRuta} ambito={trp('la pantalla {pantalla}', { pantalla: titulo ?? ruta.tipo })}>{cuerpo}</Limite>
           </motion.div>
         </AnimatePresence>

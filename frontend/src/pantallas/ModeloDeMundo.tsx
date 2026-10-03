@@ -64,6 +64,7 @@ import {
 } from "../componentes/icons";
 import { RelacionesCausales } from "../componentes/Rosa2018";
 import { COBERTURA_MINIMA, faltanParaCobertura } from "../lib/cobertura";
+import { useSeguirFondo } from "../lib/seguirFondo";
 import {
   atributosEnVuelo,
   useCalculoDiferido,
@@ -860,10 +861,14 @@ function Conversar(p: PropsConversar) {
   ].sort((a, b) => a.fecha - b.fecha);
   const final = useRef<HTMLDivElement>(null);
   const cuantos = turnos.length + (pendiente ? 1 : 0);
-  useEffect(() => {
-    if (cuantos > 0)
-      final.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
-  }, [cuantos]);
+  // El chat sigue el fondo mientras CRECE: con cada paso que llega en vivo,
+  // con la respuesta, con un turno nuevo. Antes solo bajaba al cambiar el
+  // número de turnos, y una respuesta en marcha no lo cambia (lib/seguirFondo).
+  // Si la persona subió a leer, se la deja; al mandar un mensaje, se baja
+  // siempre.
+  const ultimoTurno = turnos.at(-1);
+  const crece = `${cuantos}|${p.pasosEnVivo.length}|${pendiente?.listo ? 1 : 0}|${ultimoTurno?.tipo === "guardada" ? ultimoTurno.q.respuesta.length : 0}`;
+  useSeguirFondo(crece, pendiente?.desde ?? 0, cuantos > 0);
 
   if (turnos.length === 0 && !pendiente) {
     return (
