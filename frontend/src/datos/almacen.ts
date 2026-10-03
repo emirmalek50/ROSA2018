@@ -122,6 +122,11 @@ export function useRosa(): EstadoRosa {
  *  firmaria «la persona responsable» unas veces y otra cosa otras, y el
  *  registro dejaria de poder agruparse por quien. Se traduce al enseñarlo,
  *  no al guardarlo. */
+// Sin tr(): es el `quien` que viaja al servidor con cada revisión, propuesta
+// y comentario, y se GUARDA en el registro de acciones. Traducido, la misma
+// persona firmaría «la persona responsable» o «the responsible person» según
+// el idioma de la pantalla, y el registro dejaría de ser una sola voz. Se
+// traduce al enseñarlo, no al guardarlo (misma regla que los reductores).
 export const QUIEN = 'la persona responsable';
 
 export function modoActual(): 'muestra' | 'servidor' {

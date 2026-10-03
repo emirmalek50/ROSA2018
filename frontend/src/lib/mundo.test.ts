@@ -147,6 +147,40 @@ describe('el texto de la respuesta', () => {
     expect(fuente.some((t) => t.tipo === 'herramienta' && t.nombre === 'exa_publicaciones')).toBe(true);
   });
 
+  it('lee una tabla con su fila de guiones, y sin ella deja las barras como texto', () => {
+    const t = analizarTexto(['Antes.', '| Hallazgo | Certeza |', '|:---|---:|', '| Placas | **Moderada** |', '| APOE4 |', 'Después.'].join('\n'));
+    expect(t.map((b) => b.tipo)).toEqual(['parrafo', 'tabla', 'parrafo']);
+    const tabla = t[1] as Extract<(typeof t)[number], { tipo: 'tabla' }>;
+    expect(tabla.cabecera.map(textoPlano)).toEqual(['Hallazgo', 'Certeza']);
+    // Cada fila tiene tantas celdas como la cabecera, aunque le falten.
+    expect(tabla.filas.map((f) => f.map(textoPlano))).toEqual([['Placas', 'Moderada'], ['APOE4', '']]);
+    expect(tabla.filas[0]![1]![0]!.tipo).toBe('negrita');
+    expect(analizarTexto('| solo una línea con barras |').map((b) => b.tipo)).toEqual(['parrafo']);
+    expect(referenciasDe(analizarTexto('| Ensayo |\n| --- |\n| NCT04777396 |')).ensayos).toEqual(['NCT04777396']);
+  });
+
+  it('«*Fuente: ...*» en cursiva también es línea de fuente', () => {
+    expect(esLineaDeFuente(analizarLinea('*Fuente: PubMed, 2024*'))).toBe(true);
+    expect(esLineaDeFuente(analizarLinea('*Fuentes abiertas en el hipocampo*'))).toBe(false);
+  });
+
+  it('lee una tabla con su fila de guiones, y sin ella deja las barras como texto', () => {
+    const t = analizarTexto('Antes\n| Hallazgo | Certeza |\n| :-- | --: |\n| TREM2 y placas | **Moderada** |\n| APOE4 |\nDespués');
+    expect(t.map((b) => b.tipo)).toEqual(['parrafo', 'tabla', 'parrafo']);
+    const tabla = t[1] as Extract<(typeof t)[number], { tipo: 'tabla' }>;
+    expect(tabla.cabecera.map(textoPlano)).toEqual(['Hallazgo', 'Certeza']);
+    expect(tabla.filas.map((f) => f.map(textoPlano))).toEqual([['TREM2 y placas', 'Moderada'], ['APOE4', '']]);
+    expect(tabla.filas[0]![1]![0]!.tipo).toBe('negrita');
+    expect(analizarTexto('a | b | c\n| sin separador |').map((b) => b.tipo)).toEqual(['parrafo']);
+    expect(referenciasDe(analizarTexto('| PMID |\n| --- |\n| PMID 12345678 |')).pmids).toEqual(['12345678']);
+  });
+
+  it('una línea entera en cursiva que empieza por «Fuente:» es pie de fuente', () => {
+    expect(esLineaDeFuente(analizarLinea('*Fuente: PubMed, 2024*'))).toBe(true);
+    expect(esLineaDeFuente(analizarLinea('*Sources: Exa*'))).toBe(true);
+    expect(esLineaDeFuente(analizarLinea('*La fuente principal es PubMed*'))).toBe(false);
+  });
+
   it('un asterisco suelto o una negrita sin cerrar se quedan como texto', () => {
     expect(textoPlano(analizarLinea('3 * 4 = 12 y **sin cerrar'))).toBe('3 * 4 = 12 y **sin cerrar');
     expect(analizarLinea('a **b** c').map((t) => t.tipo)).toEqual(['texto', 'negrita', 'texto']);

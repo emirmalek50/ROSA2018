@@ -99,20 +99,7 @@ def herramientas(estado: dict[str, Any], investigacion_id: str, registro: list[d
     async def leer_modelo_de_mundo(tema: str) -> str:
         # Por significado si hay índice semántico y almacén (encuentra "astrocitos
         # antes que axones" aunque el hecho diga GFAP y NfL); si no, por texto.
-        hechos = [h for h in estado.get("hechos", []) if (investigacion_id == "global" or h["investigacionId"] == investigacion_id) and h.get("estado") in ("sabido", "abierto")]
-        hits: list[dict[str, Any]] = []
-        if almacen is not None and indice_semantico.disponible():
-            try:
-                por_id = {h["id"]: h for h in hechos}
-                for hit in await indice_semantico.de_almacen(almacen).buscar(tema, k=12, investigacion_id=None if investigacion_id == "global" else investigacion_id, tipos=("hecho",)):
-                    h = por_id.get(str(hit["id"]).split(":", 1)[-1])
-                    if h is not None:
-                        hits.append(h)
-            except Exception:  # noqa: BLE001  el índice nunca tumba una herramienta
-                hits = []
-        if not hits:
-            t = tema.lower()
-            hits = [h for h in hechos if t in (h.get("enunciado", "") + " " + h.get("tema", "")).lower()][:12]
+        hits = await hechos_sobre(estado, investigacion_id, tema, almacen)
         # Vecinos del grafo (rosa/grafo.py): qué hipótesis respalda cada hecho, y las
         # cuestiones ligadas. Sin fragmentos de fuentes: solo referencias y títulos.
         inv = next((i for i in estado.get("investigaciones", []) if i["id"] == investigacion_id), None)
@@ -147,6 +134,36 @@ def herramientas(estado: dict[str, Any], investigacion_id: str, registro: list[d
     tools.append(dspy.Tool(buscar_en_proyecto, name="buscar_en_proyecto", desc="Busca en el propio proyecto: hipótesis, hechos, artefactos, decisiones, fuentes y datasets de esta investigación. Usar antes de preguntar a una persona por algo que ya esta decidido.", args={"consulta": {"type": "string", "description": "Palabras del dominio, un identificador o una frase"}}, arg_types={"consulta": str}))
     tools.append(dspy.Tool(leer_modelo_de_mundo, name="leer_modelo_de_mundo", desc="Los hechos sabidos y abiertos del modelo de mundo sobre un tema, con sus fuentes, las hipótesis que respaldan y las cuestiones ligadas.", args={"tema": {"type": "string", "description": "Tema o biomarcador"}}, arg_types={"tema": str}))
     return tools
+
+
+async def hechos_sobre(estado: dict[str, Any], investigacion_id: str, tema: str, almacen: Any = None, maximo: int = 12) -> list[dict[str, Any]]:
+    """Los hechos sabidos y abiertos del modelo de mundo sobre un tema. Por
+    significado si hay índice semántico y almacén (encuentra "astrocitos antes
+    que axones" aunque el hecho diga GFAP y NfL); si no, por texto: el tema
+    entero o todas sus palabras de más de dos letras."""
+    hechos = [h for h in estado.get("hechos", []) if (investigacion_id == "global" or h["investigacionId"] == investigacion_id) and h.get("estado") in ("sabido", "abierto")]
+    hits: list[dict[str, Any]] = []
+    if almacen is not None and indice_semantico.disponible():
+        try:
+            por_id = {h["id"]: h for h in hechos}
+            for hit in await indice_semantico.de_almacen(almacen).buscar(tema, k=maximo, investigacion_id=None if investigacion_id == "global" else investigacion_id, tipos=("hecho",)):
+                h = por_id.get(str(hit["id"]).split(":", 1)[-1])
+                if h is not None:
+                    hits.append(h)
+        except Exception:  # noqa: BLE001  el índice nunca tumba una herramienta
+            hits = []
+    if not hits:
+        t = tema.lower().strip()
+        palabras = [p for p in re.split(r"[^\w-]+", t) if len(p) > 2]
+        if not t:
+            return []
+
+        def casa(h: dict[str, Any]) -> bool:
+            texto = (h.get("enunciado", "") + " " + h.get("tema", "")).lower()
+            return t in texto or (bool(palabras) and all(p in texto for p in palabras))
+
+        hits = [h for h in hechos if casa(h)][:maximo]
+    return hits
 
 
 def buscar_proyecto(estado: dict[str, Any], investigacion_id: str, consulta: str, maximo: int = 12) -> list[dict[str, Any]]:

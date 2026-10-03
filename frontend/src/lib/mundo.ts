@@ -389,7 +389,16 @@ export type Trozo =
 export type Bloque =
   | { tipo: 'titulo'; nivel: number; trozos: Trozo[] }
   | { tipo: 'parrafo'; lineas: Trozo[][] }
-  | { tipo: 'lista'; ordenada: boolean; items: { lineas: Trozo[][] }[] };
+  | { tipo: 'lista'; ordenada: boolean; items: { lineas: Trozo[][] }[] }
+  | { tipo: 'tabla'; cabecera: Trozo[][]; filas: Trozo[][][] };
+
+/** Las celdas de una fila `| a | b |`, sin las barras de los extremos. */
+function celdas(linea: string): string[] {
+  return linea.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+}
+
+const RE_FILA_TABLA = /^\s{0,3}\|.*\|\s*$/;
+const RE_SEPARADOR_TABLA = /^\s{0,3}\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 
 const RE_DOI = /^10\.\d{4,9}\/[^\s`"'<>]+$/;
 const RE_NCT = /^NCT\d{8}$/;
@@ -454,7 +463,8 @@ export function analizarLinea(linea: string, herramientas: Set<string> = new Set
 }
 
 /** El texto en bloques: títulos (#), listas (-, *, 1.) con sus líneas de
- *  continuación y párrafos separados por una línea en blanco. */
+ *  continuación, tablas (`| a | b |` con su fila de guiones) y párrafos
+ *  separados por una línea en blanco. */
 export function analizarTexto(texto: string, herramientas: Set<string> = new Set()): Bloque[] {
   const bloques: Bloque[] = [];
   let parrafo: Trozo[][] | null = null;
@@ -465,8 +475,25 @@ export function analizarTexto(texto: string, herramientas: Set<string> = new Set
     parrafo = null;
     lista = null;
   };
-  for (const cruda of (texto ?? '').replace(/\r\n?/g, '\n').split('\n')) {
-    const linea = cruda.replace(/\s+$/, '');
+  const lineas = (texto ?? '').replace(/\r\n?/g, '\n').split('\n');
+  for (let i = 0; i < lineas.length; i++) {
+    const linea = lineas[i]!.replace(/\s+$/, '');
+    // Una tabla de verdad lleva cabecera y la fila de guiones debajo; sin
+    // ella, una línea con barras se queda como texto.
+    if (RE_FILA_TABLA.test(linea) && RE_SEPARADOR_TABLA.test(lineas[i + 1] ?? '')) {
+      cerrar();
+      const cabecera = celdas(linea);
+      const filas: Trozo[][][] = [];
+      i += 2;
+      while (i < lineas.length && RE_FILA_TABLA.test(lineas[i]!)) {
+        const fila = celdas(lineas[i]!);
+        filas.push(cabecera.map((_, j) => analizarLinea(fila[j] ?? '', herramientas)));
+        i++;
+      }
+      i--;
+      bloques.push({ tipo: 'tabla', cabecera: cabecera.map((c) => analizarLinea(c, herramientas)), filas });
+      continue;
+    }
     if (linea.trim() === '') {
       // Una línea en blanco dentro de una lista no la corta si sigue otra viñeta o una continuación sangrada.
       if (parrafo) cerrar();
@@ -520,6 +547,7 @@ export function referenciasDe(bloques: Bloque[]): { dois: string[]; ensayos: str
   for (const b of bloques) {
     if (b.tipo === 'titulo') ver(b.trozos);
     else if (b.tipo === 'parrafo') b.lineas.forEach(ver);
+    else if (b.tipo === 'tabla') [b.cabecera, ...b.filas].forEach((f) => f.forEach(ver));
     else b.items.forEach((i) => i.lineas.forEach(ver));
   }
   return { dois: [...r.dois], ensayos: [...r.ensayos], pmids: [...r.pmids], hechos: [...r.hechos] };
@@ -555,5 +583,8 @@ export function textoPlano(ts: Trozo[]): string {
  *  más pequeña, como pie del punto. */
 export function esLineaDeFuente(ts: Trozo[]): boolean {
   const primero = ts.find((t) => !(t.tipo === 'texto' && t.texto.trim() === ''));
-  return !!primero && primero.tipo === 'negrita' && /^\s*(fuentes?|source)s?\s*:?\s*$/i.test(textoPlano(primero.trozos));
+  if (!primero) return false;
+  if (primero.tipo === 'negrita') return /^\s*(fuentes?|source)s?\s*:?\s*$/i.test(textoPlano(primero.trozos));
+  // También «*Fuente: ...*», la línea entera en cursiva.
+  return primero.tipo === 'cursiva' && /^\s*(fuentes?|sources?)\s*:/i.test(textoPlano(primero.trozos));
 }

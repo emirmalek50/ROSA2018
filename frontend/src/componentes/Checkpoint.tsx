@@ -61,8 +61,8 @@ export function GuardarEnMemoria({ propuesta, alGuardar }: { propuesta: string; 
   const [texto, setTexto] = useState(propuesta);
   if (!abierto) {
     return (
-      <button type="button" className="mundo-accion" onClick={() => { setTexto(propuesta); setAbierto(true); }}>
-        <IconBookmark size={13} /> {tr('Que lo recuerde')}
+      <button type="button" className="mundo-accion" title={tr('Que lo recuerde')} onClick={() => { setTexto(propuesta); setAbierto(true); }}>
+        <IconBookmark size={15} /> <span className="mundo-accion-nombre">{tr('Que lo recuerde')}</span>
       </button>
     );
   }

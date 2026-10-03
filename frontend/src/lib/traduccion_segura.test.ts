@@ -146,6 +146,15 @@ describe('en todo el código, nada que sea dato pasa por tr()', () => {
 });
 
 describe('lo que escriben los reductores no depende del idioma', () => {
+  it('QUIEN, el autor que viaja al servidor, no se traduce', () => {
+    // Es el `quien` de cada revisión, propuesta y comentario, y se GUARDA en
+    // el registro de acciones. Con tr() la misma persona firmaría en dos
+    // idiomas según la pantalla (estuvo así sin commitear el 2 de octubre de
+    // 2026). Se traduce al enseñarlo, no al guardarlo.
+    const src = readFileSync(join(__dirname, '..', 'datos', 'almacen.ts'), 'utf8');
+    expect(src).toMatch(/^export const QUIEN = '[^']+';$/m);
+  });
+
   it('datos/acciones.ts no traduce nada: lo que escribe se guarda', () => {
     // Está duplicado uno a uno con rosa/estado/acciones.py, que escribe en
     // castellano. Si este escribiera en el idioma de la pantalla, el mismo

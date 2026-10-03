@@ -201,6 +201,8 @@ describe('lo que se toca en el modelo de mundo', () => {
     // Ni «Preguntado antes» ni iconos en las sugerencias.
     expect(nodo.textContent).not.toContain('Preguntado antes');
     expect(nodo.querySelector('.mundo-sugerencia svg')).toBeNull();
+    expect(nodo.querySelector('.mundo-sugerencias-titulo')?.textContent).toBe('Para empezar');
+    expect(nodo.querySelector('.mundo-vacio-cabeza .mundo-vacio-cara')).not.toBeNull();
     const entrada = nodo.querySelector('textarea')!;
     await act(async () => escribir(entrada, `¿Qué sabe de ${palabra}?`));
     await pulsar(nodo.querySelector('.mundo-enviar'));
@@ -218,12 +220,12 @@ describe('lo que se toca en el modelo de mundo', () => {
     expect(nodo.querySelector('.mundo-detalle')?.textContent).toContain('De dónde sale');
   });
 
-  it('una respuesta guardada lleva la marca, «búsquedas | documentos | s», la cobertura y el pie de atribución', async () => {
+  it('una respuesta guardada lleva la marca, «Pensó s · búsquedas · documentos», la cobertura y el pie de atribución', async () => {
     const e = estadoDeMuestra();
     const inv = e.investigaciones[0]!;
     inv.preguntasABases = [
       {
-        id: 'pb-1', fecha: AHORA_MUESTRA - 60_000, pregunta: '¿Qué se sabe de p-tau217?', respuesta: 'No encuentro información sobre p-tau217 en los documentos.', limites: 'No hay estudios en plasma.', hilo: 'h-prueba',
+        id: 'pb-1', fecha: AHORA_MUESTRA - 60_000, pregunta: '¿Qué se sabe de p-tau217?', respuesta: 'No encuentro información sobre p-tau217 en los documentos.\n\n| Matriz | Estudios |\n| --- | --- |\n| Plasma | ninguno |', limites: 'No hay estudios en plasma.', hilo: 'h-prueba',
         herramientas: ['leer_modelo_de_mundo', 'buscar_pubmed', 'buscar_pubmed'], iteraciones: 4, quien: 'emir', error: null, duracionMs: 19_200,
         consultas: [{ id: 'c1', herramienta: 'buscar_pubmed', fuente: 'PubMed', argumentos: {}, fecha: 1, n: 7, ids: ['1', '2', '3', '4', '5', '6', '7'], version: null, invariante: null, error: null, ms: 900, resumen: '' }],
         cobertura: [
@@ -246,7 +248,7 @@ describe('lo que se toca en el modelo de mundo', () => {
     expect(cara.getAttribute('aria-label')).toMatch(/ROSA2018/);
     expect(cara.querySelector('img.persona-marca')?.getAttribute('src')).toBe('/arbol-marca.png');
     const cabeza = r.querySelector('.mundo-busqueda')!;
-    expect([...cabeza.querySelectorAll('.mundo-busqueda-dato')].map((x) => x.textContent)).toEqual(['3 búsquedas', '7 documentos', '19 s']);
+    expect([...cabeza.querySelectorAll('.mundo-busqueda-dato')].map((x) => x.textContent)).toEqual(['Pensó 19 s', '3 búsquedas', '7 documentos']);
     expect([...cabeza.querySelectorAll('.mundo-fuente')].map((x) => x.textContent)).toEqual(['M', 'P']);
     expect(r.querySelector('.mundo-cobertura-titulo')?.textContent).toBe('Cobertura de la pregunta');
     expect(r.querySelectorAll('.mundo-cobertura-parte.mundo-cob-no_esta')).toHaveLength(2);
@@ -254,10 +256,19 @@ describe('lo que se toca en el modelo de mundo', () => {
     // Con cobertura, «Lo que no pudo comprobar» no se repite aparte.
     expect(r.querySelector('.mundo-limites')).toBeNull();
     expect(r.querySelector('.mundo-atribucion-bien')?.textContent).toContain('La respuesta se abstiene y no cita: correcto, nada que atribuir.');
-    // La cabecera abre las consultas.
+    // Una tabla en markdown se pinta como tabla, no como barras sueltas.
+    expect([...r.querySelectorAll('.mundo-tabla th')].map((x) => x.textContent)).toEqual(['Matriz', 'Estudios']);
+    expect([...r.querySelectorAll('.mundo-tabla td')].map((x) => x.textContent)).toEqual(['Plasma', 'ninguno']);
+    expect(r.textContent).not.toContain('| ---');
+    // Acciones solo con icono, pero con nombre para el lector de pantalla.
+    expect(r.querySelector('.mundo-acciones-iconos .mundo-accion-nombre')?.textContent).toBe('Copiar');
+    expect(r.textContent).not.toContain('Seguir preguntando');
+    // Como «Pensó 8 s» en ChatGPT: los pasos y las consultas se abren desde
+    // la cabecera, y la respuesta queda arriba.
     expect(r.querySelector('.mundo-rastro-detalle')).toBeNull();
+    expect(r.querySelector('.rastro-pasos')).toBeNull();
     await pulsar(cabeza);
-    expect(r.querySelector('.mundo-rastro-detalle')).not.toBeNull();
+    expect(r.querySelector('.mundo-rastro-detalle .rastro-pasos')).not.toBeNull();
     expect(cabeza.getAttribute('aria-expanded')).toBe('true');
   });
 

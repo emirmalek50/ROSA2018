@@ -341,18 +341,14 @@ function SiluetaMundo({ vista }: { vista: Vista }) {
       {barra}
       <div className="mundo-vacio" aria-hidden="true">
         <div className="mundo-vacio-cabeza">
-          <Esqueleto
-            ancho={420}
-            alto={30}
-            radio={8}
-            className="mundo-esq-centro"
-          />
-          <Esqueleto ancho={520} alto={14} className="mundo-esq-centro" />
-          <Esqueleto ancho={380} alto={14} className="mundo-esq-centro" />
+          <Esqueleto ancho={44} alto={44} radio={999} />
+          <Esqueleto ancho={460} alto={32} radio={8} />
         </div>
         <div className="mundo-compositor mundo-compositor-esqueleto">
           <Esqueleto ancho="60%" alto={14} />
           <div className="mundo-compositor-pie">
+            <Esqueleto ancho={34} alto={34} radio={999} />
+            <span className="mundo-compositor-hueco" />
             <Esqueleto ancho={34} alto={34} radio={999} />
           </div>
         </div>
@@ -873,18 +869,15 @@ function Conversar(p: PropsConversar) {
     return (
       <div className="mundo-vacio">
         <div className="mundo-vacio-cabeza">
+          <Persona estado="quieta" tamano={44} marca className="mundo-vacio-cara" />
           <h3 className="mundo-vacio-titulo">
             {tr("¿Qué quieres saber de tu investigación?")}
           </h3>
-          <p className="mundo-vacio-sub">
-            {tr(
-              "Pregunta en lenguaje normal. ROSA2018 responde con lo que ya sabe y, si hace falta, busca en las publicaciones. Siempre te dice de dónde sale cada cosa.",
-            )}
-          </p>
         </div>
         <Compositor {...p} grande />
         {base.sugerencias.length > 0 && (
           <div className="mundo-sugerencias">
+            <span className="mundo-sugerencias-titulo">{tr("Para empezar")}</span>
             {base.sugerencias.map((s) => (
               <button
                 key={s.pregunta}
@@ -923,7 +916,6 @@ function Conversar(p: PropsConversar) {
                 ahora={ahora}
                 base={base}
                 abrirHecho={p.abrirHecho}
-                enfocar={p.enfocar}
                 reintentar={() => p.enviar(t.q.pregunta, "bases")}
                 ocupado={pendiente !== null}
                 recordar={(texto) => acciones.anadirMemoria(p.inv.id, texto)}
@@ -1023,151 +1015,154 @@ function Compositor({
   const vacio = texto.trim() === "";
   const n = base.propios.length;
   return (
-    <form
-      className={`mundo-compositor${grande ? " mundo-compositor-grande" : ""}`}
-      onSubmit={(e) => {
-        e.preventDefault();
-        enviar(texto);
-      }}
-    >
-      <textarea
-        ref={entrada}
-        className="mundo-compositor-texto"
-        rows={grande ? 2 : 1}
-        value={texto}
-        placeholder={
-          modo === "bases"
-            ? tr(
-                "Habla con ROSA: consulta una proteína, revisa los hechos o pon una investigación en marcha...",
-              )
-            : tr("Busca entre lo que ya sabe...")
-        }
-        aria-label={tr("Pregunta al modelo de mundo")}
-        onChange={(e) => {
-          if (voz === "escuchando") soltarVoz();
-          setTexto(e.target.value);
+    <div className="mundo-compositor-zona">
+      <form
+        className={`mundo-compositor${grande ? " mundo-compositor-grande" : ""}`}
+        onSubmit={(e) => {
+          e.preventDefault();
+          enviar(texto);
         }}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            enviar(texto);
+      >
+        <textarea
+          ref={entrada}
+          className="mundo-compositor-texto"
+          rows={grande ? 2 : 1}
+          value={texto}
+          placeholder={
+            modo === "bases"
+              ? tr(
+                  "Habla con ROSA: consulta una proteína, revisa los hechos o pon una investigación en marcha...",
+                )
+              : tr("Busca entre lo que ya sabe...")
           }
-        }}
-      />
-      {modo === "bases" && <AdjuntosAsistente investigacionId={inv.id} alSubir={setTexto} disabled={pendiente !== null} />}
-      <div className="mundo-compositor-pie">
-        {/* La cara junto a la caja: escucha mientras escribes y piensa
-            mientras busca. Es lo que hace que se sienta que hay alguien al
-            otro lado, sin escribir «ROSA2018 está escuchando» en ningun
-            sitio. */}
-        {/* La cara es el boton de hablar. Pulsarla: si esta callada, te
-            escucha (y lo que dices se va escribiendo en la caja); si te esta
-            escuchando, para y lo manda; si te esta leyendo una respuesta, se
-            calla. Sin reconocimiento de voz en el navegador, es solo la cara,
-            sin boton que no funcione. */}
-        {puedeEscuchar() ? (
-          <button
-            type="button"
-            className={`mundo-hablar mundo-hablar-${voz}`}
-            onClick={pulsarCara}
-            disabled={pendiente !== null && voz !== "hablando"}
-            aria-pressed={voz === "escuchando"}
-            aria-label={
-              voz === "escuchando"
-                ? tr("Dejar de escuchar y enviar")
-                : voz === "hablando"
-                  ? tr("Que se calle")
-                  : tr("Hablar con ROSA2018")
+          aria-label={tr("Pregunta al modelo de mundo")}
+          onChange={(e) => {
+            if (voz === "escuchando") soltarVoz();
+            setTexto(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              enviar(texto);
             }
-            title={
-              voz === "escuchando"
-                ? tr("Te está escuchando. Pulsa para enviar, o cállate y se envía sola.")
-                : voz === "hablando"
-                  ? tr("Te está leyendo la respuesta. Pulsa para que se calle.")
-                  : tr("Hablar con ROSA2018. Lo que digas se escribe aquí y se envía al callarte; la respuesta te la lee en voz alta.")
-            }
-          >
-            <Persona
-              estado={
-                voz === "escuchando" ? "escuchando" : voz === "hablando" ? "hablando" : pendiente !== null ? "pensando" : "quieta"
+          }}
+        />
+        <div className="mundo-compositor-pie">
+          {modo === "bases" && (<AdjuntosAsistente investigacionId={inv.id} alSubir={setTexto} disabled={pendiente !== null} />)}
+          <span className="mundo-compositor-hueco" />
+          {/* La cara junto a la caja: escucha mientras escribes y piensa
+              mientras busca. Es lo que hace que se sienta que hay alguien al
+              otro lado, sin escribir «ROSA2018 está escuchando» en ningun
+              sitio. */}
+          {/* La cara es el boton de hablar. Pulsarla: si esta callada, te
+              escucha (y lo que dices se va escribiendo en la caja); si te esta
+              escuchando, para y lo manda; si te esta leyendo una respuesta, se
+              calla. Sin reconocimiento de voz en el navegador, es solo la cara,
+              sin boton que no funcione. */}
+          {puedeEscuchar() ? (
+            <button
+              type="button"
+              className={`mundo-hablar mundo-hablar-${voz}`}
+              onClick={pulsarCara}
+              disabled={pendiente !== null && voz !== "hablando"}
+              aria-pressed={voz === "escuchando"}
+              aria-label={
+                voz === "escuchando"
+                  ? tr("Dejar de escuchar y enviar")
+                  : voz === "hablando"
+                    ? tr("Que se calle")
+                    : tr("Hablar con ROSA2018")
               }
-              tamano={30}
+              title={
+                voz === "escuchando"
+                  ? tr("Te está escuchando. Pulsa para enviar, o cállate y se envía sola.")
+                  : voz === "hablando"
+                    ? tr("Te está leyendo la respuesta. Pulsa para que se calle.")
+                    : tr("Hablar con ROSA2018. Lo que digas se escribe aquí y se envía al callarte; la respuesta te la lee en voz alta.")
+              }
+            >
+              <Persona
+                estado={
+                  voz === "escuchando" ? "escuchando" : voz === "hablando" ? "hablando" : pendiente !== null ? "pensando" : "quieta"
+                }
+                tamano={30}
+                marca
+              />
+              <span className="mundo-hablar-mic" aria-hidden="true">
+                <IconMic size={11} />
+              </span>
+            </button>
+          ) : (
+            <Persona
+              estado={pendiente !== null ? "pensando" : vacio ? "quieta" : "escuchando"}
+              tamano={26}
               marca
+              className="mundo-compositor-cara"
             />
-            <span className="mundo-hablar-mic" aria-hidden="true">
-              <IconMic size={11} />
-            </span>
-          </button>
-        ) : (
-          <Persona
-            estado={pendiente !== null ? "pensando" : vacio ? "quieta" : "escuchando"}
-            tamano={26}
-            marca
-            className="mundo-compositor-cara"
-          />
-        )}
-        <p className="mundo-compositor-nota">
-          {modo === "bases"
-            ? trp(
-                "ROSA consulta todo el proyecto y sus bases públicas. Los cambios que le pidas se revisan y aplican aquí.",
-                { n },
-              )
-            : trp(
-                "Busca solo entre los {n} hechos del modelo de mundo, al instante y sin salir fuera. Esta respuesta no se guarda.",
-                { n },
-              )}
-        </p>
-        {errorVoz && (
-          <p className="mundo-voz-error" role="alert">
-            {errorVoz}
-          </p>
-        )}
-        {/* Adonde va el audio, dicho mientras se escucha y no enterrado en
-            un comentario: en un proyecto medico eso se dice en pantalla. */}
-        {voz === "escuchando" && !errorVoz && (
-          <p className="mundo-voz-nota" role="status">
-            {cuentaVoz !== null ? (
-              <>
-                <span className="mundo-voz-cuenta">
-                  {trp("Se envía en {n} s", { n: Math.ceil(cuentaVoz / 1000) })}
-                </span>
-                <span className="mundo-voz-barra" aria-hidden="true">
-                  <i style={{ transform: `scaleX(${cuentaVoz / SILENCIO_PARA_ENVIAR_MS})` }} />
-                </span>
-                {tr("Sigue hablando y espera. Pulsa la cara para enviar ya, o escribe para corregir.")}
-              </>
-            ) : (
-              tr("Te escucho. Puedes pararte a pensar: se envía tras unos segundos de silencio.")
-            )}{" "}
-            <span className="mundo-voz-donde">
-              {tr("Tu voz la transcribe el navegador: Chrome en servidores de Google, Safari en los de Apple o en el propio Mac. La respuesta se lee con las voces del Mac y no sale de la máquina.")}
-            </span>
-          </p>
-        )}
-        {pendiente?.errorCancelacion && <p className="mundo-voz-error" role="alert">{pendiente.errorCancelacion}</p>}
-        {pendiente ? (
-          <button
-            type="button"
-            className="mundo-enviar mundo-detener"
-            onClick={cancelar}
-            disabled={pendiente.cancelando || pendiente.listo}
-            aria-label={tr(pendiente.cancelando ? "Deteniendo respuesta" : "Detener respuesta")}
-            title={tr(pendiente.cancelando ? "Deteniendo respuesta…" : "Detener respuesta")}
+          )}
+          {pendiente ? (
+            <button
+              type="button"
+              className="mundo-enviar mundo-detener"
+              onClick={cancelar}
+              disabled={pendiente.cancelando || pendiente.listo}
+              aria-label={tr(pendiente.cancelando ? "Deteniendo respuesta" : "Detener respuesta")}
+              title={tr(pendiente.cancelando ? "Deteniendo respuesta…" : "Detener respuesta")}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="2" /></svg>
+            </button>
+          ) : <button
+            type="submit"
+            className="mundo-enviar"
+            disabled={vacio || pendiente !== null}
+            aria-label={tr("Enviar")}
+            title={tr("Enviar (Intro). Mayúsculas + Intro para una línea nueva.")}
+            {...atributosEnVuelo(pendiente !== null)}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="2" /></svg>
-          </button>
-        ) : <button
-          type="submit"
-          className="mundo-enviar"
-          disabled={vacio || pendiente !== null}
-          aria-label={tr("Enviar")}
-          title={tr("Enviar (Intro). Mayúsculas + Intro para una línea nueva.")}
-          {...atributosEnVuelo(pendiente !== null)}
-        >
-          <IconArrowUp size={17} />
-        </button>}
-      </div>
-    </form>
+            <IconArrowUp size={17} />
+          </button>}
+        </div>
+      </form>
+      {errorVoz && (
+        <p className="mundo-voz-error" role="alert">
+          {errorVoz}
+        </p>
+      )}
+      {/* Adonde va el audio, dicho mientras se escucha y no enterrado en
+          un comentario: en un proyecto medico eso se dice en pantalla. */}
+      {voz === "escuchando" && !errorVoz && (
+        <p className="mundo-voz-nota" role="status">
+          {cuentaVoz !== null ? (
+            <>
+              <span className="mundo-voz-cuenta">
+                {trp("Se envía en {n} s", { n: Math.ceil(cuentaVoz / 1000) })}
+              </span>
+              <span className="mundo-voz-barra" aria-hidden="true">
+                <i style={{ transform: `scaleX(${cuentaVoz / SILENCIO_PARA_ENVIAR_MS})` }} />
+              </span>
+              {tr("Sigue hablando y espera. Pulsa la cara para enviar ya, o escribe para corregir.")}
+            </>
+          ) : (
+            tr("Te escucho. Puedes pararte a pensar: se envía tras unos segundos de silencio.")
+          )}{" "}
+          <span className="mundo-voz-donde">
+            {tr("Tu voz la transcribe el navegador: Chrome en servidores de Google, Safari en los de Apple o en el propio Mac. La respuesta se lee con las voces del Mac y no sale de la máquina.")}
+          </span>
+        </p>
+      )}
+      {pendiente?.errorCancelacion && <p className="mundo-voz-error" role="alert">{pendiente.errorCancelacion}</p>}
+      <p className="mundo-compositor-nota">
+        {modo === "bases"
+          ? trp(
+              "ROSA consulta todo el proyecto y sus bases públicas. Los cambios que le pidas se revisan y aplican aquí.",
+              { n },
+            )
+          : trp(
+              "Busca solo entre los {n} hechos del modelo de mundo, al instante y sin salir fuera. Esta respuesta no se guarda.",
+              { n },
+            )}
+      </p>
+    </div>
   );
 }
 
@@ -1186,7 +1181,7 @@ function BurbujaPregunta({ texto }: { texto: string }) {
 function CabezaRespuesta({ children, estado = "quieta" }: { children?: ReactNode; estado?: EstadoPersona }) {
   return (
     <div className="mundo-respuesta-cabeza">
-      <Persona estado={estado} tamano={estado === "pensando" ? 34 : 30} marca className="mundo-marca" />
+      <Persona estado={estado} tamano={26} marca className="mundo-marca" />
       {children}
     </div>
   );
@@ -1198,7 +1193,7 @@ const SEGUNDOS_HABLANDO = 6;
 
 const FUENTES_VISIBLES = 3;
 
-/** «3 búsquedas | 7 documentos | 19 s» y las pastillas de las fuentes. Abre
+/** «Pensó 19 s · 3 búsquedas · 7 documentos» y las pastillas de las fuentes. Abre
  *  la tabla de consultas. */
 function ResumenDeBusqueda({
   q,
@@ -1211,6 +1206,7 @@ function ResumenDeBusqueda({
 }) {
   const r = resumenBusqueda(q);
   const partes = [
+    ...(r.segundos !== null ? [trp("Pensó {n} s", { n: r.segundos })] : []),
     trp(r.busquedas === 1 ? "{n} búsqueda" : "{n} búsquedas", {
       n: r.busquedas,
     }),
@@ -1221,14 +1217,12 @@ function ResumenDeBusqueda({
           }),
         ]
       : []),
-    ...(r.segundos !== null ? [trp("{n} s", { n: r.segundos })] : []),
   ];
   const visibles = r.fuentes.slice(0, FUENTES_VISIBLES);
   const tonos = tonosDistintos(visibles);
   const resto = r.fuentes.length - visibles.length;
   const contenido = (
     <>
-      <IconSearch size={13} />
       {partes.map((t, i) => (
         <span key={i} className="mundo-busqueda-dato">
           {t}
@@ -1260,7 +1254,7 @@ function ResumenDeBusqueda({
       {alternar && (
         <IconChevronDown
           size={13}
-          style={{ transform: abierto ? "rotate(180deg)" : "none" }}
+          style={{ transform: abierto ? "none" : "rotate(-90deg)" }}
         />
       )}
     </>
@@ -1270,7 +1264,7 @@ function ResumenDeBusqueda({
       type="button"
       className="mundo-busqueda"
       aria-expanded={abierto}
-      title={tr("Ver qué consultó")}
+      title={tr("Ver cómo lo pensó y qué consultó")}
       onClick={alternar}
     >
       {contenido}
@@ -1374,6 +1368,7 @@ function BotonCopiar({ texto }: { texto: string }) {
     <button
       type="button"
       className="mundo-accion"
+      title={copiado ? tr("Copiado") : tr("Copiar")}
       onClick={() => {
         void navigator.clipboard?.writeText(texto).then(() => {
           setCopiado(true);
@@ -1381,8 +1376,8 @@ function BotonCopiar({ texto }: { texto: string }) {
         });
       }}
     >
-      {copiado ? <IconCheck size={13} /> : <IconCopy size={13} />}
-      {copiado ? tr("Copiado") : tr("Copiar")}
+      {copiado ? <IconCheck size={15} /> : <IconCopy size={15} />}
+      <span className="mundo-accion-nombre">{copiado ? tr("Copiado") : tr("Copiar")}</span>
     </button>
   );
 }
@@ -1534,6 +1529,33 @@ function TextoRico({ bloques, c }: { bloques: Bloque[]; c: Contexto }) {
               <Lineas lineas={b.lineas} c={c} />
             </p>
           );
+        if (b.tipo === "tabla")
+          return (
+            <div key={i} className="mundo-tabla">
+              <table>
+                <thead>
+                  <tr>
+                    {b.cabecera.map((celda, j) => (
+                      <th key={j} scope="col">
+                        <Trozos ts={celda} c={c} />
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {b.filas.map((fila, j) => (
+                    <tr key={j}>
+                      {fila.map((celda, k) => (
+                        <td key={k}>
+                          <Trozos ts={celda} c={c} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
         const Lista = b.ordenada ? "ol" : "ul";
         return (
           <Lista key={i}>
@@ -1586,7 +1608,6 @@ function TurnoGuardado({
   ahora,
   base,
   abrirHecho,
-  enfocar,
   reintentar,
   ocupado,
   recordar,
@@ -1597,7 +1618,6 @@ function TurnoGuardado({
   ahora: number;
   base: BaseMundo;
   abrirHecho: (id: string) => void;
-  enfocar: () => void;
   reintentar: () => void;
   ocupado: boolean;
   recordar: (texto: string) => void;
@@ -1624,7 +1644,7 @@ function TurnoGuardado({
       <BurbujaPregunta texto={q.pregunta} />
       <div className="mundo-respuesta">
         <CabezaRespuesta estado={!q.cancelada && ahora - q.fecha < SEGUNDOS_HABLANDO * 1000 ? "hablando" : "quieta"}>
-          {(pasos.length > 0 || (q.consultas ?? []).length > 0) && (
+          {(pasos.length > 0 || (q.consultas ?? []).length > 0 || (q.pasos ?? []).length > 0) && (
             <ResumenDeBusqueda
               q={q}
               abierto={abierto}
@@ -1632,18 +1652,17 @@ function TurnoGuardado({
             />
           )}
         </CabezaRespuesta>
-        {/* Los pasos se ven siempre: son pocas lineas y son lo que dice COMO
-            llego a la respuesta. Detras del desplegable queda solo el detalle
-            de cada llamada (argumentos, ids, invariante). */}
-        {(q.pasos ?? []).length > 0 ? (
-          <Razonamiento pasos={q.pasos!} ahora={ahora} plegable />
-        ) : (
-          // Las de antes del 2 de octubre no guardaban el razonamiento: se
-          // enseñan sus consultas, que es lo que sí quedó registrado.
-          (q.consultas ?? []).length > 0 && <PasosDeBusqueda pasos={pasosDeConsultas(q.consultas)} />
-        )}
+        {/* Como «Pensó 8 s» en ChatGPT y Claude: la respuesta va primero y
+            el camino (pasos y cada llamada) se abre desde la cabecera. */}
         {abierto && (
           <div className="mundo-rastro-detalle">
+            {(q.pasos ?? []).length > 0 ? (
+              <Razonamiento pasos={q.pasos!} ahora={ahora} />
+            ) : (
+              // Las de antes del 2 de octubre no guardaban el razonamiento: se
+              // enseñan sus consultas, que es lo que sí quedó registrado.
+              (q.consultas ?? []).length > 0 && <PasosDeBusqueda pasos={pasosDeConsultas(q.consultas)} />
+            )}
             {pasos.length > 0 && (
               <p className="mundo-rastro-frase">
                 {cuentaPasos(Math.max(1, q.iteraciones || 0))} ·{" "}
@@ -1696,7 +1715,7 @@ function TurnoGuardado({
               </aside>
             )}
             {veredicto && <PieAtribucion v={veredicto} />}
-            <div className="mundo-respuesta-acciones">
+            <div className="mundo-respuesta-acciones mundo-acciones-iconos">
               <BotonCopiar
                 texto={[
                   q.respuesta,
@@ -1705,18 +1724,14 @@ function TurnoGuardado({
                     : "",
                 ].join("")}
               />
-              <button type="button" className="mundo-accion" onClick={enfocar}>
-                <IconMessage size={13} />
-                {tr("Seguir preguntando")}
-              </button>
               {/* La memoria del proyecto ya existia (inv.memoria) pero vivia
                   en una lista de ajustes. Aqui se guarda donde pasa, y lo
                   guarda una persona: ROSA2018 no se apunta nada sola. */}
               <GuardarEnMemoria propuesta={q.pregunta} alGuardar={recordar} />
               {puedeHablar() && q.respuesta && (
-                <button type="button" className="mundo-accion" onClick={leer}>
-                  <IconVolumen size={13} />
-                  {tr("Léemela")}
+                <button type="button" className="mundo-accion" onClick={leer} title={tr("Léemela")}>
+                  <IconVolumen size={15} />
+                  <span className="mundo-accion-nombre">{tr("Léemela")}</span>
                 </button>
               )}
               {!veredicto && comprobables > 0 && (
