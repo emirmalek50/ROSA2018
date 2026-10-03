@@ -25,7 +25,7 @@ it.each(['dataset', 'h-1'])('adjunta %s solo al guardar y conserva la marca sint
   await act(async () => { selector.value = destino; selector.dispatchEvent(new Event('change', { bubbles: true })); });
   expect(subirDataset).not.toHaveBeenCalled();
   expect(subirDatosExperimento).not.toHaveBeenCalled();
-  await act(async () => (nodo.querySelector('fieldset button') as HTMLButtonElement).click());
+  await act(async () => (nodo.querySelector('[data-accion="guardar"]') as HTMLButtonElement).click());
   if (destino === 'dataset') expect(subirDataset).toHaveBeenCalledWith('inv-1', fichero, 'prueba.csv', '', true);
   else expect(subirDatosExperimento).toHaveBeenCalledWith('h-1', fichero, '', true);
   expect(alSubir).toHaveBeenCalledWith(expect.stringContaining('prueba.csv'));
@@ -44,7 +44,7 @@ it.each(['dataset', 'h-otra'])('desde global exige destinatario y sube %s a la i
   const archivo = nodo.querySelector('input[type="file"]')!;
   Object.defineProperty(archivo, 'files', { value: [fichero] });
   await act(async () => archivo.dispatchEvent(new Event('change', { bubbles: true })));
-  const guardar = nodo.querySelector<HTMLButtonElement>('fieldset button')!;
+  const guardar = nodo.querySelector<HTMLButtonElement>('[data-accion="guardar"]')!;
   expect(guardar.disabled).toBe(true);
   const [inv, tipo] = nodo.querySelectorAll('select');
   await act(async () => { inv!.value = 'otra'; inv!.dispatchEvent(new Event('change', { bubbles: true })); });
