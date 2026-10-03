@@ -100,7 +100,11 @@
   position: absolute;
   inset: -40px -90px -40px -80px;
   z-index: -1;
-  background: radial-gradient(ellipse 74% 100% at 22% 50%, rgba(8, 7, 11, 0.93) 38%, transparent 76%);
+  /* La elipse llega hasta el borde derecho del bloque: antes se desvanecia
+     al 76 % y la proteina pasaba por detras del final de las lineas largas
+     (visto el 3 de octubre de 2026 en una laptop, con la proteina mas cerca
+     del texto). El centro sigue a la izquierda, donde esta el nombre. */
+  background: radial-gradient(ellipse 92% 100% at 30% 50%, rgba(8, 7, 11, 0.94) 48%, rgba(8, 7, 11, 0.55) 78%, transparent 100%);
 }
 .lab-catalogo {
   display: flex;
@@ -160,6 +164,12 @@
   color: var(--lab-ambar);
   border-radius: 999px;
   padding: 5px 12px;
+  /* Fondo propio. Las pastillas caen en la parte del bloque donde su
+     degradado ya es transparente, y la proteina pasaba por detras del texto
+     (Emir, 3 de octubre de 2026). El mismo cristal que la hoja lateral. */
+  background: rgba(12, 11, 16, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 .lab-grado i {
   width: 5px;
