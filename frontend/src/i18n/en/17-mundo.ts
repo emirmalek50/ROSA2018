@@ -6,6 +6,17 @@
  *  original: lo que no encuentra, lo dice, y «no pudo comprobar» es «could
  *  not check», nunca «there is none». */
 export const MUNDO: Record<string, string> = {
+  // El menu «+» de adjuntar datos, rehecho el 2 de octubre de 2026.
+  'Guardar en ROSA': 'Save to ROSA',
+  'Quitar el archivo': 'Remove the file',
+  'Otra investigación': 'Another investigation',
+  '{destino}: {detalle}': '{destino}: {detalle}',
+  '¿A qué investigación?': 'Which investigation?',
+  'Resultados del experimento': 'Experiment results',
+  'Datos sintéticos de prueba': 'Synthetic test data',
+  'Resultados de un experimento': 'Results of an experiment',
+  'Hace falta una para guardar datos': 'You need one to save data',
+
   // La barra y las tres vistas.
   Vista: 'View',
   Conversar: 'Chat',
@@ -37,8 +48,7 @@ export const MUNDO: Record<string, string> = {
 
   // La conversación vacía.
   '¿Qué quieres saber de tu investigación?': 'What do you want to know about your research?',
-  'Pregunta en lenguaje normal. ROSA2018 responde con lo que ya sabe y, si hace falta, busca en las publicaciones. Siempre te dice de dónde sale cada cosa.':
-    'Ask in plain language. ROSA2018 answers with what it already knows and, if needed, searches the literature. It always tells you where each thing comes from.',
+  'Para empezar': 'To get started',
   'Pregunta abierta · prioridad alta': 'Open question · high priority',
   '¿Dónde se contradicen las fuentes?': 'Where do the sources contradict each other?',
   '{n} hecho con citas en contra': '{n} fact with citations against it',
@@ -68,7 +78,6 @@ export const MUNDO: Record<string, string> = {
   'Ver el hecho': 'See the fact',
   'No quedaron consultas registradas para esta respuesta.': 'No queries were recorded for this answer.',
   'Lo que no pudo comprobar': 'What it could not check',
-  'Seguir preguntando': 'Keep asking',
   '{n} referencia comprobable': '{n} checkable reference',
   '{n} referencias comprobables': '{n} checkable references',
   'leyó el modelo de mundo': 'read the world model',
@@ -87,7 +96,8 @@ export const MUNDO: Record<string, string> = {
   '{n} documento': '{n} document',
   '{n} documentos': '{n} documents',
   'Fuentes: {lista}': 'Sources: {lista}',
-  'Ver qué consultó': 'See what it checked',
+  'Ver cómo lo pensó y qué consultó': 'See how it reasoned and what it checked',
+  'Pensó {n} s': 'Thought for {n} s',
   'Cobertura de la pregunta': 'Question coverage',
   'Respondido con lo consultado': 'Answered from what it checked',
   'En parte': 'Partly',
