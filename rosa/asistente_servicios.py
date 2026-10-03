@@ -19,6 +19,7 @@ from rosa import killer as K
 
 # nombre: (ruta, descripción). Los parámetros se descubren en OpenAPI.
 LECTURAS = {
+    "eliminacion_dataset": ("/api/investigaciones/{investigacion_id}/datasets/{dataset_id}/eliminacion", "Comprueba el dataset, los usos que impiden borrarlo y si una eliminación anterior retiró también su archivo."),
     "laboratorio": ("/api/laboratorio", "Laboratorio global calculado: resumen, dianas, compuestos y descartes. Usa camino=resumen o dianas."),
     "experimentos_diana": ("/api/laboratorio/{uniprot}/experimentos", "Experimentos completos de una proteína UniProt."),
     "oligonucleotidos": ("/api/laboratorio/{uniprot}/oligos", "Cribado actualizado y candidatos de oligonucleótidos."),
@@ -54,6 +55,7 @@ LECTURAS = {
 # Las escrituras se guardan como operaciones pendientes y se confirman en el chat.
 # Campos permitidos y requeridos del cuerpo, además de los parámetros de ruta.
 ESCRITURAS = {
+    "eliminar_dataset": ("/api/investigaciones/{investigacion_id}/datasets/{dataset_id}/eliminar", "Eliminar el dataset y su carpeta de ROSA. Conserva la auditoría y los registros compartidos. Consulta eliminacion_dataset antes: no borra datos usados por análisis registrados ni corridas activas.", (), (), False),
     "sellar": ("/api/hipotesis/{hipotesis_id}/sellar", "Pedir o repetir el sello externo del prerregistro", (), (), False),
     "gepa": ("/api/gepa/{accion_gepa}", "Pausar, reanudar o restablecer GEPA", (), (), True),
     "reanclar": ("/api/registro/reanclar", "Documentar un corte del registro y reanclarlo", ("motivo",), ("motivo",), True),

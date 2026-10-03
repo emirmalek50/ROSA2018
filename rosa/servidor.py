@@ -1061,6 +1061,17 @@ def crear_app(almacen: Almacen) -> FastAPI:
         resultado = almacen.aplicar("anadirDataset", {"investigacion_id": investigacion_id, "dataset": dataset, "id_": dataset_id})
         return {"ok": resultado is not False, "datasetId": dataset_id, "fichero": ruta.name, "bytes": tamano, "perfil": {k: perfil[k] for k in ("filas", "valoresCentinela", "nombresDuplicados", "tabular")}, "version": almacen.version}
 
+    @app.get("/api/investigaciones/{investigacion_id}/datasets/{dataset_id}/eliminacion")
+    async def consultar_eliminacion_dataset(investigacion_id: str, dataset_id: str) -> dict[str, Any]:
+        from rosa.datasets_eliminacion import consultar
+        return await asyncio.to_thread(consultar, almacen, investigacion_id, dataset_id)
+
+    @app.post("/api/investigaciones/{investigacion_id}/datasets/{dataset_id}/eliminar")
+    async def eliminar_dataset(investigacion_id: str, dataset_id: str, request: Request) -> dict[str, Any]:
+        from rosa.datasets_eliminacion import eliminar
+        resultado = await asyncio.to_thread(eliminar, almacen, investigacion_id, dataset_id, str(request.state.usuario or "servidor"))
+        return {**resultado, "version": almacen.version}
+
     @app.get("/api/politicas")
     async def politicas_actuales() -> dict[str, Any]:
         from rosa import politicas

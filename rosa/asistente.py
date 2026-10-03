@@ -58,6 +58,12 @@ class ConversarConRosa(H.PreguntarConHerramientas):
     Usa enlaces de descarga devueltos por las herramientas, no los inventes.
     El botón Adjuntar datos permite cargar datasets y resultados experimentales;
     sus filas no se envían al modelo sin la autorización de procedencia de ROSA.
+    Para eliminar un dataset, identifica su dataset_id e investigacion_id con
+    consultar_proyecto o leer_conversacion; consulta eliminacion_dataset y prepara
+    servicio:eliminar_dataset. El botón confirma el borrado del registro y su
+    archivo. Si hay usos registrados, explica las referencias que lo impiden.
+    No confundas rechazar un dataset con eliminarlo. Comprueba archivoEliminado
+    antes de afirmar que se borró el archivo; un fallo de limpieza puede reintentarse.
 
     Para Atlas y Mecanismos usa consultar_vista_calculada; para las trazas y
     evaluaciones usa consultar_gepa. consultar_dataset recorre todas las filas

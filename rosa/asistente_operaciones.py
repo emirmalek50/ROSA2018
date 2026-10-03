@@ -92,6 +92,13 @@ async def comprobar(almacen: Any, servicios: Any, ids: tuple[str, str, str], qui
             esperado = args['accion_gepa'] == 'pausar'
             if evidencia.get('estado'):
                 coincide = (evidencia['estado'] == 'pausado') == esperado
+    elif nombre == 'servicio:eliminar_dataset':
+        from rosa.asistente_servicios import construir_ruta
+        ruta = construir_ruta('/api/investigaciones/{investigacion_id}/datasets/{dataset_id}/eliminacion', args)
+        evidencia = await servicios.peticion('GET', ruta)
+        if evidencia.get('ok'):
+            datos = evidencia.get('datos', {})
+            coincide = datos.get('eliminado') is True and datos.get('archivoEliminado') is True
     elif nombre == 'servicio:sellar':
         h: dict[str, Any] = next((h for h in almacen.instantanea().get('hipotesis', []) if h['id'] == args.get('hipotesis_id')), {})
         evidencia = (h.get('experimento') or {}).get('selloExterno')
