@@ -14,6 +14,7 @@
 // y cada tarjeta lo dice con sus palabras.
 
 import { useState } from 'react';
+import '../investigacion.css';
 import { acciones } from '../datos/almacen';
 import type { Amplitud, Cuestion, Dataset, EstadoRosa, Investigacion as Inv } from '../datos/tipos';
 import { CifrasAprendizaje } from '../componentes/CifrasAprendizaje';
@@ -23,11 +24,11 @@ import { MapaEnfermedad } from '../componentes/MapaEnfermedad';
 import { TableroMetodo } from '../componentes/TableroMetodo';
 import { MapaRuta } from '../componentes/MapaRuta';
 import { Chip, Confirmar, Momento, Seccion } from '../componentes/piezas';
-import { ConocimientoOperativoDelLaboratorio, FormularioMision, Jerarquia, LibroDeProcedencia, MemoriaDelProyecto, PuertaYReproducciones, SubirDataset } from '../componentes/Rosa2018';
+import { AreasComparadas, CabeceraInvestigacion, Divisoria, MisionYReglas, PasosDatos } from '../componentes/FichaInvestigacion';
+import { ConocimientoOperativoDelLaboratorio, Jerarquia, LibroDeProcedencia, MemoriaDelProyecto, PuertaYReproducciones, SubirDataset } from '../componentes/Rosa2018';
 import { useCalculoDiferido } from '../lib/diferido';
-import { AMBITO_LECCION, AMPLITUD, CLASIFICACION_DATOS, ESTADO_CORRIDA, ESTADO_INVESTIGACION } from '../lib/etiquetas';
+import { AMBITO_LECCION, AMPLITUD, CLASIFICACION_DATOS, ESTADO_CORRIDA } from '../lib/etiquetas';
 import { coma, formatearDuracion } from '../lib/formato';
-import { partesAutomatizadas, textoAutomatizacion } from '../lib/parada';
 import { rutaDe } from '../lib/ruta';
 import { traducido, tr, trp } from '../lib/idioma';
 
@@ -187,7 +188,8 @@ function derivarInvestigacion(estado: EstadoRosa, inv: Inv) {
   const corridas = estado.corridas.filter((c) => c.investigacionId === inv.id).sort((a, b) => b.numero - a.numero);
   const origen = inv.ramaDe ? estado.investigaciones.find((i) => i.id === inv.ramaDe) ?? null : null;
   const lecciones = (estado.lecciones ?? []).filter((l) => l.investigacionId === inv.id).sort((a, b) => (b.veces - a.veces) || (b.ultimaVez - a.ultimaVez));
-  return { invId: inv.id, corridas, origen, lecciones, programaEnEspera: programaEnEspera(corridas), motivoEsperaHumana: motivoEsperaHumana(corridas) };
+  const hipotesis = estado.hipotesis.filter((h) => h.investigacionId === inv.id);
+  return { invId: inv.id, corridas, origen, lecciones, hipotesis, programaEnEspera: programaEnEspera(corridas), motivoEsperaHumana: motivoEsperaHumana(corridas) };
 }
 
 /** La silueta de la ficha de la investigación: la cabecera con el título real
@@ -252,89 +254,34 @@ function SiluetaPrograma({ clase, titulo, forma }: { clase: 'cifras-ap' | 'mapa-
 }
 
 export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: EstadoRosa; ahora: number; irA: (hash: string) => void }) {
-  const { valor: base } = useCalculoDiferido(() => derivarInvestigacion(estado, inv), [estado.corridas, estado.investigaciones, estado.lecciones, inv]);
+  const { valor: base } = useCalculoDiferido(() => derivarInvestigacion(estado, inv), [estado.corridas, estado.investigaciones, estado.lecciones, estado.hipotesis, inv]);
   const [editando, setEditando] = useState(false);
   const [pref, setPref] = useState(inv.configuracion.preferencias);
   const [atr, setAtr] = useState(inv.configuracion.atributos.join('\n'));
   const [res, setRes] = useState(inv.configuracion.restricciones.join('\n'));
   const [verCatalogo, setVerCatalogo] = useState(false);
+  const [editandoMision, setEditandoMision] = useState(false);
   // Esqueleto al abrir la ficha (App la monta de nuevo por cada investigación);
   // con una actualización del canal en vivo se conserva lo calculado hasta que
   // llega lo nuevo, un fotograma después.
   if (base === null || base.invId !== inv.id) return <EsqueletoInvestigacion inv={inv} />;
-  const { corridas, origen, lecciones } = base;
+  const { corridas, origen, lecciones, hipotesis } = base;
+  const editarMision = () => {
+    setEditandoMision(true);
+    document.getElementById('mision')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const esperaPrograma = base.programaEnEspera;
   const esperaHumana = base.motivoEsperaHumana;
 
   return (
-    <div className="contenido">
-      <div className="pantalla-cabecera">
-        <div>
-          <h2>{inv.titulo}</h2>
-          <p>
-            <Chip>{ESTADO_INVESTIGACION[inv.estado]}</Chip>{' '}
-            {origen && (
-              <>
-                {tr("Rama de")} <a className="enlace" href={rutaDe(origen.id, 'investigacion')}>{origen.titulo}</a>
-              </>
-            )}
-            {inv.vigilarLiteraturaHasta && inv.vigilarLiteraturaHasta > ahora && (
-              <>
-                {' '}
-                <Chip tono="borde">{tr("Vigilando literatura hasta")} <Momento t={inv.vigilarLiteraturaHasta} ahora={ahora} soloRelativo /></Chip>
-              </>
-            )}
-          </p>
-        </div>
-        <Confirmar
-          etiqueta={tr("Bifurcar")}
-          pregunta={tr("Se crea una investigación nueva con el mismo objetivo y una copia del modelo de mundo. La original sigue igual.")}
-          pedirTexto={{ etiqueta: tr('Nombre de la rama (di para que es)'), marcador: tr('Secuencia GFAP-NfL solo en Alzheimer familiar') }}
-          onConfirmar={(motivo) => {
-            const id = acciones.bifurcarInvestigacion(inv.id, motivo);
-            if (id) irA(rutaDe(id, 'corrida'));
-          }}
-        />
-      </div>
+    <div className="contenido ficha-inv">
+      <CabeceraInvestigacion inv={inv} origen={origen} corridas={corridas} ahora={ahora} irA={irA} alEditarMision={editarMision} aviso={<QueToca inv={inv} corridas={corridas} irA={irA} />} />
 
-      <QueToca inv={inv} corridas={corridas} irA={irA} />
+      <Divisoria inv={inv} hipotesis={hipotesis} />
 
-      <div className="rejilla-2">
-        <div className="tarjeta seccion">
-          <h3 style={{ fontSize: 13, fontWeight: 600 }}>{tr("Objetivo")}</h3>
-          <p style={{ whiteSpace: 'pre-wrap' }}>{inv.objetivo}</p>
-        </div>
-        <div className="tarjeta seccion">
-          <h3 style={{ fontSize: 13, fontWeight: 600 }}>{tr("Qué cuenta como relevante")}</h3>
-          <p>{inv.relevancia || tr('Sin definir. ROSA2018 perseguira todo lo que parezca significativo.')}</p>
-        </div>
-        <div className="tarjeta seccion">
-          <h3 style={{ fontSize: 13, fontWeight: 600 }}>{tr("Límites")}</h3>
-          <ul className="lista-limpia">
-            {inv.limites.map((l, i) => (
-              <li key={i}>{l}</li>
-            ))}
-          </ul>
-        </div>
-        <div className="tarjeta seccion">
-          <h3 style={{ fontSize: 13, fontWeight: 600 }}>{tr("Condición de parada")}</h3>
-          <p>{inv.condicionParada}</p>
-          <p className="meta">{textoAutomatizacion(inv.condicionParadaAutomatizada ?? partesAutomatizadas(inv.condicionParada))}</p>
-          <h3 style={{ fontSize: 13, fontWeight: 600, marginTop: 8 }}>{tr("Quien revisa")}</h3>
-          <div className="acciones">
-            {inv.revisores.map((r) => (
-              <Chip key={r} tono="borde">
-                {r}
-              </Chip>
-            ))}
-          </div>
-        </div>
-      </div>
+      <MisionYReglas inv={inv} corridas={corridas} editando={editandoMision} alEditar={editarMision} alCerrarEdicion={() => setEditandoMision(false)} />
 
-      <Seccion id="mision" titulo={tr("Misión")} nota={tr("El marco que fija el programa antes de la primera corrida (etapa 0 de ROSA2018): a quién aplica, en qué etapa, en qué célula o tejido, qué mecanismo, qué tipo de resultado se busca, qué puede hacer el laboratorio y con qué presupuesto. ROSA2018 propone; una persona aprueba. Debajo, las áreas de investigación que ROSA2018 comparó para elegir por dónde empezar.")}>
-        {inv.mision === undefined || inv.mision === null ? <p className="meta">{tr("ROSA2018 propondrá la misión al arrancar la primera corrida. También puedes escribirla tú: arriba a la derecha, \"Editar\".")}</p> : null}
-        <FormularioMision inv={inv} corridas={corridas} />
-      </Seccion>
+      <AreasComparadas inv={inv} corridas={corridas} />
 
       <Jerarquia inv={inv} corridas={corridas} />
 
@@ -429,14 +376,15 @@ export function Investigacion({ inv, estado, ahora, irA }: { inv: Inv; estado: E
       </Seccion>
 
       <Seccion id="datos"
-        titulo={tr("Datos")}
-        nota={tr("Antes de una corrida larga, la comprobación de datos: columnas sin diccionario, valores centinela y nombres duplicados contaminaron horas de una corrida de Kosmos. Nada se aprueba con esos contadores en rojo.")}
+        titulo={tr("Antes de descubrir, reproducir.")}
+        nota={tr("Ningún análisis con datos cuenta como descubrimiento hasta que el dataset tiene su libro de procedencia y su contrato aprobado, y ROSA2018 ha reproducido análisis ya publicados dentro de tolerancia. Antes de una corrida larga, la comprobación de datos: columnas sin diccionario, valores centinela y nombres duplicados contaminaron horas de una corrida de Kosmos. Nada se aprueba con esos contadores en rojo.")}
         acciones={
           <button type="button" className="btn btn-s" onClick={() => setVerCatalogo((v) => !v)}>
             {(verCatalogo ? tr("Ocultar catálogo") : tr("Catálogo de datos del Alzheimer"))}
           </button>
         }
       >
+        <PasosDatos inv={inv} />
         {inv.datasets.length === 0 && <p className="meta">{tr("Sin datos adjuntos: ROSA2018 trabaja solo con literatura y bases curadas.")}</p>}
         {inv.datasets.map((d) => (
           <TarjetaDataset key={d.id} d={d} inv={inv} />

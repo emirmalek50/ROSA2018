@@ -28,9 +28,16 @@ import { coma } from '../lib/formato';
    Mision
    --------------------------------------------------------------------- */
 
-export function FormularioMision({ inv, compacto = false, corridas = [] }: { inv: Investigacion; compacto?: boolean; corridas?: Corrida[] }) {
+/** `abiertoEnEdicion` lo abre ya en el formulario y `alCerrar` avisa al
+ *  guardar o cancelar: la ficha de la investigación pinta su propia vista de
+ *  lectura y solo pide aquí el formulario. */
+export function FormularioMision({ inv, compacto = false, corridas = [], abiertoEnEdicion = false, alCerrar }: { inv: Investigacion; compacto?: boolean; corridas?: Corrida[]; abiertoEnEdicion?: boolean; alCerrar?: () => void }) {
   const m = inv.mision;
-  const [editando, setEditando] = useState(m === null || m === undefined);
+  const [editando, fijarEditando] = useState(abiertoEnEdicion || m === null || m === undefined);
+  const setEditando = (v: boolean) => {
+    fijarEditando(v);
+    if (!v) alCerrar?.();
+  };
   const [d, setD] = useState(() => ({
     poblacion: m?.poblacion ?? '',
     etapa: m?.etapa ?? '',
@@ -1625,8 +1632,44 @@ export function ProtocoloYEnmiendas({ h, ahora }: { h: Hipotesis; ahora: number 
 // Gobierno de las areas y jerarquia programa / areas / campanas / preguntas
 // ---------------------------------------------------------------------------
 
-function FilaArea({ inv, a, corridas }: { inv: Investigacion; a: AreaInvestigacion; corridas: Corrida[] }) {
+/** Elegir, reabrir, pausar con condición, dejar sin explorar y asignar campaña
+ *  a un área. La usan la tabla de la misión y la de la ficha de la investigación. */
+export function GobiernoArea({ inv, a, corridas }: { inv: Investigacion; a: AreaInvestigacion; corridas: Corrida[] }) {
   const [condicion, setCondicion] = useState(a.condicionReapertura ?? '');
+  return (
+    <div className="acciones" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+      {a.estado !== 'elegida' && (
+        <button type="button" className="btn btn-pequeno" onClick={() => acciones.cambiarEstadoArea(inv.id, a.id, 'elegida', '', undefined, a.estado === 'pausada' ? 'reabierta' : 'elegida')}>
+          {(a.estado === 'pausada' ? tr("Reabrir") : tr("Elegir"))}
+        </button>
+      )}
+      {a.estado !== 'pausada' && (
+        <>
+          <input className="entrada" value={condicion} placeholder={tr("Condición para reabrirla")} onChange={(e) => setCondicion(e.target.value)} aria-label={trp("Condición de reapertura de {titulo}", { titulo: a.titulo })} />
+          <button type="button" className="btn btn-pequeno" disabled={condicion.trim() === ''} onClick={() => acciones.cambiarEstadoArea(inv.id, a.id, 'pausada', condicion)}>
+            {tr("Pausar con condición")}
+          </button>
+        </>
+      )}
+      {a.estado !== 'sin_explorar' && (
+        <button type="button" className="btn btn-pequeno" onClick={() => acciones.cambiarEstadoArea(inv.id, a.id, 'sin_explorar', '', undefined, tr('se deja sin explorar'))}>
+          {tr("Dejar sin explorar")}
+        </button>
+      )}
+      {corridas.length > 0 && (
+        <select className="entrada" value={a.corridaId ?? ''} onChange={(e) => acciones.cambiarEstadoArea(inv.id, a.id, null, '', e.target.value)} aria-label={trp("Campaña de {titulo}", { titulo: a.titulo })}>
+          <option value="">{tr("Sin campaña")}</option>
+          {corridas.map((c) => (
+            <option key={c.id} value={c.id}>
+              {trp("Campaña {numero} ({v})", { numero: c.numero, v: c.estado.replace('_', ' ') })}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
+function FilaArea({ inv, a, corridas }: { inv: Investigacion; a: AreaInvestigacion; corridas: Corrida[] }) {
   const campana = corridas.find((c) => c.id === a.corridaId);
   return (
     <tr>
@@ -1659,35 +1702,7 @@ function FilaArea({ inv, a, corridas }: { inv: Investigacion; a: AreaInvestigaci
         {campana && <p className="meta">{trp("Campaña {numero}", { numero: campana.numero })}</p>}
       </td>
       <td>
-        <div className="acciones" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-          {a.estado !== 'elegida' && (
-            <button type="button" className="btn btn-pequeno" onClick={() => acciones.cambiarEstadoArea(inv.id, a.id, 'elegida', '', undefined, a.estado === 'pausada' ? 'reabierta' : 'elegida')}>
-              {(a.estado === 'pausada' ? tr("Reabrir") : tr("Elegir"))}
-            </button>
-          )}
-          {a.estado !== 'pausada' && (
-            <>
-              <input className="entrada" value={condicion} placeholder={tr("Condición para reabrirla")} onChange={(e) => setCondicion(e.target.value)} aria-label={trp("Condición de reapertura de {titulo}", { titulo: a.titulo })} />
-              <button type="button" className="btn btn-pequeno" disabled={condicion.trim() === ''} onClick={() => acciones.cambiarEstadoArea(inv.id, a.id, 'pausada', condicion)}>
-                {tr("Pausar con condición")}
-              </button>
-            </>
-          )}
-          {a.estado !== 'sin_explorar' && (
-            <button type="button" className="btn btn-pequeno" onClick={() => acciones.cambiarEstadoArea(inv.id, a.id, 'sin_explorar', '', undefined, tr('se deja sin explorar'))}>
-              {tr("Dejar sin explorar")}
-            </button>
-          )}
-          {corridas.length > 0 && (
-            <select className="entrada" value={a.corridaId ?? ''} onChange={(e) => acciones.cambiarEstadoArea(inv.id, a.id, null, '', e.target.value)} aria-label={trp("Campaña de {titulo}", { titulo: a.titulo })}>
-              <option value="">{tr("Sin campaña")}</option>
-              {corridas.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {trp("Campaña {numero} ({v})", { numero: c.numero, v: c.estado.replace('_', ' ') })}</option>
-              ))}
-            </select>
-          )}
-        </div>
+        <GobiernoArea inv={inv} a={a} corridas={corridas} />
       </td>
     </tr>
   );
