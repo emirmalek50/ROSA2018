@@ -66,6 +66,41 @@ def familia_y_nombre(herramienta: str) -> tuple[str, str]:
     return "otra", herramienta.replace("_", " ")
 
 
+def _en_llano(texto: str, fuente: str, n: int | None) -> str:
+    """Lo que trajo la herramienta, en UNA frase legible para el sub-paso de
+    la línea de tiempo (el «• Audit RAG System Components...» de Kimi). La
+    salida de una herramienta es JSON delimitado o texto largo: pintarlo tal
+    cual deja «{"lecturas": {"eliminacion_dataset"...» en pantalla, que es
+    lo que pasó la primera vez que se probó en vivo (2 de octubre de 2026).
+
+    Con fuente y n se dice eso, que es lo que importa. Sin ellos, la primera
+    línea de texto que no sea una marca ni empiece por llave o corchete; y si
+    no la hay, nada: mejor sin sub-paso que con datos crudos."""
+    if fuente and n is not None:
+        return f"{fuente}: {n} resultado" + ("" if n == 1 else "s")
+    if fuente:
+        return fuente
+    limpio = texto.replace("<<<DATO_RECUPERADO>>>", " ").replace("<<<FIN_DATO_RECUPERADO>>>", " ")
+    for linea in limpio.splitlines():
+        t = linea.strip()
+        if not t or t[0] in "{[\"'" or t.startswith(("Error", "ARGUMENTOS")):
+            continue
+        # Una frase: hasta el primer punto si lo hay dentro de un largo razonable.
+        m = re.match(r"(.{12,160}?[.!?])(\s|$)", t)
+        return (m.group(1) if m else t[:140]).strip()
+    return ""
+
+
+def _fuente_y_n(texto: str) -> tuple[str, int | None]:
+    """La fuente y el número de resultados de la salida de un conector, que
+    `rosa/herramientas.py` devuelve como dato delimitado con las claves
+    `fuente` y `n`. Si no están (búsqueda en el proyecto, modelo de mundo),
+    nada: la fila se pinta sin avatar ni cuenta, no con uno inventado."""
+    m_f = re.search(r"""["']fuente["']\s*:\s*["']([^"']{1,60})["']""", texto)
+    m_n = re.search(r"""["']n["']\s*:\s*(\d{1,7})\b""", texto)
+    return (m_f.group(1) if m_f else ""), (int(m_n.group(1)) if m_n else None)
+
+
 def _recortar(t: Any, n: int) -> str:
     s = re.sub(r"\s+", " ", str(t or "")).strip().replace("\u2014", ", ")
     return s if len(s) <= n else s[: n - 1].rstrip() + "…"
@@ -130,6 +165,10 @@ class Progreso(BaseCallback):
             "fin": None,
             "error": None,
             "resumen": "",
+            # Lo que trajo, para la fila: de qué base y cuántos resultados.
+            # Es el «6 pages» con los avatares de Kimi.
+            "fuente": "",
+            "n": None,
         }
         with self._candado:
             if self.terminado:
@@ -151,7 +190,12 @@ class Progreso(BaseCallback):
             if exception is not None or re.match(r"\s*(error|no respond|tiempo agotado|fall[oó])", texto, re.I):
                 paso["error"] = _recortar(str(exception) if exception else texto, MAX_RESUMEN)
             else:
-                paso["resumen"] = _recortar(texto, MAX_RESUMEN)
+                fuente, n = _fuente_y_n(texto)
+                if fuente:
+                    paso["fuente"] = fuente
+                if n is not None:
+                    paso["n"] = n
+                paso["resumen"] = _en_llano(texto, fuente, n)
             self.tocado = time.time()
 
     # --- lo que pide el servidor ------------------------------------------

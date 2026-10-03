@@ -675,7 +675,7 @@ def _pasos_de_razonamiento(pasos: list) -> list[dict]:
     """La linea de tiempo de una pregunta (rosa/razonamiento.py), acotada: a
     lo sumo 80 pasos y solo los campos conocidos, para que un estado viejo o
     un cuerpo inventado no meta cualquier cosa en la investigacion."""
-    campos = ("id", "tipo", "texto", "cierra", "herramienta", "familia", "nombre", "argumentos", "inicio", "fin", "error", "resumen")
+    campos = ("id", "tipo", "texto", "cierra", "herramienta", "familia", "nombre", "argumentos", "inicio", "fin", "error", "resumen", "fuente", "n")
     salida = []
     for p in pasos[:80]:
         if isinstance(p, dict) and p.get("tipo") in ("pensar", "herramienta"):

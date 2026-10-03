@@ -6,6 +6,10 @@
  *  original: lo que no encuentra, lo dice, y «no pudo comprobar» es «could
  *  not check», nunca «there is none». */
 export const MUNDO: Record<string, string> = {
+  'Respondió sin herramientas': 'Answered without tools',
+  'Usó 1 herramienta, {nombre}': 'Used 1 tool, {nombre}',
+  'Usó {n} herramientas, la primera {nombre}': 'Used {n} tools, first {nombre}',
+
   'Subir un dataset': 'Upload a dataset',
   'De qué experimento': 'Which experiment',
   'Investigación: {t}. Cambiar': 'Investigation: {t}. Change',

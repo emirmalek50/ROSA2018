@@ -1815,3 +1815,40 @@ Lo que se pierde y conviene saberlo: las ocho secciones de métricas siguen
 calculándose en el backend y guardándose en el estado, pero ya no hay dónde
 verlas. Si algún día hacen falta (el acuerdo kappa es parte del plan del
 sistema), la pantalla está en el historial de git.
+
+### La linea de tiempo del chat, como Kimi (2 de octubre de 2026, noche)
+
+Emir: «necesito que ROSA se vea asi como Kimi cuando le mandan un mensaje,
+exactamente asi». Mirado fila a fila en sus dos capturas y rehecho
+`componentes/Razonamiento.tsx` con lo que faltaba:
+
+- La herramienta dice de DONDE y CUANTO trajo: «Europe PMC | (E) 6
+  resultados», con el circulo de la base. Sale del servidor:
+  `rosa/razonamiento.py` extrae `fuente` y `n` de la salida del conector, y
+  `estado/acciones.py` los guarda con el paso.
+- El sub-paso con punto «•» bajo la herramienta, con UNA frase legible de lo
+  que trajo (`_en_llano`). La primera prueba en vivo pintaba el JSON crudo.
+- Los pensamientos largos son prosa en el color del texto, como en Kimi; los
+  cortos, fila con bombilla.
+- Plegada al acabar: «Uso 2 herramientas, la primera El modelo de mundo».
+- Grises legibles, linea punteada fina centrada bajo el icono.
+
+Probado en vivo con una pregunta real: a los 20 segundos se ve exactamente
+la estructura de Kimi.
+
+**Un conflicto de diseño que tiene que decidir Emir.** En el turno GUARDADO
+(`pantallas/ModeloDeMundo.tsx`, ~linea 1657, trabajo de otro agente a
+medias), el razonamiento va OCULTO detras de la cabecera «como Penso 8 s en
+ChatGPT». Eso es lo contrario de Kimi, donde la linea de tiempo se queda
+visible encima de la respuesta, plegada en una linea («Used 1 tool, ...»).
+Hoy, al terminar la respuesta, la linea de tiempo desaparece del todo y hay
+que abrirla desde la cabecera. Para que sea «exactamente Kimi» hay que
+pintar `<Razonamiento pasos={q.pasos} plegable />` SIEMPRE, encima de la
+respuesta, y no detras del toggle. No lo toque porque el fichero esta a
+medias de otro agente.
+
+Y una observacion de la prueba en vivo que no es de interfaz: al pedir
+«busca en PubMed y Europe PMC», el modelo se paso la respuesta leyendo el
+catalogo de servicios del asistente (cuatro paginas de «Consultar
+servicio/conectores») y no llego a las bases. Las herramientas del asistente
+estan compitiendo con los conectores por la atencion del modelo.

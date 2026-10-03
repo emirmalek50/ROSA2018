@@ -2548,6 +2548,10 @@ export interface PasoRazonamiento {
   fin?: number | null;
   error?: string | null;
   resumen?: string;
+  /** Lo que trajo una base: de cuál y cuántos resultados. Vacío para las
+   *  herramientas que no son una base (proyecto, modelo de mundo). */
+  fuente?: string;
+  n?: number | null;
 }
 
 export type EstadoCobertura = 'respondido' | 'en_parte' | 'no_esta' | 'no_pude_comprobar';

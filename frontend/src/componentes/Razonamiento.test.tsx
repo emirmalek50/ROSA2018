@@ -28,7 +28,11 @@ afterEach(() => {
 const T = Date.UTC(2026, 9, 2, 12, 0, 0);
 const pintar = (ui: React.ReactElement) => act(async () => root.render(ui));
 const pulsar = (el: Element) => act(async () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-const filas = () => [...nodo.querySelectorAll('.razon-fila')];
+/** Las filas que son PASOS (pensar o herramienta). El sub-paso con punto que
+ *  cuelga de una herramienta (`.razon-sub`) es otra fila visual, pero no un
+ *  paso: se cuenta aparte. */
+const filas = () => [...nodo.querySelectorAll('.razon-pensar, .razon-herramienta, .razon-prosa')];
+const subpasos = () => [...nodo.querySelectorAll('.razon-sub')];
 
 const PASOS: PasoRazonamiento[] = [
   { id: 'p1', tipo: 'pensar', texto: 'Consultaré primero el modelo de mundo. Después, la literatura longitudinal.', inicio: T },
@@ -93,3 +97,54 @@ describe('la línea de tiempo del razonamiento', () => {
     expect(filas()).toHaveLength(4);
   });
 });
+
+describe('lo que hace que se parezca a Kimi', () => {
+  it('la herramienta dice de qué base y cuántos trajo, con su círculo', async () => {
+    // «Fetch URLs | ●●● 6 pages»: aquí la base y sus resultados, que vienen
+    // del servidor. Sin ellos no se inventa nada.
+    const pasos: PasoRazonamiento[] = [
+      { id: 'a', tipo: 'herramienta', herramienta: 'buscar_europepmc', familia: 'base', nombre: 'Europe PMC', argumentos: { consulta: 'GFAP' }, inicio: T, fin: T + 900, error: null, resumen: 'Seis artículos sobre GFAP plasmático en portadores.', fuente: 'Europe PMC', n: 6 },
+      { id: 'b', tipo: 'herramienta', herramienta: 'leer_modelo_de_mundo', familia: 'mundo', nombre: 'el modelo de mundo', argumentos: { tema: 'GFAP' }, inicio: T + 1000, fin: T + 1200, error: null, resumen: '' },
+    ];
+    await pintar(<Razonamiento pasos={pasos} ahora={T + 2000} />);
+    const [a, b] = filas();
+    expect(a!.querySelector('.razon-fuentes .mundo-fuente')?.textContent).toBe('E');
+    expect(a!.textContent).toContain('6 resultados');
+    // Sin fuente ni n: ni círculo ni cuenta; se ve lo que buscó.
+    expect(b!.querySelector('.razon-fuentes')).toBeNull();
+    expect(b!.textContent).not.toContain('resultados');
+    expect(b!.textContent).toContain('GFAP');
+  });
+
+  it('bajo la herramienta cuelga el sub-paso con punto que resume lo que trajo', async () => {
+    await pintar(<Razonamiento pasos={PASOS} ahora={T + 2000} />);
+    // Solo la herramienta que trajo algo (p2): la fallida (p3) no lleva.
+    expect(subpasos()).toHaveLength(1);
+    expect(subpasos()[0]!.textContent).toContain('12 hechos');
+  });
+
+  it('un pensamiento largo es prosa, no una fila con bombilla', async () => {
+    const largo = 'El modelo de mundo ya tiene cuatro hechos sobre GFAP en portadores de APOE4, pero ninguno longitudinal. Voy a buscar en la literatura cohortes con medidas seriadas antes de contestar.';
+    const pasos: PasoRazonamiento[] = [
+      { id: 'a', tipo: 'pensar', texto: largo, inicio: T },
+      { id: 'b', tipo: 'pensar', texto: 'Con eso basta.', cierra: true, inicio: T + 100 },
+    ];
+    await pintar(<Razonamiento pasos={pasos} ahora={T + 2000} />);
+    expect(nodo.querySelector('.razon-prosa .razon-prosa-texto')?.textContent).toBe(largo);
+    // El corto sigue siendo fila.
+    expect(nodo.querySelectorAll('.razon-pensar')).toHaveLength(1);
+  });
+
+  it('mientras está en marcha, el último pensamiento es fila aunque sea largo: está pensando AHORA', async () => {
+    const largo = 'Estoy repasando los cuatro hechos del modelo de mundo sobre GFAP para ver si alguno es longitudinal antes de ir a la literatura.';
+    await pintar(<Razonamiento pasos={[{ id: 'a', tipo: 'pensar', texto: largo, inicio: T }]} ahora={T + 500} enMarcha />);
+    expect(nodo.querySelector('.razon-prosa')).toBeNull();
+    expect(nodo.querySelector('.razon-viva')).toBeTruthy();
+  });
+
+  it('plegada dice cuántas herramientas y cuál fue la primera, como «Used 1 tool, Fetch…»', async () => {
+    await pintar(<Razonamiento pasos={PASOS} ahora={T + 2000} plegable />);
+    expect(nodo.querySelector('.razon-resumen')?.textContent).toContain('Usó 2 herramientas, la primera El modelo de mundo');
+  });
+});
+

@@ -135,3 +135,38 @@ def test_sin_guiones_largos_en_lo_que_llega_a_pantalla():
 
     p.on_module_end("m1", Salida())
     assert "\u2014" not in p.pasos()[0]["texto"]
+
+
+def test_la_fila_de_herramienta_sabe_de_que_base_y_cuantos_trajo():
+    """Lo que `rosa/herramientas.py` devuelve de un conector lleva `fuente` y
+    `n` dentro del dato delimitado. De ahí sale el «6 resultados» con el
+    avatar de la base, como en Kimi. Si no están (proyecto, modelo de mundo)
+    no se inventa nada."""
+    from rosa import killer as K
+    from rosa.razonamiento import _fuente_y_n
+
+    salida = K.como_dato(str({"fuente": "Europe PMC", "n": 6, "invariante": "x", "datos": [1, 2]}))
+    assert _fuente_y_n(salida) == ("Europe PMC", 6)
+    # JSON con comillas dobles, que es como sale tras `_recortar`.
+    assert _fuente_y_n('{"fuente": "PubMed", "n": 0, "datos": []}') == ("PubMed", 0)
+    # Sin esas claves: nada, no un avatar inventado.
+    assert _fuente_y_n("Hechos del modelo de mundo sobre GFAP: ...") == ("", None)
+    # Un «n» que no es el del conector (dentro de un texto) no cuela.
+    assert _fuente_y_n("la cohorte tenía n = 480 participantes") == ("", None)
+
+
+def test_el_subpaso_es_una_frase_legible_nunca_json():
+    """El «•» bajo la herramienta resume lo que trajo. En la primera prueba en
+    vivo salía el JSON crudo de la salida; eso no es un resumen."""
+    from rosa.razonamiento import _en_llano
+
+    json_crudo = '<<<DATO_RECUPERADO>>>\n{"fuente": "Europe PMC", "n": 6, "datos": [{"titulo": "x"}]}\n<<<FIN_DATO_RECUPERADO>>>'
+    assert _en_llano(json_crudo, "Europe PMC", 6) == "Europe PMC: 6 resultados"
+    assert _en_llano(json_crudo, "PubMed", 1) == "PubMed: 1 resultado"
+    assert _en_llano(json_crudo, "PubMed", 0) == "PubMed: 0 resultados"
+    # Sin fuente ni n, y solo JSON: nada, mejor sin sub-paso.
+    assert _en_llano('{"lecturas": {"eliminacion_dataset": {"descripcion": "x"}}}', "", None) == ""
+    # Texto normal: la primera frase.
+    assert _en_llano("Hechos del modelo de mundo sobre GFAP. Hay cuatro, ninguno longitudinal.", "", None) == "Hechos del modelo de mundo sobre GFAP."
+    # Las marcas no cuentan como texto.
+    assert _en_llano("<<<DATO_RECUPERADO>>>\nDoce hechos relacionados con p-tau217 en plasma.\n<<<FIN_DATO_RECUPERADO>>>", "", None) == "Doce hechos relacionados con p-tau217 en plasma."
