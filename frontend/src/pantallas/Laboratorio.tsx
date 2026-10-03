@@ -1836,6 +1836,32 @@ function useAltoHastaAbajo(ref: React.RefObject<HTMLElement | null>): number | n
   return alto;
 }
 
+
+/** Cómo encuadrar la proteína al abrir la ficha, según el ancho
+ *  que le queda al lienzo. En pantalla ancha (1600+ px de lienzo) basta con
+ *  -0.34: el bloque del nombre ocupa un tercio. En una laptop con la hoja
+ *  abierta el lienzo se queda en unos 775 px y el bloque ocupa casi tres
+ *  cuartos: la proteína quedaba DETRÁS del texto (Emir, 3 de octubre de
+ *  2026). Se corre más cuanto más estrecha es la columna. */
+function encuadreInicial(anchoLienzo: number): { zoom: number; corrimiento: number } {
+  // OJO: el 0.62 que habia aqui ACERCABA, y en pantalla grande la proteina
+  // se salia por los cuatro lados. Nadie lo vio porque el encuadre no se
+  // llegaba a aplicar (el reset de la camara de Mol* lo pisaba) y la vista
+  // era siempre la de Mol* por defecto. Al arreglar eso salio este valor.
+  if (anchoLienzo >= 1500) return { zoom: 1.05, corrimiento: -0.3 };
+  // Cuanto mas estrecha la columna, mas lejos la camara (la proteina ocupa
+  // menos) y mas a la derecha, para que quede al lado del texto y no detras.
+  // `zoom` multiplica la distancia de la camara: < 1 acerca, > 1 aleja.
+  // Geometria medida el 3 de octubre de 2026: perspectiva con fov 45 grados,
+  // radio de la proteina 64 A; a 198 A de distancia ocupa el 78 % del alto,
+  // asi que en una columna de 775 px la LLENA. Para que quede al lado del
+  // texto y no detras hay que alejarse hasta 1.9x (ocupa la mitad) y
+  // correrla a la derecha. Mas lejos, el mismo corrimiento en radios son mas
+  // pixeles, asi que el corrimiento baja.
+  const t = Math.min(1, (1500 - anchoLienzo) / 800);
+  return { zoom: 1.05 + t * 0.87, corrimiento: -0.3 - t * 0.14 };
+}
+
 function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaboratorio; abrirAso?: boolean; alVolver: () => void }) {
   const marco = useRef<HTMLDivElement | null>(null);
   const altoLamina = useAltoHastaAbajo(marco);
@@ -1887,13 +1913,23 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
         const m = await visor.cargar(diana.estructura.url, 'mmcif', 'ilustrativa');
         if (!vivo) return;
         fijarMedido(m);
-        visor.encuadrar(0.62, -0.34);
-        distInicial.current = visor.distancia();
+        // Las anotaciones no dependen de la cámara: se piden ya.
         void anotacionesDe(diana.uniprot).then((a) => {
           if (!vivo) return;
           fijarMarcas(a ?? []);
           fijarMarcasEstado(a === null ? 'sin_respuesta' : 'listas');
         });
+        // Un fotograma después del `reset` de la cámara que hace `cargar`: con
+        // duración 0 Mol* lo aplica en su siguiente dibujado, y si el encuadre
+        // va antes, el reset lo pisa y la proteína queda centrada y llenando
+        // la columna (medido el 3 de octubre de 2026: centro al 50 % exacto,
+        // hiciera lo que hiciera el corrimiento). Llevaba así desde que se
+        // escribió: en pantalla grande se salía por los cuatro lados.
+        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+        if (!vivo) return;
+        const enc = encuadreInicial(nodo.clientWidth);
+        visor.encuadrar(enc.zoom, enc.corrimiento);
+        distInicial.current = visor.distancia();
       } catch (ex) {
         if (vivo) fijarFallo(ex instanceof Error ? ex.message : String(ex));
       }

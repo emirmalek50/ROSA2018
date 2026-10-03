@@ -933,10 +933,7 @@
 
 @media (max-width: 1180px) {
   .lab-bloque h1 {
-    font-size: 104px;
-  }
-  .lab-hoja {
-    width: 296px;
+    font-size: clamp(52px, 7vw, 84px);
   }
 }
 @media (max-width: 980px) {
@@ -2944,7 +2941,7 @@
    cian #91cddd, ámbar #efbb75. El ámbar señala un conflicto o refutación.
    Cabecera y acciones fijas; solo los detalles se desplazan. */
 .lab-hoja {
-  width: 380px; top: 70px; bottom: 24px; max-height: none;
+  width: var(--lab-hoja-ancho, 380px); top: 70px; bottom: 24px; max-height: none;
   display: flex; flex-direction: column; padding: 0; overflow: hidden;
   mask-image: none; border-radius: 18px;
   background: rgba(16, 19, 27, .95); border-color: rgba(183, 163, 236, .21);
@@ -3109,3 +3106,114 @@
  .lab-hoja-acciones { padding: 12px 18px; gap: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .lab-ficha-desplegar { transition: none; } }
+
+/* Laptop (981 a 1500 px). A pantalla completa la escena es «todo encima de
+   la proteina» y funciona porque sobra sitio. En una laptop no: la hoja
+   lateral (380 px) mas el bloque del nombre (620 px) mas el mando y la
+   leyenda no caben en 1427 px (una laptop de 14 pulgadas), y se montaban
+   unos sobre otros (Emir, 3 de
+   octubre de 2026, al desconectar el monitor). Aqui la escena pasa a DOS
+   COLUMNAS: la proteina con sus textos a la izquierda, y la hoja en una
+   franja propia a la derecha que el lienzo no ocupa. Nada se pisa.
+
+   La regla tardia de .lab-hoja (mas abajo, la de la ficha) iba sin media
+   query y pisaba el ancho de este tramo: por eso la hoja nunca se
+   estrechaba. Ahora el ancho va por variable. */
+@media (max-width: 1500px) and (min-width: 981px) {
+  .lab-lamina {
+    --lab-hoja-ancho: 340px;
+    /* La franja de la hoja, mas su margen. */
+    --lab-franja: calc(var(--lab-hoja-ancho) + 30px + 18px);
+  }
+  /* El lienzo 3D deja libre la franja: la proteina se centra en su columna
+     (el visor se remide solo con ResizeObserver). */
+  .lab-lienzo {
+    right: var(--lab-franja);
+  }
+  .lab-lamina > .lab-hoja {
+    right: 18px;
+    top: 70px;
+    bottom: 24px;
+  }
+  /* El mando y la leyenda se pegan al borde de la columna de la proteina,
+     no al de la pantalla, para no caer debajo de la hoja. */
+  .lab-lamina > .lab-mando {
+    right: calc(var(--lab-franja) + 14px);
+    top: auto;
+    bottom: 232px;
+    transform: none;
+  }
+  /* La leyenda sube por encima de las cifras: abajo chocaban (las cifras
+     llegan a 890 px y la leyenda empezaba en 800). */
+  .lab-lamina > .lab-leyenda {
+    right: calc(var(--lab-franja) + 14px);
+    bottom: 96px;
+    width: 194px;
+  }
+  /* El nombre y la descripcion, acotados a su columna. */
+  /* El bloque del nombre deja sitio al mando (80 px) en su misma columna. */
+  .lab-lamina > .lab-bloque {
+    left: 40px;
+    top: 62px;
+    max-width: calc(100% - var(--lab-franja) - 40px - 80px - 40px);
+  }
+  .lab-bloque h1 {
+    font-size: clamp(56px, 7.5vw, 96px);
+  }
+  .lab-larga {
+    max-width: 40ch;
+    font-size: 14px;
+  }
+  .lab-lamina > .lab-abajo {
+    left: 40px;
+    bottom: 76px;
+    max-width: calc(100% - var(--lab-franja) - 194px - 40px - 40px);
+  }
+  /* Las cuatro cifras en UNA fila, mas pequenas, no en 2x2. El «92 %» no se
+     parte: la cifra va de una pieza. */
+  .lab-cifra b {
+    font-size: clamp(26px, 2.6vw, 38px);
+    white-space: nowrap;
+  }
+  .lab-cifras {
+    gap: 0 14px;
+    flex-wrap: nowrap;
+  }
+  .lab-cifra {
+    padding-right: 14px;
+  }
+  .lab-cifra small {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+  /* La linea de cabecera (UniProt, AlphaFold, licencia) va dentro del
+     bloque, ya acotado: aqui solo se le quita el ancho fijo si lo tuviera. */
+  .lab-bloque .lab-catalogo {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* El pie, centrado en la columna de la proteina, no en la pantalla. */
+  .lab-lamina > .lab-pie {
+    left: calc((100% - var(--lab-franja)) / 2);
+    bottom: 14px;
+    max-width: calc(100% - var(--lab-franja) - 48px);
+    font-size: 11px;
+  }
+  /* El boton de abrir la hoja cuando esta cerrada tambien va en la franja. */
+  .lab-hoja-toggle {
+    right: 18px;
+  }
+}
+
+/* Con la hoja CERRADA la franja sobra: la proteina vuelve a ocupar todo. */
+@media (max-width: 1500px) and (min-width: 981px) {
+  .lab-lamina:has(.lab-hoja-cerrada) {
+    --lab-franja: 0px;
+  }
+  .lab-lamina:has(.lab-hoja-cerrada) > .lab-mando,
+  .lab-lamina:has(.lab-hoja-cerrada) .lab-leyenda {
+    right: 30px;
+  }
+}
