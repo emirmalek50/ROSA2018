@@ -100,11 +100,7 @@
   position: absolute;
   inset: -40px -90px -40px -80px;
   z-index: -1;
-  /* La elipse llega hasta el borde derecho del bloque: antes se desvanecia
-     al 76 % y la proteina pasaba por detras del final de las lineas largas
-     (visto el 3 de octubre de 2026 en una laptop, con la proteina mas cerca
-     del texto). El centro sigue a la izquierda, donde esta el nombre. */
-  background: radial-gradient(ellipse 92% 100% at 30% 50%, rgba(8, 7, 11, 0.94) 48%, rgba(8, 7, 11, 0.55) 78%, transparent 100%);
+  background: radial-gradient(ellipse 74% 100% at 22% 50%, rgba(8, 7, 11, 0.93) 38%, transparent 76%);
 }
 .lab-catalogo {
   display: flex;
@@ -164,12 +160,6 @@
   color: var(--lab-ambar);
   border-radius: 999px;
   padding: 5px 12px;
-  /* Fondo propio. Las pastillas caen en la parte del bloque donde su
-     degradado ya es transparente, y la proteina pasaba por detras del texto
-     (Emir, 3 de octubre de 2026). El mismo cristal que la hoja lateral. */
-  background: rgba(12, 11, 16, 0.78);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 .lab-grado i {
   width: 5px;
@@ -3161,11 +3151,16 @@
     width: 194px;
   }
   /* El nombre y la descripcion, acotados a su columna. */
-  /* El bloque del nombre deja sitio al mando (80 px) en su misma columna. */
+  /* El bloque del nombre ocupa como mucho la mitad de su columna: la otra
+     mitad es de la proteina, que con la hoja abierta tiene poco sitio. */
   .lab-lamina > .lab-bloque {
     left: 40px;
     top: 62px;
-    max-width: calc(100% - var(--lab-franja) - 40px - 80px - 40px);
+    max-width: min(440px, calc((100% - var(--lab-franja)) * 0.5));
+  }
+  .lab-lamina > .lab-bloque .lab-larga {
+    max-width: 100%;
+    font-size: 13.5px;
   }
   .lab-bloque h1 {
     font-size: clamp(56px, 7.5vw, 96px);

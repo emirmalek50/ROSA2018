@@ -31,8 +31,19 @@ export interface Visor {
   /** Carga una estructura desde su URL. Devuelve lo medido sobre el fichero. */
   cargar(url: string, formato: 'mmcif' | 'pdb', estilo: Estilo): Promise<{ atomos: number; residuos: number; plddtMedio: number; fiable: number }>;
   estilo(e: Estilo): Promise<void>;
-  /** Acerca (`zoom` < 1) y corre el objeto a la derecha (`corrimiento` < 0). */
-  encuadrar(zoom: number, corrimiento: number, ms?: number): void;
+  /** Acerca (`zoom` < 1) y corre el objeto a la derecha (`corrimiento` < 0).
+   *  Es RELATIVO al estado actual de la cámara, así que llamarlo dos veces
+   *  acumula. Para volver a encuadrar desde cero (cambió el tamaño del
+   *  lienzo) se le pasa `desdeBase: true`, que parte de la vista de Mol* al
+   *  cargar (guardada en `cargar`). */
+  encuadrar(zoom: number, corrimiento: number, ms?: number, desdeBase?: boolean): void;
+  /** Coloca la proteína ENTERA dentro de un hueco de la pantalla, dado en
+   *  píxeles del contenedor: entre `izquierda` y `derecha`, con `margen` de
+   *  aire. Parte de la vista base de Mol* (la de `reset`) y del bbox medido
+   *  en ella, y calcula de una vez cuánto alejar y cuánto correr. Devuelve
+   *  una promesa porque, si el lienzo cambió de tamaño desde la última base,
+   *  primero vuelve a la vista de Mol* y espera un fotograma para medirla. */
+  colocar(izquierda: number, derecha: number, margen?: number, ms?: number, arriba?: number, abajo?: number): Promise<void>;
   /** Distancia de la cámara al objeto, para el zoom semántico. */
   distancia(): number;
   /** Lleva la cámara a una distancia dada, con animación. */
@@ -139,10 +150,33 @@ export async function crearVisor(nodo: HTMLElement, fondo = 0x08070b): Promise<V
   });
 
   let porResiduo = new Map<number, Residuo>();
+  // La vista de Mol* al cargar, para reencuadrar desde cero, y el bbox de la
+  // proteina en pixeles en esa vista [minX, maxX, minY, maxY, altoCaja].
+  let base: NonNullable<ReturnType<typeof cam>>['state'] | null = null;
+  let bboxBase: [number, number, number, number, number, number] | null = null;
+  const medirBbox = (): void => {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const r of porResiduo.values()) {
+      const p = proyectarPunto(r.centro);
+      if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+    }
+    const caja = nodo.getBoundingClientRect();
+    bboxBase = Number.isFinite(minX) ? [minX, maxX, minY, maxY, caja.height || 1, caja.width || 1] : null;
+  };
   // Mol* escribe aqui la proyeccion; se reutiliza para no crear basura en cada fotograma.
   const proyectado = Vec4();
 
   const cam = () => plugin.canvas3d?.camera;
+  const proyectarPunto = (p: Punto): { x: number; y: number } => {
+    const c = cam();
+    if (!c) return { x: -9999, y: -9999 };
+    c.project(proyectado, Vec3.create(p[0], p[1], p[2]));
+    const caja = nodo.getBoundingClientRect();
+    // El lienzo va en píxeles de dispositivo y la caja en píxeles de CSS.
+    const escala = caja.width ? c.viewport.width / caja.width : 1;
+    return { x: proyectado[0]! / escala, y: caja.height - proyectado[1]! / escala };
+  };
   const distancia = () => {
     const c = cam();
     if (!c) return 1;
@@ -174,6 +208,13 @@ export async function crearVisor(nodo: HTMLElement, fondo = 0x08070b): Promise<V
       await plugin.builders.structure.createStructure(modelo);
       await pintar(estilo);
       plugin.managers.camera.reset(undefined, 0);
+      // El reset con duración 0 se aplica en el siguiente dibujado de Mol*.
+      // Se espera a él aquí, y se guarda esa vista como base: así quien
+      // encuadre después no es pisado por el reset (pasó: la proteína quedaba
+      // centrada llenando la pantalla hiciera lo que hiciera el encuadre) y
+      // puede volver a la base para reencuadrar desde cero.
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      { const c = cam(); if (c) base = { ...c.state }; }
 
       // Coordenadas, número de residuo y pLDDT, leídos del propio fichero.
       const est = plugin.managers.structure.hierarchy.current.structures[0];
@@ -208,15 +249,18 @@ export async function crearVisor(nodo: HTMLElement, fondo = 0x08070b): Promise<V
           porResiduo.set(num, { numero: num, aa: r.aa, plddt: r.b / r.n, centro: [r.x / r.n, r.y / r.n, r.z / r.n] });
         }
       }
+      // Con los residuos ya leidos y la camara base aplicada: donde cae la
+      // proteina en pantalla, para que `colocar` lo tenga medido y no supuesto.
+      medirBbox();
       return { atomos: n, residuos: porResiduo.size, plddtMedio: n ? suma / n : 0, fiable: n ? fiables / n : 0 };
     },
 
     estilo: pintar,
 
-    encuadrar(zoom, corrimiento, ms = 0) {
+    encuadrar(zoom, corrimiento, ms = 0, desdeBase = false) {
       const c = cam();
       if (!c) return;
-      const e = c.state;
+      const e = desdeBase && base ? base : c.state;
       const d = Vec3.normalize(Vec3(), Vec3.sub(Vec3(), e.target, e.position));
       // Vector "a la derecha" de la cámara: dirección por arriba.
       const r = Vec3.normalize(Vec3(), Vec3.cross(Vec3(), d, e.up));
@@ -231,6 +275,60 @@ export async function crearVisor(nodo: HTMLElement, fondo = 0x08070b): Promise<V
 
     distancia,
 
+    async colocar(izquierda, derecha, margen = 24, ms = 0, arriba = 0, abajo = Infinity) {
+      let c = cam();
+      if (!c) return;
+      let caja = nodo.getBoundingClientRect();
+      if (!caja.width || !caja.height) return;
+      // Si el lienzo no mide lo mismo que cuando se tomo la base, la base ya
+      // no vale: Mol* reajusta la camara al cambiar de tamano. Se vuelve a su
+      // vista de reset, se espera a que la aplique, y se mide de nuevo.
+      if (!base || !bboxBase || Math.abs(bboxBase[4] - caja.height) > 2 || Math.abs((bboxBase[5] ?? 0) - caja.width) > 2) {
+        plugin.managers.camera.reset(undefined, 0);
+        await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+        c = cam();
+        if (!c) return;
+        base = { ...c.state };
+        medirBbox();
+        caja = nodo.getBoundingClientRect();
+        if (!base || !bboxBase) return;
+      }
+      // Todo se calcula desde la vista BASE y su bbox, medido una vez al
+      // cargar con la camara ya aplicada. No se mide despues de un
+      // setState: con duracion 0 Mol* lo aplica en el siguiente dibujado, y
+      // medir antes devuelve la camara vieja (asi acumulaba el factor dos
+      // veces y la proteina acababa a 2400 A, fuera de pantalla).
+      const [bx0, bx1, by0, by1] = bboxBase;
+      const anchoProt = bx1 - bx0 + 16, altoProt = by1 - by0 + 16;
+      const abajoReal = Math.min(abajo, caja.height);
+      const anchoHueco = Math.max(120, derecha - izquierda - margen * 2);
+      const altoHueco = Math.max(120, abajoReal - arriba - margen * 2);
+      const factor = Math.max(anchoProt / anchoHueco, altoProt / altoHueco);
+      const e = base;
+      const d = Vec3.normalize(Vec3(), Vec3.sub(Vec3(), e.target, e.position));
+      const distBase = Vec3.distance(e.target, e.position);
+      const dist = distBase * factor;
+      // En la base, el centro del bbox esta donde esta; tras alejar por
+      // `factor`, el bbox se encoge hacia el centro del lienzo. El centro del
+      // bbox pasa a: centroLienzo + (centroBbox - centroLienzo) / factor.
+      const cxLienzo = caja.width / 2, cyLienzo = caja.height / 2;
+      const cxTras = cxLienzo + ((bx0 + bx1) / 2 - cxLienzo) / factor;
+      const cyTras = cyLienzo + ((by0 + by1) / 2 - cyLienzo) / factor;
+      // Y lo que falta para llegar al centro del hueco, en pixeles a la
+      // distancia nueva.
+      const dxPx = (izquierda + derecha) / 2 - cxTras;
+      const dyPx = (arriba + abajoReal) / 2 - cyTras;
+      const mundoPorPx = (2 * dist * Math.tan(e.fov / 2)) / caja.height;
+      const right = Vec3.normalize(Vec3(), Vec3.cross(Vec3(), d, e.up));
+      const up = Vec3.normalize(Vec3(), Vec3.cross(Vec3(), right, d));
+      // Mover la imagen a la derecha es mover el target a la izquierda.
+      const target = Vec3.scaleAndAdd(Vec3(), e.target, right, -dxPx * mundoPorPx);
+      Vec3.scaleAndAdd(target, target, up, dyPx * mundoPorPx);
+      const position = Vec3.scaleAndAdd(Vec3(), target, d, -dist);
+      c.setState({ ...e, target, position }, ms);
+      plugin.canvas3d?.requestDraw();
+    },
+
     irA(dist, ms = 420) {
       const c = cam();
       if (!c) return;
@@ -240,13 +338,7 @@ export async function crearVisor(nodo: HTMLElement, fondo = 0x08070b): Promise<V
     },
 
     proyectar(p) {
-      const c = cam();
-      if (!c) return { x: -9999, y: -9999 };
-      c.project(proyectado, Vec3.create(p[0], p[1], p[2]));
-      const caja = nodo.getBoundingClientRect();
-      // El lienzo va en píxeles de dispositivo y la caja en píxeles de CSS.
-      const escala = caja.width ? c.viewport.width / caja.width : 1;
-      return { x: proyectado[0]! / escala, y: caja.height - proyectado[1]! / escala };
+      return proyectarPunto(p);
     },
 
     centroDe(desde, hasta) {

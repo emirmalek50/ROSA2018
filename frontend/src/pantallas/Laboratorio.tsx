@@ -1837,29 +1837,27 @@ function useAltoHastaAbajo(ref: React.RefObject<HTMLElement | null>): number | n
 }
 
 
-/** Cómo encuadrar la proteína al abrir la ficha, según el ancho
- *  que le queda al lienzo. En pantalla ancha (1600+ px de lienzo) basta con
- *  -0.34: el bloque del nombre ocupa un tercio. En una laptop con la hoja
- *  abierta el lienzo se queda en unos 775 px y el bloque ocupa casi tres
- *  cuartos: la proteína quedaba DETRÁS del texto (Emir, 3 de octubre de
- *  2026). Se corre más cuanto más estrecha es la columna. */
-function encuadreInicial(anchoLienzo: number): { zoom: number; corrimiento: number } {
-  // OJO: el 0.62 que habia aqui ACERCABA, y en pantalla grande la proteina
-  // se salia por los cuatro lados. Nadie lo vio porque el encuadre no se
-  // llegaba a aplicar (el reset de la camara de Mol* lo pisaba) y la vista
-  // era siempre la de Mol* por defecto. Al arreglar eso salio este valor.
-  if (anchoLienzo >= 1500) return { zoom: 1.05, corrimiento: -0.3 };
-  // Cuanto mas estrecha la columna, mas lejos la camara (la proteina ocupa
-  // menos) y mas a la derecha, para que quede al lado del texto y no detras.
-  // `zoom` multiplica la distancia de la camara: < 1 acerca, > 1 aleja.
-  // Geometria medida el 3 de octubre de 2026: perspectiva con fov 45 grados,
-  // radio de la proteina 64 A; a 198 A de distancia ocupa el 78 % del alto,
-  // asi que en una columna de 775 px la LLENA. Para que quede al lado del
-  // texto y no detras hay que alejarse hasta 1.9x (ocupa la mitad) y
-  // correrla a la derecha. Mas lejos, el mismo corrimiento en radios son mas
-  // pixeles, asi que el corrimiento baja.
-  const t = Math.min(1, (1500 - anchoLienzo) / 800);
-  return { zoom: 1.05 + t * 0.87, corrimiento: -0.3 - t * 0.14 };
+/** El hueco libre para la proteína: a la DERECHA del bloque de texto, hasta
+ *  el borde del lienzo. El texto va a la izquierda y la proteína en lo que
+ *  queda, nunca detrás del texto (Emir, 3 de octubre de 2026: «es la proteína
+ *  la que se tiene que ver»). Se mide del DOM, no se supone. */
+function huecoDeLaProteina(lienzo: HTMLElement, bloque: HTMLElement | null): { izquierda: number; derecha: number; arriba: number; abajo: number } {
+  const l = lienzo.getBoundingClientRect();
+  const b = bloque?.getBoundingClientRect();
+  const izquierda = b ? Math.min(l.width - 160, b.right - l.left + 24) : 0;
+  // A la derecha viven el mando (lámina/partes/átomos) y la leyenda, y
+  // abajo las cifras y el pie: la proteína no se mete debajo de ellos. Se
+  // miden del DOM; si no están, no se descuenta nada.
+  const mando = lienzo.parentElement?.querySelector<HTMLElement>('.lab-lamina > .lab-mando')?.getBoundingClientRect();
+  const leyenda = lienzo.parentElement?.querySelector<HTMLElement>('.lab-leyenda')?.getBoundingClientRect();
+  const abajoEl = lienzo.parentElement?.querySelector<HTMLElement>('.lab-abajo')?.getBoundingClientRect();
+  // El mando (tres botones estrechos) marca el borde derecho. La leyenda es
+  // mas ancha pero esta abajo a la derecha: se la esquiva por ABAJO, no por
+  // la derecha, o la proteina se quedaba diminuta en una franja estrecha.
+  const derecha = mando && mando.width > 0 ? Math.max(izquierda + 200, mando.left - l.left - 12) : l.width;
+  const topes = [abajoEl, leyenda].filter((r): r is DOMRect => !!r && r.height > 0).map((r) => r.top - l.top - 12);
+  const abajo = topes.length ? Math.max(260, Math.min(...topes)) : l.height;
+  return { izquierda: Math.max(0, izquierda), derecha, arriba: 0, abajo };
 }
 
 function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaboratorio; abrirAso?: boolean; alVolver: () => void }) {
@@ -1919,16 +1917,11 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
           fijarMarcas(a ?? []);
           fijarMarcasEstado(a === null ? 'sin_respuesta' : 'listas');
         });
-        // Un fotograma después del `reset` de la cámara que hace `cargar`: con
-        // duración 0 Mol* lo aplica en su siguiente dibujado, y si el encuadre
-        // va antes, el reset lo pisa y la proteína queda centrada y llenando
-        // la columna (medido el 3 de octubre de 2026: centro al 50 % exacto,
-        // hiciera lo que hiciera el corrimiento). Llevaba así desde que se
-        // escribió: en pantalla grande se salía por los cuatro lados.
-        await new Promise<void>((r) => requestAnimationFrame(() => r()));
+        // `cargar` ya esperó al reset de la cámara de Mol* y guardó la vista
+        // base; la proteína se coloca en el hueco a la derecha del texto.
+        const h = huecoDeLaProteina(nodo, bloqueRef.current);
+        await visor.colocar(h.izquierda, h.derecha, 24, 0, h.arriba, h.abajo);
         if (!vivo) return;
-        const enc = encuadreInicial(nodo.clientWidth);
-        visor.encuadrar(enc.zoom, enc.corrimiento);
         distInicial.current = visor.distancia();
       } catch (ex) {
         if (vivo) fijarFallo(ex instanceof Error ? ex.message : String(ex));
@@ -1940,6 +1933,33 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
       visorRef.current = null;
     };
   }, [diana.estructura.url, diana.uniprot]);
+
+  // Si el lienzo cambia de tamaño (abrir o cerrar la hoja, conectar un
+  // monitor) y seguimos en la vista general, la proteína se vuelve a colocar
+  // en el hueco a la derecha del texto. Va por ResizeObserver y no por el
+  // bucle de dibujado: con la escena quieta Mol* no dibuja, y cerrar la hoja
+  // no reencuadraba nada (3 de octubre de 2026).
+  useEffect(() => {
+    const nodo = caja.current;
+    if (!nodo || typeof ResizeObserver === 'undefined') return;
+    let ultimo = nodo.clientWidth;
+    let temporizador = 0;
+    const vigia = new ResizeObserver(() => {
+      const ancho = nodo.clientWidth;
+      if (Math.abs(ancho - ultimo) < 24) return;
+      ultimo = ancho;
+      // Al final del cambio (la hoja se anima 300 ms), no en cada fotograma.
+      window.clearTimeout(temporizador);
+      temporizador = window.setTimeout(() => {
+        const visor = visorRef.current;
+        if (!visor || nivelRef.current !== 0) return;
+        const h = huecoDeLaProteina(nodo, bloqueRef.current);
+        void visor.colocar(h.izquierda, h.derecha, 24, 420, h.arriba, h.abajo).then(() => { distInicial.current = visor.distancia(); });
+      }, 80);
+    });
+    vigia.observe(nodo);
+    return () => { vigia.disconnect(); window.clearTimeout(temporizador); };
+  }, [medido]);
 
   // Reproyectar las etiquetas en cada fotograma: van pegadas a la proteína al
   // girarla. Un ordenador por altura las separa para que no se pisen.
