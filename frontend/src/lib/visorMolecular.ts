@@ -66,6 +66,16 @@ export interface Visor {
   enfocar(desde: number, hasta: number, minimo?: number, ms?: number): boolean;
   /** Avisa en cada fotograma dibujado. Devuelve cómo dejar de escuchar. */
   alDibujar(fn: () => void): () => void;
+  /** Quita la estructura cargada, sin destruir el visor ni su contexto
+   *  WebGL: para cargar otra en el mismo visor. Crear y destruir un visor
+   *  por proteína era lo que atascaba el muro (compilar shaders y perder el
+   *  contexto cada vez). */
+  vaciar(): Promise<void>;
+  /** Una imagen de lo que hay en pantalla, con el postprocesado puesto, como
+   *  `data:` URI. Para el muro: una tarjeta se pinta una vez, se captura, y
+   *  el visor se destruye; una imagen no cuesta un contexto WebGL ni
+   *  redibuja nada. `transparente` deja el fondo sin color. */
+  capturar(opciones?: { transparente?: boolean; maxDim?: number }): Promise<string | null>;
   /** Avisa del residuo bajo el ratón, o de null al salir. */
   alSeñalar(fn: (r: Residuo | null) => void): () => void;
   /** Giro automático, en radianes por segundo (la misma unidad y el mismo
@@ -137,6 +147,10 @@ export async function crearVisor(nodo: HTMLElement, fondo = 0x08070b): Promise<V
     postprocessing: {
       // La oclusión ambiental y el contorno son lo que convierte un amasijo de
       // esferas en un cuerpo con volumen. Es lo que separa esto de un diagrama.
+      // OJO al medir esto: un Chromium sin cabeza renderiza por software
+      // (SwiftShader) y da 9 fps; con la GPU real del Mac son 53 fps con
+      // estos mismos parametros (5 de octubre de 2026). Los tirones del
+      // laboratorio no venian de aqui sino del muro (CPU).
       occlusion: { name: 'on', params: { samples: 32, multiScale: { name: 'off', params: {} }, radius: 5, bias: 0.8, blurKernelSize: 15, blurDepthBias: 0.5, resolutionScale: 1, color: Color(0x000000), transparentThreshold: 0.4 } },
       outline: { name: 'on', params: { scale: 1, threshold: 0.33, color: Color(0x000000), includeTransparent: true } },
     },
@@ -357,6 +371,44 @@ export async function crearVisor(nodo: HTMLElement, fondo = 0x08070b): Promise<V
         }
       }
       return n ? dentro.map((d) => d / n) : dentro;
+    },
+
+    async capturar(opciones = {}) {
+      const ayuda = plugin.helpers.viewportScreenshot;
+      if (!ayuda) return null;
+      try {
+        // Mol* no dibuja si nada cambió: se fuerza un fotograma y se espera a
+        // que lo termine antes de leer, o la imagen sale negra.
+        // El callback puede disparar en el mismo tick de suscribirse, antes
+        // de que la variable de la suscripción exista: se resuelve con una
+        // bandera y se cancela la suscripción después.
+        await new Promise<void>((r) => {
+          const c3 = plugin.canvas3d;
+          if (!c3) return r();
+          let hecho = false;
+          const sub = c3.didDraw.subscribe(() => { if (!hecho) { hecho = true; r(); } });
+          c3.requestDraw();
+          // Si ya había dibujado antes de suscribirse, no esperar para siempre.
+          setTimeout(() => { if (!hecho) { hecho = true; r(); } sub.unsubscribe(); }, 400);
+          if (hecho) sub.unsubscribe();
+        });
+        ayuda.behaviors.values.next({ ...ayuda.behaviors.values.value, transparent: !!opciones.transparente });
+        // `getPreview` renderiza a un tamano acotado con un pase propio: el
+        // `readPixels` (que es lo que bloquea el hilo; medido 17 s de CPU en
+        // un scroll de 4 s con la captura a tamano completo) cuesta lo que
+        // mide la imagen, no lo que mide el lienzo.
+        const { SyncRuntimeContext } = await import('molstar/lib/mol-task/execution/synchronous');
+        const vista = await ayuda.getPreview(SyncRuntimeContext, opciones.maxDim ?? 420);
+        return vista ? vista.canvas.toDataURL('image/png') : null;
+      } catch {
+        return null;
+      }
+    },
+
+    async vaciar() {
+      await plugin.clear();
+      porResiduo = new Map();
+      base = null;
     },
 
     alDibujar(fn) {

@@ -10,7 +10,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Laboratorio as Datos } from '../lib/laboratorio';
-import { Laboratorio } from './Laboratorio';
+import { Laboratorio, _olvidarMiniaturas } from './Laboratorio';
 
 const respuestas = vi.hoisted(() => ({
   datos: null as Datos | null | 'sin_respuesta',
@@ -51,6 +51,9 @@ vi.mock('../lib/visorMolecular', () => ({
     }),
     estilo: vi.fn(async () => undefined),
     encuadrar: vi.fn(),
+    // El muro: un visor compartido vacia, carga y captura cada miniatura.
+    vaciar: vi.fn(async () => undefined),
+    capturar: vi.fn(async () => 'data:image/png;base64,AAAA'),
     distancia: () => 100 * (visor.nivel === 2 ? 0.3 : visor.nivel === 1 ? 0.8 : 1),
     irA: vi.fn(),
     proyectar: () => ({ x: 10, y: 10 }),
@@ -387,6 +390,7 @@ beforeEach(() => {
   abierta = null;
   panelAbierto = null;
   respuestas.datos = DATOS;
+  _olvidarMiniaturas();
   respuestas.experimentos = CONTRATOS;
   respuestas.oligos = DIANA.aso;
   visor.cargados = [];
@@ -1135,3 +1139,34 @@ describe('la ficha visual y sus gráficas', () => {
     expect(texto()).toContain('EL CANDIDATO 2 DE 2');
   });
 });
+
+describe('el muro: las miniaturas son imagenes de un solo visor', () => {
+  it('con muchas tarjetas a la vista se crea UN visor, cada estructura se carga una vez y cada tarjeta acaba con imagen', async () => {
+    // Antes cada tarjeta era un visor WebGL vivo que se creaba y destruia al
+    // hacer scroll: 30 fotogramas en 4 s de scroll con uno de 1114 ms, y
+    // tarjetas en blanco al pasar del tope de contextos del navegador (5 de
+    // octubre de 2026). Ahora un visor oculto las pinta en serie y las
+    // captura a imagen.
+    const { crearVisor } = await import('../lib/visorMolecular');
+    (crearVisor as unknown as { mockClear: () => void }).mockClear();
+    visor.cargados.length = 0;
+    // jsdom no trae IntersectionObserver: el componente lo trata como visible.
+    const antes = (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
+    delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
+    const muchas = Array.from({ length: 6 }, (_, i) => ({ ...DIANA, uniprot: `P0000${i}`, simbolo: `GEN${i}`, estructura: { ...DIANA.estructura, url: `https://alphafold.ebi.ac.uk/files/AF-P0000${i}-F1-model_v6.cif` } }));
+    respuestas.datos = { ...DATOS, dianas: muchas, resumen: { ...DATOS.resumen, dianas: muchas.length } };
+    try {
+      await montar();
+      // La cola es en serie: se le da tiempo a recorrer las seis.
+      for (let i = 0; i < 12; i++) await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+      expect(crearVisor).toHaveBeenCalledTimes(1);
+      expect(new Set(visor.cargados).size).toBe(6);
+      expect(visor.cargados.length).toBe(6);
+      expect(nodo.querySelectorAll('.lab-mini-lista img').length).toBe(6);
+      expect(texto()).not.toContain('trayendo la estructura');
+    } finally {
+      (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver = antes;
+    }
+  });
+});
+

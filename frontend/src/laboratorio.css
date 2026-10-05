@@ -717,7 +717,20 @@
   display: block;
   height: 210px;
   position: relative;
+  overflow: hidden;
 }
+/* La miniatura es una imagen capturada del visor, no un visor vivo: llena
+   la tarjeta y entra con un fundido cuando llega. */
+.lab-mini img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  animation: lab-mini-llega 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes lab-mini-llega { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .lab-mini img { animation: none; opacity: 1; } }
 .lab-mini-grande {
   height: auto;
   min-height: 300px;

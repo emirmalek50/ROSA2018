@@ -2806,70 +2806,136 @@ function Muro({ datos, alElegir }: { datos: Datos; alElegir: (d: DianaDeLaborato
   );
 }
 
-/** La proteína en pequeño, dentro de su tarjeta del muro. Se trae cuando la
- *  tarjeta entra en pantalla: cada estructura pesa de 0,5 a 2 MB. */
+/** Las miniaturas ya capturadas, por URL de estructura. Viven lo que la
+ *  pestaña: al volver al muro o hacer scroll arriba y abajo no se rehacen. */
+const MINIATURAS = new Map<string, { imagen: string; medido: Medido; maxDim: number }>();
+
+/** UN visor oculto para todas las miniaturas, en serie. Crear y destruir un
+ *  visor de Mol* por tarjeta era lo que atascaba el muro: cada uno compila
+ *  sus shaders y al destruirse pierde el contexto WebGL vaciando la cola de
+ *  la GPU (perfil del 5 de octubre de 2026: 21 s de CPU en `readPixels` y
+ *  `loseContext` durante 4 s de scroll, con solo tres visores). Uno solo,
+ *  que carga, captura, vacía y sigue con la siguiente, no compila nada dos
+ *  veces ni pierde ningún contexto. */
+let fabrica: Promise<{ visor: Visor; lienzo: HTMLDivElement }> | null = null;
+let colaMini: Promise<void> = Promise.resolve();
+const ANCHO_MINI = 560;
+const ALTO_MINI = 380;
+
+async function visorDeMiniaturas(): Promise<{ visor: Visor; lienzo: HTMLDivElement }> {
+  if (!fabrica) {
+    fabrica = (async () => {
+      const lienzo = document.createElement('div');
+      lienzo.style.cssText = `position:fixed;left:-10000px;top:0;width:${ANCHO_MINI}px;height:${ALTO_MINI}px;`;
+      document.body.appendChild(lienzo);
+      const { crearVisor } = await import('../lib/visorMolecular');
+      const visor = await crearVisor(lienzo, 0x0c0b10);
+      return { visor, lienzo };
+    })();
+    fabrica.catch(() => { fabrica = null; });
+  }
+  return fabrica;
+}
+
+/** Para las pruebas: olvida las miniaturas capturadas y el visor compartido,
+ *  que viven lo que el módulo. Sin esto, una prueba hereda las imágenes y el
+ *  visor de la anterior. */
+export function _olvidarMiniaturas(): void {
+  MINIATURAS.clear();
+  fabrica = null;
+  colaMini = Promise.resolve();
+}
+
+/** Carga una estructura en el visor compartido, la captura y devuelve la
+ *  imagen y las medidas. Una detrás de otra: el visor es uno. */
+function capturarMiniatura(url: string, maxDim: number): Promise<{ imagen: string; medido: Medido; maxDim: number } | null> {
+  const trabajo = colaMini.then(async () => {
+    const previa = MINIATURAS.get(url);
+    if (previa && previa.maxDim >= maxDim) return previa;
+    const { visor } = await visorDeMiniaturas();
+    await visor.vaciar();
+    const medido = await visor.cargar(url, 'mmcif', 'ilustrativa');
+    // Mol* encuadra la caja entera con mucho aire alrededor; en una tarjeta
+    // eso deja la proteína pequeña en medio de un rectángulo vacío.
+    visor.encuadrar(0.74, 0, 0, true);
+    const imagen = await visor.capturar({ maxDim });
+    if (!imagen) return null;
+    const r = { imagen, medido, maxDim };
+    MINIATURAS.set(url, r);
+    return r;
+  });
+  // La cola sigue aunque una falle.
+  colaMini = trabajo.then(() => undefined, () => undefined);
+  return trabajo;
+}
+
+/** La proteína en pequeño, dentro de su tarjeta del muro.
+ *
+ *  Es una IMAGEN, no un visor vivo. Antes cada tarjeta era un visor WebGL
+ *  completo de Mol* con oclusión ambiental, hasta ocho a la vez, que se
+ *  creaban y destruían al hacer scroll: medido el 5 de octubre de 2026, 30
+ *  fotogramas en 4 segundos de scroll (uno de 1114 ms), «GPU stall due to
+ *  ReadPixels» en la consola, y a los 6 segundos 14 tarjetas aún «trayendo
+ *  la estructura» (Emir: «tiene tirones, las proteínas tardan en cargar,
+ *  algunas se quedan en blanco»). Lo de en blanco es el navegador matando
+ *  el contexto WebGL más viejo al pasar del tope.
+ *
+ *  Ahora: cuando la tarjeta entra en pantalla, un visor efímero carga la
+ *  estructura fuera de la vista, la pinta una vez, se captura a imagen y se
+ *  destruye. La imagen se recuerda por URL. Una imagen no cuesta contexto
+ *  WebGL, no redibuja y no se queda en blanco. */
 function Miniatura({ diana, grande }: { diana: DianaDeLaboratorio; grande: boolean }) {
   const caja = useRef<HTMLDivElement | null>(null);
   const [visible, fijarVisible] = useState(false);
-  const [medido, fijarMedido] = useState<Medido | null>(null);
+  const recordada = MINIATURAS.get(diana.estructura.url);
+  const [imagen, fijarImagen] = useState<string | null>(recordada?.imagen ?? null);
+  const [medido, fijarMedido] = useState<Medido | null>(recordada?.medido ?? null);
   const [fallo, fijarFallo] = useState(false);
 
   useEffect(() => {
     const nodo = caja.current;
     if (!nodo || typeof IntersectionObserver === 'undefined') return fijarVisible(true);
-    // Se sigue vigilando después de la primera vez, a propósito: un navegador
-    // no da más de unos dieciséis contextos WebGL a la vez y este muro ya tiene
-    // diecisiete dianas. La tarjeta que sale de pantalla suelta el suyo.
-    //
-    // El margen es ancho (900 px, casi dos filas de tarjetas) para que un
-    // desplazamiento normal no destruya y rehaga los visores todo el rato: con
-    // 300 px, bajar una pantalla dejaba medio muro en «trayendo la
-    // estructura». Con 900 quedan vivos unos ocho, por debajo del tope.
-    const vigia = new IntersectionObserver((e) => fijarVisible(e.some((x) => x.isIntersecting)), { rootMargin: '900px' });
+    // Solo la primera vez: una vez capturada, la imagen se queda. El
+    // observador se referencia desde su propio callback, que puede disparar
+    // antes de que la constante exista: por eso va en un `let` asignado
+    // antes de observar.
+    let vigia: IntersectionObserver | null = null;
+    vigia = new IntersectionObserver((e) => {
+      if (e.some((x) => x.isIntersecting)) {
+        fijarVisible(true);
+        vigia?.disconnect();
+      }
+    }, { rootMargin: '900px' });
     vigia.observe(nodo);
-    return () => vigia.disconnect();
+    return () => vigia?.disconnect();
   }, []);
 
   useEffect(() => {
-    if (!visible) {
-      fijarMedido(null);
-      return;
-    }
+    if (!visible || imagen) return;
     let vivo = true;
-    let visor: Visor | null = null;
-    (async () => {
-      const nodo = caja.current;
-      if (!nodo) return;
-      try {
-        const { crearVisor } = await import('../lib/visorMolecular');
-        visor = await crearVisor(nodo, 0x0c0b10);
-        if (!vivo) return visor.destruir();
-        const m = await visor.cargar(diana.estructura.url, 'mmcif', 'ilustrativa');
+    // La grande, al tamaño que ocupa; las demás, a 320 px, que en tarjeta se
+    // ven nítidas y cuestan la mitad.
+    capturarMiniatura(diana.estructura.url, grande ? ANCHO_MINI : 320)
+      .then((r) => {
         if (!vivo) return;
-        fijarMedido(m);
-        // Mol* encuadra la caja entera con mucho aire alrededor; en una tarjeta
-        // eso deja la proteína pequeña en medio de un rectángulo vacío.
-        visor.encuadrar(0.74, 0);
-        // Las miniaturas NO giran. Eran diecisiete visores con oclusión
-        // ambiental redibujando a sesenta por segundo a la vez: el muro se
-        // arrastraba y no aportaba nada que no diga una imagen quieta.
-      } catch {
+        if (r) { fijarImagen(r.imagen); fijarMedido(r.medido); }
+        else fijarFallo(true);
+      })
+      .catch(() => {
         // La estructura la baja el NAVEGADOR de AlphaFold, no el servidor de
         // ROSA2018: una red que no llega allí deja la tarjeta sin proteína. Se
         // dice. Dejarla en "trayendo la estructura…" para siempre sería mentir.
         if (vivo) fijarFallo(true);
-      }
-    })();
-    return () => {
-      vivo = false;
-      visor?.destruir();
-    };
-  }, [visible, diana.estructura.url]);
+      });
+    return () => { vivo = false; };
+  }, [visible, imagen, diana.estructura.url]);
 
   const pct = medido ? Math.round(medido.fiable * 100) : null;
   return (
     <>
-      <span className={`lab-mini${grande ? ' lab-mini-grande' : ''}`} ref={caja as unknown as React.RefObject<HTMLSpanElement>} />
+      <span className={`lab-mini${grande ? ' lab-mini-grande' : ''}${imagen ? ' lab-mini-lista' : ''}`} ref={caja as unknown as React.RefObject<HTMLSpanElement>}>
+        {imagen && <img src={imagen} alt="" draggable={false} />}
+      </span>
       <span className="lab-zocalo">
         <span className="lab-barra" aria-hidden="true">
           <i style={{ width: pct === null ? '0%' : `${pct}%` }} />
