@@ -37,30 +37,47 @@ if [ -z "$TS" ]; then
   exit 1
 fi
 
+# Con tope de tiempo: mientras macOS tenga la extensión de red de Tailscale
+# sin permitir, la app no contesta y el CLI se queda colgado para siempre (le
+# pasó a Emir el 5 de octubre de 2026: el script no decía nada). macOS no trae
+# `timeout`; la alarma de perl sobrevive al exec y mata la orden.
+con_tope() { local s=$1; shift; perl -e 'alarm shift; exec @ARGV' "$s" "$@"; }
+
+# Si macOS está esperando que se permita la extensión, nada de lo demás va a
+# funcionar: se dice dónde está el botón y se para.
+extension_bloqueada() { systemextensionsctl list 2>/dev/null | grep -i tailscale | grep -q "waiting for user"; }
+AVISO_EXTENSION="macOS tiene bloqueada la extensión de red de Tailscale (está «esperando al usuario»). Permítela en Ajustes del Sistema > General > Ítems de inicio y extensiones > Extensiones de red (o en Privacidad y seguridad, abajo, «Permitir»), acepta el aviso de «añadir configuraciones VPN», inicia sesión en la app de Tailscale y vuelve a ejecutar este script."
+
 # El nombre fijo de este Mac en la red de Tailscale (sin el punto final).
 nombre() {
-  "$TS" status --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print((d.get("Self") or {}).get("DNSName","").rstrip("."))' 2>/dev/null || true
+  con_tope 10 "$TS" status --json 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print((d.get("Self") or {}).get("DNSName","").rstrip("."))' 2>/dev/null || true
 }
 estado_backend() {
-  "$TS" status --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("BackendState",""))' 2>/dev/null || true
+  con_tope 10 "$TS" status --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("BackendState",""))' 2>/dev/null || true
 }
 responde() { curl -s -m 10 "https://$1/api/acceso/estado" 2>/dev/null | grep -q '"accesoConfigurado"'; }
+
+if extension_bloqueada; then
+  echo "$AVISO_EXTENSION"
+  exit 1
+fi
 
 case "${1:-}" in
   --estado)
     N=$(nombre)
-    if [ -z "$N" ]; then echo "Tailscale no está conectado (estado: $(estado_backend)). Abre la app e inicia sesión."; exit 1; fi
+    if [ -z "$N" ]; then echo "Tailscale no está conectado (estado: ${$(estado_backend):-sin respuesta de la app}). Abre la app de Tailscale e inicia sesión."; exit 1; fi
     echo "Nombre fijo de este Mac: https://$N"
-    "$TS" funnel status 2>/dev/null | sed 's/^/  /' || true
+    con_tope 15 "$TS" funnel status 2>/dev/null | sed 's/^/  /' || true
     if responde "$N"; then echo "https://$N responde con ROSA2018."; else echo "https://$N no responde (todavía) con ROSA2018."; fi
     exit 0 ;;
   --parar)
-    "$TS" funnel reset && echo "Ya no se publica. El servidor sigue en http://127.0.0.1:$PUERTO"
+    con_tope 30 "$TS" funnel reset && echo "Ya no se publica. El servidor sigue en http://127.0.0.1:$PUERTO"
     exit 0 ;;
 esac
 
-if [ "$(estado_backend)" != "Running" ]; then
-  echo "Tailscale no está conectado (estado: $(estado_backend)). Abre la app de Tailscale, inicia sesión y vuelve a ejecutar este script."
+ESTADO=$(estado_backend)
+if [ "$ESTADO" != "Running" ]; then
+  echo "Tailscale no está conectado (estado: ${ESTADO:-sin respuesta de la app}). Abre la app de Tailscale (barra de menús), inicia sesión y vuelve a ejecutar este script."
   exit 1
 fi
 if ! curl -s -m 3 -o /dev/null "http://127.0.0.1:$PUERTO/api/acceso/estado"; then
@@ -78,7 +95,7 @@ fi
 # no está activado en la red, Tailscale lo dice con el enlace para activarlo
 # (un clic) y aquí se enseña tal cual.
 set +e
-SALIDA=$("$TS" funnel --bg "$PUERTO" 2>&1)
+SALIDA=$(con_tope 60 "$TS" funnel --bg "$PUERTO" 2>&1)
 CODIGO=$?
 set -e
 echo "$SALIDA" | sed 's/^/  /'
