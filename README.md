@@ -15,7 +15,13 @@ Con dos ventanas de terminal, o con el script que hace las dos cosas:
 ```
 
 Eso arranca el servidor de ROSA2018 (puerto 8765), la interfaz (puerto 5174) y abre
-el navegador. A mano:
+el navegador cuando el servidor ya responde (la primera vez instala todo y tarda
+uno o dos minutos). Lo que tiene que haber en la máquina, y que el script
+comprueba y dice cómo instalar si falta: `uv` (instala Python 3.12 y las
+dependencias), Node.js (la interfaz) y el `.env` de abajo. Se entra por
+http://localhost:5174, no por el puerto del servidor, que sin la interfaz
+compilada responde 404. Con un correo @alzheimerproject.com se crea la cuenta
+desde la pantalla de acceso y se entra en el acto. A mano:
 
 ```bash
 uv run python -m rosa.main          # el servidor y el bucle
@@ -26,7 +32,8 @@ Si el servidor no esta, la interfaz muestra datos de muestra con una corrida
 simulada y lo avisa con una franja amarilla.
 
 La clave del gateway va en `.env` (`ROSA_GATEWAY_KEY`), copiada del `.env` del
-RAG. Nunca al codigo ni a un chat.
+RAG o pasada por quien administra ROSA2018 por un canal privado. Nunca al
+código, al repo ni a un chat. Sin ella el servidor no arranca.
 
 ## Lo que trae ROSA2018 (septiembre de 2026)
 
