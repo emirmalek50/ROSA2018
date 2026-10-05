@@ -1,7 +1,36 @@
 # Pendiente para la siguiente sesion
 
-Actualizado el 28 de septiembre de 2026. El plan completo por etapas esta en
+Actualizado el 5 de octubre de 2026. El plan completo por etapas esta en
 `PLAN-ROSA2018.md`; esto es la lista corta de lo inmediato.
+
+## ROSA2018 en Windows: lo que se arregló a ciegas y lo que no se ha probado (5 de octubre de 2026)
+
+Una compañera de Emir clonó el repo en Windows (PowerShell). Nadie había
+arrancado ROSA2018 ahí. Lo que se hizo sin una máquina Windows delante:
+
+- `rosa/estado/almacen.py`: el cerrojo de instancia usaba `fcntl`, que en
+  Windows no existe, y el servidor moría en el import. Ahora `msvcrt.locking`
+  sobre el primer byte del fichero `.lock`. Probado solo en Mac (la rama de
+  Unix); la de Windows está escrita según la documentación, sin ejecutar.
+- `rosa.ps1`: el arranque en PowerShell, equivalente a `rosa.sh`. Sin probar:
+  en este Mac no hay `pwsh`. Lo primero que hay que mirar cuando alguien lo
+  ejecute es si `Start-Process -FilePath uv` resuelve `uv.exe` y si Ctrl+C
+  llega al `finally` que cierra los dos procesos.
+
+Lo que seguramente NO funciona en Windows y nadie ha mirado:
+
+- La parada ordenada: `rosa/main.py` engancha SIGINT y SIGTERM con
+  `add_signal_handler`, que en Windows lanza `NotImplementedError` (está
+  suprimido). Con Ctrl+C el proceso muere sin `supervisor.parar()`: una corrida
+  en marcha queda como interrumpida al volver a arrancar, que es lo previsto,
+  pero no deja terminar el paso en curso.
+- `scripts/parar_servidor.py` y `scripts/reiniciar_servidor.sh`: señales y zsh.
+- `rosa/criba.py` (procesos hijos para el barrido exacto): en Windows el
+  arranque de procesos es `spawn`; no se ha comprobado que el trabajo que se
+  reparte sea serializable.
+- `datos/_herramientas/ncbi-blast-2.17.0+/`: el binario es aarch64 de Mac.
+- El sandbox: Docker Desktop existe en Windows, pero `rosa/ejecucion.py` no se
+  ha probado con sus rutas.
 
 ## El sandbox existe y funciona: lo que le falta (auditoria del 28 de septiembre de 2026)
 

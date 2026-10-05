@@ -20,7 +20,7 @@ procesos de ROSA2018 escribieron a la vez sobre rosa.db en un reinicio con el
 Killer en vuelo, se perdió una decisión pagada y se rompió la cadena de
 auditoría):
 
-- Cerrojo de instancia: `Almacen.__init__` toma un `fcntl.flock` exclusivo
+- Cerrojo de instancia: `Almacen.__init__` toma un `fcntl.flock` exclusivo (en Windows, `msvcrt.locking`)
   sobre `rosa.db.lock`. Otro proceso que abra la misma base espera lo que se
   le diga (`espera_cerrojo`, con aviso cada pocos segundos) y después falla
   con `AlmacenOcupado` y un mensaje claro. Dentro del mismo proceso, dos
@@ -43,7 +43,6 @@ from __future__ import annotations
 
 import asyncio
 import copy
-import fcntl
 import inspect
 import hashlib
 import json
@@ -57,6 +56,16 @@ from pathlib import Path
 from typing import Any, Callable
 
 import orjson
+
+# El cerrojo de instancia es `flock` en Unix. Windows no trae `fcntl`: la
+# primera compañera que arrancó ROSA2018 en Windows (5 de octubre de 2026) no
+# pasó del import. Allí se usa `msvcrt.locking` sobre el primer byte del
+# fichero, que es exclusivo entre procesos igual que `flock` y lo suelta el
+# sistema si el proceso muere.
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 
 from rosa import config
 from rosa.estado import acciones as A
@@ -141,6 +150,24 @@ def _pid_del_cerrojo(ruta_lock: Path) -> str:
         return "desconocido"
 
 
+def _bloquear(fd: int) -> None:
+    """Intenta el cerrojo exclusivo sin esperar; OSError si otro proceso lo tiene."""
+    if sys.platform == "win32":
+        os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+    else:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def _desbloquear(fd: int) -> None:
+    if sys.platform == "win32":
+        # `locking` actúa desde la posición actual: tiene que ser el mismo byte.
+        os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+
+
 def _tomar_cerrojo(ruta: Path, espera: float) -> None:
     """Toma el cerrojo exclusivo de `ruta` (fichero `<base>.lock`). Si otro
     proceso lo tiene, reintenta cada medio segundo hasta `espera` segundos,
@@ -157,7 +184,7 @@ def _tomar_cerrojo(ruta: Path, espera: float) -> None:
         ultimo_aviso = -10.0
         while True:
             try:
-                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                _bloquear(fd)
                 break
             except OSError:
                 pasado = time.monotonic() - inicio
@@ -192,7 +219,7 @@ def _soltar_cerrojo(ruta: Path) -> None:
         fd = entrada[0]
         del _CERROJOS[clave]
         try:
-            fcntl.flock(fd, fcntl.LOCK_UN)
+            _desbloquear(fd)
         finally:
             os.close(fd)
 

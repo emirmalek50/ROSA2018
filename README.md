@@ -11,7 +11,8 @@ el backend (Python, DSPy, GEPA) y la interfaz (React).
 Con dos ventanas de terminal, o con el script que hace las dos cosas:
 
 ```bash
-./rosa.sh
+./rosa.sh          # Mac y Linux
+.\rosa.ps1         # Windows, en PowerShell (si se niega: powershell -ExecutionPolicy Bypass -File .\rosa.ps1)
 ```
 
 Eso arranca el servidor de ROSA2018 (puerto 8765), la interfaz (puerto 5174) y abre
