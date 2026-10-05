@@ -3,6 +3,28 @@
 Actualizado el 5 de octubre de 2026. El plan completo por etapas esta en
 `PLAN-ROSA2018.md`; esto es la lista corta de lo inmediato.
 
+## Una sola ROSA2018 para todo el equipo: lo que falta para el Mac siempre encendido (5 de octubre de 2026)
+
+Decisión de Emir: todo el que entre a ROSA2018 ve los mismos datos, así que
+hay un servidor y el equipo entra por un enlace (`scripts/compartir.sh`, túnel
+rápido de Cloudflare). Vale para hoy; para el Mac que estará siempre encendido
+hace falta:
+
+- Un túnel con nombre y dominio fijo (`rosa.alzheimerproject.com`), que no
+  cambie al reiniciar: Cloudflare Tunnel con el dominio en Cloudflare, o
+  Tailscale Funnel. El servidor ya admite ese nombre (`rosa/servidor.py`,
+  `de_oficio`). Y que arranque solo al encender el Mac (launchd), igual que el
+  servidor.
+- Un botón «Compartir ROSA2018» en Ajustes que arranque el túnel y enseñe el
+  enlace con «Copiar», en vez del script: quien opere ese Mac no abrirá la
+  terminal.
+- Avisar en la pantalla de acceso de que el enlace cambió (hoy nadie se
+  entera hasta que falla).
+- Las copias del repo en otras máquinas sobran para entrar; si alguien
+  arranca una con el `.env` copiado, el seguro del espejo (`es_otra_base`)
+  evita que barra Convex, pero sus corridas gastarían en la misma clave del
+  gateway. Un `.env` para compañeras debería llevar solo lo imprescindible.
+
 ## El espejo en Convex lleva desde el 22 de septiembre sin sincronizar (hallado el 5 de octubre de 2026)
 
 Convex tiene la versión 25.931 (1.743 entidades) y la base local va por la

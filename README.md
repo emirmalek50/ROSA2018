@@ -32,6 +32,25 @@ cd frontend && npm run dev          # la interfaz en http://localhost:5174
 Si el servidor no esta, la interfaz muestra datos de muestra con una corrida
 simulada y lo avisa con una franja amarilla.
 
+### Compartir ROSA2018 con el equipo
+
+Hay UNA ROSA2018: la del servidor donde vive `rosa.db`. Una copia del repo en
+otra máquina arranca vacía, porque los datos (`rosa.db`, `datos/`) no se
+versionan. Para que todo el equipo vea y trabaje sobre los mismos datos
+(decisión de Emir, 5 de octubre de 2026), el servidor se saca a un enlace:
+
+```bash
+./scripts/compartir.sh            # arranca el túnel y escribe el enlace
+./scripts/compartir.sh --estado   # el enlace actual
+./scripts/compartir.sh --parar    # cierra el túnel; el servidor sigue
+```
+
+Quien recibe el enlace crea su cuenta con su correo @alzheimerproject.com y
+entra en el acto. El túnel (Cloudflare, `brew install cloudflared`) solo
+reenvía al 127.0.0.1 y el enlace cambia cada vez que se arranca; en el Mac que
+estará siempre encendido hará falta un túnel con nombre y dominio fijo (ver
+`PENDIENTE.md`).
+
 La clave del gateway va en `.env` (`ROSA_GATEWAY_KEY`), copiada del `.env` del
 RAG o pasada por quien administra ROSA2018 por un canal privado. Nunca al
 código, al repo ni a un chat. Sin ella el servidor no arranca.
