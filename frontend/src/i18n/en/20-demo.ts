@@ -1,6 +1,10 @@
 // Textos fijos detectados en la demo del 5 de octubre de 2026.
 // La prosa científica variable sigue en la caché de traducción, no aquí.
 export const DEMO: Record<string, string> = {
+  "Eliminar conversación": "Delete conversation",
+  "Conversación eliminada.": "Conversation deleted.",
+  "Conversación": "Conversation",
+  "Mensajes incluidos": "Included messages",
   "ARN": "RNA",
   "Aplicar cambio": "Apply change",
   "Aplicando…": "Applying…",

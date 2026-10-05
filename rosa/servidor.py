@@ -528,6 +528,8 @@ def crear_app(almacen: Almacen) -> FastAPI:
         except (TypeError, ValueError, KeyError, AttributeError, OverflowError, IndexError) as ex:
             # El almacen ya deshizo la mutacion a medias; el cliente recibe un 400 con el motivo.
             raise HTTPException(400, f"Argumentos inválidos para {nombre}: {type(ex).__name__}: {str(ex)[:200]}")
+        if nombre == "eliminarConversacion" and resultado is not False:
+            respuestas.cancelar_hilo(args["investigacion_id"], args["hilo"])
         if nombre == "asignarExperimento" and resultado is not False and isinstance(args.get("hipotesis_id"), str):
             # El prerregistro recien congelado se sella con un tercero, fuera de la
             # peticion. La tarea se GUARDA: una tarea de asyncio que nadie referencia
@@ -1141,7 +1143,9 @@ def crear_app(almacen: Almacen) -> FastAPI:
             t = asyncio.create_task(_sellar_prerregistro(r["argumentos"]["hipotesis_id"]))
             _sellos_en_vuelo.add(t)
             t.add_done_callback(_sellos_en_vuelo.discard)
-        if r.get('estado') == 'ejecutada' and not r.get('repetida'):
+        if r.get('estado') == 'ejecutada' and r.get('nombre') == 'eliminarConversacion':
+            respuestas.cancelar_hilo(r['argumentos']['investigacion_id'], r['argumentos']['hilo'])
+        elif r.get('estado') == 'ejecutada' and not r.get('repetida'):
             def pendiente(e):
                 _, op = AO.localizar(e, *ids, quien)
                 op['continuacion'] = 'pendiente'
@@ -1190,6 +1194,9 @@ def crear_app(almacen: Almacen) -> FastAPI:
         # turno inventado.
         hilo = str(cuerpo.get("hilo") or "").strip()
         hilo = hilo if re.fullmatch(r"[a-zA-Z0-9-]{1,40}", hilo) else ""
+        from rosa.asistente_conversaciones import hilo_eliminado
+        if hilo_eliminado(inv, hilo):
+            raise HTTPException(409, "Esta conversación fue eliminada. Abre una conversación nueva.")
         contexto_hilo = _turnos_previos(inv, hilo)
         # El razonamiento en vivo (rosa/razonamiento.py): el navegador manda un
         # id de seguimiento y, mientras esto corre, pide los pasos a
@@ -1199,7 +1206,7 @@ def crear_app(almacen: Almacen) -> FastAPI:
         from rosa import razonamiento as RZ
 
         seguimiento = RZ.id_valido(cuerpo.get("seguimiento"))
-        solicitud = respuestas.abrir(seguimiento or secrets.token_hex(16), quien, investigacion_id)
+        solicitud = respuestas.abrir(seguimiento or secrets.token_hex(16), quien, investigacion_id, hilo)
         progreso = RZ.abrir(seguimiento) if seguimiento else RZ.Progreso()
         # El asistente no hereda la cuota global de 40 preguntas del antiguo
         # buscador. La concurrencia sigue acotada por el semáforo del servidor.
@@ -1246,7 +1253,9 @@ def crear_app(almacen: Almacen) -> FastAPI:
                 r["hilo"] = hilo
             if seguimiento:
                 r["seguimiento"] = seguimiento
-            almacen.aplicar("registrarPreguntaBases", {"investigacion_id": investigacion_id, "pregunta": r})
+            guardada = almacen.aplicar("registrarPreguntaBases", {"investigacion_id": investigacion_id, "pregunta": r})
+            if guardada is False and hilo_eliminado(conversacion(almacen.estado, investigacion_id) or {}, hilo):
+                return {"ok": True, "resultado": {"conversacionEliminada": True, "cancelada": True}, "version": almacen.version}
         finally:
             progreso.cerrar()
             respuestas.terminar(solicitud)

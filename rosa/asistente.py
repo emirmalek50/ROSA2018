@@ -21,7 +21,7 @@ from rosa import herramientas as H
 from rosa import killer as K
 from rosa import asistente_servicios as SV
 from rosa.estado import plantilla as P
-from rosa.asistente_conversaciones import conversacion
+from rosa.asistente_conversaciones import conversacion, hilo_de, hilo_eliminado
 
 # Estas operaciones pertenecen a endpoints con efectos adicionales o al servidor.
 EXCLUIDAS = frozenset({
@@ -76,6 +76,15 @@ class ConversarConRosa(H.PreguntarConHerramientas):
     archivo. Si hay usos registrados, explica las referencias que lo impiden.
     No confundas rechazar un dataset con eliminarlo. Comprueba archivoEliminado
     antes de afirmar que se borró el archivo; un fallo de limpieza puede reintentarse.
+
+    Puedes eliminar conversaciones si la persona lo pide: usa listar_conversaciones
+    para identificar el hilo y su investigación (global para el asistente general),
+    consulta catalogo_acciones("eliminarConversacion") y prepara esa acción.
+    Para "borra esta conversación" usa el hiloActual devuelto por la herramienta.
+    Si hay varias coincidencias y no está claro cuál pide, pregunta antes de preparar.
+    El botón Eliminar conversación confirma el borrado de todos los mensajes del hilo.
+    No elimina investigaciones, hechos ni archivos; se conserva la auditoría del proyecto.
+    No prometas un borrado de copias de seguridad. No confundas conversación con investigación.
 
     Para Atlas y Mecanismos usa consultar_vista_calculada; para las trazas y
     evaluaciones usa consultar_gepa. consultar_dataset recorre todas las filas
@@ -148,13 +157,25 @@ def validar_accion(nombre: str, argumentos: dict) -> None:
     inspect.signature(fn).bind({}, **kw)
 
 
-def contexto_operacion(e: dict, nombre: str, argumentos: dict) -> list[dict]:
+def contexto_operacion(e: dict, nombre: str, argumentos: dict, *, excluir_pregunta: str = "") -> list[dict]:
     """Identifica lo que se va a modificar; una aprobación no puede cambiar
     de objeto entre la propuesta y el clic de la persona.
     """
     from rosa.estado.almacen import _limpiar_para_cliente
 
     e = _limpiar_para_cliente(e)
+    if nombre == "eliminarConversacion":
+        contenedor = conversacion(e, argumentos["investigacion_id"])
+        if contenedor is None:
+            raise ValueError("Investigación desconocida")
+        hilo = argumentos["hilo"]
+        filas = [q for q in contenedor.get("preguntasABases", []) if hilo_de(q) == hilo and q["id"] != excluir_pregunta]
+        return [{"coleccion": "conversaciones", "registro": {
+            "investigacionId": contenedor["id"], "investigacion": contenedor["titulo"], "hilo": hilo,
+            "titulo": str(filas[0].get("pregunta") or "")[:160] if filas else "Conversación actual",
+            "mensajes": len(filas), "turnos": [q["id"] for q in filas],
+            "eliminada": hilo_eliminado(contenedor, hilo),
+        }}]
     ids = {v for k, v in argumentos.items() if k.endswith("_id") and isinstance(v, str)}
     ids.update(x for x in argumentos.get("ids", []) if isinstance(x, str))
     registros = []
@@ -181,6 +202,13 @@ def resolver_accion(e: dict, investigacion_id: str, pregunta_id: str, operacion_
     """Confirma una operación guardada, una sola vez, dentro de la transacción.
     No acepta nombre ni argumentos del navegador: los lee del registro firmado.
     """
+    if not isinstance(aprobar, bool):
+        raise ValueError("La decisión debe ser verdadera o falsa")
+    # Al borrar el hilo actual también desaparece la operación que lo pidió.
+    # Un recibo sin mensajes permite reintentar el HTTP sin repetir el borrado.
+    recibo = e.get("_recibosConversaciones", {}).get(operacion_id)
+    if recibo and quien and (recibo["investigacionId"], recibo["preguntaId"], recibo["quien"]) == (investigacion_id, pregunta_id, quien):
+        return {**copy.deepcopy(recibo["respuesta"]), "repetida": True}
     inv = conversacion(e, investigacion_id, crear=True)
     q = next((q for q in (inv or {}).get("preguntasABases", []) if q["id"] == pregunta_id), None)
     if not q or not quien or q.get("quien") != quien:
@@ -190,14 +218,13 @@ def resolver_accion(e: dict, investigacion_id: str, pregunta_id: str, operacion_
         raise ValueError("Operación desconocida")
     if op["estado"] != "pendiente":
         return {"ok": op["estado"] == "ejecutada", "estado": op["estado"], "resultado": op.get("resultado"), "repetida": True}
-    if not isinstance(aprobar, bool):
-        raise ValueError("La decisión debe ser verdadera o falsa")
     if not aprobar:
         op.update(estado="cancelada", resueltaEn=ahora)
         return {"ok": True, "estado": "cancelada"}
     nombre, args = op["nombre"], copy.deepcopy(op["argumentos"])
     validar_accion(nombre, args)
-    if op.get("_huella") and huella(contexto_operacion(e, nombre, args)) != op["_huella"]:
+    borra_actual = nombre == "eliminarConversacion" and args["investigacion_id"] == investigacion_id and args["hilo"] == hilo_de(q)
+    if op.get("_huella") and huella(contexto_operacion(e, nombre, args, excluir_pregunta=pregunta_id if borra_actual else "")) != op["_huella"]:
         op.update(estado="no_aplicada", resueltaEn=ahora, resultado="El objeto cambió desde la propuesta. Pide a ROSA que prepare el cambio de nuevo.")
         return {"ok": False, "estado": "no_aplicada", "resultado": op["resultado"]}
     if nombre.startswith("servicio:"):
@@ -215,6 +242,14 @@ def resolver_accion(e: dict, investigacion_id: str, pregunta_id: str, operacion_
     if resultado is not False:
         e.clear()
         e.update(candidato)
+        if borra_actual:
+            respuesta = {"ok": True, "estado": "ejecutada", "resultado": resultado,
+                         "nombre": nombre, "argumentos": op["argumentos"]}
+            e.setdefault("_recibosConversaciones", {})[operacion_id] = {
+                "investigacionId": investigacion_id, "preguntaId": pregunta_id,
+                "quien": quien, "resueltaEn": ahora, "respuesta": copy.deepcopy(respuesta),
+            }
+            return respuesta
         inv = conversacion(e, investigacion_id, crear=True)
         q = next(q for q in (inv or {})["preguntasABases"] if q["id"] == pregunta_id)
         op = next(a for a in q["acciones"] if a["id"] == operacion_id)
@@ -354,6 +389,13 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
         La persona verá los argumentos y confirmará desde la conversación.
         """
         validar_accion(nombre, argumentos)
+        if nombre == "eliminarConversacion":
+            inv = conversacion(estado(), argumentos["investigacion_id"])
+            hilo = argumentos["hilo"]
+            servicio = SV.CONTEXTO.get()
+            es_actual = argumentos["investigacion_id"] == investigacion_id and hilo and hilo == getattr(servicio, "hilo", "")
+            if inv is None or hilo_eliminado(inv, hilo) or (not es_actual and not any(hilo_de(q) == hilo for q in inv.get("preguntasABases", []))):
+                raise ValueError("No se encontró esa conversación; usa listar_conversaciones antes de preparar el borrado")
         if nombre.startswith("servicio:"):
             servicio = SV.CONTEXTO.get()
             if servicio is None or "error" in servicio.catalogo(nombre):
@@ -366,6 +408,8 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
         contexto = contexto_operacion(estado(), nombre, argumentos)
         if contexto:
             op["contexto"] = contexto
+        if nombre == "eliminarConversacion":
+            op["resumen"] = f'Eliminar conversación: «{contexto[0]["registro"]["titulo"]}»'
         # Los controles de una corrida viva trabajan sobre su estado actual.
         controles = {"pausarCorrida", "reanudarCorrida", "detenerCorrida", "iniciarCorrida", "ampliarPresupuesto", "dirigirCorrida", "crearInvestigacion", "crearInvestigacionEIniciar"}
         if contexto and nombre not in controles:
@@ -385,7 +429,39 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
                  and (not consulta or consulta.casefold() in json.dumps(q, ensure_ascii=False).casefold())]
         return SV.paginar({"total": len(filas), "mensajes": filas}, desde)
 
-    return [dspy.Tool(f) for f in (consultar_arbol, catalogo_proyecto, panorama_del_tema, consultar_proyecto, leer_registro, catalogo_acciones, preparar_accion, leer_conversacion)]
+    def listar_conversaciones(investigacion: str = "", consulta: str = "", desde: int = 0) -> str:
+        """Lista hilos con ID, título, fechas y número de mensajes. Sin investigación
+        usa la abierta; global es el asistente general, todas recorre el proyecto.
+        Consulta busca texto en preguntas y respuestas. Desde indica el desplazamiento en caracteres.
+        hiloActual identifica la conversación desde la que habla la persona,
+        incluso antes de guardar su primer mensaje. No elimina nada.
+        """
+        e = estado()
+        ident = investigacion or investigacion_id
+        invs: list[dict]
+        if ident == "todas":
+            invs = [*e.get("investigaciones", []), conversacion(e, "global") or {}]
+        else:
+            inv = conversacion(e, ident)
+            if inv is None:
+                return SV.paginar({"error": "Investigación desconocida"}, desde)
+            invs = [inv]
+        filas: list[dict[str, Any]] = []
+        for inv in invs:
+            grupos: dict[str, list[dict]] = {}
+            for q in inv.get("preguntasABases", []):
+                grupos.setdefault(hilo_de(q), []).append(q)
+            for hilo, mensajes in grupos.items():
+                if consulta and not any(consulta.casefold() in f'{q.get("pregunta", "")} {q.get("respuesta", "")}'.casefold() for q in mensajes):
+                    continue
+                filas.append({"investigacionId": inv["id"], "investigacion": inv["titulo"], "hilo": hilo,
+                              "titulo": str(mensajes[0].get("pregunta") or "")[:160], "mensajes": len(mensajes),
+                              "ultimaActividad": max(q.get("fecha", 0) for q in mensajes)})
+        filas.sort(key=lambda f: f["ultimaActividad"], reverse=True)
+        return SV.paginar({"investigacionActual": investigacion_id, "hiloActual": getattr(SV.CONTEXTO.get(), "hilo", ""),
+                           "total": len(filas), "conversaciones": filas}, desde)
+
+    return [dspy.Tool(f) for f in (consultar_arbol, catalogo_proyecto, panorama_del_tema, consultar_proyecto, leer_registro, catalogo_acciones, preparar_accion, leer_conversacion, listar_conversaciones)]
 
 
 async def preguntar(lm: Any, estado: dict, investigacion_id: str, pregunta: str, contexto: str, *, almacen: Any) -> dict:

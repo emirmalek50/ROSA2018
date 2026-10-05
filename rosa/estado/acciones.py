@@ -686,12 +686,26 @@ def _pasos_de_razonamiento(pasos: list) -> list[dict]:
 def registrar_pregunta_bases(e: Estado, investigacion_id: str, pregunta: dict, ahora: int) -> bool:
     """La respuesta de una pregunta con herramientas entra a la investigación
     con sus consultas, para que se vea de donde salió cada dato."""
-    from rosa.asistente_conversaciones import conversacion
+    from rosa.asistente_conversaciones import conversacion, hilo_eliminado
     inv = conversacion(e, investigacion_id, crear=True)
     if not inv or not isinstance(pregunta, dict) or not pregunta.get("pregunta"):
         return False
+    if hilo_eliminado(inv, str(pregunta.get("hilo") or "")[:40]):
+        return False
     inv.setdefault("preguntasABases", []).append({"id": P.nuevo_id("pb"), "fecha": ahora, **{k: pregunta.get(k) for k in ("pregunta", "respuesta", "limites", "herramientas", "consultas", "iteraciones", "quien", "error")}, **{k: pregunta[k] for k in ("cobertura", "atribucion", "duracionMs", "acciones", "descargas", "cancelada", "seguimiento") if pregunta.get(k) is not None}, **({"pasos": _pasos_de_razonamiento(pregunta["pasos"])} if isinstance(pregunta.get("pasos"), list) else {}), **({"hilo": str(pregunta["hilo"])[:40]} if pregunta.get("hilo") else {})})
     return True
+
+
+def eliminar_conversacion(e: Estado, investigacion_id: str, hilo: str, quien: str) -> dict:
+    """Elimina una conversación concreta del historial del asistente y su contexto.
+    Usa listar_conversaciones para identificar el hilo y la investigación, o global.
+    Solo prepararla si la persona pidió borrarla; requiere confirmar el cambio.
+    Incluye todos sus mensajes, también la petición de borrado si es el hilo actual.
+    Conserva investigaciones, hechos, archivos y el registro de auditoría.
+    No permite borrar operaciones mientras están en curso.
+    """
+    from rosa.asistente_conversaciones import eliminar
+    return eliminar(e, investigacion_id, hilo, quien)
 
 
 def pedir_recuperacion_citas(e: Estado, investigacion_id: str, ahora: int, corrida_id: str | None = None, quien: str = "") -> bool:

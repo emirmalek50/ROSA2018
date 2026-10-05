@@ -1608,6 +1608,7 @@ _TABLA: dict[str, Callable] = {
     "anadirMemoria": A.anadir_memoria,
     "quitarMemoria": A.quitar_memoria,
     "registrarPreguntaBases": A.registrar_pregunta_bases,
+    "eliminarConversacion": A.eliminar_conversacion,
     "resolverAccionAsistente": A.resolver_accion_asistente,
     "pedirRecuperacionCitas": A.pedir_recuperacion_citas,
 }

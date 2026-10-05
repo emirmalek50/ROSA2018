@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { AHORA_MUESTRA, estadoDeMuestra } from '../datos/muestra';
 import { ModeloDeMundo } from './ModeloDeMundo';
-const api = vi.hoisted(() => ({ preguntarALasBases: vi.fn(), cancelarRespuesta: vi.fn(), razonamientoDePregunta: vi.fn().mockResolvedValue(null) }));
+const api = vi.hoisted(() => ({ preguntarALasBases: vi.fn(), cancelarRespuesta: vi.fn(), resolverAccionAsistente: vi.fn(), razonamientoDePregunta: vi.fn().mockResolvedValue(null) }));
 vi.mock('../datos/almacen', async (original) => ({ ...(await original<typeof import('../datos/almacen')>()), acciones: api }));
 
 beforeAll(() => {
@@ -35,6 +35,8 @@ beforeAll(() => {
 let root: Root;
 let nodo: HTMLDivElement;
 beforeEach(() => {
+  vi.clearAllMocks();
+  sessionStorage.clear();
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   nodo = document.createElement('div');
   document.body.append(nodo);
@@ -103,4 +105,51 @@ it('detiene la respuesta vacía, permite reintentar si falla y conserva el sigui
   expect(detener()?.disabled).toBe(false);
   // Una confirmación tardía del primer HTTP tampoco deja lista la segunda.
   expect(nodo.textContent).not.toContain('Respuesta lista. Llegando...');
+});
+
+it('limpia el hilo eliminado desde otra pestaña y no recupera una respuesta tardía', async () => {
+  const respuestas: ((error: string | null) => void)[] = [];
+  api.preguntarALasBases.mockImplementation(() => new Promise(resolve => respuestas.push(resolve)));
+  const e = estadoDeMuestra();
+  e.conexion = 'en_linea';
+  const inv = { ...e.investigaciones[0]!, preguntasABases: [] };
+  const pintar = (actual: typeof inv & { hilosEliminados?: string[] }) => act(async () => root.render(<ModeloDeMundo inv={actual} estado={e} ahora={AHORA_MUESTRA} />));
+  await pintar(inv);
+  await esperarPintado();
+  await act(async () => escribir(nodo.querySelector('textarea')!, 'Consulta que borraré'));
+  await pulsar(nodo.querySelector('[aria-label="Enviar"]'));
+  const hilo = api.preguntarALasBases.mock.calls[0]![2];
+  await act(async () => escribir(nodo.querySelector('textarea')!, 'Conserva este borrador'));
+  // Un borrado en otro hilo no afecta a la respuesta actual.
+  await pintar({ ...inv, hilosEliminados: ['h-ajeno'] });
+  expect(nodo.querySelector('[aria-label="Detener respuesta"]')).not.toBeNull();
+  await pintar({ ...inv, hilosEliminados: ['h-ajeno', hilo] });
+  expect(nodo.querySelector('[aria-label="Detener respuesta"]')).toBeNull();
+  expect(nodo.textContent).not.toContain('Consulta que borraré');
+  expect(sessionStorage.getItem(`rosa.mundo.hilo.${inv.id}`)).toBeNull();
+  expect(nodo.querySelector('textarea')!.value).toBe('Conserva este borrador');
+  await pulsar(nodo.querySelector('[aria-label="Enviar"]'));
+  expect(api.preguntarALasBases.mock.calls[1]![2]).not.toBe(hilo);
+  await act(async () => respuestas[0]!('Fallo tardío del hilo eliminado'));
+  expect(nodo.textContent).not.toContain('Fallo tardío');
+  expect(nodo.querySelector('[aria-label="Detener respuesta"]')).not.toBeNull();
+});
+
+it('muestra una confirmación explícita antes de eliminar la conversación', async () => {
+  api.resolverAccionAsistente.mockResolvedValue({ ok: true, estado: 'ejecutada' });
+  const e = estadoDeMuestra();
+  e.conexion = 'en_linea';
+  const inv = { ...e.investigaciones[0]!, preguntasABases: [{
+    id: 'pb-borrar', hilo: 'h-borrar', pregunta: 'Borra esta conversación', respuesta: 'Confirma para eliminarla.',
+    fecha: AHORA_MUESTRA, quien: 'persona', limites: '', herramientas: [], consultas: [], iteraciones: 0, error: null,
+    acciones: [{ id: 'op-borrar', nombre: 'eliminarConversacion', argumentos: { investigacion_id: e.investigaciones[0]!.id, hilo: 'h-borrar' }, resumen: 'Eliminar conversación: MAPT', estado: 'pendiente' as const }],
+  }] };
+  sessionStorage.setItem(`rosa.mundo.hilo.${inv.id}`, 'h-borrar');
+  await act(async () => root.render(<ModeloDeMundo inv={inv} estado={e} ahora={AHORA_MUESTRA} />));
+  await esperarPintado();
+  const boton = [...nodo.querySelectorAll('button')].find(b => b.textContent === 'Eliminar conversación');
+  expect(boton).toBeDefined();
+  expect(api.resolverAccionAsistente).not.toHaveBeenCalled();
+  await pulsar(boton!);
+  expect(api.resolverAccionAsistente).toHaveBeenCalledWith(inv.id, 'pb-borrar', 'op-borrar', true, undefined);
 });

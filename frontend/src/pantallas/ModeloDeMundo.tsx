@@ -18,7 +18,7 @@
 // calculado hasta que llega lo nuevo, un fotograma después.
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { acciones } from "../datos/almacen";
+import { acciones, avisar } from "../datos/almacen";
 import { HistorialAsistente } from "../componentes/HistorialAsistente";
 import { AdjuntosAsistente } from "../componentes/AdjuntosAsistente";
 import { AccionesAsistente } from "../componentes/AccionesAsistente";
@@ -629,6 +629,23 @@ function CuerpoMundo({
   const [leerAlLlegar, setLeerAlLlegar] = useState<{ hilo: string; pregunta: string; desde: number } | null>(null);
   const escucha = useRef<Escucha | null>(null);
   const [cuenta, setCuenta] = useState<number | null>(null);
+
+  // El borrado puede llegar desde esta pestaña u otra. Abre un hilo nuevo y
+  // descarta respuestas tardías sin perder el borrador que se estaba escribiendo.
+  useEffect(() => {
+    if (!hilo || !inv.hilosEliminados?.includes(hilo)) return;
+    fijarHilo(null);
+    enVuelo.current = null;
+    setPendiente(null);
+    setPasosEnVivo([]);
+    setLocales(ls => ls.filter(t => t.hilo !== hilo));
+    setErrores(es => es.filter(t => t.hilo !== hilo));
+    setLeerAlLlegar(null);
+    escucha.current?.soltar();
+    callar();
+    setVoz("nada");
+    avisar(tr("Conversación eliminada."));
+  }, [hilo, inv.hilosEliminados]);
 
   const leer = (q: PreguntaABases) => {
     if (!puedeHablar() || !q.respuesta || q.cancelada) return;

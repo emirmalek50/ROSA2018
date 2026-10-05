@@ -1120,6 +1120,20 @@ buscar y recuperar hilos guardados al abrir otra pestaña. **Adjuntar datos** en
 el chat global pide la investigación destinataria y ofrece sus experimentos;
 si todavía no existe ninguna, enlaza a la creación de una investigación.
 
+También puedes pedir «Borra esta conversación» o «Elimina la conversación sobre
+MAPT». `listar_conversaciones` identifica el hilo actual y permite buscar en todo
+el proyecto. ROSA prepara `eliminarConversacion` y muestra **Eliminar conversación**
+para confirmarlo; si hay varias coincidencias, debe aclarar cuál. Se borran todos
+los mensajes del hilo elegido del historial y del contexto activo, incluida la
+petición de borrado cuando está en ese hilo. Se conservan investigaciones, hechos,
+archivos, auditoría y copias de seguridad.
+
+El borrado detiene respuestas pendientes y guarda únicamente el ID del hilo
+borrado para rechazar respuestas tardías o envíos desde pestañas antiguas. La
+interfaz abre una conversación nueva sin perder el borrador. No se genera una
+continuación automática después de borrar. Si una operación está ejecutándose
+en ese hilo, hay que esperar a que termine para conservar su resultado.
+
 Las continuaciones inicializan el modelo por el Gateway cuando el servidor acaba
 de reiniciar. Los PDF adjuntos autorizados comparten la lectura de documentos:
 si una página no tiene capa de texto, se intenta leer visualmente, indicando su

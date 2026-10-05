@@ -1130,6 +1130,8 @@ export const acciones = {
     try {
       const r = await fetch(`${API}/investigaciones/${encodeURIComponent(investigacionId)}/asistente/${encodeURIComponent(preguntaId)}/${encodeURIComponent(operacionId)}`, { method: 'POST', headers: cabeceras(), body: JSON.stringify({ aprobar, ...(modoOperacion ? { modo: modoOperacion } : {}) }) });
       const d = await r.json();
+      // Recupera también el historial si el borrado llega con el SSE desconectado.
+      if (r.ok) void resincronizar();
       return r.ok ? d : { ok: false, error: d.detail || tr('No se pudo aplicar la operación.') };
     } catch {
       return { ok: false, error: tr('No se pudo comprobar el resultado. Recarga antes de volver a intentarlo.') };

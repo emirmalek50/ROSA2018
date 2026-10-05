@@ -342,6 +342,8 @@ export interface Investigacion {
   conocimientoOperativo?: ConocimientoOperativo[];
   /** Preguntas con herramientas hechas desde la interfaz, con sus consultas. */
   preguntasABases?: PreguntaABases[];
+  /** Hilos borrados: evita recuperar conversaciones desde una pestaña antigua. */
+  hilosEliminados?: string[];
   /** La recuperación de citas pedida o la última hecha (rosa/recuperacion_citas.py). */
   recuperacionCitas?: RecuperacionCitas | null;
   /** Las recuperaciones anteriores, la más reciente primero (hasta cinco). */

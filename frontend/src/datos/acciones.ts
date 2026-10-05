@@ -820,6 +820,17 @@ export function quitarMemoria(estado: EstadoRosa, investigacionId: string, memor
   return { ...estado, investigaciones: estado.investigaciones.map((i) => (i.id === investigacionId ? { ...i, memoria: (i.memoria ?? []).filter((m) => m.id !== memoriaId) } : i)) };
 }
 
+/** Misma regla que eliminar_conversacion: un hilo, sin tocar su investigación. */
+export function eliminarConversacion(estado: EstadoRosa, investigacionId: string, hilo: string, quien: string): EstadoRosa {
+  if (!quien || !/^[a-zA-Z0-9-]{1,40}$/.test(hilo)) return estado;
+  const inv = investigacionId === 'global' ? estado.asistenteGlobal : estado.investigaciones.find(i => i.id === investigacionId);
+  if (!inv) return estado;
+  const mensajes = (inv.preguntasABases ?? []).filter(q => (q.hilo || q.id) === hilo);
+  if (!mensajes.length || mensajes.some(q => q.acciones?.some(op => op.estado === 'en_curso' || ['pendiente', 'en_curso'].includes(op.continuacion ?? '')))) return estado;
+  const siguiente = { ...inv, preguntasABases: (inv.preguntasABases ?? []).filter(q => (q.hilo || q.id) !== hilo), hilosEliminados: [...new Set([...(inv.hilosEliminados ?? []), hilo])] };
+  return investigacionId === 'global' ? { ...estado, asistenteGlobal: siguiente } : { ...estado, investigaciones: estado.investigaciones.map(i => i.id === investigacionId ? siguiente : i) };
+}
+
 export const ESTADOS_AREA: EstadoArea[] = ['propuesta', 'elegida', 'pausada', 'sin_explorar'];
 
 /** Misma regla que `cambiar_estado_area` en el servidor: pausar exige la

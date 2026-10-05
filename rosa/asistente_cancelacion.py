@@ -18,6 +18,7 @@ from fastapi import HTTPException
 class Solicitud:
     autor: str
     investigacion: str
+    hilo: str = ""
     tarea: asyncio.Task[dict[str, Any]] | None = None
     reclamada: bool = False
     cancelada: bool = False
@@ -48,11 +49,12 @@ class Respuestas:
         self.solicitudes[seguimiento] = s
         return s
 
-    def abrir(self, seguimiento: str, autor: str, investigacion: str) -> Solicitud:
+    def abrir(self, seguimiento: str, autor: str, investigacion: str, hilo: str = "") -> Solicitud:
         s = self._obtener(seguimiento, autor, investigacion)
         if s.reclamada:
             raise HTTPException(409, "Ese identificador de respuesta ya se utilizó")
         s.reclamada = True
+        s.hilo = hilo
         return s
 
     def cancelar(self, seguimiento: str, autor: str, investigacion: str) -> dict[str, Any]:
@@ -71,6 +73,12 @@ class Respuestas:
         s.terminada = True
         s.tocada = time.monotonic()
         s.tarea = None
+
+    def cancelar_hilo(self, investigacion: str, hilo: str) -> None:
+        """Tras borrar el hilo, detiene sus respuestas, incluidas las de otras pestañas."""
+        for seguimiento, s in list(self.solicitudes.items()):
+            if s.reclamada and not s.terminada and (s.investigacion, s.hilo) == (investigacion, hilo):
+                self.cancelar(seguimiento, s.autor, s.investigacion)
 
     async def cerrar(self) -> None:
         tareas = [s.tarea for s in self.solicitudes.values() if s.tarea is not None and not s.tarea.done()]
