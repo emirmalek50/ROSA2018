@@ -248,3 +248,43 @@ describe('el navegador baja solo lo que cambió', () => {
     expect(sinLocales(actual())).toEqual(sinLocales(servidor.estado));
   });
 });
+
+describe('un corte breve del flujo de eventos', () => {
+  // Por rosa.alzheimerproject.com el proxy de Vercel corta cada petición a los
+  // 120 s y EventSource reabre en 2 s: la franja «sin conexión» no debe
+  // parpadear en cada corte, pero sí salir si el flujo no vuelve (5 de
+  // octubre de 2026).
+  it('no avisa «sin conexión» si el flujo vuelve en la gracia, y sí si no vuelve', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const A = await import('./almacen');
+    expect(await A.conectar(false)).toBe('servidor');
+    const es = EventSourceFalso.instancias.at(-1)!;
+    const conexion = () => {
+      let c = '';
+      A.aplicar((x) => {
+        c = x.conexion;
+        return x;
+      });
+      return c;
+    };
+    // El EventSource falso no trae readyState: abierto salvo que el test lo cambie.
+    (es as unknown as { readyState: number }).readyState = 1;
+    vi.stubGlobal('EventSource', Object.assign(EventSourceFalso, { OPEN: 1 }));
+    es.onopen?.();
+    expect(conexion()).toBe('en_linea');
+    // Corte y vuelta en 2 s: nada cambia a la vista.
+    es.onerror?.();
+    vi.advanceTimersByTime(2000);
+    expect(conexion()).toBe('en_linea');
+    es.onopen?.();
+    vi.advanceTimersByTime(A.GRACIA_CAIDA_MS + 500);
+    expect(conexion()).toBe('en_linea');
+    // Corte sin vuelta: pasada la gracia, se avisa.
+    (es as unknown as { readyState: number }).readyState = 0;
+    es.onerror?.();
+    vi.advanceTimersByTime(A.GRACIA_CAIDA_MS - 100);
+    expect(conexion()).toBe('en_linea');
+    vi.advanceTimersByTime(200);
+    expect(conexion()).toBe('sin_conexion');
+  });
+});

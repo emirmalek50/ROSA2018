@@ -21,3 +21,5 @@ node_modules/
 /datos/
 # Convex: el CLI puede escribir la URL del deployment aqui
 frontend/.env.local
+.vercel
+.env*

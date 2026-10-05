@@ -10,8 +10,23 @@ hay un servidor y el equipo entra por un enlace (`scripts/compartir.sh`, túnel
 rápido de Cloudflare). Vale para hoy; para el Mac que estará siempre encendido
 hace falta:
 
-- El enlace fijo: decidido Tailscale Funnel (`scripts/compartir_fijo.sh`),
-  nombre `https://<mac>.<red>.ts.net`, sin tocar el DNS. SIN PROBAR desde la
+- El enlace fijo es `rosa.alzheimerproject.com` por Vercel (equipo AI
+  Robotix, proyecto `rosa2018`, creado el 5 de octubre) con `/api` reenviado
+  al nombre de Tailscale Funnel (`vercel.json`). Lo que queda de ahí:
+  - Despliegue y dominio los corre Emir (`README.md`, «Compartir»): el
+    clasificador de Claude Code no deja desplegar un reenvío externo.
+  - Los topes de intentos por IP del acceso (`rosa/acceso.py`, 20 por IP y
+    hora) ven detrás de Vercel la IP del borde de Vercel, no la de la persona:
+    el equipo entero comparte ese tope. Arreglo: la cabecera secreta que
+    Vercel puede poner en cada reenvío (`routes` con `transforms` y una
+    variable de entorno) y, cuando llega con ella, fiarse de `x-real-ip`.
+    Hasta entonces el tope por correo (3 en 15 min) es el que protege.
+  - Comprobar las subidas grandes (datasets) a través del reenvío de Vercel.
+  - Renombrar la máquina en Tailscale a `rosa` (Machines, Edit machine name)
+    deja el nombre de detrás en `rosa.tailf90a82.ts.net`; después, cambiar
+    `vercel.json` y volver a desplegar.
+- Tailscale Funnel (`scripts/compartir_fijo.sh`), nombre
+  `https://<mac>.<red>.ts.net`, sin tocar el DNS. SIN PROBAR desde la
   sesión del 5 de octubre: la instalación pide la contraseña del Mac y el
   inicio de sesión es en el navegador. Lo primero que mirar cuando se
   ejecute: que `tailscale funnel --bg 8765` acepte el puerto, que el nombre

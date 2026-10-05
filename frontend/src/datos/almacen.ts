@@ -487,6 +487,10 @@ function pedirEstado(): void {
   })();
 }
 
+/** Cuánto se espera a que el flujo de eventos vuelva antes de avisar «sin conexión». */
+export const GRACIA_CAIDA_MS = 8000;
+let avisoCaida: number | null = null;
+
 function abrirEventos(): void {
   if (retirado) return;
   if (fuenteEventos) fuenteEventos.close();
@@ -516,11 +520,23 @@ function abrirEventos(): void {
     }
   });
   es.onopen = () => {
+    if (avisoCaida !== null) {
+      window.clearTimeout(avisoCaida);
+      avisoCaida = null;
+    }
     if (vivo.estado.conexion !== 'en_linea') aplicar((e) => ({ ...e, conexion: 'en_linea' }));
   };
   es.onerror = () => {
-    // EventSource reintenta solo. Mientras, se avisa.
-    if (vivo.estado.conexion !== 'sin_conexion') aplicar((e) => ({ ...e, conexion: 'sin_conexion' }));
+    // EventSource reintenta solo (el servidor pide 2 s). Un corte breve no se
+    // avisa: por rosa.alzheimerproject.com el proxy de Vercel corta cada
+    // petición a los 120 s y el flujo se reabre al momento; con el aviso
+    // inmediato la franja «sin conexión» parpadeaba cada dos minutos (5 de
+    // octubre de 2026). Si en GRACIA_CAIDA_MS no ha vuelto, entonces sí.
+    if (avisoCaida !== null) return;
+    avisoCaida = window.setTimeout(() => {
+      avisoCaida = null;
+      if (fuenteEventos === es && es.readyState !== EventSource.OPEN && vivo.estado.conexion !== 'sin_conexion') aplicar((e) => ({ ...e, conexion: 'sin_conexion' }));
+    }, GRACIA_CAIDA_MS);
   };
 }
 

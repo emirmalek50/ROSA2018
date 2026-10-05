@@ -4,7 +4,11 @@
   "installCommand": "cd frontend && npm ci",
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://raquel-urena.tailf90a82.ts.net/api/$1" }
+  ],
   "headers": [
+    { "source": "/api/(.*)", "headers": [{ "key": "x-vercel-enable-rewrite-caching", "value": "0" }] },
     { "source": "/(.*)", "headers": [{ "key": "Referrer-Policy", "value": "no-referrer" }, { "key": "X-Content-Type-Options", "value": "nosniff" }] }
   ]
 }

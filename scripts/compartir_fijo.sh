@@ -92,13 +92,21 @@ fi
 
 # Publicar: el 443 público del nombre → el servidor local. `--bg` lo deja
 # guardado en Tailscale, que lo vuelve a levantar en cada arranque. Si Funnel
-# no está activado en la red, Tailscale lo dice con el enlace para activarlo
-# (un clic) y aquí se enseña tal cual.
+# no está activado en la red, Tailscale imprime el enlace para activarlo (un
+# clic) y SE QUEDA ESPERANDO a que se haga: por eso su salida va directa a la
+# pantalla y no capturada (la primera versión la capturaba y Emir estuvo tres
+# minutos mirando una terminal muda, 5 de octubre de 2026). El vigilante de
+# fondo lo corta a los diez minutos; la alarma de perl no mata este binario.
+echo "Publicando en Tailscale (si pide activar Funnel, abre el enlace que salga, pulsa Enable y espera aquí)..."
 set +e
-SALIDA=$(con_tope 60 "$TS" funnel --bg "$PUERTO" 2>&1)
+"$TS" funnel --bg "$PUERTO" 2>&1 | sed 's/^/  /' &
+TUBERIA=$!
+( sleep 600; pkill -f "Tailscale funnel --bg $PUERTO" 2>/dev/null ) &
+VIGILANTE=$!
+wait $TUBERIA
 CODIGO=$?
+kill $VIGILANTE 2>/dev/null
 set -e
-echo "$SALIDA" | sed 's/^/  /'
 if [ $CODIGO -ne 0 ]; then
   echo
   echo "Tailscale no pudo publicar. Si arriba hay un enlace para activar Funnel, ábrelo, acepta, y vuelve a ejecutar este script."

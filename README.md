@@ -49,21 +49,45 @@ Quien recibe el enlace crea su cuenta con su correo @alzheimerproject.com y
 entra en el acto. El túnel (Cloudflare, `brew install cloudflared`) solo
 reenvía al 127.0.0.1 y el enlace cambia cada vez que se arranca.
 
-**El enlace fijo, sin repetir nada** (`scripts/compartir_fijo.sh`, decisión
-de Emir del 5 de octubre de 2026): Tailscale Funnel publica
-`https://<este-mac>.<red>.ts.net` apuntando al servidor; arranca con Tailscale
-al iniciar sesión en el Mac, se reconecta solo y el nombre no cambia. Sin tocar
-el dominio ni el DNS (la alternativa con `rosa.alzheimerproject.com` exigía
-mover los DNS del dominio de Vercel a Cloudflare; descartada). Una sola vez:
+**El enlace fijo: `https://rosa.alzheimerproject.com`** (decisión de Emir del
+5 de octubre de 2026, «no quiero que ese sea el enlace» al ver el nombre de
+Tailscale). Dos piezas, las dos con lo que la empresa ya tiene:
 
-```bash
-brew install --cask tailscale-app   # pide la contraseña del Mac; abrir la app e iniciar sesión
-./scripts/compartir_fijo.sh         # publica; la primera vez enseña el enlace para activar Funnel (un clic)
-./scripts/compartir_fijo.sh --estado
-```
+1. **Tailscale Funnel** (`scripts/compartir_fijo.sh`) publica el servidor en
+   `https://<este-mac>.<red>.ts.net`: arranca con Tailscale al iniciar sesión
+   en el Mac, se reconecta solo y el nombre no cambia. Ese nombre no lo ve
+   nadie: es el que usa Vercel por detrás. Una sola vez:
 
-Quien entra no necesita Tailscale: el enlace es público, y delante está la
-pantalla de acceso. El servidor ya admite `*.ts.net`.
+   ```bash
+   brew install --cask tailscale-app   # pide la contraseña del Mac; abrir la app e iniciar sesión
+   ./scripts/compartir_fijo.sh         # publica; la primera vez enseña el enlace para activar Funnel (un clic)
+   ```
+
+2. **Vercel** sirve la interfaz en `rosa.alzheimerproject.com` y reenvía
+   `/api` al nombre de Tailscale (`vercel.json`, `rewrites`). El dominio
+   `alzheimerproject.com` vive en el equipo AI Robotix de Vercel (registrador
+   y DNS), y el subdominio `rosa` solo resolvía por el comodín: el proyecto
+   `rosa2018` de ese equipo lo reclama. Desde la raíz del repo, con la sesión
+   de Vercel de Emir:
+
+   ```bash
+   vercel deploy --scope ai-robotix --yes      # vista previa: comprobar que entra y se ve
+   vercel --prod --scope ai-robotix            # producción
+   vercel domains add rosa.alzheimerproject.com rosa2018 --scope ai-robotix   # una vez
+   ```
+
+   Cada cambio de la interfaz se despliega con el segundo comando (o
+   conectando el repositorio al proyecto en el panel de Vercel para que lo haga
+   cada `push` a `main`). Si cambia el nombre de Tailscale (otro Mac, o la
+   máquina renombrada), se cambia en `vercel.json` y se vuelve a desplegar.
+
+Lo que hay que saber del reenvío: Vercel corta cada petición reenviada a los
+120 segundos, así que el canal en vivo (`/api/eventos`) se reabre cada dos
+minutos; no cuesta nada (el canal solo avisa de la versión, el estado se baja
+aparte y solo si cambió) y la interfaz espera 8 s antes de decir «sin
+conexión» para no parpadear (`GRACIA_CAIDA_MS`). Quien entra no necesita
+Tailscale ni Vercel: el enlace es público y delante está la pantalla de
+acceso. El servidor admite `*.ts.net` y `*.alzheimerproject.com`.
 
 La clave del gateway va en `.env` (`ROSA_GATEWAY_KEY`), copiada del `.env` del
 RAG o pasada por quien administra ROSA2018 por un canal privado. Nunca al
@@ -1133,6 +1157,19 @@ borrado para rechazar respuestas tardías o envíos desde pestañas antiguas. La
 interfaz abre una conversación nueva sin perder el borrador. No se genera una
 continuación automática después de borrar. Si una operación está ejecutándose
 en ese hilo, hay que esperar a que termine para conservar su resultado.
+
+«Elimina la investigación MAPT» prepara `eliminarInvestigacion` después de
+consultar `prever_eliminacion_investigacion`. La tarjeta identifica la investigación
+y cuenta sus registros; **Eliminar investigación** confirma el borrado del estado
+activo, incluidas corridas, iteraciones, hipótesis, hechos y conversaciones. Los
+archivos y la auditoría se conservan. Las referencias de otras investigaciones
+impiden borrar evidencia que estas necesitan; nunca se borran esas investigaciones
+en cascada. También se comprueba que no haya trabajo en curso, incluso si una
+corrida detenida todavía está terminando una llamada.
+
+Al borrar la investigación abierta, la interfaz pasa al asistente global. El
+índice semántico excluye inmediatamente sus resultados y las respuestas pendientes
+se detienen. Una pestaña antigua o una respuesta tardía no vuelven a crearla.
 
 Las continuaciones inicializan el modelo por el Gateway cuando el servidor acaba
 de reiniciar. Los PDF adjuntos autorizados comparten la lectura de documentos:
