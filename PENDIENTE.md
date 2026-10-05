@@ -11,10 +11,15 @@ rápido de Cloudflare). Vale para hoy; para el Mac que estará siempre encendido
 hace falta:
 
 - Un túnel con nombre y dominio fijo (`rosa.alzheimerproject.com`), que no
-  cambie al reiniciar: Cloudflare Tunnel con el dominio en Cloudflare, o
-  Tailscale Funnel. El servidor ya admite ese nombre (`rosa/servidor.py`,
-  `de_oficio`). Y que arranque solo al encender el Mac (launchd), igual que el
-  servidor.
+  cambie al reiniciar. Está escrito en `scripts/compartir_fijo.sh` (Cloudflare
+  Tunnel con nombre más LaunchAgent), SIN PROBAR porque exige la cuenta y la
+  decisión de mover los DNS del dominio de Vercel a Cloudflare (la web sigue
+  en Vercel). Si no se mueven, Tailscale Funnel da un enlace fijo en `ts.net`.
+  El servidor ya admite los dos nombres (`rosa/servidor.py`, `de_oficio`). El
+  arranque del propio servidor al encender el Mac (launchd) hay que diseñarlo
+  con `scripts/parar_servidor.py` delante: un `KeepAlive` a secas lo
+  relanzaría en cuanto el guardián lo pare, y eso es justo lo que el cerrojo
+  de `rosa.db` existe para impedir.
 - Un botón «Compartir ROSA2018» en Ajustes que arranque el túnel y enseñe el
   enlace con «Copiar», en vez del script: quien opere ese Mac no abrirá la
   terminal.

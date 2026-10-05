@@ -47,9 +47,20 @@ versionan. Para que todo el equipo vea y trabaje sobre los mismos datos
 
 Quien recibe el enlace crea su cuenta con su correo @alzheimerproject.com y
 entra en el acto. El túnel (Cloudflare, `brew install cloudflared`) solo
-reenvía al 127.0.0.1 y el enlace cambia cada vez que se arranca; en el Mac que
-estará siempre encendido hará falta un túnel con nombre y dominio fijo (ver
-`PENDIENTE.md`).
+reenvía al 127.0.0.1 y el enlace cambia cada vez que se arranca.
+
+**El enlace fijo, sin repetir nada** (`scripts/compartir_fijo.sh`):
+`rosa.alzheimerproject.com` apuntando al servidor con Cloudflare Tunnel «con
+nombre», que arranca al iniciar sesión en el Mac y se reconecta solo. Pide una
+decisión previa: los DNS de `alzheimerproject.com` tienen que estar en
+Cloudflare (hoy están en Vercel; la web sigue en Vercel, solo cambia quién
+responde el DNS: se recrean los registros como «DNS only» y se cambian los
+servidores de nombres en el registrador). Después, una vez:
+`cloudflared tunnel login` (navegador) y `./scripts/compartir_fijo.sh`. El
+servidor ya admite ese nombre. Si no se quiere mover el DNS, la alternativa
+con enlace fijo es Tailscale Funnel (`https://<mac>.<red>.ts.net`, gratis,
+también admitido por el servidor), con `rosa.alzheimerproject.com` como
+redirección desde Vercel.
 
 La clave del gateway va en `.env` (`ROSA_GATEWAY_KEY`), copiada del `.env` del
 RAG o pasada por quien administra ROSA2018 por un canal privado. Nunca al
