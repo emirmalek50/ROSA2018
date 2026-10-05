@@ -2,7 +2,8 @@
 // Mas de tres ensenan los tres primeros y "mostrar todo"; al pulsar uno se ve
 // el razonamiento completo y, si ROSA2018 ya lo atendio, su respuesta.
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import { Desplegable } from './Desplegable';
 import type { HallazgoRevisor } from '../datos/tipos';
 import { ESTADO_HALLAZGO, TIPO_HALLAZGO } from '../lib/etiquetas';
 import { hallazgosVisibles } from '../lib/hipotesis';
@@ -12,28 +13,27 @@ import { tr, trp } from '../lib/idioma';
 
 function TarjetaHallazgo({ h }: { h: HallazgoRevisor }) {
   const [abierto, setAbierto] = useState(h.estado === 'abierto');
+  const contenidoId = useId();
   const tono = h.estado === 'abierto' ? 'mal' : h.estado === 'atendido' ? 'ok' : undefined;
   return (
     <li className={`hallazgo hallazgo-${h.estado}`}>
-      <button type="button" className="hallazgo-cabecera" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)}>
+      <button type="button" className="hallazgo-cabecera" aria-expanded={abierto} aria-controls={contenidoId} onClick={() => setAbierto((v) => !v)}>
         <strong>{h.resumen}</strong>
         <Chip tono={tono}>{ESTADO_HALLAZGO[h.estado]}</Chip>
-        <span style={{ transform: abierto ? 'rotate(180deg)' : 'none', display: 'inline-flex', color: 'var(--text-2)' }}>
+        <span className="verif-flecha" style={{ transform: abierto ? 'rotate(180deg)' : 'none', display: 'inline-flex', color: 'var(--text-2)' }}>
           <IconChevronDown size={12} />
         </span>
       </button>
       <span className="hallazgo-tipo">{TIPO_HALLAZGO[h.tipo]}</span>
-      {abierto && (
-        <>
-          <p className="hallazgo-razon">{h.razonamiento}</p>
-          {h.respuestaDeRosa !== null && (
-            <div className="hallazgo-respuesta">
-              <span>ROSA2018</span>
-              <p>{h.respuestaDeRosa}</p>
-            </div>
-          )}
-        </>
-      )}
+      <Desplegable abierto={abierto} id={contenidoId} className="hallazgo-contenido">
+        <p className="hallazgo-razon">{h.razonamiento}</p>
+        {h.respuestaDeRosa !== null && (
+          <div className="hallazgo-respuesta">
+            <span>ROSA2018</span>
+            <p>{h.respuestaDeRosa}</p>
+          </div>
+        )}
+      </Desplegable>
     </li>
   );
 }

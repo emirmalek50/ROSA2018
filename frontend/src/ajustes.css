@@ -30,7 +30,7 @@
 .ajustes-panel .seccion-titulo h3 { font-size: 15px; font-weight: 650; letter-spacing: -.3px; }
 .ajustes-panel .seccion-titulo p { color: var(--text-2); font-size: 12px; line-height: 1.7; max-width: 72ch; margin-top: 7px; }
 .ajustes-panel .tarjeta { background: var(--bg); border-radius: 10px; box-shadow: none; }
-.ajustes-panel .seccion > .tarjeta { padding: 20px; }
+.ajustes-panel .seccion > .tarjeta, .ajustes-panel .seccion-contenido > .tarjeta { padding: 20px; }
 .ajustes-panel .seccion-plegada .seccion-titulo { margin-bottom: 0; }
 .ajustes-identidad { display: flex; align-items: center; gap: 16px; padding: 20px; border: 1px solid var(--accent-soft-2); border-radius: 12px; background: var(--accent-soft); }
 .ajustes-avatar { display: grid; place-items: center; flex-shrink: 0; width: 48px; height: 48px; background: var(--surface); color: var(--accent); border: 1px solid var(--accent-soft-2); border-radius: 15px; box-shadow: 0 2px 4px #32165a06; }

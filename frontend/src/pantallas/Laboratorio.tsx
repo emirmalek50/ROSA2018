@@ -446,7 +446,7 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
         </div>
       ) : null}
 
-      <div className="lab-experimento-cuerpo">
+      <div key={cual} className="lab-experimento-cuerpo cambio-panel">
         {diana.hipotesis.length && !contratos ? (
           <p className="lab-parrafo" role="status">
             {(falloContrato ? tr("No pude traer el contrato del experimento: el servidor no respondió. No quiere decir que no lo haya.") : tr("Trayendo el contrato del experimento…"))}

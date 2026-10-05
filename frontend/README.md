@@ -117,6 +117,22 @@ La interfaz explica el proceso por si misma. Lo que cambio y donde tocar:
   reproduccion viven tras un boton; el de reproduccion se abre solo si la
   puerta esta bloqueada.
 
+## Continuidad al abrir y cambiar contenido (5 de octubre de 2026)
+
+`Desplegable` anima la altura al abrir y cerrar secciones, verificaciones y
+hallazgos del revisor. No monta el contenido cerrado: conserva la carga bajo
+demanda y lo desmonta al terminar el cierre. Durante la salida queda `inert`
+y oculto al lector de pantalla para que no se puedan accionar controles que
+están desapareciendo. Con movimiento reducido el cambio es inmediato.
+
+`movimiento.css` añade fundidos de 240 ms a las pestañas de Ajustes, la ficha
+de hipótesis, Procedencia y los experimentos del laboratorio. Los paneles de
+Ajustes y de la ficha siguen montados y usan `hidden`: el efecto no reinicia
+formularios ni hace peticiones. También acompaña las confirmaciones y los
+detalles de la hoja del laboratorio. No hay esperas artificiales ni bucles
+decorativos. `MotionConfig` aplica la preferencia de movimiento reducido a
+los desplazamientos de la aplicación, además de las reglas CSS existentes.
+
 ## Auditoria visual (Playwright)
 
 `npm run auditoria-visual` abre cada pantalla de ROSA2018 en un Chromium real

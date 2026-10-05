@@ -3,13 +3,14 @@
 // de datos de muestra y el momento (hora absoluta y relativa).
 
 import { motion, useReducedMotion } from 'motion/react';
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import type { EstadoConexion } from '../datos/tipos';
 import { fechaCorta, tiempoRelativo } from '../lib/formato';
 import { terminosEn } from '../lib/glosario';
 import { primeraFrase, useModo } from '../lib/modo';
 import { IconAlert } from './icons';
 import { tr } from '../lib/idioma';
+import { Desplegable } from './Desplegable';
 
 export function Chip({ tono, children, title }: { tono?: 'ok' | 'aviso' | 'mal' | 'acento' | 'borde' | 'neutro'; children: ReactNode; title?: string }) {
   return (
@@ -59,6 +60,7 @@ interface SeccionProps {
  *  tras una linea de resumen. La profundidad sigue ahi, a un clic. */
 export function Seccion({ titulo, nota, acciones, children, detalle = false, plegable = false, abierta, resumen, id }: SeccionProps) {
   const reducido = useReducedMotion();
+  const contenidoId = useId();
   const modo = useModo();
   const sencillo = modo === 'sencillo';
   const pliegaPorModo = detalle && sencillo;
@@ -75,8 +77,8 @@ export function Seccion({ titulo, nota, acciones, children, detalle = false, ple
         <div style={{ minWidth: 0 }}>
           <h3>
             {puedePlegar ? (
-              <button type="button" className="seccion-plegar" aria-expanded={abierto} onClick={() => setAbiertoManual(!abierto)}>
-                <span className="seccion-flecha" aria-hidden="true">{abierto ? '▾' : '▸'}</span> {titulo}
+              <button type="button" className="seccion-plegar" aria-expanded={abierto} aria-controls={contenidoId} onClick={() => setAbiertoManual(!abierto)}>
+                <span className="seccion-flecha" aria-hidden="true">▸</span> {titulo}
               </button>
             ) : (
               titulo
@@ -107,7 +109,7 @@ export function Seccion({ titulo, nota, acciones, children, detalle = false, ple
         </div>
         {acciones && abierto && <div className="acciones">{acciones}</div>}
       </div>
-      {abierto && children}
+      {puedePlegar ? <Desplegable abierto={abierto} id={contenidoId} className="seccion-contenido">{children}</Desplegable> : abierto && children}
     </motion.section>
   );
 }

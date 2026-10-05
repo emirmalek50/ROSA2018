@@ -138,7 +138,7 @@ export function Procedencia({
           </button>
         ))}
       </div>
-      <div className="cajon-cuerpo">
+      <div key={pestana} className="cajon-cuerpo cambio-panel" role="tabpanel" aria-label={PESTANAS.find((t) => t.clave === pestana)?.etiqueta}>
         {pestana === 'mensajes' && (
           <div className="mensajes">
             {p.mensajes.map((m) => (

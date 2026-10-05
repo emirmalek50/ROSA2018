@@ -136,7 +136,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
           <p className="ajustes-nav-nota"><IconShieldCheck size={17} />{tr("ROSA2018 investiga.")}<br />{tr("Tú marcas los límites.")}</p>
         </nav>
         <div className="ajustes-cuerpo">
-          <header className="ajustes-intro"><h3>{actual.titulo}</h3><p>{actual.nota}</p></header>
+          <header key={categoria} className="ajustes-intro cambio-panel"><h3>{actual.titulo}</h3><p>{actual.nota}</p></header>
           <div className="ajustes-panel" role="tabpanel" id="ajuste-panel-general" aria-labelledby="ajuste-tab-general" hidden={categoria !== 'general'} tabIndex={0}>
             {sesion && (
               <Seccion titulo={tr("Sesión")} nota={tr("La cuenta con la que has entrado en ROSA2018. Cerrar la sesión te devuelve a la pantalla de acceso; las investigaciones y sus corridas quedan en el servidor.")}>

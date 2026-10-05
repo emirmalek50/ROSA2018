@@ -1,0 +1,74 @@
+/* Respuestas breves a una acción, con los mismos tiempos de toda ROSA. */
+.desplegable {
+  min-width: 0;
+}
+
+.seccion-contenido {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hallazgo-contenido {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* El desplazamiento de tablas queda dentro del panel, también al plegarlo. */
+.seccion-contenido:has(> .tabla),
+.seccion-contenido:has(> details > .tabla),
+.seccion-contenido:has(> div > .tabla) {
+  max-width: 100%;
+  overflow-x: auto !important;
+}
+
+.seccion-plegar[aria-expanded='true'] .seccion-flecha {
+  transform: rotate(90deg);
+}
+
+.verif-flecha {
+  transition: transform var(--dur-2) var(--ease-salida);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Solo el panel entrante: nunca quedan dos formularios activos al cambiar. */
+  .cambio-panel,
+  .ajustes-panel:not([hidden]),
+  .ficha-panel:not([hidden]) {
+    animation: rosa-cambio-panel var(--dur-2) var(--ease-salida);
+  }
+
+  .confirmacion {
+    transform-origin: top left;
+    animation: rosa-confirmacion var(--dur-1) var(--ease-salida);
+  }
+
+  .lab-hoja details[open] > :not(summary),
+  .verif-fragmento[open] > :not(summary) {
+    animation: rosa-cambio-panel var(--dur-2) var(--ease-salida);
+  }
+
+  .ajustes-niveles span,
+  .ajustes-nav [role='tab'] svg,
+  .pestanas button,
+  .lab-pestanas button,
+  .ficha-pestanas-lista button {
+    transition: background-color var(--dur-1) ease, color var(--dur-1) ease, border-color var(--dur-1) ease;
+  }
+}
+
+@keyframes rosa-cambio-panel {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+@keyframes rosa-confirmacion {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seccion-flecha,
+  .verif-flecha { transition: none; }
+}

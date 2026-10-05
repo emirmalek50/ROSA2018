@@ -7,7 +7,8 @@
 // que produjo una cifra, y la degradacion de "ausencia refutada" cuando la
 // busqueda del tema no ha convergido.
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
+import { Desplegable } from './Desplegable';
 import type { Afirmacion, Cobertura } from '../datos/tipos';
 import { veredictoConCobertura } from '../lib/cobertura';
 import { TIPO_AFIRMACION, tipoAfirmacion, VEREDICTO } from '../lib/etiquetas';
@@ -26,13 +27,14 @@ interface Props {
 
 export function Verificacion({ afirmaciones, cobertura = null, ocultarCitas = false, onVerTrayectoria }: Props) {
   const [abierto, setAbierto] = useState(false);
+  const contenidoId = useId();
   const efectivas = afirmaciones.map((a) => ({ a, ...veredictoConCobertura(a.veredicto, cobertura) }));
   const r = resumirVerificacion(efectivas.map((x) => ({ ...x.a, veredicto: x.veredicto })));
   const porTipo = { dato: 0, literatura: 0, interpretacion: 0 };
   for (const a of afirmaciones) porTipo[a.tipo]++;
   return (
     <div className={`verif verif-${r.tono}`}>
-      <button type="button" className="verif-cabecera" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)} disabled={r.total === 0}>
+      <button type="button" className="verif-cabecera" aria-expanded={abierto} aria-controls={contenidoId} onClick={() => setAbierto((v) => !v)} disabled={r.total === 0}>
         {r.tono === 'ok' ? <IconCheck size={13} /> : <IconAlert size={13} />}
         <span className="verif-frase">{r.frase}</span>
         {porTipo.interpretacion > 0 && (
@@ -41,12 +43,12 @@ export function Verificacion({ afirmaciones, cobertura = null, ocultarCitas = fa
           </Chip>
         )}
         {r.total > 0 && (
-          <span style={{ transform: abierto ? 'rotate(180deg)' : 'none', display: 'inline-flex' }}>
+          <span className="verif-flecha" style={{ transform: abierto ? 'rotate(180deg)' : 'none', display: 'inline-flex' }}>
             <IconChevronDown size={12} />
           </span>
         )}
       </button>
-      {abierto && (
+      <Desplegable abierto={abierto} id={contenidoId}>
         <ul className="verif-lista">
           {efectivas.map(({ a, veredicto, nota }, i) => {
             const v = VEREDICTO[veredicto];
@@ -91,7 +93,7 @@ export function Verificacion({ afirmaciones, cobertura = null, ocultarCitas = fa
             );
           })}
         </ul>
-      )}
+      </Desplegable>
     </div>
   );
 }
