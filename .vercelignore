@@ -13,8 +13,8 @@
 .env
 .env.*
 !.env.example
-datos/_token_interno
-datos/_correo/
+/datos/_token_interno
+/datos/_correo/
 
 # Las bases: el estado de la investigación y el registro de experimentos
 rosa.db
@@ -23,9 +23,11 @@ mlflow.db
 mlflow.db-*
 mlruns/
 
-# Datos de trabajo y fuentes con derechos de autor
-datos/
-pdfs/
+# Datos de trabajo y fuentes con derechos de autor. CON la barra inicial: sin
+# ella, `datos/` excluía también `frontend/src/datos/` (almacen.ts, tipos.ts,
+# muestra.ts) y el primer despliegue real no compiló (5 de octubre de 2026).
+/datos/
+/pdfs/
 
 # Lo que no aporta nada a un despliegue
 *.log
