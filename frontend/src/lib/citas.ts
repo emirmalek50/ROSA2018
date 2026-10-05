@@ -320,6 +320,9 @@ export function enLlanoElVeredicto(veredicto: string): { texto: string; tono: 'b
       return { texto: tr('ausencia refutada'), tono: 'mal' };
     case 'no_comprobable':
       return { texto: tr('no comprobable'), tono: 'medio' };
+    // Las que el juez no llegó a dictaminar: salía tal cual, «sin_verificar».
+    case 'sin_verificar':
+      return { texto: tr('sin verificar'), tono: 'medio' };
     default:
       return { texto: veredicto || tr('sin veredicto'), tono: 'medio' };
   }

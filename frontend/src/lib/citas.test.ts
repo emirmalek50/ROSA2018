@@ -82,6 +82,7 @@ describe('cómo se nombra en llano de qué se apoya una cita', () => {
     expect(enLlanoElVeredicto('parcial').tono).toBe('medio');
     expect(enLlanoElVeredicto('cita_no_resuelve').texto).toBe('la cita no resuelve');
     expect(enLlanoElVeredicto('ausencia_refutada').tono).toBe('mal');
+    expect(enLlanoElVeredicto('sin_verificar')).toEqual({ texto: 'sin verificar', tono: 'medio' });
     // Uno que no conozcamos se enseña tal cual, no se inventa.
     expect(enLlanoElVeredicto('raro_nuevo').texto).toBe('raro_nuevo');
   });

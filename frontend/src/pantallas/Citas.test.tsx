@@ -124,24 +124,28 @@ describe('la pantalla de citas', () => {
     // Lo que no tiene página lo dice, en vez de inventarse una.
     expect(texto()).toContain('resumen, sin número de página');
     expect(texto()).toContain('texto web, parte 2, sin número de página');
-    expect(texto()).toContain('1 afirmación resuelve a página exacta de 3');
+    // La cifra grande del banco: cuántas resuelven a página, de cuántas.
+    const cifra = nodo.querySelector('.cit-cifra')!;
+    expect(cifra.querySelector('b')?.textContent).toBe('1');
+    expect(cifra.textContent).toContain('de 3');
+    expect(cifra.textContent).toContain('a página exacta del PDF');
   });
 
   it('el pasaje queda resaltado dentro de la página y el resto del texto se conserva entero', async () => {
     await montar();
-    const hoja = nodo.querySelector('.citas-hoja')!;
+    const hoja = nodo.querySelector('.cit-hoja')!;
     // La hoja lleva el encabezado de la sección encima del texto de la página.
-    expect(hoja.querySelector('.citas-encabezado')?.textContent).toBe('Resultados');
-    expect(hoja.querySelector('.citas-texto')?.textContent).toBe(PAGINA);
+    expect(hoja.querySelector('.cit-hoja-encabezado')?.textContent).toBe('Resultados');
+    expect(hoja.querySelector('.cit-hoja-texto')?.textContent).toBe(PAGINA);
     const marca = hoja.querySelector('mark')!;
     expect(marca.textContent).toBe(PASAJE);
-    expect(nodo.querySelector('.citas-numpag')?.textContent).toBe('3508');
+    expect(nodo.querySelector('.cit-hoja-num')?.textContent).toBe('3508');
   });
 
   it('el veredicto que se enseña es el guardado y se dice que es del momento de extraerla', async () => {
     respuestas.ficha = { ...FICHA, afirmacion: { ...FICHA.afirmacion, veredicto: 'cita_no_resuelve' }, completo: true };
     await montar();
-    const comparacion = nodo.querySelector('.citas-comparacion')!.textContent ?? '';
+    const comparacion = nodo.querySelector('.cit-comparacion')!.textContent ?? '';
     expect(comparacion).toContain('la cita no resuelve');
     expect(comparacion).toContain('Veredicto al extraerla');
   });
@@ -149,31 +153,31 @@ describe('la pantalla de citas', () => {
   it('las dos señales van separadas: el texto puede coincidir con la fuente aunque la cita no apunte a ningún sitio', async () => {
     respuestas.ficha = { ...FICHA, hoy: { resuelve: false, motivoResuelve: 'La fuente no tiene ese localizador.', literal: false, falta: null, localizadorAdmitido: true }, afirmacion: { ...FICHA.afirmacion, veredicto: 'cita_no_resuelve' } };
     await montar();
-    const senales = nodo.querySelectorAll('.citas-senales li');
+    const senales = nodo.querySelectorAll('.cit-senales li');
     expect(senales.length).toBe(2);
     expect(senales[0]!.textContent).toContain('La cita apunta a un sitio que existe');
-    expect(senales[0]!.querySelector('.citas-no')).not.toBeNull();
+    expect(senales[0]!.querySelector('.cit-check.cit-mal')).not.toBeNull();
     expect(senales[1]!.textContent).toContain('El pasaje está ahí, literal');
     // Y al revés: el sitio no existe pero el texto sí coincidiría.
     await act(async () => root.render(<div />));
     respuestas.ficha = { ...FICHA, hoy: { resuelve: true, motivoResuelve: '', literal: false, falta: 'un tramo inventado' }, afirmacion: { ...FICHA.afirmacion, veredicto: 'no_sostenida' } } as FichaCita;
     await montar();
-    const dos = nodo.querySelectorAll('.citas-senales li');
-    expect(dos[0]!.querySelector('.citas-si')).not.toBeNull();
-    expect(dos[1]!.querySelector('.citas-no')).not.toBeNull();
+    const dos = nodo.querySelectorAll('.cit-senales li');
+    expect(dos[0]!.querySelector('.cit-check.cit-bien')).not.toBeNull();
+    expect(dos[1]!.querySelector('.cit-check.cit-mal')).not.toBeNull();
     expect(nodo.querySelector('.citas-falta')?.textContent).toBe('un tramo inventado');
   });
 
   it('un bloqueo de una versión anterior se marca y se puede filtrar, sin reescribir el veredicto', async () => {
     respuestas.ficha = { ...FICHA, bloqueoViejo: true, afirmacion: { ...FICHA.afirmacion, veredicto: 'cita_no_resuelve' } };
     await montar();
-    expect(nodo.querySelector('.citas-rancio')?.textContent).toContain('versión anterior del verificador');
+    expect(nodo.querySelector('.cit-rancio')?.textContent).toContain('versión anterior del verificador');
     // El veredicto guardado sigue ahí: la pantalla no decide por el verificador.
-    expect(nodo.querySelector('.citas-comparacion')?.textContent).toContain('la cita no resuelve');
+    expect(nodo.querySelector('.cit-comparacion')?.textContent).toContain('la cita no resuelve');
     expect(texto()).toContain('Ya no bloquearían');
     await pulsar(boton('Ya no bloquearían'));
     expect(nodo.querySelectorAll('.citas-af').length).toBe(1);
-    expect(nodo.querySelector('.citas-marca-rancio')?.textContent).toBe('ya no bloquearía');
+    expect(nodo.querySelector('.cit-rancia')?.textContent).toBe('ya no bloquearía');
   });
 
   it('cuando falta un tramo del pasaje lo enseña tachado, que es el motivo del veredicto', async () => {
@@ -181,7 +185,7 @@ describe('la pantalla de citas', () => {
     await montar();
     expect(nodo.querySelector('.citas-falta')?.textContent).toBe('in ninety per cent of participants');
     expect(texto()).toContain('No está en la fuente');
-    expect(nodo.querySelector('.citas-hoja mark')).toBeNull();
+    expect(nodo.querySelector('.cit-hoja mark')).toBeNull();
   });
 
   it('al filtrar, la ficha pasa a la primera del filtro en vez de quedarse en una que ya no se ve', async () => {
@@ -200,11 +204,11 @@ describe('la pantalla de citas', () => {
     // nada (Emir, 22 de septiembre de 2026). Ahora la marca la pinta ROSA2018.
     const boton = [...nodo.querySelectorAll('button')].find((b) => (b.textContent ?? '').startsWith('Ver la cita marcada'))!;
     expect(boton.textContent).toBe('Ver la cita marcada en la página 3508');
-    expect(nodo.querySelector('img.citas-pagina')).toBe(null);
+    expect(nodo.querySelector('img.cit-pagina-img')).toBe(null);
     await act(async () => {
       boton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    const imagen = nodo.querySelector('img.citas-pagina')!;
+    const imagen = nodo.querySelector('img.cit-pagina-img')!;
     expect(imagen.getAttribute('src')).toBe('/api/corridas/cor-1/citas/af-1/pagina.png');
     expect(imagen.getAttribute('alt')).toContain('marcado en naranja');
   });
@@ -224,7 +228,7 @@ describe('la pantalla de citas', () => {
     await act(async () => {
       boton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
-    expect(nodo.querySelector('img.citas-pagina')).not.toBe(null);
+    expect(nodo.querySelector('img.cit-pagina-img')).not.toBe(null);
     expect(nodo.textContent).toContain('El pasaje no está en esta página');
   });
 
@@ -276,10 +280,10 @@ describe('la pantalla de citas con un servidor anterior', () => {
     delete sinSenales.bloqueoViejo;
     respuestas.ficha = sinSenales as FichaCita;
     await montar();
-    expect(nodo.querySelector('.citas-hoja mark')).not.toBeNull();
+    expect(nodo.querySelector('.cit-hoja mark')).not.toBeNull();
     expect(texto()).toContain('todavía no comprueba la cita');
-    expect(nodo.querySelectorAll('.citas-senales li').length).toBe(0);
-    expect(nodo.querySelector('.citas-rancio')).toBeNull();
+    expect(nodo.querySelectorAll('.cit-senales li').length).toBe(0);
+    expect(nodo.querySelector('.cit-rancio')).toBeNull();
   });
 
   it('una lista sin las cifras nuevas tampoco rompe: el filtro extra no aparece', async () => {
@@ -303,23 +307,24 @@ describe('la cuenta de los bloqueos que ya no se sostienen', () => {
     };
     await montar();
     // Las dos señales de la cita están en verde...
-    expect(nodo.querySelectorAll('.citas-senales .citas-si').length).toBe(2);
+    expect(nodo.querySelectorAll('.cit-senales .cit-check.cit-bien').length).toBe(2);
     // ...y aun así no se promete que se recupere: se dice por qué sigue caída.
-    expect(nodo.querySelector('.citas-rancio')).toBeNull();
-    expect(nodo.querySelector('.citas-sigue')?.textContent).toContain('NCT04437511');
+    expect(nodo.querySelector('.cit-rancio')).toBeNull();
+    expect(nodo.querySelector('.cit-sigue')?.textContent).toContain('NCT04437511');
   });
 
   it('la cabecera separa las dos cuentas cuando no coinciden', async () => {
     respuestas.lista = { ...LISTA, resumen: { ...LISTA.resumen, bloqueosViejos: 151, bloqueadasConCitaEnOrden: 153 } };
     await montar();
-    const cabecera = nodo.querySelector('.pantalla-cabecera')!.textContent ?? '';
-    expect(cabecera).toContain('151 afirmaciones quedaron bloqueadas');
-    expect(cabecera).toContain('Otras 2 tienen la cita en orden pero siguen bloqueadas por otra comprobación');
+    // Las 151 que ya no bloquearían van en la lista, con su filtro y su
+    // recuperación; las otras 2, en el banco, como lo que son.
+    expect(nodo.querySelector('.cit-recuperar-fila')?.textContent).toContain('151 se juzgaron con reglas viejas');
+    expect(nodo.querySelector('.cit-banco')?.textContent).toContain('2 tienen la cita en orden y siguen bloqueadas por otra comprobación');
   });
 
   it('el botón de una corrida pide la recuperación completa de esa corrida, en segundo plano', async () => {
     await montar();
-    const b = boton('Recuperar las 1 de esta corrida');
+    const b = boton('Recuperar las 1');
     expect(b).toBeTruthy();
     await pulsar(b);
     expect(respuestas.recuperaciones).toEqual([['inv-1', 'cor-1']]);
@@ -345,9 +350,11 @@ describe('la recuperación de citas de toda la investigación', () => {
   it('dice cuántas hay, qué hará y qué cuesta, y el botón la pide para toda la investigación', async () => {
     respuestas.recuperables = RECUPERABLES;
     await montar();
-    const panel = nodo.querySelector('.citas-recuperar-panel')!.textContent ?? '';
-    expect(panel).toContain('1.751 afirmaciones de esta investigación siguen bloqueadas por reglas del verificador que ya no valen, y 33 se quedaron sin juez');
-    expect(panel).toContain('Cuesta una llamada al juez por afirmación');
+    const panel = nodo.querySelector('.cit-recuperar')!.textContent ?? '';
+    expect(panel).toContain('1.784 afirmaciones esperan volver a juzgarse en toda la investigación');
+    expect(panel).toContain('1.751 siguen bloqueadas por reglas del verificador que ya no valen y 33 se quedaron sin juez');
+    expect(panel).toContain('una llamada al juez por afirmación');
+    expect(boton('Recuperar las 1.784').getAttribute('title')).toContain('Cuesta una llamada al juez por afirmación');
     await pulsar(boton('Recuperar las 1.784'));
     expect(respuestas.recuperaciones).toEqual([['inv-1', null]]);
   });
@@ -355,7 +362,7 @@ describe('la recuperación de citas de toda la investigación', () => {
   it('mientras va, enseña el avance y no deja pedir otra, ni por corrida', async () => {
     respuestas.recuperables = RECUPERABLES;
     await montar({ ...inv, recuperacionCitas: REGISTRO });
-    const panel = nodo.querySelector('.citas-recuperar-panel')!;
+    const panel = nodo.querySelector('.cit-recuperar')!;
     expect(panel.textContent).toContain('Volviendo a juzgar con el verificador de hoy: 120 de 1.784 (98 sostenidas, 5 parciales, 12 no sostenidas, 5 siguen bloqueadas por otra regla)');
     expect(panel.querySelector('progress')?.getAttribute('value')).toBe('120');
     expect([...nodo.querySelectorAll('button')].some((b) => (b.textContent ?? '').startsWith('Recuperar'))).toBe(false);
@@ -369,7 +376,7 @@ describe('la recuperación de citas de toda la investigación', () => {
     };
     respuestas.recuperables = { ...RECUPERABLES, bloqueosViejos: 0, sinJuez: 0, porCorrida: [] };
     await montar({ ...inv, recuperacionCitas: terminada });
-    const informe = nodo.querySelector('.citas-recuperar-informe')!.textContent ?? '';
+    const informe = nodo.querySelector('.cit-recuperar-informe')!.textContent ?? '';
     expect(informe).toContain('pedida el');
     expect(informe).toContain('240 afirmaciones enlazadas a 2 hipótesis');
     expect(informe).toContain('1 idea del vivero nació como hipótesis');
@@ -382,12 +389,12 @@ describe('la recuperación de citas de toda la investigación', () => {
   it('si el servidor no responde al contar, lo dice y no finge que no haya nada', async () => {
     respuestas.recuperables = 'sin_respuesta';
     await montar();
-    expect(nodo.querySelector('.citas-recuperar-panel')?.textContent).toContain('No pude contar las afirmaciones por recuperar');
+    expect(nodo.querySelector('.cit-recuperar')?.textContent).toContain('No pude contar las afirmaciones por recuperar');
   });
 
   it('sin nada que recuperar y sin recuperaciones, el panel no aparece', async () => {
     respuestas.recuperables = { ...RECUPERABLES, bloqueosViejos: 0, sinJuez: 0 };
     await montar();
-    expect(nodo.querySelector('.citas-recuperar-panel')).toBeNull();
+    expect(nodo.querySelector('.cit-recuperar')).toBeNull();
   });
 });

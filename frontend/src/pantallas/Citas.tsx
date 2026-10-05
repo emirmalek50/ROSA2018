@@ -23,24 +23,53 @@
 //
 // El texto de la página no se vuelve a sacar del PDF: es el mismo que leyó el
 // verificador, guardado al leerlo, así que lo que se ve es lo que se juzgó.
+//
+// Rehecha el 5 de octubre de 2026 sobre el diseño "Citas · v1": arriba el
+// banco de pruebas (cuántas resuelven a página, las dos señales de hoy y los
+// veredictos al extraerlas), la recuperación de citas, y debajo la mesa de
+// lectura con la lista a la izquierda y la fuente a la derecha.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { acciones, type SinRespuesta } from '../datos/almacen';
 import { RECUPERACION_PENDIENTE } from '../datos/acciones';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import { avanceDeRecuperacion, enLlanoElVeredicto, enLlanoLaClase, enlaceAlPasaje, etiquetaLocalizador, informeDeRecuperacion, senalesDe, trozosDeTexto, type AfirmacionCitada, type CitasRecuperables, type ComprobacionDeHoy, type FichaCita, type ListaCitas } from '../lib/citas';
+import { avanceDeRecuperacion, enLlanoElVeredicto, enLlanoLaClase, enlaceAlPasaje, etiquetaLocalizador, informeDeRecuperacion, senalesDe, trozosDeTexto, type AfirmacionCitada, type CitasRecuperables, type ClaseCita, type ComprobacionDeHoy, type FichaCita, type ListaCitas, type ResumenCitas } from '../lib/citas';
 import { Esqueleto } from '../componentes/Esqueleto';
+import { IconoEsc, type NombreIcono } from '../componentes/IconosEscenario';
 import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
 import { AvisoMuestra } from '../componentes/piezas';
 import { fechaCorta, formatearEntero, plural } from '../lib/formato';
 import '../citas.css';
+import '../citas-mesa.css';
 import { tr, trp } from '../lib/idioma';
 
 const AYUDA =
-  'Cada afirmación que ROSA2018 ha extraído, junto al trozo exacto de la fuente que la sostiene. A la izquierda la afirmación; a la derecha la página tal como ROSA2018 la leyó, con el pasaje resaltado.';
+  'A la izquierda lo que dijo ROSA2018; a la derecha el trozo exacto de la fuente que lo sostiene, tal como se leyó, con el pasaje resaltado.';
 const META =
   'De cada cita se comprueban dos cosas distintas, y se enseñan por separado: si APUNTA a un sitio que existe (fuente y localizador) y si su pasaje ESTÁ ahí, literal. Pueden darse las cuatro combinaciones: un texto que coincide con la fuente pero cuya cita apunta a un sitio que no existe sigue siendo un problema, y no el mismo. El veredicto que acompaña a cada afirmación es el que se tomó al extraerla; las dos señales se vuelven a medir ahora, con las reglas de hoy, y cuando no coinciden se dice.';
+const EXPLICA_RECUPERAR =
+  'Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.';
 
 type Estado = 'cargando' | 'listo' | 'sin_servidor' | 'sin_respuesta' | 'vacia';
+type Tono = 'bien' | 'medio' | 'mal' | 'neutro';
+
+/** A qué se agarra cada cita, de la que resuelve a página a la que menos. */
+const CLASES: { clase: ClaseCita; etiqueta: string; icono: NombreIcono }[] = [
+  { clase: 'pagina', etiqueta: 'Página del PDF', icono: 'file-text' },
+  { clase: 'seccion', etiqueta: 'Sección', icono: 'list' },
+  { clase: 'resumen', etiqueta: 'Resumen', icono: 'type' },
+  { clase: 'web', etiqueta: 'Texto web', icono: 'globe' },
+  { clase: 'otro', etiqueta: 'Otro', icono: 'circle-dot' },
+];
+const iconoDeClase = (clase: ClaseCita): NombreIcono => CLASES.find((c) => c.clase === clase)?.icono ?? 'circle-dot';
+
+/** El orden de los veredictos en el banco: primero los que sostienen. */
+const ORDEN_VEREDICTOS = ['sostenida', 'parcial', 'no_comprobable', 'sin_verificar', 'cita_no_resuelve', 'no_sostenida', 'sin_cita', 'ausencia_refutada'];
+
+/** El tono del veredicto; las que el juez no llegó a ver van en gris, ni
+ *  bien ni mal: todavía no se sabe. */
+function tonoDe(veredicto: string): Tono {
+  return veredicto === 'sin_verificar' ? 'neutro' : enLlanoElVeredicto(veredicto).tono;
+}
 
 /** Las corridas de la investigación, de la más reciente a la más antigua. */
 function corridasDe(estado: EstadoRosa, inv: Investigacion) {
@@ -50,9 +79,14 @@ function corridasDe(estado: EstadoRosa, inv: Investigacion) {
     .sort((a, b) => (b.numero ?? 0) - (a.numero ?? 0));
 }
 
-function Veredicto({ veredicto }: { veredicto: string }) {
-  const { texto, tono } = enLlanoElVeredicto(veredicto);
-  return <span className={`citas-veredicto citas-${tono}`}>{texto}</span>;
+/** El veredicto de una fila: un punto de color y la palabra. */
+function VeredictoPunto({ veredicto }: { veredicto: string }) {
+  return (
+    <span className={`cit-veredicto cit-${tonoDe(veredicto)}`}>
+      <i className="cit-punto" aria-hidden="true" />
+      {enLlanoElVeredicto(veredicto).texto}
+    </span>
+  );
 }
 
 /** La recuperación de las afirmaciones bloqueadas por reglas que ya no valen,
@@ -83,44 +117,153 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
   const pedir = envolver(async () => {
     await acciones.pedirRecuperacionCitas(inv.id, null);
   });
+  const porQue = datos
+    ? [
+        datos.bloqueosViejos ? plural(datos.bloqueosViejos, tr('sigue bloqueada por reglas del verificador que ya no valen'), tr('siguen bloqueadas por reglas del verificador que ya no valen')) : '',
+        datos.sinJuez ? plural(datos.sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez')) : '',
+      ]
+        .filter(Boolean)
+        .join(tr(' y '))
+    : '';
+  const ofrece = !pendiente && cuenta !== 'sin_respuesta' && n > 0 && datos !== null;
   return (
-    <section className="citas-recuperar-panel" aria-label={tr("Recuperación de citas")}>
-      <h3>{tr("Recuperación de citas")}</h3>
-      {pendiente && reg ? (
-        <>
-          <p role="status">{avanceDeRecuperacion(reg)}</p>
-          {reg.fase === 'juez' && reg.total > 0 && <progress value={reg.revisadas} max={reg.total} aria-label={tr("Afirmaciones vueltas a juzgar")} />}
-        </>
-      ) : cuenta === 'sin_respuesta' ? (
-        <p className="nota" role="status">
-          {tr("No pude contar las afirmaciones por recuperar: el servidor no respondió. No quiere decir que no las haya.")}
-        </p>
-      ) : n > 0 && datos ? (
-        <>
-          <p>
-            {(datos.corridasVivas ? trp("{bloqueosViejos} por reglas del verificador que ya no valen{v}. Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano. Hay una corrida trabajando en esta investigación: empezará cuando pare.", { bloqueosViejos: plural(datos.bloqueosViejos, tr('afirmación de esta investigación sigue bloqueada'), tr('afirmaciones de esta investigación siguen bloqueadas')), v: datos.sinJuez ? `,${tr(' y ')}${plural(datos.sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez'))}` : '' }) : trp("{bloqueosViejos} por reglas del verificador que ya no valen{v}. Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.", { bloqueosViejos: plural(datos.bloqueosViejos, tr('afirmación de esta investigación sigue bloqueada'), tr('afirmaciones de esta investigación siguen bloqueadas')), v: datos.sinJuez ? `,${tr(' y ')}${plural(datos.sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez'))}` : '' }))}
-          </p>
-          <button type="button" className="btn btn-s btn-primario" onClick={() => void pedir()} {...atributosEnVuelo(enVuelo)}>
+    <section className="cit-recuperar" aria-label={tr("Recuperación de citas")}>
+      <span className="cit-recuperar-icono" aria-hidden="true">
+        <IconoEsc nombre="rotate-ccw" size={19} />
+      </span>
+      <div className="cit-recuperar-texto">
+        {pendiente && reg ? (
+          <>
+            <h3>{tr("Recuperación de citas")}</h3>
+            <p role="status">{avanceDeRecuperacion(reg)}</p>
+            {reg.fase === 'juez' && reg.total > 0 && <progress value={reg.revisadas} max={reg.total} aria-label={tr("Afirmaciones vueltas a juzgar")} />}
+          </>
+        ) : cuenta === 'sin_respuesta' ? (
+          <>
+            <h3>{tr("Recuperación de citas")}</h3>
+            <p className="cit-nota" role="status">
+              {tr("No pude contar las afirmaciones por recuperar: el servidor no respondió. No quiere decir que no las haya.")}
+            </p>
+          </>
+        ) : ofrece && datos ? (
+          <>
+            <h3>
+              {plural(n, tr('afirmación espera volver a juzgarse'), tr('afirmaciones esperan volver a juzgarse'))} <span>{tr("en toda la investigación")}</span>
+            </h3>
+            <p>
+              {porQue}. {tr("Es evidencia ya leída que hoy no cuenta para ninguna hipótesis.")}
+              {datos.corridasVivas ? ` ${tr("Hay una corrida trabajando en esta investigación: empezará cuando pare.")}` : ''}
+            </p>
+          </>
+        ) : (
+          <h3>{tr("Recuperación de citas")}</h3>
+        )}
+        {terminada && reg && (
+          <div className="cit-recuperar-informe">
+            <p className="cit-tenue">
+              {(reg.corridaId ? trp("Última recuperación, pedida el {pedidaEn} por {quien} (una sola corrida):", { pedidaEn: fechaCorta(reg.pedidaEn), quien: reg.quien }) : trp("Última recuperación, pedida el {pedidaEn} por {quien}:", { pedidaEn: fechaCorta(reg.pedidaEn), quien: reg.quien }))}</p>
+            {reg.estado === 'fallida' ? (
+              <p>{avanceDeRecuperacion(reg)}</p>
+            ) : (
+              <ul>
+                {informeDeRecuperacion(reg).map((linea, i) => (
+                  <li key={i}>{linea}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+      {ofrece && (
+        <div className="cit-recuperar-accion">
+          <button type="button" className="cit-boton cit-boton-acento" onClick={() => void pedir()} {...atributosEnVuelo(enVuelo)} title={tr(EXPLICA_RECUPERAR)}>
+            <IconoEsc nombre="rotate-ccw" size={13} />
             {enVuelo ? tr('Pidiendo...') : trp("Recuperar las {n}", { n: formatearEntero(n) })}
           </button>
-        </>
-      ) : null}
-      {terminada && reg && (
-        <div className="citas-recuperar-informe">
-          <p className="meta">
-            {(reg.corridaId ? trp("Última recuperación, pedida el {pedidaEn} por {quien} (una sola corrida):", { pedidaEn: fechaCorta(reg.pedidaEn), quien: reg.quien }) : trp("Última recuperación, pedida el {pedidaEn} por {quien}:", { pedidaEn: fechaCorta(reg.pedidaEn), quien: reg.quien }))}</p>
-          {reg.estado === 'fallida' ? (
-            <p>{avanceDeRecuperacion(reg)}</p>
-          ) : (
-            <ul>
-              {informeDeRecuperacion(reg).map((linea, i) => (
-                <li key={i}>{linea}</li>
-              ))}
-            </ul>
-          )}
+          <span>{tr("una llamada al juez por afirmación · en segundo plano")}</span>
         </div>
       )}
     </section>
+  );
+}
+
+/** Una de las dos señales de hoy en el banco: cuántas la cumplen, en barra. */
+function Medida({ etiqueta, n, total }: { etiqueta: string; n: number; total: number }) {
+  const p = total ? Math.min(1, n / total) : 0;
+  // El color dice cuánto falta: casi todas en verde, la mitad en ámbar, menos en rojo.
+  const tono: Tono = p >= 0.9 ? 'bien' : p >= 0.5 ? 'medio' : 'mal';
+  return (
+    <div className={`cit-medida cit-${tono}`}>
+      <p>
+        <IconoEsc nombre={tono === 'mal' ? 'x' : 'check'} size={14} />
+        {etiqueta}
+      </p>
+      <div className="cit-medida-fila">
+        <span className="cit-pista" aria-hidden="true">
+          <span style={{ width: `${p * 100}%` }} />
+        </span>
+        <b>{trp("{n} de {total}", { n: formatearEntero(n), total: formatearEntero(total) })}</b>
+      </div>
+    </div>
+  );
+}
+
+/** La franja de pruebas del banco: a qué resuelven las citas, las dos señales
+ *  medidas hoy y los veredictos que se tomaron al extraerlas. */
+function FranjaPruebas({ resumen }: { resumen: ResumenCitas }) {
+  const clases = CLASES.map((c) => ({ ...c, n: resumen.porClase?.[c.clase] ?? 0 })).filter((c) => c.n > 0);
+  const veredictos = Object.entries(resumen.porVeredicto ?? {})
+    .filter(([, n]) => n > 0)
+    .sort(([a, na], [b, nb]) => {
+      const ia = ORDEN_VEREDICTOS.indexOf(a);
+      const ib = ORDEN_VEREDICTOS.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || nb - na;
+    });
+  const fila = ([v, n]: [string, number]) => (
+    <li key={v} className={`cit-${tonoDe(v)}`}>
+      <i className="cit-punto" aria-hidden="true" />
+      <span>{enLlanoElVeredicto(v).texto}</span>
+      <b>{formatearEntero(n)}</b>
+    </li>
+  );
+  // Bloqueadas con la cita en orden que no son de las que ya no bloquearían:
+  // las frena otra comprobación, no la cita.
+  const otras = (resumen.bloqueadasConCitaEnOrden ?? 0) - (resumen.bloqueosViejos ?? 0);
+  return (
+    <div className="cit-franja">
+      <div className="cit-franja-parte">
+        <p className="cit-kicker">{tr("A qué resuelven")}</p>
+        <div className="cit-barra" role="img" aria-label={clases.map((c) => `${tr(c.etiqueta)}: ${formatearEntero(c.n)}`).join(', ')}>
+          {clases.map((c) => (
+            <span key={c.clase} className={`cit-seg cit-clase-${c.clase}`} style={{ flexGrow: c.n }} />
+          ))}
+        </div>
+        <ul className="cit-leyenda">
+          {clases.map((c) => (
+            <li key={c.clase}>
+              <span>
+                <i className={`cit-punto cit-clase-${c.clase}`} aria-hidden="true" />
+                {tr(c.etiqueta)}
+              </span>
+              <b className={c.clase === 'pagina' ? 'cit-fuerte' : undefined}>{formatearEntero(c.n)}</b>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="cit-franja-parte cit-hoy" title={tr(META)}>
+        <p className="cit-kicker">{tr("Hoy, con las reglas de hoy")}</p>
+        <Medida etiqueta={tr("Apunta a un sitio que existe")} n={resumen.resuelvenHoy ?? 0} total={resumen.total} />
+        <Medida etiqueta={tr("El pasaje está ahí, literal")} n={resumen.literalesHoy ?? 0} total={resumen.total} />
+      </div>
+      <div className="cit-franja-parte cit-veredictos">
+        <p className="cit-kicker">{tr("Veredicto al extraerlas")}</p>
+        <div className="cit-rejilla">
+          <ul>{veredictos.filter(([v]) => tonoDe(v) !== 'mal').map(fila)}</ul>
+          <ul>{veredictos.filter(([v]) => tonoDe(v) === 'mal').map(fila)}</ul>
+        </div>
+        {otras > 0 && <p className="cit-franja-nota">{plural(otras, tr('tiene la cita en orden y sigue bloqueada por otra comprobación'), tr('tienen la cita en orden y siguen bloqueadas por otra comprobación'))}.</p>}
+      </div>
+    </div>
   );
 }
 
@@ -214,39 +357,74 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   const fallidas = Object.entries(resumen?.porVeredicto ?? {})
     .filter(([v]) => v !== 'sostenida' && v !== 'parcial')
     .reduce((s, [, n]) => s + n, 0);
+  const bloqueosViejos = resumen?.bloqueosViejos ?? 0;
+  // Las fuentes distintas de las que salen las afirmaciones de la corrida.
+  const fuentes = useMemo(() => new Set((lista?.afirmaciones ?? []).map((a) => a.fuenteId ?? a.referencia)).size, [lista]);
+  const numero = corridas.find((c) => c.id === corridaId)?.numero ?? null;
+
+  const chip = (clave: typeof filtro, etiqueta: string, n: number, title?: string) => (
+    <button type="button" className="cit-chip" aria-pressed={filtro === clave} onClick={() => setFiltro(clave)} title={title}>
+      {etiqueta} <span className="cit-chip-cifra">{formatearEntero(n)}</span>
+    </button>
+  );
 
   return (
-    <div className="contenido contenido-ancho">
+    <div className="contenido contenido-ancho cit-pagina">
       <AvisoMuestra conexion={estado.conexion} />
-      <div className="pantalla-cabecera" style={{ marginTop: 16 }}>
-        <div>
-          <h2>{tr("Citas")}</h2>
-          <p>{tr(AYUDA)}</p>
-          <p className="meta">
-            {tr(META)}
-            {resumen ? trp(" En esta corrida, {conPagina} a página exacta de {total}.", { conPagina: plural(resumen.conPagina, tr('afirmación resuelve'), tr('afirmaciones resuelven')), total: resumen.total }) : ''}
-            {resumen && (resumen.bloqueosViejos ?? 0) > 0
-              ? (resumen.bloqueosViejos === 1 ? trp(" {bloqueosViejos} con una versión anterior del verificador y hoy el verificador ya no la bloquearía.", { bloqueosViejos: plural(resumen.bloqueosViejos, tr('afirmación quedó bloqueada'), tr('afirmaciones quedaron bloqueadas')) }) : trp(" {bloqueosViejos} con una versión anterior del verificador y hoy el verificador ya no las bloquearía.", { bloqueosViejos: plural(resumen.bloqueosViejos, tr('afirmación quedó bloqueada'), tr('afirmaciones quedaron bloqueadas')) })) +
-                ((resumen.bloqueadasConCitaEnOrden ?? 0) > resumen.bloqueosViejos
-                  ? trp(" Otras {v} tienen la cita en orden pero siguen bloqueadas por otra comprobación.", { v: (resumen.bloqueadasConCitaEnOrden ?? 0) - resumen.bloqueosViejos })
-                  : '')
-              : ''}
-          </p>
-        </div>
-        {corridas.length > 1 && (
-          <div className="acciones">
-            <label className="citas-selector">
-              {tr("Corrida")}{' '}
+      <section className="cit-banco" aria-label={tr("Citas")}>
+        <div className="cit-banco-arriba">
+          <div className="cit-etiquetas">
+            <span className="cit-pill">
+              <IconoEsc nombre="quote" size={13} />
+              {tr("Citas comprobadas")}
+            </span>
+            {resumen && (
+              <span className="cit-cuenta">
+                {plural(fuentes, tr('fuente'), tr('fuentes'))} <span aria-hidden="true">·</span> {plural(resumen.total, tr('afirmación'), tr('afirmaciones'))}
+              </span>
+            )}
+          </div>
+          {corridas.length > 1 ? (
+            <label className="cit-selector">
+              <span>{tr("Corrida")}</span>
               <select value={corridaId} onChange={(e) => setCorridaId(e.target.value)} aria-label={tr("Elegir corrida")}>
                 {corridas.map((c) => (
-                  <option key={c.id} value={c.id}>{trp("Corrida {numero}", { numero: c.numero })}
+                  <option key={c.id} value={c.id}>
+                    {c.numero ?? '?'}
                   </option>
                 ))}
               </select>
+              <IconoEsc nombre="chevron-down" size={14} />
             </label>
+          ) : (
+            numero !== null && (
+              <span className="cit-selector">
+                <span>{tr("Corrida")}</span>
+                <b>{numero}</b>
+              </span>
+            )
+          )}
+        </div>
+        <div className="cit-banco-cuerpo">
+          <div className="cit-titular">
+            <h2>{tr("Cada afirmación, en la página donde se comprobó")}</h2>
+            <p>{tr(AYUDA)}</p>
           </div>
-        )}
-      </div>
+          {resumen && resumen.total > 0 && (
+            <div className="cit-cifra">
+              <div className="cit-cifra-fila">
+                <b>{formatearEntero(resumen.conPagina)}</b>
+                <span>
+                  <span className="cit-cifra-de">{trp("de {total}", { total: formatearEntero(resumen.total) })}</span>
+                  <span className="cit-cifra-que">{tr("a página exacta del PDF")}</span>
+                </span>
+              </div>
+              {resumen.conPagina < resumen.total && <p>{tr("El resto se apoya en el resumen, una sección o el texto web, y lo dice: sin número de página.")}</p>}
+            </div>
+          )}
+        </div>
+        {resumen && resumen.total > 0 ? <FranjaPruebas resumen={resumen} /> : fase === 'cargando' ? <Esqueleto ancho="100%" alto={128} radio={16} /> : null}
+      </section>
 
       <RecuperacionDeCitas inv={inv} />
 
@@ -267,91 +445,92 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
       )}
 
       {(fase === 'listo' || fase === 'cargando') && (
-        <div className="citas-cuerpo">
-          <section className="citas-col" aria-label={tr("Afirmaciones de la corrida")}>
-            <header>
-              <h3>{tr("Afirmaciones")}</h3>
-              <div className="citas-filtros" role="group" aria-label={tr("Filtrar afirmaciones")}>
-                <button type="button" className="atlas-chip" aria-pressed={filtro === 'todas'} onClick={() => setFiltro('todas')}>
-                  {tr("Todas")} <span className="atlas-cifra">{resumen?.total ?? 0}</span>
-                </button>
-                <button type="button" className="atlas-chip" aria-pressed={filtro === 'sostenidas'} onClick={() => setFiltro('sostenidas')}>
-                  {tr("Sostenidas")} <span className="atlas-cifra">{sostenidas}</span>
-                </button>
-                <button type="button" className="atlas-chip" aria-pressed={filtro === 'fallidas'} onClick={() => setFiltro('fallidas')}>
-                  {tr("Fallidas")} <span className="atlas-cifra">{fallidas}</span>
-                </button>
-                <button type="button" className="atlas-chip" aria-pressed={filtro === 'pagina'} onClick={() => setFiltro('pagina')}>
-                  {tr("Con página")} <span className="atlas-cifra">{resumen?.conPagina ?? 0}</span>
-                </button>
-                {(resumen?.bloqueosViejos ?? 0) > 0 && !recuperacionPendiente && (
-                  <button type="button" className="btn btn-s btn-primario citas-recuperar" onClick={() => void recuperar()} {...atributosEnVuelo(enVuelo)} title={tr("Vuelve a juzgarlas, enlaza a las hipótesis las que salgan sostenidas y rehace sus conclusiones")}>
-                    {enVuelo ? 'Pidiendo...' : trp("Recuperar las {v} de esta corrida", { v: resumen?.bloqueosViejos ?? 0 })}
-                  </button>
-                )}
-                {(resumen?.bloqueosViejos ?? 0) > 0 && (
-                  <button type="button" className="atlas-chip" aria-pressed={filtro === 'rancias'} onClick={() => setFiltro('rancias')} title={tr("Bloqueadas con una versión anterior del verificador: hoy el verificador entero ya no las bloquearía")}>
-                    {tr("Ya no bloquearían")} <span className="atlas-cifra">{resumen?.bloqueosViejos ?? 0}</span>
-                  </button>
-                )}
+        <div className="cit-mesa">
+          <section className="cit-tarjeta cit-lista-tarjeta" aria-label={tr("Afirmaciones de la corrida")}>
+            <header className="cit-lista-cab">
+              <div className="cit-lista-h">
+                <h3>{tr("Afirmaciones")}</h3>
+                {numero !== null && <span>{trp("de la corrida {n}", { n: numero })}</span>}
               </div>
+              <div className="cit-filtros" role="group" aria-label={tr("Filtrar afirmaciones")}>
+                {chip('todas', tr("Todas"), resumen?.total ?? 0)}
+                {chip('sostenidas', tr("Sostenidas"), sostenidas)}
+                {chip('fallidas', tr("Fallidas"), fallidas)}
+                {chip('pagina', tr("Con página"), resumen?.conPagina ?? 0)}
+                {bloqueosViejos > 0 && chip('rancias', tr("Ya no bloquearían"), bloqueosViejos, tr("Bloqueadas con una versión anterior del verificador: hoy el verificador entero ya no las bloquearía"))}
+              </div>
+              {bloqueosViejos > 0 && (
+                <div className="cit-recuperar-fila">
+                  <span>{plural(bloqueosViejos, tr('se juzgó con reglas viejas'), tr('se juzgaron con reglas viejas'))}</span>
+                  {!recuperacionPendiente && (
+                    <button type="button" className="cit-enlace" onClick={() => void recuperar()} {...atributosEnVuelo(enVuelo)} title={tr("Vuelve a juzgarlas, enlaza a las hipótesis las que salgan sostenidas y rehace sus conclusiones")}>
+                      {enVuelo ? tr('Pidiendo...') : trp("Recuperar las {n}", { n: formatearEntero(bloqueosViejos) })}
+                      <IconoEsc nombre="chevron-right" size={13} />
+                    </button>
+                  )}
+                </div>
+              )}
             </header>
             {recuperacion && (
-              <p className="nota citas-recuperacion" role="status">
+              <p className="cit-nota cit-recuperacion" role="status">
                 {recuperacion}
               </p>
             )}
-            <div className="citas-lista">
+            <div className="citas-lista cit-lista">
               {fase === 'cargando' ? (
-                <div className="citas-esqueleto" aria-busy="true">
+                <div className="cit-esqueleto" aria-busy="true">
                   <span className="sr-only">{tr("Cargando las citas")}</span>
                   {[0, 1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="citas-fila">
+                    <div key={i} className="cit-fila-esqueleto">
                       <Esqueleto ancho="90%" alto={15} />
                       <Esqueleto ancho="55%" alto={12} />
                     </div>
                   ))}
                 </div>
               ) : afirmaciones.length === 0 ? (
-                <p className="meta citas-fila">{tr("Ninguna afirmación con ese filtro.")}</p>
+                <p className="cit-nota cit-vacio">{tr("Ninguna afirmación con ese filtro.")}</p>
               ) : (
                 afirmaciones.map((a) => <FilaAfirmacion key={a.id} a={a} elegida={a.id === elegida} onElegir={() => setElegida(a.id)} />)
               )}
             </div>
+            {fase === 'listo' && resumen && (
+              <footer className="cit-lista-pie">
+                <IconoEsc nombre="list" size={13} />
+                {trp("{n} de {total}", { n: formatearEntero(afirmaciones.length), total: formatearEntero(resumen.total) })} · {tr("la lista se desplaza por dentro")}
+              </footer>
+            )}
           </section>
 
-          <section className="citas-col" aria-label={tr("La fuente y su página")}>
-            <header>
-              <h3>{tr("Fuente")}</h3>
-              {ficha && ficha.leidos.length > 1 && (
-                <div className="citas-leidos">
-                  <span className="meta">{tr("Se leyeron")}</span>
-                  {ficha.leidos.map((l) => (
-                    <span key={l.localizador} className={`citas-leido${l.actual ? ' actual' : ''}`} data-sin-traducir>
-                      {l.pagina ?? etiquetaLocalizador(l.localizador)}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </header>
-            <div className="citas-doc">
-              {cargandoFicha || fase === 'cargando' ? (
-                <div aria-busy="true">
-                  <span className="sr-only">{tr("Cargando la página de la fuente")}</span>
-                  <Esqueleto ancho="70%" alto={18} />
-                  <div style={{ height: 10 }} />
-                  <Esqueleto ancho="100%" alto={360} radio={8} />
-                </div>
-              ) : ficha ? (
-                <Ficha ficha={ficha} corridaId={corridaId} />
-              ) : (
-                <p className="meta">{tr("Elige una afirmación de la izquierda para ver dónde se comprobó.")}</p>
-              )}
-            </div>
+          <section className="cit-tarjeta cit-fuente" aria-label={tr("La fuente y su página")}>
+            {cargandoFicha || fase === 'cargando' ? (
+              <div aria-busy="true" className="cit-fuente-cargando">
+                <span className="sr-only">{tr("Cargando la página de la fuente")}</span>
+                <Esqueleto ancho="70%" alto={22} />
+                <Esqueleto ancho="40%" alto={14} />
+                <Esqueleto ancho="100%" alto={420} radio={14} />
+              </div>
+            ) : ficha ? (
+              <Ficha ficha={ficha} corridaId={corridaId} />
+            ) : (
+              <p className="cit-nota">{tr("Elige una afirmación de la izquierda para ver dónde se comprobó.")}</p>
+            )}
           </section>
         </div>
       )}
     </div>
+  );
+}
+
+/** Cómo se apoya la cita, en corto: PDF si va a una página del PDF, «sin pág.»
+ *  si no. La frase entera va en el title. */
+function ClaseChip({ a }: { a: AfirmacionCitada }) {
+  const pagina = a.clase === 'pagina';
+  return (
+    <span className={`cit-clase${pagina ? ' cit-clase-con-pagina' : ''}`} title={enLlanoLaClase(a.clase, a.localizador)}>
+      <IconoEsc nombre={iconoDeClase(a.clase)} size={11} />
+      <span aria-hidden="true">{pagina ? (a.conPdf ? 'PDF' : tr('pág.')) : tr('sin pág.')}</span>
+      <span className="sr-only" data-sin-traducir>{enLlanoLaClase(a.clase, a.localizador)}</span>
+    </span>
   );
 }
 
@@ -361,14 +540,19 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
 // localizador por uno que no existe en el PDF.
 function FilaAfirmacion({ a, elegida, onElegir }: { a: AfirmacionCitada; elegida: boolean; onElegir: () => void }) {
   return (
-    <button type="button" className={`citas-fila citas-af${elegida ? ' elegida' : ''}`} aria-current={elegida ? 'true' : undefined} onClick={onElegir}>
-      <p>{a.texto}</p>
-      <div className="citas-meta">
-        <Veredicto veredicto={a.veredicto} />
-        <span className="citas-cita" data-sin-traducir>{a.cita}</span>
-        <span className="meta" data-sin-traducir>{enLlanoLaClase(a.clase, a.localizador)}</span>
-        {Boolean(a.bloqueoViejo) && <span className="citas-marca-rancio">{tr("ya no bloquearía")}</span>}
-      </div>
+    <button type="button" className={`citas-af cit-fila${elegida ? ' cit-elegida' : ''}`} aria-current={elegida ? 'true' : undefined} onClick={onElegir}>
+      <span className="cit-fila-texto">{a.texto}</span>
+      <span className="cit-fila-meta">
+        <VeredictoPunto veredicto={a.veredicto} />
+        <span className="cit-fila-cita" data-sin-traducir>{a.cita}</span>
+        <ClaseChip a={a} />
+      </span>
+      {Boolean(a.bloqueoViejo) && (
+        <span className="cit-rancia">
+          <IconoEsc nombre="rotate-ccw" size={11} />
+          {a.veredicto === 'cita_no_resuelve' && a.hoy?.resuelve ? tr("ya no bloquearía: hoy la cita resuelve") : tr("ya no bloquearía")}
+        </span>
+      )}
     </button>
   );
 }
@@ -376,27 +560,21 @@ function FilaAfirmacion({ a, elegida, onElegir }: { a: AfirmacionCitada; elegida
 /** Las dos señales, cada una con su sí o su no. Nunca se funden en una: son
  *  preguntas distintas y la respuesta a una no implica la otra. */
 function Senales({ hoy, clase, localizador }: { hoy: ComprobacionDeHoy; clase: FichaCita['clase']; localizador: string }) {
-  if (hoy.disponible === false) return <p className="meta">{hoy.motivoResuelve}</p>;
+  if (hoy.disponible === false) return <p className="cit-tenue">{hoy.motivoResuelve}</p>;
+  const senal = (ok: boolean, titulo: string, detalle: React.ReactNode) => (
+    <li>
+      <span className={`cit-check cit-${ok ? 'bien' : 'mal'}`} aria-hidden="true">
+        <IconoEsc nombre={ok ? 'check' : 'x'} size={12} />
+      </span>
+      <span className="cit-senal-texto">
+        <b>{titulo}</b> <span>{detalle}</span>
+      </span>
+    </li>
+  );
   return (
-    <ul className="citas-senales">
-      <li>
-        <span className={hoy.resuelve ? 'citas-si' : 'citas-no'} aria-hidden="true">
-          {hoy.resuelve ? '✓' : '✗'}
-        </span>
-        <span>
-          <b>{tr("La cita apunta a un sitio que existe.")}</b>{' '}
-          {hoy.resuelve ? <span data-sin-traducir>{enLlanoLaClase(clase, localizador)}</span> : hoy.motivoResuelve}
-        </span>
-      </li>
-      <li>
-        <span className={hoy.literal ? 'citas-si' : 'citas-no'} aria-hidden="true">
-          {hoy.literal ? '✓' : '✗'}
-        </span>
-        <span>
-          <b>{tr("El pasaje está ahí, literal.")}</b>{' '}
-          {hoy.literal ? tr('Entero y en orden, tras normalizar tipografía y números de línea.') : hoy.resuelve ? tr('Falta un tramo del pasaje en la fuente.') : tr('No se pudo comprobar: la cita no resuelve.')}
-        </span>
-      </li>
+    <ul className="cit-senales">
+      {senal(hoy.resuelve, tr("La cita apunta a un sitio que existe."), hoy.resuelve ? <span data-sin-traducir>{enLlanoLaClase(clase, localizador)}</span> : hoy.motivoResuelve)}
+      {senal(hoy.literal, tr("El pasaje está ahí, literal."), hoy.literal ? tr('Entero y en orden, tras normalizar tipografía y números de línea.') : hoy.resuelve ? tr('Falta un tramo del pasaje en la fuente.') : tr('No se pudo comprobar: la cita no resuelve.'))}
     </ul>
   );
 }
@@ -427,108 +605,167 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
   // de 2026: "que cuando le des a ver cita te lleve literalmente al texto").
   const alPasaje = enlaceAlPasaje(ficha, ficha.conPdf ? acciones.pdfDeCita(corridaId, ficha.afirmacion.id) : undefined);
   const enLaFuente = ficha.fuente.doi ? `https://doi.org/${ficha.fuente.doi}` : ficha.fuente.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ficha.fuente.pmid}/` : '';
+  const metas = [ficha.fuente.referencia, ficha.fuente.anio && !ficha.fuente.referencia.includes(String(ficha.fuente.anio)) ? String(ficha.fuente.anio) : '', ficha.fuente.doi ? `doi:${ficha.fuente.doi}` : '', ficha.fuente.tipoEstudio && ficha.fuente.tipoEstudio !== 'otro' ? ficha.fuente.tipoEstudio : ''].filter(Boolean);
+  const verPagina = ficha.conPdf;
+  const abrirPdf = ficha.conPdf && alPasaje;
+  const verFicha = enLaFuente && enLaFuente !== alPasaje;
+  const juezPendiente = ficha.veredictoDeHoy && !ficha.veredictoDeHoy.bloquea && ficha.veredictoDeHoy.veredicto === 'sin_verificar';
   return (
     <>
-      <div className="citas-doc-cab">
-        <div>
-          <h4>{ficha.fuente.titulo || ficha.fuente.referencia}</h4>
-          <p className="meta">
-            {[ficha.fuente.referencia, ficha.fuente.anio && !ficha.fuente.referencia.includes(String(ficha.fuente.anio)) ? String(ficha.fuente.anio) : '', ficha.fuente.doi ? `doi:${ficha.fuente.doi}` : '', ficha.fuente.tipoEstudio && ficha.fuente.tipoEstudio !== 'otro' ? ficha.fuente.tipoEstudio : ''].filter(Boolean).join(' · ')}
+      <div className="cit-fuente-cab">
+        <div className="cit-fuente-titulo">
+          <p className="cit-kicker">{tr("La fuente")}</p>
+          <h4 title={ficha.fuente.titulo || ficha.fuente.referencia}>{ficha.fuente.titulo || ficha.fuente.referencia}</h4>
+          <p className="cit-fuente-meta">
+            {metas.map((m, i) => (
+              <span key={i}>
+                {i > 0 && (
+                  <span className="cit-sep" aria-hidden="true">
+                    ·{' '}
+                  </span>
+                )}
+                {m}
+              </span>
+            ))}
           </p>
-          {ficha.fuente.retraccion && <p className="citas-retraccion">{tr("Esta fuente está retractada.")}</p>}
+          {ficha.fuente.retraccion && <p className="cit-retraccion">{tr("Esta fuente está retractada.")}</p>}
         </div>
-        <p className="meta citas-loc" data-sin-traducir>{enLlanoLaClase(ficha.clase, ficha.localizador)}</p>
+        <div className="cit-loc">
+          <span className={`cit-loc-chip${ficha.clase === 'pagina' ? ' cit-loc-pagina' : ''}`} title={enLlanoLaClase(ficha.clase, ficha.localizador)} data-sin-traducir>
+            <IconoEsc nombre={iconoDeClase(ficha.clase)} size={13} />
+            {ficha.clase === 'pagina' && ficha.conPdf && ficha.pagina !== null ? trp("pág. {pagina} del PDF", { pagina: ficha.pagina }) : etiquetaLocalizador(ficha.localizador) || tr('sin localizador')}
+          </span>
+          {(ficha.clase !== 'pagina' || ficha.leidos.length > 1) && (
+            <span className="cit-tenue">
+              {[ficha.clase !== 'pagina' ? tr('sin número de página') : '', ficha.leidos.length > 1 ? plural(ficha.leidos.length, tr('sitio leído de esta fuente'), tr('sitios leídos de esta fuente')) : ''].filter(Boolean).join(' · ')}
+            </span>
+          )}
+        </div>
       </div>
 
+      {ficha.leidos.length > 1 && (
+        <div className="cit-leidos">
+          <span className="cit-tenue">{tr("Se leyeron")}</span>
+          <span className="cit-leidos-lista">
+            {ficha.leidos.map((l) => (
+              <span key={l.localizador} className={`cit-leido${l.pagina !== null ? ' cit-leido-num' : ''}${l.actual ? ' cit-actual' : ''}`} aria-current={l.actual ? 'true' : undefined} data-sin-traducir>
+                {l.pagina ?? etiquetaLocalizador(l.localizador)}
+              </span>
+            ))}
+          </span>
+        </div>
+      )}
+
       {ficha.conPdf && (
-        <div className="citas-vistas" role="group" aria-label={tr("Cómo ver la página")}>
-          <button type="button" className={vista === 'texto' ? 'activo' : ''} onClick={() => cambiarVista('texto')} aria-pressed={vista === 'texto'}>
+        <div className="cit-vistas" role="group" aria-label={tr("Cómo ver la página")}>
+          <button type="button" className={vista === 'texto' ? 'cit-activa' : undefined} onClick={() => cambiarVista('texto')} aria-pressed={vista === 'texto'}>
+            <IconoEsc nombre="type" size={13} />
             {tr("Texto leído")}
           </button>
-          <button type="button" className={vista === 'pagina' ? 'activo' : ''} onClick={() => cambiarVista('pagina')} aria-pressed={vista === 'pagina'}>
+          <button type="button" className={vista === 'pagina' ? 'cit-activa' : undefined} onClick={() => cambiarVista('pagina')} aria-pressed={vista === 'pagina'}>
+            <IconoEsc nombre="image" size={13} />
             {ficha.pagina !== null ? trp("Página {pagina} del PDF", { pagina: ficha.pagina }) : tr('Página del PDF')}
           </button>
         </div>
       )}
 
       {vista === 'pagina' && ficha.conPdf ? (
-        <div className="citas-hoja citas-hoja-pdf">
+        <div className="cit-hoja cit-hoja-pdf">
           <img
-            className="citas-pagina"
+            className="cit-pagina-img"
             src={acciones.paginaDeCita(corridaId, ficha.afirmacion.id)}
             alt={ficha.completo ? trp("Página {v} del PDF con el pasaje citado marcado en naranja", { v: ficha.pagina ?? '' }) : trp("Página {v} del PDF, sin marcar: el pasaje no se encontró en ella", { v: ficha.pagina ?? '' })}
           />
         </div>
       ) : ficha.texto ? (
-        <div className="citas-hoja" ref={hoja}>
-          {ficha.encabezado && <p className="citas-encabezado">{ficha.encabezado}</p>}
-          <p className="citas-texto">
+        <div className="cit-hoja" ref={hoja}>
+          <p className="cit-hoja-cab">
+            <span className="cit-hoja-encabezado">{ficha.encabezado}</span>
+            <span data-sin-traducir>{etiquetaLocalizador(ficha.localizador)}</span>
+          </p>
+          <p className="cit-hoja-texto">
             {trozos.map((t, i) => (t.marcado ? <mark key={i}>{t.texto}</mark> : <span key={i}>{t.texto}</span>))}
           </p>
-          {ficha.pagina !== null && <p className="citas-numpag">{ficha.pagina}</p>}
+          {ficha.pagina !== null && <p className="cit-hoja-num">{ficha.pagina}</p>}
         </div>
       ) : (
-        <p className="nota">{tr("De esta fuente no se guardó el texto de ese localizador, así que no puedo enseñar dónde estaba el pasaje.")}</p>
+        <p className="cit-nota">{tr("De esta fuente no se guardó el texto de ese localizador, así que no puedo enseñar dónde estaba el pasaje.")}</p>
       )}
       {vista === 'pagina' && ficha.conPdf && !ficha.completo && (
-        <p className="nota">{tr("El pasaje no está en esta página, así que no hay nada que marcar. La página se enseña igual, para poder comprobarlo.")}</p>
+        <p className="cit-nota">{tr("El pasaje no está en esta página, así que no hay nada que marcar. La página se enseña igual, para poder comprobarlo.")}</p>
       )}
 
-      <div className="citas-barra">
-        {ficha.conPdf ? (
-          <button type="button" className="btn btn-s btn-primario" onClick={() => cambiarVista('pagina')}>
+      <div className="cit-acciones">
+        {verPagina ? (
+          <button type="button" className="cit-boton cit-boton-acento cit-boton-ancho" onClick={() => cambiarVista('pagina')}>
+            <IconoEsc nombre="scan-search" size={14} />
             {ficha.pagina !== null ? trp("Ver la cita marcada en la página {pagina}", { pagina: ficha.pagina }) : tr('Ver la cita marcada en la página')}
           </button>
         ) : (
           alPasaje && (
-            <a className="btn btn-s btn-primario" href={alPasaje} target="_blank" rel="noreferrer">
+            <a className="cit-boton cit-boton-acento cit-boton-ancho" href={alPasaje} target="_blank" rel="noreferrer">
+              <IconoEsc nombre="scan-search" size={14} />
               {tr("Ver la cita en la fuente")}
             </a>
           )
         )}
-        {ficha.conPdf && alPasaje && (
-          <a className="btn btn-s" href={alPasaje} target="_blank" rel="noreferrer">
-            {tr("Abrir el PDF entero")}
-          </a>
-        )}
-        {enLaFuente && enLaFuente !== alPasaje && (
-          <a className="btn btn-s" href={enLaFuente} target="_blank" rel="noreferrer">
-            {tr("Ficha del artículo")}
-          </a>
+        {(abrirPdf || verFicha) && (
+          <div className="cit-acciones-sec">
+            {abrirPdf && (
+              <a className="cit-boton" href={alPasaje} target="_blank" rel="noreferrer">
+                <IconoEsc nombre="external-link" size={14} />
+                {tr("Abrir el PDF entero")}
+              </a>
+            )}
+            {verFicha && (
+              <a className="cit-boton" href={enLaFuente} target="_blank" rel="noreferrer">
+                <IconoEsc nombre="book-open" size={14} />
+                {tr("Ficha del artículo")}
+              </a>
+            )}
+          </div>
         )}
       </div>
       {ficha.conPdf ? (
-        <p className="meta citas-pista-enlace">
+        <p className="cit-tenue cit-indicacion">
           {trp("La marca la pinta ROSA2018 sobre la página: el visor de PDF del navegador solo sabe abrir por una página, no resaltar, así que abrir el PDF entero lleva a la página {v} sin marcar.", { v: ficha.pagina ?? '' })}</p>
       ) : (
-        alPasaje && (
-          <p className="meta citas-pista-enlace">{tr("El navegador salta solo hasta el pasaje y lo resalta. Si la página ha cambiado desde que ROSA2018 la leyó, se abrirá por el principio.")}</p>
-        )
+        alPasaje && <p className="cit-tenue cit-indicacion">{tr("El navegador salta solo hasta el pasaje y lo resalta. Si la página ha cambiado desde que ROSA2018 la leyó, se abrirá por el principio.")}</p>
       )}
 
-      <div className="citas-comparacion">
-        <div>
-          <p className="citas-t">{tr("Lo que dijo ROSA2018")}</p>
-          <p>{ficha.afirmacion.texto}</p>
-          <p className="meta">{tr("Veredicto al extraerla:")} <Veredicto veredicto={ficha.afirmacion.veredicto} /></p>
-          {ficha.afirmacion.motivo && <p className="meta">{ficha.afirmacion.motivo}</p>}
+      <div className="cit-comparacion">
+        <div className="cit-comp-dijo">
+          <p className="cit-kicker">{tr("Lo que dijo ROSA2018")}</p>
+          <p className="cit-comp-afirmacion">«{ficha.afirmacion.texto}»</p>
+          <p className={`cit-pastilla cit-${tonoDe(ficha.afirmacion.veredicto)}`}>
+            <span className="sr-only">{tr("Veredicto al extraerla:")} </span>
+            <i className="cit-punto" aria-hidden="true" />
+            {enLlanoElVeredicto(ficha.afirmacion.veredicto).texto}
+          </p>
+          {ficha.afirmacion.motivo && <p className="cit-comp-motivo">{ficha.afirmacion.motivo}</p>}
         </div>
-        <div>
-          <p className="citas-t">{tr("Lo que se comprueba hoy")}</p>
+        <div className="cit-comp-hoy">
+          <p className="cit-kicker">{tr("Lo que se comprueba hoy")}</p>
           <Senales hoy={hoy} clase={ficha.clase} localizador={ficha.localizador} />
           {!hoy.literal && hoy.falta && (
-            <p>
+            <p className="cit-comp-falta">
               {tr("No está en la fuente:")} <span className="citas-falta">{hoy.falta}</span>
             </p>
           )}
           {Boolean(ficha.bloqueoViejo) && (
-            <p className="citas-rancio">
+            <p className="cit-aviso cit-aviso-ambar cit-rancio">
               {tr("Esta afirmación quedó bloqueada con una versión anterior del verificador y hoy ya no lo estaría. Con «Reverificar» se vuelve a juzgar y su veredicto se actualiza.")}
             </p>
           )}
           {!ficha.bloqueoViejo && hoy.resuelve && hoy.literal && ficha.veredictoDeHoy?.bloquea && (
-            <p className="citas-sigue">
+            <p className="cit-aviso cit-sigue">
               {trp("La cita está en orden, pero la afirmación sigue bloqueada hoy por otra comprobación: {motivo}", { motivo: ficha.veredictoDeHoy.motivo })}
+            </p>
+          )}
+          {juezPendiente && (
+            <p className="cit-aviso cit-aviso-juez">
+              <IconoEsc nombre="hourglass" size={13} />
+              {tr("Pendiente del juez: sin verificar hoy, no bloquea.")}
             </p>
           )}
         </div>
