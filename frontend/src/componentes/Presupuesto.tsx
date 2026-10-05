@@ -41,7 +41,7 @@ export function Presupuesto({ corrida, onAmpliar }: { corrida: Corrida; onAmplia
         ))}
       </div>
       <div className="dirigir">
-        <input className="entrada entrada-s" type="number" min={corrida.gasto.llamadas + 1} step={100} value={nuevo} onChange={(e) => setNuevo(e.target.value)} aria-label={tr("Nuevo tope de llamadas")} style={{ maxWidth: 160 }} />
+        <input id="tope-nuevo" className="entrada entrada-s" type="number" min={corrida.gasto.llamadas + 1} step={100} value={nuevo} onChange={(e) => setNuevo(e.target.value)} aria-label={tr("Nuevo tope de llamadas")} style={{ maxWidth: 160 }} />
         <button type="button" className={`btn ${pausada ? 'btn-primario' : ''}`} disabled={!(Number(nuevo) > corrida.gasto.llamadas)} onClick={() => onAmpliar(Number(nuevo))}>
           {(pausada ? tr("Ampliar y reanudar") : tr("Ampliar tope"))}
         </button>

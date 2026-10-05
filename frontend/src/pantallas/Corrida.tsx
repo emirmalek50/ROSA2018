@@ -324,11 +324,17 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
                 <IconoEsc nombre="play" size={13} /> {tr("Reanudar")}
               </button>
             )}
+            {viva && corrida.estado === 'pausada_por_presupuesto' && (
+              <button type="button" className="esc-boton esc-boton-primario" onClick={irAlTope}>
+                <IconoEsc nombre="arrow-up" size={13} /> {tr("Ampliar el tope")}
+              </button>
+            )}
             {viva && (
               <Confirmar
                 etiqueta={tr("Detener")}
                 peligro
                 clase="esc-boton esc-boton-peligro"
+                icono={<IconoEsc nombre="square" size={13} />}
                 disabled={corridaEnVuelo}
                 pregunta={tr("La corrida se detiene y no se reanuda: lo que hay en el modelo de mundo y en la cola se conserva. Para seguir habría que arrancar una corrida nueva.")}
                 pedirTexto={{ etiqueta: tr('Por qué se detiene'), marcador: tr('Hay que revisar la cola antes de seguir gastando') }}
@@ -735,6 +741,15 @@ function IncidenciaPendiente({ incidencia, ahora }: { incidencia: Incidencia; ah
 
 /** El botón de detener un proceso de cómputo, con su marca de vuelo propia
  *  (hay uno por fila y los hooks no pueden ir dentro del map). */
+/** Con la corrida pausada por presupuesto, la salida es ampliar el tope: lleva al campo y lo enfoca. */
+function irAlTope() {
+  const campo = document.getElementById('tope-nuevo');
+  if (!(campo instanceof HTMLInputElement)) return;
+  campo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  campo.focus({ preventScroll: true });
+  campo.select();
+}
+
 function BotonDetenerProceso({ onDetener }: { onDetener: () => void }) {
   const [enVuelo, envolver] = useEnVuelo();
   return (

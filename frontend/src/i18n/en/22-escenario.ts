@@ -126,4 +126,5 @@ export const ESCENARIO: Record<string, string> = {
   'El cerebro lo lee al planear el siguiente paso. No hace falta pausar.': 'The brain reads it when planning the next step. No need to pause.',
   'Cada búsqueda de esta iteración: dónde buscó, cuánto salió y cuánto sirve.': 'Every search in this iteration: where it looked, how much came out and how much is useful.',
   'Por ejemplo: prioriza ensayos con biomarcadores de plasma y descarta modelos animales…': 'For example: prioritize trials with plasma biomarkers and drop animal models…',
+  'Ampliar el tope': 'Raise the cap',
 };

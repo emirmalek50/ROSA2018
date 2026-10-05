@@ -151,18 +151,21 @@ interface ConfirmarProps {
   primario?: boolean;
   disabled?: boolean;
   clase?: string;
+  /** Icono delante de la etiqueta del boton cerrado. */
+  icono?: ReactNode;
   onConfirmar: (texto: string) => void;
 }
 
 /** Boton con confirmacion inline en dos pasos. Con `pedirTexto`, ademas exige
  *  un motivo: es lo que se usa para descartar una hipotesis o detener una
  *  corrida, donde el motivo queda en el rastro. */
-export function Confirmar({ etiqueta, pregunta, pedirTexto, extra, peligro, primario, disabled, clase, onConfirmar }: ConfirmarProps) {
+export function Confirmar({ etiqueta, pregunta, pedirTexto, extra, peligro, primario, disabled, clase, icono, onConfirmar }: ConfirmarProps) {
   const [abierto, setAbierto] = useState(false);
   const [texto, setTexto] = useState('');
   if (!abierto) {
     return (
       <button type="button" className={`btn ${peligro ? 'btn-peligro' : ''} ${primario ? 'btn-primario' : ''} ${clase ?? ''}`} disabled={disabled} onClick={() => setAbierto(true)}>
+        {icono}
         {etiqueta}
       </button>
     );
