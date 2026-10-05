@@ -104,6 +104,22 @@ describe('la aplicacion montada en el cliente', () => {
     expect(aviso?.textContent).toContain('Sin conexión a internet');
     expect([...aviso!.querySelectorAll('button')].some((b) => b.textContent === 'Reintentar')).toBe(true);
   });
+  it('sale de una investigación borrada sin conservar una copia fantasma de la pantalla', async () => {
+    localStorage.setItem('rosa.recorrido.v1', '1');
+    const base = estadoDeMuestra();
+    const inv = base.investigaciones[0]!;
+    await act(async () => aplicar(() => base));
+    const raiz = await montar(rutaDe(inv.id, 'mundo', 'hechos'));
+    sessionStorage.setItem(`rosa.mundo.hilo.${inv.id}`, 'h-anterior');
+    await act(async () => aplicar(() => ({ ...base, investigaciones: base.investigaciones.filter(i => i.id !== inv.id), investigacionesEliminadas: [inv.id] })));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 120)); });
+    expect(window.location.hash).toBe('#/asistente');
+    expect(raiz.textContent).not.toContain('Se conserva la última vista');
+    expect(raiz.querySelector('.hilo')).toBeNull();
+    expect(sessionStorage.getItem(`rosa.mundo.hilo.${inv.id}`)).toBeNull();
+    expect(raiz.querySelector('textarea')).toBeTruthy();
+    await act(async () => aplicar(() => estadoDeMuestra()));
+  });
   it('inicio con el recorrido de primera vez', async () => {
     localStorage.removeItem('rosa.recorrido.v1');
     const raiz = await montar('#/');

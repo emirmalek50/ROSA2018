@@ -47,7 +47,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Limite } from './componentes/Limite';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { acciones, cerrarAvisoConflicto, reintentarConexion, useAvisoConflicto, useRosa } from './datos/almacen';
+import { acciones, avisar, cerrarAvisoConflicto, reintentarConexion, useAvisoConflicto, useRosa } from './datos/almacen';
 import type { EstadoConexion } from './datos/tipos';
 import { BarraLateral } from './componentes/BarraLateral';
 import { BusquedaGlobal } from './componentes/BusquedaGlobal';
@@ -145,12 +145,20 @@ export default function App() {
   const ultimaVista = useRef<{ id: string; estado: typeof remoto } | null>(null);
   const idActual = ruta.tipo === 'investigacion' ? ruta.investigacionId : null;
   const faltaActual = idActual !== null && !remoto.investigaciones.some(i => i.id === idActual);
-  const conservando = faltaActual && ultimaVista.current?.id === idActual;
+  const eliminadaActual = idActual !== null && !!remoto.investigacionesEliminadas?.includes(idActual);
+  const conservando = faltaActual && !eliminadaActual && ultimaVista.current?.id === idActual;
   const estado = conservando ? ultimaVista.current!.estado : remoto;
   useEffect(() => {
     if (idActual && !faltaActual) ultimaVista.current = { id: idActual, estado: remoto };
     else if (!idActual || ultimaVista.current?.id !== idActual) ultimaVista.current = null;
   }, [idActual, faltaActual, remoto]);
+  useEffect(() => {
+    if (!eliminadaActual) return;
+    ultimaVista.current = null;
+    try { sessionStorage.removeItem(`rosa.mundo.hilo.${idActual}`); } catch { /* Sin almacenamiento local. */ }
+    window.location.hash = '#/asistente';
+    avisar(tr('Investigación eliminada.'));
+  }, [eliminadaActual, idActual]);
   const ahora = useAhora();
   const [menuAbierto, setMenuAbierto] = useState(false);
   // Solo la primera página salta su fundido de entrada: la app abre quieta.

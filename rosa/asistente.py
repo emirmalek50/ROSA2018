@@ -83,8 +83,17 @@ class ConversarConRosa(H.PreguntarConHerramientas):
     Para "borra esta conversación" usa el hiloActual devuelto por la herramienta.
     Si hay varias coincidencias y no está claro cuál pide, pregunta antes de preparar.
     El botón Eliminar conversación confirma el borrado de todos los mensajes del hilo.
-    No elimina investigaciones, hechos ni archivos; se conserva la auditoría del proyecto.
+    eliminarConversacion no elimina investigaciones, hechos ni archivos; conserva la auditoría.
     No prometas un borrado de copias de seguridad. No confundas conversación con investigación.
+
+    También puedes borrar investigaciones: identifica su ID y título con
+    consultar_proyecto y usa prever_eliminacion_investigacion. Explica el alcance
+    y prepara eliminarInvestigacion solo si la persona pidió borrarla y la vista
+    indica puedeEliminar. El botón Eliminar investigación confirma la retirada de
+    sus corridas, hipótesis, hechos y conversaciones del proyecto activo. Se
+    conservan archivos, auditoría y otras investigaciones. Si hay títulos ambiguos,
+    pregunta cuál; nunca adivines ni borres otras investigaciones para desbloquearla.
+    Si hay trabajo en curso, explica el bloqueo y los controles disponibles.
 
     Para Atlas y Mecanismos usa consultar_vista_calculada; para las trazas y
     evaluaciones usa consultar_gepa. consultar_dataset recorre todas las filas
@@ -163,7 +172,22 @@ def contexto_operacion(e: dict, nombre: str, argumentos: dict, *, excluir_pregun
     """
     from rosa.estado.almacen import _limpiar_para_cliente
 
-    e = _limpiar_para_cliente(e)
+    e = copy.deepcopy(e) if nombre == 'eliminarInvestigacion' else _limpiar_para_cliente(e)
+    if nombre == "eliminarInvestigacion":
+        from rosa import investigaciones_eliminacion as IE
+        inv_actual = conversacion(e, argumentos["investigacion_id"])
+        if inv_actual:
+            # Un historial vacío puede no existir aún en una investigación nueva.
+            for campo in ('preguntasABases', 'memoria', 'conocimientoOperativo'):
+                inv_actual.setdefault(campo, [])
+        if excluir_pregunta:
+            if inv_actual:
+                inv_actual['preguntasABases'] = [q for q in inv_actual.get('preguntasABases', []) if q['id'] != excluir_pregunta]
+        vista = IE.prever(e, argumentos['investigacion_id'])
+        _, registros_investigacion, _ = IE.planificar(e, argumentos['investigacion_id'])
+        # Firma también el contenido, sin llenar la tarjeta con los registros.
+        # El campo privado no viaja a la interfaz.
+        return [{**vista, '_huellaContenido': huella(registros_investigacion)}]
     if nombre == "eliminarConversacion":
         contenedor = conversacion(e, argumentos["investigacion_id"])
         if contenedor is None:
@@ -223,7 +247,7 @@ def resolver_accion(e: dict, investigacion_id: str, pregunta_id: str, operacion_
         return {"ok": True, "estado": "cancelada"}
     nombre, args = op["nombre"], copy.deepcopy(op["argumentos"])
     validar_accion(nombre, args)
-    borra_actual = nombre == "eliminarConversacion" and args["investigacion_id"] == investigacion_id and args["hilo"] == hilo_de(q)
+    borra_actual = args.get("investigacion_id") == investigacion_id and (nombre == "eliminarInvestigacion" or (nombre == "eliminarConversacion" and args["hilo"] == hilo_de(q)))
     if op.get("_huella") and huella(contexto_operacion(e, nombre, args, excluir_pregunta=pregunta_id if borra_actual else "")) != op["_huella"]:
         op.update(estado="no_aplicada", resueltaEn=ahora, resultado="El objeto cambió desde la propuesta. Pide a ROSA que prepare el cambio de nuevo.")
         return {"ok": False, "estado": "no_aplicada", "resultado": op["resultado"]}
@@ -261,6 +285,14 @@ def resolver_accion(e: dict, investigacion_id: str, pregunta_id: str, operacion_
 def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> list[dspy.Tool]:
     def estado() -> dict:
         return almacen.instantanea()
+
+    def estado_para_borrado() -> dict:
+        # Las dependencias incluyen afirmaciones privadas y análisis pedidos.
+        # Solo sale la vista previa por regla, nunca estos registros al modelo.
+        if hasattr(almacen, '_lock'):
+            with almacen._lock:
+                return copy.deepcopy(almacen.estado)
+        return estado()
 
     def tablas(e: dict) -> dict[str, list]:
         salida = {k: v if isinstance(v, list) else [{"id": k, "contenido": v}]
@@ -389,6 +421,13 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
         La persona verá los argumentos y confirmará desde la conversación.
         """
         validar_accion(nombre, argumentos)
+        instantanea_borrado = None
+        if nombre == "eliminarInvestigacion":
+            from rosa.investigaciones_eliminacion import prever
+            instantanea_borrado = estado_para_borrado()
+            vista = prever(instantanea_borrado, argumentos['investigacion_id'])
+            if not vista['puedeEliminar']:
+                raise ValueError(vista['bloqueos'][0]['mensaje'])
         if nombre == "eliminarConversacion":
             inv = conversacion(estado(), argumentos["investigacion_id"])
             hilo = argumentos["hilo"]
@@ -405,11 +444,13 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
                 return json.dumps(op, ensure_ascii=False)
         op = {"id": P.nuevo_id("op"), "nombre": nombre, "argumentos": copy.deepcopy(argumentos),
               "resumen": resumen[:500], "estado": "pendiente"}
-        contexto = contexto_operacion(estado(), nombre, argumentos)
+        contexto = contexto_operacion(instantanea_borrado if instantanea_borrado is not None else estado(), nombre, argumentos)
         if contexto:
             op["contexto"] = contexto
         if nombre == "eliminarConversacion":
             op["resumen"] = f'Eliminar conversación: «{contexto[0]["registro"]["titulo"]}»'
+        elif nombre == "eliminarInvestigacion":
+            op["resumen"] = f'Eliminar investigación: «{contexto[0]["titulo"]}»'
         # Los controles de una corrida viva trabajan sobre su estado actual.
         controles = {"pausarCorrida", "reanudarCorrida", "detenerCorrida", "iniciarCorrida", "ampliarPresupuesto", "dirigirCorrida", "crearInvestigacion", "crearInvestigacionEIniciar"}
         if contexto and nombre not in controles:
@@ -461,7 +502,15 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
         return SV.paginar({"investigacionActual": investigacion_id, "hiloActual": getattr(SV.CONTEXTO.get(), "hilo", ""),
                            "total": len(filas), "conversaciones": filas}, desde)
 
-    return [dspy.Tool(f) for f in (consultar_arbol, catalogo_proyecto, panorama_del_tema, consultar_proyecto, leer_registro, catalogo_acciones, preparar_accion, leer_conversacion, listar_conversaciones)]
+    def prever_eliminacion_investigacion(investigacion_id: str, desde: int = 0) -> str:
+        """Antes de borrar: título, registros que se retirarán y dependencias que
+        lo impiden. Usa el ID exacto de consultar_proyecto. No ejecuta cambios.
+        Los archivos, la auditoría y otras investigaciones se conservan.
+        """
+        from rosa.investigaciones_eliminacion import prever
+        return SV.paginar(prever(estado_para_borrado(), investigacion_id), desde)
+
+    return [dspy.Tool(f) for f in (consultar_arbol, catalogo_proyecto, panorama_del_tema, consultar_proyecto, leer_registro, catalogo_acciones, preparar_accion, leer_conversacion, listar_conversaciones, prever_eliminacion_investigacion)]
 
 
 async def preguntar(lm: Any, estado: dict, investigacion_id: str, pregunta: str, contexto: str, *, almacen: Any) -> dict:

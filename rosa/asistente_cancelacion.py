@@ -80,6 +80,12 @@ class Respuestas:
             if s.reclamada and not s.terminada and (s.investigacion, s.hilo) == (investigacion, hilo):
                 self.cancelar(seguimiento, s.autor, s.investigacion)
 
+    def cancelar_investigacion(self, investigacion: str) -> None:
+        """Tras retirar una investigación, ninguna de sus respuestas continúa."""
+        for seguimiento, s in list(self.solicitudes.items()):
+            if s.reclamada and not s.terminada and s.investigacion == investigacion:
+                self.cancelar(seguimiento, s.autor, s.investigacion)
+
     async def cerrar(self) -> None:
         tareas = [s.tarea for s in self.solicitudes.values() if s.tarea is not None and not s.tarea.done()]
         for tarea in tareas:

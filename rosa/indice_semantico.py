@@ -29,7 +29,7 @@ import os
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
@@ -81,6 +81,7 @@ class Indice:
             CREATE INDEX IF NOT EXISTS vectores_inv ON vectores (investigacion_id, tipo);
         """)
         self.tokens = 0
+        self.investigaciones_eliminadas: Callable[[], set[str]] = lambda: set()
         self._cache: tuple[list[str], np.ndarray, list[sqlite3.Row]] | None = None
 
     def cerrar(self) -> None:
@@ -99,6 +100,8 @@ class Indice:
         cambiado. Devuelve cuántos vectores se escribieron."""
         if not disponible():
             return 0
+        eliminadas = self.investigaciones_eliminadas()
+        items = [x for x in items if x.get('investigacionId') not in eliminadas]
         # Lo que ya no está en el estado se retira del índice, haya o no nuevos.
         vivos = {x["id"] for x in items}
         if vivos:
@@ -113,15 +116,20 @@ class Indice:
         vectores, tokens = await incrustar([x["texto"] for x in nuevos])
         self.tokens += tokens
         ahora = time.time()
+        eliminadas = self.investigaciones_eliminadas()
+        escritos = 0
         with self.db:
             for x, v in zip(nuevos, vectores):
+                if x.get('investigacionId') in eliminadas:
+                    continue
                 arr = np.asarray(v, dtype=np.float32)
                 self.db.execute(
                     "INSERT OR REPLACE INTO vectores VALUES (?,?,?,?,?,?,?,?,?)",
                     (x["id"], x["tipo"], x.get("investigacionId"), _hash(x["texto"]), x["texto"][:2000], arr.tobytes(), int(arr.shape[0]), MODELO, ahora),
                 )
+                escritos += 1
         self._invalidar()
-        return len(nuevos)
+        return escritos
 
     def _matriz(self) -> tuple[list[str], np.ndarray, list[sqlite3.Row]]:
         if self._cache is None:
@@ -145,8 +153,11 @@ class Indice:
         sims = m @ (q / n)
         orden = np.argsort(-sims)
         salida: list[dict[str, Any]] = []
+        eliminadas = self.investigaciones_eliminadas()
         for i in orden:
             r = filas[int(i)]
+            if r['investigacion_id'] in eliminadas:
+                continue
             if excluir and r["id"] in excluir:
                 continue
             if investigacion_id and r["investigacion_id"] != investigacion_id:
@@ -190,6 +201,7 @@ def de_almacen(almacen: Any) -> Indice:
         destino = ruta.parent / "datos" / "_indice" / (ruta.name + ".db")
     if clave_ not in _INDICES:
         _INDICES[clave_] = Indice(destino)
+    _INDICES[clave_].investigaciones_eliminadas = lambda: set(almacen.estado.get('investigacionesEliminadas', []))
     return _INDICES[clave_]
 
 

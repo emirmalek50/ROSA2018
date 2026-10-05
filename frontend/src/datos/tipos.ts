@@ -2313,6 +2313,8 @@ export interface Evento {
    --------------------------------------------------------------------- */
 
 export interface EstadoRosa {
+  /** IDs retirados expresamente: una desconexión no equivale a un borrado. */
+  investigacionesEliminadas?: string[];
   asistenteGlobal?: Investigacion;
   conexion: EstadoConexion;
   investigaciones: Investigacion[];

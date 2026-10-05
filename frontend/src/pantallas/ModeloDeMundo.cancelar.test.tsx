@@ -135,19 +135,19 @@ it('limpia el hilo eliminado desde otra pestaña y no recupera una respuesta tar
   expect(nodo.querySelector('[aria-label="Detener respuesta"]')).not.toBeNull();
 });
 
-it('muestra una confirmación explícita antes de eliminar la conversación', async () => {
+it.each(['eliminarConversacion', 'eliminarInvestigacion'])('muestra una confirmación explícita para %s', async nombre => {
   api.resolverAccionAsistente.mockResolvedValue({ ok: true, estado: 'ejecutada' });
   const e = estadoDeMuestra();
   e.conexion = 'en_linea';
   const inv = { ...e.investigaciones[0]!, preguntasABases: [{
     id: 'pb-borrar', hilo: 'h-borrar', pregunta: 'Borra esta conversación', respuesta: 'Confirma para eliminarla.',
     fecha: AHORA_MUESTRA, quien: 'persona', limites: '', herramientas: [], consultas: [], iteraciones: 0, error: null,
-    acciones: [{ id: 'op-borrar', nombre: 'eliminarConversacion', argumentos: { investigacion_id: e.investigaciones[0]!.id, hilo: 'h-borrar' }, resumen: 'Eliminar conversación: MAPT', estado: 'pendiente' as const }],
+    acciones: [{ id: 'op-borrar', nombre, argumentos: { investigacion_id: e.investigaciones[0]!.id, ...(nombre === 'eliminarConversacion' ? { hilo: 'h-borrar' } : {}) }, resumen: 'Eliminar MAPT', estado: 'pendiente' as const }],
   }] };
   sessionStorage.setItem(`rosa.mundo.hilo.${inv.id}`, 'h-borrar');
   await act(async () => root.render(<ModeloDeMundo inv={inv} estado={e} ahora={AHORA_MUESTRA} />));
   await esperarPintado();
-  const boton = [...nodo.querySelectorAll('button')].find(b => b.textContent === 'Eliminar conversación');
+  const boton = [...nodo.querySelectorAll('button')].find(b => b.textContent === (nombre === 'eliminarConversacion' ? 'Eliminar conversación' : 'Eliminar investigación'));
   expect(boton).toBeDefined();
   expect(api.resolverAccionAsistente).not.toHaveBeenCalled();
   await pulsar(boton!);

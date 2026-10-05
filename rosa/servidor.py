@@ -501,6 +501,17 @@ def crear_app(almacen: Almacen) -> FastAPI:
         servicio.control(accion_gepa)
         return {"ok": True}
 
+    def comprobar_borrado_investigacion(ident: str) -> None:
+        """Se comprueba en el bucle HTTP y se borra sin cederle el control.
+        Una corrida detenida puede estar terminando su última llamada.
+        """
+        supervisor = getattr(app.state, 'supervisor', None)
+        ids = {c['id'] for c in almacen.estado.get('corridas', []) if c.get('investigacionId') == ident}
+        ocupadas = [t for cid, t in getattr(supervisor, 'tareas', {}).items() if cid in ids and not t.done()]
+        ocupadas += [t for nombre, t in getattr(supervisor, '_fondo', {}).items() if nombre in {'peticiones', 'vigilancia'} and not t.done()]
+        if ocupadas or any(not t.done() for t in _sellos_en_vuelo):
+            raise HTTPException(409, 'ROSA está terminando trabajo en segundo plano. Espera a que termine y vuelve a confirmar el borrado.')
+
     @app.post("/api/acciones/{nombre}")
     async def accion(nombre: str, request: Request) -> dict[str, Any]:
         if nombre not in ACCIONES:
@@ -512,6 +523,8 @@ def crear_app(almacen: Almacen) -> FastAPI:
         args = await leer_json_acotado(request, MAX_CUERPO_ACCION)
         if not isinstance(args, dict):
             raise HTTPException(400, "Los argumentos van como objeto JSON")
+        if nombre == 'eliminarInvestigacion':
+            comprobar_borrado_investigacion(str(args.get('investigacion_id') or ''))
         try:
             if nombre == 'actualizarAvisos' and request.state.usuario:
                 resultado = app.state.correo.guardar_preferencias(request.state.usuario, args.get('avisos'))
@@ -530,6 +543,8 @@ def crear_app(almacen: Almacen) -> FastAPI:
             raise HTTPException(400, f"Argumentos inválidos para {nombre}: {type(ex).__name__}: {str(ex)[:200]}")
         if nombre == "eliminarConversacion" and resultado is not False:
             respuestas.cancelar_hilo(args["investigacion_id"], args["hilo"])
+        if nombre == "eliminarInvestigacion" and resultado is not False:
+            respuestas.cancelar_investigacion(args["investigacion_id"])
         if nombre == "asignarExperimento" and resultado is not False and isinstance(args.get("hipotesis_id"), str):
             # El prerregistro recien congelado se sella con un tercero, fuera de la
             # peticion. La tarea se GUARDA: una tarea de asyncio que nadie referencia
@@ -1113,11 +1128,20 @@ def crear_app(almacen: Almacen) -> FastAPI:
         if not isinstance(cuerpo, dict) or not isinstance(cuerpo.get("aprobar"), bool):
             raise HTTPException(400, "Falta una decisión válida")
         try:
-            r = await asyncio.to_thread(almacen.aplicar, "resolverAccionAsistente", {
+            argumentos_resolver = {
                 "investigacion_id": investigacion_id, "pregunta_id": pregunta_id,
                 "operacion_id": operacion_id, "aprobar": cuerpo["aprobar"],
                 "quien": request.state.usuario or "servidor",
-            }, actor=request.state.usuario or "servidor")
+            }
+            q: dict[str, Any] = next((q for q in (conversacion(almacen.estado, investigacion_id) or {}).get('preguntasABases', []) if q['id'] == pregunta_id), {})
+            op: dict[str, Any] = next((o for o in q.get('acciones', []) if o['id'] == operacion_id), {})
+            if q and q.get('quien') != quien:
+                raise HTTPException(400, 'Solo quien pidió esta operación puede resolverla')
+            if cuerpo['aprobar'] and op.get('nombre') == 'eliminarInvestigacion' and op.get('estado') == 'pendiente':
+                comprobar_borrado_investigacion(op['argumentos']['investigacion_id'])
+                r = almacen.aplicar('resolverAccionAsistente', argumentos_resolver, actor=quien)
+            else:
+                r = await asyncio.to_thread(almacen.aplicar, 'resolverAccionAsistente', argumentos_resolver, actor=quien)
         except (TypeError, ValueError, KeyError, AttributeError, OverflowError, IndexError) as ex:
             raise HTTPException(400, f"No se pudo aplicar la operación: {str(ex)[:200]}") from None
         if r.get("estado") == "en_curso" and not r.get("repetida"):
@@ -1143,7 +1167,9 @@ def crear_app(almacen: Almacen) -> FastAPI:
             t = asyncio.create_task(_sellar_prerregistro(r["argumentos"]["hipotesis_id"]))
             _sellos_en_vuelo.add(t)
             t.add_done_callback(_sellos_en_vuelo.discard)
-        if r.get('estado') == 'ejecutada' and r.get('nombre') == 'eliminarConversacion':
+        if r.get('estado') == 'ejecutada' and r.get('nombre') == 'eliminarInvestigacion':
+            respuestas.cancelar_investigacion(r['argumentos']['investigacion_id'])
+        elif r.get('estado') == 'ejecutada' and r.get('nombre') == 'eliminarConversacion':
             respuestas.cancelar_hilo(r['argumentos']['investigacion_id'], r['argumentos']['hilo'])
         elif r.get('estado') == 'ejecutada' and not r.get('repetida'):
             def pendiente(e):
@@ -1254,6 +1280,8 @@ def crear_app(almacen: Almacen) -> FastAPI:
             if seguimiento:
                 r["seguimiento"] = seguimiento
             guardada = almacen.aplicar("registrarPreguntaBases", {"investigacion_id": investigacion_id, "pregunta": r})
+            if guardada is False and investigacion_id in almacen.estado.get('investigacionesEliminadas', []):
+                return {"ok": True, "resultado": {"investigacionEliminada": True, "cancelada": True}, "version": almacen.version}
             if guardada is False and hilo_eliminado(conversacion(almacen.estado, investigacion_id) or {}, hilo):
                 return {"ok": True, "resultado": {"conversacionEliminada": True, "cancelada": True}, "version": almacen.version}
         finally:

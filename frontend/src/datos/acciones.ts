@@ -20,6 +20,7 @@
 import { partesAutomatizadas } from '../lib/parada';
 import { esViva, vigencia } from '../lib/desbloqueo';
 import { traducido } from '../lib/idioma';
+export { eliminarInvestigacion } from './eliminarInvestigacion';
 import type {
   Afirmacion,
   AlcancePermiso,

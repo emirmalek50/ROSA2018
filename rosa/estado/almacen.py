@@ -1609,6 +1609,7 @@ _TABLA: dict[str, Callable] = {
     "quitarMemoria": A.quitar_memoria,
     "registrarPreguntaBases": A.registrar_pregunta_bases,
     "eliminarConversacion": A.eliminar_conversacion,
+    "eliminarInvestigacion": A.eliminar_investigacion,
     "resolverAccionAsistente": A.resolver_accion_asistente,
     "pedirRecuperacionCitas": A.pedir_recuperacion_citas,
 }

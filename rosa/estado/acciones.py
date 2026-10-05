@@ -708,6 +708,18 @@ def eliminar_conversacion(e: Estado, investigacion_id: str, hilo: str, quien: st
     return eliminar(e, investigacion_id, hilo, quien)
 
 
+def eliminar_investigacion(e: Estado, investigacion_id: str, quien: str, ahora: int) -> dict:
+    """Borra una investigación y sus registros exclusivos del proyecto activo.
+    Antes usa prever_eliminacion_investigacion para identificar título, alcance y
+    bloqueos. Solo prepara el borrado pedido por la persona; el botón lo confirma.
+    Incluye corridas, hipótesis, hechos, conversaciones y registros dependientes.
+    Conserva archivos, auditoría y otras investigaciones. No elimina el asistente
+    global. El trabajo en curso y las dependencias compartidas impiden el borrado.
+    """
+    from rosa.investigaciones_eliminacion import eliminar
+    return eliminar(e, investigacion_id, quien, ahora)
+
+
 def pedir_recuperacion_citas(e: Estado, investigacion_id: str, ahora: int, corrida_id: str | None = None, quien: str = "") -> bool:
     """Pide que ROSA2018 recupere las afirmaciones bloqueadas por reglas que ya
     no valen: vuelve a juzgarlas, enlaza las que salen sostenidas a las
@@ -1715,6 +1727,8 @@ def recomprobar_retracciones(e: Estado, investigacion_id: str, ahora: int) -> bo
 
 
 def crear_investigacion(e: Estado, datos: dict, ahora: int, id_: str | None = None) -> str | bool:
+    if id_ and id_ in e.get('investigacionesEliminadas', []):
+        return False
     def t(k: str) -> str:
         return str(datos.get(k, "") or "").strip()
 
