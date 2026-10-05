@@ -93,9 +93,11 @@ describe('el esqueleto del panorama', () => {
     expect(silueta!.querySelectorAll('.seccion .tarjeta').length).toBe(Math.min(8, direcciones));
     await esperarPintado();
     expect(espera()).toBeNull();
-    expect(nodo.querySelector('h2')?.textContent).toBe('Panorama de la investigación');
-    expect(nodo.textContent).toContain('por qué y qué investigar');
-    expect(nodo.textContent).toContain('primero al investigador clínico principal');
+    // Ya pintado, el titular cuenta los caminos y los inesperados; el mapa trae un índice por dirección.
+    expect(nodo.querySelector('h2')?.textContent).toBe('Cuatro caminos para responder la pregunta. Uno no lo esperábamos.');
+    expect(nodo.querySelectorAll('.pan-mapa .pan-indice').length).toBe(direcciones);
+    expect(nodo.querySelectorAll('.direccion').length).toBe(direcciones);
+    expect(nodo.querySelectorAll('.pan-indice-inesperada').length).toBe(1);
     expect(nodo.textContent).not.toContain('\u2014');
   });
 
@@ -106,12 +108,14 @@ describe('el esqueleto del panorama', () => {
     const e2 = structuredClone(e);
     await act(async () => root.render(<Panorama inv={e2.investigaciones[0]!} estado={e2} ahora={AHORA_MUESTRA} />));
     expect(espera()).toBeNull();
-    expect(nodo.querySelector('h2')?.textContent).toBe('Panorama de la investigación');
+    expect(nodo.querySelector('h2')?.textContent).toContain('caminos para responder la pregunta');
     const inv2 = { ...e2.investigaciones[0]!, id: 'inv-2' };
     await act(async () => root.render(<Panorama inv={inv2} estado={e2} ahora={AHORA_MUESTRA} />));
     expect(espera()).not.toBeNull();
     await esperarPintado();
     expect(espera()).toBeNull();
+    // Sin corrida no hay panorama: el titular vuelve al nombre de la pantalla.
+    expect(nodo.querySelector('h2')?.textContent).toBe('Panorama de la investigación');
     // Sin hipótesis en la nueva investigación no hay nada que exportar.
     expect(boton('Exportar como Specific Aims').disabled).toBe(true);
   });
