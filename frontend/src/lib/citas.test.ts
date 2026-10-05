@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { enLlanoElVeredicto, enLlanoLaClase, enlaceAlPasaje, trozosDeTexto, type FichaCita, type TramoCita } from './citas';
+import { enLlanoElVeredicto, enLlanoLaClase, enlaceAlPasaje, etiquetaLocalizador, trozosDeTexto, type FichaCita, type TramoCita } from './citas';
+import { fijarIdioma } from './idioma';
 
 const T = (inicio: number, fin: number, texto = ''): TramoCita => ({ inicio, fin, texto });
 
@@ -57,6 +58,16 @@ describe('el reparto del texto de la página en trozos resaltados', () => {
 });
 
 describe('cómo se nombra en llano de qué se apoya una cita', () => {
+  it('traduce los rótulos sin cambiar el número ni el nombre literal de la sección', () => {
+    try {
+      fijarIdioma('en');
+      expect(enLlanoLaClase('pagina', 'pág. 3508')).toBe('p. 3508');
+      expect(enLlanoLaClase('seccion', 'sección Resultados')).toBe('section Resultados, no page number');
+      expect(etiquetaLocalizador('texto web, parte 4')).toBe('web text, part 4');
+      expect(etiquetaLocalizador('resumen')).toBe('abstract');
+      expect(etiquetaLocalizador('Results section')).toBe('Results section');
+    } finally { fijarIdioma('es'); }
+  });
   it('la página se nombra tal cual y lo demás dice que no tiene número de página', () => {
     expect(enLlanoLaClase('pagina', 'pág. 3508')).toBe('pág. 3508');
     expect(enLlanoLaClase('resumen', 'resumen')).toContain('sin número de página');

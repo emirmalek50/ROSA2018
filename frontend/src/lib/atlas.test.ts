@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { estadoDeMuestra } from '../datos/muestra';
 import type { CeldaMapa, Corrida, EstadoRosa, Fuente, HechoMundo, Hipotesis, Investigacion, Iteracion, MapaEnfermedad } from '../datos/tipos';
 import { ETIQUETAS_MAPA } from '../componentes/MapaEnfermedad';
+import { fijarIdioma } from './idioma';
 import { CELULAS_CLAVES, construirAtlas, DEFINICIONES_CELULA, DEFINICIONES_REGION, ESTADIOS_CLAVES, FLUIDOS, hechosDe, hipotesisDe, intensidad, NO_LOCALIZADAS, normalizar, REGIONES_CLAVES, REGIONES_PATRONES, regionesEnTexto, SIN_CELULA, SIN_FASE } from './atlas';
 
 const HORA = 3_600_000;
@@ -85,6 +86,20 @@ function mapaDePrueba(): MapaEnfermedad {
 describe('el atlas de la enfermedad: construcción', () => {
   const { estado, inv } = estadoDePrueba(mapaDePrueba());
   const atlas = construirAtlas(estado, inv)!;
+
+  it('cambia las etiquetas al cambiar de idioma después de cargar el módulo, conservando las claves', () => {
+    const original = JSON.stringify(estado);
+    try {
+      fijarIdioma('en');
+      const ingles = construirAtlas(estado, inv)!;
+      expect(ingles.celulas.find((c) => c.clave === SIN_CELULA)!.etiqueta).toBe('no cell type');
+      expect(ingles.estadios.find((e) => e.clave === SIN_FASE)!.etiqueta).toBe('no stage identified');
+      expect(ingles.regiones.map((r) => r.clave)).toEqual(atlas.regiones.map((r) => r.clave));
+      fijarIdioma('es');
+      expect(construirAtlas(estado, inv)!.celulas.find((c) => c.clave === SIN_CELULA)!.etiqueta).toBe('sin tipo celular');
+      expect(JSON.stringify(estado)).toBe(original);
+    } finally { fijarIdioma('es'); }
+  });
 
   it('devuelve null sin mapa, con mapa nulo y con un mapa sin celdas', () => {
     expect(construirAtlas(estadoDePrueba(undefined).estado, estadoDePrueba(undefined).inv)).toBeNull();

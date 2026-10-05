@@ -275,18 +275,31 @@ export function enlaceAlPasaje(ficha: Pick<FichaCita, 'clase' | 'pagina' | 'url'
 
 /** Cómo se dice en llano de qué se apoya una cita. La primera es la única que
  *  resuelve a página exacta; las demás se nombran sin disimular. */
+/** Traduce la etiqueta de presentación, conservando número y nombre exacto
+ *  de sección. El localizador que resuelve la cita nunca se modifica. */
+export function etiquetaLocalizador(localizador: string): string {
+  const pagina = localizador.match(/^pág\. (\d+(?:[–-]\d+)?)$/);
+  if (pagina) return trp('pág. {pagina}', { pagina: pagina[1]! });
+  const parte = localizador.match(/^texto web, parte (\d+)$/);
+  if (parte) return trp('texto web, parte {parte}', { parte: parte[1]! });
+  const seccion = localizador.match(/^sección (.+)$/);
+  if (seccion) return trp('sección {nombre}', { nombre: seccion[1]! });
+  return localizador === 'resumen' ? trc('cita', 'resumen') : localizador;
+}
+
 export function enLlanoLaClase(clase: ClaseCita, localizador: string): string {
+  const etiqueta = etiquetaLocalizador(localizador);
   switch (clase) {
     case 'pagina':
-      return localizador;
+      return etiqueta;
     case 'seccion':
-      return trp("{localizador}, sin número de página", { localizador });
+      return trp("{localizador}, sin número de página", { localizador: etiqueta });
     case 'resumen':
       return tr('resumen, sin número de página');
     case 'web':
-      return trp("{localizador}, sin número de página", { localizador });
+      return trp("{localizador}, sin número de página", { localizador: etiqueta });
     default:
-      return localizador || tr('sin localizador');
+      return etiqueta || tr('sin localizador');
   }
 }
 

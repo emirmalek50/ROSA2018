@@ -13,13 +13,15 @@ import { IconAlert } from '../componentes/icons';
 import { avisosDelObjetivo, parafrasis, proponerConfiguracion } from '../lib/objetivo';
 import { partesAutomatizadas, textoAutomatizacion } from '../lib/parada';
 import { rutaDe } from '../lib/ruta';
-import { tr, trp } from '../lib/idioma';
+import { tr, trp, useIdioma } from '../lib/idioma';
 
 export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (hash: string) => void }) {
+  const idioma = useIdioma();
   const [titulo, setTitulo] = useState('');
   const [objetivo, setObjetivo] = useState('');
   const [relevancia, setRelevancia] = useState('');
-  const [limites, setLimites] = useState(tr('Solo literatura publicada y bases curadas: sin datos de pacientes.\nIgnorar artículos retractados o con expresión de preocupación.'));
+  const [limitesEditados, setLimites] = useState<string | null>(null);
+  const limites = limitesEditados ?? tr('Solo literatura publicada y bases curadas: sin datos de pacientes.\nIgnorar artículos retractados o con expresión de preocupación.');
   const [parada, setParada] = useState('');
   const [revisores, setRevisores] = useState('');
   const [heredar, setHeredar] = useState<string>('');
@@ -28,11 +30,11 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
   const [verMision, setVerMision] = useState(false);
   const [mision, setMision] = useState({ poblacion: '', etapa: '', celulaTejido: '', mecanismo: '', tipoIntervencion: '', capacidades: '' });
 
-  const avisos = useMemo(() => avisosDelObjetivo(objetivo, parada), [objetivo, parada]);
-  const propuesta = useMemo(() => proponerConfiguracion(objetivo, relevancia, limites.split('\n')), [objetivo, relevancia, limites]);
+  const avisos = useMemo(() => avisosDelObjetivo(objetivo, parada), [objetivo, parada, idioma]);
+  const propuesta = useMemo(() => proponerConfiguracion(objetivo, relevancia, limites.split('\n')), [objetivo, relevancia, limites, idioma]);
   const [config, setConfig] = useState<{ preferencias: string; atributos: string; restricciones: string } | null>(null);
   const configEfectiva = config ?? { preferencias: propuesta.preferencias, atributos: propuesta.atributos.join('\n'), restricciones: propuesta.restricciones.join('\n') };
-  const tres = useMemo(() => (verParafrasis ? parafrasis(objetivo) : []), [objetivo, verParafrasis]);
+  const tres = useMemo(() => (verParafrasis ? parafrasis(objetivo) : []), [objetivo, verParafrasis, idioma]);
 
   const crear = () => {
     const id = acciones.crearInvestigacion({

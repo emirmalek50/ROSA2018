@@ -190,7 +190,7 @@ export default function App() {
   const [titulosEn, setTitulosEn] = useState<Record<string, string>>({});
   useEffect(() => {
     const propio = inv?.titulo;
-    const enIngles = propio ? titulosEn[propio] : undefined;
+    const enIngles = propio && idiomaApp === 'en' ? titulosEn[propio] : undefined;
     const base = propio ? `${enIngles ?? propio} · ROSA2018` : tr('ROSA2018 · Alzheimer Project');
     document.title = esperan > 0 ? `(${esperan}) ${base}` : base;
     if (propio && idiomaApp === 'en' && enIngles === undefined) {

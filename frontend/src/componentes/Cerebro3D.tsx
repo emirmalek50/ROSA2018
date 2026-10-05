@@ -54,7 +54,7 @@ import { NOMBRE_CORTO } from '../lib/atlas_dibujo';
 import { intensidad, type Atlas } from '../lib/atlas';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { Esqueleto } from './Esqueleto';
-import { tr, trp } from '../lib/idioma';
+import { tr, trp, useIdioma } from '../lib/idioma';
 
 /** Los ficheros del modelo, resueltos por Vite a direcciones que el navegador
  *  puede pedir. Si la carpeta todavía no está, los mapas salen vacíos y la
@@ -434,7 +434,7 @@ function programa(gl: WebGLRenderingContext, fragmentos: string): WebGLProgram |
 
 /** El nombre corto con el que se rotula una estructura: el del atlas si lo
  *  tiene, y si no el del modelo en minúscula. */
-const nombreCorto = (e: EstructuraCerebro): string => NOMBRE_CORTO[e.clave] ?? e.nombre.charAt(0).toLowerCase() + e.nombre.slice(1);
+const nombreCorto = (e: EstructuraCerebro): string => NOMBRE_CORTO[e.clave] ?? tr(e.nombre.charAt(0).toLowerCase() + e.nombre.slice(1));
 
 export interface PropsCerebro3D {
   atlas: Atlas;
@@ -447,6 +447,7 @@ export interface PropsCerebro3D {
 }
 
 export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: PropsCerebro3D) {
+  const idioma = useIdioma();
   const canvas = useRef<HTMLCanvasElement>(null);
   const rotulos = useRef<HTMLCanvasElement>(null);
   const reducido = useMovimientoReducido();
@@ -479,7 +480,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
     if (!indice) return [];
     const fuera = satelites().filter((s) => s.rotulo).map((s) => s.estructura);
     return [...indice.estructuras, ...fuera];
-  }, [indice]);
+  }, [indice, idioma]);
 
   useEffect(() => {
     if (!indice) { setEstado('sin_modelo'); return; }
@@ -847,7 +848,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
     };
   }, [indice]);
 
-  useEffect(() => { redibujar.current(); }, [atlas, seleccion, foco]);
+  useEffect(() => { redibujar.current(); }, [atlas, seleccion, foco, idioma]);
   useEffect(() => () => { if (framePick.current) cancelAnimationFrame(framePick.current); }, []);
 
   const cambiarFoco = (clave: string | null) => {
@@ -859,7 +860,8 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
     redibujar.current();
   };
   const apuntada = atlas.regiones.find((r) => r.clave === (foco ?? seleccion));
-  const nombre = seleccionables.find((e) => e.clave === (foco ?? seleccion))?.nombre;
+  const nombreOriginal = seleccionables.find((e) => e.clave === (foco ?? seleccion))?.nombre;
+  const nombre = nombreOriginal ? tr(nombreOriginal) : undefined;
   // Sin WebGL, sin modelo o con un fallo de carga, la caja del lienzo se queda
   // con sus medidas y el aviso dentro: la maqueta no salta y la silueta de
   // espera sigue midiendo lo que el contenido (regla de los esqueletos).
@@ -867,7 +869,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
   const aviso = estado === 'sin_webgl' ? tr('Este navegador no puede dibujar el cerebro en tres dimensiones. Puedes consultar toda la evidencia en «Vista 2D».')
     : estado === 'sin_modelo' ? tr('El modelo anatómico del cerebro todavía no está instalado en esta copia. La evidencia está entera en «Vista 2D».')
     : trp("No se pudo cargar el modelo del cerebro. {detalle}", { detalle });
-  const credito = indice?.atribucion ? `${indice.atribucion.replace(/\.\s*$/, '')}. ` : '';
+  const credito = indice?.atribucion ? `${tr(indice.atribucion).replace(/\.\s*$/, '')}. ` : '';
   const porClave = new Map(atlas.regiones.map((r) => [r.clave, r]));
   /** El color de tejido de cada chip, el mismo que en la escena. */
   const colorChip = (clave: string): string => {
@@ -884,7 +886,7 @@ export function Cerebro3D({ atlas, seleccion, seleccionar, modelo, cargar }: Pro
           <button type="button" className="btn btn-s" aria-label={tr("Girar a la derecha")} onClick={() => girar(0.25, 0)}>►</button>
           <label>{tr("Estructura")} <select aria-label={tr("Seleccionar estructura del cerebro")} value={seleccion ?? ''} onChange={(e) => { if (e.target.value) seleccionar(e.target.value); }}>
             <option value="">{tr("Explorar estructuras")}</option>
-            {seleccionables.map((e) => <option key={e.clave} value={e.clave}>{e.nombre}</option>)}
+            {seleccionables.map((e) => <option key={e.clave} value={e.clave}>{tr(e.nombre)}</option>)}
           </select></label>
         </div>
         {estado === 'cargando' && <div className="atlas-3d-cargando"><Esqueleto alto={280} /><span className="sr-only">{tr("Cargando el modelo del cerebro")}</span></div>}

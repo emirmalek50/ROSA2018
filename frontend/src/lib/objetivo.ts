@@ -52,11 +52,11 @@ export function proponerConfiguracion(objetivo: string, relevancia: string, limi
     if (t.length > 8) restricciones.add(t.charAt(0).toUpperCase() + t.slice(1));
   }
   const atributos = new Set<string>();
-  if (/novedad|nuevo|nueva|inedit/i.test(o) || true) atributos.add('Novedad frente a Open Targets, ClinicalTrials.gov, Agora y la literatura');
-  if (/biomarcador|plasma|sangre|lcr|liquido cefalorraquideo/i.test(o)) atributos.add('Testabilidad con un biomarcador medible');
-  if (/cohorte|longitudinal|seguimiento|progresion/i.test(o)) atributos.add('Comprobable en una cohorte longitudinal');
-  if (/mecanismo|via|microglia|inflam/i.test(o)) atributos.add('Mecanismo explícito con diana');
-  if (/latinoamerica|dominican|argentin|fleni|antioquia|temprano|bajo coste|acceso/i.test(o)) atributos.add('Relevancia para diagnóstico temprano y accesible en Latinoamérica');
+  atributos.add(tr('Novedad frente a Open Targets, ClinicalTrials.gov, Agora y la literatura'));
+  if (/biomarcador|plasma|sangre|lcr|liquido cefalorraquideo/i.test(o)) atributos.add(tr('Testabilidad con un biomarcador medible'));
+  if (/cohorte|longitudinal|seguimiento|progresion/i.test(o)) atributos.add(tr('Comprobable en una cohorte longitudinal'));
+  if (/mecanismo|via|microglia|inflam/i.test(o)) atributos.add(tr('Mecanismo explícito con diana'));
+  if (/latinoamerica|dominican|argentin|fleni|antioquia|temprano|bajo coste|acceso/i.test(o)) atributos.add(tr('Relevancia para diagnóstico temprano y accesible en Latinoamérica'));
   const preferencias = [relevancia.trim(), o].filter((s) => s !== '').join(' ').slice(0, 400);
   return { preferencias, atributos: [...atributos], restricciones: [...restricciones] };
 }

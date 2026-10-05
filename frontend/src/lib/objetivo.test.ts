@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { INVESTIGACION } from '../datos/muestra';
 import { avisosDelObjetivo, paradaMedible, parafrasis, proponerConfiguracion } from './objetivo';
+import { fijarIdioma } from './idioma';
 
 describe('avisosDelObjetivo', () => {
   it('un objetivo bien escrito no dispara avisos', () => {
@@ -25,6 +26,17 @@ describe('avisosDelObjetivo', () => {
 });
 
 describe('proponerConfiguracion', () => {
+  it('traduce las sugerencias al idioma actual sin traducir límites escritos por la persona', () => {
+    const limites = ['No incluir datos de pacientes'];
+    try {
+      fijarIdioma('en');
+      const c = proponerConfiguracion('', '', limites);
+      expect(c.atributos).toEqual(['Novelty relative to Open Targets, ClinicalTrials.gov, Agora, and the literature']);
+      expect(c.restricciones).toEqual(limites);
+      fijarIdioma('es');
+      expect(proponerConfiguracion('', '', []).atributos[0]).toMatch(/^Novedad frente a/);
+    } finally { fijarIdioma('es'); }
+  });
   it('saca restricciones de los limites y del texto, y atributos de las palabras clave', () => {
     const c = proponerConfiguracion(INVESTIGACION.objetivo, INVESTIGACION.relevancia, INVESTIGACION.limites);
     expect(c.restricciones).toEqual(expect.arrayContaining(INVESTIGACION.limites));

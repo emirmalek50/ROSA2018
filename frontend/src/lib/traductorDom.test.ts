@@ -17,6 +17,8 @@ beforeEach(() => {
 afterEach(() => {
   desactivar();
   raiz.remove();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 const falso = (mapa: Record<string, string>) => vi.fn(async (textos: string[]) => Object.fromEntries(textos.filter((t) => mapa[t]).map((t) => [t, mapa[t]!])));
@@ -42,6 +44,126 @@ describe('qué se manda a traducir', () => {
 });
 
 describe('la traducción en pantalla', () => {
+  it('las etiquetas del servidor que ya están en el catálogo aparecen en inglés sin red', () => {
+    raiz.innerHTML = '<p>cuerpo calloso</p><p>Severidad basal</p><button title="sin tipo celular">MOTIVOS</button><code>cuerpo calloso</code>';
+    const pedir = falso({});
+    activar(raiz, pedir);
+    expect(raiz.querySelector('p')!.textContent).toBe('corpus callosum');
+    expect(raiz.querySelector('button')!.textContent).toBe('MOTIFS');
+    expect(raiz.querySelector('button')!.title).toBe('no cell type');
+    expect(raiz.querySelector('code')!.textContent).toBe('cuerpo calloso');
+    expect(pedir).not.toHaveBeenCalled();
+    desactivar();
+    expect(raiz.querySelector('p')!.textContent).toBe('cuerpo calloso');
+  });
+
+  it('un fallo temporal se reintenta y no queda memorizado como traducción', async () => {
+    vi.useFakeTimers();
+    raiz.innerHTML = '<p>La evidencia nueva de esta cohorte</p>';
+    const pedir = vi.fn().mockRejectedValueOnce(new Error('sin red')).mockResolvedValue({ 'La evidencia nueva de esta cohorte': 'New evidence from this cohort' });
+    activar(raiz, pedir);
+    await vi.advanceTimersByTimeAsync(1700);
+    expect(raiz.textContent).toBe('New evidence from this cohort');
+    expect(pedir).toHaveBeenCalledTimes(2);
+  });
+
+  it('los rechazos persistentes tienen reintentos acotados y conservan el original', async () => {
+    vi.useFakeTimers();
+    raiz.innerHTML = '<p>La afirmación que no se pudo traducir</p>';
+    const pedir = falso({});
+    activar(raiz, pedir);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(raiz.textContent).toBe('La afirmación que no se pudo traducir');
+    expect(pedir).toHaveBeenCalledTimes(4);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(pedir).toHaveBeenCalledTimes(4);
+  });
+
+  it('otro repintado no duplica una frase que ya está en vuelo', async () => {
+    vi.useFakeTimers();
+    let terminar!: (r: Record<string, string>) => void;
+    const pedir = vi.fn(() => new Promise<Record<string, string>>((r) => { terminar = r; }));
+    raiz.innerHTML = '<p>La evidencia nueva de esta cohorte</p>';
+    activar(raiz, pedir);
+    await vi.advanceTimersByTimeAsync(200);
+    const otro = document.createElement('p');
+    otro.textContent = 'La evidencia nueva de esta cohorte';
+    raiz.append(otro);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(pedir).toHaveBeenCalledTimes(1);
+    terminar({ 'La evidencia nueva de esta cohorte': 'New evidence from this cohort' });
+    await vi.advanceTimersByTimeAsync(200);
+    expect([...raiz.querySelectorAll('p')].map((p) => p.textContent)).toEqual(['New evidence from this cohort', 'New evidence from this cohort']);
+  });
+
+  it('un reintento lento no retrasa una frase recién abierta', async () => {
+    vi.useFakeTimers();
+    raiz.innerHTML = '<p>La frase que falla</p>';
+    const pedir = falso({ 'La frase nueva': 'New sentence' });
+    activar(raiz, pedir);
+    await vi.advanceTimersByTimeAsync(200);
+    const nuevo = document.createElement('p');
+    nuevo.textContent = 'La frase nueva';
+    raiz.append(nuevo);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(nuevo.textContent).toBe('New sentence');
+  });
+
+  it('el texto fuera de pantalla espera hasta que se ve, sin retrasar el visible', async () => {
+    vi.useFakeTimers();
+    let avisar!: IntersectionObserverCallback;
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback) { avisar = callback; }
+      observe = vi.fn();
+      disconnect = vi.fn();
+    });
+    raiz.innerHTML = '<p>La evidencia visible</p><p>La evidencia fuera de pantalla</p>';
+    const pedir = falso({ 'La evidencia visible': 'Visible evidence', 'La evidencia fuera de pantalla': 'Offscreen evidence' });
+    activar(raiz, pedir);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(pedir).not.toHaveBeenCalled();
+    const [primero, segundo] = raiz.querySelectorAll('p');
+    const aparece = (target: Element) => avisar([{ target, isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+    aparece(primero!);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(pedir).toHaveBeenLastCalledWith(['La evidencia visible']);
+    expect(segundo!.textContent).toBe('La evidencia fuera de pantalla');
+    aparece(segundo!);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(segundo!.textContent).toBe('Offscreen evidence');
+  });
+
+  it('los párrafos se reparten sin hacer esperar a una pantalla por un lote enorme', async () => {
+    vi.useFakeTimers();
+    const textos = Array.from({ length: 12 }, (_, i) => `La evidencia de la cohorte ${i}. ${'Datos de la investigación. '.repeat(60)}`);
+    const pedir = vi.fn(async (lote: string[]) => Object.fromEntries(lote.map((t) => [t, `Evidence ${textos.indexOf(t)}`])));
+    raiz.innerHTML = textos.map((t) => `<p>${t}</p>`).join('');
+    activar(raiz, pedir);
+    await vi.advanceTimersByTimeAsync(1000);
+    for (const [lote] of pedir.mock.calls) expect(lote.reduce((n, t) => n + t.length, 0)).toBeLessThanOrEqual(4500);
+    expect(raiz.textContent).not.toContain('cohorte');
+  });
+
+  it('prepara todas las opciones cuando el selector nativo aparece, aunque esté cerrado', async () => {
+    vi.useFakeTimers();
+    let avisar!: IntersectionObserverCallback;
+    const observar = vi.fn();
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback) { avisar = callback; }
+      observe = observar;
+      disconnect = vi.fn();
+    });
+    raiz.innerHTML = '<select><option value="inv-1">La investigación sobre tau</option><option value="inv-2">La investigación sobre amiloide</option></select>';
+    const pedir = falso({ 'La investigación sobre tau': 'Tau investigation', 'La investigación sobre amiloide': 'Amyloid investigation' });
+    activar(raiz, pedir);
+    const selector = raiz.querySelector('select')!;
+    expect(observar).toHaveBeenCalledWith(selector);
+    const rect = selector.getBoundingClientRect();
+    avisar([{ target: selector, isIntersecting: true, boundingClientRect: rect, intersectionRect: rect, intersectionRatio: 1, rootBounds: null, time: 0 }], {} as IntersectionObserver);
+    await vi.advanceTimersByTimeAsync(200);
+    expect([...selector.options].map((o) => [o.value, o.textContent])).toEqual([['inv-1', 'Tau investigation'], ['inv-2', 'Amyloid investigation']]);
+  });
+
   it('traduce el texto que aparece, conservando sus espacios de borde', async () => {
     raiz.innerHTML = '<p>  La GFAP sube antes que la NfL.  </p>';
     const pedir = falso({ 'La GFAP sube antes que la NfL.': 'GFAP rises before NfL.' });
@@ -88,6 +210,22 @@ describe('la traducción en pantalla', () => {
     expect(raiz.textContent).toBe('What ROSA2018 knows about the target');
     desactivar();
     expect(raiz.textContent).toBe('Lo que ROSA2018 sabe de la diana');
+  });
+
+  it('una respuesta tardía no cambia el texto después de volver al castellano', async () => {
+    vi.useFakeTimers();
+    let terminar!: (r: Record<string, string>) => void;
+    const pedir = vi.fn(() => new Promise<Record<string, string>>((r) => { terminar = r; }));
+    raiz.innerHTML = '<p>La evidencia de la investigación pendiente</p>';
+    activar(raiz, pedir);
+    await vi.advanceTimersByTimeAsync(200);
+    desactivar();
+    terminar({ 'La evidencia de la investigación pendiente': 'Evidence from the pending investigation' });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(raiz.textContent).toBe('La evidencia de la investigación pendiente');
+    activar(raiz, pedir);
+    expect(raiz.textContent).toBe('Evidence from the pending investigation');
+    expect(pedir).toHaveBeenCalledTimes(1);
   });
 
   it('sin servidor se queda en castellano y no lo pide en bucle', async () => {

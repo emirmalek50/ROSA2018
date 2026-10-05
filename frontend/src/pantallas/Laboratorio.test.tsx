@@ -11,6 +11,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Laboratorio as Datos } from '../lib/laboratorio';
 import { Laboratorio, _olvidarMiniaturas } from './Laboratorio';
+import { fijarIdioma } from '../lib/idioma';
 
 const respuestas = vi.hoisted(() => ({
   datos: null as Datos | null | 'sin_respuesta',
@@ -407,6 +408,7 @@ afterEach(async () => {
   await act(async () => root.unmount());
   nodo.remove();
   global.fetch = fetchDeVerdad;
+  fijarIdioma('es');
 });
 
 const pintar = () =>
@@ -436,6 +438,47 @@ const pulsar = async (el: Element) => {
 };
 
 describe('lo que va al laboratorio', () => {
+  it('traduce la decisión y la fiabilidad en inglés sin esperar al traductor remoto', async () => {
+    fijarIdioma('en');
+    const aso = {
+      ...DIANA.aso!,
+      criba: { hecho: true, fecha: 1, transcritos: 669547, ficheros: ['cdna.fa.gz', 'ncrna.fa.gz'], segundos: 197.6, motivo: '', limites: [] },
+      fiabilidad: {
+        version: 1,
+        niveles: [{
+          nivel: 'mio' as const,
+          titulo: 'Esto lo decidió ROSA2018, y nadie lo ha validado',
+          resumen: 'El eslabón más flojo de toda la pantalla, y el que más fácil sería callar.',
+          cosas: [{ que: 'Los pesos que combinan todo lo anterior', porQue: 'La puntuación con la que ROSA2018 elige a qué proteína ir también es suya. Cada término se enseña para poder discutirlo, que es justo porque no está validado.' }],
+        }],
+        noComprobado: [{ que: 'El borrador largo del ARN, con sus intrones', porQue: 'El cribado mira el ARN ya empalmado. El corte promiscuo de la RNasa H1 sobre el pre-ARN es el mecanismo conocido de toxicidad hepática de los gapmers de alta afinidad (Burel et al., Nucleic Acids Res 44:2093, 2016), y eso NO se está mirando. Pide el genoma con su anotación, no el transcriptoma.' }],
+        queEsEsto: {
+          es: 'La entrada de un cribado primario: la lista que un laboratorio sintetiza para probar en células.',
+          noEs: 'No es un fármaco ni un candidato a fármaco, y el número uno no es «el bueno».',
+          comoSeUsa: 'Una campaña de verdad sintetiza del orden de ochenta oligos, los prueba en células, se queda con ocho o diez y de ahí salen uno o dos líderes. Lo que hay aquí es el principio de ese embudo, no el final.',
+          yLaPremisa: 'Y por encima de todo esto: que bajar esta proteína ayude en el Alzheimer es una HIPÓTESIS, con la certeza que diga su ficha GRADE. Un oligo bien diseñado contra una diana equivocada sigue siendo un oligo contra una diana equivocada.',
+        },
+      },
+    };
+    respuestas.datos = { ...DATOS, dianas: [{ ...DIANA, aso }] };
+    respuestas.oligos = aso;
+    const original = JSON.stringify(respuestas.datos);
+    await montar();
+    expect(texto()).toContain('322 of 405');
+    expect(texto()).toContain("3' untranslated region");
+    expect(texto()).toContain('supporting claims');
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    const fiabilidad = nodo.querySelector('.fia')!;
+    expect(texto()).toContain('669,547 Ensembl transcripts (GRCh38, cdna.fa.gz and ncrna.fa.gz) in 197.6 s');
+    expect(fiabilidad.textContent).toContain('ROSA2018 decided this, and nobody has validated it');
+    expect(texto()).toContain('Unspliced precursor RNA, including its introns');
+    expect(texto()).toContain('is a HYPOTHESIS');
+    expect(texto()).not.toContain('Esto lo decidió');
+    expect(texto()).not.toContain('El borrador largo');
+    expect(JSON.stringify(respuestas.datos)).toBe(original);
+  });
+
   it('es la unión de todas las investigaciones, no la vista de una', async () => {
     await montar();
     expect(texto()).toContain('Lo que ROSA2018 mandaría al laboratorio');
@@ -1169,4 +1212,3 @@ describe('el muro: las miniaturas son imagenes de un solo visor', () => {
     }
   });
 });
-

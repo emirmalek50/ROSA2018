@@ -27,7 +27,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { acciones, type SinRespuesta } from '../datos/almacen';
 import { RECUPERACION_PENDIENTE } from '../datos/acciones';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
-import { avanceDeRecuperacion, enLlanoElVeredicto, enLlanoLaClase, enlaceAlPasaje, informeDeRecuperacion, senalesDe, trozosDeTexto, type AfirmacionCitada, type CitasRecuperables, type ComprobacionDeHoy, type FichaCita, type ListaCitas } from '../lib/citas';
+import { avanceDeRecuperacion, enLlanoElVeredicto, enLlanoLaClase, enlaceAlPasaje, etiquetaLocalizador, informeDeRecuperacion, senalesDe, trozosDeTexto, type AfirmacionCitada, type CitasRecuperables, type ComprobacionDeHoy, type FichaCita, type ListaCitas } from '../lib/citas';
 import { Esqueleto } from '../componentes/Esqueleto';
 import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
 import { AvisoMuestra } from '../componentes/piezas';
@@ -36,9 +36,9 @@ import '../citas.css';
 import { tr, trp } from '../lib/idioma';
 
 const AYUDA =
-  tr('Cada afirmación que ROSA2018 ha extraído, junto al trozo exacto de la fuente que la sostiene. A la izquierda la afirmación; a la derecha la página tal como ROSA2018 la leyó, con el pasaje resaltado.');
+  'Cada afirmación que ROSA2018 ha extraído, junto al trozo exacto de la fuente que la sostiene. A la izquierda la afirmación; a la derecha la página tal como ROSA2018 la leyó, con el pasaje resaltado.';
 const META =
-  tr('De cada cita se comprueban dos cosas distintas, y se enseñan por separado: si APUNTA a un sitio que existe (fuente y localizador) y si su pasaje ESTÁ ahí, literal. Pueden darse las cuatro combinaciones: un texto que coincide con la fuente pero cuya cita apunta a un sitio que no existe sigue siendo un problema, y no el mismo. El veredicto que acompaña a cada afirmación es el que se tomó al extraerla; las dos señales se vuelven a medir ahora, con las reglas de hoy, y cuando no coinciden se dice.');
+  'De cada cita se comprueban dos cosas distintas, y se enseñan por separado: si APUNTA a un sitio que existe (fuente y localizador) y si su pasaje ESTÁ ahí, literal. Pueden darse las cuatro combinaciones: un texto que coincide con la fuente pero cuya cita apunta a un sitio que no existe sigue siendo un problema, y no el mismo. El veredicto que acompaña a cada afirmación es el que se tomó al extraerla; las dos señales se vuelven a medir ahora, con las reglas de hoy, y cuando no coinciden se dice.';
 
 type Estado = 'cargando' | 'listo' | 'sin_servidor' | 'sin_respuesta' | 'vacia';
 
@@ -98,10 +98,10 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
       ) : n > 0 && datos ? (
         <>
           <p>
-            {(datos.corridasVivas ? trp("{bloqueosViejos} por reglas del verificador que ya no valen{v}. Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano. Hay una corrida trabajando en esta investigación: empezará cuando pare.", { bloqueosViejos: plural(datos.bloqueosViejos, tr('afirmación de esta investigación sigue bloqueada'), tr('afirmaciones de esta investigación siguen bloqueadas')), v: datos.sinJuez ? `, y ${plural(datos.sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez'))}` : '' }) : trp("{bloqueosViejos} por reglas del verificador que ya no valen{v}. Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.", { bloqueosViejos: plural(datos.bloqueosViejos, tr('afirmación de esta investigación sigue bloqueada'), tr('afirmaciones de esta investigación siguen bloqueadas')), v: datos.sinJuez ? `, y ${plural(datos.sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez'))}` : '' }))}
+            {(datos.corridasVivas ? trp("{bloqueosViejos} por reglas del verificador que ya no valen{v}. Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano. Hay una corrida trabajando en esta investigación: empezará cuando pare.", { bloqueosViejos: plural(datos.bloqueosViejos, tr('afirmación de esta investigación sigue bloqueada'), tr('afirmaciones de esta investigación siguen bloqueadas')), v: datos.sinJuez ? `,${tr(' y ')}${plural(datos.sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez'))}` : '' }) : trp("{bloqueosViejos} por reglas del verificador que ya no valen{v}. Es evidencia ya leída que hoy no cuenta para ninguna hipótesis. Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.", { bloqueosViejos: plural(datos.bloqueosViejos, tr('afirmación de esta investigación sigue bloqueada'), tr('afirmaciones de esta investigación siguen bloqueadas')), v: datos.sinJuez ? `,${tr(' y ')}${plural(datos.sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez'))}` : '' }))}
           </p>
           <button type="button" className="btn btn-s btn-primario" onClick={() => void pedir()} {...atributosEnVuelo(enVuelo)}>
-            {enVuelo ? 'Pidiendo...' : trp("Recuperar las {n}", { n: formatearEntero(n) })}
+            {enVuelo ? tr('Pidiendo...') : trp("Recuperar las {n}", { n: formatearEntero(n) })}
           </button>
         </>
       ) : null}
@@ -327,8 +327,8 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 <div className="citas-leidos">
                   <span className="meta">{tr("Se leyeron")}</span>
                   {ficha.leidos.map((l) => (
-                    <span key={l.localizador} className={`citas-leido${l.actual ? ' actual' : ''}`}>
-                      {l.pagina ?? l.localizador}
+                    <span key={l.localizador} className={`citas-leido${l.actual ? ' actual' : ''}`} data-sin-traducir>
+                      {l.pagina ?? etiquetaLocalizador(l.localizador)}
                     </span>
                   ))}
                 </div>
@@ -366,7 +366,7 @@ function FilaAfirmacion({ a, elegida, onElegir }: { a: AfirmacionCitada; elegida
       <div className="citas-meta">
         <Veredicto veredicto={a.veredicto} />
         <span className="citas-cita" data-sin-traducir>{a.cita}</span>
-        <span className="meta">{enLlanoLaClase(a.clase, a.localizador)}</span>
+        <span className="meta" data-sin-traducir>{enLlanoLaClase(a.clase, a.localizador)}</span>
         {Boolean(a.bloqueoViejo) && <span className="citas-marca-rancio">{tr("ya no bloquearía")}</span>}
       </div>
     </button>
@@ -385,7 +385,7 @@ function Senales({ hoy, clase, localizador }: { hoy: ComprobacionDeHoy; clase: F
         </span>
         <span>
           <b>{tr("La cita apunta a un sitio que existe.")}</b>{' '}
-          {hoy.resuelve ? enLlanoLaClase(clase, localizador) : hoy.motivoResuelve}
+          {hoy.resuelve ? <span data-sin-traducir>{enLlanoLaClase(clase, localizador)}</span> : hoy.motivoResuelve}
         </span>
       </li>
       <li>
@@ -437,7 +437,7 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
           </p>
           {ficha.fuente.retraccion && <p className="citas-retraccion">{tr("Esta fuente está retractada.")}</p>}
         </div>
-        <p className="meta citas-loc">{enLlanoLaClase(ficha.clase, ficha.localizador)}</p>
+        <p className="meta citas-loc" data-sin-traducir>{enLlanoLaClase(ficha.clase, ficha.localizador)}</p>
       </div>
 
       {ficha.conPdf && (

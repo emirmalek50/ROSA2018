@@ -25,6 +25,8 @@
 // y lo que ya está en inglés. Ante la duda no se manda: un texto en
 // castellano se entiende, uno mal traducido no.
 
+import { EN } from '../i18n/en';
+
 /** Marcas de castellano. A las palabras función se les suman unos cuantos
  *  sustantivos del dominio que en inglés no existen («hora», «hipótesis»,
  *  «corrida», «cita»): sin ellos, lo corto y sin tilde que escribe ROSA2018
@@ -74,19 +76,32 @@ const tocados = new Set<WeakRef<Text>>();
 /** Lo mismo para los atributos: por elemento, el valor de antes de cada uno. */
 const originalesAtr = new WeakMap<Element, Map<string, string>>();
 const tocadosAtr = new Set<WeakRef<Element>>();
-/** Lo que ya se sabe: original -> inglés. Lo que el servidor rechazó también
- *  se recuerda (con el original como valor) para no pedirlo en bucle. */
+/** Traducciones conseguidas: original -> inglés. Los fallos se llevan aparte
+ *  para poder reintentarlos sin convertirlos en traducciones permanentes. */
 const memoria = new Map<string, string>();
 const pendientes = new Set<string>();
+// Un repintado mientras otra petición termina no debe volver a encolar lo
+// que todavía está viajando. Antes llegaban varias copias de la misma frase.
+const enCurso = new Set<string>();
+const fallidos = new Map<string, { intentos: number; despues: number }>();
+const REINTENTOS_MS = [1500, 5000, 15000];
 /** Textos que se leen pero no están en el árbol: el título de la pestaña. */
 const sueltos: { texto: string; cuando: (en: string) => void }[] = [];
 let enVuelo = 0;
 let reloj: ReturnType<typeof setTimeout> | null = null;
+let siguienteEnvio = 0;
 let raizActiva: Element | null = null;
 let observador: MutationObserver | null = null;
+let visibilidad: IntersectionObserver | null = null;
+let observados = new WeakSet<Element>();
+let visibles = new WeakSet<Element>();
 let pedirActivo: Pedir | null = null;
+let generacion = 0;
 
 const MAX_POR_PETICION = 60;
+// Un lote cabe en una llamada del servidor. Sesenta párrafos podían causar
+// veinte llamadas consecutivas antes de devolver la primera traducción.
+const MAX_CARACTERES_POR_LOTE = 4500;
 const ESPERA_MS = 160;
 /** Peticiones a la vez. El servidor admite tres llamadas al modelo en
  *  paralelo; con una sola, Citas (250 frases nuevas) tardaba unos tres minutos
@@ -102,6 +117,20 @@ function partir(v: string): { antes: string; nucleo: string; despues: string } {
 function sePuede(n: Text): boolean {
   const p = n.parentElement;
   return !!p && !p.closest(NO_TOCAR);
+}
+
+/** El modelo trabaja primero en lo que se está leyendo, también dentro de
+ *  paneles con scroll. El catálogo y la caché sí se aplican a todo el árbol. */
+function enPantalla(el: Element): boolean {
+  if (!visibilidad) return true;
+  // Las opciones de un selector nativo no tienen caja visible mientras está
+  // cerrado. Se preparan todas al aparecer el selector que las contiene.
+  const objetivo = el.closest('option, optgroup')?.closest('select') ?? el;
+  if (!observados.has(objetivo)) {
+    observados.add(objetivo);
+    visibilidad.observe(objetivo);
+  }
+  return visibles.has(objetivo);
 }
 
 function aplicar(n: Text): void {
@@ -122,11 +151,16 @@ function mirar(n: Text): void {
   const orig = originales.get(n);
   if (orig !== undefined && memoria.get(partir(orig).nucleo) === partir(v).nucleo) return;
   const { nucleo } = partir(v);
-  if (!pareceCastellano(nucleo)) return;
+  // Las etiquetas del backend también usan el catálogo, sin esperar una
+  // llamada al modelo. Esto alcanza incluso «MOTIVOS» o «cuerpo calloso»,
+  // que no tienen ninguna de las marcas del detector de castellano.
+  const local = EN[nucleo];
+  if (local !== undefined) memoria.set(nucleo, local);
   if (memoria.has(nucleo)) {
     aplicar(n);
     return;
   }
+  if (!pareceCastellano(nucleo) || enCurso.has(nucleo) || agotado(nucleo) || !enPantalla(n.parentElement!)) return;
   pendientes.add(nucleo);
   programar();
 }
@@ -152,11 +186,13 @@ function mirarAtr(el: Element, atr: string): void {
   const orig = originalesAtr.get(el)?.get(atr);
   if (orig !== undefined && memoria.get(partir(orig).nucleo) === partir(v).nucleo) return;
   const { nucleo } = partir(v);
-  if (!pareceCastellano(nucleo)) return;
+  const local = EN[nucleo];
+  if (local !== undefined) memoria.set(nucleo, local);
   if (memoria.has(nucleo)) {
     aplicarAtr(el, atr);
     return;
   }
+  if (!pareceCastellano(nucleo) || enCurso.has(nucleo) || agotado(nucleo) || !enPantalla(el)) return;
   pendientes.add(nucleo);
   programar();
 }
@@ -176,31 +212,63 @@ function recorrer(raiz: Node): void {
   }
 }
 
+function agotado(t: string): boolean {
+  return (fallidos.get(t)?.intentos ?? 0) > REINTENTOS_MS.length;
+}
+
 function programar(): void {
-  if (reloj || !pedirActivo) return;
+  if (!pedirActivo) return;
+  const ahora = Date.now();
+  const proxima = Math.min(...[...pendientes].map((t) => fallidos.get(t)?.despues ?? ahora));
+  if (!Number.isFinite(proxima)) return;
+  const cuando = Math.max(ahora + ESPERA_MS, proxima);
+  if (reloj && siguienteEnvio <= cuando) return;
+  if (reloj) clearTimeout(reloj);
+  siguienteEnvio = cuando;
   reloj = setTimeout(() => {
     reloj = null;
     void enviar();
-  }, ESPERA_MS);
+  }, cuando - ahora);
 }
 
 async function enviar(): Promise<void> {
   const pedir = pedirActivo;
   if (!pedir || pendientes.size === 0 || enVuelo >= EN_PARALELO) return;
-  const lote = [...pendientes].slice(0, MAX_POR_PETICION);
+  const lote: string[] = [];
+  let caracteres = 0;
+  for (const t of pendientes) {
+    if ((fallidos.get(t)?.despues ?? 0) > Date.now()) continue;
+    if (lote.length && (lote.length >= MAX_POR_PETICION || caracteres + t.length > MAX_CARACTERES_POR_LOTE)) break;
+    lote.push(t);
+    caracteres += t.length;
+  }
+  if (!lote.length) { programar(); return; }
   lote.forEach((t) => pendientes.delete(t));
+  lote.forEach((t) => enCurso.add(t));
+  const turno = generacion;
   enVuelo++;
   // Si queda más, la siguiente petición sale ya, sin esperar a esta.
   if (pendientes.size > 0) void enviar();
+  let r: Record<string, string> = {};
   try {
-    const r = await pedir(lote);
-    for (const t of lote) memoria.set(t, r[t] ?? t);
+    r = await pedir(lote);
   } catch {
-    // Sin servidor o sin red: se queda en castellano, que se entiende, y no
-    // se vuelve a pedir en bucle.
-    for (const t of lote) memoria.set(t, t);
+    // Un fallo de red no es una traducción. Se conserva el texto original
+    // y se reintenta con espera, sin guardar el fallo para toda la sesión.
   } finally {
     enVuelo--;
+    lote.forEach((t) => enCurso.delete(t));
+  }
+  for (const t of lote) {
+    if (typeof r[t] === 'string' && r[t]!.trim()) {
+      memoria.set(t, r[t]!);
+      fallidos.delete(t);
+    } else if (turno === generacion && pedirActivo) {
+      const intentos = (fallidos.get(t)?.intentos ?? 0) + 1;
+      const espera = REINTENTOS_MS[intentos - 1];
+      fallidos.set(t, { intentos, despues: Date.now() + (espera ?? 0) });
+      if (espera !== undefined) pendientes.add(t);
+    }
   }
   for (let i = sueltos.length - 1; i >= 0; i--) {
     const s = sueltos[i]!;
@@ -219,23 +287,36 @@ async function enviar(): Promise<void> {
  *  se queda el castellano, que se entiende. */
 export function traducirSuelto(texto: string, cuando: (en: string) => void): void {
   const t = texto.trim();
-  if (!pedirActivo || !pareceCastellano(t)) return;
+  if (!pedirActivo) return;
+  if (EN[t] !== undefined) memoria.set(t, EN[t]!);
   const ya = memoria.get(t);
   if (ya !== undefined) {
     if (ya !== t) cuando(ya);
     return;
   }
+  if (!pareceCastellano(t) || agotado(t)) return;
   if (sueltos.some((s) => s.texto === t)) return;
   sueltos.push({ texto: t, cuando });
-  pendientes.add(t);
+  if (!enCurso.has(t)) pendientes.add(t);
   programar();
 }
 
 /** Empieza a traducir lo que hay bajo `raiz` y lo que vaya apareciendo. */
 export function activar(raiz: Element, pedir: Pedir): void {
   desactivar();
+  fallidos.clear();
   raizActiva = raiz;
   pedirActivo = pedir;
+  if (typeof IntersectionObserver !== 'undefined') {
+    visibilidad = new IntersectionObserver((entradas) => {
+      for (const entrada of entradas) {
+        if (entrada.isIntersecting) {
+          visibles.add(entrada.target);
+          recorrer(entrada.target);
+        } else visibles.delete(entrada.target);
+      }
+    }, { rootMargin: '240px' });
+  }
   observador = new MutationObserver((cambios) => {
     for (const c of cambios) {
       if (c.type === 'characterData') mirar(c.target as Text);
@@ -254,8 +335,13 @@ export function activar(raiz: Element, pedir: Pedir): void {
 
 /** Deja de traducir y devuelve a cada nodo su castellano. */
 export function desactivar(): void {
+  generacion++;
   observador?.disconnect();
   observador = null;
+  visibilidad?.disconnect();
+  visibilidad = null;
+  observados = new WeakSet();
+  visibles = new WeakSet();
   if (reloj) clearTimeout(reloj);
   reloj = null;
   pedirActivo = null;

@@ -169,7 +169,7 @@ export const CELULAS_CLAVES: string[] = ['astrocito', 'microglia', 'neurona', 'o
  *  chips sumen lo mismo que el mapa. Como filtro (`estadio: SIN_FASE`) deja
  *  solo las celdas sin fase. */
 export const SIN_FASE = '';
-const ETIQUETA_SIN_FASE = tr('sin fase identificada');
+const ETIQUETA_SIN_FASE = 'sin fase identificada';
 
 /** Lo mismo para el tipo de célula: la clave de los registros que el backend
  *  situó sin célula (en la investigación grande son 188 de 209, casi todo lo
@@ -181,9 +181,9 @@ const ETIQUETA_SIN_FASE = tr('sin fase identificada');
  *  (MapaEnfermedad.tsx), y por eso el filtro de células no descarta la
  *  cadena vacía. */
 export const SIN_CELULA = '';
-const ETIQUETA_SIN_CELULA = tr('sin tipo celular');
+const ETIQUETA_SIN_CELULA = 'sin tipo celular';
 /** Lo que se dice de una región que el backend añadió después de esta interfaz. */
-const DEFINICION_REGION_NUEVA = tr('Región nueva del backend, sin definición en llano todavía.');
+const DEFINICION_REGION_NUEVA = 'Región nueva del backend, sin definición en llano todavía.';
 
 /** Orden de los niveles GRADE, de menor a mayor (rosa/certeza.py NIVELES). */
 const ORDEN_CERTEZA = ['muy_baja', 'baja', 'moderada', 'alta'];
@@ -734,8 +734,8 @@ export function construirAtlas(estado: EstadoRosa, inv: Investigacion, filtros: 
   // legible: guiones bajos a espacios, como hace legible() en el árbol. Nunca
   // 'medula_espinal' en un panel para una médica.
   const etiqueta = (eje: 'estadio' | 'region' | 'tipoCelular', clave: string): string => {
-    if (eje === 'estadio' && clave === SIN_FASE) return ETIQUETA_SIN_FASE;
-    if (eje === 'tipoCelular' && clave === SIN_CELULA) return ETIQUETA_SIN_CELULA;
+    if (eje === 'estadio' && clave === SIN_FASE) return tr(ETIQUETA_SIN_FASE);
+    if (eje === 'tipoCelular' && clave === SIN_CELULA) return tr(ETIQUETA_SIN_CELULA);
     const e = etiquetaEje(mapa, eje, clave);
     return e === clave ? clave.replace(/_/g, ' ') : e;
   };
@@ -754,7 +754,7 @@ export function construirAtlas(estado: EstadoRosa, inv: Investigacion, filtros: 
       return {
         clave,
         etiqueta: etiqueta('region', clave),
-        definicion: definiciones.region![clave] ?? DEFINICION_REGION_NUEVA,
+        definicion: tr(definiciones.region![clave] ?? DEFINICION_REGION_NUEVA),
         conteo,
         hechos: [...c.hechos],
         hipotesis: [...c.hipotesis],

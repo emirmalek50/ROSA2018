@@ -40,6 +40,7 @@ import { GENERADO } from './en/17-generado';
 import { MUNDO } from './en/17-mundo';
 import { FICHA } from './en/18-ficha';
 import { INVESTIGACION } from './en/19-investigacion';
+import { DEMO } from './en/20-demo';
 
 export const EN: Record<string, string> = {
   // Lo generado por el modelo va PRIMERO: en un objeto gana lo que se
@@ -66,4 +67,5 @@ export const EN: Record<string, string> = {
   ...MUNDO,
   ...FICHA,
   ...INVESTIGACION,
+  ...DEMO,
 };

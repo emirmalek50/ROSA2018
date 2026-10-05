@@ -81,7 +81,7 @@ import { plural } from '../lib/formato';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { rutaDe } from '../lib/ruta';
 import '../atlas.css';
-import { tr, trc, trp } from '../lib/idioma';
+import { tr, trc, trp, useIdioma } from '../lib/idioma';
 
 /** Desviación del desenfoque gaussiano de cada tramo de resplandor (1 poco, 4 mucho) y del foco. */
 const RESPLANDOR = [2.5, 5, 8, 12] as const;
@@ -390,6 +390,7 @@ export function EsqueletoAtlas({ conexion, rotulo = tr(ROTULO_ATLAS) }: { conexi
 type DatosCalculados = { invId: string; base: DatosAtlas | null; atlas: DatosAtlas | null };
 
 export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
+  const idioma = useIdioma();
   // El atlas abre en relieve (Emir, 21 de septiembre de 2026: "quiero que
   // pongas el 3d como default siempre"). La vista 2D sigue a un botón y es la
   // que se imprime, la que leen los lectores de pantalla region a region y la
@@ -408,15 +409,15 @@ export function Atlas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   // La base se guarda por referencia: pulsar un chip de fase o de célula solo
   // construye el atlas filtrado, no los dos (misma economía que tenían los
   // useMemo, ahora fuera del render).
-  const memoBase = useRef<{ estado: EstadoRosa; inv: Investigacion; hasta: number | null; base: DatosAtlas | null } | null>(null);
+  const memoBase = useRef<{ estado: EstadoRosa; inv: Investigacion; hasta: number | null; idioma: string; base: DatosAtlas | null } | null>(null);
   const { valor: datos, calculando } = useCalculoDiferido<DatosCalculados>(() => {
     const m = memoBase.current;
-    const base = m && m.estado === estado && m.inv === inv && m.hasta === hasta ? m.base : construirAtlas(estado, inv, { hasta });
-    memoBase.current = { estado, inv, hasta, base };
+    const base = m && m.estado === estado && m.inv === inv && m.hasta === hasta && m.idioma === idioma ? m.base : construirAtlas(estado, inv, { hasta });
+    memoBase.current = { estado, inv, hasta, idioma, base };
     // Sin base (mapa ausente o sin celdas) tampoco hay atlas: construirAtlas devolvería null igual.
     const atlas = base === null ? null : construirAtlas(estado, inv, { estadio, celulas, hasta });
     return { invId: inv.id, base, atlas };
-  }, [estado, inv, estadio, celulas, hasta]);
+  }, [estado, inv, estadio, celulas, hasta, idioma]);
   // Silueta solo al abrir y al cambiar de investigación. Con un filtro nuevo o
   // un empuje del canal en vivo `datos` es el cálculo anterior de la misma
   // investigación y se conserva en pantalla hasta que llega el nuevo.
