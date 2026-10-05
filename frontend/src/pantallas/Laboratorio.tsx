@@ -182,6 +182,10 @@ const MEDIO = 0.9;
    un umbral absoluto, una proteína desordenada como la tau despejaba el titular
    nada más abrir, y con uno por distancia de cámara despejaba tarde. */
 const TAPA = 0.035;
+/* La fracción de la proteína que tiene que caer sobre las tres tarjetas para
+   que se aparten. Más alta que TAPA: una cola rozándolas no las echa; media
+   proteína detrás sí. */
+const TAPA_TARJETAS = 0.08;
 /* Cuánto hay que esperar sin tocar nada para que la proteína empiece a girar
    sola. Es la misma espera del árbol 3D (`lib/arbol3d.ts`) para que las dos
    piezas se comporten igual. */
@@ -1837,28 +1841,6 @@ function useAltoHastaAbajo(ref: React.RefObject<HTMLElement | null>): number | n
 }
 
 
-/** El hueco libre para la proteína: a la DERECHA del bloque de texto, hasta
- *  el borde del lienzo. El texto va a la izquierda y la proteína en lo que
- *  queda, nunca detrás del texto (Emir, 3 de octubre de 2026: «es la proteína
- *  la que se tiene que ver»). Se mide del DOM, no se supone. */
-function huecoDeLaProteina(lienzo: HTMLElement, bloque: HTMLElement | null): { izquierda: number; derecha: number; arriba: number; abajo: number } {
-  const l = lienzo.getBoundingClientRect();
-  const b = bloque?.getBoundingClientRect();
-  const izquierda = b ? Math.min(l.width - 160, b.right - l.left + 24) : 0;
-  // A la derecha viven el mando (lámina/partes/átomos) y la leyenda, y
-  // abajo las cifras y el pie: la proteína no se mete debajo de ellos. Se
-  // miden del DOM; si no están, no se descuenta nada.
-  const mando = lienzo.parentElement?.querySelector<HTMLElement>('.lab-lamina > .lab-mando')?.getBoundingClientRect();
-  const leyenda = lienzo.parentElement?.querySelector<HTMLElement>('.lab-leyenda')?.getBoundingClientRect();
-  const abajoEl = lienzo.parentElement?.querySelector<HTMLElement>('.lab-abajo')?.getBoundingClientRect();
-  // El mando (tres botones estrechos) marca el borde derecho. La leyenda es
-  // mas ancha pero esta abajo a la derecha: se la esquiva por ABAJO, no por
-  // la derecha, o la proteina se quedaba diminuta en una franja estrecha.
-  const derecha = mando && mando.width > 0 ? Math.max(izquierda + 200, mando.left - l.left - 12) : l.width;
-  const topes = [abajoEl, leyenda].filter((r): r is DOMRect => !!r && r.height > 0).map((r) => r.top - l.top - 12);
-  const abajo = topes.length ? Math.max(260, Math.min(...topes)) : l.height;
-  return { izquierda: Math.max(0, izquierda), derecha, arriba: 0, abajo };
-}
 
 function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaboratorio; abrirAso?: boolean; alVolver: () => void }) {
   const marco = useRef<HTMLDivElement | null>(null);
@@ -1874,9 +1856,17 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
   // Qué textos está pisando la proteína ahora mismo. El despeje se dispara con
   // el choque y no con la distancia de la cámara: por distancia llegaba tarde,
   // la proteína ya estaba encima de las letras cuando empezaban a irse.
-  const [pisados, fijarPisados] = useState<boolean[]>([false, false]);
+  // [el bloque del nombre, las cifras de abajo, las tres tarjetas]. Las
+  // tarjetas van aparte porque se apartan con otra regla: sin esperar al
+  // zoom. El nombre y las cifras solo cuando la camara se ha acercado, para
+  // que no parpadeen al girar; las tarjetas son secundarias y pueden
+  // apartarse cada vez que la proteina pasa por detras (Emir, 4 de octubre
+  // de 2026, tres veces: «que la proteina se vea sin que las tarjetas la
+  // tapen»).
+  const [pisados, fijarPisados] = useState<boolean[]>([false, false, false]);
   const bloqueRef = useRef<HTMLDivElement | null>(null);
   const abajoRef = useRef<HTMLDivElement | null>(null);
+  const tarjetasRef = useRef<HTMLDivElement | null>(null);
   const [fallo, fijarFallo] = useState<string | null>(null);
   const [verExperimento, fijarVerExperimento] = useState(false);
   const [hojaAbierta, fijarHojaAbierta] = useState(() => window.matchMedia?.(tr('(min-width: 981px)')).matches ?? false);
@@ -1917,11 +1907,15 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
           fijarMarcas(a ?? []);
           fijarMarcasEstado(a === null ? 'sin_respuesta' : 'listas');
         });
-        // `cargar` ya esperó al reset de la cámara de Mol* y guardó la vista
-        // base; la proteína se coloca en el hueco a la derecha del texto.
-        const h = huecoDeLaProteina(nodo, bloqueRef.current);
-        await visor.colocar(h.izquierda, h.derecha, 24, 0, h.arriba, h.abajo);
-        if (!vivo) return;
+        // La proteína ENTERA y centrada: la vista con la que Mol* la encuadra
+        // al cargar, que es la que siempre se vio porque el encuadre de la
+        // pantalla nunca llegó a aplicarse (el reset de Mol* lo pisaba). Al
+        // arreglar eso salió el 0.62 original, que acercaba hasta sacarla por
+        // los cuatro lados. Se queda la vista entera. Lo que se aparta de
+        // ella son las tarjetas (ver `pisados`), no al revés: tres vueltas
+        // encogiéndola y arrinconándola fueron tres vueltas en vano (Emir, 4
+        // de octubre de 2026).
+        visor.encuadrar(1, 0, 0, true);
         distInicial.current = visor.distancia();
       } catch (ex) {
         if (vivo) fijarFallo(ex instanceof Error ? ex.message : String(ex));
@@ -1934,32 +1928,6 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
     };
   }, [diana.estructura.url, diana.uniprot]);
 
-  // Si el lienzo cambia de tamaño (abrir o cerrar la hoja, conectar un
-  // monitor) y seguimos en la vista general, la proteína se vuelve a colocar
-  // en el hueco a la derecha del texto. Va por ResizeObserver y no por el
-  // bucle de dibujado: con la escena quieta Mol* no dibuja, y cerrar la hoja
-  // no reencuadraba nada (3 de octubre de 2026).
-  useEffect(() => {
-    const nodo = caja.current;
-    if (!nodo || typeof ResizeObserver === 'undefined') return;
-    let ultimo = nodo.clientWidth;
-    let temporizador = 0;
-    const vigia = new ResizeObserver(() => {
-      const ancho = nodo.clientWidth;
-      if (Math.abs(ancho - ultimo) < 24) return;
-      ultimo = ancho;
-      // Al final del cambio (la hoja se anima 300 ms), no en cada fotograma.
-      window.clearTimeout(temporizador);
-      temporizador = window.setTimeout(() => {
-        const visor = visorRef.current;
-        if (!visor || nivelRef.current !== 0) return;
-        const h = huecoDeLaProteina(nodo, bloqueRef.current);
-        void visor.colocar(h.izquierda, h.derecha, 24, 420, h.arriba, h.abajo).then(() => { distInicial.current = visor.distancia(); });
-      }, 80);
-    });
-    vigia.observe(nodo);
-    return () => { vigia.disconnect(); window.clearTimeout(temporizador); };
-  }, [medido]);
 
   // Reproyectar las etiquetas en cada fotograma: van pegadas a la proteína al
   // girarla. Un ordenador por altura las separa para que no se pisen.
@@ -1993,14 +1961,18 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
     // El choque, contra los dos bloques de texto que la proteína puede tapar.
     // Se miden en coordenadas del lienzo; el margen deja que el degradado haga
     // su trabajo antes de que las letras estorben de verdad.
-    const rs = [rectDe(bloqueRef.current, nodo), rectDe(abajoRef.current, nodo)];
+    const rs = [rectDe(bloqueRef.current, nodo), rectDe(abajoRef.current, nodo), rectDe(tarjetasRef.current, nodo)];
     const medidos = visor.pisa(rs.map((r) => r ?? { x: -1, y: -1, ancho: 0, alto: 0 }));
-    // Contra el cero de la apertura, no contra cero absoluto. Y solo cuenta si
-    // la cámara se ha ACERCADO: girando, la proteína pasa por encima del texto
-    // y volvería a salir, y el titular parpadearía cada vuelta.
+    // El nombre y las cifras: contra el cero de la apertura, y solo si la
+    // cámara se ha ACERCADO: girando, la proteína pasa por encima y volvería a
+    // salir, y el titular parpadearía cada vuelta.
     const acercada = visor.distancia() < distInicial.current * 0.99;
-    const choca = rs.map((r, i) => (r && acercada ? medidos[i]! - (base.current[i] ?? 0) >= TAPA : false));
-    fijarPisados((antes) => (antes[0] === choca[0] && antes[1] === choca[1] ? antes : choca));
+    const choca = rs.slice(0, 2).map((r, i) => (r && acercada ? medidos[i]! - (base.current[i] ?? 0) >= TAPA : false));
+    // Las tarjetas: se apartan en cuanto una parte apreciable de la proteína
+    // les pasa por detrás, desde el primer fotograma y sin zoom. Son
+    // secundarias; la proteína no.
+    choca.push(!!rs[2] && medidos[2]! >= TAPA_TARJETAS);
+    fijarPisados((antes) => (antes[0] === choca[0] && antes[1] === choca[1] && antes[2] === choca[2] ? antes : choca));
   }, []);
 
   useEffect(() => {
@@ -2283,7 +2255,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
             )}
           </p>
           {cadena ? <p className="lab-cadena">{cadena}</p> : null}
-          <div className="lab-insignias">
+          <div ref={tarjetasRef} className={`lab-insignias lab-capa${pisados[2] ? ' lab-fuera' : ''}`}>
             {diana.enHipotesis ? (
               <span className="lab-grado lab-grado-neutro">
                 <i /> {diana.enHipotesis === 1 ? tr('1 experimento propuesto') : `${diana.enHipotesis} experimentos propuestos`}

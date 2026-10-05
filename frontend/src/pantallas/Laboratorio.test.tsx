@@ -51,9 +51,6 @@ vi.mock('../lib/visorMolecular', () => ({
     }),
     estilo: vi.fn(async () => undefined),
     encuadrar: vi.fn(),
-    // Colocar la proteína en el hueco a la derecha del texto: en la prueba no
-    // hay geometría, solo se registra que se pidió.
-    colocar: vi.fn(async () => undefined),
     distancia: () => 100 * (visor.nivel === 2 ? 0.3 : visor.nivel === 1 ? 0.8 : 1),
     irA: vi.fn(),
     proyectar: () => ({ x: 10, y: 10 }),
