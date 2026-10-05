@@ -13,6 +13,7 @@ import type { Busqueda, Limite, TramoIteracion } from '../lib/escenario';
 import { coma, formatearCompacto, formatearDuracion, formatearEntero } from '../lib/formato';
 import { tr, trp } from '../lib/idioma';
 import { useMovimientoReducido } from '../lib/movimiento';
+import { ESTADO_CORRIDA } from '../lib/etiquetas';
 
 // ---------------------------------------------------------------- búsquedas
 
@@ -33,7 +34,8 @@ const FILAS = 8;
 export function BusquedasDeLaIteracion({ busquedas, consultas, onVerTodas }: { busquedas: Busqueda[]; consultas: number; onVerTodas?: () => void }) {
   const [filtro, setFiltro] = useState<Filtro>('todas');
   const presentes = FILTROS.filter((f) => busquedas.some((b) => filtroDe(b.base) === f.clave));
-  const vistas = busquedas.filter((b) => filtro === 'todas' || filtroDe(b.base) === filtro);
+  const efectivo = presentes.some((f) => f.clave === filtro) ? filtro : 'todas';
+  const vistas = busquedas.filter((b) => efectivo === 'todas' || filtroDe(b.base) === efectivo);
   return (
     <section className="esc-tarjeta esc-busquedas" aria-label={tr('Lo que va encontrando')}>
       <header className="esc-tarjeta-cabecera">
@@ -42,11 +44,11 @@ export function BusquedasDeLaIteracion({ busquedas, consultas, onVerTodas }: { b
           <p>{tr('Cada búsqueda de esta iteración: dónde buscó, cuánto salió y cuánto sirve.')}</p>
         </div>
         <div className="esc-segmentos" role="group" aria-label={tr('Filtrar por base')}>
-          <button type="button" aria-pressed={filtro === 'todas'} onClick={() => setFiltro('todas')}>
+          <button type="button" aria-pressed={efectivo === 'todas'} onClick={() => setFiltro('todas')}>
             {trp('Todas · {n}', { n: busquedas.length })}
           </button>
           {presentes.map((f) => (
-            <button key={f.clave} type="button" aria-pressed={filtro === f.clave} onClick={() => setFiltro(f.clave)}>
+            <button key={f.clave} type="button" aria-pressed={efectivo === f.clave} onClick={() => setFiltro(f.clave)}>
               {f.clave === 'otra' ? tr(f.nombre) : f.nombre}
             </button>
           ))}
@@ -54,18 +56,21 @@ export function BusquedasDeLaIteracion({ busquedas, consultas, onVerTodas }: { b
       </header>
       <ul className="esc-filas">
         {vistas.slice(0, FILAS).map((b) => {
-          const texto = b.salen > 0 ? b.enteros / b.salen : 0;
-          const rel = b.salen > 0 ? Math.max(0, b.sirven - b.enteros) / b.salen : 0;
+          const texto = b.salen !== null && b.salen > 0 ? Math.min(1, (b.enteros ?? 0) / b.salen) : 0;
+          const rel = b.salen !== null && b.salen > 0 ? Math.min(1 - texto, Math.max(0, (b.sirven ?? 0) - (b.enteros ?? 0)) / b.salen) : 0;
+          const valor = (n: number | null) => n === null ? '?' : formatearEntero(n);
           return (
             <li key={b.id} className={`esc-fila esc-base-${b.base}`}>
               <span className="esc-fila-fuente">
                 <i aria-hidden="true" />
                 {b.fuente}
+                {b.estado !== 'hecha' && <small>{tr(({ en_curso: 'en curso', fallida: 'no pude comprobar', detenida: 'detenida', registrada: 'registrada' } as const)[b.estado])}</small>}
               </span>
               <span className="esc-fila-medio">
                 <span className="esc-fila-titulo" title={b.titulo}>
                   {b.titulo}
                 </span>
+                {b.compartida && <small>{tr('Cribado compartido con la consulta relajada')}</small>}
                 <span className="esc-rendimiento" aria-hidden="true">
                   <i className="esc-rend-texto" style={{ width: `${texto * 100}%` }} />
                   <i className="esc-rend-rel" style={{ width: `${rel * 100}%` }} />
@@ -73,15 +78,15 @@ export function BusquedasDeLaIteracion({ busquedas, consultas, onVerTodas }: { b
               </span>
               <span className="esc-fila-cifras">
                 <span>
-                  <b>{formatearEntero(b.salen)}</b>
+                  <b>{valor(b.salen)}</b>
                   <small>{tr('salen')}</small>
                 </span>
-                <span className={b.sirven > 0 ? 'esc-cifra-viva' : ''}>
-                  <b>{formatearEntero(b.sirven)}</b>
+                <span className={(b.sirven ?? 0) > 0 ? 'esc-cifra-viva' : ''}>
+                  <b>{valor(b.sirven)}</b>
                   <small>{tr('sirven')}</small>
                 </span>
-                <span className={b.enteros > 0 ? 'esc-cifra-viva' : ''}>
-                  <b>{formatearEntero(b.enteros)}</b>
+                <span className={(b.enteros ?? 0) > 0 ? 'esc-cifra-viva' : ''}>
+                  <b>{valor(b.enteros)}</b>
                   <small>{tr('enteros')}</small>
                 </span>
               </span>
@@ -89,9 +94,11 @@ export function BusquedasDeLaIteracion({ busquedas, consultas, onVerTodas }: { b
           );
         })}
       </ul>
+      {busquedas.length === 0 && <p className="esc-pistas-detalle">{tr('Todavía no hay consultas registradas en esta iteración.')}</p>}
+      {busquedas.some((b) => b.salen === null || b.sirven === null || b.enteros === null) && <p className="esc-pistas-detalle">{tr('? indica que ese resultado todavía no está registrado; no significa cero.')}</p>}
       {onVerTodas && (
         <button type="button" className="esc-enlace" onClick={onVerTodas}>
-          {trp('Ver las {n} búsquedas y sus consultas exactas', { n: Math.max(consultas, busquedas.length) })}
+          {trp('Ver las {n} consultas exactas de toda la corrida', { n: consultas })}
           <IconoEsc nombre="chevron-right" size={14} />
         </button>
       )}
@@ -153,8 +160,8 @@ export function LoQueLlevaGastado({ corrida, usd, usdTitle, filas }: { corrida: 
       </div>
       <div className="esc-gasto-rejilla">
         <div title={usdTitle}>
-          <b>{usd !== null ? coma(usd.toFixed(2)) : '0'}</b>
-          <span>{tr('USD gastados')}</span>
+          <b>{usd !== null ? coma(usd.toFixed(2)) : '?'}</b>
+          <span>{usd === null ? tr('coste sin registrar') : g.usdReal !== undefined ? tr('USD facturados') : tr('USD estimados')}</span>
         </div>
         <div>
           <b>{formatearEntero(g.articulosLeidos)}</b>
@@ -195,14 +202,14 @@ export function ValorContexto({ corrida, ahora }: { corrida: Corrida; ahora: num
 const ALTO_BARRAS = 112;
 const MAX_POR_VENIR = 8;
 
-export function LaCorridaEnElTiempo({ tramos, maxIteraciones, limites, horas }: { tramos: TramoIteracion[]; maxIteraciones: number | null; limites: Limite[]; horas: number | null }) {
+export function LaCorridaEnElTiempo({ tramos, maxIteraciones, limites, horas, terminada = false }: { tramos: TramoIteracion[]; maxIteraciones: number | null; limites: Limite[]; horas: number | null; terminada?: boolean }) {
   const reducido = useMovimientoReducido();
   const maxLlamadas = Math.max(1, ...tramos.map((t) => t.llamadas));
   const maxHechos = Math.max(1, ...tramos.map((t) => t.hechos ?? 0));
   const ultimo = tramos.length > 0 ? tramos[tramos.length - 1]!.numero : 0;
-  const porVenir = maxIteraciones && maxIteraciones > ultimo ? Array.from({ length: Math.min(MAX_POR_VENIR, maxIteraciones - ultimo) }, (_, i) => ultimo + i + 1) : [];
+  const porVenir = !terminada && maxIteraciones && maxIteraciones > ultimo ? Array.from({ length: Math.min(MAX_POR_VENIR, maxIteraciones - ultimo) }, (_, i) => ultimo + i + 1) : [];
   const metas = [horas ? formatearDuracion(horas * 3_600_000) : null, maxIteraciones ? (maxIteraciones === 1 ? tr('1 iteración') : trp('{n} iteraciones', { n: maxIteraciones })) : null].filter((x): x is string => x !== null);
-  const alto = (v: number, max: number) => Math.max(6, Math.round((v / max) * ALTO_BARRAS));
+  const alto = (v: number, max: number) => v > 0 ? Math.max(6, Math.round((v / max) * ALTO_BARRAS)) : 0;
   return (
     <section className="esc-tarjeta esc-tiempo-corrida" aria-label={tr('La corrida en el tiempo')}>
       <header className="esc-tarjeta-cabecera">
@@ -230,7 +237,7 @@ export function LaCorridaEnElTiempo({ tramos, maxIteraciones, limites, horas }: 
             <li key={t.numero} className={`esc-tramo-it ${t.abierta ? 'esc-tramo-it-abierta' : ''}`}>
               <div className="esc-tramo-it-cabecera">
                 <strong>{trp('Iteración {n}', { n: t.numero })}</strong>
-                <span>{t.abierta ? tr('en curso') : tr('cerrada')}</span>
+                <span>{t.estado === 'cerrada' ? tr('cerrada') : ESTADO_CORRIDA[t.estado]}</span>
               </div>
               <div className="esc-barras" aria-hidden="true">
                 <motion.i
@@ -250,8 +257,8 @@ export function LaCorridaEnElTiempo({ tramos, maxIteraciones, limites, horas }: 
                 <span>
                   <b>{formatearEntero(t.llamadas)}</b> {tr('llamadas')}
                 </span>
-                <span className="esc-tramo-it-hechos">{t.hechos === null ? tr('en curso') : t.hechos === 1 ? tr('1 hecho') : trp('{n} hechos', { n: t.hechos })}</span>
-                {t.usd !== null && <small>{trp('{v} USD', { v: coma(t.usd.toFixed(2)) })}</small>}
+                <span className="esc-tramo-it-hechos">{t.hechos === null ? tr('hechos sin cierre registrado') : t.hechos === 1 ? tr('1 hecho') : trp('{n} hechos', { n: t.hechos })}</span>
+                {t.usd !== null && <small>{trp('{v} USD estimados', { v: coma(t.usd.toFixed(2)) })}</small>}
               </div>
             </li>
           ))}
@@ -278,7 +285,7 @@ export function LaCorridaEnElTiempo({ tramos, maxIteraciones, limites, horas }: 
                 </li>
               ))}
             </ul>
-            <small>{tr('Lo primero que llegue pausa la corrida y te avisa.')}</small>
+            <small>{tr('La condición de parada termina la corrida; el tope de llamadas la pausa para que puedas ampliarlo.')}</small>
           </aside>
         )}
       </div>

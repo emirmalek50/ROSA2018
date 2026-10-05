@@ -9,7 +9,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { estadoDeMuestra } from '../datos/muestra';
-import type { EstadoRosa } from '../datos/tipos';
+import type { ConsultaBusqueda, EstadoRosa } from '../datos/tipos';
 import { Corrida } from './Corrida';
 
 vi.mock('../datos/almacen', () => ({ acciones: new Proxy({}, { get: () => () => undefined }) }));
@@ -61,6 +61,41 @@ afterEach(async () => {
 });
 
 describe('la pantalla de la corrida', () => {
+  it('actualiza búsquedas, consumo y fase con un nuevo estado del servidor sin remontar la corrida', async () => {
+    const base = estadoDeMuestra();
+    const inv = { ...base.investigaciones[0]!, condicionParada: '2 iteraciones', mision: null };
+    const corrida = base.corridas.find((c) => c.investigacionId === inv.id)!;
+    const actual = base.iteraciones.find((i) => i.corridaId === corrida.id)!;
+    const plan = [{ ...actual.plan[0]!, id: 'busqueda-real', tipo: 'literatura', estado: 'en_curso' as const, titulo: 'Buscar evidencia de tau' }];
+    const q: ConsultaBusqueda = { base: 'PubMed', consulta: 'MAPT', tema: 'Patología de tau', fecha: Date.now(), resultados: 87, iteracion: 1, pistaId: 'pista-real' };
+    const itActual = { ...actual, numero: 1, plan, planAprobado: true, terminadaEn: null, pistas: [{ ...actual.pistas[0]!, id: 'pista-real', pasoId: 'busqueda-real', estado: 'en_curso' as const, fuente: 'PubMed', titulo: 'Patología de tau', resumen: '87 resultados en PubMed; 30 para cribar', transcripcion: [{ t: 1000, tipo: 'resultado' as const, texto: '87 resultados en PubMed; 30 para cribar' }] }] };
+    const real: EstadoRosa = { ...base, conexion: 'en_linea', investigaciones: [inv], corridas: [{ ...corrida, estado: 'en_marcha', iteracionActual: 1, empezadaEn: Date.now(), parada: null, gasto: { ...corrida.gasto, llamadas: 20, segundos: 1, usd: 6.5, usdReal: 1 }, progreso: [], busqueda: { ...corrida.busqueda, consultas: [q] } }], iteraciones: [itActual], solicitudes: [], incidencias: [] };
+    const pintar = async (estado: EstadoRosa) => {
+      await act(async () => root.render(<Corrida inv={inv} estado={estado} ahora={Date.now()} irA={() => undefined} />));
+      await esperarPintado(100);
+    };
+    await pintar(real);
+    const busquedas = () => nodo.querySelector('.esc-busquedas')!;
+    expect(busquedas().textContent).toContain('Todas · 1');
+    expect(busquedas().textContent).toContain('87');
+    expect(busquedas().textContent).toContain('?');
+    expect(nodo.querySelector('.esc-parada')?.textContent).toContain('0 de 2');
+    const pausada: EstadoRosa = { ...real, corridas: [{ ...real.corridas[0]!, estado: 'pausada_por_presupuesto', gasto: { ...real.corridas[0]!.gasto, llamadas: 30 }, busqueda: { ...real.corridas[0]!.busqueda, consultas: [{ ...q, relevantes: 12, textoCompleto: 4 }] } }], iteraciones: [{ ...itActual, pistas: [{ ...itActual.pistas[0]!, estado: 'detenida', resumen: 'Presupuesto agotado' }] }] };
+    await pintar(pausada);
+    expect(busquedas().querySelectorAll('.esc-fila')).toHaveLength(1);
+    expect(busquedas().textContent).toContain('12');
+    expect(busquedas().textContent).not.toContain('?');
+    expect(nodo.querySelector('.esc-gasto-llamadas b')?.textContent).toBe('30');
+    expect(nodo.querySelector('.esc-tramo-it-cabecera')?.textContent).toContain('Pausada');
+    expect(nodo.querySelectorAll('.esc-actor-activo')).toHaveLength(0);
+    expect(nodo.querySelector('.esc-directo')?.textContent).toBe('en pausa');
+    expect(nodo.querySelector('.presupuesto')?.textContent).not.toContain('Al ritmo actual');
+    await pintar({ ...pausada, corridas: [{ ...pausada.corridas[0]!, estado: 'detenida', terminadaEn: Date.now() }] });
+    expect(nodo.querySelector('.esc-tramo-it-cabecera')?.textContent).toContain('Detenida');
+    expect(nodo.querySelectorAll('.esc-tramo-futuro')).toHaveLength(0);
+    expect(nodo.querySelector('.presupuesto')?.textContent).not.toContain('Al ritmo actual');
+  });
+
   it('pasa de "sin corridas" a "corrida 1" sin romper las reglas de los hooks', async () => {
     const base = estadoDeMuestra();
     const inv = base.investigaciones[0]!;

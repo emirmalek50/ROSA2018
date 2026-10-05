@@ -321,12 +321,41 @@ def test_consulta_literatura_rescata_la_primaria_nombrada_y_relaja_la_consulta(m
         # El registro de consultas: la estrecha con su relajación, y la relajada con su origen; ambas en las hechas.
         regs = [q for q in c["busqueda"]["consultas"] if q["iteracion"] == 1]
         assert [q["consulta"] for q in regs] == [estrecha, relajada]
+        # Los paneles vivos leen cifras estructuradas, sin interpretar el resumen.
+        assert regs[0]["pistaId"] == regs[1]["pistaId"]
+        assert any(p["id"] == regs[0]["pistaId"] for p in ctx.iteracion()["pistas"])
+        assert [q["textoCompleto"] for q in regs] == [r["textoCompleto"], r["textoCompleto"]]
         assert regs[0]["relajadaA"] == relajada and regs[0]["resultadosRelajada"] == 40 and regs[0]["resultados"] == 2 and regs[0]["relevantes"] == 2
         assert regs[1]["relajadaDe"] == estrecha and regs[1]["relevantes"] == 2 and "demasiadoAmplia" not in regs[0]
         assert c["_consultasHechas"] == [estrecha, relajada]
         textos = _pista_textos(ctx)
         assert "se relanza una vez sin la última cláusula" in textos and "Vuelven al modelo aunque estaban en la caché de exclusiones" in textos and "evoke+" in textos
         assert "1 artículos ya excluidos por un modelo" in textos
+    finally:
+        al.cerrar()
+
+
+def test_consulta_interrumpida_no_publica_cero_textos_completos(monkeypatch):
+    from rosa.modulos.contador import PresupuestoAgotado
+
+    al = _almacen(con_previa=False)
+    try:
+        async def buscar(consulta, maximo=10, solo_preprints=False):
+            return [_articulo("A, 2026", "GFAP", "10.1/a")], 10
+
+        async def llamar(self, rol, programa, **kw):
+            raise PresupuestoAgotado("Se alcanzó el tope")
+
+        monkeypatch.setattr(PASOS.europepmc, "buscar", buscar)
+        monkeypatch.setattr(Ctx, "llamar", llamar)
+        ctx = _ctx(al)
+        import pytest
+
+        with pytest.raises(PresupuestoAgotado):
+            asyncio.run(PASOS._consulta_literatura(ctx, ctx.iteracion()["plan"][0], {"base": "europepmc", "consulta": "gfap", "tema": "GFAP", "modo": "foco"}, "Objetivo: GFAP"))
+        q = ctx.corrida()["busqueda"]["consultas"][-1]
+        assert q["resultados"] == 10 and "textoCompleto" not in q
+        assert next(p for p in ctx.iteracion()["pistas"] if p["id"] == q["pistaId"])["estado"] == "detenida"
     finally:
         al.cerrar()
 

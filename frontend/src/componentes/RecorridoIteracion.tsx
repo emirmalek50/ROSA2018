@@ -46,7 +46,7 @@ export function RecorridoIteracion({ iteracion, trabajando, onDetenerPista, plan
   const plan = iteracion.plan;
   const foco = pasoFoco(iteracion);
   const iFoco = foco && foco.estado !== 'hecho' ? plan.indexOf(foco) : plan.length;
-  const avance = foco ? avanceDe(iteracion, foco) : null;
+  const avance = foco ? avanceDe(iteracion, foco, trabajando) : null;
   const fases = plan.map((p) => faseDe(p, foco));
   const n = (f: Fase) => fases.filter((x) => x === f).length;
   const ids = new Set(plan.map((p) => p.id));

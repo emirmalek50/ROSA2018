@@ -18,6 +18,7 @@ import { nombreDeModelo, NOMBRE_ROL } from './VigilanteModelos';
 import { avanceDe, elencoDe, fechaLarga, haceCuanto, latidoDe, pasoFoco, pistaFoco, relojDe } from '../lib/escenario';
 import { formatearDuracion, formatearEntero } from '../lib/formato';
 import { tr, trp } from '../lib/idioma';
+import { proponiendoPlan } from '../lib/etiquetas';
 import { useMovimientoReducido } from '../lib/movimiento';
 
 /** El nombre de cada tipo de paso, como lo lee una persona. */
@@ -63,6 +64,7 @@ interface Props {
   ahora: number;
   /** La etiqueta canónica del estado (`etiquetaCorrida`). */
   etiqueta: string;
+  topes?: { horas: number | null; iteraciones: number | null };
   /** Por qué el reloj está parado, o null si corre. */
   relojParado: string | null;
   /** Cuántas cosas esperan a una persona (permisos, incidencias). */
@@ -70,25 +72,26 @@ interface Props {
   acciones?: ReactNode;
 }
 
-export function Escenario({ corrida, iteracion, estado, segundos, ahora, etiqueta, relojParado, reclaman, acciones }: Props) {
+export function Escenario({ corrida, iteracion, estado, segundos, ahora, etiqueta, topes, relojParado, reclaman, acciones }: Props) {
   const reducido = useMovimientoReducido();
   const pulso = pulsoDe(corrida.estado);
   const trabajando = corrida.estado === 'en_marcha';
-  const conPlan = iteracion !== null && iteracion.planAprobado && iteracion.plan.length > 0;
+  const conPlan = iteracion !== null && iteracion.planAprobado && iteracion.plan.length > 0 && !proponiendoPlan(corrida, iteracion);
   const paso = conPlan ? pasoFoco(iteracion) : null;
   const pista = paso ? pistaFoco(iteracion, paso) : null;
-  const avance = paso ? avanceDe(iteracion, paso) : null;
+  const avance = paso ? avanceDe(iteracion, paso, trabajando) : null;
   const que = queHaceAhora(corrida, iteracion);
-  const enCurso = trabajando && paso?.estado === 'en_curso';
+  const enCurso = trabajando && iteracion?.terminadaEn === null && (paso?.estado === 'en_curso' || pista?.estado === 'en_curso');
+  const pistaViva = !!(enCurso && pista?.estado === 'en_curso');
   const titulo = paso ? paso.titulo : que.titulo;
   const detalle = paso ? paso.detalle || que.detalle : que.detalle;
   const indice = paso && iteracion ? iteracion.plan.indexOf(paso) : -1;
   const latido = latidoDe(pista, 8);
   const elenco = elencoDe(estado, iteracion, pista, trabajando, nombreDeModelo);
   const empezo = haceCuanto(corrida.empezadaEn, ahora);
-  const horas = corrida.parada?.horas ?? null;
-  const maxIteraciones = corrida.parada?.iteraciones ?? null;
-  const numeroIteracion = iteracion?.numero ?? corrida.iteracionActual;
+  const horas = topes?.horas ?? corrida.parada?.horas ?? null;
+  const maxIteraciones = topes?.iteraciones ?? corrida.parada?.iteraciones ?? null;
+  const numeroIteracion = Math.max(iteracion?.numero ?? 0, corrida.iteracionActual);
   const ceja = enCurso || !conPlan ? tr('Ahora mismo') : pulso === 'quieto' ? tr('Dónde terminó') : tr('Dónde se quedó');
 
   return (
@@ -185,12 +188,12 @@ export function Escenario({ corrida, iteracion, estado, segundos, ahora, etiquet
             <header>
               <IconoEsc nombre="radio" size={14} />
               <strong>{tr('Latido de la pista')}</strong>
-              <span className={`esc-directo ${trabajando ? '' : 'esc-directo-quieto'}`}>
+              <span className={`esc-directo ${pistaViva ? '' : 'esc-directo-quieto'}`}>
                 <i aria-hidden="true" />
-                {trabajando ? tr('en directo') : tr('en pausa')}
+                {pistaViva ? tr('en directo') : pulso === 'quieto' || pista?.estado === 'hecha' || pista?.estado === 'fallida' ? tr('registro') : tr('en pausa')}
               </span>
             </header>
-            <ol aria-live={trabajando ? 'polite' : undefined}>
+            <ol aria-live={pistaViva ? 'polite' : undefined}>
               <AnimatePresence initial={false}>
                 {latido.map((l) => (
                   <motion.li

@@ -53,7 +53,7 @@ export function queHaceAhora(corrida: Corrida, iteracion: Iteracion | null): { t
       : { titulo: tr('Escribiendo el plan de la iteración'), detalle: tr('Dos o tres llamadas al cerebro; suele tardar uno o dos minutos.') };
   }
   if (corrida.estado === 'esperando_aprobacion') return { titulo: tr('ROSA2018 necesita tu permiso'), detalle: tr('Nada de lo pedido ocurre hasta que respondas.') };
-  if (corrida.estado === 'pausada_por_presupuesto') return { titulo: tr('Se acabó el tope de llamadas'), detalle: corrida.presupuesto.motivoPausa || tr('Amplía el tope para que siga.') };
+  if (corrida.estado === 'pausada_por_presupuesto') return { titulo: tr('Corrida pausada por presupuesto'), detalle: corrida.presupuesto.motivoPausa || tr('Amplía el tope para que siga.') };
   if (corrida.estado === 'esperando_modelo') return { titulo: tr('Esperando a que el modelo vuelva'), detalle: tr('ROSA2018 reintenta sola con el mismo modelo; el reloj no corre.') };
   if (corrida.estado === 'pausada') return { titulo: tr('En pausa'), detalle: corrida.motivoPausaPropia || tr('Reanuda cuando quieras; el reloj no corre.') };
   if (corrida.estado === 'detenida') return { titulo: tr('Corrida detenida'), detalle: corrida.motivoCierre || tr('No se reanuda: para seguir hay que arrancar una nueva.') };

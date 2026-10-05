@@ -550,6 +550,14 @@ export interface ConsultaBusqueda {
   consulta: string;
   fecha: number;
   resultados: number;
+  /** Iteración y pista que ejecutaron la consulta. Ausentes en registros antiguos. */
+  iteracion?: number;
+  pistaId?: Id;
+  tema?: string;
+  /** Textos completos recuperados; ausente mientras no se terminó la lectura. */
+  textoCompleto?: number;
+  /** La consulta original y su relajación comparten el cribado. */
+  relajadaDe?: string;
   /** Ausente en consultas anteriores al 16 de septiembre de 2026: foco. */
   modo?: ModoBusqueda;
   /** Solo en amplitud: qué podría cambiar si aparece algo. */

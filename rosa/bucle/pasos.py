@@ -1236,6 +1236,24 @@ def _fundir_articulos(base_lista: list[dict[str, Any]], mas: list[dict[str, Any]
     return nuevos
 
 
+def _anotar_textos_completos(ctx: Ctx, pista_id: str, cantidad: int) -> None:
+    """Publica el resultado de lectura en la consulta exacta, también su relajación.
+
+    Una lectura interrumpida no pasa por aquí: ausencia no significa cero.
+    La interfaz no tiene que interpretar el resumen para las consultas nuevas.
+    """
+    def anotar(e: dict[str, Any]) -> bool:
+        c = next(x for x in e["corridas"] if x["id"] == ctx.corrida_id)
+        cambiadas = False
+        for q in c["busqueda"]["consultas"]:
+            if q.get("pistaId") == pista_id and q.get("iteracion") == ctx.numero:
+                q["textoCompleto"] = cantidad
+                cambiadas = True
+        return cambiadas
+
+    ctx.mutar(anotar, "consulta_lectura")
+
+
 async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[str, Any], preguntas: str) -> dict[str, int]:
     base = consulta["base"]
     nombre_base = NOMBRES_BASE[base]
@@ -1294,7 +1312,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
 
         def anotar(e: dict[str, Any]) -> bool:
             c = next(x for x in e["corridas"] if x["id"] == ctx.corrida_id)
-            registro = {"base": nombre_base, "consulta": consulta["consulta"], "fecha": ahora, "ms": ms_consulta, "resultados": total, "iteracion": ctx.numero, "tema": consulta["tema"], "modo": modo, "porque": (consulta.get("porque") or "")[:300], "desdeFecha": consulta.get("desde_fecha")}
+            registro = {"base": nombre_base, "consulta": consulta["consulta"], "fecha": ahora, "ms": ms_consulta, "resultados": total, "iteracion": ctx.numero, "pistaId": pista.id, "tema": consulta["tema"], "modo": modo, "porque": (consulta.get("porque") or "")[:300], "desdeFecha": consulta.get("desde_fecha")}
             if consulta.get("_acotadaDe"):
                 registro["acotadaDe"] = consulta["_acotadaDe"][:300]
             if relajada:
@@ -1303,7 +1321,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             c["busqueda"]["consultas"].append(registro)
             # La relajada solo cuenta como hecha si la base respondió: si no, se podrá repetir.
             if relajada and total_relajada is not None:
-                c["busqueda"]["consultas"].append({"base": nombre_base, "consulta": relajada, "fecha": ahora, "resultados": total_relajada, "iteracion": ctx.numero, "tema": consulta["tema"], "modo": modo, "porque": "", "desdeFecha": consulta.get("desde_fecha"), "relajadaDe": consulta["consulta"]})
+                c["busqueda"]["consultas"].append({"base": nombre_base, "consulta": relajada, "fecha": ahora, "resultados": total_relajada, "iteracion": ctx.numero, "pistaId": pista.id, "tema": consulta["tema"], "modo": modo, "porque": "", "desdeFecha": consulta.get("desde_fecha"), "relajadaDe": consulta["consulta"]})
             c["busqueda"]["identificados"] += resultado["identificados"]
             hechas = c.setdefault("_consultasHechas", [])
             hechas.append(consulta["consulta"])
@@ -1314,6 +1332,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
         ctx.mutar(anotar, "consulta")
         pista.resultado(f"{total} resultados en {nombre_base}; {len(articulos)} para cribar")
         if not articulos:
+            _anotar_textos_completos(ctx, pista.id, 0)
             pista.cerrar(f"{total} resultados, ninguno traído", "hecha")
             return resultado
 
@@ -1515,6 +1534,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             pista.resultado(f"{a['referencia']} (relevancia {puntuacion}): {motivo[:100]}")
 
         resultado["msFuentes"] += max(0, P.ahora_ms() - t_fuentes)
+        _anotar_textos_completos(ctx, pista.id, resultado["textoCompleto"])
         pista.cerrar(f"{total} resultados, {len(relevantes)} relevantes, {resultado['textoCompleto']} con texto completo, {(P.ahora_ms() - ahora) / 1000:.0f} s en total")
     except PresupuestoAgotado:
         pista.cerrar("Presupuesto agotado: la pista se retoma al ampliarlo", "detenida")

@@ -37,7 +37,7 @@ import { Escenario } from '../componentes/Escenario';
 import { IconoEsc } from '../componentes/IconosEscenario';
 import { RecorridoIteracion } from '../componentes/RecorridoIteracion';
 import { BusquedasDeLaIteracion, DirigirLaCorrida, LaCorridaEnElTiempo, LoQueLlevaGastado, MasDeEstaCorrida, ValorContexto, type FilaGasto, type TarjetaMas } from '../componentes/PanelesCorrida';
-import { busquedasDe, limitesDe, pasoFoco, tramosDe, temaParaProfundizar } from '../lib/escenario';
+import { busquedasDe, limitesDe, pasoFoco, topesDe, tramosDe, temaParaProfundizar } from '../lib/escenario';
 import '../escenario.css';
 import { resumenMetrica } from '../lib/progreso';
 import { tr, trp } from '../lib/idioma';
@@ -261,11 +261,12 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
   const coste = textoCoste(corrida.gasto);
   const relojParado = viva && enEspera ? tr('en espera de una persona') : viva && esperandoModelo ? tr('esperando al modelo') : null;
   const deLaCorrida = estado.iteraciones.filter((i) => i.corridaId === corrida.id);
-  const tramos = tramosDe(deLaCorrida, corrida, usd);
+  const tramos = tramosDe(deLaCorrida, corrida);
+  const topes = topesDe(corrida, inv);
   const cerradas = tramos.filter((t) => !t.abierta);
   const hechosCerradas = cerradas.reduce((s, t) => s + (t.hechos ?? 0), 0);
   const hipotesisEnJuego = estado.hipotesis.filter((h) => h.investigacionId === inv.id && h.estado !== 'descartada').length;
-  const planAprobado = iteracion !== null && iteracion.planAprobado && iteracion.plan.length > 0;
+  const planAprobado = iteracion !== null && iteracion.planAprobado && iteracion.plan.length > 0 && !proponiendoPlan(corrida, iteracion);
   const foco = planAprobado ? pasoFoco(iteracion) : null;
   const iFoco = foco && iteracion ? iteracion.plan.indexOf(foco) : -1;
   const desde = iteracion && iFoco >= 0 && iFoco < iteracion.plan.length - 1 ? trp('Se aplica desde el paso {n}', { n: iFoco + 2 }) : tr('Se aplica desde la próxima iteración');
@@ -289,7 +290,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
     { icono: 'file-text', nombre: tr('Textos completos leídos'), valor: formatearEntero(corrida.busqueda.textoCompleto) },
     { icono: 'lightbulb', nombre: tr('Hipótesis en juego'), valor: formatearEntero(hipotesisEnJuego) },
     ...((corrida.gasto.exaUsd ?? 0) > 0 ? [{ icono: 'globe' as const, nombre: tr('Coste de búsqueda web'), valor: trp('{v} USD', { v: coma((corrida.gasto.exaUsd ?? 0).toFixed(2)) }), title: tr('Búsquedas semánticas en Exa: 7 USD por mil búsquedas y 1 USD por mil páginas. Se suma al coste por decisión.') }] : []),
-    { icono: 'cpu', nombre: tr('Cómputo acumulado'), valor: formatearDuracion(segundosDeCorrida * 1000) || '0 s', title: tr('Tiempo de trabajo: reloj de pared menos la espera a una persona y las pausas del proceso; es lo que se compara con el tope en horas.') },
+    { icono: 'cpu', nombre: tr('Tiempo de trabajo'), valor: formatearDuracion(segundosDeCorrida * 1000) || '0 s', title: tr('Tiempo de trabajo: reloj de pared menos la espera a una persona y las pausas del proceso; es lo que se compara con el tope en horas.') },
     { icono: 'gauge', nombre: tr('Contexto ocupado'), valor: <ValorContexto corrida={corrida} ahora={ahora} /> },
   ];
 
@@ -309,6 +310,7 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
         segundos={segundosDeCorrida}
         ahora={ahora}
         etiqueta={etiquetaCorrida(corrida, iteracion)}
+        topes={topes}
         relojParado={relojParado}
         reclaman={pendientes.length + incidenciasPendientes.length}
         acciones={
@@ -482,11 +484,11 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
       )}
 
       <div className="esc-dos">
-        <BusquedasDeLaIteracion busquedas={busquedasDe(iteracion)} consultas={corrida.busqueda.consultas.length} onVerTodas={abrirPrisma} />
+        <BusquedasDeLaIteracion busquedas={busquedasDe(iteracion, corrida.busqueda.consultas)} consultas={corrida.busqueda.consultas.length} onVerTodas={abrirPrisma} />
         <LoQueLlevaGastado corrida={corrida} usd={usd} usdTitle={coste.title || undefined} filas={filasGasto} />
       </div>
 
-      {tramos.length > 0 && <LaCorridaEnElTiempo tramos={tramos} maxIteraciones={corrida.parada?.iteraciones ?? null} limites={limitesDe(corrida, segundosDeCorrida, iteracion?.numero ?? corrida.iteracionActual)} horas={corrida.parada?.horas ?? null} />}
+      {tramos.length > 0 && <LaCorridaEnElTiempo tramos={tramos} maxIteraciones={topes.iteraciones} limites={limitesDe(corrida, segundosDeCorrida, cerradas.length, inv)} horas={topes.horas} terminada={!viva} />}
 
       <Presupuesto corrida={corrida} onAmpliar={(l) => acciones.ampliarPresupuesto(corrida.id, l)} />
 
@@ -853,7 +855,7 @@ export function costeDeLaCorrida(g: Pick<CorridaTipo['gasto'], 'usd' | 'usdReal'
   const real = typeof g.usdReal === 'number' && Number.isFinite(g.usdReal) ? g.usdReal : null;
   if (real !== null) return real;
   const estimado = typeof g.usd === 'number' && Number.isFinite(g.usd) ? g.usd : null;
-  return estimado !== null && estimado > 0 ? estimado : null;
+  return estimado !== null && estimado >= 0 ? estimado : null;
 }
 
 /** Segundos de trabajo, actualizados cada segundo mientras la corrida trabaja

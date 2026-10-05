@@ -31,7 +31,9 @@ export function Presupuesto({ corrida, onAmpliar }: { corrida: Corrida; onAmplia
       <div className="acciones" style={{ justifyContent: 'space-between' }}>
         <span className="meta">
           {pausada
-            ? tr('Tope alcanzado: la corrida está pausada, no muerta. Amplia el tope para seguir.')
+            ? corrida.presupuesto.motivoPausa || tr('Corrida pausada por presupuesto. Amplía el tope para seguir.')
+            : corrida.estado !== 'en_marcha'
+              ? tr('La corrida no está trabajando: no se estima cuándo llegará al tope.')
             : p.msHastaTope !== null
               ? trp("Al ritmo actual llegas al tope en {msHastaTope}. Una pregunta pendiente tiene prioridad sobre el tope.", { msHastaTope: formatearDuracion(p.msHastaTope) })
               : tr('Sin ritmo medible todavía.')}
