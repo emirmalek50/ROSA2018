@@ -3225,13 +3225,13 @@
   }
 }
 
-/* Con la hoja CERRADA la franja sobra: la proteina vuelve a ocupar todo. */
+/* Al cerrar la hoja o esconderla por el zoom, su franja queda libre para
+   el visor: la proteína no se recorta contra un panel invisible. */
 @media (max-width: 1500px) and (min-width: 981px) {
-  .lab-lamina:has(.lab-hoja-cerrada) {
+  .lab-lamina:has(> .lab-hoja:is(.lab-hoja-cerrada, .lab-fuera)) {
     --lab-franja: 0px;
   }
-  .lab-lamina:has(.lab-hoja-cerrada) > .lab-mando,
-  .lab-lamina:has(.lab-hoja-cerrada) .lab-leyenda {
+  .lab-lamina:has(> .lab-hoja:is(.lab-hoja-cerrada, .lab-fuera)) > :is(.lab-mando, .lab-leyenda) {
     right: 30px;
   }
 }
