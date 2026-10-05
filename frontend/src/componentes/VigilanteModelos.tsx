@@ -136,6 +136,10 @@ export interface PropsVigilante {
   ahora: number;
   /** El "Reintentar ahora": `acciones.reanudarCorrida(corrida.id)`. */
   onReintentar?: () => void;
+  /** Solo se pinta si hay algo que contar: un modelo que no responde o tarda,
+   *  la espera de `esperando_modelo` o una incidencia automática. Con todos
+   *  respondiendo no ocupa sitio (la corrida en vivo, 5 de octubre de 2026). */
+  soloSiAlgoFalla?: boolean;
 }
 
 /** El resumen de la cabecera: separa los que no responden (rojo) de los que
@@ -159,12 +163,13 @@ export function resumenDeSalud(filas: { rol: string; s: SaludModelo }[]): string
  *  Con la corrida viva y sin llamadas dice "Sin llamadas todavía". En una
  *  corrida cerrada solo se enseña lo que sí es suyo: una incidencia
  *  `modelo_sin_respuesta` que quedó pendiente al cerrar, si la hay. */
-export function VigilanteModelos({ salud, incidencias = [], estadoCorrida, espera = null, ahora, onReintentar }: PropsVigilante) {
+export function VigilanteModelos({ salud, incidencias = [], estadoCorrida, espera = null, ahora, onReintentar, soloSiAlgoFalla = false }: PropsVigilante) {
   const viva = estadoCorrida !== 'detenida' && estadoCorrida !== 'terminada';
   const filas = viva ? filasDeSalud(salud) : [];
   const automaticas = incidencias.filter((i) => i.tipo === 'modelo_sin_respuesta' && i.estado === 'pendiente').sort((a, b) => b.creadaEn - a.creadaEn);
   const esperando = estadoCorrida === 'esperando_modelo';
   if (!viva && automaticas.length === 0) return null;
+  if (soloSiAlgoFalla && !esperando && automaticas.length === 0 && filas.every(({ s }) => significado(s.estado).tono === 'ok')) return null;
   return (
     <section className={`vigilante${esperando ? ' vigilante-esperando' : ''}`} aria-label={tr("Modelos")}>
       <div className="vigilante-cabecera">

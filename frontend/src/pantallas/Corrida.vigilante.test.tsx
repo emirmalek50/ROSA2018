@@ -145,6 +145,12 @@ describe('la franja de modelos en la pantalla de la corrida', () => {
     expect(todoElTexto()).not.toMatch(SIN_TILDE);
   });
 
+  it('con todos los modelos respondiendo, la franja no se pinta', async () => {
+    const base = estadoDeMuestra();
+    await pintar({ ...base, saludModelos: { cerebro: OK, juez: OK, volumen: OK } });
+    expect(nodo.querySelector('section[aria-label="Modelos"]')).toBeNull();
+  });
+
   it('la incidencia modelo_sin_respuesta pendiente no va en "Algo impide seguir": se lista en la franja como "resolviéndose solo"', async () => {
     const base = estadoDeMuestra();
     const corrida = laCorrida(base);
@@ -176,7 +182,7 @@ describe('la franja de modelos en la pantalla de la corrida', () => {
     expect(nodo.textContent).toContain('resolviéndose solo');
   });
 
-  it('un registro anterior al vigilante (sin saludModelos ni esperandoModelo) no rompe y la franja dice "Sin llamadas todavía"', async () => {
+  it('un registro anterior al vigilante (sin saludModelos ni esperandoModelo) no rompe y la franja no se pinta', async () => {
     const base = estadoDeMuestra();
     const antiguo: EstadoRosa = { ...base, saludModelos: undefined, corridas: base.corridas.map((c) => ({ ...c, esperandoModelo: undefined })) };
     const errores: unknown[] = [];
@@ -184,7 +190,8 @@ describe('la franja de modelos en la pantalla de la corrida', () => {
     console.error = (...args: unknown[]) => errores.push(args);
     try {
       await pintar(conCorrida(antiguo, { estado: 'en_marcha' }));
-      expect(nodo.textContent).toContain('Sin llamadas todavía');
+      // Sin nada que contar, la franja no ocupa sitio en la corrida en vivo.
+      expect(nodo.querySelector('section[aria-label="Modelos"]')).toBeNull();
       expect(nodo.textContent).toContain('Corrida');
       // La misma raíz pasa a esperando_modelo sin registro de qué espera (el
       // servidor la devolvería a en marcha al migrar; la interfaz no se cae).

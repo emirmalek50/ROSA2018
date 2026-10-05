@@ -1,4 +1,6 @@
-// La tarjeta de actividad en vivo de una corrida (28 de septiembre de 2026).
+// Piezas de la corrida en vivo (28 de septiembre de 2026): los resortes, el
+// pulso, la frase de qué hace ROSA2018 y la cifra que rueda. La tarjeta que
+// las pintaba la sustituyó el escenario (Escenario.tsx, 5 de octubre de 2026).
 //
 // Lo que faltaba: la pantalla se llama "Corrida en vivo" y en ningún sitio
 // decía qué estaba haciendo ROSA2018 en ese momento. Había que deducirlo
@@ -12,11 +14,10 @@
 // Patrón de las Live Activities de iOS: un estado por tarjeta, una sola cosa
 // importante, y el movimiento solo donde de verdad está pasando algo.
 
-import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { Corrida, Iteracion, PasoPlan } from '../datos/tipos';
+import { useEffect, useRef, useState } from 'react';
+import type { Corrida, Iteracion } from '../datos/tipos';
 import { useMovimientoReducido } from '../lib/movimiento';
-import { coma, formatearDuracion, formatearEntero } from '../lib/formato';
+import { coma, formatearEntero } from '../lib/formato';
 import { tr, trp } from '../lib/idioma';
 
 // Los resortes de SwiftUI, convertidos a los parámetros de `motion` con las
@@ -72,7 +73,7 @@ export function queHaceAhora(corrida: Corrida, iteracion: Iteracion | null): { t
 
 /** Una cifra que rueda hasta su valor y no baila: los dígitos van en cifra
  *  tabular, así el ancho no cambia mientras corre. */
-function Cifra({ valor, decimales = 0, sufijo }: { valor: number; decimales?: number; sufijo?: string }) {
+export function Cifra({ valor, decimales = 0, sufijo }: { valor: number; decimales?: number; sufijo?: string }) {
   const reducido = useMovimientoReducido();
   const [mostrado, setMostrado] = useState(valor);
   const desde = useRef(valor);
@@ -105,150 +106,5 @@ function Cifra({ valor, decimales = 0, sufijo }: { valor: number; decimales?: nu
       {texto}
       {sufijo ? <small>{sufijo}</small> : null}
     </>
-  );
-}
-
-function Vital({ nombre, children, title, pie }: { nombre: string; children: ReactNode; title?: string; pie?: ReactNode }) {
-  return (
-    <div className="vivo-vital" title={title}>
-      <div className="vivo-vital-cifra">{children}</div>
-      <div className="vivo-vital-nombre">{nombre}</div>
-      {pie}
-    </div>
-  );
-}
-
-/** El tope gastado, en barra. Las HIG reservan los anillos a los de Actividad
- *  (Mover, Ejercicio, De pie): usarlos para otra cosa los vacía de sentido. */
-function BarraTope({ fraccion }: { fraccion: number }) {
-  const f = Math.max(0, Math.min(1, Number.isFinite(fraccion) ? fraccion : 0));
-  return (
-    <span className={`vivo-barra ${f > 0.85 ? 'vivo-barra-aviso' : ''}`} aria-hidden="true">
-      <i style={{ transform: `scaleX(${f})` }} />
-    </span>
-  );
-}
-
-interface Props {
-  corrida: Corrida;
-  iteracion: Iteracion | null;
-  segundosDeTrabajo: number;
-  /** Cuántas cosas esperan a una persona ahora mismo (permisos, incidencias). */
-  reclaman: number;
-  /** Coste ya formateado, que lo decide la pantalla (facturado o estimado). */
-  usd: number | null;
-  /** La etiqueta canónica del estado (`etiquetaCorrida`), para que la tarjeta
-   *  diga lo mismo que el resto de ROSA2018 y no un sinónimo suyo. */
-  etiqueta: string;
-  /** Por qué el reloj está parado ("en espera de una persona", "esperando al
-   *  modelo"), o null si corre. Sin esto, un reloj quieto parece un fallo. */
-  relojParado: string | null;
-  acciones?: ReactNode;
-}
-
-export function ActividadEnVivo({ corrida, iteracion, segundosDeTrabajo, reclaman, usd, etiqueta, relojParado, acciones }: Props) {
-  const reducido = useMovimientoReducido();
-  const pulso = pulsoDe(corrida.estado);
-  const { titulo, detalle } = queHaceAhora(corrida, iteracion);
-  const pasos: PasoPlan[] = iteracion?.plan ?? [];
-  const hechos = pasos.filter((p) => p.estado !== 'pendiente' && p.estado !== 'en_curso').length;
-  const tope = corrida.presupuesto.limiteLlamadas;
-  const fraccionTope = tope > 0 ? corrida.gasto.llamadas / tope : 0;
-
-  return (
-    <motion.section
-      className={`vivo vivo-${pulso}`}
-      aria-label={tr("Qué está haciendo ROSA2018 ahora")}
-      initial={reducido ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.995 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={reducido ? { duration: 0.2 } : SUAVE_IOS}
-    >
-      <div className="vivo-cabecera">
-        <span className="vivo-estado">
-          <i className="vivo-punto" aria-hidden="true" />
-          {etiqueta}
-          {iteracion && <em>{trp("· Iteración {numero}", { numero: iteracion.numero })}</em>}
-        </span>
-        <span className="vivo-reloj" title={tr("Tiempo de trabajo: el reloj de pared menos lo que la corrida pasó esperando a una persona y menos las pausas del proceso.")}>
-          <b>{formatearDuracion(segundosDeTrabajo * 1000) || '0 s'}</b>{trp(" de trabajo{v}", { v: relojParado ? trp(" · {relojParado}: el reloj no corre", { relojParado }) : '' })}
-        </span>
-      </div>
-
-      {/* El titular cambia con el paso. Que se cruce en vez de saltar es lo
-          que hace que la pantalla parezca que respira. */}
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.p
-          key={titulo}
-          className="vivo-haciendo"
-          initial={reducido ? { opacity: 0 } : { opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={reducido ? { opacity: 0 } : { opacity: 0, y: -6 }}
-          transition={reducido ? { duration: 0.15 } : { duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-        >
-          {titulo}
-        </motion.p>
-      </AnimatePresence>
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.p
-          key={detalle}
-          className="vivo-detalle"
-          initial={reducido ? { opacity: 0 } : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          {detalle}
-        </motion.p>
-      </AnimatePresence>
-
-      {pasos.length > 0 && (
-        <>
-          <div className="vivo-pasos" role="img" aria-label={trp("Paso {v} de {pasos}", { v: Math.min(hechos + 1, pasos.length), pasos: pasos.length })}>
-            {pasos.map((p) => (
-              <span key={p.id} className={`vivo-paso vivo-paso-${p.estado}`} title={`${p.titulo} (${p.estado.replace('_', ' ')})`} />
-            ))}
-          </div>
-          <p className="vivo-detalle" style={{ marginTop: 8 }}>
-            {iteracion?.terminadaEn ? `${pasos.length} pasos, terminada` : trp("Paso {v} de {pasos}", { v: Math.min(hechos + 1, pasos.length), pasos: pasos.length })}
-            {pasos.some((p) => p.estado === 'fallido') && ` · ${pasos.filter((p) => p.estado === 'fallido').length} fallido${pasos.filter((p) => p.estado === 'fallido').length === 1 ? '' : 's'}`}
-          </p>
-        </>
-      )}
-
-      <div className="vivo-vitales">
-        <Vital nombre={tr("llamadas al modelo")} title={trp("{llamadas} de {tope} autorizadas", { llamadas: formatearEntero(corrida.gasto.llamadas), tope: formatearEntero(tope) })}>
-          <Cifra valor={corrida.gasto.llamadas} />
-        </Vital>
-        {usd !== null && (
-          <Vital nombre="gastados" title={tr("Lo que el AI Gateway facturó por las llamadas de esta corrida.")}>
-            <Cifra valor={usd} decimales={2} sufijo=" USD" />
-          </Vital>
-        )}
-        <Vital nombre={tr("artículos leídos")}>
-          <Cifra valor={corrida.gasto.articulosLeidos} />
-        </Vital>
-        <Vital
-          nombre={trp("del tope · quedan {v}", { v: formatearEntero(Math.max(0, tope - corrida.gasto.llamadas)) })}
-          title={trp("{llamadas} de {tope} llamadas autorizadas", { llamadas: formatearEntero(corrida.gasto.llamadas), tope: formatearEntero(tope) })}
-          pie={<BarraTope fraccion={fraccionTope} />}
-        >
-          <Cifra valor={Math.round(fraccionTope * 100)} sufijo=" %" />
-        </Vital>
-      </div>
-
-      {reclaman > 0 && (
-        <motion.div className="vivo-reclamo" initial={reducido ? false : { opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={VIVO_IOS}>
-          <svg className="vivo-reclamo-icono" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <circle cx="8" cy="8" r="6.6" stroke="currentColor" strokeWidth="1.4" />
-            <path d="M8 4.8v3.6M8 10.8v.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          </svg>
-          <span>
-            <strong>{reclaman === 1 ? tr('Una cosa espera tu respuesta') : trp("{reclaman} cosas esperan tu respuesta", { reclaman })}</strong>{tr(". Hasta que decidas, ROSA2018 no sigue por ahí.")}
-          </span>
-        </motion.div>
-      )}
-
-      {acciones && <div className="vivo-acciones">{acciones}</div>}
-    </motion.section>
   );
 }

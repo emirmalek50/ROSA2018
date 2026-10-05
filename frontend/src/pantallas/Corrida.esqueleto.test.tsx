@@ -259,11 +259,11 @@ describe('los botones en vuelo de la corrida', () => {
   it('Exportar PRISMA usa la promesa real de la acción: marcado y deshabilitado hasta que resuelve', async () => {
     await pintar(estadoDeMuestra());
     await esperarPintado();
-    // La sección "Búsqueda de la corrida" es de detalle y nace plegada en modo
-    // sencillo; sus acciones solo se pintan abierta.
-    const plegar = [...nodo.querySelectorAll('button.seccion-plegar')].find((b) => b.textContent?.includes('Búsqueda de la corrida')) as HTMLButtonElement;
-    expect(plegar).toBeDefined();
-    await pulsar(plegar);
+    // La búsqueda de la corrida vive en "Más de esta corrida": sus acciones
+    // solo se pintan con su tarjeta abierta.
+    const tarjeta = [...nodo.querySelectorAll('button.esc-mas-tarjeta')].find((b) => b.textContent?.includes('Búsqueda PRISMA')) as HTMLButtonElement;
+    expect(tarjeta).toBeDefined();
+    await pulsar(tarjeta);
     vuelo.retener();
     const exportar = boton('Exportar PRISMA 2020')!;
     expect(exportar).toBeDefined();
