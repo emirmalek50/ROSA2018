@@ -94,16 +94,19 @@ describe('acceso corporativo', () => {
     expect(fetch.mock.calls.some((c) => String(c[0]).endsWith('/api/acceso/entrar_sin_verificar'))).toBe(false);
     expect(asignar).toHaveBeenCalledWith('/');
   });
-  it('pide cuenta con correo y contraseña repetida, y dice que queda pendiente de aprobación', async () => {
+  it('crea la cuenta con correo y contraseña repetida, y entra en el acto, sin aprobación', async () => {
     const fetch = vi.fn(async (url: string) => ({
       ok: true,
-      json: async () => (String(url).endsWith('/registrar') ? { ok: true, estado: 'pendiente', mensaje: 'Solicitud enviada. Quien administra ROSA2018 tiene que aprobarla; después podrás entrar con tu contraseña.' } : estado),
+      json: async () => (String(url).endsWith('/registrar') ? { ok: true, estado: 'activa', correo: 'ana@alzheimerproject.com', mensaje: 'Cuenta creada. Ya estás dentro.' } : estado),
     }));
     vi.stubGlobal('fetch', fetch);
+    const asignar = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign: asignar, hash: '', pathname: '/', search: '' });
     await montar();
     const cambiar = nodo.querySelector('.acceso-cambiar-modo') as HTMLButtonElement;
     await act(async () => cambiar.click());
-    expect(nodo.textContent).toContain('Pide tu cuenta');
+    expect(nodo.textContent).toContain('Crea tu cuenta');
+    expect(nodo.textContent).not.toContain('aprobar');
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
     const escribir = async (sel: string, valor: string) => {
       const el = nodo.querySelector(sel) as HTMLInputElement;
@@ -130,10 +133,10 @@ describe('acceso corporativo', () => {
     const llamada = fetch.mock.calls.find((c) => String(c[0]).endsWith('/api/acceso/registrar'));
     expect(llamada).toBeDefined();
     expect(JSON.parse(String((llamada as unknown as [string, { body: string }])[1].body))).toEqual({ correo: 'ana@alzheimerproject.com', contrasena: 'una clave larga' });
-    // Queda pendiente: vuelve al inicio de sesión con el aviso, y no entra sola.
-    expect(nodo.textContent).toContain('tiene que aprobarla');
-    expect(nodo.textContent).toContain('Continúa tu investigación');
-    expect(nodo.textContent).not.toContain('Investigaciones privadas');
+    // El servidor abre la sesión en esa misma respuesta: la pantalla recarga en
+    // la raíz, igual que al iniciar sesión, sin volver al formulario.
+    expect(asignar).toHaveBeenCalledWith('/');
+    expect(nodo.textContent).not.toContain('tiene que aprobarla');
   });
   it('una respuesta que no es de ROSA2018 o una red caída dicen qué pasa en vez de quedarse enviando', async () => {
     // El primer registro por el túnel de VS Code se quedó en "Enviando…" para siempre.
@@ -168,6 +171,17 @@ describe('acceso corporativo', () => {
     await montar();
     await rellenar();
     expect(nodo.textContent).toContain('No se pudo conectar con ROSA2018');
+  });
+  it('si la primera comprobación de sesión no devuelve ROSA2018, la pantalla de «Reintentar» dice qué pasó', async () => {
+    // 5 de octubre de 2026: por un enlace compartido el servidor contestaba
+    // «Invalid host header» (texto, no JSON) a todo, y la pantalla solo decía
+    // «No se puede conectar»; nadie sabía por dónde empezar.
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 400, json: async () => { throw new SyntaxError("Unexpected token 'I'"); } })));
+    await montar();
+    expect(nodo.textContent).toContain('Reintentar');
+    expect(nodo.textContent).toContain('no devolvió una respuesta de ROSA2018');
+    expect(nodo.textContent).not.toContain('Unexpected token');
+    expect(nodo.textContent).not.toContain('Investigaciones privadas');
   });
   it('muestra un error de autenticación sin abrir ninguna puerta alternativa', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: !String(url).endsWith('/entrar'), json: async () => (String(url).endsWith('/entrar') ? { detail: 'Correo o contraseña incorrectos' } : estado) })));

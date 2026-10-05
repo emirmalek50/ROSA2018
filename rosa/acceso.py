@@ -5,13 +5,17 @@ Dos clases de cuenta, las dos del dominio @alzheimerproject.com:
 - La cuenta administradora, fijada en ``.env`` (abajo). Entra siempre y es la
   que aprueba a las demás.
 - Las del equipo (25 de septiembre de 2026, a petición de Emir): cualquiera con
-  un correo @alzheimerproject.com se registra con su contraseña, y la cuenta queda
-  PENDIENTE hasta que la cuenta administradora la aprueba con un botón. Sin esa
-  aprobación, cualquiera que llegara a la pantalla podría registrarse con el
-  correo de otra persona del equipo, que es justo el agujero que se cerró el 18
-  de septiembre al retirar la entrada sin verificar. Cuando esta instalación tenga
-  el correo conectado, la aprobación se podrá sustituir por un enlace al buzón
-  (`solicitar` y `confirmar` siguen aquí para eso).
+  un correo @alzheimerproject.com se registra con su contraseña y ENTRA EN EL
+  ACTO (decisión de Emir, 5 de octubre de 2026: «todo el que tenga
+  alzheimerproject.com puede entrar sin limitaciones»). Hasta ese día la cuenta
+  quedaba pendiente de que la administradora la aprobara con un botón, y una
+  compañera con el repo no pudo entrar porque nadie estaba para aprobarla. Lo
+  que se asume con esto: quien llega a la pantalla puede registrarse con el
+  correo de otra persona del equipo que aún no tenga cuenta. La administradora
+  lo ve en Ajustes (la lista de cuentas) y puede quitar el acceso; cuando esta
+  instalación tenga el correo conectado, un enlace al buzón lo cerrará del todo
+  (`solicitar` y `confirmar` siguen aquí para eso). Las cuentas que quedaron
+  pendientes de antes se activan al arrancar (`activar_pendientes`).
 
 Solo se persisten hashes de las sesiones. La contraseña de la cuenta
 administradora se compara con una huella scrypt configurada fuera del
@@ -59,6 +63,9 @@ MENSAJE_SIN_CONFIGURAR = (
 # administradora, porque se eligen desde una pantalla abierta.
 MIN_CONTRASENA_EQUIPO = 10
 ESTADOS_CUENTA = ("pendiente", "activa", "rechazada")
+# Desde el 5 de octubre de 2026 ninguna cuenta nueva pasa por 'pendiente'; el
+# estado y su mensaje se conservan por si una base vieja trae alguna sin
+# activar antes de que `activar_pendientes` corra al arrancar.
 MENSAJE_PENDIENTE = "Tu cuenta está pendiente de aprobación. Avisa a quien administra ROSA2018 para que la apruebe."
 MENSAJE_RECHAZADA = "Esta solicitud de acceso fue rechazada. Habla con quien administra ROSA2018."
 
@@ -184,6 +191,8 @@ class Acceso:
             if columna not in columnas:
                 with self.db:
                     self.db.execute(f"ALTER TABLE cuentas ADD COLUMN {columna} {tipo}")
+        # Lo que quedó pendiente de la época de la aprobación entra ya.
+        self.activar_pendientes()
 
     def _dominio_corporativo(self, email):
         email = direccion(email.strip().lower())
@@ -225,14 +234,14 @@ class Acceso:
                 "Si no lo has solicitado, no abras el enlace. Nadie puede entrar sin confirmar tu correo.", ahora)
 
     def registrar(self, email, contrasena, ip="desconocida"):
-        """Una persona con correo @alzheimerproject.com pide una cuenta. Queda
-        pendiente hasta que la cuenta administradora la aprueba; hasta entonces no
-        entra. Devuelve el estado.
+        """Una persona con correo @alzheimerproject.com crea su cuenta. Queda
+        ACTIVA en el acto y entra con esa contraseña (Emir, 5 de octubre de 2026;
+        antes quedaba pendiente de la administradora). Devuelve el estado.
 
-        No se puede pisar una solicitud pendiente con otra contraseña: si alguien
-        se adelantara a la persona real, la administradora vería la solicitud y no
-        la aprobaría sin preguntar, pero si se pudiera sobrescribir, el que llegara
-        el último decidiría la contraseña de una cuenta que otro pidió."""
+        Una cuenta que ya existe no se pisa con otra contraseña: el que llegara el
+        último decidiría la contraseña de una cuenta ajena. Quien olvide la suya
+        habla con la administradora, que la quita desde Ajustes y así puede
+        registrarse de nuevo."""
         email = self._dominio_corporativo(email)
         if not isinstance(contrasena, str) or not MIN_CONTRASENA_EQUIPO <= len(contrasena) <= 256:
             raise ValueError(f"La contraseña debe tener al menos {MIN_CONTRASENA_EQUIPO} caracteres")
@@ -248,19 +257,34 @@ class Acceso:
         fila = self.db.execute("SELECT estado, contrasena FROM cuentas WHERE correo=?", (email,)).fetchone()
         if fila and fila[0] == "activa":
             raise ValueError("Ese correo ya tiene cuenta: entra con tu contraseña")
-        if fila and fila[0] == "pendiente":
-            raise ValueError("Ya hay una solicitud pendiente para ese correo. Espera a que la aprueben")
         if fila and fila[0] == "rechazada":
             raise ValueError(MENSAJE_RECHAZADA)
         guardada = huella_equipo(contrasena)
         with self.db:
             self.db.execute("INSERT OR IGNORE INTO cuentas(correo, creada) VALUES (?,?)", (email, ahora))
-            self.db.execute("UPDATE cuentas SET contrasena=?, estado='pendiente', creada=? WHERE correo=?", (guardada, ahora, email))
+            # Activa desde el primer momento: la aprueba el propio dominio del
+            # correo, y así consta en `aprobadaPor` para distinguirla de las que
+            # aprobó una persona con el botón.
+            self.db.execute(
+                "UPDATE cuentas SET contrasena=?, estado='activa', creada=?, aprobadaPor='dominio', aprobadaEn=? WHERE correo=?",
+                (guardada, ahora, ahora, email),
+            )
             # Registrarse bien no es un intento sospechoso, como acertar al entrar: si
             # contara, quien se registra y luego se equivoca una vez al teclear se
             # quedaría fuera quince minutos.
             self.db.execute("DELETE FROM limites_acceso WHERE correo=?", (email,))
-        return "pendiente"
+        return "activa"
+
+    def activar_pendientes(self):
+        """Las cuentas que pidieron acceso cuando aún hacía falta aprobación y
+        nadie aprobó pasan a activas, de una vez, al arrancar: son del dominio, que
+        es la única condición desde el 5 de octubre de 2026. Devuelve cuántas."""
+        with self.db:
+            n = self.db.execute(
+                "UPDATE cuentas SET estado='activa', aprobadaPor='dominio', aprobadaEn=? WHERE estado='pendiente' AND contrasena IS NOT NULL",
+                (time.time(),),
+            ).rowcount
+        return int(n or 0)
 
     def solicitudes(self):
         """Las cuentas del equipo, para la pantalla de la administradora: las

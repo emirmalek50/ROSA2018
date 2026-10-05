@@ -2755,3 +2755,47 @@ Coste previsto de la pasada completa: unas 1.955 llamadas al juez, más una
 asignación de evidencia por hipótesis y grupo, y una conclusión por hipótesis que
 cambie. Todo va al tope de cada corrida. Ninguna de las corridas con bloqueos lo
 tiene gastado: la que más, la 12, lleva 833 de 1.500 y tiene 425 por recuperar.
+
+## Entrar con el correo del proyecto, sin aprobación (5 de octubre de 2026)
+
+Emir le pasó el repo a una compañera y no pudo entrar: la pantalla solo le
+ofrecía «Reintentar». Eran dos fallos encadenados, y el segundo tapaba al
+primero.
+
+**El primero, el que de verdad la dejaba fuera: el servidor rechazaba su
+enlace.** `TrustedHostMiddleware` (rosa/servidor.py) solo admitía `127.0.0.1`,
+`localhost` y lo que hubiera en `ROSA_HOSTS`, que en un `.env` recién copiado
+no hay nada. Por un enlace compartido (un túnel, o un nombre del proyecto) la
+cabecera `Host` no estaba en la lista y el servidor contestaba «Invalid host
+header» a TODO, incluida la comprobación de sesión con la que arranca la
+pantalla de acceso. Esa respuesta es texto, no JSON, así que `Acceso.tsx` caía
+en el aviso genérico «No se puede conectar con ROSA2018» con el botón de
+reintentar, y no se podía ni llegar al formulario. Ahora entran de oficio
+`alzheimerproject.com` con sus subdominios y los túneles de desarrollo
+(`*.devtunnels.ms`, `*.ngrok-free.app`, `*.ngrok.app`, `*.trycloudflare.com`,
+`*.loca.lt`, `*.ts.net`), sin tocar `.env`; un nombre cualquiera sigue fuera,
+porque un comodín general abriría el DNS rebinding que la lista frena. Y la
+pantalla enseña lo que falló de verdad («el enlace no devolvió una respuesta de
+ROSA2018») en vez del aviso genérico. Test: `test_el_servidor_atiende_al_dominio_del_proyecto_y_a_los_tuneles`
+y el de «Reintentar» en `Acceso.test.tsx`.
+
+**El segundo: aunque hubiera pasado, habría quedado pendiente.** Desde el 25 de
+septiembre una cuenta nueva del dominio quedaba «pendiente de aprobación» hasta
+que la administradora pulsara un botón en Ajustes, y nadie estaba para
+pulsarlo. Decisión de Emir: «todo el que tenga alzheimerproject.com puede
+entrar sin limitaciones». `Acceso.registrar` crea la cuenta ya activa
+(`aprobadaPor='dominio'`, para distinguirla de las que aprobó una persona) y
+`POST /api/acceso/registrar` abre la sesión en la misma respuesta: registrarse
+es entrar, sin segundo paso. Las cuentas que quedaron pendientes de antes se
+activan al arrancar (`activar_pendientes`, llamado desde el constructor).
+
+**Lo que se asume con esto y antes no.** Quien llega a la pantalla puede crear
+la cuenta con el correo de otra persona del equipo que aún no tenga la suya;
+después, esa persona no podrá crearla («Ese correo ya tiene cuenta»). La
+defensa es la lista de cuentas en Ajustes (la administradora ve de quién es
+cada una y le quita el acceso) y, cuando la instalación tenga el correo
+conectado, un enlace al buzón (`solicitar` y `confirmar` siguen en
+rosa/acceso.py para eso). Lo que NO cambia: el dominio es obligatorio, la
+contraseña del equipo tiene mínimo de 10, una cuenta existente no se pisa con
+otra contraseña, los topes de intentos siguen, y el estado de una cuenta no se
+revela a quien no sabe su contraseña.

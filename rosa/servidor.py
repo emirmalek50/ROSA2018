@@ -235,9 +235,15 @@ def crear_app(almacen: Almacen) -> FastAPI:
     # Solo se aceptan peticiones dirigidas al nombre con el que se sirve ROSA2018:
     # frena el "DNS rebinding" (una web ajena que resuelve a 127.0.0.1).
     permitidos = list(HOSTS_LOCALES) + ([config.HOST] if config.HOST not in HOSTS_LOCALES else []) + [f"{h}:{config.PUERTO}" for h in HOSTS_LOCALES]
-    # Nunca un comodin: en 0.0.0.0 (el unico caso en que el ataque tiene sentido)
-    # los nombres con los que se sirve ROSA2018 van en ROSA_HOSTS.
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=permitidos + list(config.HOSTS_PERMITIDOS))
+    # Los nombres con los que se sirve fuera de localhost van en ROSA_HOSTS. Y
+    # siempre entran el dominio del proyecto y los túneles de desarrollo con
+    # los que se comparte ROSA2018: el 5 de octubre de 2026 una compañera
+    # entró por un enlace compartido, el servidor respondió «Invalid host
+    # header» a TODO (también a la comprobación de sesión) y la pantalla solo
+    # le ofrecía «Reintentar»; no pudo ni registrarse. Sigue sin comodín
+    # general: `*` abriría el DNS rebinding.
+    de_oficio = ["alzheimerproject.com", "*.alzheimerproject.com", "*.devtunnels.ms", "*.ngrok-free.app", "*.ngrok.app", "*.trycloudflare.com", "*.loca.lt", "*.ts.net"]
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=permitidos + list(config.HOSTS_PERMITIDOS) + de_oficio)
     # Respuestas grandes comprimidas (la instantánea pesa 10 MB; en gzip, menos
     # de 2). Starlette no comprime `text/event-stream`, así que el SSE no cambia.
     app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=1)
@@ -329,19 +335,24 @@ def crear_app(almacen: Almacen) -> FastAPI:
 
     @app.post('/api/acceso/registrar')
     async def acceso_registrar(request: Request):
-        # Cualquier correo @alzheimerproject.com pide cuenta; queda pendiente hasta
-        # que la cuenta administradora la aprueba (rosa/acceso.py, 25 de septiembre
-        # de 2026). No abre sesión: eso lo hace entrar, una vez aprobada.
+        # Cualquier correo @alzheimerproject.com crea su cuenta y entra en el acto
+        # (rosa/acceso.py, 5 de octubre de 2026): la sesión se abre aquí mismo,
+        # sin un segundo paso.
         obj = await objeto_pequeno(request)
         email = obj.get('correo')
         contrasena = obj.get('contrasena')
         if not isinstance(email, str) or not isinstance(contrasena, str):
             raise HTTPException(400, 'Indica el correo y la contraseña')
+        ip = request.client.host if request.client else 'desconocida'
         try:
-            estado = app.state.acceso.registrar(email, contrasena, request.client.host if request.client else 'desconocida')
+            estado = app.state.acceso.registrar(email, contrasena, ip)
+            token, email = app.state.acceso.entrar_con_contrasena(email, contrasena, ip)
         except ValueError as ex:
             raise HTTPException(400, str(ex)) from None
-        return {'ok': True, 'estado': estado, 'mensaje': 'Solicitud enviada. Quien administra ROSA2018 tiene que aprobarla; después podrás entrar con tu contraseña.'}
+        respuesta = JSONResponse({'ok': True, 'estado': estado, 'correo': email, 'mensaje': 'Cuenta creada. Ya estás dentro.'})
+        seguro = urlsplit(app.state.correo._config()['url']).scheme == 'https'
+        respuesta.set_cookie(COOKIE, token, max_age=DURACION, httponly=True, secure=seguro, samesite='strict', path='/')
+        return respuesta
 
     def solo_admin(request: Request) -> str:
         if not es_admin(request.state.usuario):

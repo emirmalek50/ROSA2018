@@ -78,9 +78,9 @@ async function api(ruta: string, datos?: object) {
 /** El bloque de sesión: el correo, si la cuenta administra la instalación y
  *  el botón de salir. Vive en la sección "Sesión" de Ajustes. Salir llama a
  *  /api/acceso/salir y recarga en la raíz, que vuelve a la puerta de acceso. */
-/** Las cuentas del equipo que piden acceso, con los botones de aprobar y rechazar.
- *  Solo lo ve la cuenta administradora. Aprobar sin preguntar a la persona
- *  deja entrar a quien haya escrito su correo antes que ella. */
+/** Las cuentas del equipo, con el botón de quitar el acceso. Solo lo ve la
+ *  cuenta administradora. Desde el 5 de octubre de 2026 las cuentas del dominio
+ *  entran solas; aquí se ve quién ha entrado y se le puede cerrar la puerta. */
 export function CuentasDelEquipo() {
   const sesion = useSesion();
   const [cuentas, setCuentas] = useState<CuentaEquipo[] | null>(null);
@@ -114,9 +114,9 @@ export function CuentasDelEquipo() {
   return (
     <div className="cuentas-equipo">
       <h4>{tr("Cuentas del equipo")}</h4>
-      <p className="meta">{trp("Cualquier persona con correo @{DOMINIO} puede pedir cuenta desde la pantalla de acceso. Aprueba solo si sabes que esa persona la pidió: si no, entraría quien haya escrito su correo.", { DOMINIO })}</p>
+      <p className="meta">{trp("Cualquier persona con correo @{DOMINIO} crea su cuenta desde la pantalla de acceso y entra en el acto. Si una cuenta no es de quien dice, quítale el acceso aquí.", { DOMINIO })}</p>
       {cuentas === null && !error && <p className="meta">{tr("Cargando…")}</p>}
-      {cuentas !== null && pendientes.length === 0 && <p className="meta">{tr("Ninguna solicitud pendiente.")}</p>}
+      {cuentas !== null && pendientes.length === 0 && resto.length === 0 && <p className="meta">{tr("Todavía nadie del equipo ha creado su cuenta.")}</p>}
       {pendientes.length > 0 && (
         <ul className="cuentas-lista">
           {pendientes.map((c) => (
@@ -137,13 +137,13 @@ export function CuentasDelEquipo() {
         </ul>
       )}
       {resto.length > 0 && (
-        <details>
-          <summary>{(resto.length === 1 ? trp("{resto} cuenta decidida", { resto: resto.length }) : trp("{resto} cuentas decididas", { resto: resto.length }))}</summary>
+        <details open>
+          <summary>{(resto.length === 1 ? trp("{resto} cuenta del equipo", { resto: resto.length }) : trp("{resto} cuentas del equipo", { resto: resto.length }))}</summary>
           <ul className="cuentas-lista">
             {resto.map((c) => (
               <li key={c.correo}>
                 <span>
-                  <strong>{c.correo}</strong> <small>{(c.estado === 'activa' ? trp("con acceso{v}", { v: c.aprobadaPor ? trp(" por {aprobadaPor}", { aprobadaPor: c.aprobadaPor }) : '' }) : trp("rechazada{v}", { v: c.aprobadaPor ? trp(" por {aprobadaPor}", { aprobadaPor: c.aprobadaPor }) : '' }))}</small>
+                  <strong>{c.correo}</strong> <small>{(c.estado === 'activa' ? trp("con acceso{v}", { v: c.aprobadaPor === 'dominio' ? tr(" por su correo del proyecto") : c.aprobadaPor ? trp(" por {aprobadaPor}", { aprobadaPor: c.aprobadaPor }) : '' }) : trp("rechazada{v}", { v: c.aprobadaPor ? trp(" por {aprobadaPor}", { aprobadaPor: c.aprobadaPor }) : '' }))}</small>
                 </span>
                 {c.estado === 'activa' && (
                   <button type="button" className="btn btn-fantasma btn-s" disabled={ocupada === c.correo} onClick={() => void decidir(c.correo, 'rechazada')}>
@@ -225,8 +225,17 @@ export function Acceso({ children }: { children: ReactNode }) {
     if (window.location.hash.startsWith('#acceso=')) window.history.replaceState(null, '', window.location.pathname);
     let vivo = true;
     const cargar = async () => {
+      let s: Sesion;
       try {
-        const s: Sesion = await api('estado');
+        s = await api('estado');
+      } catch (e) {
+        // Se enseña lo que falló de verdad (no respondió, no se pudo conectar, o
+        // respondió algo que no es ROSA2018, como el «Invalid host header» del 5
+        // de octubre de 2026): con el aviso genérico nadie sabía por dónde empezar.
+        if (vivo) setMensaje(e instanceof Error && e.message ? e.message : tr('No se puede conectar con ROSA2018. Comprueba que el servidor está encendido y recarga esta página.'));
+        return;
+      }
+      try {
         if (!vivo) return;
         if (conectado.current && !s.correo) {
           window.location.assign('/');
@@ -277,13 +286,12 @@ export function Acceso({ children }: { children: ReactNode }) {
     }
     setOcupado(true);
     try {
-      const r: { mensaje: string } = await api('registrar', { correo, contrasena });
-      setAviso(r.mensaje);
-      setModo('entrar');
-      setContrasena('');
-      setRepetida('');
+      // El servidor crea la cuenta y abre la sesión en la misma respuesta
+      // (5 de octubre de 2026): se entra sin un segundo paso.
+      await api('registrar', { correo, contrasena });
+      window.location.assign('/');
     } catch (e) {
-      setMensaje(e instanceof Error ? e.message : tr('No se pudo enviar la solicitud'));
+      setMensaje(e instanceof Error ? e.message : tr('No se pudo crear la cuenta'));
     } finally {
       setOcupado(false);
     }
@@ -336,8 +344,8 @@ export function Acceso({ children }: { children: ReactNode }) {
           </div>
 
           <motion.div key="formulario" initial={entrada} animate={{ opacity: 1, y: 0 }} transition={transicion}>
-            <h2>{(registrando ? tr("Pide tu cuenta") : tr("Continúa tu investigación"))}</h2>
-            <p>{(registrando ? tr("Con tu correo de Alzheimer Project. Quien administra ROSA2018 la aprobará.") : tr("Inicia sesión con tu cuenta de Alzheimer Project."))}</p>
+            <h2>{(registrando ? tr("Crea tu cuenta") : tr("Continúa tu investigación"))}</h2>
+            <p>{(registrando ? tr("Con tu correo de Alzheimer Project entras en el acto.") : tr("Inicia sesión con tu cuenta de Alzheimer Project."))}</p>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -380,7 +388,7 @@ export function Acceso({ children }: { children: ReactNode }) {
                 </>
               )}
               <button className="btn acceso-continuar" disabled={ocupado}>
-                {ocupado ? (registrando ? 'Enviando…' : tr('Iniciando sesión…')) : registrando ? tr('Pedir cuenta') : tr('Iniciar sesión')}
+                {ocupado ? (registrando ? tr('Creando la cuenta…') : tr('Iniciando sesión…')) : registrando ? tr('Crear cuenta y entrar') : tr('Iniciar sesión')}
                 {!ocupado && <IconoFlecha />}
               </button>
             </form>
@@ -393,7 +401,7 @@ export function Acceso({ children }: { children: ReactNode }) {
                 setAviso('');
               }}
             >
-              {(registrando ? tr("Ya tengo cuenta: iniciar sesión") : tr("¿No tienes cuenta? Pídela con tu correo del proyecto"))}
+              {(registrando ? tr("Ya tengo cuenta: iniciar sesión") : tr("¿No tienes cuenta? Créala con tu correo del proyecto"))}
             </button>
             <p className="acceso-privacidad">
               {tr("Acceso exclusivo para")} <span className="acceso-dominio">@{DOMINIO}</span>{tr(". Los avisos de tus corridas llegarán a esta misma cuenta.")}
