@@ -6,7 +6,7 @@
 /* Centrado en el área principal: en pantallas anchas no se queda pegado a la
    barra lateral con todo el hueco a la derecha. */
 .contenido.panorama {
-  max-width: 1060px;
+  max-width: 1320px;
   margin-inline: auto;
 }
 
