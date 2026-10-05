@@ -49,18 +49,21 @@ Quien recibe el enlace crea su cuenta con su correo @alzheimerproject.com y
 entra en el acto. El túnel (Cloudflare, `brew install cloudflared`) solo
 reenvía al 127.0.0.1 y el enlace cambia cada vez que se arranca.
 
-**El enlace fijo, sin repetir nada** (`scripts/compartir_fijo.sh`):
-`rosa.alzheimerproject.com` apuntando al servidor con Cloudflare Tunnel «con
-nombre», que arranca al iniciar sesión en el Mac y se reconecta solo. Pide una
-decisión previa: los DNS de `alzheimerproject.com` tienen que estar en
-Cloudflare (hoy están en Vercel; la web sigue en Vercel, solo cambia quién
-responde el DNS: se recrean los registros como «DNS only» y se cambian los
-servidores de nombres en el registrador). Después, una vez:
-`cloudflared tunnel login` (navegador) y `./scripts/compartir_fijo.sh`. El
-servidor ya admite ese nombre. Si no se quiere mover el DNS, la alternativa
-con enlace fijo es Tailscale Funnel (`https://<mac>.<red>.ts.net`, gratis,
-también admitido por el servidor), con `rosa.alzheimerproject.com` como
-redirección desde Vercel.
+**El enlace fijo, sin repetir nada** (`scripts/compartir_fijo.sh`, decisión
+de Emir del 5 de octubre de 2026): Tailscale Funnel publica
+`https://<este-mac>.<red>.ts.net` apuntando al servidor; arranca con Tailscale
+al iniciar sesión en el Mac, se reconecta solo y el nombre no cambia. Sin tocar
+el dominio ni el DNS (la alternativa con `rosa.alzheimerproject.com` exigía
+mover los DNS del dominio de Vercel a Cloudflare; descartada). Una sola vez:
+
+```bash
+brew install --cask tailscale-app   # pide la contraseña del Mac; abrir la app e iniciar sesión
+./scripts/compartir_fijo.sh         # publica; la primera vez enseña el enlace para activar Funnel (un clic)
+./scripts/compartir_fijo.sh --estado
+```
+
+Quien entra no necesita Tailscale: el enlace es público, y delante está la
+pantalla de acceso. El servidor ya admite `*.ts.net`.
 
 La clave del gateway va en `.env` (`ROSA_GATEWAY_KEY`), copiada del `.env` del
 RAG o pasada por quien administra ROSA2018 por un canal privado. Nunca al
