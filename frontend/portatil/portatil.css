@@ -1,0 +1,12 @@
+/* Solo la copia HTML: se conserva el diseño de las pantallas de ROSA. */
+.portatil-aviso{position:relative;z-index:200;background:#332940;color:#f0e8ff;font:12px/1.5 Inter,sans-serif;padding:7px 18px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.portatil-aviso button{border:1px solid #78638d;border-radius:5px;background:transparent;color:inherit;padding:3px 9px;font:inherit;cursor:pointer}
+.portatil-aviso button:focus-visible{outline:2px solid white;outline-offset:2px}
+.portatil-sin-3d{min-height:220px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:30px;text-align:center;border:1px dashed #63576c;border-radius:12px;color:#a296af;font:14px/1.5 Inter,sans-serif}
+.portatil-sin-3d p{max-width:440px;margin:0}
+.lab-lienzo .portatil-sin-3d{position:absolute;inset:25% 43% 25% 8%;pointer-events:none}
+.portatil-miniatura{height:200px;min-height:200px}
+.portatil-aviso+div{min-height:calc(100dvh - 43px)}
+@media(max-width:650px){.portatil-aviso{align-items:flex-start;font-size:11px;padding:7px 12px}.portatil-aviso button{flex-shrink:0}.lab-lienzo .portatil-sin-3d{inset:15% 10% 55%}}
+
+.lab-abajo,.lab-pie,.lab-leyenda,.lab-mando{display:none!important}
