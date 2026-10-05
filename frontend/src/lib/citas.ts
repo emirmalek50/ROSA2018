@@ -179,7 +179,7 @@ export function senalesDe(hoy: ComprobacionDeHoy | undefined | null): Comprobaci
     literal: Boolean(hoy.literal),
     falta: typeof hoy.falta === 'string' ? hoy.falta : null,
     localizadorAdmitido: Boolean(hoy.localizadorAdmitido),
-    disponible: true,
+    disponible: hoy.disponible !== false,
   };
 }
 
@@ -307,9 +307,9 @@ export function enLlanoLaClase(clase: ClaseCita, localizador: string): string {
 export function enLlanoElVeredicto(veredicto: string): { texto: string; tono: 'bien' | 'mal' | 'medio' } {
   switch (veredicto) {
     case 'sostenida':
-      return { texto: 'sostenida', tono: 'bien' };
+      return { texto: tr('sostenida'), tono: 'bien' };
     case 'parcial':
-      return { texto: 'parcial', tono: 'medio' };
+      return { texto: tr('parcial'), tono: 'medio' };
     case 'no_sostenida':
       return { texto: tr('no sostenida'), tono: 'mal' };
     case 'cita_no_resuelve':

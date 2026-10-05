@@ -86,6 +86,14 @@ describe('cómo se nombra en llano de qué se apoya una cita', () => {
     // Uno que no conozcamos se enseña tal cual, no se inventa.
     expect(enLlanoElVeredicto('raro_nuevo').texto).toBe('raro_nuevo');
   });
+
+  it('traduce también los veredictos sostenido y parcial en modo inglés', () => {
+    try {
+      fijarIdioma('en');
+      expect(enLlanoElVeredicto('sostenida').texto).toBe('supported');
+      expect(enLlanoElVeredicto('parcial').texto).toBe('partial');
+    } finally { fijarIdioma('es'); }
+  });
 });
 
 describe('el enlace que lleva al texto, no solo al documento', () => {

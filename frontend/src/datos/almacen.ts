@@ -1299,9 +1299,12 @@ export const acciones = {
    *  valen (rosa/recuperacion_citas.py): de toda la investigación o, con
    *  `corridaId`, de una corrida. La hace el supervisor en segundo plano; su
    *  avance llega con el estado, en `investigacion.recuperacionCitas`. */
-  pedirRecuperacionCitas: (investigacionId: string, corridaId: string | null = null) => {
-    aplicar((e) => A.pedirRecuperacionCitas(e, investigacionId, corridaId, QUIEN, Date.now()));
-    return enviar('pedirRecuperacionCitas', { investigacion_id: investigacionId, corrida_id: corridaId });
+  pedirRecuperacionCitas: async (investigacionId: string, corridaId: string | null = null): Promise<boolean | null> => {
+    const ok = await enviarYComprobar('pedirRecuperacionCitas', { investigacion_id: investigacionId, corrida_id: corridaId });
+    // «Pedida» solo tras la aceptación del servidor. Un POST fallido no puede
+    // dejar una recuperación ficticia ni esconder los botones indefinidamente.
+    await resincronizar();
+    return ok;
   },
   /** Sin modelo: cuántas afirmaciones de la investigación están bloqueadas por
    *  reglas que ya no valen, cuántas se quedaron sin juez y cuántas recuperadas

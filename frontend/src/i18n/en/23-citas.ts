@@ -1,6 +1,18 @@
 // Las citas rehechas el 5 de octubre de 2026 sobre el diseño "Citas · v1"
 // (pantallas/Citas.tsx). Escritas y revisadas a mano.
 export const CITAS: Record<string, string> = {
+  'Actualizando la fuente...': 'Updating the source...',
+  'páginas aún sin comprobar': 'pages not yet checked',
+  'Continuar recuperación': 'Continue recovery',
+  'Evidencia recuperada pendiente de enlazar': 'Recovered evidence waiting to be linked',
+  '{n} afirmaciones recuperadas esperan enlazarse a las hipótesis.': '{n} recovered claims are waiting to be linked to hypotheses.',
+  'El servidor no aceptó la recuperación.': 'The server did not accept the recovery request.',
+  'No pude comprobar que el servidor aceptara la recuperación.': 'I could not check whether the server accepted the recovery request.',
+  'No pude cargar la fuente seleccionada: el servidor no respondió.': 'I could not load the selected source: the server did not respond.',
+  'Las citas sin página se apoyan en el resumen, una sección o el texto web.': 'Citations without a page rely on the abstract, a section or the web text.',
+  'Una cita con número de página no cuenta aquí si no resuelve al texto guardado.': 'A citation with a page number is not counted here if it does not resolve to the saved text.',
+  'Esta afirmación quedó bloqueada con una versión anterior del verificador y hoy ya no lo estaría. Con «Recuperar» se vuelve a juzgar y su veredicto se actualiza.':
+    'This claim was blocked with an earlier version of the verifier and would no longer be blocked today. Use “Recover” to judge it again and update its verdict.',
   'pág.': 'p.',
   'sin pág.': 'no p.',
   'Sección': 'Section',

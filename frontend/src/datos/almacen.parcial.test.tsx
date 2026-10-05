@@ -12,6 +12,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { estadoDeMuestra } from './muestra';
 import type { AccionPendiente } from './almacen';
 import type { EstadoRosa } from './tipos';
+import { pedirRecuperacionCitas } from './acciones';
 
 type Oyente = (ev: unknown) => void;
 class EventSourceFalso {
@@ -286,5 +287,46 @@ describe('un corte breve del flujo de eventos', () => {
     expect(conexion()).toBe('en_linea');
     vi.advanceTimersByTime(200);
     expect(conexion()).toBe('sin_conexion');
+  });
+});
+
+describe('la recuperación de citas requiere aceptación real', () => {
+  it('no inventa una recuperación mientras espera el POST; tras la aceptación lee el registro canónico', async () => {
+    const { A, actual } = await montar();
+    const id = servidor.estado.investigaciones[0]!.id;
+    const antes = actual().investigaciones[0]!.recuperacionCitas;
+    let contestar!: (r: Response) => void;
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (url.startsWith('/api/estado')) return Promise.resolve(responder(url));
+      return new Promise<Response>((r) => { contestar = r; });
+    }));
+    let peticion!: Promise<boolean | null>;
+    await act(async () => { peticion = A.acciones.pedirRecuperacionCitas(id); });
+    expect(actual().investigaciones[0]!.recuperacionCitas).toEqual(antes);
+    cambiar(['investigaciones'], (e) => pedirRecuperacionCitas(e, id, null, 'revisora', 123));
+    await act(async () => {
+      contestar(new Response(JSON.stringify({ ok: true })));
+      expect(await peticion).toBe(true);
+    });
+    expect(actual().investigaciones[0]!.recuperacionCitas).toEqual(servidor.estado.investigaciones[0]!.recuperacionCitas);
+    expect(actual().investigaciones[0]!.recuperacionCitas?.estado).toBe('pedida');
+  });
+
+  it.each([
+    { status: 200, ok: false, resultado: false },
+    { status: 403, ok: false, resultado: false },
+    { status: 503, ok: false, resultado: null },
+    { status: 0, ok: false, resultado: null },
+  ])('un rechazo o corte ($status) no deja una recuperación ficticia', async ({ status, ok, resultado }) => {
+    const { A, actual } = await montar();
+    const id = servidor.estado.investigaciones[0]!.id;
+    const antes = actual().investigaciones[0]!.recuperacionCitas;
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.startsWith('/api/estado')) return responder(url);
+      if (!status) throw new Error('Sin conexión');
+      return new Response(JSON.stringify({ ok }), { status });
+    }));
+    await act(async () => { expect(await A.acciones.pedirRecuperacionCitas(id)).toBe(resultado); });
+    expect(actual().investigaciones[0]!.recuperacionCitas).toEqual(antes);
   });
 });

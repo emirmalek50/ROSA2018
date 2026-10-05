@@ -706,6 +706,9 @@
 }
 
 button.citas-af.cit-fila {
+  /* Ancla los rótulos accesibles a su fila. Sin este contenedor, los
+     .sr-only escapaban del scroll y alargaban la página más de 200.000 px. */
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 9px;

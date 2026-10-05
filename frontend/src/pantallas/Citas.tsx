@@ -41,6 +41,7 @@ import { fechaCorta, formatearEntero, plural } from '../lib/formato';
 import '../citas.css';
 import '../citas-mesa.css';
 import { tr, trp } from '../lib/idioma';
+import { useLecturaCitas } from '../lib/lecturaCitas';
 
 const AYUDA =
   'A la izquierda lo que dijo ROSA2018; a la derecha el trozo exacto de la fuente que lo sostiene, tal como se leyó, con el pasaje resaltado.';
@@ -49,8 +50,8 @@ const META =
 const EXPLICA_RECUPERAR =
   'Recuperarlas las vuelve a juzgar con el verificador de hoy, enlaza a las hipótesis las que salgan sostenidas y rehace las conclusiones que cambien. Cuesta una llamada al juez por afirmación, más una por cada conclusión rehecha, y va en segundo plano.';
 
-type Estado = 'cargando' | 'listo' | 'sin_servidor' | 'sin_respuesta' | 'vacia';
 type Tono = 'bien' | 'medio' | 'mal' | 'neutro';
+const FALLIDAS = new Set(['no_sostenida', 'cita_no_resuelve', 'sin_cita', 'ausencia_refutada']);
 
 /** A qué se agarra cada cita, de la que resuelve a página a la que menos. */
 const CLASES: { clase: ClaseCita; etiqueta: string; icono: NombreIcono }[] = [
@@ -94,28 +95,21 @@ function VeredictoPunto({ veredicto }: { veredicto: string }) {
  *  botón que la pide, el avance mientras el supervisor la hace en segundo
  *  plano, y el informe de lo que cambió. El número sale del servidor sin
  *  modelo; si no responde, se dice que no se pudo contar, no que no haya. */
-export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
+export function RecuperacionDeCitas({ inv, revision }: { inv: Investigacion; revision?: unknown }) {
   const reg = inv.recuperacionCitas ?? null;
   const pendiente = reg !== null && RECUPERACION_PENDIENTE.has(reg.estado);
-  const [cuenta, setCuenta] = useState<CitasRecuperables | null | SinRespuesta>(null);
+  const lectura = useLecturaCitas<CitasRecuperables>(inv.id, revision ?? reg, () => acciones.citasRecuperables(inv.id));
+  const cuenta: CitasRecuperables | null | SinRespuesta = lectura.fase === 'sin_respuesta' ? 'sin_respuesta' : lectura.datos;
   const [enVuelo, envolver] = useEnVuelo();
-  // Se vuelve a contar al cambiar de investigación y cada vez que una recuperación termina.
-  const clave = `${inv.id}|${reg?.estado ?? ''}|${reg?.terminadaEn ?? ''}`;
-  useEffect(() => {
-    let vivo = true;
-    void acciones.citasRecuperables(inv.id).then((r) => {
-      if (vivo) setCuenta(r);
-    });
-    return () => {
-      vivo = false;
-    };
-  }, [clave, inv.id]);
+  const [aviso, setAviso] = useState<string | null>(null);
   const datos = cuenta && cuenta !== 'sin_respuesta' ? cuenta : null;
   const n = datos ? datos.bloqueosViejos + datos.sinJuez : 0;
   const terminada = reg !== null && (reg.estado === 'terminada' || reg.estado === 'fallida');
-  if (!pendiente && !terminada && !n && cuenta !== 'sin_respuesta') return null;
+  if (!pendiente && !terminada && !n && !datos?.porEnlazar && cuenta !== 'sin_respuesta') return null;
   const pedir = envolver(async () => {
-    await acciones.pedirRecuperacionCitas(inv.id, null);
+    setAviso(null);
+    const ok = await acciones.pedirRecuperacionCitas(inv.id, null);
+    if (ok !== true) setAviso(tr(ok === false ? 'El servidor no aceptó la recuperación.' : 'No pude comprobar que el servidor aceptara la recuperación.'));
   });
   const porQue = datos
     ? [
@@ -125,9 +119,9 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
         .filter(Boolean)
         .join(tr(' y '))
     : '';
-  const ofrece = !pendiente && cuenta !== 'sin_respuesta' && n > 0 && datos !== null;
+  const ofrece = !pendiente && cuenta !== 'sin_respuesta' && datos !== null && (n > 0 || datos.porEnlazar > 0);
   return (
-    <section className="cit-recuperar" aria-label={tr("Recuperación de citas")}>
+    <section className="cit-recuperar" aria-label={tr("Recuperación de citas")} aria-busy={lectura.actualizando}>
       <span className="cit-recuperar-icono" aria-hidden="true">
         <IconoEsc nombre="rotate-ccw" size={19} />
       </span>
@@ -144,14 +138,16 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
             <p className="cit-nota" role="status">
               {tr("No pude contar las afirmaciones por recuperar: el servidor no respondió. No quiere decir que no las haya.")}
             </p>
+            <button type="button" className="cit-enlace" onClick={lectura.repetir}>{tr('Reintentar')}</button>
           </>
         ) : ofrece && datos ? (
           <>
             <h3>
-              {plural(n, tr('afirmación espera volver a juzgarse'), tr('afirmaciones esperan volver a juzgarse'))} <span>{tr("en toda la investigación")}</span>
+              {n > 0 ? plural(n, tr('afirmación espera volver a juzgarse'), tr('afirmaciones esperan volver a juzgarse')) : tr('Evidencia recuperada pendiente de enlazar')} <span>{tr("en toda la investigación")}</span>
             </h3>
             <p>
-              {porQue}. {tr("Es evidencia ya leída que hoy no cuenta para ninguna hipótesis.")}
+              {n > 0 && <>{porQue}. {tr("Es evidencia ya leída que hoy no cuenta para ninguna hipótesis.")}</>}
+              {datos.porEnlazar > 0 && <> {trp('{n} afirmaciones recuperadas esperan enlazarse a las hipótesis.', { n: formatearEntero(datos.porEnlazar) })}</>}
               {datos.corridasVivas ? ` ${tr("Hay una corrida trabajando en esta investigación: empezará cuando pare.")}` : ''}
             </p>
           </>
@@ -174,11 +170,12 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
           </div>
         )}
       </div>
+      {aviso && <p role="status" className="cit-nota">{aviso}</p>}
       {ofrece && (
         <div className="cit-recuperar-accion">
           <button type="button" className="cit-boton cit-boton-acento" onClick={() => void pedir()} {...atributosEnVuelo(enVuelo)} title={tr(EXPLICA_RECUPERAR)}>
             <IconoEsc nombre="rotate-ccw" size={13} />
-            {enVuelo ? tr('Pidiendo...') : trp("Recuperar las {n}", { n: formatearEntero(n) })}
+            {enVuelo ? tr('Pidiendo...') : n > 0 ? trp("Recuperar las {n}", { n: formatearEntero(n) }) : tr('Continuar recuperación')}
           </button>
           <span>{tr("una llamada al juez por afirmación · en segundo plano")}</span>
         </div>
@@ -188,21 +185,21 @@ export function RecuperacionDeCitas({ inv }: { inv: Investigacion }) {
 }
 
 /** Una de las dos señales de hoy en el banco: cuántas la cumplen, en barra. */
-function Medida({ etiqueta, n, total }: { etiqueta: string; n: number; total: number }) {
-  const p = total ? Math.min(1, n / total) : 0;
+function Medida({ etiqueta, n, total }: { etiqueta: string; n: number | undefined; total: number }) {
+  const p = total && n !== undefined ? Math.min(1, n / total) : 0;
   // El color dice cuánto falta: casi todas en verde, la mitad en ámbar, menos en rojo.
-  const tono: Tono = p >= 0.9 ? 'bien' : p >= 0.5 ? 'medio' : 'mal';
+  const tono: Tono = n === undefined ? 'neutro' : p >= 0.9 ? 'bien' : p >= 0.5 ? 'medio' : 'mal';
   return (
     <div className={`cit-medida cit-${tono}`}>
       <p>
-        <IconoEsc nombre={tono === 'mal' ? 'x' : 'check'} size={14} />
+        <IconoEsc nombre={n === undefined ? 'hourglass' : tono === 'mal' ? 'x' : 'check'} size={14} />
         {etiqueta}
       </p>
       <div className="cit-medida-fila">
         <span className="cit-pista" aria-hidden="true">
           <span style={{ width: `${p * 100}%` }} />
         </span>
-        <b>{trp("{n} de {total}", { n: formatearEntero(n), total: formatearEntero(total) })}</b>
+        <b>{n === undefined ? tr('Sin comprobar') : trp("{n} de {total}", { n: formatearEntero(n), total: formatearEntero(total) })}</b>
       </div>
     </div>
   );
@@ -252,8 +249,8 @@ function FranjaPruebas({ resumen }: { resumen: ResumenCitas }) {
       </div>
       <div className="cit-franja-parte cit-hoy" title={tr(META)}>
         <p className="cit-kicker">{tr("Hoy, con las reglas de hoy")}</p>
-        <Medida etiqueta={tr("Apunta a un sitio que existe")} n={resumen.resuelvenHoy ?? 0} total={resumen.total} />
-        <Medida etiqueta={tr("El pasaje está ahí, literal")} n={resumen.literalesHoy ?? 0} total={resumen.total} />
+        <Medida etiqueta={tr("Apunta a un sitio que existe")} n={resumen.resuelvenHoy} total={resumen.total} />
+        <Medida etiqueta={tr("El pasaje está ahí, literal")} n={resumen.literalesHoy} total={resumen.total} />
       </div>
       <div className="cit-franja-parte cit-veredictos">
         <p className="cit-kicker">{tr("Veredicto al extraerlas")}</p>
@@ -269,65 +266,21 @@ function FranjaPruebas({ resumen }: { resumen: ResumenCitas }) {
 
 export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
   const corridas = useMemo(() => corridasDe(estado, inv), [estado.corridas, inv.id]);
-  const [corridaId, setCorridaId] = useState<string>(() => corridas[0]?.id ?? '');
-  const [lista, setLista] = useState<ListaCitas | null>(null);
-  const [fase, setFase] = useState<Estado>('cargando');
-  const [filtro, setFiltro] = useState<'todas' | 'sostenidas' | 'fallidas' | 'pagina' | 'rancias'>('todas');
+  const [preferida, setCorridaId] = useState<string>(() => corridas[0]?.id ?? '');
+  const corridaId = corridas.some((c) => c.id === preferida) ? preferida : corridas[0]?.id ?? '';
+  const revision = useMemo(() => ({ corridas: estado.corridas, recuperacion: inv.recuperacionCitas, conexion: estado.conexion }), [estado.corridas, inv.recuperacionCitas, estado.conexion]);
+  const lectura = useLecturaCitas<ListaCitas>(corridaId, revision, () => acciones.citasDe(corridaId));
+  const lista = lectura.datos;
+  const fase = !corridaId || (lectura.fase === 'listo' && !lista?.afirmaciones.length) ? 'vacia' : lectura.fase;
+  const [filtro, setFiltro] = useState<'todas' | 'sostenidas' | 'fallidas' | 'pendientes' | 'pagina' | 'rancias'>('todas');
   const [elegida, setElegida] = useState<string | null>(null);
-  const [ficha, setFicha] = useState<FichaCita | null>(null);
-  const [cargandoFicha, setCargandoFicha] = useState(false);
   const [enVuelo, envolver] = useEnVuelo();
-  const [recuperacion, setRecuperacion] = useState<string | null>(null);
-
-  // La corrida elegida sigue siendo válida al cambiar de investigación.
+  const [recuperacion, setRecuperacion] = useState<{ corridaId: string; texto: string } | null>(null);
   useEffect(() => {
-    if (!corridas.some((c) => c.id === corridaId)) setCorridaId(corridas[0]?.id ?? '');
-  }, [corridas, corridaId]);
-
-  useEffect(() => {
-    let vivo = true;
-    if (!corridaId) {
-      setFase('vacia');
-      setLista(null);
-      return;
-    }
-    setFase('cargando');
+    setFiltro('todas');
     setElegida(null);
-    setFicha(null);
-    void acciones.citasDe(corridaId).then((r) => {
-      if (!vivo) return;
-      if (r === null) {
-        setFase('sin_servidor');
-      } else if (r === 'sin_respuesta') {
-        setFase('sin_respuesta');
-      } else {
-        setLista(r);
-        setFase(r.afirmaciones.length ? 'listo' : 'vacia');
-        setElegida(r.afirmaciones[0]?.id ?? null);
-      }
-    });
-    return () => {
-      vivo = false;
-    };
-    // `terminadaEn`: al terminar una recuperación los veredictos cambiaron y la lista se vuelve a pedir.
-  }, [corridaId, inv.recuperacionCitas?.terminadaEn]);
-
-  useEffect(() => {
-    let vivo = true;
-    if (!corridaId || !elegida) {
-      setFicha(null);
-      return;
-    }
-    setCargandoFicha(true);
-    void acciones.citaDe(corridaId, elegida).then((r) => {
-      if (!vivo) return;
-      setCargandoFicha(false);
-      setFicha(r && r !== 'sin_respuesta' ? r : null);
-    });
-    return () => {
-      vivo = false;
-    };
-  }, [corridaId, elegida]);
+    setRecuperacion(null);
+  }, [corridaId]);
 
   // Recuperar las de esta corrida: la misma recuperación completa que la de toda la
   // investigación (juez, enlazar a las hipótesis y rehacer conclusiones), en segundo
@@ -335,31 +288,38 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   const recuperacionPendiente = Boolean(inv.recuperacionCitas && RECUPERACION_PENDIENTE.has(inv.recuperacionCitas.estado));
   const recuperar = envolver(async () => {
     setRecuperacion(null);
-    await acciones.pedirRecuperacionCitas(inv.id, corridaId);
-    setRecuperacion(tr('Pedida: se hace en segundo plano. El avance se ve arriba, en «Recuperación de citas», y la lista se recarga sola al terminar.'));
+    const ok = await acciones.pedirRecuperacionCitas(inv.id, corridaId);
+    setRecuperacion({ corridaId, texto: tr(ok === true ? 'Pedida: se hace en segundo plano. El avance se ve arriba, en «Recuperación de citas», y la lista se recarga sola al terminar.' : ok === false ? 'El servidor no aceptó la recuperación.' : 'No pude comprobar que el servidor aceptara la recuperación.') });
   });
 
   const afirmaciones = useMemo(() => {
     const todas = lista?.afirmaciones ?? [];
     if (filtro === 'sostenidas') return todas.filter((a) => a.veredicto === 'sostenida');
-    if (filtro === 'fallidas') return todas.filter((a) => a.veredicto !== 'sostenida' && a.veredicto !== 'parcial');
+    if (filtro === 'fallidas') return todas.filter((a) => FALLIDAS.has(a.veredicto));
+    if (filtro === 'pendientes') return todas.filter((a) => !FALLIDAS.has(a.veredicto) && a.veredicto !== 'sostenida' && a.veredicto !== 'parcial');
     if (filtro === 'pagina') return todas.filter((a) => a.clase === 'pagina');
     if (filtro === 'rancias') return todas.filter((a) => Boolean(a.bloqueoViejo));
     return todas;
   }, [lista, filtro]);
 
-  useEffect(() => {
-    if (afirmaciones.length && !afirmaciones.some((a) => a.id === elegida)) setElegida(afirmaciones[0]!.id);
-  }, [afirmaciones, elegida]);
+  const seleccion = afirmaciones.some((a) => a.id === elegida) ? elegida : afirmaciones[0]?.id ?? null;
+  const pagina = useLecturaCitas<FichaCita>(seleccion ? `${corridaId}|${seleccion}` : '', lista, () => acciones.citaDe(corridaId, seleccion!));
+  const ficha = pagina.datos;
 
   const resumen = lista?.resumen;
   const sostenidas = resumen?.porVeredicto?.sostenida ?? 0;
   const fallidas = Object.entries(resumen?.porVeredicto ?? {})
-    .filter(([v]) => v !== 'sostenida' && v !== 'parcial')
+    .filter(([v]) => FALLIDAS.has(v))
     .reduce((s, [, n]) => s + n, 0);
+  const sinComprobar = (resumen?.total ?? 0) - sostenidas - (resumen?.porVeredicto?.parcial ?? 0) - fallidas;
   const bloqueosViejos = resumen?.bloqueosViejos ?? 0;
+  const sinJuez = resumen?.porVeredicto?.sin_verificar ?? 0;
+  const porRecuperar = bloqueosViejos + sinJuez;
   // Las fuentes distintas de las que salen las afirmaciones de la corrida.
-  const fuentes = useMemo(() => new Set((lista?.afirmaciones ?? []).map((a) => a.fuenteId ?? a.referencia)).size, [lista]);
+  const fuentes = useMemo(() => new Set((lista?.afirmaciones ?? []).map((a) => a.fuenteId?.trim() || a.referencia?.trim()).filter(Boolean)).size, [lista]);
+  // Tener escrito «pág. N» no prueba que la cita resuelva a esa página.
+  const conPagina = lista?.afirmaciones.filter((a) => a.clase === 'pagina') ?? [];
+  const paginasComprobadas = conPagina.some((a) => senalesDe(a.hoy).disponible === false) ? undefined : conPagina.filter((a) => senalesDe(a.hoy).resuelve).length;
   const numero = corridas.find((c) => c.id === corridaId)?.numero ?? null;
 
   const chip = (clave: typeof filtro, etiqueta: string, n: number, title?: string) => (
@@ -371,7 +331,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
   return (
     <div className="contenido contenido-ancho cit-pagina">
       <AvisoMuestra conexion={estado.conexion} />
-      <section className="cit-banco" aria-label={tr("Citas")}>
+      <section className="cit-banco" aria-label={tr("Citas")} aria-busy={lectura.actualizando}>
         <div className="cit-banco-arriba">
           <div className="cit-etiquetas">
             <span className="cit-pill">
@@ -413,20 +373,21 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
           {resumen && resumen.total > 0 && (
             <div className="cit-cifra">
               <div className="cit-cifra-fila">
-                <b>{formatearEntero(resumen.conPagina)}</b>
+                <b>{paginasComprobadas === undefined ? '?' : formatearEntero(paginasComprobadas)}</b>
                 <span>
                   <span className="cit-cifra-de">{trp("de {total}", { total: formatearEntero(resumen.total) })}</span>
-                  <span className="cit-cifra-que">{tr("a página exacta del PDF")}</span>
+                  <span className="cit-cifra-que">{tr(paginasComprobadas === undefined ? 'páginas aún sin comprobar' : 'a página exacta del PDF')}</span>
                 </span>
               </div>
-              {resumen.conPagina < resumen.total && <p>{tr("El resto se apoya en el resumen, una sección o el texto web, y lo dice: sin número de página.")}</p>}
+              {conPagina.length < resumen.total && <p>{tr('Las citas sin página se apoyan en el resumen, una sección o el texto web.')}</p>}
+              {paginasComprobadas !== undefined && paginasComprobadas < conPagina.length && <p>{tr('Una cita con número de página no cuenta aquí si no resuelve al texto guardado.')}</p>}
             </div>
           )}
         </div>
         {resumen && resumen.total > 0 ? <FranjaPruebas resumen={resumen} /> : fase === 'cargando' ? <Esqueleto ancho="100%" alto={128} radio={16} /> : null}
       </section>
 
-      <RecuperacionDeCitas inv={inv} />
+      <RecuperacionDeCitas key={inv.id} inv={inv} revision={revision} />
 
       {fase === 'sin_servidor' && (
         <p className="nota" role="status">
@@ -436,6 +397,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
       {fase === 'sin_respuesta' && (
         <p className="nota" role="status">
           {tr("No pude comprobar las citas: el servidor no respondió. No quiere decir que no las haya.")}
+          {' '}<button type="button" className="cit-enlace" onClick={lectura.repetir}>{tr('Reintentar')}</button>
         </p>
       )}
       {fase === 'vacia' && (
@@ -456,24 +418,28 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 {chip('todas', tr("Todas"), resumen?.total ?? 0)}
                 {chip('sostenidas', tr("Sostenidas"), sostenidas)}
                 {chip('fallidas', tr("Fallidas"), fallidas)}
+                {sinComprobar > 0 && chip('pendientes', tr('Sin comprobar'), sinComprobar)}
                 {chip('pagina', tr("Con página"), resumen?.conPagina ?? 0)}
                 {bloqueosViejos > 0 && chip('rancias', tr("Ya no bloquearían"), bloqueosViejos, tr("Bloqueadas con una versión anterior del verificador: hoy el verificador entero ya no las bloquearía"))}
               </div>
-              {bloqueosViejos > 0 && (
+              {porRecuperar > 0 && (
                 <div className="cit-recuperar-fila">
-                  <span>{plural(bloqueosViejos, tr('se juzgó con reglas viejas'), tr('se juzgaron con reglas viejas'))}</span>
+                  <span>{[
+                    bloqueosViejos > 0 ? plural(bloqueosViejos, tr('se juzgó con reglas viejas'), tr('se juzgaron con reglas viejas')) : '',
+                    sinJuez > 0 ? plural(sinJuez, tr('se quedó sin juez'), tr('se quedaron sin juez')) : '',
+                  ].filter(Boolean).join(' · ')}</span>
                   {!recuperacionPendiente && (
                     <button type="button" className="cit-enlace" onClick={() => void recuperar()} {...atributosEnVuelo(enVuelo)} title={tr("Vuelve a juzgarlas, enlaza a las hipótesis las que salgan sostenidas y rehace sus conclusiones")}>
-                      {enVuelo ? tr('Pidiendo...') : trp("Recuperar las {n}", { n: formatearEntero(bloqueosViejos) })}
+                      {enVuelo ? tr('Pidiendo...') : trp("Recuperar las {n}", { n: formatearEntero(porRecuperar) })}
                       <IconoEsc nombre="chevron-right" size={13} />
                     </button>
                   )}
                 </div>
               )}
             </header>
-            {recuperacion && (
+            {recuperacion?.corridaId === corridaId && (
               <p className="cit-nota cit-recuperacion" role="status">
-                {recuperacion}
+                {recuperacion.texto}
               </p>
             )}
             <div className="citas-lista cit-lista">
@@ -490,7 +456,7 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
               ) : afirmaciones.length === 0 ? (
                 <p className="cit-nota cit-vacio">{tr("Ninguna afirmación con ese filtro.")}</p>
               ) : (
-                afirmaciones.map((a) => <FilaAfirmacion key={a.id} a={a} elegida={a.id === elegida} onElegir={() => setElegida(a.id)} />)
+                afirmaciones.map((a) => <FilaAfirmacion key={a.id} a={a} elegida={a.id === seleccion} onElegir={() => setElegida(a.id)} />)
               )}
             </div>
             {fase === 'listo' && resumen && (
@@ -501,8 +467,8 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
             )}
           </section>
 
-          <section className="cit-tarjeta cit-fuente" aria-label={tr("La fuente y su página")}>
-            {cargandoFicha || fase === 'cargando' ? (
+          <section className="cit-tarjeta cit-fuente" aria-label={tr("La fuente y su página")} aria-busy={pagina.actualizando}>
+            {(pagina.fase === 'cargando' && seleccion) || fase === 'cargando' ? (
               <div aria-busy="true" className="cit-fuente-cargando">
                 <span className="sr-only">{tr("Cargando la página de la fuente")}</span>
                 <Esqueleto ancho="70%" alto={22} />
@@ -510,7 +476,15 @@ export function Citas({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
                 <Esqueleto ancho="100%" alto={420} radio={14} />
               </div>
             ) : ficha ? (
-              <Ficha ficha={ficha} corridaId={corridaId} />
+              <>
+                {pagina.actualizando && <p className="cit-nota" role="status">{tr('Actualizando la fuente...')}</p>}
+                <Ficha key={`${corridaId}|${seleccion}`} ficha={ficha} corridaId={corridaId} />
+              </>
+            ) : seleccion && pagina.fase === 'sin_respuesta' ? (
+              <p className="cit-nota" role="status">
+                {tr('No pude cargar la fuente seleccionada: el servidor no respondió.')}
+                {' '}<button type="button" className="cit-enlace" onClick={pagina.repetir}>{tr('Reintentar')}</button>
+              </p>
             ) : (
               <p className="cit-nota">{tr("Elige una afirmación de la izquierda para ver dónde se comprobó.")}</p>
             )}
@@ -754,7 +728,7 @@ function Ficha({ ficha, corridaId }: { ficha: FichaCita; corridaId: string }) {
           )}
           {Boolean(ficha.bloqueoViejo) && (
             <p className="cit-aviso cit-aviso-ambar cit-rancio">
-              {tr("Esta afirmación quedó bloqueada con una versión anterior del verificador y hoy ya no lo estaría. Con «Reverificar» se vuelve a juzgar y su veredicto se actualiza.")}
+              {tr("Esta afirmación quedó bloqueada con una versión anterior del verificador y hoy ya no lo estaría. Con «Recuperar» se vuelve a juzgar y su veredicto se actualiza.")}
             </p>
           )}
           {!ficha.bloqueoViejo && hoy.resuelve && hoy.literal && ficha.veredictoDeHoy?.bloquea && (

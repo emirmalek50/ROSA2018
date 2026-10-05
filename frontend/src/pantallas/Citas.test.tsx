@@ -9,6 +9,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EstadoRosa, Investigacion, RecuperacionCitas } from '../datos/tipos';
 import type { CitasRecuperables, ComprobacionDeHoy, FichaCita, ListaCitas } from '../lib/citas';
 import { Citas } from './Citas';
+import { acciones } from '../datos/almacen';
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const respuestas = vi.hoisted(() => ({
   lista: null as ListaCitas | null | 'sin_respuesta',
@@ -28,6 +31,7 @@ vi.mock('../datos/almacen', async (original) => ({
     citasRecuperables: vi.fn(async () => respuestas.recuperables),
     pedirRecuperacionCitas: vi.fn(async (i: string, c: string | null) => {
       respuestas.recuperaciones.push([i, c]);
+      return true;
     }),
     pdfDeCita: (c: string, a: string) => `/api/corridas/${c}/citas/${a}/pdf`,
     paginaDeCita: (c: string, a: string) => `/api/corridas/${c}/citas/${a}/pagina.png`,
@@ -85,6 +89,18 @@ const estado = {
 } as unknown as EstadoRosa;
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  // Cada respuesta HTTP se deserializa como una instantánea nueva, también
+  // cuando su contenido no cambió entre dos avisos SSE.
+  vi.mocked(acciones.citasDe).mockImplementation(async () => respuestas.lista && typeof respuestas.lista === 'object' ? structuredClone(respuestas.lista) : respuestas.lista);
+  vi.mocked(acciones.citaDe).mockImplementation(async (_c, id) => {
+    respuestas.pedidas.push(id);
+    return respuestas.ficha;
+  });
+  vi.mocked(acciones.pedirRecuperacionCitas).mockImplementation(async (i, c = null) => {
+    respuestas.recuperaciones.push([i, c]);
+    return true;
+  });
   respuestas.lista = LISTA;
   respuestas.ficha = FICHA;
   respuestas.pedidas = [];
@@ -97,6 +113,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   nodo.remove();
+  vi.useRealTimers();
 });
 
 const montar = async (investigacion: Investigacion = inv) => {
@@ -268,6 +285,175 @@ describe('la pantalla de citas', () => {
     respuestas.lista = { corridaId: 'cor-1', resumen: { total: 0, porVeredicto: {}, porClase: {}, conPagina: 0, conPdf: 0, bloqueosViejos: 0, conCitaEnOrden: 0, bloqueadasConCitaEnOrden: 0, resuelvenHoy: 0, literalesHoy: 0 }, afirmaciones: [] };
     await montar();
     expect(texto()).toContain('todavía no tiene afirmaciones extraídas');
+  });
+});
+
+describe('las citas siguen al estado real', () => {
+  const actualizar = async (e: EstadoRosa = { ...estado, corridas: [...estado.corridas] }, i = inv) => {
+    await act(async () => root.render(<Citas inv={i} estado={e} />));
+    await act(async () => vi.advanceTimersByTimeAsync(2100));
+    await act(async () => vi.advanceTimersByTimeAsync(10));
+  };
+
+  it('un aviso SSE de corridas refresca cifras y fuente sin perder la afirmación elegida', async () => {
+    await montar();
+    respuestas.ficha = { ...FICHA, afirmacion: { ...FICHA.afirmacion, id: 'af-2', texto: 'Segunda afirmación', veredicto: 'no_sostenida' } };
+    await pulsar(nodo.querySelectorAll('.citas-af')[1]!);
+    vi.useFakeTimers();
+    respuestas.lista = { ...LISTA, resumen: { ...LISTA.resumen, total: 4 }, afirmaciones: [...LISTA.afirmaciones, { ...LISTA.afirmaciones[0]!, id: 'af-4' }] };
+    respuestas.ficha = { ...respuestas.ficha, afirmacion: { ...respuestas.ficha.afirmacion, veredicto: 'sostenida', motivo: 'Recuperada en el servidor' } };
+    await actualizar();
+    expect(nodo.querySelectorAll('.citas-af')).toHaveLength(4);
+    expect(nodo.querySelector('.cit-elegida')?.textContent).toContain('Sube un treinta');
+    expect(nodo.querySelector('.cit-comparacion')?.textContent).toContain('Recuperada en el servidor');
+    expect(respuestas.pedidas.at(-1)).toBe('af-2');
+    const n = vi.mocked(acciones.citasDe).mock.calls.length;
+    await act(async () => vi.advanceTimersByTimeAsync(30000));
+    expect(vi.mocked(acciones.citasDe).mock.calls).toHaveLength(n);
+  });
+
+  it('una recuperación en curso actualiza la ficha aunque no cambie su ID', async () => {
+    await montar();
+    vi.useFakeTimers();
+    respuestas.ficha = { ...FICHA, afirmacion: { ...FICHA.afirmacion, motivo: 'Nuevo veredicto del juez' } };
+    await actualizar(estado, { ...inv, recuperacionCitas: { ...REGISTRO, revisadas: 160 } });
+    expect(nodo.querySelector('.cit-comparacion')?.textContent).toContain('Nuevo veredicto del juez');
+    expect(vi.mocked(acciones.citasRecuperables).mock.calls).toHaveLength(2);
+  });
+
+  it('un filtro vacío deja de enseñar la ficha de una afirmación oculta', async () => {
+    respuestas.lista = { ...LISTA, resumen: { ...LISTA.resumen, porVeredicto: { sostenida: 3 } }, afirmaciones: LISTA.afirmaciones.map((a) => ({ ...a, veredicto: 'sostenida' })) };
+    await montar();
+    await pulsar(boton('Fallidas'));
+    expect(nodo.querySelector('.cit-comparacion')).toBeNull();
+    expect(nodo.querySelector('.cit-hoja')).toBeNull();
+    expect(texto()).toContain('Ninguna afirmación con ese filtro.');
+  });
+
+  it('cambiar de corrida borra los contadores y la ficha anteriores incluso si falla la nueva', async () => {
+    await montar();
+    let terminar!: (l: ListaCitas | 'sin_respuesta') => void;
+    vi.mocked(acciones.citasDe).mockImplementationOnce(() => new Promise((r) => { terminar = r; }));
+    const select = nodo.querySelector('select')!;
+    await act(async () => {
+      select.value = 'cor-0';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(nodo.querySelector('.cit-cifra')).toBeNull();
+    expect(nodo.querySelector('.cit-hoja')).toBeNull();
+    await act(async () => terminar('sin_respuesta'));
+    expect(nodo.querySelector('.cit-cifra')).toBeNull();
+    expect(texto()).toContain('No pude comprobar las citas');
+    await pulsar(boton('Reintentar'));
+    expect(nodo.querySelectorAll('.citas-af')).toHaveLength(3);
+  });
+
+  it('ignora la respuesta tardía de otra corrida', async () => {
+    await montar();
+    let terminar!: (l: ListaCitas) => void;
+    vi.mocked(acciones.citasDe).mockImplementationOnce(() => new Promise((r) => { terminar = r; }));
+    const select = nodo.querySelector('select')!;
+    for (const id of ['cor-0', 'cor-1']) {
+      await act(async () => {
+        select.value = id;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    }
+    await act(async () => terminar({ ...LISTA, corridaId: 'cor-0', afirmaciones: [{ ...LISTA.afirmaciones[0]!, texto: 'Respuesta obsoleta' }] }));
+    expect(nodo.querySelectorAll('.citas-af')).toHaveLength(3);
+    expect(texto()).not.toContain('Respuesta obsoleta');
+  });
+
+  it('un aviso durante una lectura en vuelo no se pierde ni crea peticiones solapadas', async () => {
+    let terminar!: (l: ListaCitas) => void;
+    vi.mocked(acciones.citasDe).mockImplementationOnce(() => new Promise((r) => { terminar = r; }));
+    await montar();
+    vi.useFakeTimers();
+    await actualizar();
+    expect(vi.mocked(acciones.citasDe).mock.calls).toHaveLength(1);
+    respuestas.lista = { ...LISTA, afirmaciones: [...LISTA.afirmaciones, { ...LISTA.afirmaciones[0]!, id: 'af-nueva' }] };
+    await act(async () => terminar(LISTA));
+    await act(async () => vi.advanceTimersByTimeAsync(2100));
+    expect(vi.mocked(acciones.citasDe).mock.calls).toHaveLength(2);
+    expect(nodo.querySelectorAll('.citas-af')).toHaveLength(4);
+  });
+
+  it('los avisos continuos se agrupan, pero no posponen la lectura indefinidamente', async () => {
+    await montar();
+    vi.useFakeTimers();
+    for (let n = 0; n < 10; n++) {
+      await act(async () => root.render(<Citas inv={inv} estado={{ ...estado, corridas: [...estado.corridas] }} />));
+      await act(async () => vi.advanceTimersByTimeAsync(300));
+    }
+    const llamadas = vi.mocked(acciones.citasDe).mock.calls.length;
+    expect(llamadas).toBeGreaterThan(1);
+    expect(llamadas).toBeLessThan(5);
+  });
+
+  it('distingue un fallo de carga de la fuente de una lista sin selección y permite reintentar', async () => {
+    respuestas.ficha = 'sin_respuesta';
+    await montar();
+    expect(texto()).toContain('No pude cargar la fuente seleccionada');
+    respuestas.ficha = FICHA;
+    await pulsar(boton('Reintentar'));
+    expect(nodo.querySelector('.cit-hoja mark')?.textContent).toBe(PASAJE);
+  });
+
+  it('el número de páginas comprobadas no incluye localizadores a páginas que no existen', async () => {
+    respuestas.lista = { ...LISTA, afirmaciones: LISTA.afirmaciones.map((a) => ({ ...a, hoy: { ...a.hoy, resuelve: false } })) };
+    await montar();
+    expect(nodo.querySelector('.cit-cifra b')?.textContent).toBe('0');
+    expect(boton('Con página').textContent).toContain('1');
+    expect(texto()).toContain('no resuelve al texto guardado');
+  });
+
+  it('sin señales disponibles no inventa cero comprobaciones ni éxito', async () => {
+    const resumen = { ...LISTA.resumen };
+    delete (resumen as Partial<typeof resumen>).resuelvenHoy;
+    delete (resumen as Partial<typeof resumen>).literalesHoy;
+    respuestas.lista = { ...LISTA, resumen, afirmaciones: LISTA.afirmaciones.map((a) => ({ ...a, hoy: { ...a.hoy, disponible: false } })) };
+    respuestas.ficha = { ...FICHA, hoy: { ...HOY_BIEN, disponible: false, motivoResuelve: 'Comprobación no disponible' } };
+    await montar();
+    expect(nodo.querySelector('.cit-cifra b')?.textContent).toBe('?');
+    expect(nodo.querySelectorAll('.cit-medida.cit-neutro')).toHaveLength(2);
+    expect(nodo.querySelector('.cit-senales')).toBeNull();
+  });
+
+  it('sin juez y no comprobable no cuentan como fallidas, y tienen su propio filtro', async () => {
+    respuestas.lista = { ...LISTA, resumen: { ...LISTA.resumen, total: 5, porVeredicto: { ...LISTA.resumen.porVeredicto, sin_verificar: 1, no_comprobable: 1 } }, afirmaciones: [...LISTA.afirmaciones, ...['sin_verificar', 'no_comprobable'].map((veredicto) => ({ ...LISTA.afirmaciones[0]!, id: veredicto, veredicto }))] };
+    await montar();
+    expect(boton('Fallidas').textContent).toBe('Fallidas 1');
+    await pulsar(boton('Sin comprobar'));
+    expect(nodo.querySelectorAll('.citas-af')).toHaveLength(2);
+  });
+
+  it('una referencia vacía no se cuenta como una fuente', async () => {
+    respuestas.lista = { ...LISTA, afirmaciones: LISTA.afirmaciones.map((a) => ({ ...a, fuenteId: null, referencia: '' })) };
+    await montar();
+    expect(nodo.querySelector('.cit-cuenta')?.textContent).toContain('0 fuentes');
+  });
+
+  it('no anuncia una recuperación como pedida si el servidor la rechaza', async () => {
+    vi.mocked(acciones.pedirRecuperacionCitas).mockResolvedValueOnce(false);
+    await montar();
+    await pulsar(boton('Recuperar las 1'));
+    expect(texto()).toContain('El servidor no aceptó la recuperación');
+    expect(texto()).not.toContain('Pedida: se hace en segundo plano');
+  });
+
+  it('permite continuar cuando solo falta enlazar evidencia ya recuperada', async () => {
+    respuestas.recuperables = { ...RECUPERABLES, bloqueosViejos: 0, sinJuez: 0, porEnlazar: 7 };
+    await montar();
+    expect(nodo.querySelector('.cit-recuperar')?.textContent).toContain('7 afirmaciones recuperadas esperan enlazarse');
+    await pulsar(boton('Continuar recuperación'));
+    expect(respuestas.recuperaciones).toEqual([['inv-1', null]]);
+  });
+
+  it('la recuperación de una corrida incluye también sus afirmaciones sin juez', async () => {
+    respuestas.lista = { ...LISTA, resumen: { ...LISTA.resumen, porVeredicto: { ...LISTA.resumen.porVeredicto, sin_verificar: 4 } } };
+    await montar();
+    await pulsar(boton('Recuperar las 5'));
+    expect(respuestas.recuperaciones).toEqual([['inv-1', 'cor-1']]);
   });
 });
 
