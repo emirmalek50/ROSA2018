@@ -711,6 +711,41 @@ def test_entidades_del_espejo_sin_claves_privadas_y_con_recorte(al):
     assert isinstance(EC.activo(), bool) and (EC.activo() == bool(config.CONVEX_URL and config.CONVEX_DEPLOY_KEY))
 
 
+def test_una_base_vacia_no_barre_el_espejo_de_otra(al, monkeypatch):
+    """5 de octubre de 2026: una compañera arrancó ROSA2018 con el .env de Emir
+    (base vacía, clave del espejo de producción). El ciclo habría borrado las
+    1.743 entidades del espejo. Se simula Convex lleno y se comprueba que el
+    ciclo se niega, lo dice, y no manda ninguna mutation; y que un borrado
+    normal (pocas entidades) sí pasa."""
+    import asyncio
+
+    from rosa import espejo_convex as EC
+
+    monkeypatch.setattr(EC.config, "CONVEX_URL", "https://prueba.convex.cloud")
+    monkeypatch.setattr(EC.config, "CONVEX_DEPLOY_KEY", "clave-de-prueba")
+    esp = EC.Espejo(al)
+    llamadas = []
+
+    async def falso_llamar(tipo, path, args):
+        llamadas.append((tipo, path, args))
+        return {"escritas": len(args.get("cambios", []))}
+
+    monkeypatch.setattr(esp, "_llamar", falso_llamar)
+    # Convex lleno por otra instalación: 1.743 entidades que esta base no tiene.
+    esp.hashes = {("hechos", f"h-{i}"): "x" for i in range(1_700)} | {("investigaciones", f"inv-{i}"): "x" for i in range(43)}
+    r = asyncio.run(esp.sincronizar())
+    assert r["rechazado"] is True and r["borrados"] == 0 and llamadas == []
+    assert "otra instalación" in (esp.estado["error"] or "") and "1743" in esp.estado["error"]
+    assert len(esp.hashes) == 1_743  # no se olvida nada: el espejo sigue siendo de la otra
+    # Un borrado de los normales (una entidad que ya no está) sí se manda.
+    esp.estado["error"] = None
+    esp.hashes = {("hipotesis", "vieja"): "x"}
+    r = asyncio.run(esp.sincronizar())
+    assert r["borrados"] == 1 and any(a["borrados"] == [{"coleccion": "hipotesis", "id": "vieja"}] for _, _, a in llamadas)
+    assert esp.estado["error"] is None
+    assert EC.es_otra_base(21, 40) and not EC.es_otra_base(20, 40) and not EC.es_otra_base(100, 1_000)
+
+
 def test_recorte_del_espejo_garantiza_el_limite():
     import json
 

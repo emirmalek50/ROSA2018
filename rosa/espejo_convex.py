@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import sys
 import time
 from typing import Any
 
@@ -38,6 +39,15 @@ MAX_LOTE = 200
 MAX_BYTES_LOTE = 6_000_000
 ESPERA_S = 4.0
 MAX_EVENTOS = 500
+# Seguro contra otra instalación con la misma clave (5 de octubre de 2026: una
+# compañera arrancó ROSA2018 en su máquina con el .env de Emir, es decir, con
+# una base vacía y la clave del espejo de la base de producción). El diff
+# habría mandado borrar las 1.743 entidades del espejo. En una base normal
+# no desaparece casi nada entre dos ciclos: si un ciclo quiere borrar más de
+# esta fracción de lo que el espejo tiene (y más de MIN_BORRADOS_SOSPECHOSOS),
+# lo que hay enfrente es otra base, y este servidor no toca el espejo.
+FRACCION_BORRADO_SOSPECHOSA = 0.5
+MIN_BORRADOS_SOSPECHOSOS = 20
 
 
 def activo() -> bool:
@@ -68,6 +78,12 @@ def _recortar(datos: dict[str, Any], bytes_: int) -> dict[str, Any]:
         if len(json.dumps(out, ensure_ascii=False, default=str).encode("utf-8")) <= MAX_BYTES_DOC:
             return out
     return {k: datos.get(k) for k in ("id", "investigacionId", "titulo", "nombre", "estado") if k in datos} | {"_truncadoEspejo": {"bytesOriginales": bytes_, "nota": "Entidad demasiado grande para el espejo incluso recortada"}}
+
+
+def es_otra_base(borrados: int, en_espejo: int) -> bool:
+    """Si un ciclo que quiere borrar `borrados` de las `en_espejo` entidades del
+    espejo delata que este servidor trabaja sobre OTRA base que la que lo llenó."""
+    return borrados > MIN_BORRADOS_SOSPECHOSOS and borrados > en_espejo * FRACCION_BORRADO_SOSPECHOSA
 
 
 def entidades_de(estado: dict[str, Any]) -> list[dict[str, Any]]:
@@ -110,6 +126,7 @@ class Espejo:
         self.hashes: dict[tuple[str, str], str] = {}
         self.estado: dict[str, Any] = {"activo": activo(), "url": config.CONVEX_URL, "ultimaVersion": None, "sincronizadoEn": None, "entidades": 0, "pendiente": False, "error": None, "envios": 0, "ms": 0}
         self._tarea: asyncio.Task | None = None
+        self._ultimo_aviso = ""
         self._cliente = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=15.0), headers={"Authorization": f"Convex {config.CONVEX_DEPLOY_KEY}", "Content-Type": "application/json"})
 
     async def _llamar(self, tipo: str, path: str, args: dict[str, Any]) -> Any:
@@ -142,6 +159,9 @@ class Espejo:
         actuales = {(f["coleccion"], f["id"]): f for f in filas}
         cambios = [f for k, f in actuales.items() if self.hashes.get(k) != f["hash"]]
         borrados = [{"coleccion": c, "id": i} for (c, i) in self.hashes if (c, i) not in actuales]
+        if es_otra_base(len(borrados), len(self.hashes)):
+            self.estado.update(pendiente=False, error=f"El espejo tiene {len(self.hashes)} entidades y esta base querría borrar {len(borrados)}: el espejo es de otra instalación de ROSA2018 y este servidor no lo toca. Quita CONVEX_DEPLOY_KEY y CONVEX_URL de este .env si no es tu espejo.")
+            return {"cambios": 0, "borrados": 0, "escritas": 0, "lotes": 0, "rechazado": True}
         lotes: list[list[dict[str, Any]]] = [[]]
         tam = 0
         for f in cambios:
@@ -188,10 +208,22 @@ class Espejo:
 
     async def _intentar(self) -> None:
         try:
-            await self.sincronizar()
+            r = await self.sincronizar()
         except Exception as ex:  # noqa: BLE001
             self.estado["error"] = f"{type(ex).__name__}: {str(ex)[:200]}"
             self.estado["pendiente"] = True
+            self._avisar(self.estado["error"])
+            return
+        if r.get("rechazado"):
+            self._avisar(self.estado["error"] or "")
+
+    def _avisar(self, texto: str) -> None:
+        """El fallo del espejo, al registro del servidor, una vez por motivo
+        distinto: hasta el 5 de octubre de 2026 solo vivía en memoria
+        (/api/espejo) y el espejo llevaba 13 días parado sin que nada lo dijera."""
+        if texto and texto != self._ultimo_aviso:
+            self._ultimo_aviso = texto
+            print(f"Espejo en Convex: {texto}", file=sys.stderr, flush=True)
 
     def arrancar(self) -> None:
         if activo() and self._tarea is None:

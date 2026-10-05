@@ -3,6 +3,26 @@
 Actualizado el 5 de octubre de 2026. El plan completo por etapas esta en
 `PLAN-ROSA2018.md`; esto es la lista corta de lo inmediato.
 
+## El espejo en Convex lleva desde el 22 de septiembre sin sincronizar (hallado el 5 de octubre de 2026)
+
+Convex tiene la versión 25.931 (1.743 entidades) y la base local va por la
+37.856 (2.892 entidades, 19 MB). Nadie lo vio porque el fallo solo vivía en
+memoria (`/api/espejo`); desde hoy sale en el registro del servidor
+(`rosa/espejo_convex.py`, `_avisar`), y dice: `RuntimeError: [Request ID: ...]
+Server Error` en la mutation `espejo:sincronizar`. La causa probable está en
+`frontend/convex/espejo.ts`: en el último lote hace
+`ctx.db.query('entidades').collect()` para contar (línea 54), y la query
+`hashes` (línea 102) también lee TODAS las entidades enteras para devolver
+tres campos. Convex limita lo que una función puede leer por transacción (16
+MiB); con 19 MB de entidades, las dos se pasan. Arreglo: llevar el recuento en
+`meta` sin leer la tabla, y para los hashes una tabla aparte y pequeña
+(coleccion, id, hash) o paginar. Mientras tanto el espejo no sirve para leer el
+estado desde fuera, que era su razón de ser; nada más depende de él.
+
+Y lo que se puso hoy: un seguro para que una instalación con la misma clave y
+otra base (una compañera con el `.env` copiado) no barra el espejo
+(`es_otra_base`, con test en `rosa/tests/test_rosa2018.py`).
+
 ## ROSA2018 en Windows: lo que se arregló a ciegas y lo que no se ha probado (5 de octubre de 2026)
 
 Una compañera de Emir clonó el repo en Windows (PowerShell). Nadie había
