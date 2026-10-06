@@ -126,7 +126,9 @@ describe('el catálogo en inglés', () => {
     // quedan como se llaman: el «Sydney Memory and Ageing Study» lleva
     // Ageing porque así se llama el estudio, no porque se nos pasara.
     const NOMBRES = /Ageing Study|Medical Research Council|Neuroimaging Initiative|PREVENT Dementia programme/;
-    const BRITANICO = /\b(?:randomis\w*|analys(?:ed|ing|e|es)|behaviou\w*|programme|colour\w*|grey|ageing|catalogue|licence|defence|centre|fibre|litre|metre|labelled|modelling|haemo\w*|oedema|organis(?:ed|ing|ation)|recognis\w*|normalis\w*|prioritis\w*|summaris\w*|standardis\w*|localis\w*)\b/i;
+    // «Analyses» es también el plural correcto de «analysis» en Estados Unidos.
+    // El verbo británico «analyse» y sus formas siguen estando prohibidos.
+    const BRITANICO = /\b(?:randomis\w*|analys(?:ed|ing|e)|behaviou\w*|programme|colour\w*|grey|ageing|catalogue|licence|defence|centre|fibre|litre|metre|labelled|modelling|haemo\w*|oedema|organis(?:ed|ing|ation)|recognis\w*|normalis\w*|prioritis\w*|summaris\w*|standardis\w*|localis\w*)\b/i;
     const malas = entradas
       .filter(([, v]) => BRITANICO.test(v) && !NOMBRES.test(v))
       .map(([k, v]) => `${k.slice(0, 36)} -> ${(v.match(BRITANICO) ?? [''])[0]}`);

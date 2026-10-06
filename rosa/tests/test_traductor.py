@@ -129,6 +129,16 @@ def test_el_endpoint_sin_sesion_no_traduce(tmp_path, monkeypatch):
     assert r.status_code in (401, 403)
 
 
+def test_el_endpoint_rechaza_dosis_alterada_y_devuelve_terminologia_revisada(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, 'llamar_modelo', lambda lote: {t: 'Dose of 20 mM' for t in lote})
+    monkeypatch.setattr(T, '_CACHE', T.Cache(tmp_path / 'traducciones.db'))
+    c = _cliente(tmp_path, monkeypatch)
+    r = c.post('/api/traducir', json={'textos': ['Dosis de 20 µM', 'Puerta de reproducción']}, headers={'X-Rosa': '1'})
+    assert r.status_code == 200
+    assert r.json()['traducciones'] == {'Puerta de reproducción': 'Reproducibility gate'}
+    assert 'Dosis de 20 µM' in r.json()['rechazadas']
+
+
 def test_pasado_el_tope_del_dia_solo_lee_la_cache(tmp_path, monkeypatch):
     """Un freno contra un bucle: lo nuevo se queda en castellano, la
     pantalla no falla."""

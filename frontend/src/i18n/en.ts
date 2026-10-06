@@ -1,3 +1,4 @@
+import { TRADUCCIONES_REVISADAS } from '../lib/terminologia';
 // El catálogo en inglés. La clave es la frase en castellano tal cual aparece
 // en el código: ver `src/lib/idioma.ts` para por qué.
 //
@@ -76,4 +77,6 @@ export const EN: Record<string, string> = {
   ...ESCENARIO,
   ...CITAS,
   ...NUEVA,
+  // La revisión científica prevalece también sobre futuras regeneraciones.
+  ...TRADUCCIONES_REVISADAS,
 };

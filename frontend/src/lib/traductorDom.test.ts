@@ -136,7 +136,7 @@ describe('la traducción en pantalla', () => {
   it('los párrafos se reparten sin hacer esperar a una pantalla por un lote enorme', async () => {
     vi.useFakeTimers();
     const textos = Array.from({ length: 12 }, (_, i) => `La evidencia de la cohorte ${i}. ${'Datos de la investigación. '.repeat(60)}`);
-    const pedir = vi.fn(async (lote: string[]) => Object.fromEntries(lote.map((t) => [t, `Evidence ${textos.indexOf(t)}`])));
+    const pedir = vi.fn(async (lote: string[]) => Object.fromEntries(lote.map((t) => [t, t.replace('La evidencia de la cohorte', 'Evidence from cohort').replaceAll('Datos de la investigación.', 'Research data.')])));
     raiz.innerHTML = textos.map((t) => `<p>${t}</p>`).join('');
     activar(raiz, pedir);
     await vi.advanceTimersByTimeAsync(1000);
@@ -247,6 +247,22 @@ describe('la traducción en pantalla', () => {
     activar(raiz, falso({}));
     await espera();
     expect(raiz.textContent).toBe('No pude comprobar la cohorte de la hipótesis');
+  });
+
+  it('una respuesta que cambia la dosis no se muestra ni se memoriza', async () => {
+    vi.useFakeTimers();
+    const original = 'La dosis propuesta es de 20 µM para esta investigación';
+    const valido = 'The proposed dose is 20 µM for this investigation';
+    raiz.textContent = original;
+    const pedir = vi.fn().mockResolvedValueOnce({ [original]: valido.replace('µM', 'mM') }).mockResolvedValue({ [original]: valido });
+    activar(raiz, pedir);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(raiz.textContent).toBe(original);
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(raiz.textContent).toBe(valido);
+    expect(pedir).toHaveBeenCalledTimes(2);
+    desactivar();
+    expect(raiz.textContent).toBe(original);
   });
 });
 

@@ -689,6 +689,25 @@ describe('lo que va al laboratorio', () => {
     expect(texto()).toContain('perfil compatible con llegar al cerebro');
   });
 
+  it('en inglés, g/mol se presenta como masa molar y conserva su valor', async () => {
+    fijarIdioma('en');
+    await montar();
+    expect([...nodo.querySelectorAll('dt')].some((dt) => dt.textContent === 'MOLAR MASS')).toBe(true);
+    expect(texto()).toContain('379.5');
+    expect(texto()).toContain('g/mol');
+    expect(texto()).toContain('ADEBPBSSDYVVLD-UHFFFAOYSA-N');
+  });
+
+  it('la vista de proteína usa overview y ofrece reducir expresión, sin prometer eliminación total', async () => {
+    fijarIdioma('en');
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    expect(nodo.querySelector('.lab-niveles')?.textContent).toContain('OVERVIEW');
+    expect(texto()).toContain('Explore oligonucleotides');
+    expect(texto()).toContain('colors indicate local model confidence');
+    expect(texto()).not.toContain('Shut down production');
+  });
+
   it('un compuesto que PubChem no tiene entra igual si la evidencia lo nombra', async () => {
     // Quien decide qué compuestos salen es la evidencia, no PubChem: el
     // lecanemab es un anticuerpo, nunca tendrá ficha de molécula pequeña, y

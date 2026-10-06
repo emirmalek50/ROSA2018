@@ -1,0 +1,393 @@
+{
+  "revision": "2026-10-06",
+  "alcance": "Terminología y traducciones revisadas en contexto. Las reglas detectan errores concretos; no certifican equivalencia semántica completa ni validación experimental. El original se conserva.",
+  "fuentes": [
+    {
+      "id": "grade",
+      "url": "https://www.cochrane.org/authors/handbooks-and-manuals/handbook/current/chapter-14",
+      "uso": "Certeza GRADE, dominios de evaluación e intervalos de confianza. La certeza de la evidencia no es la confianza estructural de AlphaFold."
+    },
+    {
+      "id": "best",
+      "url": "https://www.ncbi.nlm.nih.gov/books/NBK402286/",
+      "uso": "Biomarcador de respuesta, actividad farmacodinámica y target engagement; no equivalen por sí solos a eficacia clínica."
+    },
+    {
+      "id": "best_surrogate",
+      "url": "https://www.fda.gov/drugs/development-resources/surrogate-endpoint-resources-drug-and-biologic-development",
+      "uso": "Distinguir biomarcador, desenlace sustituto y beneficio clínico."
+    },
+    {
+      "id": "reproducibilidad",
+      "url": "https://www.nationalacademies.org/read/25303/chapter/3",
+      "uso": "En este proyecto, reproducir análisis publicados con los datos originales es computational reproducibility. Replication exige datos de un estudio independiente."
+    },
+    {
+      "id": "gapmer",
+      "url": "https://academic.oup.com/nar/article/43/18/8638/2414436",
+      "uso": "Gapmer, DNA gap, wings, hybridization, target transcript, gene knockdown y efectos fuera de diana."
+    },
+    {
+      "id": "gapmer_quimica",
+      "url": "https://academic.oup.com/nar/article/48/4/1691/5715809",
+      "uso": "Afinidad de las alas y corte del ARN por RNase H1 en la región de la brecha de ADN."
+    },
+    {
+      "id": "hgnc",
+      "url": "https://www.genenames.org/about/guidelines/",
+      "uso": "Conservar los símbolos y distinguir el gen de su producto proteico."
+    },
+    {
+      "id": "alphafold",
+      "url": "https://alphafold.ebi.ac.uk/faq",
+      "uso": "pLDDT expresa confianza local en una predicción; no es una medición experimental ni certeza GRADE."
+    },
+    {
+      "id": "masa_molar",
+      "url": "https://goldbook.iupac.org/terms/view/12214",
+      "uso": "Una magnitud mostrada en g/mol se etiqueta como molar mass, no como peso genérico."
+    }
+  ],
+  "reglas": [
+    {
+      "id": "certeza_grade",
+      "es": "\\bcerteza\\b",
+      "en": "\\bcertainty\\b|\\bGRADE[- ]rated\\b",
+      "fuentes": [
+        "grade"
+      ]
+    },
+    {
+      "id": "intervalo_confianza",
+      "es": "\\bintervalo(?:s)? de confianza\\b",
+      "en": "\\b(?:confidence intervals?|CI)\\b",
+      "fuentes": [
+        "grade"
+      ]
+    },
+    {
+      "id": "compromiso_diana",
+      "es": "\\bcompromiso de diana\\b",
+      "en": "\\btarget[- ]engagement\\b",
+      "fuentes": [
+        "best"
+      ]
+    },
+    {
+      "id": "beneficio_clinico",
+      "es": "\\bbeneficio clinico\\b",
+      "en": "\\bclinical benefit\\b",
+      "fuentes": [
+        "best_surrogate"
+      ]
+    },
+    {
+      "id": "prerregistro",
+      "es": "\\bprerregistr(?:o|ado|ada|ados|adas)\\b",
+      "en": "\\bpre[- ]?regist(?:ration|ered)\\b",
+      "fuentes": [
+        "reproducibilidad"
+      ]
+    },
+    {
+      "id": "puerta_reproducibilidad",
+      "es": "\\bpuerta de reproduccion\\b",
+      "en": "\\breproducibility gate\\b",
+      "fuentes": [
+        "reproducibilidad"
+      ]
+    },
+    {
+      "id": "fuera_diana",
+      "es": "\\bfuera de diana\\b",
+      "en": "\\boff[- ]target\\b",
+      "fuentes": [
+        "gapmer"
+      ]
+    },
+    {
+      "id": "antisentido",
+      "es": "\\b(?:oligonucleotido|oligo) antisentido\\b",
+      "en": "\\bantisense (?:oligonucleotide|oligo)\\b",
+      "fuentes": [
+        "gapmer"
+      ]
+    },
+    {
+      "id": "gap_adn",
+      "es": "\\bhueco de adn\\b",
+      "en": "\\bdna gap\\b",
+      "fuentes": [
+        "gapmer"
+      ]
+    },
+    {
+      "id": "complemento_inverso",
+      "es": "\\bcomplemento inverso\\b",
+      "en": "\\breverse complement\\b",
+      "fuentes": [
+        "gapmer"
+      ]
+    },
+    {
+      "id": "ensayo_clinico",
+      "es": "\\bensayos? clinicos?\\b",
+      "en": "\\b(?:clinical )?trials?\\b",
+      "fuentes": [
+        "best_surrogate"
+      ]
+    },
+    {
+      "id": "inmunoensayo",
+      "es": "\\binmunoensayos?\\b",
+      "en": "\\bimmunoassays?\\b",
+      "fuentes": [
+        "best"
+      ]
+    }
+  ],
+  "simbolos": [
+    "GFAP",
+    "NfL",
+    "NfH",
+    "NEFL",
+    "TREM2",
+    "APOE",
+    "APOE4",
+    "MAPT",
+    "APP",
+    "BACE1",
+    "BACE2",
+    "PSEN1",
+    "PSEN2",
+    "NLRP3",
+    "NDST3",
+    "ARRB2",
+    "BECN1",
+    "VPS35",
+    "DAPK1",
+    "HDAC6",
+    "SORL1",
+    "ABCA7",
+    "BIN1",
+    "CLU",
+    "CR1",
+    "CD33",
+    "PLCG2",
+    "MS4A6A",
+    "PICALM",
+    "SLC25A12",
+    "NPTX2",
+    "SNAP25",
+    "SYN1",
+    "SYN2",
+    "BDNF",
+    "GRIN2B",
+    "IL6",
+    "IL1B",
+    "TNF",
+    "ACE2",
+    "p-tau181",
+    "p-tau217",
+    "p-tau231",
+    "Aβ40",
+    "Aβ42",
+    "Abeta40",
+    "Abeta42"
+  ],
+  "traducciones": {
+    "Abierta: {superadas} de {requeridas} análisis publicados reproducidos. ROSA2018 ya puede descubrir con datos.": "Open: {superadas} of {requeridas} published analyses reproduced. ROSA2018 can now make discoveries with data.",
+    "Antes de descubrir nada con datos, ROSA2018 tiene que reproducir análisis ya publicados dentro de una tolerancia fijada de antemano. Si no lo consigue, un resultado nuevo no se distingue de un error del pipeline. Una persona puede eximirla dejando el motivo; queda como cambio de política.": "Before discovering anything from data, ROSA2018 has to reproduce already published analyses within a tolerance fixed in advance. If it fails, a new result cannot be told apart from a pipeline error. A person can waive this by leaving the reason; it is recorded as a policy change.",
+    "Análisis publicados a reproducir antes de descubrir": "Published analyses to reproduce before discovering",
+    "Cada método dice qué puede evaluar, dónde aplica, qué necesita, cómo se validó y en qué estado está. La popularidad no lo hace apto; la validación sí. La puerta de reproducción marca los métodos de análisis como probados en contexto. Un predictor no confirma sus propios datos de entrenamiento.": "Each method states what it can assess, where it applies, what it needs, how it was validated and what state it is in. Popularity does not make it suitable; validation does. The reproducibility gate marks analysis methods as tested in context. A predictor does not validate its own training data.",
+    "Calidad mide si el juez acierta y cuanto cuesta cada decisión. Ajustes tiene el dial de autonomía, las políticas y la integridad del registro. Objetivo y datos guarda la misión, los datasets con su libro de procedencia y lo que sabe el laboratorio.": "Quality measures whether the judge gets it right and what each decision costs. Settings holds the autonomy dial, the policies and log integrity. Objective and data holds the mission, the datasets with their provenance record and what the lab knows.",
+    "Con la escala que usa el resto del sector (Beal y Rogers 2020; la revisión de laboratorios autónomos de 2025 dice que la mayoría está en el nivel 3 y ninguno en producción pasa del 4). ROSA2018 opera en el nivel 2 y lo declara en cada dossier: propone hipótesis, planes y protocolos y corre análisis in silico; toda decisión que toca el mundo real la toma una persona. El dial de autonomía de arriba no sube este nivel: ajusta cuánto pregunta dentro de él.": "On the scale the rest of the field uses (Beal and Rogers 2020; the 2025 review of autonomous labs says most sit at level 3 and none in production goes beyond 4). ROSA2018 operates at level 2 and states this in every dossier: it proposes hypotheses, plans and protocols and runs in silico analyses; every decision that touches the real world is made by a person. The autonomy dial above does not raise this level: it adjusts how much it asks within it.",
+    "El expediente con el que la hipótesis sale al laboratorio, en siete partes: si va o no y por qué (bloqueos), la hipótesis completa con su versión, la evidencia con procedencia, los análisis con datos, las decisiones, el protocolo prerregistrado y qué se aprende con cada resultado. Se arma sin ningún modelo, con lo que hay en el estado.": "The dossier the hypothesis takes into the lab, in seven parts: whether it goes ahead or not and why (blockers), the full hypothesis with its version, the evidence with provenance, the analyses with data, the decisions, the preregistered protocol and what each outcome teaches you. It is assembled without any model, from what is in the state.",
+    "Evaluaciones costosas (análisis con datos) por corrida": "Expensive evaluations (analyses with data) per run",
+    "La puerta de reproducción está bloqueada ({superadas} de {requeridas}): hasta abrirla, ningún análisis con datos cuenta como descubrimiento.": "The reproducibility gate is locked ({superadas} of {requeridas}): until it is opened, no analysis with data counts as a discovery.",
+    "La puerta de reproducción está bloqueada ({v} de {v2}): el análisis quedará en \"no ejecutado\" hasta reproducir los análisis publicados o eximir la puerta con motivo.": "The reproducibility gate is locked ({v} of {v2}): the analysis will stay as \"not run\" until the published analyses are reproduced or the gate is waived with a reason.",
+    "La puerta de reproducción.": "The reproducibility gate.",
+    "Lecciones generadas por regla al cerrar cada iteración: pasos que fallaron, consultas que no rindieron, bases que no respondieron, hipótesis cerradas por el Killer y por qué, ideas retiradas del vivero, análisis sin efecto. Cada paso las lee antes de actuar; una lección repetida pesa más.": "Lessons generated by rule when each iteration closes: steps that failed, queries that yielded nothing, databases that did not respond, hypotheses closed by the Killer and why, ideas withdrawn from the nursery, analyses with no effect. Every step reads them before acting; a repeated lesson weighs more.",
+    "Los resultados de evoke y evoke+ cuando se publiquen; los análisis de GFAP en ensayos de GLP-1 en diabetes.": "The evoke and evoke+ results when they are published; the GFAP analyses in GLP-1 trials in diabetes.",
+    "Puerta de reproducción eximida por {quien}: {v}": "Reproducibility gate waived by {quien}: {v}",
+    "Puerta de reproducción eximida: {texto}": "Reproducibility gate waived: {texto}",
+    "Puerta de reproducción vuelta a exigir por {quien}": "Reproducibility gate required again by {quien}",
+    "{pendientes} dataset espera que completes su libro de procedencia y lo apruebes.": "{pendientes} dataset is waiting for you to complete its provenance record and approve it.",
+    "{pendientes} datasets esperan que completes su libro de procedencia y lo apruebes.": "{pendientes} datasets are waiting for you to complete their provenance record and approve them.",
+    "La puerta de reproducción está bloqueada (": "The reproducibility gate is blocked (",
+    "): el análisis quedará en \"no ejecutado\" hasta reproducir los análisis publicados o eximir la puerta con motivo.": "): the analysis will stay \"not run\" until the published analyses are reproduced or the gate is waived with a reason.",
+    "Producto de los e-valores (kappa p^(kappa-1)) de los análisis válidos. Controla el error de tipo I aunque se sigan añadiendo pruebas (Popper, 2025).": "Product of the e-values (kappa p^(kappa-1)) of the valid analyses. It controls type I error even as more tests keep being added (Popper, 2025).",
+    "Antes de descubrir nada, ROSA2018 tiene que reproducir tres análisis ya publicados dentro de una tolerancia. Si no puede, un resultado nuevo no se distingue de un error.": "Before discovering anything, ROSA2018 has to reproduce three already published analyses within a tolerance. If it cannot, a new result is indistinguishable from a bug.",
+    "Si la evidencia que se cita sostiene de verdad la hipótesis. La decide una regla sobre el registro, no un modelo: afirmaciones que su fuente no sostiene o cuya cita no resuelve, fuentes retractadas, análisis dados por no válidos, o descarte del Killer. Una hipótesis sin solidez pierde el partido del torneo sin que ningún modelo lo juzgue. Que algo esté sin verificar no quita solidez: eso es \"no pude comprobar\".": "Whether the evidence cited really supports the hypothesis. A rule over the record decides it, not a model: claims their source does not support or whose citation does not resolve, retracted sources, analyses ruled not valid, or a Killer discard. A hypothesis without soundness loses its tournament match without any model judging it. Something being unverified does not remove soundness: that is \"could not check\".",
+    "Puerta de reproducción": "Reproducibility gate",
+    "Reproducción": "Computational reproducibility",
+    "Reproducción registrada: {referencia}": "Computational reproducibility check recorded: {referencia}",
+    "Excluidos: {planesSinCongelar} planes sin congelar, {planesSinEjecucionValida} sin ejecución válida, {planesReproduccion} de reproducción, {laboratorioSinPrerregistro} experimentos sin prerregistro.": "Excluded: {planesSinCongelar} plans not frozen, {planesSinEjecucionValida} without a valid execution, {planesReproduccion} computational reproducibility plans, {laboratorioSinPrerregistro} experiments without preregistration.",
+    "Cortar la producción de": "Reduce expression of",
+    "Cortar la producción de {simbolo} en su propio ARN": "Reduce {simbolo} expression by targeting its RNA",
+    "oligonucleótidos para cortar su producción": "antisense oligonucleotides to reduce its expression",
+    "Candidatos para reducir la producción": "Candidates for reducing expression",
+    "Candidata al laboratorio": "Candidate for laboratory testing",
+    "DÓNDE CAE EN EL ARN": "TARGET SITE ON THE RNA",
+    "DÓNDE CAE": "TARGET SITE",
+    "CÓMO QUEDA PEGADO AL ARN": "HYBRIDIZATION TO THE TARGET RNA",
+    "G MÁS C": "GC CONTENT",
+    "% de G y C": "GC content (%)",
+    "Banda del filtro: 40 a 60 % de G y C": "GC-content filter: 40 to 60 %",
+    "Sin parecido peligroso en ningún otro ARN humano": "No potentially problematic sequence matches found in other human RNAs",
+    "Sin choque exacto en ningún otro ARN humano": "No exact sequence matches found in other human RNAs",
+    "No se puede pedir: encaja en otro gen donde la RNasa H1 cortaría": "Cannot be ordered: matches a transcript from another gene at an RNase H1 cleavage site",
+    "genes ajenos donde cortaría": "Other genes whose RNA transcripts would be cleaved",
+    "Dónde más encaja:": "Additional transcript matches:",
+    "¿ESTÁ ABIERTO EL SITIO EN EL ARN?": "IS THE RNA TARGET SITE ACCESSIBLE?",
+    "El tramo está abierto": "The target region is accessible",
+    "El tramo está a medias": "The target region is partially accessible",
+    "El tramo está tapado": "The target region is inaccessible",
+    "Si el sitio está abierto o tapado": "Whether the target site is accessible",
+    "TRAMO FIABLE": "CONFIDENTLY PREDICTED REGION",
+    "Modelo predicho, no medido: el color dice de qué tramos se fía.": "Predicted structure, not an experimental measurement: colors indicate local model confidence.",
+    "LAS LECTURAS": "EXPERIMENTAL READOUTS",
+    "Hash SHA-256 de las lecturas en orden canónico: {x}": "SHA-256 hash of the readouts in canonical order: {x}",
+    "Hash de las lecturas congelado al prerregistrar:": "Readout hash frozen at preregistration:",
+    "Las lecturas se enmendaron después: hash actual": "The readouts were amended after preregistration: current hash",
+    "Ala de 2'-MOE: protege y agarra, pero aquí la RNasa H1 no corta": "2'-MOE wing: enhances stability and binding affinity; RNase H1 does not cleave this region",
+    "2'-O-metoxietilo (2'-MOE). Sube la afinidad y protege de las nucleasas, pero la RNasa H1 NO lo reconoce.": "2'-O-methoxyethyl (2'-MOE). Increases binding affinity and nuclease resistance; it does NOT support RNase H1-mediated cleavage.",
+    "ADN (2'-desoxi). Es lo ÚNICO que la RNasa H1 reconoce, y por eso el corte ocurre aquí y no en las alas.": "DNA (2'-deoxy). This is the ONLY region that supports RNase H1-mediated cleavage of the paired RNA, which is why cleavage occurs here rather than in the wings.",
+    "el ARN de la diana": "the target RNA",
+    "aquí corta la RNasa H1": "RNase H1 cleaves the RNA here",
+    "surco menor": "minor groove",
+    "largo de la dúplex": "duplex length",
+    "giro por par": "helical twist per base pair",
+    "vueltas de hélice": "helical turns",
+    "fallos en las alas": "mismatches in the wings",
+    "  FÓRMULA: {formula}  ·  PESO: {peso} g/mol": "  FORMULA: {formula}  ·  MOLAR MASS: {peso} g/mol",
+    "proteina\u0004LÁMINA": "OVERVIEW",
+    "masa_molar\u0004PESO": "MOLAR MASS",
+    "El gapmer 5-10-5 de 2'-MOE con enlaces fosforotioato y 5-metilcitosina no es una propuesta de ROSA2018: es la arquitectura de los tres gapmers aprobados, y es lo que se escribe en una hoja de pedido.": "The 5-10-5 2'-MOE gapmer with phosphorothioate linkages and 5-methylcytosine is not a ROSA2018 proposal: it is the architecture of the three approved gapmers, and it is what you write on an order form.",
+    "Modelo predicho, no medido: el color dice de qué tramos se fía. ": "Predicted structure, not an experimental measurement: colors indicate local model confidence. ",
+    "Modelo predicho, no medido: el color dice de qué tramos se fía. Acerca la rueda del ratón sobre la proteína": "Predicted structure, not an experimental measurement: colors indicate local model confidence. Scroll the mouse wheel over the protein",
+    "(CC BY 4.0). Una predicción no es una medición, y en cada lámina se dice de qué tramos se fía el modelo. ROSA2018 no calcula acoplamientos ni propone estructuras nuevas.": "(CC BY 4.0). A prediction is not an experimental measurement; each protein view shows local model confidence. ROSA2018 does not perform molecular docking or propose new structures."
+  },
+  "unidades": {
+    "µM": "µM",
+    "μM": "µM",
+    "uM": "µM",
+    "micromolar": "µM",
+    "nM": "nM",
+    "nanomolar": "nM",
+    "mM": "mM",
+    "millimolar": "mM",
+    "M": "M",
+    "µg": "µg",
+    "μg": "µg",
+    "ug": "µg",
+    "microgramos": "µg",
+    "micrograms": "µg",
+    "ng": "ng",
+    "nanogramos": "ng",
+    "nanograms": "ng",
+    "mg": "mg",
+    "miligramos": "mg",
+    "milligrams": "mg",
+    "g": "g",
+    "gramos": "g",
+    "grams": "g",
+    "kg": "kg",
+    "kilogramos": "kg",
+    "kilograms": "kg",
+    "pg": "pg",
+    "mL": "mL",
+    "ml": "mL",
+    "mililitros": "mL",
+    "milliliters": "mL",
+    "µL": "µL",
+    "μL": "µL",
+    "uL": "µL",
+    "microlitros": "µL",
+    "microliters": "µL",
+    "L": "L",
+    "litros": "L",
+    "liters": "L",
+    "mol": "mol",
+    "mmol": "mmol",
+    "kcal": "kcal",
+    "kJ": "kJ",
+    "Da": "Da",
+    "kDa": "kDa",
+    "%": "%",
+    "percent": "%",
+    "por ciento": "%",
+    "°C": "°C",
+    "degrees Celsius": "°C",
+    "grados Celsius": "°C",
+    "h": "h",
+    "horas": "h",
+    "hora": "h",
+    "hours": "h",
+    "hour": "h",
+    "min": "min",
+    "minuto": "min",
+    "minutos": "min",
+    "minute": "min",
+    "minutes": "min",
+    "d": "d",
+    "día": "d",
+    "días": "d",
+    "dia": "d",
+    "dias": "d",
+    "day": "d",
+    "days": "d",
+    "s": "s",
+    "segundos": "s",
+    "seconds": "s",
+    "nm": "nm",
+    "nt": "nt",
+    "per cent": "%",
+    "pM": "pM",
+    "picomolar": "pM",
+    "fM": "fM",
+    "femtomolar": "fM",
+    "µmol": "µmol",
+    "μmol": "µmol",
+    "umol": "µmol",
+    "nmol": "nmol",
+    "pmol": "pmol",
+    "nL": "nL",
+    "nanolitros": "nL",
+    "nanoliters": "nL",
+    "ms": "ms",
+    "milisegundos": "ms",
+    "milliseconds": "ms",
+    "µs": "µs",
+    "μs": "µs",
+    "us": "µs",
+    "microsegundos": "µs",
+    "microseconds": "µs",
+    "ns": "ns",
+    "nanosegundos": "ns",
+    "nanoseconds": "ns",
+    "Å": "Å",
+    "angstrom": "Å",
+    "angstroms": "Å",
+    "mm": "mm",
+    "cm": "cm",
+    "µm": "µm",
+    "μm": "µm",
+    "um": "µm"
+  },
+  "excepciones_unidades": [
+    {
+      "valor": "{hechos}",
+      "unidad": "h",
+      "motivo": "En el resumen del árbol, h abrevia hechos, no horas."
+    }
+  ],
+  "normalizaciones_cifras": {
+    "13:02:11 generar(hechos=42, pregunta=\"p-tau217 en familiar\") -> 1 hipotesis, 1.412 tokens": "13:02:11 generar(hechos=42, pregunta=\"p-tau217 en familiar\") -> 1 hipotesis, 1412 tokens",
+    "La corrida paso del 50 % del presupuesto global (1.500 de 3.000 llamadas)": "La corrida paso del 50 % del presupuesto global (1500 de 3000 llamadas)"
+  },
+  "cabeceras_csv": [
+    "id,titulo,elo,estado",
+    "id,title,elo,status"
+  ]
+}

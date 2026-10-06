@@ -26,6 +26,7 @@
 // castellano se entiende, uno mal traducido no.
 
 import { EN } from '../i18n/en';
+import { comprobarTraduccion } from './terminologia';
 
 /** Marcas de castellano. A las palabras función se les suman unos cuantos
  *  sustantivos del dominio que en inglés no existen («hora», «hipótesis»,
@@ -260,7 +261,7 @@ async function enviar(): Promise<void> {
     lote.forEach((t) => enCurso.delete(t));
   }
   for (const t of lote) {
-    if (typeof r[t] === 'string' && r[t]!.trim()) {
+    if (typeof r[t] === 'string' && comprobarTraduccion(t, r[t]!) === null) {
       memoria.set(t, r[t]!);
       fallidos.delete(t);
     } else if (turno === generacion && pedirActivo) {

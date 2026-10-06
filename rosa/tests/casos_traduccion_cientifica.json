@@ -1,0 +1,404 @@
+[
+  {
+    "nombre": "prefijo de concentración",
+    "original": "Dosis de 20 µM",
+    "traducido": "Dose of 20 mM",
+    "valida": false
+  },
+  {
+    "nombre": "prefijo de masa",
+    "original": "Dosis de 20 µg",
+    "traducido": "Dose of 20 mg",
+    "valida": false
+  },
+  {
+    "nombre": "conversión de dosis prohibida",
+    "original": "Dosis de 20 mg",
+    "traducido": "Dose of 0.02 g",
+    "valida": false
+  },
+  {
+    "nombre": "concentración por volumen",
+    "original": "GFAP: 1,5 µg/mL",
+    "traducido": "GFAP: 1.5 µg/mL",
+    "valida": true
+  },
+  {
+    "nombre": "se pierde denominador",
+    "original": "GFAP: 1,5 µg/mL",
+    "traducido": "GFAP: 1.5 µg",
+    "valida": false
+  },
+  {
+    "nombre": "cambia volumen",
+    "original": "GFAP: 1,5 µg/mL",
+    "traducido": "GFAP: 1.5 µg/µL",
+    "valida": false
+  },
+  {
+    "nombre": "se intercambian cifras",
+    "original": "GFAP subió 20 % y NfL 40 %",
+    "traducido": "GFAP rose 40 % and NfL 20 %",
+    "valida": false
+  },
+  {
+    "nombre": "se inventa cifra",
+    "original": "La evidencia es parcial",
+    "traducido": "The evidence is 90 % certain",
+    "valida": false
+  },
+  {
+    "nombre": "se pierde signo",
+    "original": "Diferencia: -0,3",
+    "traducido": "Difference: 0.3",
+    "valida": false
+  },
+  {
+    "nombre": "signo negativo Unicode",
+    "original": "Diferencia: −0,30",
+    "traducido": "Difference: -0.3",
+    "valida": true
+  },
+  {
+    "nombre": "umbral invierte dirección",
+    "original": "Concentración ≤ 5 µM",
+    "traducido": "Concentration > 5 µM",
+    "valida": false
+  },
+  {
+    "nombre": "notación equivalente de umbral",
+    "original": "Concentración ≤ 5 µM",
+    "traducido": "Concentration <= 5 µM",
+    "valida": true
+  },
+  {
+    "nombre": "porcentaje escrito",
+    "original": "GC: 60 por   ciento",
+    "traducido": "GC: 60 percent",
+    "valida": true
+  },
+  {
+    "nombre": "unidad temporal adjetiva",
+    "original": "Duración de 15 minutos",
+    "traducido": "A 15-minute duration",
+    "valida": true
+  },
+  {
+    "nombre": "no confundir sí con segundos",
+    "original": "De 60 candidatos, 5 sí encajan",
+    "traducido": "Of 60 candidates, 5 match",
+    "valida": true
+  },
+  {
+    "nombre": "no confundir dato alfanumérico con horas",
+    "original": "SULF2 en GPC4-alto",
+    "traducido": "SULF2 in GPC4-high",
+    "valida": true
+  },
+  {
+    "nombre": "intervalo abreviado",
+    "original": "IC95%: -0.007, 0.019",
+    "traducido": "95% CI: -0.007, 0.019",
+    "valida": true
+  },
+  {
+    "nombre": "añade resultado a intervalo",
+    "original": "IC95%: -0.007, 0.019",
+    "traducido": "95% CI: 0.007, 0.019",
+    "valida": false
+  },
+  {
+    "nombre": "gen y variante pueden reordenarse",
+    "original": "La variante R47H de TREM2",
+    "traducido": "The TREM2 R47H variant",
+    "valida": true
+  },
+  {
+    "nombre": "mutación cambia",
+    "original": "La variante R47H de TREM2",
+    "traducido": "The TREM2 R47L variant",
+    "valida": false
+  },
+  {
+    "nombre": "símbolo desconocido con dígitos",
+    "original": "SULF2 se reduce",
+    "traducido": "SULF1 is reduced",
+    "valida": false
+  },
+  {
+    "nombre": "símbolo sin dígitos",
+    "original": "GFAP se reduce",
+    "traducido": "GFA is reduced",
+    "valida": false
+  },
+  {
+    "nombre": "mayúsculas de biomarcador",
+    "original": "NfL se reduce",
+    "traducido": "NFL is reduced",
+    "valida": false
+  },
+  {
+    "nombre": "ARN antisentido cambia base",
+    "original": "Secuencia de ARN: AUGCUAUGCUAA",
+    "traducido": "RNA sequence: AUGCUAUGCUAG",
+    "valida": false
+  },
+  {
+    "nombre": "código literal",
+    "original": "Ejecuta `resultado = 5`",
+    "traducido": "Run `result = 5`",
+    "valida": false
+  },
+  {
+    "nombre": "enlace a fuente exacta",
+    "original": "Fuente: https://example.org/paper/42",
+    "traducido": "Source: https://example.org/paper/43",
+    "valida": false
+  },
+  {
+    "nombre": "DOI exacto",
+    "original": "DOI 10.1234/abc2026.5",
+    "traducido": "DOI 10.1234/abc2026.6",
+    "valida": false
+  },
+  {
+    "nombre": "identificador de ensayo",
+    "original": "Ensayo NCT01234567",
+    "traducido": "Trial NCT01234568",
+    "valida": false
+  },
+  {
+    "nombre": "transcrito con versión",
+    "original": "Transcrito NM_000100.2",
+    "traducido": "Transcript NM_000100.3",
+    "valida": false
+  },
+  {
+    "nombre": "hueco repetido se pierde",
+    "original": "{n} de {n} muestras",
+    "traducido": "{n} samples",
+    "valida": false
+  },
+  {
+    "nombre": "huecos se reordenan",
+    "original": "{n} de {total} muestras",
+    "traducido": "Of {total} samples, {n}",
+    "valida": true
+  },
+  {
+    "nombre": "unidad de hueco cambia",
+    "original": "Dosis {dosis} µM",
+    "traducido": "Dose {dosis} mM",
+    "valida": false
+  },
+  {
+    "nombre": "hechos no son horas",
+    "original": "{hechos} h · {hipotesis} hip",
+    "traducido": "{hechos} f · {hipotesis} hyp",
+    "valida": true
+  },
+  {
+    "nombre": "certeza no es confianza",
+    "original": "Certeza de la evidencia: baja",
+    "traducido": "Confidence in the evidence: low",
+    "valida": false
+  },
+  {
+    "nombre": "certeza GRADE",
+    "original": "Certeza de la evidencia: baja",
+    "traducido": "Certainty of the evidence: low",
+    "valida": true
+  },
+  {
+    "nombre": "certeza de hueco es un identificador",
+    "original": "{certeza} todavía sin conclusión",
+    "traducido": "{certeza} no conclusion yet",
+    "valida": true
+  },
+  {
+    "nombre": "reproducibilidad computacional",
+    "original": "Puerta de reproducción",
+    "traducido": "Reproducibility gate",
+    "valida": true
+  },
+  {
+    "nombre": "reproducción biológica",
+    "original": "Puerta de reproducción",
+    "traducido": "Reproduction gate",
+    "valida": false
+  },
+  {
+    "nombre": "replicación independiente no es reproducibilidad",
+    "original": "Puerta de reproducción",
+    "traducido": "Replication gate",
+    "valida": false
+  },
+  {
+    "nombre": "compromiso literal de diana",
+    "original": "Lectura de compromiso de diana",
+    "traducido": "Target commitment readout",
+    "valida": false
+  },
+  {
+    "nombre": "target engagement",
+    "original": "Lectura de compromiso de diana",
+    "traducido": "Target-engagement readout",
+    "valida": true
+  },
+  {
+    "nombre": "ensayo bioquímico no es clínico",
+    "original": "Ensayo clínico aleatorizado",
+    "traducido": "Randomized assay",
+    "valida": false
+  },
+  {
+    "nombre": "ensayo clínico",
+    "original": "Ensayo clínico aleatorizado",
+    "traducido": "Randomized trial",
+    "valida": true
+  },
+  {
+    "nombre": "inmunoensayo",
+    "original": "Inmunoensayo de GFAP",
+    "traducido": "GFAP immunoassay",
+    "valida": true
+  },
+  {
+    "nombre": "inmunoensayo no es inmunoterapia",
+    "original": "Inmunoensayo de GFAP",
+    "traducido": "GFAP immunotherapy",
+    "valida": false
+  },
+  {
+    "nombre": "fuera de diana",
+    "original": "Efectos fuera de diana",
+    "traducido": "Off-target effects",
+    "valida": true
+  },
+  {
+    "nombre": "literal de diana",
+    "original": "Efectos fuera de diana",
+    "traducido": "Effects outside the target",
+    "valida": false
+  },
+  {
+    "nombre": "antisentido",
+    "original": "Oligonucleótido antisentido",
+    "traducido": "Antisense oligonucleotide",
+    "valida": true
+  },
+  {
+    "nombre": "brecha del gapmer",
+    "original": "Hueco de ADN",
+    "traducido": "DNA gap",
+    "valida": true
+  },
+  {
+    "nombre": "hueco literal",
+    "original": "Hueco de ADN",
+    "traducido": "DNA hole",
+    "valida": false
+  },
+  {
+    "nombre": "complemento inverso",
+    "original": "Complemento inverso de la secuencia",
+    "traducido": "Reverse complement of the sequence",
+    "valida": true
+  },
+  {
+    "nombre": "complemento literal",
+    "original": "Complemento inverso de la secuencia",
+    "traducido": "Inverse complement of the sequence",
+    "valida": false
+  },
+  {
+    "nombre": "verificación no equivale a ausencia",
+    "original": "No pude comprobar los ensayos",
+    "traducido": "No trials found",
+    "valida": false
+  },
+  {
+    "nombre": "falta de verificación fiel",
+    "original": "No pude comprobar los ensayos",
+    "traducido": "Could not verify the trials",
+    "valida": true
+  },
+  {
+    "nombre": "fortalece afirmación",
+    "original": "La evidencia sostiene la hipótesis",
+    "traducido": "The evidence confirms the hypothesis",
+    "valida": false
+  },
+  {
+    "nombre": "preserva significado literal de BEST",
+    "original": "Detecta o confirma la enfermedad",
+    "traducido": "Detects or confirms the disease",
+    "valida": true
+  },
+  {
+    "nombre": "coma inglesa cambia magnitud",
+    "original": "Dosis de 1,500 mg",
+    "traducido": "Dose of 1,500 mg",
+    "valida": false
+  },
+  {
+    "nombre": "coma decimal no es inglesa",
+    "original": "Dosis de 1,5 mg",
+    "traducido": "Dose of 1,5 mg",
+    "valida": false
+  },
+  {
+    "nombre": "decimal sin reinterpretar miles",
+    "original": "Dosis de 1,500 mg",
+    "traducido": "Dose of 1.500 mg",
+    "valida": true
+  },
+  {
+    "nombre": "miles ingleses explícitos",
+    "original": "20000 muestras",
+    "traducido": "20,000 samples",
+    "valida": true
+  },
+  {
+    "nombre": "enlace conserva nombre de marca",
+    "original": "Fuente https://example.org/ROSA2018",
+    "traducido": "Source https://example.org/ROSA",
+    "valida": false
+  },
+  {
+    "nombre": "código conserva nombre de marca",
+    "original": "Usa `ROSA2018`",
+    "traducido": "Use `ROSA`",
+    "valida": false
+  },
+  {
+    "nombre": "tercera unidad de una tasa",
+    "original": "Infusión de 20 mg/kg/min",
+    "traducido": "Infusion at 20 mg/kg/h",
+    "valida": false
+  },
+  {
+    "nombre": "tasa con unidades equivalentes",
+    "original": "Infusión de 20 mg/kg/min",
+    "traducido": "Infusion at 20 mg/kg/min",
+    "valida": true
+  },
+  {
+    "nombre": "dosis con duración",
+    "original": "Dosis de 20 µmol/kg/h",
+    "traducido": "Dose of 20 nmol/kg/h",
+    "valida": false
+  },
+  {
+    "nombre": "picomolar no es nanomolar",
+    "original": "Concentración de 20 pM",
+    "traducido": "Concentration of 20 nM",
+    "valida": false
+  },
+  {
+    "nombre": "milisegundos no son segundos",
+    "original": "Duración de 20 ms",
+    "traducido": "Duration of 20 s",
+    "valida": false
+  }
+]

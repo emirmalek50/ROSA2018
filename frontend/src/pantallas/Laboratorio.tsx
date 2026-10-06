@@ -366,7 +366,7 @@ function FichaQuimica({ q }: { q: QuimicaDeDiana }) {
               <dd className="lab-mono">{q.formula}</dd>
             </div>
             <div>
-              <dt>PESO</dt>
+              <dt>{trc('masa_molar', 'PESO')}</dt>
               <dd className="lab-mono">{q.peso} {tr("g/mol")}</dd>
             </div>
             <div>
@@ -2361,7 +2361,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
 
       <div className={`lab-capa lab-mando${nivel > 0 ? ' lab-fuera' : ''}`} aria-hidden={nivel > 0}>
         <div className="lab-niveles">
-          {[tr('LÁMINA'), 'PARTES', tr('ÁTOMOS')].map((t, i) => (
+          {[trc('proteina', 'LÁMINA'), tr('PARTES'), tr('ÁTOMOS')].map((t, i) => (
             <button key={t} type="button" tabIndex={nivel > 0 ? -1 : 0} aria-current={nivel === i} onClick={() => irANivel(i)}>
               {t}
             </button>
@@ -2470,7 +2470,7 @@ function FichaCompuesto({ c }: { c: CompuestoDeLaboratorio }) {
               <dd className="lab-mono">{c.formula}</dd>
             </div>
             <div>
-              <dt>PESO</dt>
+              <dt>{trc('masa_molar', 'PESO')}</dt>
               <dd className="lab-mono">{c.peso} {tr("g/mol")}</dd>
             </div>
             <div>
