@@ -33,12 +33,25 @@ beforeEach(() => {
 afterEach(async () => { motor?.desmontar(); nodo.remove(); await Promise.resolve(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('el motor del laboratorio sigue al servidor', () => {
-  it('los diálogos son literales y el tiempo visual no ejecuta capítulos nuevos', async () => {
+  it('la voz sigue el registro y el tiempo visual no ejecuta capítulos nuevos', async () => {
     montar(); ticks(400); await Promise.resolve();
     expect(nodo.querySelectorAll('.lv-ag.activo')).toHaveLength(1);
     expect(nodo.querySelector('.lv-ag.activo')?.getAttribute('data-agente')).toBe('Generador de consultas');
     expect(nodo.querySelector('.lv-chip.on')?.textContent).toContain('Buscan y leen');
     expect(nodo.textContent).not.toContain('Yo miro el resto');
+  });
+  it('el Killer habla en primera persona en el bocadillo y la ficha, con el original comprobable', () => {
+    const d = datos();
+    const original = 'El Killer revisa «La severidad basal indicada por NfL modifica el valor clínico de una reducción de P-tau181»';
+    const e = { ...d.actividad[0]!, agente: 'Killer', sala: 'r4' as const, texto: original };
+    montar({ ...d, foco: 'r4', activos: ['Killer'], actividad: [e] });
+    const bocadillo = nodo.querySelector('.lv-bub')!;
+    expect(bocadillo.textContent).toContain('Estoy revisando «La severidad basal');
+    expect(bocadillo.textContent).not.toContain('El Killer revisa');
+    expect(bocadillo.getAttribute('title')).toBe(original);
+    nodo.querySelector<HTMLElement>('[data-agente="Killer"]')!.dispatchEvent(new MouseEvent('mouseenter'));
+    expect(nodo.querySelector('.lv-ahora b')?.textContent).toBe('Estoy revisando ' + original.slice('El Killer revisa '.length));
+    expect(e.texto).toBe(original);
   });
   it('una entrada nueva sustituye el diálogo y un estado idéntico no lo reinicia', () => {
     const d = datos(); montar(d);

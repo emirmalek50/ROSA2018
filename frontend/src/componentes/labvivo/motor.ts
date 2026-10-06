@@ -8,6 +8,7 @@
 // mensajes y los contadores se actualizan desde DatosLab al recibir SSE.
 
 import { tr, trp } from '../../lib/idioma';
+import { dialogoDeActividad } from '../../lib/dialogoLaboratorio';
 import { formatearEntero } from '../../lib/formato';
 import { ALCANCE } from '../../lib/etiquetas';
 import type { ActividadLab, DatosLab, EstadoPasoLab, EstadoSala, FuenteLab, SalaLab } from '../../lib/labVivo';
@@ -421,12 +422,12 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   /** Lo que el agente está haciendo en la escena, leído de lo que se ve: su
    *  bocadillo, hacia dónde camina, si escribe o, si está quieto, cómo va su sala. */
   function haciendo(a: Agente): string {
-    if (a.bub?.el.classList.contains('ask')) return tr('Te está pidiendo permiso');
+    if (a.bub?.el.classList.contains('ask')) return tr('Necesito tu permiso');
     const ultima = [...D.actividad].reverse().find((e) => e.agente === a.name);
-    if (D.activos.includes(a.name)) return ultima?.texto ?? D.pasos.enCurso?.titulo ?? D.estadoTexto;
-    if (D.conexion !== 'en_linea') return tr('Sin conexión en vivo: se muestra el último estado recibido');
-    if (!D.trabajando) return D.estadoTexto + (ultima ? ' · ' + ultima.texto : '');
-    return ultima ? tr('Último registro') + ': ' + ultima.texto : tr('Sin actividad registrada en esta iteración');
+    if (D.activos.includes(a.name)) return ultima ? dialogoDeActividad(ultima, true) : trp('Estoy trabajando en esta tarea: «{tarea}».', { tarea: D.pasos.enCurso?.titulo ?? D.estadoTexto });
+    if (D.conexion !== 'en_linea') return tr('No estoy recibiendo actualizaciones de la corrida.');
+    if (!D.trabajando) return D.estadoTexto + (ultima ? ' · ' + dialogoDeActividad(ultima, false) : '');
+    return ultima ? dialogoDeActividad(ultima, false) : tr('Todavía no tengo actividad registrada en esta iteración.');
   }
   let fichaDe: Agente | null = null, fichaTexto = '';
   function refrescarFicha() {
@@ -497,8 +498,10 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const a = P(e.agente);
     a.ictx?.kill(); a.path = []; a.x = a.hx; a.y = a.hy; a.carry = null;
     const ctx = nuevoCtx(); a.ictx = ctx;
-    const rotulo = D.trabajando && e.enCurso && D.activos.includes(a.name) ? tr('Registro en vivo') : tr('Último registro');
-    say(a, `<em>${esc(rotulo)}</em>${esc(corta(e.texto, 190))}`, 9, e.tipo === 'error' ? 'claim error' : 'claim');
+    const enVivo = D.trabajando && e.enCurso && D.activos.includes(a.name);
+    const rotulo = enVivo ? tr('Ahora mismo') : tr('Mi último registro');
+    const dialogo = dialogoDeActividad(e, enVivo);
+    say(a, `<em>${esc(rotulo)}</em>${esc(corta(dialogo, 190))}`, 9, e.tipo === 'error' ? 'claim error' : 'claim');
     a.bub?.el.setAttribute('title', e.texto);
     setEv(esc(e.texto));
     if (!animar || REDUCIR) return;
