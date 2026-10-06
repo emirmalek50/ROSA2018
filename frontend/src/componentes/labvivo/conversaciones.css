@@ -8,7 +8,7 @@
 .lab-charlas ol{list-style:none;padding:0;margin:0}
 .lab-charlas li{padding:14px 0;border-bottom:1px solid var(--border)}
 .lab-charlas-quien{display:flex;gap:10px;flex-wrap:wrap;font-size:12px}
-.lab-charlas-quien strong{color:var(--accent)}
+.lab-charlas-quien strong{color:var(--text)}
 .lab-charlas-quien span{color:var(--text-2)}
 .lab-charlas li>p{max-width:78ch;font-size:14px;line-height:1.6;margin:6px 0 8px}
 .lab-charlas summary{cursor:pointer;font-size:11px;color:var(--text-2)}
