@@ -1,0 +1,17 @@
+export const CONVERSACIONES_LABORATORIO: Record<string, string> = {
+  'Los personajes comentan los hallazgos de esta corrida con IA, con referencias al registro y la evidencia.': 'The characters discuss findings from this run using AI, with references to the log and evidence.',
+  'Conversaciones del laboratorio': 'Lab conversations',
+  'Conversaciones de IA': 'AI conversations',
+  'Conectando las conversaciones': 'Connecting conversations',
+  'Preparando el siguiente intercambio': 'Preparing the next exchange',
+  'Esperan nuevos hallazgos': 'Waiting for new findings',
+  'Conversaciones en pausa': 'Conversations paused',
+  'Presupuesto reservado para la investigación': 'Budget reserved for the research',
+  'Las conversaciones no están disponibles': 'Conversations are unavailable',
+  'Comentan los hallazgos reales y responden a sus compañeros. Sus interpretaciones no cambian los resultados de la investigación.': 'They discuss actual findings and respond to their colleagues. Their interpretations do not change the research results.',
+  'La próxima conversación aparecerá cuando haya un hallazgo que comentar.': 'The next conversation will appear when there is a finding to discuss.',
+  'Ver lo que leyeron': 'See what they read',
+  'Registro de la corrida': 'Run log',
+  'Afirmación de la corrida': 'Claim from the run',
+  'Último comentario a un compañero': 'Latest comment to a colleague',
+};

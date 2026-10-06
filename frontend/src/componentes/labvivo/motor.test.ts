@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { estadoDeMuestra } from '../../datos/muestra';
 import type { Iteracion } from '../../datos/tipos';
 import { datosDelLaboratorio, type DatosLab } from '../../lib/labVivo';
+import type { TurnoLaboratorio } from '../../lib/conversacionesLaboratorio';
 import { montarLaboratorio, type Laboratorio, type Respuestas } from './motor';
 
 let nodo: HTMLDivElement, motor: Laboratorio | null, frame: FrameRequestCallback, tiempo: number;
@@ -120,28 +121,56 @@ describe('el motor del laboratorio sigue al servidor', () => {
     const resp = montar(d); expect(nodo.querySelector('[data-a=si]')).toBeNull();
     (nodo.querySelector('.lv-pide .yes') as HTMLButtonElement).click(); expect(resp.verEnLaCorrida).toHaveBeenCalledOnce(); expect(resp.conceder).not.toHaveBeenCalled();
   });
-  it('sigue caminando y conversa con compañeros aunque no lleguen entradas nuevas', async () => {
+  it('sigue caminando entre entradas sin inventar conversaciones', async () => {
     const d = datos(), texto = 'El Killer revisa «Una hipótesis real sobre MAPT»';
     const e = { ...d.actividad[0]!, agente: 'Killer', sala: 'r4' as const, texto };
     const estado = { ...d, foco: 'r4' as const, activos: ['Killer'], actividad: [e] };
     const resp = montar(estado), killer = nodo.querySelector<HTMLElement>('[data-agente="Killer"]')!;
-    const posiciones = new Set<string>(), interlocutores = new Set<string>();
-    let pregunta = false, respuesta = false;
+    const posiciones = new Set<string>();
     await avanzar(600, () => {
       if (tiempo % 1000 === 0) motor!.actualizar(estado);
       if (tiempo > 30000) posiciones.add(killer.style.transform);
-      for (const b of nodo.querySelectorAll<HTMLElement>('.lv-bub[data-escena]')) {
-        if (b.dataset.interlocutor) interlocutores.add(b.dataset.interlocutor);
-        pregunta ||= b.textContent?.includes('¿En qué estás ahora?') ?? false;
-        respuesta ||= b.textContent?.includes('Estoy revisando «Una hipótesis real sobre MAPT»') ?? false;
-      }
+      expect(nodo.querySelectorAll('.lv-bub[data-escena]')).toHaveLength(0);
       expect(nodo.querySelectorAll('.lv-ag.activo')).toHaveLength(1);
     });
     expect(posiciones.size).toBeGreaterThan(20);
-    expect(interlocutores.has('Killer')).toBe(true);
-    expect(pregunta && respuesta).toBe(true);
     expect(estado.actividad).toEqual([e]); expect(e.texto).toBe(texto);
     expect(resp.aprobarPlan).not.toHaveBeenCalled(); expect(resp.conceder).not.toHaveBeenCalled();
+  });
+  it('representa el intercambio generado y la respuesta, con procedencia sin duplicados', async () => {
+    const d = datos(); montar(d);
+    const turno: TurnoLaboratorio = { id: 'dialogo-1', temaId: 'tema', iteracionId: d.identidad.split('/')[1]!, idioma: 'es',
+      agente: 'Generador de consultas', destinatario: 'Explorador', texto: 'Yo encontré una asociación en ratones. ¿Qué límite destacarías?', fecha: Date.now(), modelo: 'modelo-prueba',
+      materiales: [{ id: 'fuente-1', clase: 'afirmacion', texto: 'Asociación en ratones', cita: 'PMID:123, p. 4' }] };
+    const respuesta = { ...turno, id: 'dialogo-2', agente: turno.destinatario, destinatario: turno.agente, texto: 'Yo destacaría que una asociación no establece causalidad.' };
+    motor!.conversar([turno, respuesta]);
+    const vistos = new Set<string>();
+    await avanzar(450, () => {
+      for (const b of nodo.querySelectorAll<HTMLElement>('.lv-bub[data-turno]')) {
+        vistos.add(b.dataset.turno!);
+        expect(b.title).toContain('Asociación en ratones');
+        expect(b.dataset.interlocutor).toBe(b.dataset.turno === turno.id ? turno.destinatario : turno.agente);
+      }
+    });
+    expect([...vistos]).toEqual([turno.id, respuesta.id]);
+    motor!.conversar([turno, respuesta]);
+    await avanzar(300);
+    expect(nodo.querySelectorAll('.lv-bub[data-turno]')).toHaveLength(0);
+    nodo.querySelector<HTMLElement>('[data-agente="Explorador"]')!.dispatchEvent(new MouseEvent('mouseenter'));
+    expect(nodo.querySelector('.lv-ficha .lv-charla')?.textContent).toContain(respuesta.texto);
+    expect(d.actividad).toHaveLength(1);
+  });
+  it('silencia los bocadillos y no reproduce conversaciones de otra iteración o antiguas', async () => {
+    const d = datos(); montar(d);
+    const t: TurnoLaboratorio = { id: '1', temaId: 'tema', iteracionId: d.identidad.split('/')[1]!, idioma: 'es', agente: 'Generador de consultas', destinatario: 'Explorador', texto: 'Yo revisaría los límites de esta asociación.', fecha: Date.now(), modelo: 'prueba', materiales: [] };
+    motor!.conversar([{ ...t, id: 'otra', iteracionId: 'otra' }, { ...t, id: 'antigua', fecha: Date.now() - 100000 }]);
+    await avanzar(300); expect(nodo.querySelectorAll('.lv-bub[data-turno]')).toHaveLength(0);
+    motor!.conversar([t]);
+    for (let n = 0; n < 150 && !nodo.querySelector('.lv-bub[data-turno]'); n++) await avanzar(1);
+    expect(nodo.querySelectorAll('.lv-bub[data-turno]')).toHaveLength(1);
+    motor!.conversar([t], false);
+    expect(nodo.querySelectorAll('.lv-bub[data-turno]')).toHaveLength(0);
+    await avanzar(250); expect(nodo.querySelectorAll('.lv-bub[data-turno]')).toHaveLength(0);
   });
   it('los cuatro generadores salen de sus mesas mientras sus tareas siguen activas', async () => {
     const d = datos(), nombres = ['Analogía', 'Contradicción', 'Mecanismo opuesto', 'Otra escala'];

@@ -50,6 +50,7 @@ import { PROGRESO } from './en/25-progreso';
 import { LABORATORIO_VIVO } from './en/26-laboratorio-vivo';
 import { DIALOGOS_LABORATORIO } from './en/27-dialogos-laboratorio';
 import { ESCENAS_LABORATORIO } from './en/28-escenas-laboratorio';
+import { CONVERSACIONES_LABORATORIO } from './en/29-conversaciones-laboratorio';
 
 export const EN: Record<string, string> = {
   // Lo generado por el modelo va PRIMERO: en un objeto gana lo que se
@@ -85,6 +86,7 @@ export const EN: Record<string, string> = {
   ...LABORATORIO_VIVO,
   ...DIALOGOS_LABORATORIO,
   ...ESCENAS_LABORATORIO,
+  ...CONVERSACIONES_LABORATORIO,
   // La revisión científica prevalece también sobre futuras regeneraciones.
   ...TRADUCCIONES_REVISADAS,
 };

@@ -13,6 +13,8 @@ import { tr, trp, useIdioma } from '../lib/idioma';
 import { marcaDeTiempo } from '../lib/escenario';
 import { formatearEntero } from '../lib/formato';
 import { IconoEsc } from './IconosEscenario';
+import { ConversacionesLaboratorio } from './ConversacionesLaboratorio';
+import { useConversacionesLaboratorio } from '../lib/conversacionesLaboratorio';
 import { ALTO, ANCHO, montarLaboratorio, type Laboratorio } from './labvivo/motor';
 import './labvivo/labvivo.css';
 
@@ -24,7 +26,11 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
   const motor = useRef<Laboratorio | null>(null);
   const [escala, setEscala] = useState(1);
   const idioma = useIdioma();
+  const [charlasActivas, setCharlasActivas] = useState(true);
   const datos = useMemo(() => datosDelLaboratorio(estado, inv, corrida, iteracion), [estado, inv, corrida, iteracion, idioma]);
+  const iteracionCharla = estado.iteraciones.find((it) => it.corridaId === corrida.id && it.numero === datos.iteracion);
+  const conversar = charlasActivas && datos.trabajando && datos.iteracion === corrida.iteracionActual;
+  const charlas = useConversacionesLaboratorio(corrida.id, iteracionCharla?.id ?? null, idioma, estado.conexion === 'en_linea', conversar);
   const actuales = useRef(datos);
   actuales.current = datos;
   // El motor vive fuera de React: las respuestas le llegan por esta referencia
@@ -63,6 +69,10 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
     motor.current?.actualizar(datos);
   }, [datos]);
 
+  useEffect(() => {
+    motor.current?.conversar(charlas.turnos, conversar);
+  }, [charlas.turnos, conversar, idioma]);
+
   const aviso =
     estado.conexion !== 'en_linea'
       ? estado.conexion === 'muestra' ? tr('Datos de muestra: este laboratorio no está conectado a una corrida real.') : tr('Sin conexión en vivo: se muestra el último estado recibido')
@@ -86,11 +96,12 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
         <strong>{trp('Corrida {n}', { n: datos.corrida })}{datos.iteracion !== null && ` · ${trp('Iteración {n}', { n: datos.iteracion })}`}</strong>
         <span>{datos.estadoTexto}</span>
         {datos.motivo && <span>{datos.motivo}</span>}
-        <span>{tr('La actividad y los resultados proceden del registro real. Los movimientos y diálogos entre compañeros representan la escena.')}</span>
+        <span>{tr('Los personajes comentan los hallazgos de esta corrida con IA, con referencias al registro y la evidencia.')}</span>
       </div>
       <div ref={marco} className="labvivo-marco" style={{ height: ALTO * escala }}>
         <div ref={lienzo} className="labvivo" style={{ transform: `scale(${escala})` }} />
       </div>
+      <ConversacionesLaboratorio estado={charlas.estado} turnos={charlas.turnos} activo={charlasActivas} onCambiar={setCharlasActivas} />
       <dl className="labvivo-cifras">
         {([
           [tr('Resultados de consultas'), datos.lectura.resultados],

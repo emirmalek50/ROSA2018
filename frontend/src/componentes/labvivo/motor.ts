@@ -9,6 +9,7 @@
 
 import { tr, trp } from '../../lib/idioma';
 import { dialogoDeActividad } from '../../lib/dialogoLaboratorio';
+import type { TurnoLaboratorio } from '../../lib/conversacionesLaboratorio';
 import './escenas.css';
 import { formatearEntero } from '../../lib/formato';
 import { ALCANCE } from '../../lib/etiquetas';
@@ -38,6 +39,7 @@ export interface Respuestas {
 
 export interface Laboratorio {
   actualizar: (d: DatosLab) => void;
+  conversar: (turnos: TurnoLaboratorio[], habilitada?: boolean) => void;
   desmontar: () => void;
 }
 
@@ -470,6 +472,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     ficha.innerHTML = `<div class="lv-f-cab"><div class="lv-retrato"><canvas width="12" height="11"></canvas></div><div class="lv-f-id"><h4>${esc(nombre)}</h4>${a.quien ? `<div class="lv-rol">${esc(rol)}</div>` : ''}<div class="lv-modelo"><i></i>${esc(modeloDe(a.coat))}</div></div></div>`
       + `<div class="lv-ahora${D.trabajando ? ' vivo' : ''}"><span><i></i>${esc(D.trabajando ? tr('Ahora mismo') : tr('En la escena'))}</span><b>${esc(fichaTexto)}</b></div>`
       + `<div class="lv-f-que"><span>${esc(tr('Su trabajo'))}</span>${esc(a.what)}</div>`
+      + (ultimaCharla.has(a.name) ? `<div class="lv-f-que lv-charla"><span>${esc(tr('Último comentario a un compañero'))}</span>${esc(ultimaCharla.get(a.name)!.texto)}</div>` : '')
       + `<div class="lv-f-sala">${n ? `<div class="num" style="background:${st.c}">${n}</div>` : ''}<div class="t">${esc(TITULO_SALA[a.room] ?? tr('Biblioteca'))}</div><div class="pill" style="background:${st.bg};color:${st.c}"><i></i>${esc(nombreEstado(est))}</div></div>`;
     const lienzoRetrato = ficha.querySelector('canvas')?.getContext('2d');
     if (lienzoRetrato) lienzoRetrato.drawImage(sprite(a, 0), 0, 0, 12, 11, 0, 0, 12, 11);
@@ -490,8 +493,10 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   let identidad = D.identidad;
   // La coreografía continúa entre mensajes del servidor. Estas escenas no
   // añaden actividad al registro ni convierten a un compañero en trabajador.
-  interface Escena { ctx: Ctx; agentes: Agente[]; trabajo: boolean }
+  interface Escena { ctx: Ctx; agentes: Agente[]; trabajo: boolean; temaId?: string; listos?: boolean; hasta?: number; esperarHasta?: number; saliendo?: boolean }
   const escenas = new Map<Agente, Escena>();
+  const dialogos: TurnoLaboratorio[] = [], dialogosVistos = new Set<string>();
+  const ultimaCharla = new Map<string, TurnoLaboratorio>();
   const proximaEscena = new Map<Agente, number>();
   let rondaEscena = 0, proximoPaseo = 1.5;
   function cancelarEscena(a: Agente) {
@@ -514,7 +519,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   const actividadDe = (a: Agente) => [...D.actividad].reverse().find((e) => e.agente === a.name && e.enCurso);
   function hablarEnEscena(a: Agente, b: Agente | null, texto: string, dur: number, original?: string) {
     const destinatario = b ? trp('Para {nombre}', { nombre: b.quien || b.label }) : tr('En la escena');
-    say(a, `<em>${esc(destinatario)}</em>${esc(corta(texto, 170))}`, dur, 'escena');
+    say(a, `<em>${esc(destinatario)}</em>${esc(corta(texto, 420))}`, dur, 'escena');
     if (a.bub) {
       a.bub.el.dataset.escena = 'dialogo';
       a.bub.el.dataset.agente = a.name;
@@ -550,22 +555,9 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         await Promise.all([desplazarse(ctx, a, x, y), ...(b ? [desplazarse(ctx, b, x + 60, y)] : [])]);
         if (ctx.dead) throw PARAR;
         a.face = 1; if (b) b.face = -1;
-        if (trabajo) {
-          if (b) { hablarEnEscena(b, a, tr('¿En qué estás ahora?'), 2.5); await esperar(2.8); }
-          const entrada = actividadDe(a);
-          const texto = entrada ? dialogoDeActividad(entrada, true) : trp('Estoy trabajando en esta tarea: «{tarea}».', { tarea: D.pasos.enCurso?.titulo ?? D.estadoTexto });
-          hablarEnEscena(a, b, texto, 6, entrada?.texto);
-          if (b && entrada) FLY.push({ kind: 'card', from: [a.x + 42, a.y + 44], to: [b.x + 6, b.y + 44], t0: simT, dur: 0.7, arc: 18 });
-          type(a, 5); await esperar(6.3);
-          if (b && D.activos.includes(b.name)) {
-            const otra = actividadDe(b);
-            if (otra) { hablarEnEscena(b, a, dialogoDeActividad(otra, true), 5, otra.texto); await esperar(5.3); }
-          }
-        } else {
-          hablarEnEscena(a, b, tr('Voy a estirar las piernas mientras espero mi siguiente tarea.'), 3.5);
-          await esperar(3.8);
-          if (b) { hablarEnEscena(b, a, tr('Yo también estoy esperando mi turno.'), 3); await esperar(3.3); }
-        }
+        // El reloj solo anima. Lo que se dicen viene del servicio de conversación.
+        if (trabajo) type(a, 4);
+        await esperar(trabajo ? 4.5 : 3);
         a.carry = null;
         await Promise.all(participantes.map((p) => desplazarse(ctx, p, p.hx, pasillo(p))));
         await Promise.all(participantes.map((p) => home(ctx, p)));
@@ -582,8 +574,53 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       }
     })());
   }
+  function mostrarDialogo(t: TurnoLaboratorio, a: Agente, b: Agente, dur: number) {
+    hablarEnEscena(a, b, t.texto, dur, t.materiales.map((m) => `${m.titulo || m.cita || m.id}: ${m.texto}`).join('\n'));
+    a.bub?.el.setAttribute('data-turno', t.id);
+    ultimaCharla.set(a.name, t);
+    setEv(esc(t.texto));
+    if (fichaDe === a && !ficha.hidden) showCard(a);
+  }
+  function mantenerDialogos() {
+    let charla = [...escenas.values()].find((e) => e.temaId);
+    const siguiente = dialogos[0];
+    if (charla?.saliendo) return;
+    if (charla && simT < (charla.hasta ?? 0)) return;
+    if (charla && (!siguiente || siguiente.temaId !== charla.temaId)) {
+      if (!siguiente && simT < (charla.esperarHasta ?? 0)) return;
+      const anterior = charla; anterior.saliendo = true;
+      spawn((async () => {
+        try { await Promise.all(anterior.agentes.map((a) => home(anterior.ctx, a))); }
+        finally { if (escenas.get(anterior.agentes[0]!) === anterior) cancelarEscena(anterior.agentes[0]!); }
+      })());
+      return;
+    }
+    if (!siguiente) return;
+    const a = AG.find((x) => x.name === siguiente.agente), b = AG.find((x) => x.name === siguiente.destinatario);
+    if (!a || !b || a.room !== b.room) { dialogos.shift(); return; }
+    if (!charla) {
+      [a, b].forEach((p) => { cancelarEscena(p); p.ictx?.kill(); p.path = []; p.bub?.el.remove(); p.bub = null; });
+      const ctx = nuevoCtx(); charla = { ctx, agentes: [a, b], trabajo: true, temaId: siguiente.temaId, listos: false };
+      const nueva = charla;
+      [a, b].forEach((p) => { escenas.set(p, nueva); p.ictx = ctx; p.busy = true; p.el.dataset.escena = 'conversacion'; });
+      const [rx, , rw] = GEOM[a.room], x = Math.max(rx + 12, Math.min(rx + rw - 122, (a.hx + b.hx) / 2 - 30)), y = pasillo(a);
+      spawn((async () => {
+        await Promise.all([desplazarse(ctx, a, x, y), desplazarse(ctx, b, x + 60, y)]);
+        if (ctx.dead) throw PARAR;
+        a.face = 1; b.face = -1; nueva.listos = true;
+      })());
+    }
+    if (!charla.listos) return;
+    dialogos.shift();
+    const dur = Math.max(7, Math.min(14, siguiente.texto.length / 26));
+    mostrarDialogo(siguiente, a, b, dur);
+    charla.hasta = simT + dur + 0.5; charla.esperarHasta = charla.hasta + 15;
+    a.carry = 'card'; b.carry = null;
+    FLY.push({ kind: 'card', from: [a.x + 42, a.y + 44], to: [b.x + 6, b.y + 44], t0: simT, dur: 0.7, arc: 18 });
+  }
   function mantenerEscenas() {
     if (!escenaDisponible()) { [...escenas.keys()].forEach(cancelarEscena); return; }
+    mantenerDialogos();
     for (const a of AG) {
       if (D.activos.includes(a.name) && libreParaEscena(a) && simT >= (proximaEscena.get(a) ?? 0)) empezarEscena(a, true);
     }
@@ -908,6 +945,23 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   raf = requestAnimationFrame(frame);
 
   return {
+    conversar(turnos: TurnoLaboratorio[], habilitada = true) {
+      if (!habilitada) {
+        dialogos.length = 0;
+        [...escenas.entries()].filter(([, e]) => e.temaId).forEach(([a]) => cancelarEscena(a));
+        AG.forEach((a) => { if (a.bub?.el.dataset.turno) { a.bub.el.remove(); a.bub = null; } });
+      }
+      for (const t of turnos) {
+        if (!D.identidad.endsWith('/' + t.iteracionId) || dialogosVistos.has(t.id)) continue;
+        dialogosVistos.add(t.id); ultimaCharla.set(t.agente, t);
+        if (!habilitada || !D.trabajando || D.conexion !== 'en_linea' || Date.now() - t.fecha > 90000) continue;
+        if (REDUCIR) {
+          const a = AG.find((x) => x.name === t.agente), b = AG.find((x) => x.name === t.destinatario);
+          if (a && b) mostrarDialogo(t, a, b, 14);
+        } else dialogos.push(t);
+      }
+      if (dialogos.length > 20) dialogos.splice(0, dialogos.length - 20);
+    },
     actualizar(d: DatosLab) {
       const antes = D;
       D = d;
@@ -915,6 +969,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (cambio) { identidad = d.identidad; vistas.clear(); descartadas.clear(); cerrarPeticion(); }
       const transicion = antes.trabajando !== d.trabajando || antes.activos.join() !== d.activos.join();
       if (cambio || transicion) pararActividad();
+      if (cambio) { dialogos.length = 0; dialogosVistos.clear(); ultimaCharla.clear(); }
+      if (!d.trabajando || d.conexion !== 'en_linea') dialogos.length = 0;
       pintarSalas(); pintarMarcas(); pintarChips();
       if (pidiendo && (!d.pide || d.pide.id !== pidiendo)) cerrarPeticion();
       if (pidiendo && !enviando && (JSON.stringify(antes.pide) !== JSON.stringify(d.pide) || JSON.stringify(antes.pasos.lista) !== JSON.stringify(d.pasos.lista))) cerrarPeticion();

@@ -1,0 +1,17 @@
+.lab-charlas{margin-top:24px;padding-top:20px;border-top:1px solid var(--border);max-width:1064px}
+.lab-charlas-cab{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.lab-charlas-cab h3{margin:0;font-size:16px;font-weight:600}
+.lab-charlas-cab p,.lab-charlas-nota,.lab-charlas-vacia{font-size:12px;color:var(--text-2);line-height:1.6}
+.lab-charlas-cab label{display:flex;align-items:center;gap:8px;font-size:12px;white-space:nowrap}
+.lab-charlas-cab input{accent-color:var(--accent)}
+.lab-charlas-nota{margin:10px 0 18px}
+.lab-charlas ol{list-style:none;padding:0;margin:0}
+.lab-charlas li{padding:14px 0;border-bottom:1px solid var(--border)}
+.lab-charlas-quien{display:flex;gap:10px;flex-wrap:wrap;font-size:12px}
+.lab-charlas-quien strong{color:var(--accent)}
+.lab-charlas-quien span{color:var(--text-2)}
+.lab-charlas li>p{max-width:78ch;font-size:14px;line-height:1.6;margin:6px 0 8px}
+.lab-charlas summary{cursor:pointer;font-size:11px;color:var(--text-2)}
+.lab-charlas-fuente{font-size:12px;line-height:1.6;margin:10px 0;padding-left:12px;border-left:2px solid var(--border);overflow-wrap:anywhere}
+.lab-charlas-fuente p,.lab-charlas-fuente blockquote{margin:6px 0}
+@media(max-width:600px){.lab-charlas-cab{align-items:flex-start;flex-direction:column}}

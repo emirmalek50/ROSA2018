@@ -164,7 +164,9 @@ def igual_secreto(dado: Any, esperado: Any) -> bool:
 
 def crear_app(almacen: Almacen) -> FastAPI:
     from rosa.asistente_cancelacion import Respuestas
+    from rosa.laboratorio_conversaciones import Conversaciones
     respuestas = Respuestas()
+    conversaciones_lab = Conversaciones(almacen)
     # Las tareas de sellado en vuelo. Una tarea de asyncio que nadie referencia la
     # puede recoger el recolector a medias: se guardan aqui y se sueltan al acabar.
     _sellos_en_vuelo: set[asyncio.Task[Any]] = set()
@@ -187,6 +189,7 @@ def crear_app(almacen: Almacen) -> FastAPI:
         try:
             yield
         finally:
+            await conversaciones_lab.cerrar()
             await respuestas.cerrar()
             for pendiente in _continuaciones:
                 pendiente.cancel()
@@ -199,6 +202,7 @@ def crear_app(almacen: Almacen) -> FastAPI:
 
     app = FastAPI(title="ROSA2018", version="0.1", lifespan=_vida)
     app.state.almacen = almacen
+    app.state.conversaciones_lab = conversaciones_lab
     app.state.token_interno = token_interno()
     app.state.semaforo_preguntas = asyncio.Semaphore(2)
     app.state.traducidas_hoy = {"dia": "", "n": 0}
@@ -589,6 +593,20 @@ def crear_app(almacen: Almacen) -> FastAPI:
     async def sellar(hipotesis_id: str) -> dict[str, Any]:
         """Botón "Sellar con un tercero": pide (o repite) el sello del prerregistro."""
         return await _sellar_prerregistro(hipotesis_id)
+
+    @app.post("/api/corridas/{corrida_id}/laboratorio/conversaciones")
+    async def conversar_laboratorio(corrida_id: str, request: Request) -> dict[str, Any]:
+        """Una visita activa permite comentar hallazgos; cerrar la vista la retira.
+        El navegador elige idioma e iteración, nunca el contenido ni los autores."""
+        obj = await leer_json_acotado(request, MAX_CUERPO_PEQUENO)
+        if not isinstance(obj, dict):
+            raise HTTPException(400, "La visita debe ser un objeto")
+        iid, idioma, cliente, activo = (obj.get(k) for k in ("iteracionId", "idioma", "cliente", "activo"))
+        if not isinstance(iid, str) or idioma not in ("es", "en") or not isinstance(cliente, str) or not re.fullmatch(r"[A-Za-z0-9_-]{8,80}", cliente) or not isinstance(activo, bool):
+            raise HTTPException(400, "Visita de laboratorio inválida")
+        if not any(it["id"] == iid and it["corridaId"] == corrida_id for it in almacen.estado["iteraciones"]):
+            raise HTTPException(404, "No se encontró esa iteración en la corrida")
+        return conversaciones_lab.tocar((corrida_id, iid, idioma), str(request.state.usuario or "interno") + ":" + cliente, activo)
 
     @app.get("/api/laboratorio")
     async def laboratorio_global() -> JSONResponse:
