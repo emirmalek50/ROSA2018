@@ -12,9 +12,13 @@
 //   que vienen del servidor (rosa/razonamiento.py, `fuente` y `n`).
 // - Debajo de la herramienta, un sub-paso con un punto «•»: la línea que
 //   resume lo que trajo.
-// - Los pensamientos CORTOS son una fila con bombilla: «Thinking | Escalar
-//   BM25». Los LARGOS son prosa normal, en el color del texto, como parte de
-//   la respuesta: es el modelo hablando mientras trabaja.
+// - Las filas BAJAN: cada paso nuevo se abre hacia abajo y el hilo se
+//   dibuja hasta él, y el icono del que está corriendo se mueve (el globo
+//   gira, la lupa busca, la bombilla se enciende).
+// - Lo que el modelo piensa NO se escribe: ROSA2018 contesta en un único
+//   mensaje, sin un adelanto largo de su razonamiento (Emir, 6 de octubre de
+//   2026). Mientras piensa hay una fila «Pensando» con la bombilla, y nada
+//   más; cuando llega la siguiente herramienta, la fila se va.
 // - Al acabar, todo se pliega en una línea: «Used 1 tool, Fetch multiple
 //   GitHub raw URLs in one request».
 //
@@ -22,27 +26,20 @@
 // servidor escucha el bucle del chat con los callbacks de DSPy y el navegador
 // pide los pasos mientras dura. Nada se dibuja que no haya pasado. Y las dos
 // clases de fila no valen lo mismo: «Pensando» es lo que el modelo DICE que
-// va a hacer; la herramienta es una llamada real. Si falló se dice «no pude
+// va a hacer, y por eso no se enseña; la herramienta es una llamada real. Si falló se dice «no pude
 // comprobar», nunca «sin resultados».
 
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
-import { IconBulb, IconChevronDown, IconGlobe, IconLayers, IconMessage, IconSearch } from './icons';
+import { IconBulb, IconChevronDown } from './icons';
+import { iconoDe, tonoDe, type Mov } from './Progreso';
 import { Shimmer } from './Shimmer';
 import type { ConsultaBase, PasoRazonamiento } from '../datos/tipos';
 import { formatearDuracion } from '../lib/formato';
 import { tr, trp } from '../lib/idioma';
 import { DUR, useMovimientoReducido } from '../lib/movimiento';
 import { inicialFuente } from '../lib/mundo';
-
-const ICONO: Record<NonNullable<PasoRazonamiento['familia']>, (p: { size?: number }) => JSX.Element> = {
-  base: IconGlobe,
-  mundo: IconLayers,
-  proyecto: IconSearch,
-  cuestiones: IconMessage,
-  otra: IconSearch,
-};
 
 /** Las respuestas de antes del 2 de octubre de 2026 no guardaron el
  *  razonamiento, pero sí cada consulta a una base. Con esto se pintan con la
@@ -71,11 +68,6 @@ export function pasosDeConsultas(consultas: ConsultaBase[] | undefined): PasoRaz
  *  posa despacio. */
 const SALIDA = [0.16, 1, 0.3, 1] as const;
 
-/** Un pensamiento hasta aquí es una FILA (bombilla, una frase); más largo,
- *  es PROSA, como en Kimi, donde «El README da una buena visión. Ahora voy a
- *  leer el código...» va en párrafo y «Escalar BM25» en fila. */
-const PENSAMIENTO_CORTO = 110;
-
 /** Lo que se le pidió a una herramienta, en una frase: el argumento que dice
  *  QUÉ se buscó. Los demás (límites, años) van al desplegar. */
 function loQueBusco(args: Record<string, string> | undefined): string {
@@ -89,18 +81,10 @@ function etiqueta(t: string): string {
   return t ? t[0]!.toLocaleUpperCase() + t.slice(1) : t;
 }
 
-/** La primera frase de un pensamiento, para la fila. */
+/** La primera frase de un resumen, para el sub-paso. */
 function primeraFrase(t: string): string {
   const m = t.match(/^(.{20,160}?[.!?])(\s|$)/);
   return (m ? m[1]! : t.slice(0, 140)).trim();
-}
-
-/** El tono de una base, estable por nombre, para que PubMed sea siempre del
- *  mismo color. Los cinco tonos son los de `.mundo-fuente-N`. */
-function tonoDe(fuente: string): number {
-  let h = 0;
-  for (const c of fuente) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return h % 5;
 }
 
 /** Los círculos solapados de Kimi: aquí, la base consultada. Una sola, pero
@@ -113,10 +97,10 @@ function Fuente({ nombre }: { nombre: string }) {
   );
 }
 
-function Carril({ Icono, ultimo, viva }: { Icono: (p: { size?: number }) => JSX.Element; ultimo: boolean; viva: boolean }) {
+function Carril({ Icono, mov, ultimo, viva }: { Icono: (p: { size?: number }) => JSX.Element; mov: Mov; ultimo: boolean; viva: boolean }) {
   return (
     <span className="razon-carril" aria-hidden="true">
-      <span className={`razon-icono ${viva ? 'razon-icono-viva' : ''}`.trim()}>
+      <span className={`razon-icono mov-${mov} ${viva ? 'razon-icono-viva' : ''}`.trim()}>
         <Icono size={15} />
       </span>
       {!ultimo && <i className="razon-linea" />}
@@ -124,65 +108,28 @@ function Carril({ Icono, ultimo, viva }: { Icono: (p: { size?: number }) => JSX.
   );
 }
 
+/** Cada fila nueva se ABRE hacia abajo, como en Kimi: crece en altura desde
+ *  cero y empuja lo de debajo, en vez de aparecer encima de golpe. El hilo
+ *  que llega hasta ella se dibuja a la vez (`.razon-linea` en mundo.css). */
 const ENTRADA = (reducido: boolean) => ({
-  initial: reducido ? { opacity: 0 } : { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0 },
+  initial: reducido ? { opacity: 0 } : { opacity: 0, height: 0, y: -6, overflow: 'hidden' },
+  animate: reducido ? { opacity: 1 } : { opacity: 1, height: 'auto', y: 0, transitionEnd: { overflow: 'visible' } },
+  exit: reducido ? { opacity: 0 } : { opacity: 0, height: 0, overflow: 'hidden' },
   transition: { duration: DUR.media, ease: SALIDA },
 });
 
-/** Un pensamiento. Mientras es el ÚLTIMO y la respuesta sigue en marcha, es
- *  una fila con bombilla («Pensando | ...»): es lo que piensa ahora. Cuando
- *  llega el siguiente paso, si era largo pasa a ser prosa, como en Kimi.
- *
- *  Es UN componente que cambia de forma por dentro, no dos. Con dos
- *  componentes y la misma key, React desmontaba uno y montaba el otro, y la
- *  fila cambiaba de golpe sin animación: medido en el navegador el 3 de
- *  octubre de 2026, el nodo nuevo llegaba al DOM ya con `opacity: 1`. Con
- *  uno solo, la entrada se anima una vez y el cambio de forma va con
- *  `layout`. */
-function Pensamiento({ p, ultimo, enMarcha }: { p: PasoRazonamiento; ultimo: boolean; enMarcha: boolean }) {
+/** La fila mientras piensa: la bombilla encendida y «Pensando», sin el texto
+ *  de lo que piensa. Es UNA fila con la misma key de principio a fin, así que
+ *  entra una vez, se va cuando llega una herramienta y vuelve después. */
+function FilaPensando({ cierra }: { cierra: boolean }) {
   const reducido = useMovimientoReducido();
-  const [abierta, setAbierta] = useState(false);
-  const texto = p.texto ?? '';
-  const ahora = ultimo && enMarcha && !p.cierra;
-  const prosa = texto.length > PENSAMIENTO_CORTO && !ahora;
-  const frase = primeraFrase(texto);
-  const hayMas = texto.length > frase.length;
-
-  if (prosa) {
-    return (
-      <motion.li className="razon-fila razon-prosa" layout={!reducido} {...ENTRADA(reducido)}>
-        <span className="razon-carril" aria-hidden="true">
-          <span className="razon-punto-prosa" />
-          {!ultimo && <i className="razon-linea" />}
-        </span>
-        <motion.p className="razon-prosa-texto" layout={!reducido ? 'position' : false}>{texto}</motion.p>
-      </motion.li>
-    );
-  }
-
   return (
-    <motion.li className={`razon-fila razon-pensar ${ahora ? 'razon-viva' : ''}`.trim()} layout={!reducido} {...ENTRADA(reducido)}>
-      <Carril Icono={IconBulb} ultimo={ultimo} viva={ahora} />
+    <motion.li className="razon-fila razon-pensar razon-viva" {...ENTRADA(reducido)}>
+      <Carril Icono={IconBulb} mov="bombilla" ultimo viva />
       <div className="razon-cuerpo">
-        <button type="button" className="razon-cabeza" onClick={() => hayMas && setAbierta((v) => !v)} aria-expanded={hayMas ? abierta : undefined} disabled={!hayMas}>
-          <span className="razon-etiqueta">{ahora ? <Shimmer>{tr('Pensando')}</Shimmer> : p.cierra ? tr('Listo para responder') : tr('Pensando')}</span>
-          {frase && (
-            <>
-              <i className="razon-sep" aria-hidden="true" />
-              <span className="razon-texto">{frase}</span>
-            </>
-          )}
-          {hayMas && <IconChevronDown size={13} className={`razon-flecha ${abierta ? 'razon-flecha-abierta' : ''}`} />}
-        </button>
-        <AnimatePresence initial={false}>
-          {abierta && (
-            <motion.div className="razon-detalle" initial={reducido ? { opacity: 0 } : { opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={reducido ? { opacity: 0 } : { opacity: 0, height: 0 }} transition={{ duration: DUR.rapida }}>
-              <p>{texto}</p>
-              <p className="meta">{tr('Es lo que el modelo dice que va a hacer, no un hecho comprobado.')}</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <span className="razon-cabeza">
+          <span className="razon-etiqueta"><Shimmer>{cierra ? tr('Preparando la respuesta') : tr('Pensando')}</Shimmer></span>
+        </span>
       </div>
     </motion.li>
   );
@@ -195,7 +142,7 @@ function Herramienta({ p, ahora, ultimo, enMarcha }: { p: PasoRazonamiento; ahor
   const fallo = !!p.error;
   const ms = p.fin ? p.fin - p.inicio : corriendo ? ahora - p.inicio : null;
   const busco = loQueBusco(p.argumentos);
-  const Icono = ICONO[p.familia ?? 'otra'];
+  const { Icono, mov } = iconoDe(p);
   const hayMas = Object.keys(p.argumentos ?? {}).length > 0 || !!p.resumen || fallo;
   const nombre = etiqueta(p.nombre ?? p.herramienta ?? '');
   // «6 resultados» solo si la base lo dijo. Cero es un dato («0 resultados»);
@@ -203,8 +150,8 @@ function Herramienta({ p, ahora, ultimo, enMarcha }: { p: PasoRazonamiento; ahor
   const cuenta = typeof p.n === 'number' ? (p.n === 1 ? tr('1 resultado') : trp('{n} resultados', { n: p.n })) : null;
 
   return (
-    <motion.li className={`razon-fila razon-herramienta ${corriendo ? 'razon-viva' : ''} ${fallo ? 'razon-fallo' : ''}`.trim()} layout={!reducido} {...ENTRADA(reducido)}>
-      <Carril Icono={Icono} ultimo={ultimo && !(p.resumen && !p.error && !(p.fuente && typeof p.n === 'number'))} viva={corriendo} />
+    <motion.li className={`razon-fila razon-herramienta ${corriendo ? 'razon-viva' : ''} ${fallo ? 'razon-fallo' : ''}`.trim()} {...ENTRADA(reducido)}>
+      <Carril Icono={Icono} mov={mov} ultimo={ultimo && !(p.resumen && !p.error && !(p.fuente && typeof p.n === 'number'))} viva={corriendo} />
       <div className="razon-cuerpo">
         <button type="button" className="razon-cabeza" onClick={() => hayMas && setAbierta((v) => !v)} aria-expanded={hayMas ? abierta : undefined} disabled={!hayMas}>
           <span className="razon-etiqueta">{corriendo ? <Shimmer>{nombre}</Shimmer> : nombre}</span>
@@ -239,7 +186,7 @@ function Herramienta({ p, ahora, ultimo, enMarcha }: { p: PasoRazonamiento; ahor
 function SubPaso({ texto, ultimo }: { texto: string; ultimo: boolean }) {
   const reducido = useMovimientoReducido();
   return (
-    <motion.li className="razon-fila razon-sub" layout={!reducido} {...ENTRADA(reducido)}>
+    <motion.li className="razon-fila razon-sub" {...ENTRADA(reducido)}>
       <span className="razon-carril" aria-hidden="true">
         <span className="razon-punto" />
         {!ultimo && <i className="razon-linea" />}
@@ -249,31 +196,13 @@ function SubPaso({ texto, ultimo }: { texto: string; ultimo: boolean }) {
   );
 }
 
-/** La primera fila, antes de que llegue ningún paso: «Pensando | leyendo la
- *  pregunta...». Antes era un <li> plano y aparecía de golpe. */
-function FilaEmpezando() {
-  const reducido = useMovimientoReducido();
-  return (
-    <motion.li className="razon-fila razon-pensar razon-viva" {...ENTRADA(reducido)}>
-      <Carril Icono={IconBulb} ultimo viva />
-      <div className="razon-cuerpo">
-        <span className="razon-cabeza">
-          <span className="razon-etiqueta"><Shimmer>{tr('Pensando')}</Shimmer></span>
-          <i className="razon-sep" aria-hidden="true" />
-          <span className="razon-texto">{tr('leyendo la pregunta y lo que ya sabe')}</span>
-        </span>
-      </div>
-    </motion.li>
-  );
-}
-
 /** La línea de tiempo entera. `enMarcha`: la pregunta sigue en vuelo, así que
- *  el último paso late y, si aún no hay ninguno, se dice que está empezando. */
+ *  el paso que corre late y, mientras piensa, hay una fila «Pensando». */
 export function Razonamiento({ pasos, ahora, enMarcha = false, plegable = false, recienLlegada = false }: { pasos: PasoRazonamiento[]; ahora: number; enMarcha?: boolean; plegable?: boolean; recienLlegada?: boolean }) {
   // Una respuesta que ACABA de llegar arranca con la línea abierta, que es
   // como se estaba viendo mientras trabajaba, y se pliega sola al momento.
-  // Así el paso de «en marcha» a «contestada» es un pliegue, no treinta
-  // filas que se esfuman (Emir, 3 de octubre de 2026). Las viejas, al abrir
+  // Así el paso de «en marcha» a «contestada» es un pliegue, no las filas
+  // esfumándose de golpe (Emir, 3 de octubre de 2026). Las viejas, al abrir
   // el chat, ya vienen plegadas.
   const [abierto, setAbierto] = useState(!plegable || recienLlegada);
   useEffect(() => {
@@ -285,14 +214,10 @@ export function Razonamiento({ pasos, ahora, enMarcha = false, plegable = false,
   const herramientas = pasos.filter((p) => p.tipo === 'herramienta');
   const fallidas = herramientas.filter((p) => p.error).length;
 
-  if (pasos.length === 0) {
-    if (!enMarcha) return null;
-    return (
-      <ol className="razon">
-        <FilaEmpezando />
-      </ol>
-    );
-  }
+  // Piensa ahora si aún no hay pasos o el último es pensar.
+  const ultimo = pasos[pasos.length - 1];
+  const pensando = enMarcha && (!ultimo || ultimo.tipo === 'pensar');
+  if (herramientas.length === 0 && !pensando) return null;
 
   // La línea de resumen, como el «Used 1 tool, Fetch multiple GitHub raw
   // URLs in one request» de Kimi: cuántas herramientas y la primera. Cuando
@@ -305,14 +230,11 @@ export function Razonamiento({ pasos, ahora, enMarcha = false, plegable = false,
       ? trp('Usó 1 herramienta, {nombre}', { nombre: nombrePrimera })
       : trp('Usó {n} herramientas, la primera {nombre}', { n: herramientas.length, nombre: nombrePrimera });
 
-  // Las filas, con el sub-paso de cada herramienta que trajo algo.
+  // Las filas: las herramientas, con el sub-paso de cada una que trajo
+  // algo, y al final la de «Pensando» si está pensando.
   const filas: JSX.Element[] = [];
-  pasos.forEach((p, i) => {
-    const ultimoPaso = i === pasos.length - 1;
-    if (p.tipo === 'pensar') {
-      filas.push(<Pensamiento key={p.id} p={p} ultimo={ultimoPaso} enMarcha={enMarcha} />);
-      return;
-    }
+  herramientas.forEach((p, i) => {
+    const ultimoPaso = i === herramientas.length - 1 && !pensando;
     filas.push(<Herramienta key={p.id} p={p} ahora={ahora} ultimo={ultimoPaso} enMarcha={enMarcha} />);
     // El sub-paso solo si dice algo que la fila no diga ya: con fuente y
     // cuenta, la fila ya lo dice («Exa | (E) 10 resultados») y repetirlo
@@ -320,6 +242,7 @@ export function Razonamiento({ pasos, ahora, enMarcha = false, plegable = false,
     const yaLoDiceLaFila = !!p.fuente && typeof p.n === 'number';
     if (p.resumen && !p.error && !yaLoDiceLaFila) filas.push(<SubPaso key={`${p.id}-sub`} texto={p.resumen} ultimo={ultimoPaso} />);
   });
+  if (pensando) filas.push(<FilaPensando key="pensando" cierra={!!ultimo?.cierra} />);
 
   // Plegar y desplegar es una TRANSICIÓN, no un cambio de árbol: la lista se
   // cierra en altura mientras la línea de resumen se queda. Si fuera un `if`
@@ -348,7 +271,7 @@ export function Razonamiento({ pasos, ahora, enMarcha = false, plegable = false,
             transition={{ duration: DUR.media, ease: SALIDA }}
             style={{ overflow: 'hidden' }}
           >
-            {filas}
+            <AnimatePresence initial={false}>{filas}</AnimatePresence>
           </motion.ol>
         )}
       </AnimatePresence>

@@ -262,7 +262,6 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
       <section className="ni-banco" aria-labelledby="ni-titular">
         <div className="ni-etiquetas">
           <span className="ni-pill">
-            <IconoEsc nombre="sparkles" size={14} />
             {tr('Nueva investigación')}
           </span>
           <span className="ni-cuenta">{tr('Lo que ROSA2018 lee antes de cada iteración')}</span>
@@ -560,7 +559,6 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
               </p>
             )}
             <button type="submit" className="ni-primario" disabled={creando}>
-              <IconoEsc nombre="sparkles" size={15} />
               {creando ? tr('Guardando investigación…') : tr('Crear investigación')}
             </button>
             <div className="ni-crear-pie">
@@ -644,7 +642,6 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
             <p className="ni-nota">{tr('Estos ejemplos usan plantillas locales; no son planes generados por la IA. ROSA2018 propondrá el plan real después de crear la investigación.')}</p>
           </div>
           <button type="button" className="ni-boton" disabled={!hayObjetivo} aria-expanded={verParafrasis} onClick={() => setVerParafrasis((v) => !v)}>
-            <IconoEsc nombre={verParafrasis ? 'eye-off' : 'sparkles'} size={14} />
             {verParafrasis ? tr('Ocultar') : tr('Probar tres paráfrasis')}
           </button>
         </div>

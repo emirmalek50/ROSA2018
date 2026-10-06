@@ -1,0 +1,26 @@
+// La cabecera del turno en marcha del chat (componentes/Progreso.tsx): la
+// fase en llano y los logos de lo consultado.
+export const PROGRESO: Record<string, string> = {
+  'Leyendo la pregunta': 'Reading the question',
+  'Consultado: {lista}': 'Consulted: {lista}',
+  'Pensando qué consultar': 'Working out what to consult',
+  'Decidiendo el siguiente paso': 'Deciding the next step',
+  'Preparando la respuesta': 'Preparing the answer',
+  'Buscando en {fuente}': 'Searching {fuente}',
+  'No pude consultar {fuente}': 'Could not consult {fuente}',
+  'Leyendo lo que encontró': 'Reading what it found',
+  'Usando «{herramienta}»': 'Using “{herramienta}”',
+  'Revisando el modelo de mundo': 'Checking the world model',
+  'Buscando en el proyecto': 'Searching the project',
+  'Mirando las cuestiones abiertas': 'Looking at the open questions',
+  'Mirando el árbol de la investigación': 'Looking at the investigation tree',
+  'Repasando el catálogo del proyecto': 'Going through the project catalog',
+  'Repasando el panorama del tema': 'Going through the topic overview',
+  'Consultando el proyecto': 'Consulting the project',
+  'Leyendo el registro': 'Reading the log',
+  'Mirando qué acciones puede preparar': 'Looking at which actions it can prepare',
+  'Preparando la acción': 'Preparing the action',
+  'Releyendo la conversación': 'Rereading the conversation',
+  'Repasando las conversaciones': 'Going through the conversations',
+  'Calculando qué se borraría': 'Working out what would be deleted',
+};

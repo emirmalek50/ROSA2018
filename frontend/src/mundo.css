@@ -1187,6 +1187,98 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* La cabecera del turno en marcha (componentes/Progreso.tsx): los logos de
+   lo que va consultando, que entran uno a uno, y la fase en llano, que sube
+   cuando cambia. El logo que esta corriendo late con un aro. */
+.progreso {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.progreso-logos {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  isolation: isolate;
+}
+
+.progreso-logo {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: -6px;
+  border: 1.5px solid var(--bg);
+  border-radius: 50%;
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+}
+
+.progreso-logo:first-child {
+  margin-left: 0;
+}
+
+.progreso-logo-propia,
+.progreso-logo-resto {
+  background: color-mix(in srgb, var(--text) 9%, var(--bg));
+  color: var(--text-2);
+}
+
+.progreso-logo-resto {
+  width: auto;
+  min-width: 20px;
+  padding: 0 5px;
+  margin-right: 2px;
+  border-radius: 10px;
+  font-size: 9px;
+  color: var(--text-3);
+}
+
+.progreso-logo-fallo {
+  opacity: 0.5;
+  filter: saturate(0.2);
+}
+
+.progreso-logo-vivo::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: progreso-late 1.4s ease-out infinite;
+}
+
+@keyframes progreso-late {
+  from { transform: scale(0.8); opacity: 0.9; }
+  to { transform: scale(1.4); opacity: 0; }
+}
+
+.progreso-fase {
+  position: relative;
+  display: inline-grid;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.progreso-fase-texto {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progreso-logo-vivo::after {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
 .mundo-mientras {
   display: flex;
   flex-direction: column;
@@ -2598,7 +2690,9 @@
 .razon-viva .razon-icono, .razon-icono-viva { color: var(--text); }
 .razon-fallo .razon-icono { color: var(--amber); }
 
-/* La linea punteada: de debajo del icono hasta el final de la fila. */
+/* La linea punteada: de debajo del icono hasta el final de la fila. Nace
+   cuando llega la fila siguiente y se DIBUJA hacia abajo hasta ella, como en
+   Kimi; con clip-path y no con scaleY, que aplastaria los puntos. */
 .razon-linea {
   position: absolute;
   top: 29px;
@@ -2606,6 +2700,64 @@
   left: 50%;
   border-left: 1.5px dotted var(--border-strong);
   transform: translateX(-50%);
+  animation: razon-hilo 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes razon-hilo {
+  from { clip-path: inset(0 0 100% 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+/* Cada icono se mueve a su manera mientras su herramienta corre, aqui y en
+   los logos de la cabecera (componentes/Progreso.tsx): la bombilla se
+   enciende, el globo gira, la lupa busca, las capas se apilan, el mensaje
+   escribe y el arbol se mece. Parado, quieto. */
+.razon-icono svg,
+.progreso-logo svg { display: block; }
+.razon-icono-viva.mov-bombilla svg,
+.progreso-logo-vivo.mov-bombilla svg { animation: mov-bombilla 1.6s ease-in-out infinite; }
+.razon-icono-viva.mov-globo svg,
+.progreso-logo-vivo.mov-globo svg { animation: mov-globo 3s linear infinite; }
+.razon-icono-viva.mov-lupa svg,
+.progreso-logo-vivo.mov-lupa svg { animation: mov-lupa 1.6s ease-in-out infinite; }
+.razon-icono-viva.mov-capas svg,
+.progreso-logo-vivo.mov-capas svg { animation: mov-capas 1.2s ease-in-out infinite; }
+.razon-icono-viva.mov-mensaje svg,
+.progreso-logo-vivo.mov-mensaje svg { animation: mov-mensaje 1.4s ease-in-out infinite; }
+.razon-icono-viva.mov-arbol svg,
+.progreso-logo-vivo.mov-arbol svg { animation: mov-arbol 1.8s ease-in-out infinite; transform-origin: 50% 100%; }
+
+@keyframes mov-bombilla {
+  0%, 100% { color: var(--text-2); filter: none; }
+  50% { color: var(--amber); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--amber) 65%, transparent)); }
+}
+@keyframes mov-globo { to { transform: rotate(360deg); } }
+@keyframes mov-lupa {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(2px, -1px); }
+  50% { transform: translate(0, -2px); }
+  75% { transform: translate(-2px, -1px); }
+}
+@keyframes mov-capas {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@keyframes mov-mensaje {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  30% { transform: scale(1.12) rotate(-6deg); }
+  60% { transform: scale(1) rotate(4deg); }
+}
+@keyframes mov-arbol {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+}
+
+.mov-bombilla, .mov-globo, .mov-lupa, .mov-capas, .mov-mensaje, .mov-arbol { overflow: visible; }
+
+@media (prefers-reduced-motion: reduce) {
+  .razon-linea,
+  .razon-icono-viva svg,
+  .progreso-logo-vivo svg { animation: none; }
 }
 
 .razon-cuerpo { min-width: 0; padding: 4px 0 10px; }
@@ -2648,11 +2800,9 @@
 .razon-flecha { flex: none; color: var(--text-3); transition: transform var(--dur-2, 240ms) var(--ease-salida, ease); }
 .razon-flecha-abierta { transform: rotate(180deg); }
 
-/* El pensamiento y la herramienta no valen lo mismo y se ven distinto: el
-   pensamiento en italica, que es lo que el modelo DICE; la herramienta en
-   redonda, que es lo que PASO. */
-.razon-pensar .razon-texto { font-style: italic; }
-.razon-herramienta .razon-texto { font-style: normal; }
+
+/* La fila de pensar no se abre: no hay texto que desplegar. */
+.razon-pensar .razon-cabeza { cursor: default; }
 
 /* Los circulos de las fuentes, como los avatares de GitHub de Kimi. */
 .razon-fuentes { display: inline-flex; flex: none; align-items: center; isolation: isolate; }
@@ -2684,19 +2834,6 @@
   white-space: nowrap;
 }
 
-/* El pensamiento largo: prosa, en el color del texto, con el hilo detras.
-   El carril no lleva icono, asi que la linea punteada arranca arriba del
-   todo, sin el hueco que deja el icono en las demas filas. */
-.razon-prosa .razon-carril { padding-top: 0; }
-.razon-punto-prosa { display: block; width: 22px; height: 1px; }
-.razon-prosa .razon-linea { top: 2px; }
-.razon-prosa-texto {
-  margin: 0;
-  padding: 2px 0 12px;
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--text);
-}
 
 .razon-detalle {
   overflow: hidden;

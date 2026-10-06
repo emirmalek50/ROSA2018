@@ -83,7 +83,7 @@ import {
 import { formatearPorcentaje } from "../lib/formato";
 import { tr, trp } from "../lib/idioma";
 import { Herramientas } from "../componentes/Herramienta";
-import { Shimmer } from "../componentes/Shimmer";
+import { Progreso } from "../componentes/Progreso";
 import { Checkpoint, GuardarEnMemoria } from "../componentes/Checkpoint";
 import { Persona, type EstadoPersona } from "../componentes/Persona";
 import { Razonamiento, pasosDeConsultas } from "../componentes/Razonamiento";
@@ -1691,12 +1691,10 @@ function TurnoGuardado({
           )}
         </CabezaRespuesta>
         {/* La línea de tiempo se QUEDA, plegada en una línea encima de la
-            respuesta, como en Kimi («Used 1 tool, ...»). Antes desaparecía
-            de golpe al llegar la respuesta y había que abrirla desde la
-            cabecera «como Pensó 8 s en ChatGPT»: las treinta filas que se
-            estaban viendo se esfumaban (Emir, 3 de octubre de 2026: «las
-            cosas aparecen de repente»). Lo que se abre desde la cabecera es
-            el detalle de cada consulta, que es otra cosa. */}
+            respuesta, como en Kimi («Used 1 tool, ...»). Al llegar la
+            respuesta se pliega en vez de esfumarse (Emir, 3 de octubre de
+            2026: «las cosas aparecen de repente»). Lo que se abre desde la
+            cabecera es el detalle de cada consulta, que es otra cosa. */}
         {/* Las de antes del 2 de octubre no guardaron el razonamiento: se
             pintan sus consultas con la misma línea de tiempo. */}
         <Razonamiento
@@ -1938,31 +1936,20 @@ function TurnoPendiente({ p, pasos }: { p: Pendiente; pasos: PasoRazonamiento[] 
     return () => clearInterval(id);
   }, []);
   const segundos = Math.max(0, Math.round((ahora - p.desde) / 1000));
-  // Antes aquí salía «Mientras tanto, lo que ya sabe»: hechos del modelo de
-  // mundo que casaban con la pregunta. Lo que ahora se ve es lo que ROSA2018
-  // está HACIENDO, paso a paso, como la línea de tiempo de Kimi (Emir, 2 de
-  // octubre de 2026).
+  // Mientras trabaja se ve en qué fase va, con los logos de lo que consulta,
+  // y debajo cada herramienta según la usa, como Claude y Kimi. Lo que piensa
+  // NO se escribe: ROSA2018 contesta en un único mensaje, sin un adelanto
+  // largo de su razonamiento (Emir, 6 de octubre de 2026).
   return (
     <>
       <BurbujaPregunta texto={p.pregunta} />
       <div className="mundo-respuesta" aria-live="polite">
         <CabezaRespuesta estado="pensando">
-          <div className="mundo-pensando" role="status">
-            <Shimmer>
-              {p.cancelando
-                ? tr("Deteniendo respuesta…")
-                : p.listo
-                ? tr("Respuesta lista. Llegando...")
-                : pasos.length === 0
-                  ? tr("Empezando...")
-                  : trp(pasos.filter((x) => x.tipo === "herramienta").length === 1 ? "Trabajando · {n} herramienta" : "Trabajando · {n} herramientas", {
-                      n: pasos.filter((x) => x.tipo === "herramienta").length,
-                    })}
-            </Shimmer>
-            <span className="mundo-pensando-tiempo">
-              {trp("{n} s", { n: segundos })}
-            </span>
-          </div>
+          <Progreso
+            pasos={pasos}
+            segundos={segundos}
+            texto={p.cancelando ? tr("Deteniendo respuesta…") : p.listo ? tr("Respuesta lista. Llegando...") : undefined}
+          />
         </CabezaRespuesta>
         <Razonamiento pasos={pasos} ahora={ahora} enMarcha />
       </div>

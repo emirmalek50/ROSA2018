@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // La línea de tiempo del razonamiento, como la de Kimi. Lo que defiende:
-// - Que un pensamiento no se confunda con un hecho: va marcado como tal.
+// - Que lo que el modelo piensa no se escriba: ROSA2018 contesta en un único
+//   mensaje; mientras piensa solo hay una fila «Pensando».
 // - Que una herramienta que falló diga «no pude comprobar», no «listo».
 // - Que lo que está pasando ahora se vea en marcha, y lo terminado, no.
 // - Que ya contestada se pliegue en una línea, sin tapar la respuesta.
@@ -31,7 +32,7 @@ const pulsar = (el: Element) => act(async () => el.dispatchEvent(new MouseEvent(
 /** Las filas que son PASOS (pensar o herramienta). El sub-paso con punto que
  *  cuelga de una herramienta (`.razon-sub`) es otra fila visual, pero no un
  *  paso: se cuenta aparte. */
-const filas = () => [...nodo.querySelectorAll('.razon-pensar, .razon-herramienta, .razon-prosa')];
+const filas = () => [...nodo.querySelectorAll('.razon-pensar, .razon-herramienta')];
 const subpasos = () => [...nodo.querySelectorAll('.razon-sub')];
 
 const PASOS: PasoRazonamiento[] = [
@@ -42,19 +43,26 @@ const PASOS: PasoRazonamiento[] = [
 ];
 
 describe('la línea de tiempo del razonamiento', () => {
-  it('pinta cada paso con su etiqueta y lo que buscó, con mayúscula al principio', async () => {
+  it('pinta cada herramienta con su etiqueta y lo que buscó, con mayúscula al principio', async () => {
     await pintar(<Razonamiento pasos={PASOS} ahora={T + 2000} />);
-    expect(filas()).toHaveLength(4);
+    expect(filas()).toHaveLength(2);
     const t = nodo.textContent ?? '';
-    expect(t).toContain('Consultaré primero el modelo de mundo.');
     expect(t).toContain('El modelo de mundo');
     expect(t).toContain('p-tau217 plasmática');
-    expect(t).toContain('Listo para responder');
+  });
+
+  it('lo que el modelo piensa no se escribe, ni en marcha ni contestada', async () => {
+    await pintar(<Razonamiento pasos={PASOS} ahora={T + 2000} />);
+    expect(nodo.textContent).not.toContain('Consultaré primero');
+    expect(nodo.textContent).not.toContain('Con eso basta');
+    await pintar(<Razonamiento pasos={PASOS.slice(0, 1)} ahora={T + 500} enMarcha />);
+    expect(nodo.textContent).not.toContain('Consultaré primero');
+    expect(nodo.querySelector('.razon-pensar.razon-viva')?.textContent).toBe('Pensando');
   });
 
   it('una herramienta que falló dice «no pude comprobar», no «listo»', async () => {
     await pintar(<Razonamiento pasos={PASOS} ahora={T + 2000} />);
-    const fallida = filas()[2]!;
+    const fallida = filas()[1]!;
     expect(fallida.className).toContain('razon-fallo');
     expect(fallida.textContent).toContain('no pude comprobar');
     expect(fallida.textContent).not.toContain('listo');
@@ -62,11 +70,17 @@ describe('la línea de tiempo del razonamiento', () => {
     expect(fallida.textContent).toContain('No es «sin resultados»');
   });
 
-  it('al desplegar un pensamiento avisa de que no es un hecho comprobado', async () => {
-    await pintar(<Razonamiento pasos={PASOS} ahora={T + 2000} />);
-    await pulsar(filas()[0]!.querySelector('button')!);
-    expect(filas()[0]!.textContent).toContain('no un hecho comprobado');
-    expect(filas()[0]!.textContent).toContain('Después, la literatura longitudinal.');
+  it('la fila de pensar es la bombilla que se mueve; la herramienta en marcha, su icono', async () => {
+    await pintar(<Razonamiento pasos={[PASOS[0]!]} ahora={T + 500} enMarcha />);
+    expect(nodo.querySelector('.razon-icono-viva.mov-bombilla')).not.toBeNull();
+    const vivos: PasoRazonamiento[] = [
+      { id: 'a', tipo: 'herramienta', herramienta: 'consultar_arbol', familia: 'proyecto', nombre: 'consultar_arbol', inicio: T, fin: null },
+    ];
+    await pintar(<Razonamiento pasos={vivos} ahora={T + 500} enMarcha />);
+    expect(nodo.querySelector('.razon-icono-viva.mov-arbol')).not.toBeNull();
+    // Al cerrar, «Preparando la respuesta».
+    await pintar(<Razonamiento pasos={PASOS} ahora={T + 2000} enMarcha />);
+    expect(nodo.querySelector('.razon-pensar')?.textContent).toBe('Preparando la respuesta');
   });
 
   it('en marcha, lo que está pasando ahora late y lo terminado no', async () => {
@@ -74,10 +88,13 @@ describe('la línea de tiempo del razonamiento', () => {
       PASOS[0]!,
       { id: 'p2', tipo: 'herramienta', herramienta: 'buscar_pubmed', familia: 'base', nombre: 'PubMed', argumentos: { consulta: 'x' }, inicio: T, fin: null },
     ];
-    await pintar(<Razonamiento pasos={vivos} ahora={T + 3000} enMarcha />);
+    await pintar(<Razonamiento pasos={[PASOS[1]!, ...vivos.slice(1)]} ahora={T + 3000} enMarcha />);
     expect(filas()[0]!.className).not.toContain('razon-viva');
     expect(filas()[1]!.className).toContain('razon-viva');
     expect(filas()[1]!.querySelector('.brillo, .brillo-quieto')).not.toBeNull();
+    // El pensamiento de antes de la herramienta ya no tiene fila.
+    await pintar(<Razonamiento pasos={vivos} ahora={T + 3000} enMarcha />);
+    expect(filas()).toHaveLength(1);
   });
 
   it('sin pasos todavía pero en marcha dice que está empezando; sin pasos y parado, nada', async () => {
@@ -94,7 +111,7 @@ describe('la línea de tiempo del razonamiento', () => {
     expect(resumen.textContent).toContain('Usó 2 herramientas');
     expect(resumen.textContent).toContain('1 sin poder comprobar');
     await pulsar(resumen);
-    expect(filas()).toHaveLength(4);
+    expect(filas()).toHaveLength(2);
   });
 });
 
@@ -132,23 +149,9 @@ describe('lo que hace que se parezca a Kimi', () => {
     expect(nodo.textContent).toContain('10 resultados');
   });
 
-  it('un pensamiento largo es prosa, no una fila con bombilla', async () => {
-    const largo = 'El modelo de mundo ya tiene cuatro hechos sobre GFAP en portadores de APOE4, pero ninguno longitudinal. Voy a buscar en la literatura cohortes con medidas seriadas antes de contestar.';
-    const pasos: PasoRazonamiento[] = [
-      { id: 'a', tipo: 'pensar', texto: largo, inicio: T },
-      { id: 'b', tipo: 'pensar', texto: 'Con eso basta.', cierra: true, inicio: T + 100 },
-    ];
-    await pintar(<Razonamiento pasos={pasos} ahora={T + 2000} />);
-    expect(nodo.querySelector('.razon-prosa .razon-prosa-texto')?.textContent).toBe(largo);
-    // El corto sigue siendo fila.
-    expect(nodo.querySelectorAll('.razon-pensar')).toHaveLength(1);
-  });
-
-  it('mientras está en marcha, el último pensamiento es fila aunque sea largo: está pensando AHORA', async () => {
-    const largo = 'Estoy repasando los cuatro hechos del modelo de mundo sobre GFAP para ver si alguno es longitudinal antes de ir a la literatura.';
-    await pintar(<Razonamiento pasos={[{ id: 'a', tipo: 'pensar', texto: largo, inicio: T }]} ahora={T + 500} enMarcha />);
-    expect(nodo.querySelector('.razon-prosa')).toBeNull();
-    expect(nodo.querySelector('.razon-viva')).toBeTruthy();
+  it('contestada sin herramientas no deja línea vacía', async () => {
+    await pintar(<Razonamiento pasos={[PASOS[0]!, PASOS[3]!]} ahora={T + 2000} plegable />);
+    expect(nodo.textContent).toBe('');
   });
 
   it('plegada dice cuántas herramientas y cuál fue la primera, como «Used 1 tool, Fetch…»', async () => {
