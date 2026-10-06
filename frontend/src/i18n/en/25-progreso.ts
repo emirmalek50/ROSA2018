@@ -1,6 +1,11 @@
 // La cabecera del turno en marcha del chat (componentes/Progreso.tsx): la
 // fase en llano y los logos de lo consultado.
 export const PROGRESO: Record<string, string> = {
+  // La cobertura de la pregunta (pantallas/ModeloDeMundo.tsx).
+  'Respondida': 'Answered',
+  'No está': 'Not found',
+  'Sin comprobar': 'Unchecked',
+  '{n} de {total} respondidas': '{n} of {total} answered',
   'Leyendo la pregunta': 'Reading the question',
   'Consultado: {lista}': 'Consulted: {lista}',
   'Pensando qué consultar': 'Working out what to consult',

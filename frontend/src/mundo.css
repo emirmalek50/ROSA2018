@@ -624,21 +624,49 @@
   color: var(--text-2);
 }
 
-/* Qué partes de la pregunta quedaron cubiertas. */
+/* Qué partes de la pregunta quedaron cubiertas. Sin caja: una línea fina
+   la separa de la respuesta. El color va en el icono, el medidor y la
+   etiqueta; el texto de cada parte, en el del texto. */
 .mundo-cobertura {
-  padding: 14px 16px 6px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.mundo-cobertura-cabeza {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
 }
 
 .mundo-cobertura-titulo {
-  margin: 0 0 4px;
-  font-size: 11.5px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-2);
+}
+
+.mundo-cobertura-medidor {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.mundo-cobertura-seg {
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+.mundo-cobertura-seg.mundo-cob-respondido { background: var(--green); }
+.mundo-cobertura-seg.mundo-cob-en_parte { background: color-mix(in srgb, var(--amber) 55%, var(--border-strong)); }
+.mundo-cobertura-seg.mundo-cob-no_pude_comprobar { background: var(--amber); }
+
+.mundo-cobertura-cuenta {
+  font-size: 12.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .mundo-cobertura ul {
@@ -648,68 +676,72 @@
 }
 
 .mundo-cobertura-parte {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 0;
-}
-
-.mundo-cobertura-parte + .mundo-cobertura-parte {
-  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: start;
+  padding: 9px 0;
 }
 
 .mundo-cobertura-icono {
-  flex: none;
   display: inline-flex;
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--text-3);
 }
 
-.mundo-cob-respondido .mundo-cobertura-icono {
-  color: var(--green);
-}
-
+.mundo-cob-respondido .mundo-cobertura-icono { color: var(--green); }
 .mundo-cob-en_parte .mundo-cobertura-icono,
-.mundo-cob-no_pude_comprobar .mundo-cobertura-icono {
-  color: var(--amber);
-}
+.mundo-cob-no_pude_comprobar .mundo-cobertura-icono { color: var(--amber); }
+
+.mundo-cobertura-texto { min-width: 0; }
 
 .mundo-cobertura-parte p {
-  margin: 0 0 2px;
-  font-size: 13.5px;
+  margin: 0;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--text);
 }
 
-.mundo-cobertura-estado {
-  font-size: 12.5px;
-  color: var(--text-3);
-}
-
-.mundo-cob-respondido .mundo-cobertura-estado {
-  color: var(--green);
-}
-
-.mundo-cob-no_pude_comprobar .mundo-cobertura-estado,
-.mundo-cob-en_parte .mundo-cobertura-estado {
-  color: var(--amber);
-}
-
 .mundo-cobertura-nota {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--text-3);
 }
 
-/* Si lo que cita sale de lo que devolvieron las búsquedas. */
+.mundo-cobertura-estado {
+  margin-top: 1px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 550;
+  line-height: 1.5;
+  white-space: nowrap;
+  color: var(--text-2);
+  background: var(--inset);
+}
+
+.mundo-cob-respondido .mundo-cobertura-estado { color: var(--green); background: var(--green-soft); }
+.mundo-cob-en_parte .mundo-cobertura-estado,
+.mundo-cob-no_pude_comprobar .mundo-cobertura-estado { color: var(--amber); background: var(--amber-soft); }
+
+/* Si lo que cita sale de lo que devolvieron las búsquedas: una línea, no
+   otra caja. Solo el aviso se tiñe, porque pide que se mire. Dentro de la
+   cobertura, la cierra. */
 .mundo-atribucion {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
   font-size: 12.5px;
   line-height: 1.5;
-  color: var(--text-2);
+  color: var(--text-3);
+}
+
+.mundo-cobertura .mundo-atribucion {
+  margin-top: 4px;
+  padding: 10px 0 2px;
+  border-top: 1px solid var(--border);
 }
 
 .mundo-atribucion svg {
@@ -722,8 +754,11 @@
   color: var(--green);
 }
 
-.mundo-atribucion-aviso {
-  border-color: color-mix(in srgb, var(--amber) 35%, transparent);
+.mundo-atribucion-aviso,
+.mundo-cobertura .mundo-atribucion-aviso {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
+  border-radius: 10px;
   background: var(--amber-soft);
   color: var(--text);
 }
@@ -2692,7 +2727,9 @@
 
 /* La linea punteada: de debajo del icono hasta el final de la fila. Nace
    cuando llega la fila siguiente y se DIBUJA hacia abajo hasta ella, como en
-   Kimi; con clip-path y no con scaleY, que aplastaria los puntos. */
+   Kimi; con clip-path y no con scaleY, que aplastaria los puntos. Dura lo
+   mismo que LINEA_S en Razonamiento.tsx: cuando llega abajo, aparece el
+   icono de la fila nueva y despues su texto. */
 .razon-linea {
   position: absolute;
   top: 29px;
@@ -2700,7 +2737,7 @@
   left: 50%;
   border-left: 1.5px dotted var(--border-strong);
   transform: translateX(-50%);
-  animation: razon-hilo 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: razon-hilo 0.3s cubic-bezier(0.45, 0, 0.25, 1) both;
 }
 
 @keyframes razon-hilo {
@@ -2710,8 +2747,10 @@
 
 /* Cada icono se mueve a su manera mientras su herramienta corre, aqui y en
    los logos de la cabecera (componentes/Progreso.tsx): la bombilla se
-   enciende, el globo gira, la lupa busca, las capas se apilan, el mensaje
-   escribe y el arbol se mece. Parado, quieto. */
+   enciende, el globo gira, la lupa busca, los discos de datos se aprietan,
+   la hoja se pasa, el engranaje gira, el enchufe entra, la papelera tiembla.
+   Uno por herramienta (Emir, 6 de octubre de 2026: «solo aparecen lupas»).
+   Parado, quieto. */
 .razon-icono svg,
 .progreso-logo svg { display: block; }
 .razon-icono-viva.mov-bombilla svg,
@@ -2726,12 +2765,46 @@
 .progreso-logo-vivo.mov-mensaje svg { animation: mov-mensaje 1.4s ease-in-out infinite; }
 .razon-icono-viva.mov-arbol svg,
 .progreso-logo-vivo.mov-arbol svg { animation: mov-arbol 1.8s ease-in-out infinite; transform-origin: 50% 100%; }
+.razon-icono-viva.mov-engranaje svg,
+.progreso-logo-vivo.mov-engranaje svg { animation: mov-engranaje 2.4s linear infinite; }
+.razon-icono-viva.mov-datos svg,
+.progreso-logo-vivo.mov-datos svg { animation: mov-datos 1.2s ease-in-out infinite; transform-origin: 50% 100%; }
+.razon-icono-viva.mov-hoja svg,
+.progreso-logo-vivo.mov-hoja svg { animation: mov-hoja 1.5s ease-in-out infinite; transform-origin: 50% 100%; }
+.razon-icono-viva.mov-libro svg,
+.progreso-logo-vivo.mov-libro svg { animation: mov-libro 1.4s ease-in-out infinite; }
+.razon-icono-viva.mov-rejilla svg,
+.progreso-logo-vivo.mov-rejilla svg { animation: mov-rejilla 1.3s ease-in-out infinite; }
+.razon-icono-viva.mov-servidor svg,
+.progreso-logo-vivo.mov-servidor svg { animation: mov-servidor 1s steps(2, jump-none) infinite; }
+.razon-icono-viva.mov-enchufe svg,
+.progreso-logo-vivo.mov-enchufe svg { animation: mov-enchufe 1.1s ease-in-out infinite; }
+.razon-icono-viva.mov-brujula svg,
+.progreso-logo-vivo.mov-brujula svg { animation: mov-brujula 2s ease-in-out infinite; }
+.razon-icono-viva.mov-aguja svg,
+.progreso-logo-vivo.mov-aguja svg { animation: mov-aguja 1.2s ease-in-out infinite; transform-origin: 50% 62%; }
+.razon-icono-viva.mov-pulso svg,
+.progreso-logo-vivo.mov-pulso svg { animation: mov-pulso 1s ease-in-out infinite; }
+.razon-icono-viva.mov-papelera svg,
+.progreso-logo-vivo.mov-papelera svg { animation: mov-papelera 0.7s ease-in-out infinite; transform-origin: 50% 100%; }
+.razon-icono-viva.mov-reloj svg,
+.progreso-logo-vivo.mov-reloj svg { animation: mov-reloj 3s steps(12) infinite; }
+.razon-icono-viva.mov-lapiz svg,
+.progreso-logo-vivo.mov-lapiz svg { animation: mov-lapiz 0.9s ease-in-out infinite; }
+.razon-icono-viva.mov-carpeta svg,
+.progreso-logo-vivo.mov-carpeta svg { animation: mov-carpeta 1.3s ease-in-out infinite; transform-origin: 50% 100%; }
+.razon-icono-viva.mov-trofeo svg,
+.progreso-logo-vivo.mov-trofeo svg { animation: mov-trofeo 1s cubic-bezier(0.3, 0, 0.4, 1) infinite; }
+.razon-icono-viva.mov-rama svg,
+.progreso-logo-vivo.mov-rama svg { animation: mov-rama 1.8s ease-in-out infinite; transform-origin: 50% 100%; }
 
 @keyframes mov-bombilla {
   0%, 100% { color: var(--text-2); filter: none; }
   50% { color: var(--amber); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--amber) 65%, transparent)); }
 }
-@keyframes mov-globo { to { transform: rotate(360deg); } }
+@keyframes mov-globo {
+  to { transform: rotate(360deg); }
+}
 @keyframes mov-lupa {
   0%, 100% { transform: translate(0, 0); }
   25% { transform: translate(2px, -1px); }
@@ -2751,13 +2824,85 @@
   0%, 100% { transform: rotate(-6deg); }
   50% { transform: rotate(6deg); }
 }
+@keyframes mov-engranaje {
+  to { transform: rotate(360deg); }
+}
+@keyframes mov-datos {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.82); }
+}
+@keyframes mov-hoja {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  35% { transform: rotate(-7deg) translateY(-1px); }
+  70% { transform: rotate(4deg) translateY(0); }
+}
+@keyframes mov-libro {
+  0%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(0.7); }
+}
+@keyframes mov-rejilla {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.84); opacity: 0.65; }
+}
+@keyframes mov-servidor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+@keyframes mov-enchufe {
+  0%, 100% { transform: translateY(-2px); }
+  55% { transform: translateY(1px); }
+}
+@keyframes mov-brujula {
+  0%, 100% { transform: rotate(-30deg); }
+  50% { transform: rotate(30deg); }
+}
+@keyframes mov-aguja {
+  0%, 100% { transform: rotate(-12deg); }
+  50% { transform: rotate(12deg); }
+}
+@keyframes mov-pulso {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.16); }
+}
+@keyframes mov-papelera {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
+}
+@keyframes mov-reloj {
+  to { transform: rotate(360deg); }
+}
+@keyframes mov-lapiz {
+  0%, 100% { transform: translate(-1.5px, 1.5px); }
+  50% { transform: translate(1.5px, -1.5px); }
+}
+@keyframes mov-carpeta {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.84); }
+}
+@keyframes mov-trofeo {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-3px); }
+}
+@keyframes mov-rama {
+  0%, 100% { transform: rotate(-8deg); }
+  50% { transform: rotate(8deg); }
+}
 
-.mov-bombilla, .mov-globo, .mov-lupa, .mov-capas, .mov-mensaje, .mov-arbol { overflow: visible; }
+[class*="mov-"] { overflow: visible; }
 
+/* Con menos movimiento, ningún icono se mueve. Con `!important`: las reglas
+   `.razon-icono-viva.mov-X svg` de arriba pesan más que este selector, y sin
+   él ganaban; como la regla general de styles.css acorta toda animación a
+   0,01 ms pero no quita el `infinite`, el icono saltaba a un fotograma
+   distinto en cada cuadro, peor que la animación entera (revisión del 6 de
+   octubre de 2026). */
 @media (prefers-reduced-motion: reduce) {
   .razon-linea,
   .razon-icono-viva svg,
-  .progreso-logo-vivo svg { animation: none; }
+  .progreso-logo-vivo svg,
+  .razon-icono[class*="mov-"] svg,
+  .progreso-logo[class*="mov-"] svg { animation: none !important; }
 }
 
 .razon-cuerpo { min-width: 0; padding: 4px 0 10px; }
@@ -2787,12 +2932,20 @@
 .razon-sep { flex: none; width: 1px; height: 14px; background: var(--border-strong); }
 
 .razon-texto {
+  position: relative;
   min-width: 0;
   color: var(--text-3);
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   transition: color var(--dur-1, 150ms);
+}
+
+/* El valor va en bloque para poder moverse al cambiar (Razonamiento.tsx). */
+.razon-texto-valor {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .razon-ms { flex: none; margin-left: 2px; font-size: 12.5px; color: var(--text-3); opacity: 0.8; }

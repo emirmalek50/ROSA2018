@@ -252,7 +252,15 @@ describe('lo que se toca en el modelo de mundo', () => {
     expect([...cabeza.querySelectorAll('.mundo-fuente')].map((x) => x.textContent)).toEqual(['M', 'P']);
     expect(r.querySelector('.mundo-cobertura-titulo')?.textContent).toBe('Cobertura de la pregunta');
     expect(r.querySelectorAll('.mundo-cobertura-parte.mundo-cob-no_esta')).toHaveLength(2);
-    expect(r.querySelector('.mundo-cobertura')?.textContent).toContain('No está en lo consultado · Ninguna búsqueda lo devolvió');
+    // El estado es una etiqueta corta; la larga, «con lo consultado», va en
+    // el title. La nota, debajo de la parte.
+    const parte = r.querySelectorAll('.mundo-cobertura-parte')[1]!;
+    expect(parte.querySelector('.mundo-cobertura-estado')?.textContent).toBe('No está');
+    expect(parte.querySelector('.mundo-cobertura-estado')?.getAttribute('title')).toBe('No está en lo consultado');
+    expect(parte.querySelector('.mundo-cobertura-nota')?.textContent).toBe('Ninguna búsqueda lo devolvió');
+    expect(r.querySelector('.mundo-cobertura-cuenta')?.textContent).toBe('0 de 2 respondidas');
+    // El pie de atribución cierra la cobertura, no es otra caja aparte.
+    expect(r.querySelector('.mundo-cobertura .mundo-atribucion')).not.toBeNull();
     // Con cobertura, «Lo que no pudo comprobar» no se repite aparte.
     expect(r.querySelector('.mundo-limites')).toBeNull();
     expect(r.querySelector('.mundo-atribucion-bien')?.textContent).toContain('La respuesta se abstiene y no cita: correcto, nada que atribuir.');

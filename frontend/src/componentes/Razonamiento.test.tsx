@@ -7,9 +7,9 @@
 // - Que ya contestada se pliegue en una línea, sin tapar la respuesta.
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { Razonamiento } from './Razonamiento';
+import { GOTEO_MS, Razonamiento } from './Razonamiento';
 import type { PasoRazonamiento } from '../datos/tipos';
 
 let nodo: HTMLDivElement;
@@ -24,7 +24,23 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   nodo.remove();
+  vi.useRealTimers();
 });
+
+/** El goteo va con setTimeout: con el reloj falso cada fila entra al
+ *  avanzarlo GOTEO_MS, exacto y sin esperar de verdad (antes cada test
+ *  dormía 600 ms por fila y dependía de que la máquina fuera rápida). */
+const relojFalso = () => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+// Un `act` por fila: dentro de uno, React guarda los cambios hasta el final,
+// y el temporizador de la fila siguiente se pone al terminar el anterior.
+const gotea = async (n = 1) => { for (let i = 0; i < n; i++) await act(async () => { vi.advanceTimersByTime(GOTEO_MS); }); };
+/** La fila que llega sola, con la anterior ya entrada, sale al momento: su
+ *  temporizador es de cero, pero con el reloj falso hay que dejarlo saltar. */
+const alMomento = () => act(async () => { vi.advanceTimersByTime(1); });
+/** Las filas que se van salen con una animación de verdad (rAF, no falseado):
+ *  esto deja pasar tiempo REAL para que terminen de irse del DOM. */
+const setTimeoutReal = globalThis.setTimeout;
+const seVan = () => act(async () => { await new Promise((r) => setTimeoutReal(r, 450)); });
 
 const T = Date.UTC(2026, 9, 2, 12, 0, 0);
 const pintar = (ui: React.ReactElement) => act(async () => root.render(ui));
@@ -47,7 +63,7 @@ describe('la línea de tiempo del razonamiento', () => {
     await pintar(<Razonamiento pasos={PASOS} ahora={T + 2000} />);
     expect(filas()).toHaveLength(2);
     const t = nodo.textContent ?? '';
-    expect(t).toContain('El modelo de mundo');
+    expect(t).toContain('Modelo de mundo');
     expect(t).toContain('p-tau217 plasmática');
   });
 
@@ -71,16 +87,78 @@ describe('la línea de tiempo del razonamiento', () => {
   });
 
   it('la fila de pensar es la bombilla que se mueve; la herramienta en marcha, su icono', async () => {
+    relojFalso();
     await pintar(<Razonamiento pasos={[PASOS[0]!]} ahora={T + 500} enMarcha />);
     expect(nodo.querySelector('.razon-icono-viva.mov-bombilla')).not.toBeNull();
     const vivos: PasoRazonamiento[] = [
       { id: 'a', tipo: 'herramienta', herramienta: 'consultar_arbol', familia: 'proyecto', nombre: 'consultar_arbol', inicio: T, fin: null },
     ];
     await pintar(<Razonamiento pasos={vivos} ahora={T + 500} enMarcha />);
+    await alMomento();
     expect(nodo.querySelector('.razon-icono-viva.mov-arbol')).not.toBeNull();
-    // Al cerrar, «Preparando la respuesta».
+    // Al cerrar, «Preparando la respuesta». Llegan tres filas en un mismo
+    // sondeo y gotean: al principio solo la primera, después todas.
     await pintar(<Razonamiento pasos={PASOS} ahora={T + 2000} enMarcha />);
+    // La primera llega pisándole los talones a la anterior: espera su turno.
+    await gotea();
+    expect(nodo.textContent).toContain('Modelo de mundo');
+    expect(nodo.textContent).not.toContain('PubMed');
+    // Cada fila espera a que el hilo baje y entren su icono y su texto. Un
+    // `act` por fila: dentro de uno, React guarda los cambios hasta el final.
+    await gotea(4);
+    expect(nodo.textContent).toContain('PubMed');
     expect(nodo.querySelector('.razon-pensar')?.textContent).toBe('Preparando la respuesta');
+  });
+
+  it('el hilo baja hasta la fila nueva solo cuando ella ya está, no antes, y no se vuelve a dibujar cuando cambia la de debajo', async () => {
+    relojFalso();
+    await pintar(<Razonamiento pasos={[PASOS[0]!]} ahora={T + 500} enMarcha />);
+    await pintar(<Razonamiento pasos={PASOS} ahora={T + 2000} enMarcha />);
+    // Nada ha bajado aún: solo «Pensando», que ya estaba, y sin hilo.
+    expect(nodo.querySelectorAll('.razon-herramienta, .razon-sub')).toHaveLength(0);
+    expect(nodo.querySelector('.razon-linea')).toBeNull();
+    await alMomento();
+    // Baja la primera herramienta, encima de «Pensando», y sale su hilo.
+    expect(nodo.querySelectorAll('.razon-herramienta, .razon-sub')).toHaveLength(1);
+    const hilo = nodo.querySelector('.razon-herramienta .razon-linea');
+    expect(hilo).not.toBeNull();
+    // Baja la segunda (el sub-paso) y la primera sigue con el MISMO hilo:
+    // antes se desmontaba y parpadeaba en cada fila nueva de debajo.
+    await gotea();
+    expect(nodo.querySelectorAll('.razon-herramienta, .razon-sub')).toHaveLength(2);
+    expect(nodo.querySelector('.razon-herramienta .razon-linea')).toBe(hilo);
+    await gotea(2);
+    expect(nodo.querySelectorAll('.razon-herramienta, .razon-sub')).toHaveLength(3);
+    expect(nodo.querySelector('.razon-herramienta .razon-linea')).toBe(hilo);
+  });
+
+  it('una fila que el servidor quita no infla el goteo: la tanda siguiente sigue entrando de una en una', async () => {
+    relojFalso();
+    const a: PasoRazonamiento = { id: 'a', tipo: 'herramienta', herramienta: 'consultar_arbol', familia: 'proyecto', nombre: 'consultar_arbol', inicio: T, fin: T + 100, error: null, resumen: 'Doce ramas con hipótesis vivas y tres cerradas por el Killer.' };
+    await pintar(<Razonamiento pasos={[a]} ahora={T + 500} enMarcha />);
+    // Herramienta y su sub-paso, que ya estaban al montar: dos filas a la vista.
+    expect(nodo.querySelectorAll('.razon-fila')).toHaveLength(2);
+    // El servidor reinicia su seguimiento: solo queda «Pensando».
+    await pintar(<Razonamiento pasos={[]} ahora={T + 600} enMarcha />);
+    await alMomento();
+    await seVan();
+    expect(nodo.querySelectorAll('.razon-fila')).toHaveLength(1);
+    // Llegan dos herramientas juntas: entran una detrás de otra, no de golpe.
+    const b: PasoRazonamiento = { id: 'b', tipo: 'herramienta', herramienta: 'buscar_pubmed', familia: 'base', nombre: 'PubMed', inicio: T + 700, fin: T + 900, error: null, resumen: '' };
+    const c: PasoRazonamiento = { id: 'c', tipo: 'herramienta', herramienta: 'buscar_en_proyecto', familia: 'proyecto', nombre: 'el proyecto', inicio: T + 950, fin: null, error: null, resumen: '' };
+    await pintar(<Razonamiento pasos={[b, c]} ahora={T + 1000} enMarcha />);
+    expect(nodo.querySelectorAll('.razon-herramienta')).toHaveLength(0);
+    await gotea();
+    expect(nodo.querySelectorAll('.razon-herramienta')).toHaveLength(1);
+    await gotea();
+    expect(nodo.querySelectorAll('.razon-herramienta')).toHaveLength(2);
+  });
+
+  it('una tabla con nombre de prototipo no revienta la fila', async () => {
+    const raro: PasoRazonamiento = { id: 'r', tipo: 'herramienta', herramienta: 'consultar_proyecto', familia: 'proyecto', nombre: 'consultar_proyecto', argumentos: { tabla: 'constructor' }, inicio: T, fin: T + 10, error: null, resumen: '' };
+    await pintar(<Razonamiento pasos={[raro]} ahora={T + 100} />);
+    expect(nodo.querySelectorAll('.razon-herramienta')).toHaveLength(1);
+    expect(nodo.textContent).toContain('constructor');
   });
 
   it('en marcha, lo que está pasando ahora late y lo terminado no', async () => {
@@ -156,7 +234,7 @@ describe('lo que hace que se parezca a Kimi', () => {
 
   it('plegada dice cuántas herramientas y cuál fue la primera, como «Used 1 tool, Fetch…»', async () => {
     await pintar(<Razonamiento pasos={PASOS} ahora={T + 2000} plegable />);
-    expect(nodo.querySelector('.razon-resumen')?.textContent).toContain('Usó 2 herramientas, la primera El modelo de mundo');
+    expect(nodo.querySelector('.razon-resumen')?.textContent).toContain('Usó 2 herramientas, la primera Modelo de mundo');
   });
 });
 

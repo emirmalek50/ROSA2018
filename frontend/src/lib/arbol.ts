@@ -15,6 +15,7 @@
 
 import type { Afirmacion, Corrida, Ejecucion, EstadoRosa, Hipotesis, Investigacion, Iteracion } from '../datos/tipos';
 import { rutaDe } from './ruta';
+import { ESTADO_EXPERIMENTO, ESTADO_HECHO } from './etiquetas';
 import { tr, traducido, trp } from './idioma';
 
 export type TipoNodo = 'objetivo' | 'rama' | 'area' | 'hipotesis' | 'hecho' | 'pregunta' | 'fuente' | 'entidad' | 'experimento' | 'afirmacion' | 'ejecucion' | 'dataset' | 'laboratorio';
@@ -358,14 +359,14 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
   }
   for (const h of hip) {
     const bloqueos = h.bloqueos ?? [];
-    const alerta = h.estado === 'descartada' ? 'descartada' : h.decisionKiller === 'descartar_en_contexto' ? tr('el Killer propone descartar') : bloqueos.length ? (bloqueos.length === 1 ? trp("{bloqueos} bloqueo", { bloqueos: bloqueos.length }) : trp("{bloqueos} bloqueos", { bloqueos: bloqueos.length })) : undefined;
+    const alerta = h.estado === 'descartada' ? tr('descartada') : h.decisionKiller === 'descartar_en_contexto' ? tr('el Killer propone descartar') : bloqueos.length ? (bloqueos.length === 1 ? trp("{bloqueos} bloqueo", { bloqueos: bloqueos.length }) : trp("{bloqueos} bloqueos", { bloqueos: bloqueos.length })) : undefined;
     // Sin Elo (registro anterior al torneo) vale el de salida, 1500: un peso NaN
     // dejaría el círculo sin radio y la disposición por fuerzas sin posición.
     const elo = typeof h.elo === 'number' && Number.isFinite(h.elo) ? h.elo : 1500;
     anadir({ id: h.id, tipo: 'hipotesis', etiqueta: h.titulo ?? h.id, sub: `${h.cluster || tr('Sin cluster')} · Elo ${elo}${h.candidata ? tr(' · candidata') : ''}`, peso: pesoHipotesis(h, elo), iteracion: ordinalDe(h), href: rutaDe(inv.id, 'hipotesis', h.id), estado: h.estado, alerta });
     enlazar(conRama.has(h.cluster || tr('Sin cluster')) ? `rama-${h.cluster || tr('Sin cluster')}` : 'objetivo', h.id, 'rama');
     if (h.experimento && h.experimento.estado !== 'propuesto') {
-      anadir({ id: `ex-${h.id}`, tipo: 'experimento', etiqueta: h.experimento.laboratorio ? `Experimento en ${h.experimento.laboratorio}` : 'Experimento', sub: h.experimento.estado.replace('_', ' ') + (h.experimento.prerregistradoEn ? tr(' · prerregistrado') : ''), peso: 2, iteracion: ordinalDe(h), href: rutaDe(inv.id, 'hipotesis', h.id), estado: h.experimento.estado });
+      anadir({ id: `ex-${h.id}`, tipo: 'experimento', etiqueta: h.experimento.laboratorio ? trp('Experimento en {laboratorio}', { laboratorio: h.experimento.laboratorio }) : tr('Experimento'), sub: ESTADO_EXPERIMENTO[h.experimento.estado] + (h.experimento.prerregistradoEn ? tr(' · prerregistrado') : ''), peso: 2, iteracion: ordinalDe(h), href: rutaDe(inv.id, 'hipotesis', h.id), estado: h.experimento.estado });
       enlazar(h.id, `ex-${h.id}`, 'experimento');
     }
   }
@@ -387,7 +388,7 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
     const relacionadas = hip.filter((h) => he.id === `he-${h.id}` || (he.procedencia ?? []).some((p) => fuentesDe.get(h.id)?.has(p.fuenteId)));
     const nacido = he as { historial?: { fecha?: number }[]; actualizadoEn?: number };
     const iteracion = ordinalEn(nacido.historial?.[0]?.fecha ?? nacido.actualizadoEn) ?? (relacionadas.length ? Math.min(...relacionadas.map((h) => ordinalDe(h))) : iteracionMax);
-    anadir({ id: `he-${he.id}`, tipo, etiqueta: he.enunciado.length > 90 ? `${he.enunciado.slice(0, 87)}...` : he.enunciado, sub: `${he.tema} · ${he.estado}`, peso: 1 + Math.min(2, relacionadas.length * 0.3), iteracion, href: rutaDe(inv.id, 'mundo'), estado: he.estado });
+    anadir({ id: `he-${he.id}`, tipo, etiqueta: he.enunciado.length > 90 ? `${he.enunciado.slice(0, 87)}...` : he.enunciado, sub: `${he.tema} · ${ESTADO_HECHO[he.estado]}`, peso: 1 + Math.min(2, relacionadas.length * 0.3), iteracion, href: rutaDe(inv.id, 'mundo'), estado: he.estado });
     for (const h of relacionadas) enlazar(`he-${he.id}`, h.id, 'respalda');
     for (const x of he.entidades ?? []) enlazar(`he-${he.id}`, entidad(x, iteracion), 'entidad');
   }

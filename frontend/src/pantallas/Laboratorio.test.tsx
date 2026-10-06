@@ -18,6 +18,7 @@ const respuestas = vi.hoisted(() => ({
   experimentos: null as unknown,
   oligos: null as unknown,
 }));
+const traducirTextos = vi.hoisted(() => vi.fn(async (_textos: string[]): Promise<Record<string, string>> => ({})));
 vi.mock('../datos/almacen', async (original) => ({
   ...(await original<typeof import('../datos/almacen')>()),
   acciones: {
@@ -25,6 +26,7 @@ vi.mock('../datos/almacen', async (original) => ({
     // El contrato entero se pide aparte al abrir el experimento.
     experimentosDe: vi.fn(async () => respuestas.experimentos),
     oligosDe: vi.fn(async () => respuestas.oligos),
+    traducirTextos,
   },
 }));
 
@@ -388,6 +390,7 @@ let abierta: string | null = null;
 let panelAbierto: 'aso' | null = null;
 
 beforeEach(() => {
+  traducirTextos.mockReset().mockResolvedValue({});
   abierta = null;
   panelAbierto = null;
   respuestas.datos = DATOS;
@@ -409,6 +412,7 @@ afterEach(async () => {
   nodo.remove();
   global.fetch = fetchDeVerdad;
   fijarIdioma('es');
+  vi.unstubAllGlobals();
 });
 
 const pintar = () =>
@@ -438,6 +442,41 @@ const pulsar = async (el: Element) => {
 };
 
 describe('lo que va al laboratorio', () => {
+  it('copia el candidato en inglés y conserva las secuencias y la química', async () => {
+    const aso = structuredClone(DIANA.aso!);
+    aso.via = { ...aso.via!, porQue: 'Antisense oligonucleotides do not cross the blood-brain barrier.', precedente: 'Administered intrathecally.', limite: 'Distribution remains a limitation.' };
+    aso.candidatos[0]!.criba!.porQue = 'Not yet compared against the human transcriptome.';
+    respuestas.oligos = aso;
+    const copiar = vi.fn(async (_t: string) => undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: copiar } });
+    traducirTextos.mockImplementation(async textos => Object.fromEntries(textos.map(t => [t, t])));
+    fijarIdioma('en');
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    await pulsar(nodo.querySelector('.lab-experimento .lab-copiar-grande')!);
+    expect(copiar).toHaveBeenCalledTimes(1);
+    const pedido = copiar.mock.calls[0]![0];
+    expect(pedido).toContain("SEQUENCE (5' to 3'): CTCTCCCACTCCCACTTCTT");
+    expect(pedido).toContain('phosphorothioate at every linkage');
+    expect(pedido).toContain('intrathecal (lumbar puncture)');
+    expect(pedido).toContain('ACTIVITY-ASSOCIATED SEQUENCE MOTIFS: 6 favorable, 0 unfavorable');
+    expect(pedido).toContain('ENST00000262410');
+    expect(pedido).not.toMatch(/SECUENCIA|intratecal|SIN CRIBAR|AUTOCOMPLEMENTARIEDAD/);
+  });
+
+  it('si falta una traducción no escribe una copia mezclada en el portapapeles', async () => {
+    const copiar = vi.fn(async () => undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: copiar } });
+    fijarIdioma('en');
+    await montar();
+    await pulsar(nodo.querySelector('.lab-pieza-abrir')!);
+    await pulsar(nodo.querySelector('.lab-abrir-aso')!);
+    await pulsar(nodo.querySelector('.lab-experimento .lab-copiar-grande')!);
+    expect(copiar).not.toHaveBeenCalled();
+    expect(nodo.querySelector('[role="alert"]')?.textContent).toContain('The document was not copied');
+  });
+
   it('traduce la decisión y la fiabilidad en inglés sin esperar al traductor remoto', async () => {
     fijarIdioma('en');
     const aso = {

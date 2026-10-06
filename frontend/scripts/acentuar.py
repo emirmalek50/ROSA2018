@@ -242,6 +242,24 @@ PATRON = re.compile(r"\b(" + "|".join(sorted(map(re.escape, PALABRAS), key=len, 
 
 
 def acentuar_texto(texto: str) -> str:
+    # Los huecos de trp son identificadores: {titulo} nunca pasa a {título}.
+    # Se protegen antes de aplicar todas las reglas de la prosa.
+    huecos: dict[str, str] = {}
+
+    def proteger(m: re.Match) -> str:
+        marca = f"\ue000{len(huecos)}\ue001"
+        while marca in texto or marca in huecos:
+            marca = "\ue000" + marca + "\ue001"
+        huecos[marca] = m.group(0)
+        return marca
+
+    prosa = _acentuar_prosa(re.sub(r"\{\w+\}", proteger, texto))
+    for marca, original in huecos.items():
+        prosa = prosa.replace(marca, original)
+    return prosa
+
+
+def _acentuar_prosa(texto: str) -> str:
     def rep(m: re.Match) -> str:
         palabra = m.group(0)
         base = PALABRAS[palabra.lower()]

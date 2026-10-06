@@ -12,7 +12,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { estadoDeMuestra } from '../datos/muestra';
 import type { CapaPerfilDiana, Hipotesis, PerfilDiana, ResultadoExperimento, RutaTerapeuticaEvaluada } from '../datos/tipos';
-import { ContratoDelExperimento, Jerarquia, PerfilDeLaDiana, ProtocoloYEnmiendas, PuertaYReproducciones, RutaTerapeutica, TarjetaDeHipotesis } from './Rosa2018';
+import { ContratoDelExperimento, GobiernoArea, Jerarquia, PerfilDeLaDiana, ProtocoloYEnmiendas, PuertaYReproducciones, RutaTerapeutica, TarjetaDeHipotesis } from './Rosa2018';
 import { fijarIdioma } from '../lib/idioma';
 
 const almacen = vi.hoisted(() => ({
@@ -63,6 +63,8 @@ const render = (el: React.ReactElement) => act(async () => root.render(el));
 it('traduce los estados de áreas y campañas sin cambiar sus valores canónicos', async () => {
   const e = structuredClone(estadoDeMuestra());
   const inv = e.investigaciones[0]!;
+  e.corridas[0]!.numero = 16;
+  e.corridas[0]!.estado = 'pausada_por_presupuesto';
   inv.mision = { poblacion: '', etapa: '', celulaTejido: '', mecanismo: '', tipoIntervencion: '', capacidadesLaboratorio: [], presupuesto: { llamadas: 10, usd: 1, horas: 1 }, propuestaPorRosa: false, aprobadaEn: null, aprobadaPor: null,
     areas: (['elegida', 'propuesta', 'pausada', 'sin_explorar'] as const).map((estado, i) => ({ id: `area-${i}`, titulo: `Area ${i}`, familiaMecanismo: '', relevancia: '', valorIntervencion: '', incertidumbre: '', comprobabilidad: '', coste: '', demora: '', dependeDe: '', estado, condicionReapertura: '', corridaId: i === 0 ? e.corridas[0]!.id : null })),
   };
@@ -75,6 +77,19 @@ it('traduce los estados de áreas y campañas sin cambiar sus valores canónicos
   expect(nodo.textContent).not.toMatch(/elegida|propuesta|pausada|sin explorar|en_curso/);
   expect(JSON.stringify(inv)).toBe(original);
   expect([...nodo.querySelectorAll('[aria-label]')].map((x) => x.getAttribute('aria-label')).join('\n')).not.toContain('Explicar');
+});
+
+it('el selector de campañas traduce el presupuesto agotado y conserva el id de la corrida', async () => {
+  const e = structuredClone(estadoDeMuestra());
+  const inv = e.investigaciones[0]!;
+  const corrida = e.corridas[0]!;
+  corrida.numero = 16; corrida.estado = 'pausada_por_presupuesto';
+  const a = { id: 'area-1', titulo: 'MAPT', familiaMecanismo: '', relevancia: '', valorIntervencion: '', incertidumbre: '', comprobabilidad: '', coste: '', demora: '', dependeDe: '', estado: 'elegida' as const, condicionReapertura: '', corridaId: corrida.id };
+  fijarIdioma('en');
+  await render(<GobiernoArea inv={inv} a={a} corridas={[corrida]} />);
+  const opcion = nodo.querySelectorAll('option')[1]!;
+  expect(opcion.textContent).toBe('Campaign 16 (Paused: budget exhausted)');
+  expect(opcion.value).toBe(corrida.id);
 });
 
 it('la puerta eximida muestra el estado, la persona y el motivo también en inglés', async () => {

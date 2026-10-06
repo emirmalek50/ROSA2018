@@ -562,5 +562,29 @@
     "original": "punción lumbar",
     "traducido": "epidural anesthesia",
     "valida": false
+  },
+  {
+    "nombre": "motivos de secuencia no son razones",
+    "original": "MOTIVOS DE ACTIVIDAD: 6 a favor, 0 en contra",
+    "traducido": "ACTIVITY REASONS: 6 in favor, 0 against",
+    "valida": false
+  },
+  {
+    "nombre": "motivos de secuencia por su término",
+    "original": "MOTIVOS DE ACTIVIDAD: 6 a favor, 0 en contra",
+    "traducido": "ACTIVITY-ASSOCIATED SEQUENCE MOTIFS: 6 favorable, 0 unfavorable",
+    "valida": true
+  },
+  {
+    "nombre": "RoB 2 usa some concerns",
+    "original": "algunas dudas",
+    "traducido": "some concerns",
+    "valida": true
+  },
+  {
+    "nombre": "RoB 2 no usa some doubts",
+    "original": "algunas dudas",
+    "traducido": "some doubts",
+    "valida": false
   }
 ]

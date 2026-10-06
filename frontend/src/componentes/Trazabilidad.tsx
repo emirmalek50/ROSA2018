@@ -19,7 +19,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Corrida, TipoAfirmacion } from '../datos/tipos';
 import { esTiempoAgotado, senalDeTope } from '../lib/diferido';
-import { RIESGO_SESGO, TIPO_AFIRMACION, tipoAfirmacion, TIPO_ESTUDIO, TIPO_FUENTE, VEREDICTO } from '../lib/etiquetas';
+import { RIESGO_SESGO, detalleRiesgoSesgo, TIPO_AFIRMACION, tipoAfirmacion, TIPO_ESTUDIO, TIPO_FUENTE, VEREDICTO } from '../lib/etiquetas';
 import { construirArbol, enlaceDe, iteracionesDe, type Evidencia, type FiltroVeredicto, type NodoFuente } from '../lib/evidencia';
 import { formatearEntero } from '../lib/formato';
 import { Cargando, Esqueleto } from './Esqueleto';
@@ -337,7 +337,7 @@ function Fuente({ nodo, abierta, onAlternar }: { nodo: NodoFuente; abierta: bool
         </span>
         <span className="arbol-cuentas">
           {f.riesgoSesgo && f.riesgoSesgo.global !== 'no_aplica' && (
-            <Chip tono={RIESGO_SESGO[f.riesgoSesgo.global]?.tono ?? 'borde'} title={trp('{instrumento}: {dominios}. Veredicto por regla desde las preguntas de señalización.', { instrumento: f.riesgoSesgo.instrumento, dominios: f.riesgoSesgo.dominios.map((d) => `${d.id} ${d.nombre}: ${d.juicio.replace('_', ' ')}`).join('; ') })}>
+            <Chip tono={RIESGO_SESGO[f.riesgoSesgo.global]?.tono ?? 'borde'} title={detalleRiesgoSesgo(f.riesgoSesgo)}>
               {f.riesgoSesgo.instrumento} {RIESGO_SESGO[f.riesgoSesgo.global]?.etiqueta ?? f.riesgoSesgo.global}
             </Chip>
           )}

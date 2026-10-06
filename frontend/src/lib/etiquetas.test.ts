@@ -1,5 +1,18 @@
-import { describe, expect, it } from 'vitest';
-import { etiquetaCorrida, mostrarTexto, proponiendoPlan } from './etiquetas';
+import { afterEach, describe, expect, it } from 'vitest';
+import { detalleRiesgoSesgo, etiquetaCorrida, mostrarTexto, proponiendoPlan } from './etiquetas';
+import { fijarIdioma } from './idioma';
+
+afterEach(() => fijarIdioma('es'));
+
+it('traduce el dominio y el juicio RoB 2 sin modificar el registro científico', () => {
+  const riesgo = { instrumento: 'RoB 2', global: 'algunas_dudas' as const, dominios: [{ id: 'D1', nombre: 'Proceso de aleatorización', juicio: 'algunas_dudas' as const }] };
+  const copia = JSON.stringify(riesgo);
+  fijarIdioma('en');
+  expect(detalleRiesgoSesgo(riesgo)).toContain('D1 Randomization process: some concerns');
+  expect(JSON.stringify(riesgo)).toBe(copia);
+  fijarIdioma('es');
+  expect(detalleRiesgoSesgo(riesgo)).toContain('D1 Proceso de aleatorización: algunas dudas');
+});
 
 // La captura del 15 de septiembre: la corrida recién creada decía "Esperando que
 // apruebes el plan" durante los 93 segundos en que ROSA2018 aún escribía el plan y

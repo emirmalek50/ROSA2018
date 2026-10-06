@@ -22,6 +22,8 @@ import type { Residuo, Visor } from '../lib/visorMolecular';
 import '../laboratorio.css';
 import { traducido, tr, trp, trc, idiomaActual } from '../lib/idioma';
 import { coma } from '../lib/formato';
+import { traducirDocumentoExterno } from '../lib/traduccionExterna';
+import { ESTADO_EXPERIMENTO } from '../lib/etiquetas';
 
 /* --------------------------------------------------------------------------
    Anotaciones de UniProt: lo que se marca sobre la proteína
@@ -44,7 +46,7 @@ const QUE_MARCAR: { tipo: string; contiene?: string; nombre: string; detalle: st
   { tipo: 'Region', contiene: 'Catalytic', nombre: 'Dominio catalítico', detalle: 'la parte que cataliza' },
   { tipo: 'Region', contiene: 'Hydrophilic', nombre: 'Dominio hidrofílico', detalle: '' },
   { tipo: 'Domain', nombre: 'Dominio', detalle: '' },
-  { tipo: 'Motif', nombre: 'Motivo', detalle: '' },
+  { tipo: 'Motif', nombre: 'Motivo de secuencia', detalle: '' },
   { tipo: 'Signal', nombre: 'Péptido señal', detalle: 'se corta al secretarse' },
   { tipo: 'Binding site', nombre: 'Sitio de unión', detalle: '' },
   { tipo: 'Site', nombre: 'Sitio', detalle: '' },
@@ -251,21 +253,53 @@ function decisionDeLaDiana(d: DianaDeLaboratorio): string | null {
 /** Copiar al portapapeles. Esta sección existe para mandar algo a un
  *  laboratorio: un SMILES de novecientos caracteres no se transcribe a mano, y
  *  transcribirlo mal cambia el compuesto. */
-function Copiar({ texto, que, clase = '' }: { texto: string; que: string; clase?: string }) {
+function Copiar({ texto, que, clase = '', documento = false }: { texto: string; que: string; clase?: string; documento?: boolean }) {
   const [hecho, fijarHecho] = useState(false);
+  const [ocupado, fijarOcupado] = useState(false);
+  const [aviso, fijarAviso] = useState('');
+  const enCurso = useRef(false);
+  const vivo = useRef(true);
+  useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
   return (
-    <button
-      type="button"
-      className={`lab-copiar ${clase}`}
-      title={`Copiar ${que}`}
-      onClick={(ev) => {
-        ev.stopPropagation();
-        void navigator.clipboard?.writeText(texto).then(() => fijarHecho(true));
-        window.setTimeout(() => fijarHecho(false), 2000);
-      }}
-    >
-      {(hecho ? tr("copiado") : tr("copiar"))}
-    </button>
+    <>
+      <button
+        type="button"
+        className={`lab-copiar ${clase}`}
+        title={trp('Copiar {que}', { que })}
+        disabled={ocupado}
+        aria-busy={ocupado}
+        onClick={(ev) => {
+          ev.stopPropagation();
+          if (enCurso.current) return;
+          enCurso.current = true;
+          fijarOcupado(true); fijarAviso(''); fijarHecho(false);
+          const idioma = idiomaActual();
+          void (async () => {
+            try {
+              const listo = documento && idioma === 'en'
+                ? await traducirDocumentoExterno(texto, acciones.traducirTextos) : texto;
+              if (!vivo.current || idiomaActual() !== idioma) return;
+              if (listo === null) {
+                fijarAviso(tr('No se pudo completar la traducción. No se copió el documento; vuelve a intentarlo.'));
+                return;
+              }
+              if (!navigator.clipboard) throw new Error('Portapapeles no disponible');
+              await navigator.clipboard.writeText(listo);
+              if (vivo.current) fijarHecho(true);
+              window.setTimeout(() => { if (vivo.current) fijarHecho(false); }, 2000);
+            } catch {
+              if (vivo.current) fijarAviso(tr('No se pudo copiar. Comprueba la conexión y el permiso del portapapeles.'));
+            } finally {
+              enCurso.current = false;
+              if (vivo.current) fijarOcupado(false);
+            }
+          })();
+        }}
+      >
+        {ocupado ? tr('Preparando copia…') : hecho ? tr('copiado') : tr('copiar')}
+      </button>
+      {aviso && <span role="alert">{aviso}</span>}
+    </>
   );
 }
 
@@ -274,14 +308,14 @@ function Copiar({ texto, que, clase = '' }: { texto: string; que: string; clase?
 function hojaComoTexto(d: DianaDeLaboratorio): string {
   const h = d.hojaDePedido;
   const l = [
-    `DIANA: ${d.simbolo} (${d.nombre})`,
-    `IDENTIFICADOR: ${h.identificador}`,
+    trp('DIANA: {simbolo} ({nombre})', { simbolo: d.simbolo, nombre: d.nombre }),
+    trp('IDENTIFICADOR: {identificador}', { identificador: h.identificador }),
     (d.estructura.clase === 'predicha' ? trp("ESTRUCTURA: {url} ({fuente}, {licencia}, predicha, no medida)", { url: d.estructura.url, fuente: d.estructura.fuente, licencia: d.estructura.licencia }) : trp("ESTRUCTURA: {url} ({fuente}, {licencia}, medida)", { url: d.estructura.url, fuente: d.estructura.fuente, licencia: d.estructura.licencia })),
     h.hipotesis ? trp("HIPÓTESIS: {hipotesis}", { hipotesis: h.hipotesis }) : '',
-    h.certeza ? `CERTEZA (GRADE): ${CERTEZA[h.certeza] ?? h.certeza}` : '',
+    h.certeza ? trp('CERTEZA (GRADE): {certeza}', { certeza: CERTEZA[h.certeza] ?? h.certeza }) : '',
     h.queSeHace ? trp("QUÉ SE HACE: {queSeHace}", { queSeHace: h.queSeHace }) : '',
-    h.sistema ? `SISTEMA: ${SISTEMA[h.sistema] ?? h.sistema}` : '',
-    h.controles ? `CONTROLES: ${h.controles}` : '',
+    h.sistema ? trp('SISTEMA: {sistema}', { sistema: SISTEMA[h.sistema] ?? h.sistema }) : '',
+    h.controles ? trp('CONTROLES: {controles}', { controles: h.controles }) : '',
     h.refuta ? trp("QUÉ LA REFUTARÍA: {refuta}", { refuta: h.refuta }) : '',
     h.faltan.length ? trp("SIN DEFINIR EN EL CONTRATO: {v}", { v: h.faltan.join(', ') }) : '',
     ...h.otrosExperimentos.flatMap((x, i) => [
@@ -289,8 +323,8 @@ function hojaComoTexto(d: DianaDeLaboratorio): string {
       trp("OTRO EXPERIMENTO PROPUESTO ({v})", { v: i + 2 }),
       x.hipotesis ? trp("  HIPÓTESIS: {hipotesis}", { hipotesis: x.hipotesis }) : '',
       x.queSeHace ? trp("  QUÉ SE HACE: {queSeHace}", { queSeHace: x.queSeHace }) : '',
-      x.sistema ? `  SISTEMA: ${SISTEMA[x.sistema] ?? x.sistema}` : '',
-      x.controles ? `  CONTROLES: ${x.controles}` : '',
+      x.sistema ? trp('  SISTEMA: {sistema}', { sistema: SISTEMA[x.sistema] ?? x.sistema }) : '',
+      x.controles ? trp('  CONTROLES: {controles}', { controles: x.controles }) : '',
       x.refuta ? trp("  QUÉ LA REFUTARÍA: {refuta}", { refuta: x.refuta }) : '',
     ]),
     h.sinExperimento ? tr('NINGUNA HIPÓTESIS PROPONE TODAVÍA UN EXPERIMENTO SOBRE ESTA DIANA.') : '',
@@ -298,26 +332,26 @@ function hojaComoTexto(d: DianaDeLaboratorio): string {
     ...(h.sinExperimento ? d.loQueSeSabe.flatMap((x) => [trp("LO QUE SE SABE · {tema}", { tema: x.tema }), `  ${x.enunciado}`, x.referencia ? `  [${x.referencia}]` : '']) : []),
     '',
     trp("EVIDENCIA: {hechos} afirmaciones la nombran, {sabidos} sostenidas por {fuentes} fuentes", { hechos: d.hechos, sabidos: d.sabidos, fuentes: d.fuentes }),
-    d.investigaciones.length ? `INVESTIGACIONES: ${d.investigaciones.map((i) => i.titulo).join('; ')}` : '',
+    d.investigaciones.length ? trp('INVESTIGACIONES: {investigaciones}', { investigaciones: d.investigaciones.map((i) => i.titulo).join('; ') }) : '',
     '',
     tr('Lo reunió ROSA2018 a partir de lo que su evidencia nombra. ROSA2018 no ha diseñado ninguna estructura ni ha calculado acoplamientos.'),
   ];
   return l.filter(Boolean).join('\n');
 }
 
-const LECTURA: Record<string, string> = {
-  compromiso_diana: tr('compromiso de diana'),
+const LECTURA: Record<string, string> = traducido({
+  compromiso_diana: 'compromiso de diana',
   mecanismo: 'mecanismo',
   desenlace: 'desenlace',
   seguridad: 'seguridad',
   control: 'control',
-};
-const NIVEL: Record<string, string> = {
+});
+const NIVEL: Record<string, string> = traducido({
   celular: 'celular',
   animal: 'animal',
   humano: 'humano',
   molecular: 'molecular',
-};
+});
 
 /** Un campo largo del contrato. Se enseña entero: recortar media receta es
  *  mandar media receta. */
@@ -425,7 +459,7 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
           <h2>{cabecera ? cabecera.titulo : trp("Ninguna hipótesis propone todavía un experimento sobre {simbolo}", { simbolo: diana.simbolo })}</h2>
         </div>
         <div className="lab-acciones-exp">
-          {h ? <Copiar texto={experimentoComoTexto(diana, h)} que={tr("el experimento entero")} clase="lab-copiar-grande" /> : null}
+          {h ? <Copiar documento texto={experimentoComoTexto(diana, h)} que={tr("el experimento entero")} clase="lab-copiar-grande" /> : null}
           <button type="button" className="lab-cerrar" onClick={alCerrar} aria-label={tr("Cerrar el experimento")}>
             ✕
           </button>
@@ -555,36 +589,36 @@ function Experimento({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar:
 function experimentoComoTexto(d: DianaDeLaboratorio, h: ExperimentoDeDiana): string {
   const l = [
     trp("EXPERIMENTO SOBRE {simbolo} ({nombre})", { simbolo: d.simbolo, nombre: d.nombre }),
-    `IDENTIFICADOR: UniProt ${d.uniprot}${d.hgnc ? ` · ${d.hgnc}` : ''}`,
+    trp('IDENTIFICADOR: {identificador}', { identificador: `UniProt ${d.uniprot}${d.hgnc ? ` · ${d.hgnc}` : ''}` }),
     (d.estructura.clase === 'predicha' ? trp("ESTRUCTURA: {url} ({fuente}, {licencia}, predicha, no medida)", { url: d.estructura.url, fuente: d.estructura.fuente, licencia: d.estructura.licencia }) : trp("ESTRUCTURA: {url} ({fuente}, {licencia}, medida)", { url: d.estructura.url, fuente: d.estructura.fuente, licencia: d.estructura.licencia })),
     '',
     trp("HIPÓTESIS: {titulo}", { titulo: h.titulo }),
-    h.certeza ? `CERTEZA (GRADE): ${CERTEZA[h.certeza] ?? h.certeza}` : '',
-    h.estadoExperimento ? `ESTADO: ${h.estadoExperimento}` : '',
+    h.certeza ? trp('CERTEZA (GRADE): {certeza}', { certeza: CERTEZA[h.certeza] ?? h.certeza }) : '',
+    h.estadoExperimento ? trp('ESTADO: {estado}', { estado: ESTADO_EXPERIMENTO[h.estadoExperimento as keyof typeof ESTADO_EXPERIMENTO] ?? tr(h.estadoExperimento.replaceAll('_', ' ')) }) : '',
     '',
     h.intervencion ? trp("QUÉ SE HACE: {intervencion}", { intervencion: h.intervencion }) : '',
-    h.sistema ? `SISTEMA: ${SISTEMA[h.sistema] ?? h.sistema}. ${h.quePrueba}` : '',
+    h.sistema ? trp('SISTEMA: {sistema}. {quePrueba}', { sistema: SISTEMA[h.sistema] ?? h.sistema, quePrueba: h.quePrueba }) : '',
     '',
-    h.protocolo ? `PROTOCOLO:\n${h.protocolo}` : '',
+    h.protocolo ? trp('PROTOCOLO:\n{protocolo}', { protocolo: h.protocolo }) : '',
     '',
     h.ensayo ? trp("QUÉ SE MIDE: {ensayo}", { ensayo: h.ensayo }) : '',
     ...h.lecturas.flatMap((x) => [
-      `LECTURA: ${x.nombre}${x.tipo ? ` (${x.tipo})` : ''}`,
-      x.queConfirma ? `  CONFIRMA: ${x.queConfirma}` : '',
-      x.queRefuta ? `  REFUTA: ${x.queRefuta}` : '',
+      trp('LECTURA: {nombre}{tipo}', { nombre: x.nombre, tipo: x.tipo ? ` (${LECTURA[x.tipo] ?? tr(x.tipo)})` : '' }),
+      x.queConfirma ? trp('  CONFIRMA: {confirma}', { confirma: x.queConfirma }) : '',
+      x.queRefuta ? trp('  REFUTA: {refuta}', { refuta: x.queRefuta }) : '',
     ]),
     '',
     h.confirma ? trp("QUÉ LO CONFIRMARÍA: {confirma}", { confirma: h.confirma }) : '',
     h.refuta ? trp("QUÉ LO REFUTARÍA: {refuta}", { refuta: h.refuta }) : '',
     h.alternativa ? trp("EXPLICACIÓN RIVAL: {alternativa}", { alternativa: h.alternativa }) : '',
-    h.controles ? `CONTROLES: ${h.controles}` : '',
+    h.controles ? trp('CONTROLES: {controles}', { controles: h.controles }) : '',
     h.tamanoMuestral ? trp("TAMAÑO MUESTRAL: {tamanoMuestral}", { tamanoMuestral: h.tamanoMuestral }) : '',
     h.decisionQueCambia ? trp("QUÉ DECISIÓN CAMBIA: {decisionQueCambia}", { decisionQueCambia: h.decisionQueCambia }) : '',
     h.costeEstimado ? trp("LO QUE CUESTA: {costeEstimado}", { costeEstimado: h.costeEstimado }) : '',
     h.puenteAlBeneficio ? trp("QUÉ FALTARÍA PARA QUE BENEFICIE A ALGUIEN: {puenteAlBeneficio}", { puenteAlBeneficio: h.puenteAlBeneficio }) : '',
     '',
     ...d.quimica.flatMap((q) => [
-      `COMPUESTO NOMBRADO JUNTO A ESTA DIANA: ${q.nombre} (en ${q.juntas} afirmaciones)${q.ontologiaId ? ` · ${q.ontologiaId}` : ''}`,
+      trp('COMPUESTO NOMBRADO JUNTO A ESTA DIANA: {nombre} (en {juntas} afirmaciones){identificador}', { nombre: q.nombre, juntas: q.juntas, identificador: q.ontologiaId ? ` · ${q.ontologiaId}` : '' }),
       q.formula ? trp('  FÓRMULA: {formula}  ·  PESO: {peso} g/mol', { formula: q.formula, peso: q.peso ?? '' }) : '',
       q.smiles ? `  SMILES: ${q.smiles}` : '',
       q.inchikey ? `  INCHIKEY: ${q.inchikey}` : '',
@@ -592,7 +626,7 @@ function experimentoComoTexto(d: DianaDeLaboratorio, h: ExperimentoDeDiana): str
     ]),
     '',
     trp("EVIDENCIA: {hechos} afirmaciones de ROSA2018 nombran esta proteína, {sabidos} sostenidas por {fuentes} fuentes.", { hechos: d.hechos, sabidos: d.sabidos, fuentes: d.fuentes }),
-    d.investigaciones.length ? `INVESTIGACIONES: ${d.investigaciones.map((i) => i.titulo).join('; ')}` : '',
+    d.investigaciones.length ? trp('INVESTIGACIONES: {investigaciones}', { investigaciones: d.investigaciones.map((i) => i.titulo).join('; ') }) : '',
     '',
     tr('Lo reunió ROSA2018 de lo que su evidencia nombra y de contratos de experimento ya prerregistrados. ROSA2018 no ha diseñado ninguna estructura, no calcula acoplamientos y no propone estructuras nuevas.'),
   ];
@@ -818,27 +852,27 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
   return [
     trp("OLIGONUCLEÓTIDO ANTISENTIDO CANDIDATO · DIANA {simbolo}", { simbolo }),
     '',
-    `SECUENCIA (5' a 3'): ${c.secuencia}`,
-    `ARQUITECTURA: ${d.quimica.arquitectura}  ->  ${p.ala5} | ${p.hueco} | ${p.ala3}`,
-    trp("  alas ({ala5} nt cada una): {alas}", { ala5: p.ala5.length, alas: d.quimica.alas }),
-    `  hueco (${p.hueco.length} nt): ${d.quimica.hueco}`,
-    `  enlaces: ${d.quimica.enlaces}`,
-    `  citosinas: ${d.quimica.citosinas}`,
+    trp("SECUENCIA (5' a 3'): {secuencia}", { secuencia: c.secuencia }),
+    trp('ARQUITECTURA: {arquitectura}  ->  {ala5} | {hueco} | {ala3}', { arquitectura: d.quimica.arquitectura, ala5: p.ala5, hueco: p.hueco, ala3: p.ala3 }),
+    trp("  alas ({ala5} nt cada una): {alas}", { ala5: p.ala5.length, alas: tr(d.quimica.alas) }),
+    trp('  hueco ({largo} nt): {hueco}', { largo: p.hueco.length, hueco: tr(d.quimica.hueco) }),
+    trp('  enlaces: {enlaces}', { enlaces: tr(d.quimica.enlaces) }),
+    trp('  citosinas: {citosinas}', { citosinas: tr(d.quimica.citosinas) }),
     '',
-    `TRANSCRITO: ${d.transcrito} (${d.largo} nt, build ${d.build})`,
-    trp('POSICIÓN EN EL TRANSCRITO: {desde} a {hasta}{zona}', { desde: c.posicion, hasta: c.hasta, zona: c.region ? ` (${c.region})` : '' }),
-    `TRAMO DIANA: 5'-${c.diana}-3'`,
+    trp('TRANSCRITO: {transcrito} ({largo} nt, build {build})', { transcrito: d.transcrito, largo: d.largo, build: d.build }),
+    trp('POSICIÓN EN EL TRANSCRITO: {desde} a {hasta}{zona}', { desde: c.posicion, hasta: c.hasta, zona: c.region ? ` (${tr(c.region)})` : '' }),
+    trp("TRAMO DIANA: 5'-{diana}-3'", { diana: c.diana }),
     '',
     trp("PROPORCIÓN G+C: {v} %", { v: Math.round(c.gc * 100) }),
     trp("DINUCLEÓTIDOS CpG: {cpg}", { cpg: c.cpg }),
-    `AUTOCOMPLEMENTARIEDAD: ${c.autocomplementariedad} nt`,
+    trp('AUTOCOMPLEMENTARIEDAD: {largo} nt', { largo: c.autocomplementariedad }),
     trp("MOTIVOS DE ACTIVIDAD: {motivosBuenos} a favor, {motivosMalos} en contra", { motivosBuenos: c.motivosBuenos, motivosMalos: c.motivosMalos }),
     '',
-    d.via ? trp("VÍA DE ADMINISTRACIÓN: {via}", { via: d.via.via }) : '',
+    d.via ? trp("VÍA DE ADMINISTRACIÓN: {via}", { via: tr(d.via.via) }) : '',
     d.via ? `  ${d.via.porQue}` : '',
     d.via ? `  ${d.via.precedente}` : '',
     '',
-    trp("CRIBADO CONTRA EL TRANSCRIPTOMA: {v}", { v: c.criba?.veredicto?.toUpperCase() ?? (c.cribado ? 'HECHO' : tr('NO HECHO')) }),
+    trp("CRIBADO CONTRA EL TRANSCRIPTOMA: {v}", { v: tr(c.criba?.veredicto ?? (c.cribado ? 'hecho' : 'no hecho')).toUpperCase() }),
     `  ${c.criba?.porQue ?? c.avisoCribado}`,
     c.criba?.cribado && d.criba?.hecho
       ? trp("  comparado contra {v} transcritos de Ensembl GRCh38 ({v2}); encaja en {propios} transcritos de su propio gen", { v: n(d.criba.transcritos), v2: d.criba.ficheros.join(', '), propios: c.criba.propios })
@@ -850,10 +884,10 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
     // reciba tiene que saber que «sin choque exacto» no es «seguro».
     ...(d.criba?.hecho ? [tr('  lo que este cribado NO cubre:'), ...d.criba.limites.map((l) => `    - ${l.que}: ${l.porQue}`)] : []),
     '',
-    c.especies ? trp("SE PUEDE PROBAR EN UN ROEDOR: {v}", { v: c.especies.veredicto.toUpperCase() }) : '',
+    c.especies ? trp("SE PUEDE PROBAR EN UN ROEDOR: {v}", { v: tr(c.especies.veredicto).toUpperCase() }) : '',
     c.especies ? `  ${c.especies.porQue}` : '',
     ...(c.especies
-      ? Object.values(c.especies.porEspecie).map((x) => `  ${x.nombre}: ${x.veredicto}${x.ortologo ? ` · gen ${x.ortologo}` : ''}`)
+      ? Object.values(c.especies.porEspecie).map((x) => `  ${tr(x.nombre)}: ${tr(x.veredicto)}${x.ortologo ? trp(' · gen {gen}', { gen: x.ortologo }) : ''}`)
       : []),
     c.especies ? `  ${c.especies.marco.siNoEncaja}` : '',
     '',
@@ -870,7 +904,7 @@ function asoComoTexto(simbolo: string, d: DisenoAso, c: CandidatoAso): string {
           tr('DE QUÉ FIARSE Y DE QUÉ NO'),
           '',
           ...d.fiabilidad.niveles.flatMap((nv) => [
-            nv.titulo.toUpperCase(),
+            tr(nv.titulo).toUpperCase(),
             `  ${tr(nv.resumen)}`,
             ...nv.cosas.map((x) => `  - ${x.que}: ${x.porQue}`),
             '',
@@ -1629,7 +1663,7 @@ function Aso({ diana, alCerrar }: { diana: DianaDeLaboratorio; alCerrar: () => v
           <h2>{trp("Cortar la producción de {simbolo} en su propio ARN", { simbolo: diana.simbolo })}</h2>
         </div>
         <div className="lab-acciones-exp">
-          {d && c ? <Copiar texto={asoComoTexto(diana.simbolo, d, c)} que={tr("el candidato entero")} clase="lab-copiar-grande" /> : null}
+          {d && c ? <Copiar documento texto={asoComoTexto(diana.simbolo, d, c)} que={tr("el candidato entero")} clase="lab-copiar-grande" /> : null}
           <button type="button" className="lab-cerrar" onClick={alCerrar} aria-label={tr("Cerrar")}>
             ✕
           </button>
@@ -2312,7 +2346,7 @@ function Lamina({ diana, abrirAso = false, alVolver }: { diana: DianaDeLaborator
       </button>}
       <aside id="ficha-laboratorio" aria-label={tr("Para el laboratorio")} className={`lab-capa lab-hoja${nivel > 0 ? ' lab-fuera' : ''}${hojaAbierta ? ' lab-hoja-abierta' : ' lab-hoja-cerrada'}`}>
         <header className="lab-hoja-cabecera">
-          <div className="lab-hoja-titulo"><h3>{(hoja.sinExperimento ? tr("Lo que se sabe") : tr("Para el laboratorio"))}</h3><Copiar texto={hojaComoTexto(diana)} que={tr("la hoja de pedido")} /><button type="button" className="lab-hoja-cerrar" aria-label={tr("Cerrar panel del laboratorio")} onClick={() => fijarHojaAbierta(false)}>{tr("Cerrar ×")}</button></div>
+          <div className="lab-hoja-titulo"><h3>{(hoja.sinExperimento ? tr("Lo que se sabe") : tr("Para el laboratorio"))}</h3><Copiar documento texto={hojaComoTexto(diana)} que={tr("la hoja de pedido")} /><button type="button" className="lab-hoja-cerrar" aria-label={tr("Cerrar panel del laboratorio")} onClick={() => fijarHojaAbierta(false)}>{tr("Cerrar ×")}</button></div>
           <div className="lab-hoja-identidad"><strong>{diana.simbolo}</strong><span>{hoja.identificador}</span></div>
           <p className="lab-hoja-estado" data-alerta={hoja.contradiceLaIntervencion || hoja.sinExperimento}>
             <i aria-hidden="true" />{hoja.contradiceLaIntervencion ? tr('Contrato por revisar') : hoja.sinExperimento ? tr('Sin experimento propuesto') : tr('Experimento propuesto')}

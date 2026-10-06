@@ -92,8 +92,8 @@ export function AdjuntosAsistente({ investigacionId, alSubir, disabled = false }
       setConfirmacion(tr('Archivo guardado en ROSA.'));
       window.setTimeout(() => setConfirmacion(''), 4000);
       alSubir(destino === 'dataset'
-        ? `Acabo de subir el dataset «${fichero.name}» a la investigación «${investigacion.titulo}» (${investigacionDestino}). Revisa su ficha y dime qué falta para poder analizarlo.`
-        : `Acabo de subir «${fichero.name}» como resultados del experimento ${destino}, investigación ${investigacionDestino}. Revisa su estado y los siguientes pasos.`);
+        ? trp('Acabo de subir el dataset «{fichero}» a la investigación «{titulo}» ({investigacion}). Revisa su ficha y dime qué falta para poder analizarlo.', { fichero: fichero.name, titulo: investigacion.titulo, investigacion: investigacionDestino })
+        : trp('Acabo de subir «{fichero}» como resultados del experimento {experimento}, investigación {investigacion}. Revisa su estado y los siguientes pasos.', { fichero: fichero.name, experimento: destino, investigacion: investigacionDestino }));
       quitar();
     } catch {
       setAviso(tr('No se pudo subir el archivo. Comprueba la conexión.'));

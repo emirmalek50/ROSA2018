@@ -51,7 +51,9 @@ export function pareceCastellano(t: string): boolean {
   // Sin quitarlo, los 169 marcadores de Citas («[Dark et al., 2024, Results
   // section]») se mandaban al modelo en cada corrida para que los devolviera
   // igual.
-  const limpio = s.replace(/\bet\s+al\.?/gi, ' ');
+  const limpio = s.replace(/\bet\s+al\.?/gi, ' ')
+    // El O de 2'-O-methoxyethyl es un átomo, no la conjunción española.
+    .replace(/\b\d+['′]-[ONSP]-/g, ' ');
   const es = new Set((limpio.match(PALABRAS_ES) ?? []).map((p) => p.toLowerCase()));
   const en = new Set((limpio.match(PALABRAS_EN) ?? []).map((p) => p.toLowerCase()));
   // «no» no está en la lista inglesa aunque sea inglés: es de los dos

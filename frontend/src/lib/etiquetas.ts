@@ -49,6 +49,7 @@ import type {
   ProcedenciaDataset,
   Reproduccion,
   ResultadoLaboratorio,
+  RiesgoSesgo,
   TipoAfirmacion,
   TipoArtefacto,
   TipoEstudio,
@@ -62,7 +63,7 @@ import type {
   TipoRevisionAutomatica,
   Veredicto,
 } from '../datos/tipos';
-import { tr, traducido, trp } from './idioma';
+import { tr, trc, traducido, trp } from './idioma';
 
 export const ESTADO_CORRIDA: Record<EstadoCorrida, string> = traducido({
   en_marcha: 'En marcha',
@@ -73,6 +74,10 @@ export const ESTADO_CORRIDA: Record<EstadoCorrida, string> = traducido({
   esperando_modelo: 'Esperando al modelo',
   detenida: 'Detenida',
   terminada: 'Terminada',
+});
+
+export const ESTADO_EXPERIMENTO: Record<NonNullable<Hipotesis['experimento']>['estado'], string> = traducido({
+  propuesto: 'Propuesto', asignado: 'Asignado', en_curso: 'En curso', datos_recibidos: 'Datos recibidos',
 });
 
 /** Verdadero mientras ROSA2018 escribe el plan: la corrida está en `esperando_plan`
@@ -781,6 +786,20 @@ export const RIESGO_SESGO: Record<string, { etiqueta: string; tono: 'ok' | 'avis
   alto: { etiqueta: 'riesgo alto', tono: 'mal' },
   no_aplica: { etiqueta: 'no aplica', tono: 'borde' },
 });
+
+const JUICIO_SESGO: Record<RiesgoSesgo['global'], string> = traducido({
+  bajo: 'riesgo bajo', algunas_dudas: 'algunas dudas', alto: 'riesgo alto', no_aplica: 'no aplica',
+});
+
+/** Dominios y juicios visibles, conservando los códigos del instrumento. */
+export function detalleRiesgoSesgo(riesgo: { instrumento: string; version?: string; dominios: { id: string; nombre: string; juicio: string }[] }): string {
+  const corregir: Record<string, string> = { Confusion: 'Confusión', 'Caracteristicas basales': 'Características basales' };
+  const dominios = riesgo.dominios.map(d =>
+    `${d.id} ${trc('sesgo', corregir[d.nombre] ?? d.nombre)}: ${(JUICIO_SESGO as Record<string, string>)[d.juicio] ?? tr(d.juicio.replaceAll('_', ' '))}`).join('; ');
+  return trp('{instrumento}: {dominios}. Veredicto por regla desde las preguntas de señalización.', {
+    instrumento: [riesgo.instrumento, riesgo.version ? tr(riesgo.version) : ''].filter(Boolean).join(' '), dominios,
+  });
+}
 
 /** Estado de cada paso de la ruta terapéutica calculado por regla
  *  (rosa/ruta.py ETIQUETAS_ESTADO). "No comprobable" es una fuente que no

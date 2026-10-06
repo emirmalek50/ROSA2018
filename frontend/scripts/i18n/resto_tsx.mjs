@@ -3,11 +3,15 @@
 // criterio de "es texto" es el mismo de siempre: tiene espacio o tilde y no
 // parece un identificador, una clase CSS ni una ruta.
 import ts from 'typescript';
-import { readFileSync } from 'node:fs';
-import { globSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 
-const ficheros = execSync("find src -name '*.tsx' -o -name '*.ts' | grep -v '.test.' | grep -v '/i18n/'", { encoding: 'utf8' }).trim().split('\n');
+function archivos(directorio) {
+  return readdirSync(directorio, { withFileTypes: true }).flatMap(e => {
+    const ruta = `${directorio}/${e.name}`;
+    return e.isDirectory() ? archivos(ruta) : /\.tsx?$/.test(e.name) && !ruta.includes('.test.') && !ruta.includes('/i18n/') ? [ruta] : [];
+  });
+}
+const ficheros = archivos('src');
 const ES = /[ñáéíóú¿¡]|\b(?:de|la|el|los|las|que|con|para|por|una|sin|del|más|cada|como|está|son|hay|qué|se|lo|al|su|sus|aún|entre|sobre|pero|cuando|donde|todavía|ningún|ninguna)\b/i;
 const out = [];
 for (const f of ficheros) {
@@ -15,14 +19,18 @@ for (const f of ficheros) {
   const sf = ts.createSourceFile(f, src, ts.ScriptTarget.Latest, true, f.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const visitar = (n) => {
     const envuelto = (x) => {
+      let hijo = x;
       let p = x.parent;
-      if (p && ts.isCallExpression(p) && ts.isIdentifier(p.expression) && ['tr', 'trc', 'trp', 'traducido'].includes(p.expression.text)) return true;
-      // Dentro de un traducido(...), y tambien el ternario que va DENTRO de
-      // un trp(): `trp(n === 1 ? 'A {n}' : 'B {n}', { n })` ya esta
-      // envuelto, y mirando solo el padre inmediato salian las dos ramas
-      // como pendientes (2 de octubre de 2026).
+      // Solo la plantilla pasa por trp(). Sus valores no se traducen:
+      // trp('A {n}', {n: 'muchos'}) debe señalar «muchos» como pendiente.
       while (p) {
-        if (ts.isCallExpression(p) && ts.isIdentifier(p.expression) && ['traducido', 'tr', 'trc', 'trp'].includes(p.expression.text)) return true;
+        if (ts.isCallExpression(p) && ts.isIdentifier(p.expression)) {
+          const nombre = p.expression.text;
+          if (nombre === 'traducido' && p.arguments[0] === hijo) return true;
+          if (['tr', 'trp'].includes(nombre) && p.arguments[0] === hijo) return true;
+          if (nombre === 'trc' && p.arguments[1] === hijo) return true;
+        }
+        hijo = p;
         p = p.parent;
       }
       return false;
@@ -53,4 +61,5 @@ const porTipo = new Map();
 for (const o of out) porTipo.set(o.tipo, (porTipo.get(o.tipo) || 0) + 1);
 console.log('\npor donde aparecen:');
 for (const [t, n] of [...porTipo].sort((a, b) => b[1] - a[1])) console.log(`  ${String(n).padStart(4)}  ${t}`);
-await import('node:fs').then((m) => m.writeFileSync('/tmp/resto_tsx.json', JSON.stringify(out, null, 1)));
+const salida = process.argv.indexOf('--salida');
+writeFileSync(salida >= 0 ? process.argv[salida + 1] : '/tmp/resto_tsx.json', JSON.stringify(out, null, 1));

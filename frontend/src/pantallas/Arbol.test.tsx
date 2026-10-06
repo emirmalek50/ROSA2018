@@ -17,8 +17,13 @@ import type { Afirmacion, Ejecucion, EstadoRosa, PlanAnalisis } from '../datos/t
 import { DISTANCIA_MAXIMA, DISTANCIA_MINIMA, FOCAL } from '../lib/arbol3d';
 import { escenaDe, huella, type NodoEscena } from '../lib/lienzo_arbol';
 import { Arbol } from './Arbol';
+import { fijarIdioma } from '../lib/idioma';
 
-vi.mock('../datos/almacen', () => ({ acciones: new Proxy({}, { get: () => () => undefined }) }));
+const traducciones = vi.hoisted(() => vi.fn(async (_textos: string[]): Promise<Record<string, string>> => ({})));
+vi.mock('../datos/almacen', () => {
+  const ignorar = () => undefined;
+  return { acciones: new Proxy({ traducirTextos: traducciones }, { get: (obj, clave) => clave === 'traducirTextos' ? obj.traducirTextos : ignorar }) };
+});
 // La preferencia de movimiento se lee una sola vez por módulo en motion/react, así
 // que se intercepta para poder encender la animación en un test (la fuga de fotogramas)
 // y dejar el resto con movimiento reducido, determinista.
@@ -40,6 +45,8 @@ beforeAll(() => {
 let root: Root;
 let nodo: HTMLDivElement;
 beforeEach(() => {
+  fijarIdioma('es');
+  traducciones.mockReset().mockResolvedValue({});
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   nodo = document.createElement('div');
   document.body.append(nodo);
@@ -50,6 +57,7 @@ afterEach(async () => {
   nodo.remove();
   // La vista elegida se recuerda en el navegador: se limpia para que un test no herede la de otro.
   localStorage.removeItem('rosa-arbol-vista');
+  fijarIdioma('es');
 });
 /** Monta el árbol y espera al fotograma en que se construye el grafo: desde el
  *  19 de septiembre de 2026 la pantalla pinta primero una silueta (esqueleto)
@@ -87,6 +95,35 @@ function estadoConDato(): EstadoRosa {
 
 const boton = (texto: string) => [...nodo.querySelectorAll('button')].find((b) => b.textContent?.trim() === texto)!;
 const pulsar = async (el: Element) => act(async () => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+it('las etiquetas del canvas siguen el idioma y conservan el estado original', async () => {
+  const e = structuredClone(estadoDeMuestra());
+  const h = e.hipotesis[0]!;
+  h.titulo = 'Autofagia regula tau en neuronas';
+  const original = JSON.stringify(e);
+  traducciones.mockImplementation(async textos => Object.fromEntries(textos.filter(t => t === h.titulo).map(t => [t, 'Autophagy regulates tau in neurons'])));
+  fijarIdioma('en');
+  await montar(<Arbol inv={e.investigaciones[0]!} estado={e} />);
+  const etiqueta = () => escenaDe(nodo.querySelector('canvas')!)!.nodos.find(n => n.id === h.id)!.etiqueta.lineas.join(' ');
+  expect(etiqueta()).toBe('Autophagy regulates tau in neurons');
+  await act(async () => fijarIdioma('es'));
+  await act(async () => { await new Promise(r => setTimeout(r, 80)); });
+  expect(etiqueta()).toBe(h.titulo);
+  expect(JSON.stringify(e)).toBe(original);
+});
+
+it('una traducción tardía no vuelve a poner inglés después de seleccionar español', async () => {
+  const e = structuredClone(estadoDeMuestra());
+  e.hipotesis[0]!.titulo = 'El ensayo de MAPT queda pendiente';
+  let responder!: (r: Record<string, string>) => void;
+  traducciones.mockImplementation(() => new Promise(resolve => { responder = resolve; }));
+  fijarIdioma('en');
+  await montar(<Arbol inv={e.investigaciones[0]!} estado={e} />);
+  await act(async () => fijarIdioma('es'));
+  await act(async () => { await new Promise(r => setTimeout(r, 80)); });
+  await act(async () => responder({ 'El ensayo de MAPT queda pendiente': 'The MAPT assay remains pending' }));
+  expect(escenaDe(nodo.querySelector('canvas')!)!.nodos.find(n => n.id === e.hipotesis[0]!.id)!.etiqueta.lineas.join(' ')).toBe(e.hipotesis[0]!.titulo);
+});
 
 describe('la pantalla del árbol', () => {
   const lienzo = () => nodo.querySelector('canvas.grafo') as HTMLCanvasElement;

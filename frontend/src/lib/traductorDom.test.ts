@@ -40,6 +40,7 @@ describe('qué se manda a traducir', () => {
     expect(pareceCastellano('sin datos')).toBe(true);
     expect(pareceCastellano('No data on the page')).toBe(false);
     expect(pareceCastellano('Open the file')).toBe(false);
+    expect(pareceCastellano("wings (5 nt each): 2'-O-methoxyethyl (2'-MOE)")).toBe(false);
   });
 });
 

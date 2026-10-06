@@ -55,7 +55,9 @@ import { acotarCamara, camaraInicial, distanciaEncuadre, ESPERA_GIRO_MS, paso3d,
 import { ajusteLienzo, construirEscena, dibujar, nodoBajoPuntero, Paleta, registrarEscena, RESPALDOS_PALETA, type Escena, type EstiloNodo, type Trazo } from '../lib/lienzo_arbol';
 import { useCalculoDiferido } from '../lib/diferido';
 import { useMovimientoReducido } from '../lib/movimiento';
-import { traducido, tr, trp } from '../lib/idioma';
+import { traducido, tr, trp, useIdioma } from '../lib/idioma';
+import { acciones } from '../datos/almacen';
+import { useArbolTraducido } from '../lib/arbolIdioma';
 const COLOR: Record<TipoNodo, string> = {
   objetivo: 'var(--accent)',
   rama: 'var(--accent-soft-2)',
@@ -213,7 +215,7 @@ const ALTO = 560;
 
 /** La ayuda de la cabecera. Es una constante para que la silueta y la pantalla
  *  real la pinten idéntica y la cabecera no cambie de alto al llegar el árbol. */
-const AYUDA = tr('El objetivo es el tronco; las ramas, los clusters con varias hipótesis; las hojas, las hipótesis; alrededor, lo que las sostiene. Pasa el ratón por un nodo para ver sus conexiones; pulsa para desplegar lo que toca; dos veces para abrir su ficha; arrastra un nodo para moverlo (los demás lo siguen). Las etiquetas pequeñas aparecen al acercar con la rueda. Escribe una palabra o un identificador (GFAP, HGNC:4235) para iluminar todo lo que lo nombra. Por defecto el relleno de cada nodo dice qué es (las hipótesis, el color de su familia de mecanismo) y el anillo cuánto lo sostiene: verde si está a un paso de una medición propia de ROSA2018 (un análisis in silico validado, un resultado del laboratorio o una observación original), ámbar si solo hay literatura leída detrás, gris punteado si nada todavía. Con «Por distancia al dato» esa distancia pasa al relleno con una escala secuencial. Con «Vista 3D» el mismo árbol se despliega en tres dimensiones: arrastra el fondo para girarlo (en horizontal gira, en vertical se inclina), usa la rueda para acercar la cámara, y los nodos lejanos se ven más pequeños y tenues; si nadie lo toca durante unos segundos, gira solo. En 3D los nodos no se arrastran: el fondo gira el árbol.');
+const AYUDA = 'El objetivo es el tronco; las ramas, los clusters con varias hipótesis; las hojas, las hipótesis; alrededor, lo que las sostiene. Pasa el ratón por un nodo para ver sus conexiones; pulsa para desplegar lo que toca; dos veces para abrir su ficha; arrastra un nodo para moverlo (los demás lo siguen). Las etiquetas pequeñas aparecen al acercar con la rueda. Escribe una palabra o un identificador (GFAP, HGNC:4235) para iluminar todo lo que lo nombra. Por defecto el relleno de cada nodo dice qué es (las hipótesis, el color de su familia de mecanismo) y el anillo cuánto lo sostiene: verde si está a un paso de una medición propia de ROSA2018 (un análisis in silico validado, un resultado del laboratorio o una observación original), ámbar si solo hay literatura leída detrás, gris punteado si nada todavía. Con «Por distancia al dato» esa distancia pasa al relleno con una escala secuencial. Con «Vista 3D» el mismo árbol se despliega en tres dimensiones: arrastra el fondo para girarlo (en horizontal gira, en vertical se inclina), usa la rueda para acercar la cámara, y los nodos lejanos se ven más pequeños y tenues; si nadie lo toca durante unos segundos, gira solo. En 3D los nodos no se arrastran: el fondo gira el árbol.';
 
 /** Dónde van los nodos de la silueta (en tanto por ciento del lienzo) y su
  *  diámetro en píxeles: el tronco en el centro, cinco ramas alrededor y hojas
@@ -340,10 +342,11 @@ export function EsqueletoArbol({ conexion }: { conexion: EstadoRosa['conexion'] 
  *  después, sin esqueleto: se conserva el anterior mientras tanto. Un árbol
  *  vacío no tiene nada que calcular y explica qué pasará sin esperar. */
 export function Arbol({ inv, estado }: { inv: Investigacion; estado: EstadoRosa }) {
+  const idioma = useIdioma();
   const vacio = useMemo(() => !estado.hipotesis.some((h) => h.investigacionId === inv.id) && !estado.hechos.some((h) => h.investigacionId === inv.id), [estado.hipotesis, estado.hechos, inv.id]);
-  const { valor } = useCalculoDiferido(() => ({ invId: inv.id, grafo: construirArbol(estado, inv) }), [estado, inv]);
+  const { valor } = useCalculoDiferido(() => ({ invId: inv.id, grafo: construirArbol(estado, inv) }), [estado, inv, idioma]);
   // Un árbol vacío solo tiene el tronco: se construye aquí mismo, sin esperar.
-  const grafoTrivial = useMemo(() => (vacio ? construirArbol(estado, inv) : null), [vacio, estado, inv]);
+  const grafoTrivial = useMemo(() => (vacio ? construirArbol(estado, inv) : null), [vacio, estado, inv, idioma]);
   const listo = valor !== null && valor.invId === inv.id;
   const grafo = listo ? valor.grafo : grafoTrivial;
   return (
@@ -355,7 +358,8 @@ export function Arbol({ inv, estado }: { inv: Investigacion; estado: EstadoRosa 
 
 /** El árbol con el grafo ya construido: el lienzo, el bucle de animación, el
  *  panel y los mandos. Recibe el grafo hecho para no construirlo en el render. */
-function ArbolMontado({ inv, estado, grafo }: { inv: Investigacion; estado: EstadoRosa; grafo: Grafo }) {
+function ArbolMontado({ inv, estado, grafo: original }: { inv: Investigacion; estado: EstadoRosa; grafo: Grafo }) {
+  const grafo = useArbolTraducido(original, acciones.traducirTextos);
   const hip = useMemo(() => estado.hipotesis.filter((h) => h.investigacionId === inv.id), [estado.hipotesis, inv.id]);
   // Sin hipótesis ni hechos no hay árbol que dibujar (se enseña qué pasará). Se
   // calcula aquí, antes de los efectos, porque el de la rueda tiene que volver a

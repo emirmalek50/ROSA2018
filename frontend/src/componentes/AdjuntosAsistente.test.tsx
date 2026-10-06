@@ -8,8 +8,11 @@
 // un chip, y si son resultados, AHÍ se elige de qué experimento.
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { AdjuntosAsistente } from './AdjuntosAsistente';
+import { fijarIdioma } from '../lib/idioma';
+
+afterEach(() => fijarIdioma('es'));
 
 const subirDataset = vi.fn();
 const subirDatosExperimento = vi.fn();
@@ -61,7 +64,28 @@ it.each([['dataset', 'Subir un dataset'], ['h-1', 'Subir resultados']])('adjunta
   if (destino === 'dataset') expect(subirDataset).toHaveBeenCalledWith('inv-1', fichero, 'prueba.csv', '', true);
   else expect(subirDatosExperimento).toHaveBeenCalledWith('h-1', fichero, '', true);
   expect(alSubir).toHaveBeenCalledWith(expect.stringContaining('prueba.csv'));
+  expect(alSubir).toHaveBeenCalledWith(expect.stringContaining('Acabo de subir'));
   expect(nodo.textContent).toContain('Archivo guardado');
+  await act(async () => root.unmount());
+});
+
+it.each([['dataset', 'Upload a dataset'], ['h-1', 'Upload results']])('en inglés redacta el mensaje del adjunto %s sin cambiar sus identificadores', async (destino, rotulo) => {
+  fijarIdioma('en');
+  subirDataset.mockReset().mockResolvedValue(null);
+  subirDatosExperimento.mockReset().mockResolvedValue(null);
+  const nodo = document.createElement('div');
+  const root = createRoot(nodo);
+  const alSubir = vi.fn();
+  await act(async () => root.render(<AdjuntosAsistente investigacionId="inv-1" alSubir={alSubir} />));
+  await act(async () => nodo.querySelector<HTMLButtonElement>('.mundo-adjuntar')!.click());
+  await act(async () => fila(nodo, rotulo).click());
+  await elegirArchivo(nodo, new File(['x\n1'], 'datos_MAPT.csv'));
+  await act(async () => nodo.querySelector<HTMLButtonElement>('[data-accion="guardar"]')!.click());
+  expect(alSubir.mock.calls[0]?.[0]).toContain('I just uploaded');
+  expect(alSubir.mock.calls[0]?.[0]).toContain('datos_MAPT.csv');
+  expect(alSubir.mock.calls[0]?.[0]).toContain('inv-1');
+  expect(alSubir.mock.calls[0]?.[0]).not.toContain('Revisa');
+  if (destino !== 'dataset') expect(alSubir.mock.calls[0]?.[0]).toContain('h-1');
   await act(async () => root.unmount());
 });
 

@@ -7,7 +7,11 @@
 
 import { AnimatePresence, motion } from 'motion/react';
 
-import { IconGlobe, IconLayers, IconMessage, IconSearch, IconTree } from './icons';
+import {
+  IconActivity, IconBook, IconBookmark, IconBranch, IconBulb, IconClock, IconCompass, IconDatabase, IconFileText, IconFolder,
+  IconGauge, IconGlobe, IconGrid, IconLayers, IconMessage, IconPen, IconPlug, IconSearch, IconServer, IconSettings, IconTable,
+  IconTrash, IconTree, IconTrophy,
+} from './icons';
 import { Shimmer } from './Shimmer';
 import type { PasoRazonamiento } from '../datos/tipos';
 import { traducido, tr, trp } from '../lib/idioma';
@@ -35,65 +39,155 @@ export function tonoDe(fuente: string): number {
 
 type Icono = (p: { size?: number }) => JSX.Element;
 
-/** Las herramientas propias del chat, con lo que se está haciendo al
- *  llamarlas y su icono. Las que no estén aquí dicen su nombre. */
-const PROPIAS: Record<string, { fase: string; Icono: Icono }> = traducido({
-  leer_modelo_de_mundo: { fase: 'Revisando el modelo de mundo', Icono: IconLayers },
-  buscar_en_proyecto: { fase: 'Buscando en el proyecto', Icono: IconSearch },
-  leer_cuestiones: { fase: 'Mirando las cuestiones abiertas', Icono: IconMessage },
-  consultar_arbol: { fase: 'Mirando el árbol de la investigación', Icono: IconTree },
-  catalogo_proyecto: { fase: 'Repasando el catálogo del proyecto', Icono: IconLayers },
-  panorama_del_tema: { fase: 'Repasando el panorama del tema', Icono: IconLayers },
-  consultar_proyecto: { fase: 'Consultando el proyecto', Icono: IconSearch },
-  leer_registro: { fase: 'Leyendo el registro', Icono: IconSearch },
-  catalogo_acciones: { fase: 'Mirando qué acciones puede preparar', Icono: IconSearch },
-  preparar_accion: { fase: 'Preparando la acción', Icono: IconSearch },
-  leer_conversacion: { fase: 'Releyendo la conversación', Icono: IconMessage },
-  listar_conversaciones: { fase: 'Repasando las conversaciones', Icono: IconMessage },
-  prever_eliminacion_investigacion: { fase: 'Calculando qué se borraría', Icono: IconSearch },
+/** Lo que se está haciendo al llamar cada herramienta propia del chat
+ *  (rosa/asistente.py y rosa/asistente_servicios.py), dicho en llano, y su
+ *  nombre bonito para la fila. Las que no estén aquí dicen el suyo. */
+const PROPIAS: Record<string, { fase: string; nombre: string }> = traducido({
+  leer_modelo_de_mundo: { fase: 'Revisando el modelo de mundo', nombre: 'Modelo de mundo' },
+  buscar_en_proyecto: { fase: 'Buscando en el proyecto', nombre: 'Búsqueda en el proyecto' },
+  leer_cuestiones: { fase: 'Mirando las cuestiones abiertas', nombre: 'Cuestiones abiertas' },
+  consultar_arbol: { fase: 'Mirando el árbol de la investigación', nombre: 'Árbol de la investigación' },
+  catalogo_proyecto: { fase: 'Repasando el catálogo del proyecto', nombre: 'Catálogo del proyecto' },
+  panorama_del_tema: { fase: 'Repasando el panorama del tema', nombre: 'Panorama del tema' },
+  consultar_proyecto: { fase: 'Consultando el proyecto', nombre: 'Consulta al proyecto' },
+  leer_registro: { fase: 'Leyendo el registro', nombre: 'Lectura de registro' },
+  catalogo_acciones: { fase: 'Mirando qué acciones puede preparar', nombre: 'Catálogo de acciones' },
+  preparar_accion: { fase: 'Preparando la acción', nombre: 'Preparar acción' },
+  leer_conversacion: { fase: 'Releyendo la conversación', nombre: 'Conversación' },
+  listar_conversaciones: { fase: 'Repasando las conversaciones', nombre: 'Historial de conversaciones' },
+  prever_eliminacion_investigacion: { fase: 'Calculando qué se borraría', nombre: 'Previsión de borrado' },
+  catalogo_servicios: { fase: 'Mirando qué servicios hay', nombre: 'Catálogo de servicios' },
+  consultar_servicio: { fase: 'Consultando un servicio', nombre: 'Consulta a servicio' },
+  consultar_vista: { fase: 'Leyendo lo que hay en pantalla', nombre: 'Vista actual' },
+  consultar_vista_calculada: { fase: 'Calculando la vista', nombre: 'Vista calculada' },
+  leer_documento: { fase: 'Leyendo el documento', nombre: 'Lectura de documento' },
+  leer_skill: { fase: 'Leyendo la skill', nombre: 'Skill' },
+  leer_dataset: { fase: 'Abriendo el dataset', nombre: 'Dataset' },
+  consultar_dataset: { fase: 'Recorriendo el dataset', nombre: 'Consulta al dataset' },
+  consultar_documentacion: { fase: 'Leyendo la documentación', nombre: 'Documentación' },
+  consultar_gepa: { fase: 'Mirando el historial de GEPA', nombre: 'Historial de GEPA' },
 });
 
-const ICONO_FAMILIA: Record<NonNullable<PasoRazonamiento['familia']>, Icono> = {
-  base: IconGlobe,
-  mundo: IconLayers,
-  proyecto: IconSearch,
-  cuestiones: IconMessage,
-  otra: IconSearch,
-};
-
 /** Cómo se mueve cada icono mientras su herramienta corre (`.mov-*` en
- *  mundo.css): el globo gira, la lupa busca, las capas se apilan, el
- *  mensaje escribe, el árbol se mece y la bombilla se enciende. Va aparte de
- *  PROPIAS porque esto no se traduce. */
-export type Mov = 'bombilla' | 'globo' | 'lupa' | 'capas' | 'mensaje' | 'arbol';
+ *  mundo.css). Uno por herramienta: con todas en lupa no se distinguía qué
+ *  hacía ROSA2018 (Emir, 6 de octubre de 2026, «solo aparecen lupas»). */
+export type Mov =
+  | 'bombilla' | 'globo' | 'lupa' | 'capas' | 'mensaje' | 'arbol' | 'engranaje' | 'datos' | 'hoja' | 'libro' | 'rejilla'
+  | 'servidor' | 'enchufe' | 'brujula' | 'aguja' | 'pulso' | 'papelera' | 'reloj' | 'lapiz' | 'carpeta' | 'trofeo' | 'rama';
 
-const MOV_FAMILIA: Record<NonNullable<PasoRazonamiento['familia']>, Mov> = {
-  base: 'globo',
-  mundo: 'capas',
-  proyecto: 'lupa',
-  cuestiones: 'mensaje',
-  otra: 'lupa',
+type Aspecto = [Icono, Mov];
+
+/** El icono de cada herramienta. Va aparte de PROPIAS porque no se traduce. */
+const ASPECTO: Record<string, Aspecto> = {
+  leer_modelo_de_mundo: [IconLayers, 'capas'],
+  buscar_en_proyecto: [IconSearch, 'lupa'],
+  leer_cuestiones: [IconMessage, 'mensaje'],
+  consultar_arbol: [IconTree, 'arbol'],
+  catalogo_proyecto: [IconGrid, 'rejilla'],
+  panorama_del_tema: [IconCompass, 'brujula'],
+  consultar_proyecto: [IconDatabase, 'datos'],
+  leer_registro: [IconFileText, 'hoja'],
+  catalogo_acciones: [IconSettings, 'engranaje'],
+  preparar_accion: [IconPen, 'lapiz'],
+  leer_conversacion: [IconMessage, 'mensaje'],
+  listar_conversaciones: [IconClock, 'reloj'],
+  prever_eliminacion_investigacion: [IconTrash, 'papelera'],
+  catalogo_servicios: [IconServer, 'servidor'],
+  consultar_servicio: [IconPlug, 'enchufe'],
+  consultar_vista: [IconGauge, 'aguja'],
+  consultar_vista_calculada: [IconActivity, 'pulso'],
+  leer_documento: [IconFileText, 'hoja'],
+  leer_skill: [IconBook, 'libro'],
+  leer_dataset: [IconTable, 'rejilla'],
+  consultar_dataset: [IconTable, 'rejilla'],
+  consultar_documentacion: [IconBook, 'libro'],
+  consultar_gepa: [IconTrophy, 'trofeo'],
 };
 
-const MOV_PROPIA: Record<string, Mov> = {
-  leer_modelo_de_mundo: 'capas',
-  leer_cuestiones: 'mensaje',
-  consultar_arbol: 'arbol',
-  catalogo_proyecto: 'capas',
-  panorama_del_tema: 'capas',
-  leer_conversacion: 'mensaje',
-  listar_conversaciones: 'mensaje',
+/** Las tablas de `consultar_proyecto` y `leer_registro`, en llano. Las
+ *  etiquetas se traducen; el aspecto (icono y movimiento) no, y por eso van
+ *  en dos mapas, pero con las MISMAS claves por tipo: añadir una tabla a uno
+ *  y no al otro no compila (antes eran dos mapas sueltos en dos ficheros). */
+const ETIQUETA_TABLA = traducido({
+  investigaciones: 'investigaciones',
+  hipotesis: 'hipótesis',
+  hypothesis: 'hipótesis',
+  hechos: 'hechos',
+  memoria: 'memoria',
+  corridas: 'corridas',
+  iteraciones: 'iteraciones',
+  artefactos: 'artefactos',
+  decisiones: 'decisiones',
+  relaciones: 'relaciones',
+  cuestiones: 'cuestiones',
+  eventos: 'eventos',
+  datasets: 'datasets',
+  fuentes: 'fuentes',
+});
+type Tabla = keyof typeof ETIQUETA_TABLA;
+
+/** Consultar o leer el proyecto dice QUÉ tabla: las hipótesis con la
+ *  bombilla, las corridas con el pulso, las decisiones con la rama. */
+const ASPECTO_TABLA: Record<Tabla, Aspecto> = {
+  investigaciones: [IconFolder, 'carpeta'],
+  hipotesis: [IconBulb, 'bombilla'],
+  hypothesis: [IconBulb, 'bombilla'],
+  hechos: [IconBookmark, 'capas'],
+  memoria: [IconBookmark, 'capas'],
+  corridas: [IconActivity, 'pulso'],
+  iteraciones: [IconActivity, 'pulso'],
+  artefactos: [IconFileText, 'hoja'],
+  decisiones: [IconBranch, 'rama'],
+  relaciones: [IconBranch, 'rama'],
+  cuestiones: [IconMessage, 'mensaje'],
+  eventos: [IconClock, 'reloj'],
+  datasets: [IconTable, 'rejilla'],
+  fuentes: [IconGlobe, 'globo'],
+};
+
+/** Lo que se sabe de una tabla del proyecto, o nada si no es una conocida.
+ *  El nombre lo elige el modelo: con `MAPA[tabla]` a secas, «constructor» o
+ *  «toString» devolvían una función del prototipo y el chat reventaba al
+ *  destructurarla (revisión del 6 de octubre de 2026). */
+export function tablaDe(nombre: string | undefined): { etiqueta: string; Icono: Icono; mov: Mov } | undefined {
+  if (!nombre || !Object.hasOwn(ASPECTO_TABLA, nombre)) return undefined;
+  const t = nombre as Tabla;
+  const [Icono, mov] = ASPECTO_TABLA[t];
+  return { etiqueta: ETIQUETA_TABLA[t], Icono, mov };
+}
+
+/** La herramienta propia, si lo es. Misma regla que `tablaDe`: el nombre
+ *  viene del servidor y no se mira el prototipo. */
+function propiaDe(herramienta: string | undefined): { fase: string; nombre: string } | undefined {
+  return herramienta && Object.hasOwn(PROPIAS, herramienta) ? PROPIAS[herramienta] : undefined;
+}
+
+function aspectoDe(herramienta: string | undefined): Aspecto | undefined {
+  return herramienta && Object.hasOwn(ASPECTO, herramienta) ? ASPECTO[herramienta] : undefined;
+}
+
+const ASPECTO_FAMILIA: Record<NonNullable<PasoRazonamiento['familia']>, Aspecto> = {
+  base: [IconGlobe, 'globo'],
+  mundo: [IconLayers, 'capas'],
+  proyecto: [IconSearch, 'lupa'],
+  cuestiones: [IconMessage, 'mensaje'],
+  otra: [IconSettings, 'engranaje'],
 };
 
 /** El icono de una herramienta y su movimiento, el mismo en la cabecera y
- *  en la línea de tiempo. */
+ *  en la línea de tiempo. Una familia que no se conozca (un servidor más
+ *  nuevo que esta interfaz) cae en «otra», no en un error. */
 export function iconoDe(p: PasoRazonamiento): { Icono: Icono; mov: Mov } {
-  const h = p.herramienta ?? '';
-  const familia = p.familia ?? 'otra';
-  return {
-    Icono: PROPIAS[h]?.Icono ?? ICONO_FAMILIA[familia],
-    mov: MOV_PROPIA[h] ?? (PROPIAS[h] ? 'lupa' : MOV_FAMILIA[familia]),
-  };
+  const h = p.herramienta;
+  const tabla = (h === 'consultar_proyecto' || h === 'leer_registro') ? tablaDe(p.argumentos?.tabla) : undefined;
+  const familia = p.familia && Object.hasOwn(ASPECTO_FAMILIA, p.familia) ? ASPECTO_FAMILIA[p.familia] : ASPECTO_FAMILIA.otra;
+  const [Icono, mov] = tabla ? [tabla.Icono, tabla.mov] : aspectoDe(h) ?? familia;
+  return { Icono, mov };
+}
+
+/** El nombre de la fila: el bonito si es propia, el del servidor si no. */
+export function nombreHerramienta(p: PasoRazonamiento): string {
+  return propiaDe(p.herramienta)?.nombre ?? (p.nombre || p.herramienta || '');
 }
 
 interface Logo {
@@ -110,7 +204,7 @@ interface Logo {
  *  conector desde que la llamada empieza; `fuente` solo llega al acabar. Por
  *  eso la clave sale de `nombre`: el logo no cambia al terminar. */
 function nombreDe(p: PasoRazonamiento): string {
-  return p.familia === 'base' ? nombreCorto(p.nombre || p.fuente || p.herramienta || '') : p.nombre || p.herramienta || '';
+  return p.familia === 'base' ? nombreCorto(p.nombre || p.fuente || p.herramienta || '') : nombreHerramienta(p);
 }
 
 function corriendo(p: PasoRazonamiento): boolean {
@@ -125,7 +219,9 @@ export function logosDe(pasos: PasoRazonamiento[]): Logo[] {
     if (p.tipo !== 'herramienta') continue;
     const base = p.familia === 'base';
     const nombre = nombreDe(p);
-    const clave = base ? `b:${nombre.toLowerCase()}` : `h:${p.herramienta ?? nombre}`;
+    // Las hipótesis y las corridas del proyecto son logos distintos: llevan
+    // icono distinto.
+    const clave = base ? `b:${nombre.toLowerCase()}` : `h:${p.herramienta ?? nombre}:${p.argumentos?.tabla ?? ''}`;
     const { Icono, mov } = iconoDe(p);
     const antes = logos.get(clave);
     logos.set(clave, {
@@ -152,7 +248,7 @@ export function faseDe(pasos: PasoRazonamiento[]): string {
   const nombre = nombreDe(u);
   if (u.error) return trp('No pude consultar {fuente}', { fuente: nombre });
   if (!corriendo(u)) return tr('Leyendo lo que encontró');
-  const propia = PROPIAS[u.herramienta ?? ''];
+  const propia = propiaDe(u.herramienta);
   if (propia) return propia.fase;
   if (u.familia === 'base') return trp('Buscando en {fuente}', { fuente: nombre });
   return trp('Usando «{herramienta}»', { herramienta: nombre });

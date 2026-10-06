@@ -43,6 +43,7 @@ function inicial(): Idioma {
 
 let idioma: Idioma = inicial();
 const oyentes = new Set<() => void>();
+const ausentes = new Set<string>();
 
 function marcarElHtml(): void {
   try {
@@ -93,6 +94,7 @@ export function useIdioma(): Idioma {
  *  traducción que falta tiene que verse como texto que se entiende, no como
  *  un hueco. */
 export function tr(es: string): string {
+  if (!(es in EN) && /[a-záéíóúñ]{2}/i.test(es)) ausentes.add(es);
   if (idioma === 'es') return es;
   return EN[es] ?? es;
 }
@@ -100,6 +102,7 @@ export function tr(es: string): string {
 /** Igual, pero con contexto, para las frases que se repiten con sentidos
  *  distintos. La clave es `contexto\u0004frase`, como en gettext. */
 export function trc(contexto: string, es: string): string {
+  if (!(`${contexto}\u0004${es}` in EN) && !(es in EN)) ausentes.add(`${contexto}\u0004${es}`);
   if (idioma === 'es') return es;
   return EN[`${contexto}\u0004${es}`] ?? EN[es] ?? es;
 }
@@ -115,11 +118,11 @@ export function trp(es: string, valores: Record<string, string | number>): strin
   );
 }
 
-/** Cuántas de las frases que se le piden al catálogo faltan. Lo usa la
- *  pantalla de ajustes para decir cuánto queda por traducir, en vez de dejar
- *  que se descubra a trompicones. */
+/** Entradas del catálogo y consultas ausentes observadas en esta sesión.
+ *  No mide toda la aplicación ni la prosa dinámica que traduce el servidor. */
 export function cobertura(): { total: number; traducidas: number } {
-  return { total: Object.keys(EN).length, traducidas: Object.keys(EN).length };
+  const traducidas = Object.keys(EN).length;
+  return { total: traducidas + ausentes.size, traducidas };
 }
 
 /** Un mapa de etiquetas que se traduce AL LEERLO.

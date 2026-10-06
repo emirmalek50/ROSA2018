@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { negacionesDe } from '../datos/acciones';
 import { AMPLITUD } from './etiquetas';
-import { copiaTraducida, fijarIdioma, idiomaActual, tr, traducido, trc, trp } from './idioma';
+import { copiaTraducida, cobertura, fijarIdioma, idiomaActual, tr, traducido, trc, trp } from './idioma';
 
 // `fijarIdioma` escribe en localStorage, y el modulo lo lee al importarse.
 // Si una prueba deja «en» puesto, el siguiente fichero de pruebas arranca en
@@ -45,6 +45,15 @@ describe('el idioma de la interfaz', () => {
     expect(tr(sinTraducir)).toBe(sinTraducir);
     expect(tr(sinTraducir)).not.toBe('');
     expect(tr(sinTraducir)).not.toContain('undefined');
+  });
+
+  it('una consulta ausente impide declarar cobertura completa del catálogo', () => {
+    const antes = cobertura();
+    tr('Texto ausente exclusivo de la prueba de cobertura');
+    const despues = cobertura();
+    expect(despues.total).toBe(antes.total + 1);
+    expect(despues.traducidas).toBe(antes.traducidas);
+    expect(despues.traducidas).toBeLessThan(despues.total);
   });
 
   it('«no pude comprobar» y «no hay» siguen siendo dos cosas distintas', () => {

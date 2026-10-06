@@ -81,7 +81,7 @@ import {
   nombreActor,
 } from "../lib/etiquetas";
 import { formatearPorcentaje } from "../lib/formato";
-import { tr, trp } from "../lib/idioma";
+import { traducido, tr, trp } from "../lib/idioma";
 import { Herramientas } from "../componentes/Herramienta";
 import { Progreso } from "../componentes/Progreso";
 import { Checkpoint, GuardarEnMemoria } from "../componentes/Checkpoint";
@@ -1342,34 +1342,64 @@ const ICONO_COBERTURA: Record<EstadoCobertura, ReactNode> = {
   no_pude_comprobar: <IconAlertCircle size={15} />,
 };
 
-/** Qué partes de la pregunta quedaron respondidas y cuáles no. */
-function CoberturaPregunta({ partes }: { partes: ParteCobertura[] }) {
+/** La etiqueta corta de cada estado; la larga (ESTADO_COBERTURA) va en el
+ *  title, que es la que dice «con lo consultado». */
+const ESTADO_CORTO: Record<EstadoCobertura, string> = traducido({
+  respondido: "Respondida",
+  en_parte: "En parte",
+  no_esta: "No está",
+  no_pude_comprobar: "Sin comprobar",
+});
+
+const ORDEN_COBERTURA: EstadoCobertura[] = ["respondido", "en_parte", "no_pude_comprobar", "no_esta"];
+
+/** Qué partes de la pregunta quedaron respondidas y cuáles no. Sin caja ni
+ *  mayúsculas (Emir, 6 de octubre de 2026: «ta fea»): una línea fina la
+ *  separa de la respuesta, arriba cuántas se respondieron con un medidor de
+ *  segmentos, y en cada parte el estado como etiqueta y la nota debajo, en
+ *  gris. El pie de atribución cierra el mismo bloque en vez de ser otra caja. */
+function CoberturaPregunta({ partes, pie }: { partes: ParteCobertura[]; pie?: Veredicto | null }) {
+  const respondidas = partes.filter((p) => p.estado === "respondido").length;
+  // El medidor, ordenado de mejor a peor: se lee de un vistazo cuánto falta.
+  const medidor = [...partes].sort((a, b) => ORDEN_COBERTURA.indexOf(a.estado) - ORDEN_COBERTURA.indexOf(b.estado));
   return (
     <section
       className="mundo-cobertura"
       aria-label={tr("Cobertura de la pregunta")}
     >
-      <h4 className="mundo-cobertura-titulo">
-        {tr("Cobertura de la pregunta")}
-      </h4>
+      <header className="mundo-cobertura-cabeza">
+        <h4 className="mundo-cobertura-titulo">
+          {tr("Cobertura de la pregunta")}
+        </h4>
+        <span className="mundo-cobertura-medidor" aria-hidden="true">
+          {medidor.map((p, i) => (
+            <i key={i} className={`mundo-cobertura-seg mundo-cob-${p.estado}`} />
+          ))}
+        </span>
+        <span className="mundo-cobertura-cuenta">
+          {trp("{n} de {total} respondidas", { n: respondidas, total: partes.length })}
+        </span>
+      </header>
       <ul>
         {partes.map((p, i) => (
           <li key={i} className={`mundo-cobertura-parte mundo-cob-${p.estado}`}>
             <span className="mundo-cobertura-icono" aria-hidden="true">
               {ICONO_COBERTURA[p.estado] ?? ICONO_COBERTURA.no_esta}
             </span>
-            <div>
+            <div className="mundo-cobertura-texto">
               <p>{p.parte}</p>
-              <span className="mundo-cobertura-estado">
-                {tr(ESTADO_COBERTURA[p.estado] ?? ESTADO_COBERTURA.no_esta)}
-                {p.nota && (
-                  <span className="mundo-cobertura-nota"> · {p.nota}</span>
-                )}
-              </span>
+              {p.nota && <span className="mundo-cobertura-nota">{p.nota}</span>}
             </div>
+            <span
+              className="mundo-cobertura-estado"
+              title={tr(ESTADO_COBERTURA[p.estado] ?? ESTADO_COBERTURA.no_esta)}
+            >
+              {ESTADO_CORTO[p.estado] ?? ESTADO_CORTO.no_esta}
+            </span>
           </li>
         ))}
       </ul>
+      {pie && <PieAtribucion v={pie} />}
     </section>
   );
 }
@@ -1746,7 +1776,7 @@ function TurnoGuardado({
             {!!q.descargas?.length && <div className="mundo-respuesta-acciones">{q.descargas.filter(d => /^\/api\/(hipotesis|artefactos|documentos|corridas)\//.test(d.url) && !d.url.includes('..') && !/[?#]/.test(d.url)).map(d => <a key={d.url} className="mundo-accion" href={acciones.descargaAsistente(d.url)} target="_blank" rel="noreferrer">{tr('Descargar')}: {d.nombre}</a>)}</div>}
             {!!q.acciones?.length && <AccionesAsistente investigacionId={investigacionId} preguntaId={q.id} operaciones={q.acciones} />}
             <HechosCitados hechos={citados} abrirHecho={abrirHecho} />
-            {cobertura.length > 0 && <CoberturaPregunta partes={cobertura} />}
+            {cobertura.length > 0 && <CoberturaPregunta partes={cobertura} pie={veredicto} />}
             {cobertura.length === 0 && limites.length > 0 && (
               <aside className="mundo-limites">
                 <span className="mundo-limites-titulo">
@@ -1756,7 +1786,7 @@ function TurnoGuardado({
                 <TextoRico bloques={limites} c={c} />
               </aside>
             )}
-            {veredicto && <PieAtribucion v={veredicto} />}
+            {veredicto && cobertura.length === 0 && <PieAtribucion v={veredicto} />}
             <div className="mundo-respuesta-acciones mundo-acciones-iconos">
               <BotonCopiar
                 texto={[

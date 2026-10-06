@@ -1665,7 +1665,7 @@ export function GobiernoArea({ inv, a, corridas }: { inv: Investigacion; a: Area
           <option value="">{tr("Sin campaña")}</option>
           {corridas.map((c) => (
             <option key={c.id} value={c.id}>
-              {trp("Campaña {numero} ({v})", { numero: c.numero, v: c.estado.replace('_', ' ') })}</option>
+              {trp("Campaña {numero} ({v})", { numero: c.numero, v: ESTADO_CORRIDA[c.estado] })}</option>
           ))}
         </select>
       )}
