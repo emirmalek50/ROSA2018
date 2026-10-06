@@ -10,24 +10,23 @@ import type { CeldaMapaRuta, EstadoRosa, MapaRuta as Mapa, PasoRutaTerapeutica }
 import { CERTEZA_EVIDENCIA, PASO_RUTA } from '../lib/etiquetas';
 import { plural } from '../lib/formato';
 import { rutaDe } from '../lib/ruta';
-import { tr, trp } from '../lib/idioma';
+import { traducido, tr, trp } from '../lib/idioma';
 
 /** Los ocho pasos en orden. */
 export const PASOS_RUTA: PasoRutaTerapeutica[] = ['mecanismo', 'opciones_intervencion', 'compromiso_diana', 'efecto_funcional', 'selectividad_toxicidad', 'exposicion', 'replicacion_independiente', 'evidencia_poblacion'];
 
 /** Qué comprueba cada paso, en una frase. Copiado de rosa/ruta.py
  *  DEFINICIONES_PASO; si cambia allí, cambia aquí. */
-export const DEFINICIONES_PASO: Record<PasoRutaTerapeutica, string> = {
-  mecanismo: tr('qué proceso biológico explica el efecto y con qué evidencia'),
-  opciones_intervencion: tr('con qué se podría actuar sobre la diana (fármaco, anticuerpo, modulación) y en qué dirección'),
-  compromiso_diana: tr('que la intervención o la medida llega a la diana y la cambia de forma medible'),
-  efecto_funcional: tr('que cambiar la diana cambia algo que importa: cognición, síntomas, función celular'),
-  selectividad_toxicidad: tr('que el efecto es sobre la diana y no sobre otras, y qué daño produce'),
-  exposicion: tr('que el fármaco o el marcador llega a donde tiene que llegar (sangre, LCR, cerebro), con qué dosis y cuánto tiempo'),
-  replicacion_independiente: tr('que el efecto se ha visto en al menos dos cohortes distintas (grupos de personas estudiados por separado)'),
-  evidencia_poblacion: tr('que hay estudios primarios en personas (cohortes, casos y controles, transversales o ensayos) con al menos 50 participantes'),
-};
-
+export const DEFINICIONES_PASO: Record<PasoRutaTerapeutica, string> = traducido({
+  mecanismo: 'qué proceso biológico explica el efecto y con qué evidencia',
+  opciones_intervencion: 'con qué se podría actuar sobre la diana (fármaco, anticuerpo, modulación) y en qué dirección',
+  compromiso_diana: 'que la intervención o la medida llega a la diana y la cambia de forma medible',
+  efecto_funcional: 'que cambiar la diana cambia algo que importa: cognición, síntomas, función celular',
+  selectividad_toxicidad: 'que el efecto es sobre la diana y no sobre otras, y qué daño produce',
+  exposicion: 'que el fármaco o el marcador llega a donde tiene que llegar (sangre, LCR, cerebro), con qué dosis y cuánto tiempo',
+  replicacion_independiente: 'que el efecto se ha visto en al menos dos cohortes distintas (grupos de personas estudiados por separado)',
+  evidencia_poblacion: 'que hay estudios primarios en personas (cohortes, casos y controles, transversales o ensayos) con al menos 50 participantes',
+});
 function celdaVacia(): CeldaMapaRuta {
   return { hipotesis: 0, parciales: 0, hechos: 0, certezaMax: null };
 }

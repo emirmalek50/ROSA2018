@@ -50,7 +50,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EstadoRosa, Investigacion } from '../datos/tipos';
 import { AvisoMuestra, Chip, Vacio } from '../componentes/piezas';
 import { Cargando, Esqueleto, EsqueletoTexto } from '../componentes/Esqueleto';
-import { alternar, buscar, construirArbol, fraseProfundidad, incorporarNovedades, NOMBRE_ENLACE, NOMBRE_TIPO, paso, posicionInicial, SIN_DISTANCIA, visiblesIniciales, type Grafo, type NodoArbol, type Posicion, type TipoEnlace, type TipoNodo } from '../lib/arbol';
+import { SIN_CLUSTER, alternar, buscar, construirArbol, fraseProfundidad, incorporarNovedades, NOMBRE_ENLACE, NOMBRE_TIPO, paso, posicionInicial, SIN_DISTANCIA, visiblesIniciales, type Grafo, type NodoArbol, type Posicion, type TipoEnlace, type TipoNodo } from '../lib/arbol';
 import { acotarCamara, camaraInicial, distanciaEncuadre, ESPERA_GIRO_MS, paso3d, posicionInicial3d, SENSIBILIDAD_GIRO, VELOCIDAD_GIRO, type Camara, type Posicion3 } from '../lib/arbol3d';
 import { ajusteLienzo, construirEscena, dibujar, nodoBajoPuntero, Paleta, registrarEscena, RESPALDOS_PALETA, type Escena, type EstiloNodo, type Trazo } from '../lib/lienzo_arbol';
 import { useCalculoDiferido } from '../lib/diferido';
@@ -318,7 +318,7 @@ function SiluetaArbol({ conexion }: { conexion: EstadoRosa['conexion'] }) {
   );
 }
 
-const ROTULO_ARBOL = tr('el árbol de la investigación');
+const ROTULO_ARBOL = 'el árbol de la investigación';
 
 /** La silueta del árbol con su aria-busy y su rótulo oculto, lista para que
  *  App la pinte en el primer frame tras el clic (App.tsx, SILUETA_AL_CAMBIAR):
@@ -663,16 +663,16 @@ function ArbolMontado({ inv, estado, grafo: original }: { inv: Investigacion; es
   }, [vista3d, reducido, vacio]);
   const nodoSel = seleccion ? grafo.porId.get(seleccion) ?? null : null;
   // Familias de mecanismo: orden estable por primera aparición entre las hipótesis visibles.
-  const clusterDe = useMemo(() => new Map(estado.hipotesis.filter((x) => x.investigacionId === inv.id).map((x) => [x.id, x.cluster || tr('Sin cluster')])), [estado.hipotesis, inv.id]);
+  const clusterDe = useMemo(() => new Map(estado.hipotesis.filter((x) => x.investigacionId === inv.id).map((x) => [x.id, x.cluster || SIN_CLUSTER])), [estado.hipotesis, inv.id]);
   const familias = useMemo(() => {
     const vistas: string[] = [];
-    for (const x of estado.hipotesis) if (x.investigacionId === inv.id && x.estado !== 'descartada' && !vistas.includes(x.cluster || tr('Sin cluster'))) vistas.push(x.cluster || tr('Sin cluster'));
-    for (const x of estado.hipotesis) if (x.investigacionId === inv.id && !vistas.includes(x.cluster || tr('Sin cluster'))) vistas.push(x.cluster || tr('Sin cluster'));
+    for (const x of estado.hipotesis) if (x.investigacionId === inv.id && x.estado !== 'descartada' && !vistas.includes(x.cluster || SIN_CLUSTER)) vistas.push(x.cluster || SIN_CLUSTER);
+    for (const x of estado.hipotesis) if (x.investigacionId === inv.id && !vistas.includes(x.cluster || SIN_CLUSTER)) vistas.push(x.cluster || SIN_CLUSTER);
     return vistas;
   }, [estado.hipotesis, inv.id]);
   const colorFamilia = (nombre: string) => PALETA_CLUSTER[Math.max(0, familias.indexOf(nombre)) % PALETA_CLUSTER.length]!;
   const colorPorTipo = (n: NodoArbol) => {
-    if (n.tipo === 'hipotesis') return colorFamilia(clusterDe.get(n.id) ?? tr('Sin cluster'));
+    if (n.tipo === 'hipotesis') return colorFamilia(clusterDe.get(n.id) ?? SIN_CLUSTER);
     if (n.tipo === 'rama') return colorFamilia(n.id.slice('rama-'.length));
     return COLOR[n.tipo];
   };
@@ -1011,7 +1011,7 @@ function ArbolMontado({ inv, estado, grafo: original }: { inv: Investigacion; es
                         <ul className="grafo-leyenda grafo-leyenda-sub">
                           {familias.map((f) => (
                             <li key={f}>
-                              <span className="grafo-punto" style={{ background: colorFamilia(f) }} aria-hidden="true" /> {f}
+                              <span className="grafo-punto" style={{ background: colorFamilia(f) }} aria-hidden="true" /> {tr(f)}
                             </li>
                           ))}
                         </ul>

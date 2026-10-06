@@ -1,8 +1,22 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { detalleRiesgoSesgo, etiquetaCorrida, mostrarTexto, proponiendoPlan } from './etiquetas';
+import { ACCION_REVISION_HIPOTESIS, EVIDENCIA_ESTADISTICA, RELEVANCIA, VEREDICTO, detalleRiesgoSesgo, etiquetaCorrida, mostrarTexto, proponiendoPlan } from './etiquetas';
 import { fijarIdioma } from './idioma';
 
 afterEach(() => fijarIdioma('es'));
+
+it('traduce los niveles, las revisiones y los veredictos al cambiar de idioma sin cambiar su significado', () => {
+  fijarIdioma('en');
+  expect(EVIDENCIA_ESTADISTICA.debil).toBe('Weak');
+  expect(EVIDENCIA_ESTADISTICA.fuerte).toBe('Strong');
+  expect(RELEVANCIA.media).toBe('Medium');
+  expect(ACCION_REVISION_HIPOTESIS.no_puedo_juzgar).toBe('Unable to assess');
+  expect(VEREDICTO.sin_verificar.etiqueta).toBe('Unchecked');
+  expect(VEREDICTO.no_sostenida.bloquea).toBe(true);
+  fijarIdioma('es');
+  expect(EVIDENCIA_ESTADISTICA.debil).toBe('Débil');
+  expect(ACCION_REVISION_HIPOTESIS.no_puedo_juzgar).toBe('No puedo juzgar');
+  expect(VEREDICTO.sin_verificar.etiqueta).toBe('Sin comprobar');
+});
 
 it('traduce el dominio y el juicio RoB 2 sin modificar el registro científico', () => {
   const riesgo = { instrumento: 'RoB 2', global: 'algunas_dudas' as const, dominios: [{ id: 'D1', nombre: 'Proceso de aleatorización', juicio: 'algunas_dudas' as const }] };

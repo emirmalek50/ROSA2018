@@ -165,20 +165,15 @@ export const DIRECCION_LEGIBLE: Record<string, string> = traducido({
   sin_intervencion: 'sin intervención',
 });
 
-/** El paso de la ruta terapéutica se enseña con la etiqueta de PASO_RUTA, el
- *  mismo sitio que usa la pantalla. rosa/registro.py lleva una copia
- *  (PASO_RUTA_LEGIBLE); los casos compartidos vigilan que no se separen. */
-const PASO_RUTA_LEGIBLE: Record<string, string> = Object.fromEntries(Object.entries(PASO_RUTA).map(([clave, v]) => [clave, v.etiqueta]));
-
 /** Un valor entra entre paréntesis en el resumen solo si es corto y de una
  *  sola línea; un enunciado de tres frases se nombra pero no se copia. */
 export const LARGO_MAXIMO_EN_RESUMEN = 40;
 
-export const SIN_CAMBIOS = tr('Sin cambios en los campos de la hipótesis');
+export const SIN_CAMBIOS = 'Sin cambios en los campos de la hipótesis';
 
 /** Cómo se nombra en el resumen un cambio guardado sin campo (registro roto):
  *  se dice que algo cambió, no se calla. Misma frase que en rosa/registro.py. */
-export const CAMPO_SIN_NOMBRE = tr('un campo sin nombre');
+export const CAMPO_SIN_NOMBRE = 'un campo sin nombre';
 
 const SEPARADOR_RIESGOS = '; ';
 
@@ -300,7 +295,8 @@ export function valorLegible(campo: string, valor: unknown): string {
   const t = texto(valor);
   if (!t) return '';
   if (campo === 'tarjeta.direccion') return enTabla(DIRECCION_LEGIBLE, t) ?? t.replace(/_/g, ' ');
-  if (campo === 'tarjeta.pasoRuta') return enTabla(PASO_RUTA_LEGIBLE, t) ?? t.replace(/_/g, ' ');
+  // Se lee al mostrarlo, sin congelar el idioma de PASO_RUTA al importar.
+  if (campo === 'tarjeta.pasoRuta') return Object.hasOwn(PASO_RUTA, t) ? PASO_RUTA[t as keyof typeof PASO_RUTA].etiqueta : t.replace(/_/g, ' ');
   return t;
 }
 

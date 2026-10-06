@@ -2268,7 +2268,7 @@ export function PerfilDeLaDiana({ h }: { h: Hipotesis }) {
 }
 
 const TONO_VEREDICTO: Record<string, 'ok' | 'mal' | 'aviso' | 'borde'> = { confirma: 'ok', refuta: 'mal', inconcluso: 'aviso', no_evaluable: 'borde' };
-const ETIQUETA_VEREDICTO: Record<string, string> = { confirma: 'confirma', refuta: 'refuta', inconcluso: 'inconcluso', no_evaluable: tr('no evaluable') };
+const ETIQUETA_VEREDICTO: Record<string, string> = traducido({ confirma: 'confirma', refuta: 'refuta', inconcluso: 'inconcluso', no_evaluable: 'no evaluable' });
 
 function textoO(x: unknown, vacio: string): string {
   return typeof x === 'string' && x.trim() !== '' ? x : vacio;

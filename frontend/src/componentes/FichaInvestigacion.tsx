@@ -16,7 +16,7 @@ import { coma, formatearDuracion, formatearEntero } from '../lib/formato';
 import { primeraFrase } from '../lib/modo';
 import { partesAutomatizadas, textoAutomatizacion } from '../lib/parada';
 import { rutaDe } from '../lib/ruta';
-import { tr, trp } from '../lib/idioma';
+import { idiomaActual, tr, trp } from '../lib/idioma';
 import { Chip, Confirmar, Momento, Seccion } from './piezas';
 import { FormularioMision, GobiernoArea } from './Rosa2018';
 
@@ -556,7 +556,7 @@ function FilaAreaFicha({ inv, a, corridas, ejeCoste, ejeDemora }: { inv: Inv; a:
                   <ul className="lista-plana area-historial">
                     {a.historial!.map((hi, i) => (
                       <li key={i} className="meta">
-                        {new Date(hi.fecha).toLocaleDateString()} · {hi.de === hi.a ? hi.motivo : `${ESTADO_AREA[hi.de]?.etiqueta ?? hi.de} → ${ESTADO_AREA[hi.a]?.etiqueta ?? hi.a}${hi.motivo ? ` (${hi.motivo})` : ''}`}
+                        {new Date(hi.fecha).toLocaleDateString(idiomaActual())} · {hi.de === hi.a ? hi.motivo : `${tr(ESTADO_AREA[hi.de]?.etiqueta ?? hi.de)} → ${tr(ESTADO_AREA[hi.a]?.etiqueta ?? hi.a)}${hi.motivo ? ` (${hi.motivo})` : ''}`}
                       </li>
                     ))}
                   </ul>

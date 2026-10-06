@@ -166,11 +166,13 @@ export function caidasDeModelo(eventos: Evento[], ahora: number): CaidasDeModelo
 export function duracionEnLlano(ms: number): string {
   const minutos = Math.floor(Math.max(0, Number.isFinite(ms) ? ms : 0) / 60_000);
   if (minutos < 1) return tr('menos de un minuto');
-  if (minutos < 60) return minutos === 1 ? tr('1 minuto') : `${minutos} minutos`;
+  if (minutos < 60) return minutos === 1 ? tr('1 minuto') : trp('{n} minutos', { n: minutos });
   const horas = Math.floor(minutos / 60);
   const resto = minutos % 60;
-  const textoH = horas === 1 ? tr('1 hora') : `${horas} horas`;
-  return resto === 0 ? textoH : `${textoH} y ${resto === 1 ? tr('1 minuto') : `${resto} minutos`}`;
+  const textoH = horas === 1 ? tr('1 hora') : trp('{n} horas', { n: horas });
+  return resto === 0 ? textoH : trp('{horas} y {minutos}', {
+    horas: textoH, minutos: resto === 1 ? tr('1 minuto') : trp('{n} minutos', { n: resto }),
+  });
 }
 
 /** "Hubo 2 caídas de modelo, la más larga de 59 minutos; se recuperaron solas". */
@@ -198,7 +200,7 @@ export function digest(estado: EstadoRosa, investigacionId: string, ahora: numbe
   // 1. Corridas que se cerraron en la ventana, con su motivo.
   for (const c of corridas) {
     if (c.terminadaEn !== null && c.terminadaEn > ventanaDesde) {
-      lineas.push((c.estado === 'detenida' ? trp("La corrida {numero} se detuvo: {v}", { numero: c.numero, v: recortar(c.motivoCierre ?? 'sin motivo registrado', 120) }) : trp("La corrida {numero} terminó: {v}", { numero: c.numero, v: recortar(c.motivoCierre ?? 'sin motivo registrado', 120) })));
+      lineas.push((c.estado === 'detenida' ? trp("La corrida {numero} se detuvo: {v}", { numero: c.numero, v: recortar(c.motivoCierre ?? tr('sin motivo registrado'), 120) }) : trp("La corrida {numero} terminó: {v}", { numero: c.numero, v: recortar(c.motivoCierre ?? tr('sin motivo registrado'), 120) })));
     }
   }
   // 2. Iteraciones terminadas, con el mensaje clave de la última.

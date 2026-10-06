@@ -4,12 +4,12 @@ import type { AccionAsistente } from '../datos/tipos';
 import { tr } from '../lib/idioma';
 
 const nombres: Record<string, string> = {
-  investigacion_id: tr('Investigación'), corrida_id: 'Corrida', hipotesis_id: tr('Hipótesis'),
-  datos: tr('Datos de la investigación'), titulo: tr('Título'), objetivo: 'Objetivo',
-  condicionParada: tr('Condición de parada'), limites: tr('Límites'), limite: tr('Límite de llamadas'),
-  parada: tr('Condición de parada'), motivo: 'Motivo', decision: tr('Decisión'),
-  mision: tr('Misión'), texto: 'Texto', plan: 'Plan', configuracion: tr('Configuración'),
-  hilo: tr('Conversación'), mensajes: tr('Mensajes'), turnos: tr('Mensajes incluidos'),
+  investigacion_id: 'Investigación', corrida_id: 'Corrida', hipotesis_id: 'Hipótesis',
+  datos: 'Datos de la investigación', titulo: 'Título', objetivo: 'Objetivo',
+  condicionParada: 'Condición de parada', limites: 'Límites', limite: 'Límite de llamadas',
+  parada: 'Condición de parada', motivo: 'Motivo', decision: 'Decisión',
+  mision: 'Misión', texto: 'Texto', plan: 'Plan', configuracion: 'Configuración',
+  hilo: 'Conversación', mensajes: 'Mensajes', turnos: 'Mensajes incluidos',
 };
 function Detalle({ valor }: { valor: unknown }) {
   if (valor === null || valor === undefined) return <span>{tr('Sin especificar')}</span>;

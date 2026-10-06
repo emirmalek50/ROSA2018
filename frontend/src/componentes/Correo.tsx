@@ -18,7 +18,7 @@ import { useEffect, useState } from 'react';
 import { cabeceras } from '../datos/almacen';
 import { atributosEnVuelo, senalDeTope, useEnVuelo } from '../lib/diferido';
 import { Cargando, Esqueleto, EsqueletoTexto } from './Esqueleto';
-import { traducido, tr, trp } from '../lib/idioma';
+import { idiomaActual, traducido, tr, trp } from '../lib/idioma';
 
 type Configuracion = { remitente: string; url: string; hora: number; zona: string; proveedor: 'resend' | 'smtp'; smtpServidor: string; smtpPuerto: number; smtpUsuario: string };
 type EstadoCorreo = Configuracion & {
@@ -173,7 +173,7 @@ export function Correo({ servidor }: { servidor: boolean }) {
       <h4>{tr("Últimos envíos")}</h4>
       <p>{tr("Aceptado por el proveedor no confirma llegada al buzón. Consulta entregas o rebotes en el panel del proveedor o en el buzón remitente.")}</p>
       {estado.historial.length === 0 ? <p>{tr("Todavía no hay envíos.")}</p> : <ul>{estado.historial.map((x) => <li key={x.id}>
-        {new Date(x.creado * 1000).toLocaleString()} · {x.destinatario} · {ETIQUETAS[x.estado] ?? x.estado} · {x.intentos} {tr("intento(s)")}{x.error && <p>{x.error}</p>}
+        {new Date(x.creado * 1000).toLocaleString(idiomaActual())} · {x.destinatario} · {ETIQUETAS[x.estado] ?? x.estado} · {x.intentos} {tr("intento(s)")}{x.error && <p>{x.error}</p>}
       </li>)}</ul>}
       {estado.error && <p role="alert">{estado.error}</p>}
     </> : mensaje === '' ? <EsqueletoCorreo forma={leerFormaCorreo()} /> : null}

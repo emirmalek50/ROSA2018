@@ -2,17 +2,51 @@
 // enlazada a su pantalla. Se ensena al entrar y se cierra con "Visto", que
 // marca la visita. El mismo texto es lo que se manda por Slack o correo.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { acciones } from '../datos/almacen';
 import type { Digest } from '../lib/digest';
 import { digestComoTexto } from '../lib/digest';
 import { TIPO_EVENTO, mostrarTexto } from '../lib/etiquetas';
 import { formatearDuracion } from '../lib/formato';
 import { IconCheck, IconCopy } from './icons';
 import { Chip, Momento } from './piezas';
-import { tr, trp } from '../lib/idioma';
+import { idiomaActual, tr, trp, useIdioma } from '../lib/idioma';
+import { traducirDocumentoExterno } from '../lib/traduccionExterna';
 
 export function Resumen({ d, titulo, ahora, onVisto }: { d: Digest; titulo: string; ahora: number; onVisto: () => void }) {
   const [copiado, setCopiado] = useState(false);
+  const [copiando, setCopiando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const ocupado = useRef(false);
+  const vivo = useRef(true);
+  const temporizador = useRef<ReturnType<typeof setTimeout>>();
+  const idioma = useIdioma();
+  useEffect(() => {
+    vivo.current = true;
+    return () => { vivo.current = false; clearTimeout(temporizador.current); };
+  }, []);
+  useEffect(() => { setCopiado(false); setError(null); }, [idioma, d, titulo]);
+  const copiar = async () => {
+    if (ocupado.current) return;
+    ocupado.current = true; setCopiando(true); setError(null); setCopiado(false);
+    try {
+      const texto = digestComoTexto(d, titulo);
+      const listo = idioma === 'en' ? await traducirDocumentoExterno(texto, acciones.traducirTextos) : texto;
+      if (!vivo.current || idiomaActual() !== idioma) return;
+      if (listo === null) throw new Error(tr('No se pudo traducir todo el resumen. Inténtalo de nuevo o copia el original en español.'));
+      if (!navigator.clipboard?.writeText) throw new Error(tr('No se pudo copiar. Comprueba los permisos del portapapeles.'));
+      await navigator.clipboard.writeText(listo);
+      if (!vivo.current || idiomaActual() !== idioma) return;
+      setCopiado(true);
+      clearTimeout(temporizador.current);
+      temporizador.current = setTimeout(() => { if (vivo.current) setCopiado(false); }, 2000);
+    } catch (e) {
+      if (vivo.current && idiomaActual() === idioma) setError(e instanceof Error ? e.message : tr('No se pudo copiar. Comprueba los permisos del portapapeles.'));
+    } finally {
+      ocupado.current = false;
+      if (vivo.current) setCopiando(false);
+    }
+  };
   const [todos, setTodos] = useState(false);
   if (!d.hayNovedades) return null;
   const ventana = d.desde !== null ? trp("desde tu última visita, hace {v}", { v: formatearDuracion(ahora - d.desde) }) : tr('los últimos siete días (todavía no habías pulsado «Visto»)');
@@ -30,19 +64,19 @@ export function Resumen({ d, titulo, ahora, onVisto }: { d: Digest; titulo: stri
           <button
             type="button"
             className="btn btn-fantasma btn-s"
-            onClick={() => {
-              void navigator.clipboard?.writeText(digestComoTexto(d, titulo)).then(() => setCopiado(true));
-              window.setTimeout(() => setCopiado(false), 2000);
-            }}
+            disabled={copiando}
+            aria-busy={copiando}
+            onClick={() => void copiar()}
             title={tr("Copiar como texto (es lo que se manda por Slack o correo)")}
           >
-            {copiado ? <IconCheck size={13} /> : <IconCopy size={13} />} {copiado ? 'Copiado' : 'Copiar'}
+            {copiado ? <IconCheck size={13} /> : <IconCopy size={13} />} {tr(copiando ? 'Traduciendo…' : copiado ? 'Copiado' : 'Copiar')}
           </button>
           <button type="button" className="btn btn-s" onClick={onVisto}>
             {tr("Visto")}
           </button>
         </div>
       </div>
+      {error && <p role="alert">{error}</p>}
       <ul className="resumen-lineas">
         {d.lineas.map((l) => (
           <li key={l}>{l}</li>

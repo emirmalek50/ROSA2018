@@ -86,6 +86,11 @@
       "id": "motivos_antisentido",
       "url": "https://pubmed.ncbi.nlm.nih.gov/10908347/",
       "uso": "Los motivos de actividad del oligonucleótido son sequence motifs, patrones de secuencia, no reasons."
+    },
+    {
+      "id": "interpretacion_resultados",
+      "url": "https://www.cochrane.org/authors/handbooks-and-manuals/handbook/current/chapter-15",
+      "uso": "Interpretar por separado el resultado estadístico, la magnitud o relevancia del efecto y la certeza GRADE. Los rótulos de apoyo a una hipótesis no declaran una confirmación definitiva."
     }
   ],
   "reglas": [
@@ -563,7 +568,29 @@
     "sesgo\u0004Otras fuentes de sesgo": "Other sources of bias",
     "algunas dudas": "some concerns",
     "Motivo de secuencia": "Sequence motif",
-    "El objetivo es el tronco; las ramas, los clusters con varias hipótesis; las hojas, las hipótesis; alrededor, lo que las sostiene. Pasa el ratón por un nodo para ver sus conexiones; pulsa para desplegar lo que toca; dos veces para abrir su ficha; arrastra un nodo para moverlo (los demás lo siguen). Las etiquetas pequeñas aparecen al acercar con la rueda. Escribe una palabra o un identificador (GFAP, HGNC:4235) para iluminar todo lo que lo nombra. Por defecto el relleno de cada nodo dice qué es (las hipótesis, el color de su familia de mecanismo) y el anillo cuánto lo sostiene: verde si está a un paso de una medición propia de ROSA2018 (un análisis in silico validado, un resultado del laboratorio o una observación original), ámbar si solo hay literatura leída detrás, gris punteado si nada todavía. Con «Por distancia al dato» esa distancia pasa al relleno con una escala secuencial. Con «Vista 3D» el mismo árbol se despliega en tres dimensiones: arrastra el fondo para girarlo (en horizontal gira, en vertical se inclina), usa la rueda para acercar la cámara, y los nodos lejanos se ven más pequeños y tenues; si nadie lo toca durante unos segundos, gira solo. En 3D los nodos no se arrastran: el fondo gira el árbol.": "The research objective is the trunk; the branches, the clusters with several hypotheses; the leaves, the hypotheses; around them, what supports them. Hover over a node to see its connections; click to expand what it touches; double-click to open its record; drag a node to move it (the others follow). Small labels appear as you zoom in with the wheel. Type a word or an identifier (GFAP, HGNC:4235) to highlight everything that names it. By default the fill of each node says what it is (for hypotheses, the color of their mechanism family) and the ring says how much supports it: green if it is one step from a ROSA2018 measurement of its own (a validated in silico analysis, a lab result or an original observation), amber if there is only read literature behind it, dotted gray if nothing yet. With \"By distance to data\" that distance moves to the fill on a sequential scale. With \"3D view\" the same tree unfolds in three dimensions: drag the background to turn it (horizontal spins it, vertical tilts it), use the wheel to bring the camera closer, and distant nodes look smaller and fainter; if nobody touches it for a few seconds, it spins on its own. In 3D, nodes cannot be dragged: the background turns the tree."
+    "El objetivo es el tronco; las ramas, los clusters con varias hipótesis; las hojas, las hipótesis; alrededor, lo que las sostiene. Pasa el ratón por un nodo para ver sus conexiones; pulsa para desplegar lo que toca; dos veces para abrir su ficha; arrastra un nodo para moverlo (los demás lo siguen). Las etiquetas pequeñas aparecen al acercar con la rueda. Escribe una palabra o un identificador (GFAP, HGNC:4235) para iluminar todo lo que lo nombra. Por defecto el relleno de cada nodo dice qué es (las hipótesis, el color de su familia de mecanismo) y el anillo cuánto lo sostiene: verde si está a un paso de una medición propia de ROSA2018 (un análisis in silico validado, un resultado del laboratorio o una observación original), ámbar si solo hay literatura leída detrás, gris punteado si nada todavía. Con «Por distancia al dato» esa distancia pasa al relleno con una escala secuencial. Con «Vista 3D» el mismo árbol se despliega en tres dimensiones: arrastra el fondo para girarlo (en horizontal gira, en vertical se inclina), usa la rueda para acercar la cámara, y los nodos lejanos se ven más pequeños y tenues; si nadie lo toca durante unos segundos, gira solo. En 3D los nodos no se arrastran: el fondo gira el árbol.": "The research objective is the trunk; the branches, the clusters with several hypotheses; the leaves, the hypotheses; around them, what supports them. Hover over a node to see its connections; click to expand what it touches; double-click to open its record; drag a node to move it (the others follow). Small labels appear as you zoom in with the wheel. Type a word or an identifier (GFAP, HGNC:4235) to highlight everything that names it. By default the fill of each node says what it is (for hypotheses, the color of their mechanism family) and the ring says how much supports it: green if it is one step from a ROSA2018 measurement of its own (a validated in silico analysis, a lab result or an original observation), amber if there is only read literature behind it, dotted gray if nothing yet. With \"By distance to data\" that distance moves to the fill on a sequential scale. With \"3D view\" the same tree unfolds in three dimensions: drag the background to turn it (horizontal spins it, vertical tilts it), use the wheel to bring the camera closer, and distant nodes look smaller and fainter; if nobody touches it for a few seconds, it spins on its own. In 3D, nodes cannot be dragged: the background turns the tree.",
+    "Fuerte": "Strong",
+    "Moderada": "Moderate",
+    "Débil": "Weak",
+    "No aplica": "Not applicable",
+    "Reabierta": "Reopened",
+    "Comentada": "Commented",
+    "No puedo juzgar": "Unable to assess",
+    "Aclarada": "Clarified",
+    "Replicada": "Replicated",
+    "Reformulada": "Reformulated",
+    "{n} minutos": "{n} minutes",
+    "{n} horas": "{n} hours",
+    "{horas} y {minutos}": "{horas} and {minutos}",
+    "sin motivo registrado": "no reason recorded",
+    "No se pudo traducir todo el resumen. Inténtalo de nuevo o copia el original en español.": "The full summary could not be translated. Try again or copy the original in Spanish.",
+    "No se pudo copiar. Comprueba los permisos del portapapeles.": "Could not copy. Check clipboard permissions.",
+    "La confirmaría": "What would support it",
+    "La refutaría": "What would refute it",
+    "Traduciendo…": "Translating…",
+    "confirma": "supports",
+    "refuta": "refutes",
+    "inconcluso": "inconclusive"
   },
   "unidades": {
     "µM": "µM",

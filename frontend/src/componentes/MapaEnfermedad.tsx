@@ -18,7 +18,7 @@ import { DEFINICIONES_MAPA, etiquetaEje } from '../lib/mapaEtiquetas';
 
 const ORDEN_ESTADIO = ['preclinica', 'prodromica_dcl', 'demencia_leve', 'demencia_moderada_grave', 'autosomico_dominante'];
 const ORDEN_NIVEL = ['molecular', 'celular', 'tisular', 'clinico'];
-const SIN = tr('sin situar');
+const SIN = 'sin situar';
 
 
 function definicion(mapa: Mapa | null | undefined, eje: 'estadio' | 'nivel', valor: string | null): string | undefined {

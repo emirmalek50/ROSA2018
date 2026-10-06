@@ -80,6 +80,20 @@ export const ESTADO_EXPERIMENTO: Record<NonNullable<Hipotesis['experimento']>['e
   propuesto: 'Propuesto', asignado: 'Asignado', en_curso: 'En curso', datos_recibidos: 'Datos recibidos',
 });
 
+export const EVIDENCIA_ESTADISTICA: Record<Hipotesis['evidenciaEstadistica'], string> = traducido({
+  fuerte: 'Fuerte', moderada: 'Moderada', debil: 'Débil', no_aplica: 'No aplica',
+});
+
+export const RELEVANCIA: Record<NonNullable<Hipotesis['relevancia']['votoHumano']>, string> = traducido({
+  alta: 'Alta', media: 'Media', baja: 'Baja',
+});
+
+export const ACCION_REVISION_HIPOTESIS: Record<Hipotesis['revisiones'][number]['accion'], string> = traducido({
+  propuesta: 'Propuesta', aceptada: 'Aceptada', descartada: 'Descartada', refinar: 'Por refinar',
+  reabierta: 'Reabierta', comentada: 'Comentada', no_puedo_juzgar: 'No puedo juzgar',
+  aclarada: 'Aclarada', replicada: 'Replicada', reformulada: 'Reformulada', suspendida: 'Suspendida', killer: 'Killer',
+});
+
 /** Verdadero mientras ROSA2018 escribe el plan: la corrida está en `esperando_plan`
  * pero todavía no hay un plan que aprobar (la iteración no existe, o la última
  * ya se aprobó o se cerró y ROSA2018 propone la siguiente). El servidor deja la
@@ -230,15 +244,15 @@ export function respaldoVeredicto(clave: string): EtiquetaVeredicto {
 }
 
 export const VEREDICTO: Record<Veredicto, EtiquetaVeredicto> = conRespaldo(
-  {
+  traducido({
     sostenida: { etiqueta: 'Sostenida', tono: 'ok', bloquea: false },
     parcial: { etiqueta: 'Parcial', tono: 'aviso', bloquea: false },
-    no_sostenida: { etiqueta: tr('No sostenida'), tono: 'mal', bloquea: true },
-    cita_no_resuelve: { etiqueta: tr('Cita sin fuente'), tono: 'mal', bloquea: true },
-    sin_cita: { etiqueta: tr('Sin ninguna cita'), tono: 'mal', bloquea: true },
-    ausencia_refutada: { etiqueta: tr('Dice que no está, y sí está'), tono: 'mal', bloquea: true },
-    sin_verificar: { etiqueta: tr('Sin comprobar'), tono: 'aviso', bloquea: false },
-  },
+    no_sostenida: { etiqueta: 'No sostenida', tono: 'mal', bloquea: true },
+    cita_no_resuelve: { etiqueta: 'Cita sin fuente', tono: 'mal', bloquea: true },
+    sin_cita: { etiqueta: 'Sin ninguna cita', tono: 'mal', bloquea: true },
+    ausencia_refutada: { etiqueta: 'Dice que no está, y sí está', tono: 'mal', bloquea: true },
+    sin_verificar: { etiqueta: 'Sin comprobar', tono: 'aviso', bloquea: false },
+  }),
   respaldoVeredicto,
 );
 

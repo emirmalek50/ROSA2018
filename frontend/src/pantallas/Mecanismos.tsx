@@ -24,9 +24,9 @@ import '../mecanismos.css';
 import { tr, trp } from '../lib/idioma';
 
 const AYUDA =
-  tr('El grafo causal de cada hipótesis: qué dice que causa qué, sobre el fondo de lo que el campo ya da por sentado, y con las explicaciones alternativas que tendrían que ser falsas para que el efecto sea del actor y no de otra cosa.');
+  'El grafo causal de cada hipótesis: qué dice que causa qué, sobre el fondo de lo que el campo ya da por sentado, y con las explicaciones alternativas que tendrían que ser falsas para que el efecto sea del actor y no de otra cosa.';
 const META =
-  tr('Un efecto es identificable cuando se puede estimar sin que lo confunda otra causa. Las tres amenazas clásicas son la causa inversa (que Y cause X), el confusor (una causa común de X y de Y) y el artefacto de medida (que lo que se mueva sea el instrumento). Un ensayo aleatorizado las cierra por diseño; sin él hacen falta temporalidad, ajuste por confusores y replicación independiente. ROSA2018 comprueba esos tres supuestos por regla, sin modelo, y de ahí sale el veredicto de la derecha.');
+  'Un efecto es identificable cuando se puede estimar sin que lo confunda otra causa. Las tres amenazas clásicas son la causa inversa (que Y cause X), el confusor (una causa común de X y de Y) y el artefacto de medida (que lo que se mueva sea el instrumento). Un ensayo aleatorizado las cierra por diseño; sin él hacen falta temporalidad, ajuste por confusores y replicación independiente. ROSA2018 comprueba esos tres supuestos por regla, sin modelo, y de ahí sale el veredicto de la derecha.';
 
 /** El lienzo de la cascada, en sus propias coordenadas. Las cajas se colocan
  *  en porcentaje sobre estas mismas medidas, así el dibujo y las etiquetas no

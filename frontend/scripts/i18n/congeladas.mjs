@@ -1,27 +1,33 @@
-// Cuantos tr() quedaron dentro de una constante de modulo (se evaluan al
-// importar y no reaccionan al cambio de idioma) y cuantos dentro de una
-// funcion o componente (se vuelven a evaluar en cada render, y si funcionan).
+// Una traducción calculada al importar conserva el primer idioma para siempre.
+// Las claves se guardan en castellano y se traducen al leerlas o al renderizar.
 import ts from 'typescript';
-import { readFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
-let congeladas = 0, vivas = 0;
-const porFichero = new Map();
-for (const f of execSync("find src -name '*.tsx' -o -name '*.ts' | grep -v '/i18n/' | grep -v '.test.'", { encoding: 'utf8' }).trim().split('\n')) {
-  const sf = ts.createSourceFile(f, readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const ver = (x) => {
-    if (ts.isCallExpression(x) && ts.isIdentifier(x.expression) && ['tr', 'trc', 'trp'].includes(x.expression.text)) {
-      // ¿hay una funcion entre esta llamada y la raiz?
-      let dentroDeFuncion = false;
-      for (let p = x.parent; p; p = p.parent) {
-        if (ts.isFunctionDeclaration(p) || ts.isFunctionExpression(p) || ts.isArrowFunction(p) || ts.isMethodDeclaration(p) || ts.isGetAccessor(p)) { dentroDeFuncion = true; break; }
-      }
-      if (dentroDeFuncion) vivas++;
-      else { congeladas++; porFichero.set(f, (porFichero.get(f) || 0) + 1); }
+import { readFileSync, readdirSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+
+export function traduccionesCongeladas(fuente, fichero = 'texto.tsx') {
+  const sf = ts.createSourceFile(fichero, fuente, ts.ScriptTarget.Latest, true);
+  const errores = [];
+  function visitar(n) {
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && ['tr', 'trp', 'trc'].includes(n.expression.text)) {
+      let dentro = false;
+      for (let p = n.parent; p && !ts.isSourceFile(p); p = p.parent) if (ts.isFunctionLike(p)) dentro = true;
+      if (!dentro) errores.push({ fichero, linea: sf.getLineAndCharacterOfPosition(n.getStart()).line + 1 });
     }
-    ts.forEachChild(x, ver);
-  };
-  ver(sf);
+    ts.forEachChild(n, visitar);
+  }
+  visitar(sf);
+  return errores;
 }
-console.log(`${vivas} dentro de funciones: se reevaluan, funcionan`);
-console.log(`${congeladas} en constantes de modulo: CONGELADAS al importar\n`);
-for (const [f, n] of [...porFichero].sort((a, b) => b[1] - a[1]).slice(0, 14)) console.log(`  ${String(n).padStart(4)}  ${f.replace('src/', '')}`);
+
+function archivos(d) {
+  return readdirSync(d, { withFileTypes: true }).flatMap(e => {
+    const ruta = `${d}/${e.name}`;
+    return e.isDirectory() ? archivos(ruta) : /\.tsx?$/.test(e.name) && !e.name.includes('.test.') && ruta !== 'src/main.tsx' ? [ruta] : [];
+  });
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const errores = archivos('src').flatMap(f => traduccionesCongeladas(readFileSync(f, 'utf8'), f));
+  for (const e of errores) console.log(`${e.fichero}:${e.linea}: traducción calculada al importar`);
+  console.log(`${errores.length} traducciones congeladas`);
+  process.exitCode = errores.length ? 1 : 0;
+}

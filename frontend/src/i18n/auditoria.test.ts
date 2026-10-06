@@ -4,6 +4,17 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { expect, it } from 'vitest';
 
+it('detecta traducciones que se congelan al importar y revisa el árbol real', () => {
+  const fixture = `
+    import { traduccionesCongeladas } from ${JSON.stringify(resolve('scripts/i18n/congeladas.mjs'))};
+    const errores = traduccionesCongeladas("const titulo = tr('Título'); const mapa = { a: tr('Ayuda') }; function pintar() { return tr('Título'); } const pintar2 = () => tr('Ayuda');");
+    process.stdout.write(JSON.stringify(errores));
+  `;
+  const errores = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', fixture], { encoding: 'utf8' })) as unknown[];
+  expect(errores).toHaveLength(2);
+  expect(execFileSync(process.execPath, [resolve('scripts/i18n/congeladas.mjs')], { encoding: 'utf8' }).trim()).toBe('0 traducciones congeladas');
+});
+
 it('la auditoría separa la plantilla de trp de sus valores sin traducir', () => {
   const temporal = mkdtempSync(join(tmpdir(), 'rosa-auditoria-'));
   try {

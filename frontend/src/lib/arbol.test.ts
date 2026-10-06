@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { estadoDeMuestra } from '../datos/muestra';
 import type { Afirmacion, Ejecucion, PlanAnalisis } from '../datos/tipos';
+import { fijarIdioma } from './idioma';
 import { alternar, buscar, construirArbol, pesoHipotesis, distancias, ENLACES_EVIDENCIA, ESTRUCTURA, fraseProfundidad, incorporarNovedades, medicionDeAfirmacion, medicionDeEjecucion, NOMBRE_ENLACE, NOMBRE_TIPO, paso, posicionInicial, recortar, visiblesIniciales, type EnlaceArbol, type Grafo, type NodoArbol, type Posicion } from './arbol';
 
 describe('el arbol de la investigacion', () => {
@@ -8,6 +9,22 @@ describe('el arbol de la investigacion', () => {
   const inv = e.investigaciones[0]!;
   const g = construirArbol(e, inv);
   const hip = e.hipotesis.filter((h) => h.investigacionId === inv.id);
+
+  it('el grupo sin familia conserva ids y enlaces al traducir sus etiquetas', () => {
+    const estado = structuredClone(e);
+    for (const h of estado.hipotesis) if (h.investigacionId === inv.id) h.cluster = '';
+    const original = JSON.stringify(estado);
+    fijarIdioma('es');
+    const es = construirArbol(estado, inv);
+    fijarIdioma('en');
+    try {
+      const en = construirArbol(estado, inv);
+      expect(en.nodos.map(n => n.id)).toEqual(es.nodos.map(n => n.id));
+      expect(en.enlaces.map(n => [n.de, n.a, n.tipo])).toEqual(es.enlaces.map(n => [n.de, n.a, n.tipo]));
+      expect(en.porId.get('rama-Sin cluster')?.etiqueta).toBe('No cluster');
+      expect(JSON.stringify(estado)).toBe(original);
+    } finally { fijarIdioma('es'); }
+  });
 
   it('muestra cualquier tipo de nodo nuevo con sus conexiones', () => {
     for (const nodo of g.nodos) {

@@ -259,11 +259,11 @@ export function nuevoHilo(ahora = Date.now()): string {
   return `c-${ahora.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const INTERNAS: Record<string, string> = {
-  leer_modelo_de_mundo: tr('leyó el modelo de mundo'),
-  buscar_en_proyecto: tr('buscó en el proyecto'),
-  leer_cuestiones: tr('repasó las preguntas abiertas'),
-};
+const INTERNAS: Record<string, string> = traducido({
+  leer_modelo_de_mundo: 'leyó el modelo de mundo',
+  buscar_en_proyecto: 'buscó en el proyecto',
+  leer_cuestiones: 'repasó las preguntas abiertas',
+});
 
 /** El nombre legible de una herramienta, para cuando aparece en el texto. */
 export function nombreHerramienta(nombre: string, fuentes: Map<string, string> = new Map()): string | null {
@@ -328,12 +328,12 @@ export function inicialFuente(fuente: string): string {
   return (palabras[0] ?? fuente).charAt(0).toUpperCase() || '?';
 }
 
-export const ESTADO_COBERTURA: Record<EstadoCobertura, string> = {
-  respondido: tr('Respondido con lo consultado'),
-  en_parte: tr('En parte'),
-  no_esta: tr('No está en lo consultado'),
-  no_pude_comprobar: tr('No pude comprobar'),
-};
+export const ESTADO_COBERTURA: Record<EstadoCobertura, string> = traducido({
+  respondido: 'Respondido con lo consultado',
+  en_parte: 'En parte',
+  no_esta: 'No está en lo consultado',
+  no_pude_comprobar: 'No pude comprobar',
+});
 
 /** El pie de la respuesta: si cada referencia que cita sale de lo que
  *  devolvieron las búsquedas de esta pregunta. Una respuesta que no

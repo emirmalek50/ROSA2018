@@ -18,6 +18,9 @@ import { rutaDe } from './ruta';
 import { ESTADO_EXPERIMENTO, ESTADO_HECHO } from './etiquetas';
 import { tr, traducido, trp } from './idioma';
 
+/** Clave del grupo sin familia: no se traduce dentro de ids ni enlaces. */
+export const SIN_CLUSTER = 'Sin cluster';
+
 export type TipoNodo = 'objetivo' | 'rama' | 'area' | 'hipotesis' | 'hecho' | 'pregunta' | 'fuente' | 'entidad' | 'experimento' | 'afirmacion' | 'ejecucion' | 'dataset' | 'laboratorio';
 export type TipoEnlace = 'rama' | 'cita' | 'respalda' | 'entidad' | 'causal' | 'rival' | 'experimento' | 'dato';
 
@@ -174,7 +177,7 @@ export function ordinalesDeIteraciones(iteraciones: readonly IteracionMinima[], 
 const ESTADO_EJECUCION_LEGIBLE: Record<string, string> = traducido({ no_ejecutado: 'no ejecutado', en_curso: 'en curso', error_tecnico: 'error técnico', completado: 'completado', tiempo_agotado: 'tiempo agotado' });
 const AUDITORIA_LEGIBLE: Record<string, string> = traducido({ valido: 'válido', no_valido: 'no válido', no_evaluable_computacionalmente: 'no evaluable' });
 const VEREDICTO_LEGIBLE: Record<string, string> = traducido({ sostenida: 'sostenida', parcial: 'parcial', no_sostenida: 'no sostenida', cita_no_resuelve: 'la cita no resuelve', sin_cita: 'sin cita', ausencia_refutada: 'ausencia refutada', sin_verificar: 'sin verificar' });
-const RESULTADO_LEGIBLE: Record<string, string> = { confirma: 'confirma', refuta: 'refuta', inconcluso: 'inconcluso', no_evaluable: tr('no evaluable') };
+const RESULTADO_LEGIBLE: Record<string, string> = traducido({ confirma: 'confirma', refuta: 'refuta', inconcluso: 'inconcluso', no_evaluable: 'no evaluable' });
 const NO_SOSTENIDOS = new Set(['no_sostenida', 'cita_no_resuelve', 'sin_cita', 'ausencia_refutada']);
 
 /** Un valor del servidor en castellano legible; uno desconocido (registro más
@@ -345,13 +348,13 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
   // Una rama solo cuando agrupa dos o más hipótesis: un cluster con una sola
   // hipótesis no aporta nada como nodo y llenaba el árbol de círculos con
   // texto pegado. Esas hipótesis cuelgan directamente del tronco.
-  const clusters = [...new Set(hip.map((h) => h.cluster || tr('Sin cluster')))];
+  const clusters = [...new Set(hip.map((h) => h.cluster || SIN_CLUSTER))];
   const conRama = new Set<string>();
   for (const c of clusters) {
-    const n = hip.filter((h) => (h.cluster || tr('Sin cluster')) === c);
+    const n = hip.filter((h) => (h.cluster || SIN_CLUSTER) === c);
     if (n.length < 2) continue;
     conRama.add(c);
-    anadir({ id: `rama-${c}`, tipo: 'rama', etiqueta: c, sub: trp("{n} hipótesis", { n: n.length }), peso: 2 + Math.min(3, n.length) * 0.4, iteracion: Math.min(...n.map((h) => ordinalDe(h))), href: rutaDe(inv.id, 'ranking') });
+    anadir({ id: `rama-${c}`, tipo: 'rama', etiqueta: tr(c), sub: trp("{n} hipótesis", { n: n.length }), peso: 2 + Math.min(3, n.length) * 0.4, iteracion: Math.min(...n.map((h) => ordinalDe(h))), href: rutaDe(inv.id, 'ranking') });
     enlazar('objetivo', `rama-${c}`, 'rama');
     // Un área cuyo título o familia coincide con el cluster lo adopta.
     const area = (inv.mision?.areas ?? []).find((a) => a.titulo.toLowerCase() === c.toLowerCase() || a.familiaMecanismo.toLowerCase() === c.toLowerCase());
@@ -364,7 +367,7 @@ export function construirArbol(estado: EstadoRosa, inv: Investigacion): Grafo {
     // dejaría el círculo sin radio y la disposición por fuerzas sin posición.
     const elo = typeof h.elo === 'number' && Number.isFinite(h.elo) ? h.elo : 1500;
     anadir({ id: h.id, tipo: 'hipotesis', etiqueta: h.titulo ?? h.id, sub: `${h.cluster || tr('Sin cluster')} · Elo ${elo}${h.candidata ? tr(' · candidata') : ''}`, peso: pesoHipotesis(h, elo), iteracion: ordinalDe(h), href: rutaDe(inv.id, 'hipotesis', h.id), estado: h.estado, alerta });
-    enlazar(conRama.has(h.cluster || tr('Sin cluster')) ? `rama-${h.cluster || tr('Sin cluster')}` : 'objetivo', h.id, 'rama');
+    enlazar(conRama.has(h.cluster || SIN_CLUSTER) ? `rama-${h.cluster || SIN_CLUSTER}` : 'objetivo', h.id, 'rama');
     if (h.experimento && h.experimento.estado !== 'propuesto') {
       anadir({ id: `ex-${h.id}`, tipo: 'experimento', etiqueta: h.experimento.laboratorio ? trp('Experimento en {laboratorio}', { laboratorio: h.experimento.laboratorio }) : tr('Experimento'), sub: ESTADO_EXPERIMENTO[h.experimento.estado] + (h.experimento.prerregistradoEn ? tr(' · prerregistrado') : ''), peso: 2, iteracion: ordinalDe(h), href: rutaDe(inv.id, 'hipotesis', h.id), estado: h.experimento.estado });
       enlazar(h.id, `ex-${h.id}`, 'experimento');

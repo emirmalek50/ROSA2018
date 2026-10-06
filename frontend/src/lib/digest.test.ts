@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { AHORA_MUESTRA, estadoDeMuestra } from '../datos/muestra';
 import type { EstadoRosa } from '../datos/tipos';
-import { VENTANA_SIN_VISITA_MS, digest, digestComoTexto, loQueEspera } from './digest';
+import { VENTANA_SIN_VISITA_MS, digest, digestComoTexto, duracionEnLlano, loQueEspera } from './digest';
 import { fijarIdioma } from './idioma';
 
 describe('digest', () => {
+  it('traduce duraciones completas sin mezclar horas y minutos de ambos idiomas', () => {
+    fijarIdioma('en');
+    try {
+      expect(duracionEnLlano(12 * 60_000)).toBe('12 minutes');
+      expect(duracionEnLlano(125 * 60_000)).toBe('2 hours and 5 minutes');
+      expect(duracionEnLlano(61 * 60_000)).toBe('1 hour and 1 minute');
+    } finally { fijarIdioma('es'); }
+    expect(duracionEnLlano(125 * 60_000)).toBe('2 horas y 5 minutos');
+  });
   it('solo cuenta lo posterior a la última visita y deja fuera los hechos nuevos', () => {
     const e = estadoDeMuestra();
     const d = digest(e, 'inv-1', AHORA_MUESTRA);

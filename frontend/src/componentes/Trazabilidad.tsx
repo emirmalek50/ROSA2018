@@ -33,8 +33,8 @@ const FILTROS: { clave: FiltroVeredicto; etiqueta: string }[] = traducido([
   { clave: 'sin_verificar', etiqueta: 'Sin comprobar' },
 ]);
 
-const TITULO = tr('De la consulta a la afirmación');
-const NOTA = tr('Cada consulta, las fuentes que trajo y las afirmaciones que salieron de cada fuente con su veredicto. Una afirmación nace sin comprobar y cambia de color cuando el juez dictamina.');
+const TITULO = 'De la consulta a la afirmación';
+const NOTA = 'Cada consulta, las fuentes que trajo y las afirmaciones que salieron de cada fuente con su veredicto. Una afirmación nace sin comprobar y cambia de color cuando el juez dictamina.';
 
 /** Cuántas consultas pinta la silueta: las que la corrida ya tiene en el
  *  estado (busqueda.consultas), al menos una y hasta doce. */

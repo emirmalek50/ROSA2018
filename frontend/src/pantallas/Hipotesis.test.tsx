@@ -61,6 +61,23 @@ async function montar(e: EstadoRosa, id: string) {
   await esperarPintado();
 }
 
+it('los niveles y las revisiones se traducen en la ficha real, conservando los valores canónicos', async () => {
+  const e = structuredClone(estadoDeMuestra()), h = e.hipotesis[0]!;
+  h.evidenciaEstadistica = 'debil';
+  h.revisiones = [{ fecha: 1, quien: 'Emir Malek', accion: 'no_puedo_juzgar', nota: '', aCiegas: false }];
+  const original = JSON.stringify(h);
+  fijarIdioma('en');
+  await montar(e, h.id);
+  expect(nodo.textContent).toContain('Weak');
+  expect(nodo.textContent).toContain('Unable to assess');
+  expect(nodo.textContent).not.toContain('no puedo juzgar');
+  expect(JSON.stringify(h)).toBe(original);
+  fijarIdioma('es');
+  await montar(e, h.id);
+  expect(nodo.textContent).toContain('Débil');
+  expect(nodo.textContent).toContain('No puedo juzgar');
+});
+
 it('el experimento asignado y el sello se traducen sin alterar hash, hora o archivo', async () => {
   const e = structuredClone(estadoDeMuestra());
   const h = e.hipotesis.find((x) => x.experimento)!;

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import type { PreguntaABases } from '../datos/tipos';
-import { tr } from '../lib/idioma';
+import { idiomaActual, tr } from '../lib/idioma';
 
 export function HistorialAsistente({ preguntas, hilo, alElegir, disabled = false }: {
   preguntas: PreguntaABases[]; hilo: string | null; alElegir: (id: string) => void; disabled?: boolean;
@@ -32,7 +32,7 @@ export function HistorialAsistente({ preguntas, hilo, alElegir, disabled = false
       {conversaciones.length === 0 && <p>{tr('No hay conversaciones que coincidan.')}</p>}
       <ul>{conversaciones.slice(0, limite).map(c => <li key={c.id}>
         <button type="button" disabled={disabled} aria-current={hilo === c.id ? 'true' : undefined} onClick={() => { alElegir(c.id); setAbierto(false); }}>
-          <strong>{c.titulo}</strong><span>{new Date(c.fecha).toLocaleDateString()} · {c.cantidad} {tr(c.cantidad === 1 ? 'mensaje' : 'mensajes')}</span>
+          <strong>{c.titulo}</strong><span>{new Date(c.fecha).toLocaleDateString(idiomaActual())} · {c.cantidad} {tr(c.cantidad === 1 ? 'mensaje' : 'mensajes')}</span>
         </button>
       </li>)}</ul>
       {limite < conversaciones.length && <button type="button" className="btn btn-s" onClick={() => setLimite(limite + 30)}>{tr('Ver más conversaciones')}</button>}

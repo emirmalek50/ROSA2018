@@ -28,7 +28,7 @@ import { Bloqueos, ConsultasABases, ContextoDeBases, ContratoDelExperimento, Dec
 import { FranjaRanking } from '../componentes/FranjaRanking';
 import { Alternativas } from '../componentes/Alternativas';
 import { dependeDeRetractada, resumenEvidencia, tramosFuertes } from '../lib/calidad';
-import { ALCANCE_SUPUESTO, DONDE_SE_RESPONDE, ESTADO_HIPOTESIS, ESTADO_SUPUESTO, TIPO_REVISION, RESULTADO_LABORATORIO, killerPendienteDe } from '../lib/etiquetas';
+import { ACCION_REVISION_HIPOTESIS, ALCANCE_SUPUESTO, DONDE_SE_RESPONDE, ESTADO_HIPOTESIS, ESTADO_SUPUESTO, EVIDENCIA_ESTADISTICA, RELEVANCIA, TIPO_REVISION, RESULTADO_LABORATORIO, killerPendienteDe } from '../lib/etiquetas';
 import { expediente } from '../lib/exportar';
 import { TONO_ESTADO, hallazgosVigentes, motivoNoAceptable } from '../lib/hipotesis';
 import { bloqueosDe } from '../lib/priorizacion';
@@ -297,7 +297,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               <div className="tarjeta">
                 <p className="campo-etiqueta">{tr("Evidencia estadística")}</p>
                 <Chip tono={h.evidenciaEstadistica === 'fuerte' ? 'ok' : h.evidenciaEstadistica === 'debil' ? 'mal' : h.evidenciaEstadistica === 'moderada' ? 'aviso' : 'borde'}>
-                  {h.evidenciaEstadistica === 'no_aplica' ? tr('No aplica') : h.evidenciaEstadistica.charAt(0).toUpperCase() + h.evidenciaEstadistica.slice(1)}
+                  {EVIDENCIA_ESTADISTICA[h.evidenciaEstadistica]}
                 </Chip>
                 <p className="meta" style={{ marginTop: 6 }}>
                   {resumenEvidencia(h.procedencia.fuentes)}
@@ -309,7 +309,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                 <div className="segmentos" role="group" aria-label={tr("Tu voto de relevancia")}>
                   {(['alta', 'media', 'baja'] as const).map((v) => (
                     <button key={v} type="button" aria-pressed={h.relevancia.votoHumano === v} onClick={() => acciones.votarRelevancia(h.id, v)}>
-                      {v.charAt(0).toUpperCase() + v.slice(1)}
+                      {RELEVANCIA[v]}
                     </button>
                   ))}
                 </div>
@@ -834,7 +834,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               {h.revisiones.map((r, i) => (
                 <li key={i}>
                   <span>
-                    <strong style={{ fontWeight: 550 }}>{r.quien}</strong> · {r.accion.replace(/_/g, ' ')}
+                    <strong style={{ fontWeight: 550 }}>{r.quien}</strong> · {ACCION_REVISION_HIPOTESIS[r.accion]}
                     {r.aCiegas && <Chip tono="borde">{tr("a ciegas")}</Chip>}
                     {r.nota !== '' && <span className="meta"> · {r.nota}</span>}
                   </span>

@@ -4,6 +4,24 @@ import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
 import { HistorialAsistente } from './HistorialAsistente';
 import type { PreguntaABases } from '../datos/tipos';
+import { fijarIdioma } from '../lib/idioma';
+
+it('la fecha sigue el idioma elegido y conserva el hilo al volver a español', async () => {
+  const nodo = document.createElement('div'), root = createRoot(nodo), elegir = vi.fn();
+  const fecha = new Date(2026, 0, 26).getTime();
+  const preguntas = [pregunta('turno', 'h-mapt', 'MAPT', fecha)];
+  try {
+    fijarIdioma('en');
+    await act(async () => root.render(<HistorialAsistente preguntas={preguntas} hilo={null} alElegir={elegir} />));
+    await act(async () => nodo.querySelector('button')!.click());
+    expect(nodo.querySelector('li')?.textContent).toContain('1/26/2026');
+    fijarIdioma('es');
+    await act(async () => root.render(<HistorialAsistente preguntas={preguntas} hilo={null} alElegir={elegir} />));
+    expect(nodo.querySelector('li')?.textContent).toContain('26/1/2026');
+    await act(async () => nodo.querySelector<HTMLButtonElement>('li button')!.click());
+    expect(elegir).toHaveBeenCalledWith('h-mapt');
+  } finally { fijarIdioma('es'); await act(async () => root.unmount()); }
+});
 
 const pregunta = (id: string, hilo: string | undefined, texto: string, fecha: number): PreguntaABases => ({ id, hilo, pregunta: texto, respuesta: 'Respuesta sobre MAPT', fecha, limites: '', herramientas: [], consultas: [], iteraciones: 1, quien: 'persona', error: null });
 it('recupera hilos persistidos sin sessionStorage, agrupa turnos y busca también respuestas', async () => {
