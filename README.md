@@ -81,6 +81,15 @@ Tailscale). Dos piezas, las dos con lo que la empresa ya tiene:
    cada `push` a `main`). Si cambia el nombre de Tailscale (otro Mac, o la
    máquina renombrada), se cambia en `vercel.json` y se vuelve a desplegar.
 
+**Si el enlace deja de funcionar** («El enlace no devolvió una respuesta de
+ROSA2018»): `./scripts/compartir_fijo.sh --estado` lo comprueba desde internet,
+no desde el propio Mac. Si dice que Funnel está encendido pero no responde, el
+arreglo visto el 6 de octubre de 2026 es cerrar la app de Tailscale (icono de
+la barra de menús, Quit) y volver a abrirla: el Mac había cambiado de red y los
+relés de Tailscale seguían sin encontrarlo. El servidor tiene que estar
+arrancado y el Mac despierto: un portátil que duerme corta el enlace para
+todo el mundo (hay un `caffeinate` puesto mientras no exista el Mac fijo).
+
 Lo que hay que saber del reenvío: Vercel corta cada petición reenviada a los
 120 segundos, así que el canal en vivo (`/api/eventos`) se reabre cada dos
 minutos; no cuesta nada (el canal solo avisa de la versión, el estado se baja

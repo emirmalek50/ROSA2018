@@ -55,7 +55,20 @@ nombre() {
 estado_backend() {
   con_tope 10 "$TS" status --json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("BackendState",""))' 2>/dev/null || true
 }
-responde() { curl -s -m 10 "https://$1/api/acceso/estado" 2>/dev/null | grep -q '"accesoConfigurado"'; }
+# Comprobar desde FUERA de verdad. En este Mac el nombre ts.net lo resuelve
+# MagicDNS a la IP interna (100.x) y la petición ni sale a internet: el 6 de
+# octubre de 2026 «--estado» decía que respondía mientras el enlace público
+# llevaba 17 horas cerrando cada conexión. Se resuelve el nombre en un DNS
+# público (los relés de Tailscale) y se fuerza la petición por ese relé.
+responde() {
+  local ip
+  ip=$(dig @8.8.8.8 "$1" A +short 2>/dev/null | head -1)
+  if [ -z "$ip" ]; then
+    curl -s -m 10 "https://$1/api/acceso/estado" 2>/dev/null | grep -q '"accesoConfigurado"'
+  else
+    curl -s -m 15 --resolve "$1:443:$ip" "https://$1/api/acceso/estado" 2>/dev/null | grep -q '"accesoConfigurado"'
+  fi
+}
 
 if extension_bloqueada; then
   echo "$AVISO_EXTENSION"
@@ -68,7 +81,12 @@ case "${1:-}" in
     if [ -z "$N" ]; then echo "Tailscale no está conectado (estado: ${$(estado_backend):-sin respuesta de la app}). Abre la app de Tailscale e inicia sesión."; exit 1; fi
     echo "Nombre fijo de este Mac: https://$N"
     con_tope 15 "$TS" funnel status 2>/dev/null | sed 's/^/  /' || true
-    if responde "$N"; then echo "https://$N responde con ROSA2018."; else echo "https://$N no responde (todavía) con ROSA2018."; fi
+    if responde "$N"; then
+      echo "https://$N responde con ROSA2018 desde internet."
+    else
+      echo "https://$N NO responde desde internet aunque Funnel esté encendido."
+      echo "Lo que lo arregló el 6 de octubre de 2026: cerrar la app de Tailscale (icono de la barra de menús > Quit) y volver a abrirla; el Mac había cambiado de red y los relés de Tailscale no lo encontraban. Después, ./scripts/compartir_fijo.sh --estado otra vez."
+    fi
     exit 0 ;;
   --parar)
     con_tope 30 "$TS" funnel reset && echo "Ya no se publica. El servidor sigue en http://127.0.0.1:$PUERTO"
