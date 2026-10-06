@@ -10,7 +10,7 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
     />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#FAFAF9" />
+    <meta name="theme-color" content="#FFFFFF" />
     <!-- Tema ANTES de pintar. Los tokens de styles.css cuelgan de
          [data-theme]; sin esto quien tiene oscuro veria un fogonazo blanco.
          Duplica a proposito la logica de src/lib/theme.ts (aplicarTema): es
@@ -29,7 +29,7 @@
           (tema === 'sistema' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.dataset.theme = oscuro ? 'dark' : 'light';
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', oscuro ? '#101010' : '#FAFAF9');
+        if (meta) meta.setAttribute('content', oscuro ? '#101010' : '#FFFFFF');
       })();
     </script>
     <title>ROSA2018 · Alzheimer Project</title>

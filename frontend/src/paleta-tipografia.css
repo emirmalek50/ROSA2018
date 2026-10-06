@@ -1,0 +1,115 @@
+/* Tipografía y paleta aprobadas para ROSA2018. Solo fuentes y colores.
+   La paleta de los datos científicos (atlas, proteína y grafo) conserva su leyenda. */
+:root, :root[data-theme='light'], :root[data-theme='dark'] {
+  --violeta-profundo: #38156f;
+  --orquidea: #7b39b0;
+  --amatista: #a855c9;
+  --gris-cruzado: #787890;
+  --lavanda-suave: #f3eefa;
+  --state-interactive: var(--orquidea);
+  --state-waiting: #c98a2e;
+  --state-supported: #3f9e6b;
+  --state-blocked: #c4524b;
+  --score-elo: #d7b46a;
+  --accent: var(--state-interactive);
+  --accent-strong: var(--violeta-profundo);
+  --accent-contrast: #fff;
+  --accent-soft: color-mix(in srgb, var(--orquidea) 8%, transparent);
+  --accent-soft-2: color-mix(in srgb, var(--orquidea) 16%, transparent);
+  --accent-border: color-mix(in srgb, var(--orquidea) 45%, var(--border));
+  --green: var(--state-supported);
+  --red: var(--state-blocked);
+  --amber: var(--state-waiting);
+  --blue: var(--text-2);
+  --green-soft: color-mix(in srgb, var(--green) 10%, transparent);
+  --red-soft: color-mix(in srgb, var(--red) 9%, transparent);
+  --amber-soft: color-mix(in srgb, var(--amber) 10%, transparent);
+  --font-sistema: var(--font-sans);
+  --esc-tarjeta: var(--surface);
+  --esc-hondo: var(--inset);
+  --esc-azul: var(--text-2);
+  --esc-agua: var(--text-2);
+  --esc-gris: var(--text-2);
+}
+:root, :root[data-theme='light'] {
+  --bg: #fff;
+  --surface: var(--lavanda-suave);
+  --elevated: #fff;
+  --sidebar-bg: #fff;
+  --inset: color-mix(in srgb, var(--lavanda-suave) 65%, #fff);
+  --text: #1a0a38;
+  /* La mezcla conserva la marca y sube el contraste del texto pequeño. */
+  --text-2: color-mix(in srgb, var(--gris-cruzado) 82%, var(--text));
+  --text-3: var(--text-2);
+  --border: color-mix(in srgb, var(--violeta-profundo) 12%, transparent);
+  --border-strong: color-mix(in srgb, var(--violeta-profundo) 22%, transparent);
+  --hover: color-mix(in srgb, var(--orquidea) 5%, transparent);
+  --active: color-mix(in srgb, var(--orquidea) 9%, transparent);
+}
+:root[data-theme='dark'] {
+  --bg: #101010;
+  --surface: #171717;
+  --elevated: #202020;
+  --sidebar-bg: #101010;
+  --inset: #141414;
+  --text: #f3eefa;
+  --text-2: color-mix(in srgb, var(--gris-cruzado) 65%, var(--lavanda-suave));
+  --text-3: var(--text-2);
+  --border: color-mix(in srgb, var(--gris-cruzado) 22%, transparent);
+  --border-strong: color-mix(in srgb, var(--gris-cruzado) 40%, transparent);
+  --hover: color-mix(in srgb, var(--gris-cruzado) 10%, transparent);
+  --active: color-mix(in srgb, var(--gris-cruzado) 16%, transparent);
+  --accent-strong: var(--amatista);
+}
+body, button, input, select, textarea { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
+h1, h2, h3, h4, .esc, .esc-titular { font-family: var(--font-sans); }
+.ficha-cabecera h2, .podio-titulo, .podio-detalle-titulo { font-family: var(--font-serif); }
+:root[data-theme='light'] :is(.cabecera h1, .marca strong, .pantalla-cabecera h2, .seccion-titulo h3) { color: var(--violeta-profundo); }
+
+/* Fuentes de la interfaz. Los títulos de hipótesis conservan la serif. */
+:root, :root[data-theme='light'], :root[data-theme='dark'] { --mundo-serif: var(--font-sans); }
+:root .fuente header strong,
+:root .ficha-veredicto-frase,
+:root .citas-hoja,
+:root .podio-pedestal span { font-family: var(--font-sans); }
+
+/* Colores sobre las piezas existentes, sin cambiar su distribución. */
+:root :is(.btn-primario, .esc-boton-primario, .ficha-boton-primario, .btn-vivo-primario) {
+  background: var(--orquidea);
+  border-color: var(--orquidea);
+  color: #fff;
+}
+:root :is(.btn-primario, .esc-boton-primario, .ficha-boton-primario, .btn-vivo-primario):hover:not(:disabled) {
+  background: var(--violeta-profundo);
+  color: #fff;
+}
+:root .esc { background: var(--surface); --esc-tono: var(--text-2); }
+:root .esc-marcha { --esc-tono: var(--orquidea); }
+:root .esc-espera { --esc-tono: var(--amber); }
+:root .esc-titular { color: var(--text); }
+:root .esc-estado { color: var(--text); }
+:root .esc-ceja-fuerte, :root .esc-directo { color: var(--text-2); }
+:root .esc-actor-activo { border-color: var(--border-strong); background: var(--hover); }
+:root .esc-actor-activo .esc-avatar { color: var(--text-2); background: var(--active); }
+:root .esc-punto-llamadas, :root .esc-barra-llamadas,
+:root .esc-fila-fuente i, :root .esc-parada-barra i { background: var(--text-2); }
+:root .esc-punto-hecho, :root .esc-barra-hechos { background: var(--state-supported); }
+
+:root, :root[data-theme='dark'] { --oro: var(--score-elo); --plata: var(--text-2); --bronce: var(--text-2); }
+:root .podio-columna { --medalla: var(--border-strong); }
+:root .podio-puesto-1 { --medalla: var(--accent-border); }
+:root .podio-tarjeta { background: var(--surface); border-color: var(--border); }
+:root .podio-puesto-1 .podio-tarjeta { background: color-mix(in srgb, var(--violeta-profundo) 7%, var(--surface)); border-color: var(--accent-border); }
+:root .podio-elo-valor, :root .podio-bt-cabecera strong,
+:root .hip-elo > strong { color: var(--score-elo); }
+:root[data-theme='light'] :is(.podio-elo-valor, .podio-bt-cabecera strong, .hip-elo > strong) { color: var(--text); }
+:root .podio-bt-punto, :root .podio-bt-intervalo { background: var(--score-elo); }
+:root .podio-delta, :root .podio-cluster,
+:root .podio-ceja, :root .podio-detalle-lugar,
+:root .podio-ruta-cifra strong, :root .ficha-cifra-sub { color: var(--text-2); }
+:root .podio-marcas-trazo i, :root .podio-marcas-cuadro i,
+:root .podio-ruta-pasos .podio-paso-hecho { background: var(--text-2); }
+:root .podio-marcas-punto i { background: var(--state-supported); }
+:root .podio-selector button[aria-pressed='true'] { background: var(--orquidea); color: #fff; border-color: var(--orquidea); }
+:root .ficha-pildora-puesto { color: var(--text-2); background: var(--hover); }
+:root .citas-hoja { background: var(--surface); color: var(--text); }

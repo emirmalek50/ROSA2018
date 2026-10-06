@@ -11,6 +11,7 @@ import './vivo.css';
 import './mundo.css';
 import './ficha.css';
 import './movimiento.css';
+import './paleta-tipografia.css';
 import { tr } from './lib/idioma';
 
 // El tema ya lo aplico el script inline de index.html. Esto solo engancha los

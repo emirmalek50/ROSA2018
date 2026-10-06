@@ -10,7 +10,7 @@ export type Tema = 'sistema' | 'claro' | 'oscuro';
 
 const CLAVE = 'rosa-tema';
 
-const COLOR_UI: Record<'claro' | 'oscuro', string> = { claro: '#FAFAF9', oscuro: '#101010' };
+const COLOR_UI: Record<'claro' | 'oscuro', string> = { claro: '#FFFFFF', oscuro: '#101010' };
 
 function esTema(valor: unknown): valor is Tema {
   return valor === 'sistema' || valor === 'claro' || valor === 'oscuro';
