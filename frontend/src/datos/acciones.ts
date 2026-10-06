@@ -1565,7 +1565,7 @@ export function crearInvestigacion(estado: EstadoRosa, datos: DatosInvestigacion
   }
   let siguiente: EstadoRosa = { ...estado, investigaciones: [...estado.investigaciones, inv], hechos };
   const m = datos.mision;
-  if (m && [m.poblacion, m.etapa, m.mecanismo, m.tipoIntervencion].some((v) => (v ?? '').trim() !== '')) {
+  if (m && ([m.poblacion, m.etapa, m.celulaTejido, m.mecanismo, m.tipoIntervencion].some((v) => (v ?? '').trim() !== '') || m.capacidadesLaboratorio?.some((v) => v.trim() !== ''))) {
     siguiente = aprobarMision(siguiente, id, m, datos.quien ?? 'Investigadora', ahora);
   }
   return { estado: siguiente, id };

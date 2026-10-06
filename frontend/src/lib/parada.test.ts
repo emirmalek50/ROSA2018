@@ -59,3 +59,17 @@ describe('parada propia de la corrida', () => {
     expect(borradorDe(null)).toEqual(vacio);
   });
 });
+
+
+it('lee la parada en español e inglés con unidades completas y rechaza cifras engañosas', () => {
+  for (const texto of ['3 iterations or 72 hours', '3 iteraciones o 72 horas']) {
+    expect(partesAutomatizadas(texto)).toMatchObject({ iteraciones: 3, tiempo: '72 h', resto: '', automatizada: true });
+  }
+  expect(partesAutomatizadas('1 call').llamadas).toBe(1);
+  expect(partesAutomatizadas('1 llamada').llamadas).toBe(1);
+  expect(partesAutomatizadas('1.5 hours').tiempo).toBe('1.5 h');
+  expect(partesAutomatizadas('2 days').tiempo).toBe('2 d');
+  for (const texto of ['-3 iterations', '3.5 iterations', '1,5 calls', '-2 hours', '3 iterationsXYZ', '3 llamadasExtra', '2 hoursExtra']) {
+    expect(partesAutomatizadas(texto).automatizada, texto).toBe(false);
+  }
+});

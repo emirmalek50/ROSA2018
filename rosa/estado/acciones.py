@@ -1765,7 +1765,7 @@ def crear_investigacion(e: Estado, datos: dict, ahora: int, id_: str | None = No
         "cifrasAprendizaje": None,
     }
     mision = datos.get("mision")
-    if isinstance(mision, dict) and any(str(mision.get(k, "")).strip() for k in ("poblacion", "etapa", "mecanismo", "tipoIntervencion")):
+    if isinstance(mision, dict) and (any(str(mision.get(k, "") or "").strip() for k in ("poblacion", "etapa", "celulaTejido", "mecanismo", "tipoIntervencion")) or any(str(c).strip() for c in mision.get("capacidadesLaboratorio", []) or [])):
         # La persona ya escribio la mision al crear: queda aprobada por ella.
         inv["mision"] = P.mision_vacia()
         e["investigaciones"].append(inv)
@@ -2230,7 +2230,7 @@ def resolver_accion_asistente(e: Estado, investigacion_id: str, pregunta_id: str
     return resolver_accion(e, investigacion_id, pregunta_id, operacion_id, aprobar, quien, ahora)
 
 
-def crear_investigacion_e_iniciar(e: Estado, datos: dict, quien: str, ahora: int, limite: int | None = None, parada: dict | None = None) -> dict | bool:
+def crear_investigacion_e_iniciar(e: Estado, datos: dict, quien: str, ahora: int, limite: int | None = None, parada: dict | None = None, id_: str | None = None) -> dict | bool:
     """Crea una investigación y su primera corrida. `datos` exige `titulo`, `objetivo`
     y `condicionParada`. La corrida espera su plan y conserva su aprobación.
     `limite` es exclusivamente el presupuesto de llamadas al modelo, NO el número
@@ -2238,10 +2238,28 @@ def crear_investigacion_e_iniciar(e: Estado, datos: dict, quien: str, ahora: int
     parada admite iteraciones, horas, llamadas o texto.
     Devuelve los identificadores reales de la investigación y la corrida.
     """
-    investigacion_id = crear_investigacion(e, {**datos, "quien": quien}, ahora)
+    # Un reintento del mismo formulario tras perder la respuesta no crea otra
+    # investigación ni arranca otra corrida. La petición queda privada para
+    # comprobar también que no se reutilice el ID con otros datos u otro actor.
+    peticion = {"datos": datos, "quien": quien, "limite": limite, "parada": parada}
+    if id_:
+        anterior = _buscar(e["investigaciones"], id_)
+        if anterior:
+            corrida = next((c for c in e["corridas"] if c["investigacionId"] == id_ and c["numero"] == 1), None)
+            if anterior.get("_peticionCreacion") != peticion or not corrida:
+                return False
+            return {"investigacionId": id_, "corridaId": corrida["id"], "estado": corrida["estado"]}
+    origen = datos.get("heredarModeloDe")
+    if origen and not _buscar(e["investigaciones"], origen):
+        return False
+    investigacion_id = crear_investigacion(e, {**datos, "quien": quien}, ahora, id_=id_)
     if not isinstance(investigacion_id, str):
         return False
     corrida_id = iniciar_corrida(e, investigacion_id, ahora, limite, parada)
     if corrida_id is False:
         raise ValueError("No se pudo iniciar la primera corrida")
+    if id_:
+        creada = _buscar(e["investigaciones"], investigacion_id)
+        assert creada is not None
+        creada["_peticionCreacion"] = copy.deepcopy(peticion)
     return {"investigacionId": investigacion_id, "corridaId": corrida_id, "estado": "esperando_plan"}

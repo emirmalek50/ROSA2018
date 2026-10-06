@@ -330,3 +330,47 @@ describe('la recuperación de citas requiere aceptación real', () => {
     expect(actual().investigaciones[0]!.recuperacionCitas).toEqual(antes);
   });
 });
+
+
+describe('la nueva investigación se crea en el servidor', () => {
+  const datos = { titulo: 'Nueva', objetivo: 'Evaluar GFAP', condicionParada: '3 iterations', relevancia: '', limites: [], revisores: ['Emir Malek'] };
+  it('no adelanta la navegación ni crea datos locales antes de la confirmación canónica', async () => {
+    const { A, actual } = await montar();
+    const inicial = actual().investigaciones.length;
+    const previa = vi.mocked(fetch).getMockImplementation()!;
+    let confirmar!: () => void;
+    vi.mocked(fetch).mockImplementation(async (url, opciones) => {
+      if (String(url).startsWith('/api/acciones/')) {
+        expect(String(url)).toBe('/api/acciones/crearInvestigacionEIniciar');
+        expect(JSON.parse(String(opciones?.body))).toMatchObject({ datos, id_: 'inv-atomica' });
+        await new Promise<void>((resolve) => { confirmar = resolve; });
+        const inv = { ...servidor.estado.investigaciones[0]!, id: 'inv-atomica', titulo: datos.titulo };
+        const cor = { ...servidor.estado.corridas[0]!, id: 'cor-atomica', investigacionId: inv.id };
+        cambiar(['investigaciones', 'corridas'], (e) => ({ ...e, investigaciones: [...e.investigaciones, inv], corridas: [...e.corridas, cor] }));
+        return new Response(JSON.stringify({ ok: true, resultado: { investigacionId: inv.id, corridaId: cor.id } }));
+      }
+      return previa(url, opciones);
+    });
+    const pendiente = A.acciones.crearInvestigacion(datos, 'inv-atomica');
+    expect(actual().investigaciones.length).toBe(inicial);
+    confirmar();
+    expect(await pendiente).toEqual({ estado: 'creada', investigacionId: 'inv-atomica', corridaId: 'cor-atomica' });
+    expect(actual().corridas.some((c) => c.id === 'cor-atomica')).toBe(true);
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).startsWith('/api/acciones/'))).toHaveLength(1);
+  });
+  it.each(['rechazo', 'caída', 'sin_ids', 'id_ajeno'])('con %s conserva el estado y no inicia otra corrida', async (caso) => {
+    const { A, actual } = await montar();
+    const antes = JSON.stringify(actual().investigaciones);
+    const previa = vi.mocked(fetch).getMockImplementation()!;
+    vi.mocked(fetch).mockImplementation(async (url, opciones) => {
+      if (String(url).startsWith('/api/acciones/')) {
+        if (caso === 'caída') throw new Error('Sin conexión');
+        return new Response(JSON.stringify(caso === 'rechazo' ? { ok: false } : caso === 'sin_ids' ? { ok: true } : { ok: true, resultado: { investigacionId: 'inv-ajena', corridaId: 'cor-ajena' } }));
+      }
+      return previa(url, opciones);
+    });
+    expect(await A.acciones.crearInvestigacion(datos, 'inv-pedida')).toEqual({ estado: caso === 'rechazo' ? 'rechazada' : 'sin_respuesta' });
+    expect(JSON.stringify(actual().investigaciones)).toBe(antes);
+    expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/iniciarCorrida'))).toHaveLength(0);
+  });
+});

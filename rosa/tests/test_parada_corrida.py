@@ -115,3 +115,21 @@ def test_contabilizar_tiempo_separa_espera_humana_pausas_y_trabajo():
     assert c["esperaHumanaMs"] == 65_000
     # Un reloj que va hacia atrás no resta nada.
     assert CO.contabilizar_tiempo(c, 0) is False
+
+
+def test_parada_bilingue_coincide_con_lo_que_ejecuta_el_bucle():
+    c = {"empezadaEn": 0, "gasto": {"llamadas": 1}}
+    for texto in ("3 iterations or 72 hours", "3 iteraciones o 72 horas"):
+        partes = PARADA.partes_automatizadas(texto)
+        assert partes["iteraciones"] == 3 and partes["tiempo"] == "72 h" and partes["resto"] == ""
+        assert f(texto, 2, c, ahora=1000) is None
+        assert f(texto, 3, c, ahora=1000).startswith("Se alcanzaron las 3")
+    for texto in ("1 call", "1 llamada"):
+        assert f(texto, 1, c, ahora=1000).startswith("Se alcanzaron las 1 llamadas")
+    for texto in ("1.5 hours", "1,5 horas", "90 minutes"):
+        assert f(texto, 1, c, ahora=5_399_000) is None
+        assert f(texto, 1, c, ahora=5_400_000).startswith("Se cumplió el tiempo")
+    assert PARADA.partes_automatizadas("2 days")["tiempo"] == "2 d"
+    for texto in ("-3 iterations", "3.5 iterations", "1,5 calls", "-2 hours", "3 iterationsXYZ", "3 llamadasExtra", "2 hoursExtra"):
+        assert not PARADA.partes_automatizadas(texto)["automatizada"], texto
+        assert f(texto, 100, c, ahora=999_999_999) is None, texto

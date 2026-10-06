@@ -15,9 +15,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_ITERACIONES = re.compile(r"(\d+)\s*iteraci\w*")
-_TIEMPO = re.compile(r"(\d+(?:[.,]\d+)?)\s*(min\b|minutos?|horas?|h\b|dias?|días?)")
-_LLAMADAS = re.compile(r"(\d+)\s*llamadas?")
+_ITERACIONES = re.compile(r"(?<![\d.,+\-])\b(\d+)\s*(?:iteraci[oó]n(?:es)?|iterations?)\b")
+_TIEMPO = re.compile(r"(?<![\d.,+\-])\b(\d+(?:[.,]\d+)?)\s*(min|minutes?|minutos?|hours?|horas?|h|d[ií]as?|days?)\b")
+_LLAMADAS = re.compile(r"(?<![\d.,+\-])\b(\d+)\s*(?:llamadas?|calls?)\b")
 
 
 def partes_automatizadas(texto: str) -> dict[str, Any]:
@@ -34,7 +34,7 @@ def partes_automatizadas(texto: str) -> dict[str, Any]:
     m = _TIEMPO.search(t)
     if m:
         unidad = m.group(2)
-        salida["tiempo"] = f"{m.group(1)} {'min' if unidad.startswith('min') else 'h' if unidad in ('h', 'hora') or unidad.startswith('hora') else 'd'}"
+        salida["tiempo"] = f"{m.group(1)} {'min' if unidad.startswith('min') else 'h' if unidad in ('h', 'hora') or unidad.startswith(('hor', 'hour')) else 'd'}"
         resto = resto.replace(m.group(0), " ")
     m = _LLAMADAS.search(t)
     if m:
@@ -43,8 +43,8 @@ def partes_automatizadas(texto: str) -> dict[str, Any]:
     # El resto se conserva tal como lo escribio la persona: solo se limpian los
     # conectores sueltos de los bordes ("o", ", o", "y") y los espacios dobles.
     resto = re.sub(r"\s+", " ", resto).strip(" ,;.")
-    resto = re.sub(r"^(o|y|u|e|,|;)\s+", "", resto).strip(" ,;.")
-    resto = re.sub(r"\s+(o|y|u|e)$", "", resto).strip(" ,;.")
+    resto = re.sub(r"^(o|y|u|e|or|and|,|;)\s+", "", resto).strip(" ,;.")
+    resto = re.sub(r"\s+(o|y|u|e|or|and)$", "", resto).strip(" ,;.")
     salida["resto"] = resto if len(resto) >= 4 else ""
     salida["automatizada"] = any(salida[k] is not None for k in ("iteraciones", "tiempo", "llamadas"))
     return salida

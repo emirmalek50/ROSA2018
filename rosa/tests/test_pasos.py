@@ -47,7 +47,7 @@ def test_condicion_de_parada_entiende_tiempo_iteraciones_y_llamadas():
     assert f("2 iteraciones o cuando cambie", 1, c, ahora=10_000) is None
     assert f("2 iteraciones", 2, c, ahora=10_000).startswith("Se alcanzaron las 2 iteraciones")
     assert f("5 minutos, luego finalizara la investigación", 1, c, ahora=4 * 60_000) is None
-    assert f("5 minutos, luego finalizara la investigación", 1, c, ahora=5 * 60_000 + 1).startswith("Se cumplio el tiempo")
+    assert f("5 minutos, luego finalizara la investigación", 1, c, ahora=5 * 60_000 + 1).startswith("Se cumplió el tiempo")
     assert f("2 horas", 1, c, ahora=7_199_000) is None and f("2 h", 1, c, ahora=7_200_000)
     assert f("1,5 horas", 1, c, ahora=5_400_000)
     assert f("100 llamadas", 1, c, ahora=1) is None and f("50 llamadas", 1, c, ahora=1)

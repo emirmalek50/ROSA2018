@@ -212,3 +212,55 @@ def test_el_index_no_se_guarda_en_cache_y_los_assets_si(cliente, monkeypatch):
     r = c.get("/assets/index-abc123.css")
     assert r.status_code == 200
     assert r.headers.get("cache-control") != "no-store"
+
+
+@pytest.mark.parametrize("mision", [{"celulaTejido": "Astrocitos"}, {"capacidadesLaboratorio": ["Simoa"]}, {}])
+def test_nueva_investigacion_atomica_persistida_y_reintentable(cliente, mision):
+    c, al = cliente
+    datos = {"titulo": "Investigación nueva", "objetivo": "Evaluar GFAP", "condicionParada": "3 iterations or 72 hours", "revisores": ["Emir Malek"], "mision": mision}
+    peticion = {"datos": datos, "id_": "inv-nueva", "quien": "Nombre enviado"}
+    def crear(p):
+        return c.post("/api/acciones/crearInvestigacionEIniciar", json=p, headers={"X-Rosa": "1"})
+    r = crear(peticion)
+    assert r.status_code == 200 and r.json()["ok"]
+    ids = r.json()["resultado"]
+    assert ids["investigacionId"] == "inv-nueva" and ids["estado"] == "esperando_plan"
+    inv = al.instantanea()["investigaciones"][0]
+    cor = al.instantanea()["corridas"][0]
+    assert inv["revisores"] == ["Emir Malek"] and inv["condicionParada"] == datos["condicionParada"]
+    assert cor["id"] == ids["corridaId"] and cor["investigacionId"] == inv["id"]
+    assert cor["estado"] == "esperando_plan" and not any(it["planAprobado"] for it in al.instantanea()["iteraciones"] if it["corridaId"] == cor["id"])
+    assert inv["mision"]["aprobadaPor"] == "test@alzheimerproject.com" if mision else inv["mision"] is None
+    # La huella de reintento es privada y sobrevive a cargar la base de nuevo.
+    assert "_peticionCreacion" not in c.get("/api/estado").json()["investigaciones"][0]
+    recargado = Almacen(al.ruta, solo_lectura=True)
+    assert recargado.estado["investigaciones"][0]["_peticionCreacion"]["quien"] == "test@alzheimerproject.com"
+    assert recargado.instantanea()["corridas"][0]["id"] == ids["corridaId"]
+    recargado.cerrar()
+    assert crear(peticion).json()["resultado"] == ids
+    assert len(al.instantanea()["investigaciones"]) == len(al.instantanea()["corridas"]) == 1
+    # Reutilizar el ID con otros campos o con otra persona no sobrescribe nada.
+    assert crear({**peticion, "datos": {**datos, "titulo": "Otro título"}}).json()["ok"] is False
+    assert al.aplicar("crearInvestigacionEIniciar", peticion, actor="otra@alzheimerproject.com") is False
+    assert al.instantanea()["investigaciones"][0]["titulo"] == datos["titulo"]
+
+
+def test_nueva_investigacion_no_crea_si_la_partida_desaparecio_o_faltan_campos(cliente):
+    c, al = cliente
+    datos = {"titulo": "T", "objetivo": "O", "condicionParada": "1 iteration"}
+    for cambios in ({"heredarModeloDe": "inexistente"}, {"titulo": " "}, {"objetivo": ""}, {"condicionParada": ""}):
+        v = al.version
+        r = c.post("/api/acciones/crearInvestigacionEIniciar", json={"datos": {**datos, **cambios}, "id_": "inv-fallida"}, headers={"X-Rosa": "1"})
+        assert r.status_code == 200 and r.json()["ok"] is False
+        assert al.version == v and not al.instantanea()["investigaciones"] and not al.instantanea()["corridas"]
+
+
+def test_creacion_atomica_deshace_la_investigacion_si_falla_el_arranque(cliente, monkeypatch):
+    from rosa.estado import acciones as A
+    c, al = cliente
+    monkeypatch.setattr(A, 'iniciar_corrida', lambda *args, **kwargs: False)
+    v = al.version
+    r = c.post('/api/acciones/crearInvestigacionEIniciar', json={'datos': {'titulo': 'T', 'objetivo': 'O', 'condicionParada': '1 iteration'}, 'id_': 'inv-sin-corrida'}, headers={'X-Rosa': '1'})
+    assert r.status_code == 400
+    assert al.version == v
+    assert not al.instantanea()['investigaciones'] and not al.instantanea()['corridas']

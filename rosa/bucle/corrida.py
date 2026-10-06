@@ -4873,7 +4873,7 @@ def _condicion_de_parada(texto: str, numero: int, c: dict[str, Any], ahora: int 
 def _parada_por_texto(texto: str, numero: int, c: dict[str, Any], ahora: int, mision: dict[str, Any] | None = None, omitir: frozenset[str] = frozenset()) -> str | None:
     """`omitir`: ejes ("tiempo", "iteraciones", "llamadas") que la corrida ya fijó por
     su cuenta y que el texto de la investigación no debe volver a aplicar."""
-    t = texto.lower()
+    partes = PARADA.partes_automatizadas(texto)
     if mision and mision.get("presupuesto"):
         pres = mision["presupuesto"]
         usd = c["gasto"].get("usd", 0.0)
@@ -4882,20 +4882,18 @@ def _parada_por_texto(texto: str, numero: int, c: dict[str, Any], ahora: int, mi
         horas = tiempo_trabajo_ms(c, ahora) / 3_600_000
         if pres.get("horas") and horas >= pres["horas"]:
             return f"Se alcanzó el presupuesto de la misión en tiempo ({horas:.1f} de {pres['horas']:.0f} horas)"
-    m = re.search(r"(\d+)\s*iteraci", t)
-    if m and "iteraciones" not in omitir and numero >= int(m.group(1)):
-        return f"Se alcanzaron las {m.group(1)} iteraciones de la condición de parada"
-    m = re.search(r"(\d+(?:[.,]\d+)?)\s*(min\b|minuto|hora|h\b|dia|día)", t)
-    if m and "tiempo" not in omitir:
-        n = float(m.group(1).replace(",", "."))
-        unidad = m.group(2)
-        segundos = n * (60 if unidad.startswith("min") else 3600 if unidad in ("hora", "h") or unidad.startswith("hora") else 86400)
-        transcurrido = tiempo_trabajo_ms(c, ahora) / 1000
-        if transcurrido >= segundos:
-            return f"Se cumplio el tiempo de la condición de parada ({m.group(1)} {unidad.rstrip('.')}{'' if unidad.endswith('s') or unidad in ('h', 'min') else 's'})"
-    m = re.search(r"(\d+)\s*llamadas", t)
-    if m and "llamadas" not in omitir and c["gasto"]["llamadas"] >= int(m.group(1)):
-        return f"Se alcanzaron las {m.group(1)} llamadas de la condición de parada"
+    n_iteraciones = partes["iteraciones"]
+    if n_iteraciones is not None and "iteraciones" not in omitir and numero >= n_iteraciones:
+        return f"Se alcanzaron las {n_iteraciones} iteraciones de la condición de parada"
+    if partes["tiempo"] and "tiempo" not in omitir:
+        cantidad, unidad = partes["tiempo"].split()
+        segundos = float(cantidad.replace(",", ".")) * {"min": 60, "h": 3600, "d": 86400}[unidad]
+        if tiempo_trabajo_ms(c, ahora) / 1000 >= segundos:
+            duracion = PARADA.resumen_parada({"horas": segundos / 3600})
+            return f"Se cumplió el tiempo de la condición de parada ({duracion})"
+    n_llamadas = partes["llamadas"]
+    if n_llamadas is not None and "llamadas" not in omitir and c["gasto"]["llamadas"] >= n_llamadas:
+        return f"Se alcanzaron las {n_llamadas} llamadas de la condición de parada"
     return None
 
 

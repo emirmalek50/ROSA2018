@@ -99,4 +99,14 @@ export const NUEVA: Record<string, string> = {
   'Sin condición de parada la corrida no sabe cuándo terminar y gasta hasta el tope.': 'Without a stop condition the run does not know when to finish and spends up to the cap.',
   'Faltan el título, el objetivo o la condición de parada. Sin condición de parada la corrida no sabe cuándo terminar.':
     'The title, the objective or the stop condition is missing. Without a stop condition the run does not know when to finish.',
+  "La investigación de partida ya no existe. Elige otra o empieza con el modelo en blanco.": "The starting investigation no longer exists. Choose another or start with an empty world model.",
+  "ROSA2018 rechazó la creación. Revisa los campos y la investigación de partida; el formulario se conserva.": "ROSA2018 rejected the creation. Check the fields and the starting investigation; your form is preserved.",
+  "No pude confirmar que se guardara. El formulario se conserva: reintenta sin cambiarlo para recuperar la misma investigación.": "I could not confirm it was saved. Your form is preserved: retry without changing it to recover the same investigation.",
+  "Guardando investigación…": "Saving investigation…",
+  "Si escribes algún campo, la misión queda aprobada por ti; los campos vacíos quedan sin especificar. Si la dejas totalmente vacía, ROSA2018 la propone con el primer plan.": "If you fill in any field, the mission is approved by you; empty fields remain unspecified. If you leave it entirely empty, ROSA2018 proposes it with the first plan.",
+  "Sugerencia calculada con reglas locales a partir del objetivo. Se guarda para orientar la generación, la revisión y los debates del torneo.": "Suggestion calculated using local rules from the objective. It is saved to guide generation, review and tournament debates.",
+  "Estos ejemplos usan plantillas locales; no son planes generados por la IA. ROSA2018 propondrá el plan real después de crear la investigación.": "These examples use local templates; they are not AI-generated plans. ROSA2018 will propose the actual plan after the investigation is created.",
+  "{v} iteraciones": "{v} iterations",
+  "{v} llamadas": "{v} calls",
+  'partida no disponible': 'starting investigation unavailable',
 };

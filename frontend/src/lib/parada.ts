@@ -9,18 +9,18 @@ export function partesAutomatizadas(texto: string): CondicionAutomatizada {
   const t = (texto ?? '').toLowerCase();
   const salida: CondicionAutomatizada = { iteraciones: null, tiempo: null, llamadas: null, resto: '', automatizada: false };
   let resto = t;
-  let m = /(\d+)\s*iteraci\w*/.exec(t);
+  let m = /(?<![\d.,+\-])\b(\d+)\s*(?:iteraci[oó]n(?:es)?|iterations?)\b/.exec(t);
   if (m) {
     salida.iteraciones = Number(m[1]);
     resto = resto.replace(m[0], ' ');
   }
-  m = /(\d+(?:[.,]\d+)?)\s*(min\b|minutos?|horas?|h\b|dias?|días?)/.exec(t);
+  m = /(?<![\d.,+\-])\b(\d+(?:[.,]\d+)?)\s*(min|minutes?|minutos?|hours?|horas?|h|d[ií]as?|days?)\b/.exec(t);
   if (m) {
     const u = m[2]!;
-    salida.tiempo = `${m[1]} ${u.startsWith('min') ? 'min' : u === 'h' || u.startsWith('hora') ? 'h' : 'd'}`;
+    salida.tiempo = `${m[1]} ${u.startsWith('min') ? 'min' : u === 'h' || u.startsWith('hor') || u.startsWith('hour') ? 'h' : 'd'}`;
     resto = resto.replace(m[0], ' ');
   }
-  m = /(\d+)\s*llamadas?/.exec(t);
+  m = /(?<![\d.,+\-])\b(\d+)\s*(?:llamadas?|calls?)\b/.exec(t);
   if (m) {
     salida.llamadas = Number(m[1]);
     resto = resto.replace(m[0], ' ');
@@ -28,7 +28,7 @@ export function partesAutomatizadas(texto: string): CondicionAutomatizada {
   // El resto se conserva tal como lo escribio la persona: solo se limpian los
   // conectores sueltos de los bordes y los espacios dobles.
   resto = resto.replace(/\s+/g, ' ').replace(/^[\s,;.]+|[\s,;.]+$/g, '');
-  resto = resto.replace(/^(o|y|u|e|,|;)\s+/, '').replace(/\s+(o|y|u|e)$/, '').replace(/^[\s,;.]+|[\s,;.]+$/g, '');
+  resto = resto.replace(/^(o|y|u|e|or|and|,|;)\s+/, '').replace(/\s+(o|y|u|e|or|and)$/, '').replace(/^[\s,;.]+|[\s,;.]+$/g, '');
   salida.resto = resto.length >= 4 ? resto : '';
   salida.automatizada = salida.iteraciones !== null || salida.tiempo !== null || salida.llamadas !== null;
   return salida;
@@ -36,11 +36,11 @@ export function partesAutomatizadas(texto: string): CondicionAutomatizada {
 
 export function textoAutomatizacion(p: CondicionAutomatizada): string {
   const medibles: string[] = [];
-  if (p.iteraciones !== null) medibles.push(`${p.iteraciones} iteraciones`);
+  if (p.iteraciones !== null) medibles.push(trp('{v} iteraciones', { v: p.iteraciones }));
   if (p.tiempo) medibles.push(trp("{tiempo} de corrida", { tiempo: p.tiempo }));
-  if (p.llamadas !== null) medibles.push(`${p.llamadas} llamadas`);
+  if (p.llamadas !== null) medibles.push(trp('{v} llamadas', { v: p.llamadas }));
   if (medibles.length === 0) return tr('ROSA2018 no puede medir esta condición: la corrida sigue hasta que la detengas o hasta agotar el presupuesto de la misión.');
-  let frase = trp("ROSA2018 para sola al llegar a {v} (y al agotar el presupuesto de la misión)", { v: medibles.join(' o ') });
+  let frase = trp("ROSA2018 para sola al llegar a {v} (y al agotar el presupuesto de la misión)", { v: medibles.join(tr(' o ')) });
   if (p.resto) frase += trp(". El resto (\"{v}\") lo decides tú con el botón de detener", { v: p.resto.slice(0, 80) });
   return `${frase}.`;
 }

@@ -608,6 +608,7 @@ function enviar(nombre: string, args: Record<string, unknown>): Promise<void> {
  *  contestó a tiempo, falló o rechazó: "no pude comprobar", que nunca es
  *  "no hay". `null` queda para el modo muestra (sin servidor). */
 export type SinRespuesta = 'sin_respuesta';
+export type ResultadoCreacion = { estado: 'creada'; investigacionId: string; corridaId: string } | { estado: 'rechazada' | 'sin_respuesta' };
 
 /** Como `enviar`, pero devuelve si el servidor aplicó la acción (ok), la
  *  rechazó (false) o no se pudo saber (null). `keepalive` deja que el
@@ -886,29 +887,29 @@ export const acciones = {
     aplicar((e) => A.recomprobarRetracciones(e, investigacionId, Date.now()));
     enviar('recomprobarRetracciones', { investigacion_id: investigacionId });
   },
-  crearInvestigacion: (datos: A.DatosInvestigacion): string | null => {
-    let id: string | null = null;
-    const conQuien = { ...datos, quien: QUIEN };
-    aplicar((e) => {
-      const r = A.crearInvestigacion(e, conQuien, Date.now());
-      id = r.id;
-      return r.estado;
-    });
-    if (id !== null) {
-      // Con servidor, la primera corrida arranca sola: ROSA2018 propone el plan y
-      // lo deja esperando aprobacion. Se encadena tras la respuesta de crear:
-      // dos peticiones sueltas pueden llegar al servidor en orden cambiado.
-      const invId = id;
-      void enviarYComprobar('crearInvestigacion', { datos: conQuien, id_: invId }).then((ok) => {
-        if (ok === false) {
-          fijarAviso(tr('El servidor no creó la investigación. Se recargó el estado.'));
-          void resincronizar();
-          return;
-        }
-        enviar('iniciarCorrida', { investigacion_id: invId });
+  crearInvestigacion: async (datos: A.DatosInvestigacion, solicitudId: string): Promise<ResultadoCreacion> => {
+    if (!datos.titulo.trim() || !datos.objetivo.trim() || !datos.condicionParada.trim()) return { estado: 'rechazada' };
+    if (modo !== 'servidor') return { estado: 'sin_respuesta' };
+    try {
+      // Crear y arrancar se guardan en una sola transacción. No se pinta una
+      // investigación optimista ni se arranca si el guardado es incierto.
+      const r = await fetch(`${API}/acciones/crearInvestigacionEIniciar`, {
+        method: 'POST', headers: cabeceras(),
+        body: JSON.stringify({ datos, quien: QUIEN, id_: solicitudId }), ...senalDeTope(),
       });
+      if (r.status >= 400 && r.status < 500) return { estado: 'rechazada' };
+      if (!r.ok) return { estado: 'sin_respuesta' };
+      const cuerpo = await r.json() as { ok?: boolean; resultado?: { investigacionId?: string; corridaId?: string } };
+      if (cuerpo.ok === false) return { estado: 'rechazada' };
+      const creado = cuerpo.resultado;
+      if (cuerpo.ok !== true || creado?.investigacionId !== solicitudId || typeof creado.corridaId !== 'string') return { estado: 'sin_respuesta' };
+      await resincronizar();
+      // La ruta se abre cuando el estado canónico ya tiene ambos objetos.
+      if (!vivo.estado.investigaciones.some((i) => i.id === creado.investigacionId) || !vivo.estado.corridas.some((c) => c.id === creado.corridaId && c.investigacionId === creado.investigacionId)) return { estado: 'sin_respuesta' };
+      return { estado: 'creada', investigacionId: creado.investigacionId, corridaId: creado.corridaId };
+    } catch {
+      return { estado: 'sin_respuesta' };
     }
-    return id;
   },
   bifurcarInvestigacion: (investigacionId: string, motivo: string): string | null => {
     let id: string | null = null;

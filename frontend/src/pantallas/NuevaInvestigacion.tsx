@@ -12,8 +12,10 @@
 // regla que el servidor. Los límites se guardan uno por línea y los
 // revisores separados por coma, como antes.
 
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { acciones } from '../datos/almacen';
+import { fundirHechosRepetidos, nuevoId, type DatosInvestigacion } from '../datos/acciones';
+import { AvisoMuestra } from '../componentes/piezas';
 import type { EstadoRosa } from '../datos/tipos';
 import { IconoEsc, type NombreIcono } from '../componentes/IconosEscenario';
 import { IconAlert } from '../componentes/icons';
@@ -39,17 +41,11 @@ const REVISION: [TipoAviso, string][] = [
 const VISIBLES_PARTIDA = 5;
 
 function separarRevisores(texto: string): string[] {
-  return texto
-    .split(/[\n,]/)
-    .map((r) => r.trim())
-    .filter((r) => r !== '');
+  return [...new Set(texto.split(/[\n,]/).map((r) => r.trim()).filter(Boolean))];
 }
 
 function lineas(texto: string): string[] {
-  return texto
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l !== '');
+  return [...new Set(texto.split('\n').map((l) => l.trim()).filter(Boolean))];
 }
 
 function Estado({ tono, children }: { tono: Tono; children: string }) {
@@ -97,6 +93,12 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
   const [verMision, setVerMision] = useState(false);
   const [mision, setMision] = useState({ poblacion: '', etapa: '', celulaTejido: '', mecanismo: '', tipoIntervencion: '', capacidades: '' });
   const [editandoConfig, setEditandoConfig] = useState(false);
+  const [creando, setCreando] = useState(false);
+  const enVuelo = useRef(false);
+  const montada = useRef(true);
+  const solicitud = useRef<{ borrador: string; id: string } | null>(null);
+  useEffect(() => { montada.current = true; return () => { montada.current = false; }; }, []);
+  const hayMision = verMision && Object.values(mision).some((v) => v.trim() !== '');
   const limitesRef = useRef<HTMLDivElement>(null);
 
   const avisos = useMemo(() => avisosDelObjetivo(objetivo, parada), [objetivo, parada, idioma]);
@@ -113,6 +115,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
   const fallan = new Set(avisosObjetivo.map((a) => a.tipo));
   const partes = useMemo(() => partesAutomatizadas(parada), [parada]);
   const listaRevisores = separarRevisores(revisores);
+  const revisoresEfectivos = separarRevisores(`${revisores},${borradorRevisor}`);
   const listaLimites = limites === '' ? [] : limites.split('\n');
 
   const necesarios: [string, boolean][] = [
@@ -130,13 +133,14 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
   // Las investigaciones de las que se puede partir, de la que más sabe a la
   // que menos: los nodos son los hechos del modelo de mundo que se copian.
   const partidas = useMemo(
-    () => estado.investigaciones.map((i) => ({ id: i.id, titulo: i.titulo, nodos: estado.hechos.filter((h) => h.investigacionId === i.id).length })).sort((a, b) => b.nodos - a.nodos),
+    () => estado.investigaciones.map((i) => ({ id: i.id, titulo: i.titulo, nodos: fundirHechosRepetidos(estado.hechos.filter((h) => h.investigacionId === i.id), 0).hechos.length })).sort((a, b) => b.nodos - a.nodos),
     [estado.investigaciones, estado.hechos],
   );
   const indiceElegida = partidas.findIndex((p) => p.id === heredar);
   const partidasVisibles = verTodas || indiceElegida >= VISIBLES_PARTIDA ? partidas : partidas.slice(0, VISIBLES_PARTIDA);
   const restantes = partidas.length - VISIBLES_PARTIDA;
   const elegida = indiceElegida >= 0 ? partidas[indiceElegida] : undefined;
+  const mostrarPartida = partidas.length > 0 || heredar !== '';
 
   const fijarLimites = (nuevas: string[]) => setLimites(nuevas.join('\n'));
   const anadirLimite = (despuesDe?: number) => {
@@ -150,7 +154,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
   const sumarRevisor = () => {
     const nuevos = separarRevisores(borradorRevisor);
     if (nuevos.length === 0) return;
-    setRevisores([...listaRevisores, ...nuevos].join(', '));
+    setRevisores(separarRevisores([...listaRevisores, ...nuevos].join(', ')).join(', '));
     setBorradorRevisor('');
   };
   const teclaRevisor = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -162,23 +166,40 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
     }
   };
 
-  const crear = () => {
-    const id = acciones.crearInvestigacion({
-      titulo,
-      objetivo,
-      relevancia,
-      limites: limites.split('\n'),
-      condicionParada: parada,
-      revisores: [...listaRevisores, ...separarRevisores(borradorRevisor)],
-      configuracion: { preferencias: configEfectiva.preferencias, atributos: configEfectiva.atributos.split('\n'), restricciones: configEfectiva.restricciones.split('\n') },
-      heredarModeloDe: heredar || null,
-      mision: verMision ? { poblacion: mision.poblacion, etapa: mision.etapa, celulaTejido: mision.celulaTejido, mecanismo: mision.mecanismo, tipoIntervencion: mision.tipoIntervencion, capacidadesLaboratorio: mision.capacidades.split('\n') } : undefined,
-    });
-    if (id === null) {
+  const crear = async () => {
+    if (enVuelo.current) return;
+    if (!hayTitulo || !hayObjetivo || !hayParada) {
       setError(tr('Faltan el título, el objetivo o la condición de parada. Sin condición de parada la corrida no sabe cuándo terminar.'));
       return;
     }
-    irA(rutaDe(id, 'corrida'));
+    if (heredar && !elegida) {
+      setError(tr('La investigación de partida ya no existe. Elige otra o empieza con el modelo en blanco.'));
+      return;
+    }
+    const datos: DatosInvestigacion = {
+      titulo: titulo.trim(), objetivo: objetivo.trim(), relevancia: relevancia.trim(),
+      limites: lineas(limites), condicionParada: parada.trim(), revisores: revisoresEfectivos,
+      configuracion: { preferencias: configEfectiva.preferencias.trim(), atributos: lineas(configEfectiva.atributos), restricciones: lineas(configEfectiva.restricciones) },
+      heredarModeloDe: heredar || null,
+      mision: hayMision ? { poblacion: mision.poblacion.trim(), etapa: mision.etapa.trim(), celulaTejido: mision.celulaTejido.trim(), mecanismo: mision.mecanismo.trim(), tipoIntervencion: mision.tipoIntervencion.trim(), capacidadesLaboratorio: lineas(mision.capacidades) } : undefined,
+    };
+    const borrador = JSON.stringify(datos);
+    // El mismo borrador conserva su ID al reintentar tras perder la respuesta.
+    if (solicitud.current?.borrador !== borrador) solicitud.current = { borrador, id: globalThis.crypto?.randomUUID ? `inv-${globalThis.crypto.randomUUID()}` : nuevoId('inv') };
+    enVuelo.current = true;
+    setCreando(true);
+    setError(null);
+    try {
+      const resultado = await acciones.crearInvestigacion(datos, solicitud.current.id);
+      if (!montada.current) return;
+      if (resultado.estado === 'creada') irA(rutaDe(resultado.investigacionId, 'corrida'));
+      else setError(resultado.estado === 'rechazada'
+        ? tr('ROSA2018 rechazó la creación. Revisa los campos y la investigación de partida; el formulario se conserva.')
+        : tr('No pude confirmar que se guardara. El formulario se conserva: reintenta sin cambiarlo para recuperar la misma investigación.'));
+    } finally {
+      enVuelo.current = false;
+      if (montada.current) setCreando(false);
+    }
   };
 
   const estadoPaso1 =
@@ -207,13 +228,13 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
     {
       icono: 'users',
       clave: tr('Revisan'),
-      valor: listaRevisores.length === 0 ? tr('nadie todavía') : plural(listaRevisores.length, tr('persona'), tr('personas')),
+      valor: revisoresEfectivos.length === 0 ? tr('nadie todavía') : plural(revisoresEfectivos.length, tr('persona'), tr('personas')),
       tono: 'neutro',
     },
     {
       icono: 'share-2',
       clave: tr('Modelo de mundo'),
-      valor: elegida ? plural(elegida.nodos, tr('nodo heredado'), tr('nodos heredados')) : tr('en blanco'),
+      valor: elegida ? plural(elegida.nodos, tr('nodo heredado'), tr('nodos heredados')) : heredar ? tr('partida no disponible') : tr('en blanco'),
       tono: 'neutro',
     },
   ];
@@ -230,11 +251,14 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
   return (
     <form
       className="contenido ni-pagina"
+      aria-busy={creando}
       onSubmit={(e) => {
         e.preventDefault();
-        crear();
+        void crear();
       }}
     >
+      <AvisoMuestra conexion={estado.conexion} />
+      <fieldset disabled={creando} style={{ display: 'contents' }}>
       <section className="ni-banco" aria-labelledby="ni-titular">
         <div className="ni-etiquetas">
           <span className="ni-pill">
@@ -432,7 +456,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
             </div>
           </Paso>
 
-          {partidas.length > 0 && (
+          {mostrarPartida && (
             <Paso
               n={4}
               titulo={tr('Punto de partida')}
@@ -472,13 +496,13 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
           )}
 
           <Paso
-            n={partidas.length > 0 ? 5 : 4}
+            n={mostrarPartida ? 5 : 4}
             titulo={tr('Misión')}
             sub={tr('Población, etapa, célula o tejido, mecanismo, intervención y capacidades del laboratorio.')}
-            estado={verMision ? <Estado tono="ok">{tr('escrita por ti')}</Estado> : <Estado tono="neutro">{tr('opcional')}</Estado>}
+            estado={hayMision ? <Estado tono="ok">{tr('escrita por ti')}</Estado> : <Estado tono="neutro">{tr('opcional')}</Estado>}
           >
             <div className="ni-mision">
-              <p>{verMision ? tr('Queda aprobada por ti al crear la investigación. Lo que dejes vacío lo propone ROSA2018 con el primer plan.') : tr('ROSA2018 propone el marco y las áreas por donde empezar, y tú lo apruebas con el primer plan. Si ya lo tienes claro, escríbelo aquí y queda aprobado por ti.')}</p>
+              <p>{verMision ? tr('Si escribes algún campo, la misión queda aprobada por ti; los campos vacíos quedan sin especificar. Si la dejas totalmente vacía, ROSA2018 la propone con el primer plan.') : tr('ROSA2018 propone el marco y las áreas por donde empezar, y tú lo apruebas con el primer plan. Si ya lo tienes claro, escríbelo aquí y queda aprobado por ti.')}</p>
               <button type="button" className="ni-boton" aria-expanded={verMision} onClick={() => setVerMision((v) => !v)}>
                 <IconoEsc nombre={verMision ? 'rotate-ccw' : 'pencil'} size={14} />
                 {verMision ? tr('Dejar que ROSA2018 la proponga') : tr('Escribirla yo')}
@@ -535,13 +559,13 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
                 <span>{error}</span>
               </p>
             )}
-            <button type="submit" className="ni-primario">
+            <button type="submit" className="ni-primario" disabled={creando}>
               <IconoEsc nombre="sparkles" size={15} />
-              {tr('Crear investigación')}
+              {creando ? tr('Guardando investigación…') : tr('Crear investigación')}
             </button>
             <div className="ni-crear-pie">
               <span>{tr('después se abre la corrida')}</span>
-              <a href="#/">{tr('Cancelar')}</a>
+              <a href="#/" aria-disabled={creando} onClick={(e) => { if (creando) e.preventDefault(); }}>{tr('Cancelar')}</a>
             </div>
           </section>
 
@@ -556,7 +580,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
                 {editandoConfig ? tr('Listo') : tr('Editar')}
               </button>
             </div>
-            <p className="ni-nota">{tr('Propuesta a partir del objetivo. Alimenta la generación, la revisión y los debates del torneo.')}</p>
+            <p className="ni-nota">{tr('Sugerencia calculada con reglas locales a partir del objetivo. Se guarda para orientar la generación, la revisión y los debates del torneo.')}</p>
             {editandoConfig ? (
               <div className="ni-config-edicion">
                 <div className="ni-campo">
@@ -617,7 +641,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
           <div className="ni-encabezado">
             <p className="ni-kicker">{tr('Sensibilidad al fraseo')}</p>
             <h3 id="ni-fraseo-titulo">{tr('Tres redacciones, tres formas de empezar')}</h3>
-            <p className="ni-nota">{tr('Las direcciones cambian con la redacción del objetivo. Antes de gastar, mira qué primeras tareas propondría ROSA2018 con cada una.')}</p>
+            <p className="ni-nota">{tr('Estos ejemplos usan plantillas locales; no son planes generados por la IA. ROSA2018 propondrá el plan real después de crear la investigación.')}</p>
           </div>
           <button type="button" className="ni-boton" disabled={!hayObjetivo} aria-expanded={verParafrasis} onClick={() => setVerParafrasis((v) => !v)}>
             <IconoEsc nombre={verParafrasis ? 'eye-off' : 'sparkles'} size={14} />
@@ -654,6 +678,7 @@ export function NuevaInvestigacion({ estado, irA }: { estado: EstadoRosa; irA: (
           </div>
         )}
       </section>
+      </fieldset>
     </form>
   );
 }

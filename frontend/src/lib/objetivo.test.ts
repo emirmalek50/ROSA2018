@@ -74,3 +74,12 @@ describe('paradaMedible', () => {
     expect(avisosDelObjetivo('x', '3 iteraciones').map((a) => a.tipo)).not.toContain('parada_no_medible');
   });
 });
+
+
+it('reconoce el dominio, la comprobación y la parada en inglés y con tildes', () => {
+  for (const objetivo of ['Evaluate a protein mechanism in a longitudinal cohort using a plasma biomarker to measure progression in Alzheimer patients.', 'Investigar la progresión de una proteína y su hipótesis con un biomarcador medible en una cohorte longitudinal.']) {
+    expect(avisosDelObjetivo(objetivo, '3 iterations or 72 hours')).toEqual([]);
+    expect(proponerConfiguracion(objetivo, '', []).atributos).toContain('Comprobable en una cohorte longitudinal');
+  }
+  expect(proponerConfiguracion('Únicamente literatura publicada, excluding patient data.', '', []).restricciones).toEqual(['Únicamente literatura publicada', 'Excluding patient data']);
+});
