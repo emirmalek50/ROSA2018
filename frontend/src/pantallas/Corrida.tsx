@@ -34,6 +34,7 @@ import { atributosEnVuelo, useCalculoDiferido, useEnVuelo } from '../lib/diferid
 import { BORRADOR_VACIO, NIVELES_OBJETIVO, borradorDe, normalizarParada, resumenParada, type ParadaBorrador } from '../lib/parada';
 import { GraficaProgreso } from '../componentes/GraficaProgreso';
 import { Escenario } from '../componentes/Escenario';
+import { LaboratorioVivo } from '../componentes/LaboratorioVivo';
 import { IconoEsc } from '../componentes/IconosEscenario';
 import { RecorridoIteracion } from '../componentes/RecorridoIteracion';
 import { BusquedasDeLaIteracion, DirigirLaCorrida, LaCorridaEnElTiempo, LoQueLlevaGastado, MasDeEstaCorrida, ValorContexto, type FilaGasto, type TarjetaMas } from '../componentes/PanelesCorrida';
@@ -42,7 +43,7 @@ import '../escenario.css';
 import { resumenMetrica } from '../lib/progreso';
 import { tr, trp } from '../lib/idioma';
 
-type PropsCorrida = { inv: Investigacion; estado: EstadoRosa; ahora: number; irA: (hash: string) => void };
+type PropsCorrida = { inv: Investigacion; estado: EstadoRosa; ahora: number; irA: (hash: string) => void; detalleId?: string | null };
 
 /** La pantalla de la corrida. Decide si hay corrida y monta un componente u
  *  otro: así los hooks de la corrida viva nunca son condicionales (una
@@ -94,7 +95,7 @@ export function EsqueletoCorrida({ corrida }: { corrida: CorridaTipo | null }) {
   );
 }
 
-export function Corrida({ inv, estado, ahora, irA }: PropsCorrida) {
+export function Corrida({ inv, estado, ahora, irA, detalleId = null }: PropsCorrida) {
   const corrida = estado.corridas.filter((c) => c.investigacionId === inv.id).sort((a, b) => b.numero - a.numero)[0] ?? null;
   // El estado global todavía no ha llegado: la silueta de la corrida en su
   // sitio, nunca una página vacía ni un salto de maqueta cuando llegue.
@@ -119,7 +120,7 @@ export function Corrida({ inv, estado, ahora, irA }: PropsCorrida) {
       </div>
     );
   }
-  return <CorridaViva key={corrida.id} inv={inv} estado={estado} ahora={ahora} irA={irA} corrida={corrida} />;
+  return <CorridaViva key={corrida.id} inv={inv} estado={estado} ahora={ahora} irA={irA} detalleId={detalleId} corrida={corrida} />;
 }
 
 /** El botón "Nueva corrida" con su parada: cuánto debe durar como mucho, en
@@ -204,7 +205,7 @@ function NuevaCorrida({ inv, anterior }: { inv: Investigacion; anterior: Corrida
   );
 }
 
-function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corrida: CorridaTipo }) {
+function CorridaViva({ inv, estado, ahora, irA, detalleId, corrida }: PropsCorrida & { corrida: CorridaTipo }) {
   const [panel, setPanel] = useState<string | null>(null);
   const [verBusqueda, setVerBusqueda] = useState(false);
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
@@ -256,6 +257,10 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
   const [prismaEnVuelo, envolverPrisma] = useEnVuelo();
 
   if (pintada === null) return <EsqueletoCorrida corrida={corrida} />;
+  // La misma corrida vista como laboratorio en pixel art: una subvista con su
+  // propia ruta (#/investigaciones/<id>/corrida/laboratorio) para que se pueda
+  // enlazar y el botón de atrás del navegador vuelva a la corrida.
+  if (detalleId === 'laboratorio') return <LaboratorioVivo estado={estado} inv={inv} corrida={corrida} iteracion={iteracion} onVolver={() => irA(rutaDe(inv.id, 'corrida'))} />;
 
   const usd = costeDeLaCorrida(corrida.gasto);
   const coste = textoCoste(corrida.gasto);
@@ -315,6 +320,9 @@ function CorridaViva({ inv, estado, ahora, irA, corrida }: PropsCorrida & { corr
         reclaman={pendientes.length + incidenciasPendientes.length}
         acciones={
           <>
+            <button type="button" className="esc-boton" onClick={() => irA(rutaDe(inv.id, 'corrida', 'laboratorio'))} title={tr('Los agentes de ROSA en sus salas, trabajando en esta iteración')}>
+              <IconoEsc nombre="users" size={14} /> {tr('Verlo como laboratorio')}
+            </button>
             {!viva && estado.conexion !== 'muestra' && <NuevaCorrida inv={inv} anterior={corrida.parada ?? null} />}
             {viva && corrida.estado === 'en_marcha' && (
               <button type="button" className="esc-boton" disabled={corridaEnVuelo} {...atributosEnVuelo(corridaEnVuelo)} onClick={envolverCorrida(() => acciones.pausarCorrida(corrida.id))}>

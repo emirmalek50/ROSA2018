@@ -73,8 +73,11 @@ class Pista:
     LOTE = 8
     ESPERA_S = 1.5
 
-    def linea(self, tipo: str, texto: str, consulta: dict[str, str] | None = None) -> None:
+    def linea(self, tipo: str, texto: str, consulta: dict[str, str] | None = None, *, agente: str | None = None, estado_agente: str | None = None) -> None:
         entrada: dict[str, Any] = {"t": self._ms(), "tipo": tipo, "texto": texto}
+        if agente:
+            entrada["agente"] = agente
+            entrada["estadoAgente"] = estado_agente
         if consulta:
             entrada["consulta"] = consulta
         buffer = self.__dict__.setdefault("_buffer", [])
@@ -111,6 +114,17 @@ class Pista:
 
     def error(self, texto: str) -> None:
         self.linea("error", texto)
+
+    def actividad(self, agente: str, texto: str, estado: str) -> None:
+        """Actividad atribuida a una función real, visible también en el laboratorio.
+
+        Se persiste antes de esperar una llamada larga para que SSE pueda mostrar
+        los miembros que están trabajando en paralelo, incluso sin resultados.
+        """
+        if estado not in {"en_curso", "terminado", "fallido"}:
+            raise ValueError("Estado de actividad no admitido")
+        self.linea("accion" if estado == "en_curso" else "error" if estado == "fallido" else "resultado", texto, agente=agente, estado_agente=estado)
+        self.volcar()
 
     def cerrar(self, resumen: str, estado: str = "hecha") -> None:
         self.volcar()

@@ -152,6 +152,10 @@ class CtxEquipo:
 class PistaFalsa:
     def __init__(self) -> None:
         self.notas: list[str] = []
+        self.actividades: list[tuple[str, str, str]] = []
+
+    def actividad(self, agente: str, texto: str, estado: str) -> None:
+        self.actividades.append((agente, texto, estado))
 
     def nota(self, texto: str) -> None:
         self.notas.append(texto)
@@ -250,3 +254,21 @@ def test_el_mandato_pide_proponer_y_no_filtrar_por_la_regla_de_las_dos_cohortes(
     regla después."""
     assert "PROPONER, no filtrar" in EQ.MANDATO and "irá al vivero" in EQ.MANDATO
     assert "no puedes hacer es inventar" in EQ.MANDATO and "cita afirmaciones sostenidas" in EQ.MANDATO
+
+
+def test_el_laboratorio_recibe_inicio_y_fin_de_cada_miembro():
+    _, pista = _correr(CtxEquipo(lambda _kw: SimpleNamespace(hipotesis=[], tareas=[])))
+    for enfoque in EQ.MIEMBROS:
+        estados = [estado for agente, _texto, estado in pista.actividades if agente == enfoque]
+        assert estados == ["en_curso", "terminado"] * EQ.RONDAS
+
+
+def test_el_laboratorio_no_deja_trabajando_al_miembro_que_fallo():
+    def responder(kw):
+        if kw["enfoque"].startswith("analogia:"):
+            raise RuntimeError("Modelo de prueba sin respuesta")
+        return SimpleNamespace(hipotesis=[], tareas=[])
+
+    _, pista = _correr(CtxEquipo(responder))
+    estados = [estado for agente, _texto, estado in pista.actividades if agente == "analogia"]
+    assert estados == ["en_curso", "fallido"] * EQ.RONDAS

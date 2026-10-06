@@ -374,3 +374,42 @@ describe('la nueva investigación se crea en el servidor', () => {
     expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/iniciarCorrida'))).toHaveLength(0);
   });
 });
+
+describe('decisiones verificadas del laboratorio', () => {
+  it.each([false, true])('aprobar el plan espera al servidor (ok=%s)', async (ok) => {
+    const iteracion = servidor.estado.iteraciones[0]!;
+    iteracion.planAprobado = false;
+    const { A, actual } = await montar();
+    let contestar: (r: Response) => void = () => undefined;
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (String(url).startsWith('/api/estado')) return Promise.resolve(responder(String(url)));
+      return new Promise<Response>((resolve) => { contestar = resolve; });
+    }));
+    const enVuelo = A.acciones.aprobarPlanVerificado(iteracion.id);
+    expect(actual().iteraciones.find((i) => i.id === iteracion.id)!.planAprobado).toBe(false);
+    if (ok) iteracion.planAprobado = true;
+    await act(async () => {
+      contestar(new Response(JSON.stringify({ ok }), { headers: { 'Content-Type': 'application/json' } }));
+      expect(await enVuelo).toBe(ok);
+      await esperar();
+    });
+    expect(actual().iteraciones.find((i) => i.id === iteracion.id)!.planAprobado).toBe(ok);
+  });
+
+  it('resolver un permiso rechazado no lo pinta como concedido', async () => {
+    const s = servidor.estado.solicitudes[0]!;
+    s.estado = 'pendiente'; s.alcanceConcedido = null;
+    const { A, actual } = await montar();
+    const post = vi.fn((url: string, opciones?: RequestInit) => {
+      if (String(url).startsWith('/api/estado')) return Promise.resolve(responder(String(url)));
+      expect(JSON.parse(String(opciones?.body))).toEqual({ solicitud_id: s.id, decision: 'conceder', alcance: 'una_vez', argumentos: null });
+      return Promise.resolve(new Response(JSON.stringify({ ok: false }), { headers: { 'Content-Type': 'application/json' } }));
+    });
+    vi.stubGlobal('fetch', post);
+    await act(async () => {
+      expect(await A.acciones.resolverSolicitudVerificada(s.id, 'conceder', 'una_vez')).toBe(false);
+      await esperar();
+    });
+    expect(actual().solicitudes.find((x) => x.id === s.id)!.estado).toBe('pendiente');
+  });
+});

@@ -834,6 +834,9 @@ export interface EntradaTranscripcion {
   tipo: 'accion' | 'resultado' | 'nota' | 'error';
   texto: string;
   consulta?: DetalleConsulta;
+  /** Función que emitió la actividad; ausente en el histórico sin atribución. */
+  agente?: string;
+  estadoAgente?: 'en_curso' | 'terminado' | 'fallido';
 }
 
 export interface Pista {

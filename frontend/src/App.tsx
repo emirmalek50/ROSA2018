@@ -261,7 +261,7 @@ export default function App() {
       titulo = TITULO_PANTALLA[ruta.pantalla];
       switch (ruta.pantalla) {
         case 'corrida':
-          pantalla = <Corrida key={inv.id} inv={inv} estado={estado} ahora={ahora} irA={irA} />;
+          pantalla = <Corrida key={inv.id} inv={inv} estado={estado} ahora={ahora} irA={irA} detalleId={ruta.detalleId} />;
           break;
         case 'hipotesis':
           pantalla = <Hipotesis inv={inv} estado={estado} ahora={ahora} detalleId={ruta.detalleId} cajonAbierto={cajonAbierto} setCajonAbierto={setCajonAbierto} />;

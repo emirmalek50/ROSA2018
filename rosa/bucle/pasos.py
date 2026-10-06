@@ -142,6 +142,21 @@ ESTADOS_QUE_PARAN_EL_PASO = ("detenida", "terminada", "pausada", "pausada_por_pr
 EXCEPCIONES_QUE_CORTAN_EL_PASO: tuple[type[BaseException], ...] = (PresupuestoAgotado, VIG.ModeloSinRespuesta, CorridaParada)
 
 
+async def _actividad_registrada(pista: Pista | None, agente: str, texto: str, trabajo: Awaitable[Any]) -> Any:
+    """Atribuye el inicio y el fin de una tarea sin cambiar su resultado ni sus errores."""
+    if pista:
+        pista.actividad(agente, texto, "en_curso")
+    try:
+        resultado = await trabajo
+    except BaseException:
+        if pista:
+            pista.actividad(agente, f"No se completó la tarea: {texto}", "fallido")
+        raise
+    if pista:
+        pista.actividad(agente, f"Terminó la tarea: {texto}", "terminado")
+    return resultado
+
+
 async def _en_paralelo(*coros: Awaitable[Any], return_exceptions: bool = False) -> list[Any]:
     """`asyncio.gather` que, si una tarea lanza, cancela a las hermanas antes de
     propagar. `gather` a secas propaga la primera excepción y deja a las demás
@@ -3332,7 +3347,7 @@ async def _killer(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: str, pista: P
     mundo_h = await T.modelo_de_mundo_para(ctx.almacen, ctx.investigacion_id, f"{h['titulo']}. {h['enunciado']}", maximo=40)
     juez_fallo: str | None = None
     try:
-        pred = await ctx.llamar(
+        pred = await _actividad_registrada(pista, "killer", f"El Killer revisa «{h['titulo']}»", ctx.llamar(
             "juez",
             ctx.programas.killer,
             objetivo=inv["objetivo"],
@@ -3346,7 +3361,7 @@ async def _killer(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: str, pista: P
             modelo_de_mundo=mundo_h + "\n\nOtras hipótesis vivas:\n" + T.hipotesis_existentes([x for x in e["hipotesis"] if x["id"] != h["id"]], ctx.investigacion_id),
             comprobaciones_deterministas="\n".join(f"- {c['comprobacion']}: {c['resultado']}. {c['detalle']}" for c in deterministas),
             criterios_revision="\n".join(e["criteriosRevision"]),
-        )
+        ))
         rev = pred.revision
         del_juez = [{"comprobacion": c.comprobacion, "resultado": c.resultado, "detalle": c.detalle} for c in rev.comprobaciones]
         alternativas_rev = alternativas_de_revision(getattr(rev, "alternativas", None))[:4]
@@ -3684,7 +3699,7 @@ async def _revisar_hipotesis(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: st
             pista.nota(f"Revisión inicial ya hecha para la versión {version} de «{h['titulo'][:50]}»: se reevalúan los supuestos con la evidencia acumulada y se vuelve a pasar el Killer")
     else:
         try:
-            pred = await ctx.llamar("juez", ctx.programas.revisar_inicial, objetivo=inv["objetivo"], hipotesis=T.hipotesis_texto(h), criterios_revision="\n".join(ctx.e["criteriosRevision"]))
+            pred = await _actividad_registrada(pista, "revision_inicial", f"Revisión inicial de «{h['titulo']}»", ctx.llamar("juez", ctx.programas.revisar_inicial, objetivo=inv["objetivo"], hipotesis=T.hipotesis_texto(h), criterios_revision="\n".join(ctx.e["criteriosRevision"])))
             rev = pred.revision
         except PresupuestoAgotado:
             raise
@@ -3724,7 +3739,8 @@ async def _revisar_hipotesis(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: st
                 # alcance (28 de septiembre de 2026, ver rosa/vigencia.py).
                 evaluados[i] = {**s, "estado": VIGENCIA.ESTADO_NO_EVALUADO, "evidencia": f"{VIGENCIA.NO_SE_PUDO}: el modelo no respondió ({type(ex).__name__})", "niegaAfirmaciones": [], "alcance": "no_evaluado", "tocaAfirmaciones": [], "dondeSeResponde": None, "cota": ""}
 
-    await _en_paralelo(*(evaluar(i, s) for i, s in enumerate(supuestos)))
+    if supuestos:
+        await _actividad_registrada(pista, "supuestos", f"Evaluando {len(supuestos)} supuestos de «{h['titulo']}»", _en_paralelo(*(evaluar(i, s) for i, s in enumerate(supuestos))))
     finales = [s for s in evaluados if s is not None]
     contradichos = [s for s in finales if s["estado"] == "contradicho"]
 
@@ -3939,8 +3955,8 @@ async def _torneo(ctx: Ctx, pista: Pista) -> int:
             # El orden de los partidos ENTRE SÍ no cambia, que es lo único que
             # afectaría al Elo, porque se aplica igual que antes.
             p1, p2 = await _en_paralelo(
-                ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(a, etiqueta="Candidata A"), hipotesis_b=hipotesis_para_torneo(b, etiqueta="Candidata B"), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(a)}\nSobre B: {T.revisiones_humanas(b)}"),
-                ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(b, etiqueta="Candidata A"), hipotesis_b=hipotesis_para_torneo(a, etiqueta="Candidata B"), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(b)}\nSobre B: {T.revisiones_humanas(a)}"),
+                _actividad_registrada(pista, "torneo_a", f"Comparando «{a['titulo']}» con «{b['titulo']}»", ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(a, etiqueta="Candidata A"), hipotesis_b=hipotesis_para_torneo(b, etiqueta="Candidata B"), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(a)}\nSobre B: {T.revisiones_humanas(b)}")),
+                _actividad_registrada(pista, "torneo_b", f"Comparando «{a['titulo']}» con «{b['titulo']}»", ctx.llamar("juez", ctx.programas.comparar, objetivo=inv["objetivo"], hipotesis_a=hipotesis_para_torneo(b, etiqueta="Candidata A"), hipotesis_b=hipotesis_para_torneo(a, etiqueta="Candidata B"), evidencia=evidencia, revisiones_humanas=f"Sobre A: {T.revisiones_humanas(b)}\nSobre B: {T.revisiones_humanas(a)}")),
             )
         except PresupuestoAgotado:
             raise
@@ -4059,13 +4075,20 @@ async def _equipo_de_hipotesis(ctx: Ctx, paso: dict[str, Any], pista: Pista, inv
         texto_del_tablon = EQ.texto_tablon(tablon)
 
         async def miembro(enfoque: str, ronda: int = ronda, texto_del_tablon: str = texto_del_tablon) -> tuple[str, Any]:
+            nombre = {"analogia": "Analogía", "contradiccion": "Contradicción", "mecanismo_opuesto": "Mecanismo opuesto", "otra_escala": "Otra escala"}.get(enfoque, enfoque.replace("_", " "))
+            pista.actividad(enfoque, f"El miembro «{nombre}» genera propuestas en la ronda {ronda}", "en_curso")
             try:
-                return enfoque, await ctx.llamar("cerebro", ctx.programas.hipotesis, **base, afirmaciones_sostenidas=evidencia_de[enfoque], enfoque=f"{enfoque}: {EQ.ENFOQUES[enfoque]}\n\n{EQ.MANDATO}", tablon=texto_del_tablon, nicho=texto_nicho[enfoque])
+                pred = await ctx.llamar("cerebro", ctx.programas.hipotesis, **base, afirmaciones_sostenidas=evidencia_de[enfoque], enfoque=f"{enfoque}: {EQ.ENFOQUES[enfoque]}\n\n{EQ.MANDATO}", tablon=texto_del_tablon, nicho=texto_nicho[enfoque])
+                pista.actividad(enfoque, f"El miembro «{nombre}» terminó la ronda {ronda}", "terminado")
+                return enfoque, pred
             except VIG.ModeloSinRespuesta:
+                pista.actividad(enfoque, f"El miembro «{nombre}» espera al modelo en la ronda {ronda}", "fallido")
                 raise
             except EXCEPCIONES_QUE_CORTAN_EL_PASO:
+                pista.actividad(enfoque, f"El miembro «{nombre}» interrumpió la ronda {ronda}", "fallido")
                 raise  # presupuesto agotado o corrida parada
             except Exception as ex:  # noqa: BLE001  un miembro que falla no tumba al equipo
+                pista.actividad(enfoque, f"El miembro «{nombre}» no respondió en la ronda {ronda}: {str(ex)[:100]}", "fallido")
                 return enfoque, ex
 
         resultados = await _en_paralelo(*(miembro(x) for x in EQ.MIEMBROS))

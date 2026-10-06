@@ -191,6 +191,8 @@ export const CAMPOS_DE_DATOS: ReadonlySet<string> = new Set([
   'investigacionId', 'hipotesisId', 'corridaId', 'fuenteId', 'valor', 'modelo', 'base',
   // Las cifras ya formateadas no se traducen: el separador lo pone `coma()`.
   'fraccion',
+  // Atribución de tareas del laboratorio: las funciones conservan su identidad.
+  'agente', 'estadoAgente',
 ]);
 
 function envolver<T extends object>(o: T): T {

@@ -711,6 +711,12 @@ export const acciones = {
     aplicar((e) => A.aprobarPlan(e, iteracionId, Date.now()));
     return enviar('aprobarPlan', { iteracion_id: iteracionId });
   },
+  /** El laboratorio espera la aceptación real, sin una aprobación optimista. */
+  aprobarPlanVerificado: async (iteracionId: string): Promise<boolean | null> => {
+    const ok = await enviarYComprobar('aprobarPlan', { iteracion_id: iteracionId });
+    void resincronizar();
+    return ok;
+  },
   editarInvestigacion: (investigacionId: string, cambios: { titulo?: string; objetivo?: string }) => {
     aplicar((e) => A.editarInvestigacion(e, investigacionId, cambios));
     enviar('editarInvestigacion', { investigacion_id: investigacionId, titulo: cambios.titulo ?? null, objetivo: cambios.objetivo ?? null });
@@ -734,6 +740,11 @@ export const acciones = {
   resolverSolicitud: (id: string, decision: 'conceder' | 'denegar', alcance: AlcancePermiso | null, argumentos?: Record<string, string>) => {
     aplicar((e) => A.resolverSolicitud(e, id, decision, alcance, Date.now(), argumentos));
     return enviar('resolverSolicitud', { solicitud_id: id, decision, alcance, argumentos: argumentos ?? null });
+  },
+  resolverSolicitudVerificada: async (id: string, decision: 'conceder' | 'denegar', alcance: AlcancePermiso | null): Promise<boolean | null> => {
+    const ok = await enviarYComprobar('resolverSolicitud', { solicitud_id: id, decision, alcance, argumentos: null });
+    void resincronizar();
+    return ok;
   },
   resolverSolicitudes: (ids: string[], decision: 'conceder' | 'denegar', alcance: AlcancePermiso | null) => {
     aplicar((e) => A.resolverSolicitudes(e, ids, decision, alcance, Date.now()));
