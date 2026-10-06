@@ -61,6 +61,30 @@
   }
 }
 .citas-fila { padding: 13px 16px; border-bottom: 1px solid var(--linea, rgba(244, 239, 228, 0.14)); }
+/* Las filas entran escalonadas, en CSS y solo las doce primeras: la lista
+   puede tener más de mil (1431 medidas el 5 de octubre de 2026) y animar
+   cada una con JavaScript sería el tirón que se quiere evitar. Las demás
+   están fuera de la vista al cargar y aparecen ya puestas. La regla base
+   tiene la MISMA especificidad (0,2,0) que las de :nth-child de abajo, para
+   que estas ganen por orden: con `button.citas-af` (0,2,1) ganaba la base,
+   ningún retraso se aplicaba y las 1431 filas animaban a la vez (revisión
+   de código del 6 de octubre de 2026). */
+.citas-lista > .citas-af { animation: citas-llega var(--dur-2, 240ms) var(--ease-salida, cubic-bezier(0.16, 1, 0.3, 1)) both; }
+.citas-lista > :nth-child(1) { animation-delay: 0ms; }
+.citas-lista > :nth-child(2) { animation-delay: 30ms; }
+.citas-lista > :nth-child(3) { animation-delay: 60ms; }
+.citas-lista > :nth-child(4) { animation-delay: 90ms; }
+.citas-lista > :nth-child(5) { animation-delay: 120ms; }
+.citas-lista > :nth-child(6) { animation-delay: 150ms; }
+.citas-lista > :nth-child(7) { animation-delay: 180ms; }
+.citas-lista > :nth-child(8) { animation-delay: 210ms; }
+.citas-lista > :nth-child(9) { animation-delay: 240ms; }
+.citas-lista > :nth-child(10) { animation-delay: 270ms; }
+.citas-lista > :nth-child(11) { animation-delay: 300ms; }
+.citas-lista > :nth-child(12) { animation-delay: 330ms; }
+.citas-lista > :nth-child(n + 13) { animation: none; }
+@keyframes citas-llega { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .citas-lista > * { animation: none !important; } }
 .citas-esqueleto .citas-fila { display: flex; flex-direction: column; gap: 7px; }
 /* Cada afirmación es un botón: se elige con el ratón y con el teclado. */
 button.citas-af {
