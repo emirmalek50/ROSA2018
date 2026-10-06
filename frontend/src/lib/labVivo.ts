@@ -105,7 +105,12 @@ function actividadesDe(it: Iteracion | null): ActividadLab[] {
     // La apertura y el cierre son estados guardados, no parlamentos inventados.
     if (!entradas.length || (p.estado !== 'en_curso' && p.resumen && p.resumen !== entradas.at(-1)?.texto)) {
       const agente = AGENTE[tipo] ?? 'Planificador';
-      filas.push({ ...base, id: `${p.id}:estado:${p.estado}`, agente, sala: SALAS[tipo]?.[0] ?? 'plan', texto: p.resumen || p.titulo, tipo: p.estado === 'fallida' ? 'error' : 'estado', t: p.ms });
+      // Las pistas antiguas sin registro conservaron el texto provisional
+      // incluso después de cerrar la corrida. El título identifica la tarea
+      // real; ese texto provisional no describe una actividad del agente.
+      const provisional = /^empezando(?:\.{3}|…)?$/i.test(p.resumen.trim());
+      const texto = provisional ? p.titulo : p.resumen || p.titulo;
+      filas.push({ ...base, id: `${p.id}:estado:${p.estado}`, agente, sala: SALAS[tipo]?.[0] ?? 'plan', texto, tipo: p.estado === 'fallida' ? 'error' : 'estado', t: p.ms });
     }
   }
   if (it.resumen) filas.push({ id: `${it.id}:resumen`, agente: 'Resumidor', sala: 'r6', texto: it.resumen, tipo: 'resultado', pistaId: null, pasoId: null, fuente: '', titulo: tr('Resumen de la iteración'), t: null, enCurso: false });

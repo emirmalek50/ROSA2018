@@ -16,6 +16,17 @@ function caso(tipo = 'literatura', transcripcion: EntradaTranscripcion[] = [{ t:
 }
 
 describe('el laboratorio recibe la corrida canónica', () => {
+  it.each(['empezando', 'Empezando...', 'Empezando…'])('una pista sin registro muestra su tarea real en vez de «%s»', (resumen) => {
+    const f = caso('literatura', []);
+    f.i.pistas[0]!.resumen = resumen;
+    expect(f.datos().actividad[0]!.texto).toBe('Búsqueda MAPT');
+    expect(f.datos().activos).toEqual(['Generador de consultas']);
+    f.c.estado = 'terminada';
+    f.i.terminadaEn = f.i.empezadaEn + 1000;
+    expect(f.datos().actividad[0]!.texto).toBe('Búsqueda MAPT');
+    expect(f.datos().activos).toEqual([]);
+  });
+
   it('atribuye el diálogo a su pista y no inventa cifras ni afirmaciones', () => {
     const f = caso(); const d = f.datos();
     expect(d.actividad[0]).toMatchObject({ texto: 'Consulta: MAPT', agente: 'Generador de consultas', fuente: 'PubMed', pistaId: 'pista-real', pasoId: 'paso-real', t: 1000 });

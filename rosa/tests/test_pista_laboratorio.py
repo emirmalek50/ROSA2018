@@ -14,6 +14,22 @@ class Memoria:
         return fn(self.estado)
 
 
+@pytest.mark.parametrize("tipo", ["accion", "nota", "resultado"])
+def test_el_primer_registro_no_espera_a_que_termine_la_llamada(tipo, monkeypatch):
+    monkeypatch.setattr("rosa.bucle.pista.time.monotonic", lambda: 10.0)
+    almacen: Any = Memoria()
+    pista = Pista(almacen, "it", "paso", "literatura", "Buscar MAPT", "PubMed")
+    pista.linea(tipo, "Consultar MAPT en PubMed")
+    publicada = almacen.estado["iteraciones"][0]["pistas"][0]
+    assert publicada["transcripcion"][0]["texto"] == "Consultar MAPT en PubMed"
+    assert publicada["resumen"] == "Consultar MAPT en PubMed"
+    # Las siguientes líneas rápidas conservan el agrupamiento habitual.
+    pista.nota("Detalle posterior")
+    assert len(publicada["transcripcion"]) == 1
+    pista.volcar()
+    assert publicada["transcripcion"][-1]["texto"] == "Detalle posterior"
+
+
 def test_la_actividad_se_persiste_antes_de_esperar_al_modelo():
     almacen: Any = Memoria()
     pista = Pista(almacen, "it", "paso", "modelo", "Equipo", "cerebro")

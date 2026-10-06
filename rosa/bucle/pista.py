@@ -82,8 +82,12 @@ class Pista:
             entrada["consulta"] = consulta
         buffer = self.__dict__.setdefault("_buffer", [])
         buffer.append(entrada)
+        # El primer registro debe llegar antes de esperar una llamada larga.
+        # ESPERA_S se comprueba al recibir otra línea; no hay un temporizador
+        # que publique por sí solo el búfer mientras el modelo responde.
+        primera = "_ultimo_volcado" not in self.__dict__
         ultimo = self.__dict__.setdefault("_ultimo_volcado", time.monotonic())
-        if len(buffer) >= self.LOTE or time.monotonic() - ultimo >= self.ESPERA_S or tipo == "error":
+        if primera or len(buffer) >= self.LOTE or time.monotonic() - ultimo >= self.ESPERA_S or tipo == "error":
             self.volcar()
 
     def volcar(self) -> None:
