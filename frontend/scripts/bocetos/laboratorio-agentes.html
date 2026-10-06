@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El laboratorio de agentes</title>
+<meta name="description" content="Boceto: los agentes de ROSA2018 como un laboratorio en pixel art, trabajando y pasándose el trabajo unos a otros.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fondo: #14151d;
+    --tinta: #e9e6df;
+    --tenue: #9a98a6;
+    --cerebro: #2fb7a6;
+    --juez: #9b7bff;
+    --volumen: #a4adb8;
+    --borde: rgba(255, 255, 255, 0.1);
+  }
+  :root[data-theme="light"] { --fondo: #f3f1ea; --tinta: #1c1917; --tenue: #6b6a75; --borde: rgba(0, 0, 0, 0.1); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--fondo); color: var(--tinta); }
+  body { font: 15px/1.5 -apple-system, "SF Pro Text", system-ui, sans-serif; padding: 20px 16px 40px; }
+  .marco { max-width: 1440px; margin: 0 auto; }
+  .lab { display: block; width: 100%; image-rendering: pixelated; image-rendering: crisp-edges; background: #0d0e14; border: 1px solid var(--borde); }
+  .linea { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: baseline; justify-content: space-between; margin-top: 14px; }
+  .fase { font-family: "Pixelify Sans", "Courier New", monospace; font-size: 15px; letter-spacing: 0.02em; min-height: 1.6em; }
+  .fase b { color: var(--cerebro); font-weight: 400; }
+  .leyenda { display: flex; gap: 18px; font-size: 13px; color: var(--tenue); }
+  .leyenda i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; image-rendering: pixelated; }
+  .mandos { display: flex; gap: 8px; }
+  button { font: inherit; font-size: 13px; color: var(--tinta); background: transparent; border: 1px solid var(--borde); padding: 4px 10px; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--juez); outline-offset: 2px; }
+  button[aria-pressed="true"] { border-color: var(--juez); }
+  .nota { max-width: 72ch; color: var(--tenue); margin-top: 18px; }
+  .nota p { margin: 0 0 8px; }
+  .nota strong { color: var(--tinta); font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) { .lab { opacity: 0.95; } }
+</style>
+</head>
+<body>
+<div class="marco">
+  <canvas class="lab" id="lab" width="480" height="270" role="img" aria-label="El laboratorio de ROSA2018: los agentes trabajando en sus puestos"></canvas>
+  <div class="linea">
+    <div class="fase" id="fase" aria-live="polite"></div>
+    <div class="leyenda" aria-label="Quién es quién">
+      <span><i style="background:var(--cerebro)"></i>Cerebro, GPT-6 Astra</span>
+      <span><i style="background:var(--juez)"></i>Juez, Claude Opus 5</span>
+      <span><i style="background:var(--volumen)"></i>Volumen, Claude Sonnet 5</span>
+    </div>
+    <div class="mandos">
+      <button type="button" id="pausa" aria-pressed="false">Pausar</button>
+      <button type="button" id="rapido" aria-pressed="false">Más rápido</button>
+    </div>
+  </div>
+  <div class="nota">
+    <p><strong>Esto es un boceto</strong>, con una iteración de muestra que se repite. Cada figura es un agente real de ROSA2018 (rosa/modulos/firmas.py): el color dice qué modelo lo mueve. Las máquinas sin nadie delante son las piezas por regla, sin modelo: las quince comprobaciones del Killer, el tablón del equipo, el Elo del torneo, la estantería GRADE.</p>
+    <p>En ROSA2018 lo movería la corrida de verdad: el paso del plan que está corriendo, cada llamada por modelo y cada línea de las pistas. Nada se animaría que no haya pasado.</p>
+  </div>
+</div>
+<script>
+(() => {
+  const W = 480, H = 270;
+  const lienzo = document.getElementById('lab');
+  const ctx = lienzo.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  const faseEl = document.getElementById('fase');
+  const reducido = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let velocidad = reducido ? 0.6 : 1;
+  let pausado = false;
+
+  // ---- paleta -----------------------------------------------------------
+  const P = {
+    pared: '#1b1d29', zocalo: '#262a3b', suelo1: '#2b2f40', suelo2: '#30354a', linea: '#3a3f57',
+    madera: '#8a5a3a', maderaOsc: '#6a4229', metal: '#596273', metalOsc: '#3d4454', vidrio: 'rgba(160,200,255,0.18)',
+    papel: '#f3ead7', papelOsc: '#d9cfb8', tinta: '#2a2a33',
+    verde: '#3ecf6a', ambar: '#f0b429', rojo: '#e5484d', azul: '#58a6ff', blanco: '#f6f3ea',
+    cerebro: '#2fb7a6', cerebroOsc: '#1f8477', juez: '#9b7bff', juezOsc: '#6a4fd1', volumen: '#a4adb8', volumenOsc: '#6e7682',
+    medica: '#f1e9dc', medicaOsc: '#cfc2ad', pelo: '#2b2b3a', peloClaro: '#8a5a3a', peloRosa: '#b45a6b', piel: '#f0c9a6', pielOsc: '#d9a98a', bota: '#1e1e26',
+    luzApagada: '#3a3f57', pizarra: '#1f3a35', pizarraMarco: '#7a5a3a', corcho: '#b08a5a',
+  };
+
+  // ---- sprites ----------------------------------------------------------
+  // Letras: h pelo, s piel, c bata, d bata oscura, p pantalón, b bota, . nada.
+  const PERSONA = [
+    '....hhhh....',
+    '...hhhhhh...',
+    '...hsshss...',
+    '...ssssss...',
+    '....ssss....',
+    '..cccccccc..',
+    '.cccdccdccc.',
+    '.cc.cccc.cc.',
+    '.ss.cccc.ss.',
+    '....cccc....',
+    '....pppp....',
+    '....p..p....',
+    '....p..p....',
+    '....p..p....',
+    '...bb..bb...',
+  ];
+  const PERSONA_PASO = PERSONA.slice(0, 10).concat([
+    '....pppp....',
+    '...pp..pp...',
+    '...p....p...',
+    '..bb....bb..',
+    '............',
+  ]);
+  const PEQUENO = [
+    '...hhh..',
+    '..hshsh.',
+    '..sssss.',
+    '...sss..',
+    '.ccccccc',
+    'cc.ccc.c',
+    's..ccc.s',
+    '...ppp..',
+    '...p.p..',
+    '...p.p..',
+    '..bb.bb.',
+  ];
+  const PEQUENO_PASO = PEQUENO.slice(0, 7).concat(['...ppp..', '..pp.pp.', '..p...p.', '.bb...bb']);
+
+  const ROLES = {
+    cerebro: { h: P.pelo, s: P.piel, c: P.cerebro, d: P.cerebroOsc, p: '#27405a', b: P.bota },
+    juez: { h: '#3a2b4a', s: P.piel, c: P.juez, d: P.juezOsc, p: '#2a2440', b: P.bota },
+    volumen: { h: '#555c66', s: P.pielOsc, c: P.volumen, d: P.volumenOsc, p: '#5a6670', b: P.bota },
+    medica: { h: P.peloRosa, s: P.piel, c: P.medica, d: P.medicaOsc, p: '#6b4a7a', b: '#4a3a52' },
+  };
+
+  function sprite(mapa, colores, x, y, espejo) {
+    const ancho = mapa[0].length;
+    for (let j = 0; j < mapa.length; j++) {
+      const fila = mapa[j];
+      for (let i = 0; i < ancho; i++) {
+        const ch = fila[i];
+        if (ch === '.') continue;
+        ctx.fillStyle = colores[ch];
+        ctx.fillRect(Math.round(x) + (espejo ? ancho - 1 - i : i), Math.round(y) + j, 1, 1);
+      }
+    }
+  }
+  const px = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
+  // ---- la letra de píxeles: 5x7, propia, para que los rótulos sean píxeles
+  // de verdad y no una fuente vectorial emborronada al escalar. ------------
+  const G = {};
+  const def = (ch, filas) => { G[ch] = filas; };
+  def('a', ['.....','.....','.###.','....#','.####','#...#','.####']);
+  def('b', ['#....','#....','####.','#...#','#...#','#...#','####.']);
+  def('c', ['.....','.....','.####','#....','#....','#....','.####']);
+  def('d', ['....#','....#','.####','#...#','#...#','#...#','.####']);
+  def('e', ['.....','.....','.###.','#...#','#####','#....','.####']);
+  def('f', ['..###','.#...','####.','.#...','.#...','.#...','.#...']);
+  def('g', ['.....','.....','.####','#...#','#...#','.####','....#','.###.']);
+  def('h', ['#....','#....','####.','#...#','#...#','#...#','#...#']);
+  def('i', ['..#..','.....','.##..','..#..','..#..','..#..','.###.']);
+  def('j', ['...#.','.....','..##.','...#.','...#.','...#.','#..#.','.##..']);
+  def('k', ['#....','#....','#..#.','#.#..','##...','#.#..','#..#.']);
+  def('l', ['.##..','..#..','..#..','..#..','..#..','..#..','.###.']);
+  def('m', ['.....','.....','##.#.','#.#.#','#.#.#','#...#','#...#']);
+  def('n', ['.....','.....','####.','#...#','#...#','#...#','#...#']);
+  def('o', ['.....','.....','.###.','#...#','#...#','#...#','.###.']);
+  def('p', ['.....','.....','####.','#...#','#...#','####.','#....','#....']);
+  def('q', ['.....','.....','.####','#...#','#...#','.####','....#','....#']);
+  def('r', ['.....','.....','#.##.','##..#','#....','#....','#....']);
+  def('s', ['.....','.....','.####','#....','.###.','....#','####.']);
+  def('t', ['.#...','.#...','####.','.#...','.#...','.#..#','..##.']);
+  def('u', ['.....','.....','#...#','#...#','#...#','#..##','.##.#']);
+  def('v', ['.....','.....','#...#','#...#','#...#','.#.#.','..#..']);
+  def('w', ['.....','.....','#...#','#...#','#.#.#','#.#.#','.#.#.']);
+  def('x', ['.....','.....','#...#','.#.#.','..#..','.#.#.','#...#']);
+  def('y', ['.....','.....','#...#','#...#','.####','....#','#...#','.###.']);
+  def('z', ['.....','.....','#####','...#.','..#..','.#...','#####']);
+  def('A', ['.###.','#...#','#...#','#####','#...#','#...#','#...#']);
+  def('B', ['####.','#...#','#...#','####.','#...#','#...#','####.']);
+  def('C', ['.####','#....','#....','#....','#....','#....','.####']);
+  def('D', ['####.','#...#','#...#','#...#','#...#','#...#','####.']);
+  def('E', ['#####','#....','#....','####.','#....','#....','#####']);
+  def('F', ['#####','#....','#....','####.','#....','#....','#....']);
+  def('G', ['.####','#....','#....','#..##','#...#','#...#','.####']);
+  def('H', ['#...#','#...#','#...#','#####','#...#','#...#','#...#']);
+  def('I', ['#####','..#..','..#..','..#..','..#..','..#..','#####']);
+  def('J', ['....#','....#','....#','....#','#...#','#...#','.###.']);
+  def('K', ['#...#','#..#.','#.#..','##...','#.#..','#..#.','#...#']);
+  def('L', ['#....','#....','#....','#....','#....','#....','#####']);
+  def('M', ['#...#','##.##','#.#.#','#...#','#...#','#...#','#...#']);
+  def('N', ['#...#','##..#','#.#.#','#..##','#...#','#...#','#...#']);
+  def('O', ['.###.','#...#','#...#','#...#','#...#','#...#','.###.']);
+  def('P', ['####.','#...#','#...#','####.','#....','#....','#....']);
+  def('Q', ['.###.','#...#','#...#','#...#','#.#.#','#..#.','.##.#']);
+  def('R', ['####.','#...#','#...#','####.','#.#..','#..#.','#...#']);
+  def('S', ['.####','#....','#....','.###.','....#','....#','####.']);
+  def('T', ['#####','..#..','..#..','..#..','..#..','..#..','..#..']);
+  def('U', ['#...#','#...#','#...#','#...#','#...#','#...#','.###.']);
+  def('V', ['#...#','#...#','#...#','#...#','#...#','.#.#.','..#..']);
+  def('W', ['#...#','#...#','#...#','#.#.#','#.#.#','##.##','#...#']);
+  def('X', ['#...#','#...#','.#.#.','..#..','.#.#.','#...#','#...#']);
+  def('Y', ['#...#','#...#','.#.#.','..#..','..#..','..#..','..#..']);
+  def('Z', ['#####','....#','...#.','..#..','.#...','#....','#####']);
+  def('0', ['.###.','#...#','#..##','#.#.#','##..#','#...#','.###.']);
+  def('1', ['..#..','.##..','..#..','..#..','..#..','..#..','.###.']);
+  def('2', ['.###.','#...#','....#','...#.','..#..','.#...','#####']);
+  def('3', ['####.','....#','....#','.###.','....#','....#','####.']);
+  def('4', ['...#.','..##.','.#.#.','#..#.','#####','...#.','...#.']);
+  def('5', ['#####','#....','####.','....#','....#','#...#','.###.']);
+  def('6', ['.###.','#....','#....','####.','#...#','#...#','.###.']);
+  def('7', ['#####','....#','...#.','..#..','.#...','.#...','.#...']);
+  def('8', ['.###.','#...#','#...#','.###.','#...#','#...#','.###.']);
+  def('9', ['.###.','#...#','#...#','.####','....#','....#','.###.']);
+  def(' ', ['.....','.....','.....','.....','.....','.....','.....']);
+  def(':', ['.....','..#..','..#..','.....','..#..','..#..','.....']);
+  def(';', ['.....','..#..','.....','.....','.....','..#..','..#..','.#...']);
+  def('.', ['.....','.....','.....','.....','.....','.##..','.##..']);
+  def(',', ['.....','.....','.....','.....','.....','..#..','..#..','.#...']);
+  def('?', ['.###.','#...#','....#','...#.','..#..','.....','..#..']);
+  def('¿', ['..#..','.....','..#..','.#...','#....','#...#','.###.']);
+  def('!', ['..#..','..#..','..#..','..#..','..#..','.....','..#..']);
+  def('+', ['.....','..#..','..#..','#####','..#..','..#..','.....']);
+  def('-', ['.....','.....','.....','#####','.....','.....','.....']);
+  def('…', ['.....','.....','.....','.....','.....','#.#.#','#.#.#']);
+  def('≈', ['.....','.#..#','#.##.','.....','.#..#','#.##.','.....']);
+  def('≠', ['....#','...#.','#####','..#..','#####','.#...','#....']);
+  def('⇄', ['...#.','#####','...#.','.....','.#...','#####','.#...']);
+  def('∑', ['#####','#....','.#...','..#..','.#...','#....','#####']);
+  def('(', ['..#..','.#...','#....','#....','#....','.#...','..#..']);
+  def(')', ['..#..','...#.','....#','....#','....#','...#.','..#..']);
+  def('%', ['##..#','##.#.','...#.','..#..','.#...','.#.##','#..##']);
+  def('/', ['....#','....#','...#.','..#..','.#...','#....','#....']);
+  // Acentos: tilde encima del cuerpo de la letra, que vive en las filas 2 a 6.
+  const AGUDO = ['...#.', '..#..'];
+  for (const [con, sin] of [['á', 'a'], ['é', 'e'], ['í', 'i'], ['ó', 'o'], ['ú', 'u']]) G[con] = AGUDO.concat(G[sin].slice(2));
+  G['ñ'] = ['.#.#.', '#.#..'].concat(G['n'].slice(2));
+  G['Á'] = AGUDO.concat(['.###.', '#...#', '#####', '#...#', '#...#']);
+  G['É'] = AGUDO.concat(['#####', '#....', '####.', '#....', '#####']);
+  G['Ó'] = AGUDO.concat(['.###.', '#...#', '#...#', '#...#', '.###.']);
+
+  function texto(t, x, y, c = P.blanco) {
+    ctx.fillStyle = c;
+    let cx = Math.round(x);
+    const cy = Math.round(y);
+    for (const ch of t) {
+      const g = G[ch] || G['?'];
+      for (let j = 0; j < g.length; j++) for (let i = 0; i < 5; i++) if (g[j][i] === '#') ctx.fillRect(cx + i, cy + j, 1, 1);
+      cx += 6;
+    }
+  }
+
+  // ---- mobiliario -------------------------------------------------------
+  function estanteria(x, y, w, h) {
+    px(x, y, w, h, P.maderaOsc);
+    const tonos = ['#4f7fb0', '#b04f4f', '#4fa06a', '#c89a3a', '#7a5ab0', '#3aa0a8'];
+    for (let fila = 0; fila < Math.floor(h / 10); fila++) {
+      px(x, y + fila * 10 + 8, w, 1, P.madera);
+      let cx = x + 1;
+      let k = fila;
+      while (cx < x + w - 2) {
+        const bw = 2 + (k % 3 === 0 ? 1 : 0);
+        px(cx, y + fila * 10 + 1, bw, 7, tonos[k % tonos.length]);
+        cx += bw + 1;
+        k++;
+      }
+    }
+  }
+  function mesa(x, y, w, h = 8) {
+    px(x, y, w, 2, P.madera);
+    px(x, y + 2, w, h - 2, P.maderaOsc);
+    px(x + 1, y + h, 2, 6, P.maderaOsc);
+    px(x + w - 3, y + h, 2, 6, P.maderaOsc);
+  }
+  function pantalla(x, y, w, h, contenido) {
+    px(x - 1, y - 1, w + 2, h + 2, P.metalOsc);
+    px(x, y, w, h, '#0f1a22');
+    if (contenido) contenido(x, y, w, h);
+    px(x + Math.floor(w / 2) - 1, y + h + 1, 2, 2, P.metalOsc);
+  }
+  function papelito(x, y, sello) {
+    px(x, y, 5, 6, P.papel);
+    px(x + 1, y + 1, 3, 1, P.papelOsc);
+    px(x + 1, y + 3, 3, 1, P.papelOsc);
+    if (sello) px(x + 2, y + 4, 2, 2, sello);
+  }
+  function tarjeta(x, y, color) {
+    px(x, y, 7, 9, P.papel);
+    px(x + 1, y + 1, 5, 2, color);
+    px(x + 1, y + 4, 5, 1, P.papelOsc);
+    px(x + 1, y + 6, 3, 1, P.papelOsc);
+  }
+  function bocadillo(x, y, t, c = P.blanco) {
+    const w = t.length * 6 + 6;
+    px(x, y, w, 11, P.blanco);
+    px(x + 2, y + 11, 2, 2, P.blanco);
+    texto(t, x + 3, y + 2, c === P.blanco ? P.tinta : c);
+  }
+
+  // ---- el mundo ---------------------------------------------------------
+  const ents = [];
+  const papeles = [];
+  const tweens = [];
+  const estado = {
+    pizarraHechos: [], // {x,y,sello}
+    tablon: [0, 0, 0, 0],
+    puertas: 0, puertaRoja: -1,
+    elo: [1500, 1500],
+    barras: [0, 0, 0, 0, 0], auditado: null,
+    hallazgos: 0,
+    grade: null,
+    sellando: null,
+  };
+
+  function persona(rol, x, y, nombre) {
+    const e = { rol, x, y, nombre, frame: 0, espejo: false, bocadillo: null, llevando: null, mueve: false, pequeno: rol === 'volumen' };
+    ents.push(e);
+    return e;
+  }
+  const dormir = (ms) => new Promise((r) => tweens.push({ t: 0, dur: ms, fin: r }));
+  function moverA(e, x, y, vel = 28) {
+    const d = Math.hypot(x - e.x, y - e.y);
+    e.espejo = x < e.x;
+    e.mueve = true;
+    return new Promise((r) => tweens.push({ t: 0, dur: Math.max(1, (d / vel) * 1000), de: { x: e.x, y: e.y }, a: { x, y }, obj: e, fin: () => { e.mueve = false; r(); } }));
+  }
+  function volar(p, x, y, ms = 600) {
+    return new Promise((r) => tweens.push({ t: 0, dur: ms, de: { x: p.x, y: p.y }, a: { x, y }, obj: p, fin: r }));
+  }
+  function decir(e, t, ms = 1400) { e.bocadillo = t; dormir(ms).then(() => { if (e.bocadillo === t) e.bocadillo = null; }); }
+
+  // Puestos (coordenadas lógicas).
+  const Q = {
+    archivo: { x: 6, y: 18, w: 128, h: 118 },
+    juez: { x: 142, y: 18, w: 90, h: 118 },
+    equipo: { x: 240, y: 18, w: 120, h: 118 },
+    mostrador: { x: 368, y: 18, w: 106, h: 118 },
+    killer: { x: 6, y: 148, w: 170, h: 116 },
+    torneo: { x: 184, y: 148, w: 86, h: 116 },
+    sandbox: { x: 278, y: 148, w: 96, h: 116 },
+    revision: { x: 382, y: 148, w: 92, h: 116 },
+  };
+
+  // Personajes fijos.
+  const consultor = persona('cerebro', 92, 92, 'Consultas');
+  const explorador = persona('cerebro', 112, 70, 'Explorador');
+  const lectores = [0, 1, 2, 3].map((i) => persona('volumen', 20 + i * 14, 110, 'Volumen'));
+  const juezAf = persona('juez', 186, 86, 'Verificador');
+  const equipo = [0, 1, 2, 3].map((i) => persona('cerebro', 252 + i * 24, 88, ['Analogía', 'Contradicción', 'Mec. opuesto', 'Otra escala'][i]));
+  const asistente = persona('cerebro', 440, 66, 'Asistente');
+  const medica = persona('medica', 390, 92, 'La médica');
+  const killer = persona('juez', 128, 206, 'Killer');
+  const juezTorneo = persona('juez', 222, 216, 'Torneo');
+  const programador = persona('cerebro', 300, 214, 'Programador');
+  const auditor = persona('juez', 352, 220, 'Auditor');
+  const revisor = persona('juez', 400, 204, 'Revisor');
+  const rehacedor = persona('cerebro', 404, 232, 'Rehacedor');
+
+  // ---- dibujo -----------------------------------------------------------
+  function fondo() {
+    px(0, 0, W, 16, P.pared);
+    px(0, 16, W, 2, P.zocalo);
+    for (let y = 18; y < H; y += 6) for (let x = 0; x < W; x += 6) px(x, y, 6, 6, ((x + y) / 6) % 2 === 0 ? P.suelo1 : P.suelo2);
+    // Pasillo entre las dos filas.
+    px(0, 138, W, 10, P.linea);
+    // Tabiques.
+    for (const q of Object.values(Q)) {
+      px(q.x - 3, q.y - 2, 2, q.h + 4, P.zocalo);
+    }
+    texto('ROSA2018: el laboratorio', 6, 3, P.blanco);
+    texto('boceto, datos de muestra', 330, 3, P.volumen);
+  }
+  function rotulo(q, t) { texto(t, q.x + 1, q.y, '#c9c6d6'); }
+
+  function puestoArchivo() {
+    const q = Q.archivo;
+    rotulo(q, 'La caza: 80 bases');
+    estanteria(q.x + 2, q.y + 12, 60, 50);
+    mesa(q.x + 70, q.y + 56, 56);
+    pantalla(q.x + 76, q.y + 38, 16, 12, (x, y) => { px(x + 2, y + 2, 10, 1, P.cerebro); px(x + 2, y + 5, 7, 1, P.cerebro); px(x + 2, y + 8, 9, 1, P.azul); });
+    pantalla(q.x + 102, q.y + 38, 16, 12, (x, y) => { px(x + 2, y + 2, 4, 1, P.azul); px(x + 8, y + 2, 4, 1, P.azul); px(x + 2, y + 6, 10, 1, P.cerebro); });
+    // Bandeja de artículos.
+    px(q.x + 70, q.y + 100, 30, 10, P.metalOsc);
+    px(q.x + 71, q.y + 101, 28, 8, P.metal);
+    texto('bandeja', q.x + 70, q.y + 110, P.volumen);
+  }
+  function puestoJuez() {
+    const q = Q.juez;
+    rotulo(q, 'Verificación');
+    // El modelo de mundo: corcho en la pared.
+    px(q.x + 4, q.y + 12, 80, 36, P.pizarraMarco);
+    px(q.x + 6, q.y + 14, 76, 32, P.corcho);
+    texto('modelo de mundo', q.x + 4, q.y + 50, '#c9c6d6');
+    for (const h of estado.pizarraHechos) papelito(h.x, h.y, h.sello);
+    mesa(q.x + 10, q.y + 76, 70);
+    // Sello.
+    px(q.x + 62, q.y + 70, 6, 6, P.juezOsc);
+    px(q.x + 64, q.y + 66, 2, 4, P.metal);
+    if (estado.sellando) { px(q.x + 40, q.y + 70, 8, 8, estado.sellando); }
+  }
+  function puestoEquipo() {
+    const q = Q.equipo;
+    rotulo(q, 'El equipo propone');
+    px(q.x + 4, q.y + 12, 112, 40, P.pizarraMarco);
+    px(q.x + 6, q.y + 14, 108, 36, P.pizarra);
+    // Tablón por regla, a la derecha de la pizarra.
+    for (let i = 0; i < 4; i++) {
+      px(q.x + 10 + i * 26, q.y + 18, 18, 1, '#8fd3c4');
+      px(q.x + 10 + i * 26, q.y + 22, 12 + (i % 2) * 4, 1, '#8fd3c4');
+      texto(String(estado.tablon[i]), q.x + 12 + i * 26, q.y + 28, estado.tablon[i] >= 3 ? P.verde : estado.tablon[i] > 0 ? P.ambar : '#5f8f86');
+    }
+    texto('tablón por regla', q.x + 8, q.y + 40, '#8fd3c4');
+  }
+  function puestoMostrador() {
+    const q = Q.mostrador;
+    rotulo(q, 'El chat');
+    mesa(q.x + 20, q.y + 76, 70, 10);
+    pantalla(q.x + 60, q.y + 56, 18, 14, (x, y) => { px(x + 2, y + 2, 14, 1, P.cerebro); px(x + 2, y + 5, 10, 1, P.cerebro); px(x + 2, y + 8, 12, 1, P.cerebro); px(x + 2, y + 11, 6, 1, P.ambar); });
+    texto('23 herramientas', q.x + 6, q.y + 102, P.volumen);
+  }
+  function puestoKiller() {
+    const q = Q.killer;
+    rotulo(q, 'El Killer');
+    // Cinta.
+    px(q.x + 4, q.y + 60, 110, 8, P.metalOsc);
+    px(q.x + 5, q.y + 61, 108, 6, P.metal);
+    for (let i = 0; i < 15; i++) {
+      const x = q.x + 8 + i * 7;
+      px(x, q.y + 50, 5, 10, P.metalOsc);
+      const c = i === estado.puertaRoja ? P.rojo : i < estado.puertas ? P.verde : P.luzApagada;
+      px(x + 1, q.y + 52, 3, 2, c);
+    }
+    // Cubo de descartes.
+    px(q.x + 60, q.y + 90, 16, 12, P.metalOsc);
+    px(q.x + 61, q.y + 91, 14, 10, '#4a2b2b');
+    texto('descartadas', q.x + 40, q.y + 104, P.volumen);
+    texto('15 comprobaciones por regla', q.x + 4, q.y + 28, P.volumen);
+    texto('y luego el juez', q.x + 4, q.y + 38, P.volumen);
+    // Salida hacia el torneo.
+    px(q.x + 118, q.y + 60, 50, 8, P.metalOsc);
+    px(q.x + 119, q.y + 61, 48, 6, P.metal);
+    texto('vivas', q.x + 150, q.y + 70, P.verde);
+  }
+  function puestoTorneo() {
+    const q = Q.torneo;
+    rotulo(q, 'Torneo');
+    px(q.x + 6, q.y + 40, 74, 2, P.metalOsc);
+    // Dos atriles.
+    px(q.x + 12, q.y + 44, 2, 20, P.metal); px(q.x + 8, q.y + 42, 10, 2, P.metal);
+    px(q.x + 70, q.y + 44, 2, 20, P.metal); px(q.x + 66, q.y + 42, 10, 2, P.metal);
+    tarjeta(q.x + 9, q.y + 30, P.azul);
+    tarjeta(q.x + 67, q.y + 30, P.ambar);
+    pantalla(q.x + 28, q.y + 86, 32, 14, (x, y) => {
+      texto(String(estado.elo[0]), x + 1, y + 1, P.azul);
+      texto(String(estado.elo[1]), x + 1, y + 7, P.ambar);
+    });
+    texto('Elo, por regla', q.x + 8, q.y + 104, P.volumen);
+  }
+  function puestoSandbox() {
+    const q = Q.sandbox;
+    rotulo(q, 'In silico');
+    // Caja de cristal.
+    px(q.x + 4, q.y + 14, 60, 90, P.metalOsc);
+    px(q.x + 6, q.y + 16, 56, 86, P.vidrio);
+    texto('sin red', q.x + 8, q.y + 94, P.volumen);
+    mesa(q.x + 12, q.y + 70, 44);
+    pantalla(q.x + 20, q.y + 44, 28, 20, (x, y, w, h) => {
+      for (let i = 0; i < 5; i++) {
+        const alt = Math.round(estado.barras[i] * (h - 4));
+        px(x + 2 + i * 5, y + h - 2 - alt, 4, alt, i === 2 ? P.ambar : P.cerebro);
+      }
+    });
+    if (estado.auditado) texto(estado.auditado, q.x + 68, q.y + 44, estado.auditado === 'vale' ? P.verde : P.rojo);
+    texto('auditor', q.x + 68, q.y + 94, P.volumen);
+  }
+  function puestoRevision() {
+    const q = Q.revision;
+    rotulo(q, 'Revisión');
+    mesa(q.x + 6, q.y + 60, 40);
+    // Calculadora.
+    px(q.x + 28, q.y + 52, 10, 8, P.metalOsc);
+    px(q.x + 29, q.y + 53, 8, 2, P.verde);
+    if (estado.hallazgos) texto(`${estado.hallazgos} hallazgos`, q.x + 4, q.y + 40, P.ambar);
+    // Estantería GRADE: cuatro baldas.
+    const gx = q.x + 56, gy = q.y + 14;
+    px(gx, gy, 32, 70, P.maderaOsc);
+    const niveles = ['alta', 'moder.', 'baja', 'muy b.'];
+    for (let i = 0; i < 4; i++) {
+      px(gx, gy + 16 + i * 17, 32, 1, P.madera);
+      texto(niveles[i], gx + 2, gy + 2 + i * 17, '#d9cfb8');
+      if (estado.grade === i) tarjeta(gx + 22, gy + 6 + i * 17, P.verde);
+    }
+    texto('GRADE', gx + 2, gy + 72, P.volumen);
+  }
+
+  function dibujarPersonas() {
+    const orden = [...ents].sort((a, b) => a.y - b.y);
+    for (const e of orden) {
+      const col = ROLES[e.rol];
+      const mapa = e.pequeno ? (e.mueve && e.frame ? PEQUENO_PASO : PEQUENO) : (e.mueve && e.frame ? PERSONA_PASO : PERSONA);
+      sprite(mapa, col, e.x, e.y, e.espejo);
+      if (e.llevando) papelito(e.x + (e.espejo ? -2 : (e.pequeno ? 8 : 11)), e.y + (e.pequeno ? 5 : 7), e.llevando);
+      if (e.bocadillo) bocadillo(e.x - 2, e.y - 13, e.bocadillo);
+    }
+  }
+  function dibujarPapeles() { for (const p of papeles) (p.tarjeta ? tarjeta(p.x, p.y, p.sello) : papelito(p.x, p.y, p.sello)); }
+
+  function pintar() {
+    ctx.clearRect(0, 0, W, H);
+    fondo();
+    puestoArchivo(); puestoJuez(); puestoEquipo(); puestoMostrador();
+    puestoKiller(); puestoTorneo(); puestoSandbox(); puestoRevision();
+    dibujarPapeles();
+    dibujarPersonas();
+  }
+
+  // ---- motor ------------------------------------------------------------
+  let ultimo = performance.now();
+  let acumulado = 0;
+  function cuadro(ahora) {
+    const dt = pausado ? 0 : Math.min(64, ahora - ultimo) * velocidad;
+    ultimo = ahora;
+    acumulado += dt;
+    for (let i = tweens.length - 1; i >= 0; i--) {
+      const tw = tweens[i];
+      tw.t += dt;
+      const k = Math.min(1, tw.t / tw.dur);
+      if (tw.obj) {
+        const s = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        tw.obj.x = tw.de.x + (tw.a.x - tw.de.x) * s;
+        tw.obj.y = tw.de.y + (tw.a.y - tw.de.y) * s;
+      }
+      if (k >= 1) { tweens.splice(i, 1); tw.fin(); }
+    }
+    const paso = Math.floor(acumulado / 220) % 2;
+    for (const e of ents) e.frame = paso;
+    pintar();
+    requestAnimationFrame(cuadro);
+  }
+  requestAnimationFrame(cuadro);
+
+  // ---- el guion de una iteración ------------------------------------------
+  function fase(t) { faseEl.innerHTML = `<b>Ahora:</b> ${t}`; }
+
+  async function cazar() {
+    fase('buscando: el cerebro escribe las consultas y los lectores de volumen puntúan y extraen');
+    decir(consultor, '?');
+    decir(explorador, '+', 1800);
+    const q = Q.archivo;
+    const viajes = lectores.map(async (l, i) => {
+      await dormir(i * 350);
+      await moverA(l, q.x + 8 + i * 12, q.y + 50);
+      l.llevando = P.papel;
+      await dormir(300);
+      await moverA(l, q.x + 72 + i * 6, q.y + 86);
+      l.llevando = null;
+      papeles.push({ x: q.x + 72 + i * 6, y: q.y + 102, sello: null });
+      await moverA(l, 20 + i * 14, 110);
+    });
+    await Promise.all(viajes);
+    await dormir(400);
+  }
+
+  async function verificar() {
+    fase('verificando: cada afirmación con su cita delante; el juez la sella');
+    const qj = Q.juez;
+    const sellos = [P.verde, P.verde, P.ambar, P.rojo];
+    const lote = papeles.splice(0, papeles.length);
+    for (let i = 0; i < lote.length; i++) {
+      const p = lote[i];
+      papeles.push(p);
+      await volar(p, qj.x + 40, qj.y + 70, 500);
+      estado.sellando = sellos[i % sellos.length];
+      decir(juezAf, sellos[i % sellos.length] === P.verde ? 'sí' : sellos[i % sellos.length] === P.ambar ? 'parte' : 'no', 700);
+      await dormir(500);
+      estado.sellando = null;
+      p.sello = sellos[i % sellos.length];
+      if (p.sello === P.verde) {
+        const n = estado.pizarraHechos.length;
+        await volar(p, qj.x + 10 + (n % 10) * 7, qj.y + 18 + Math.floor(n / 10) * 8, 500);
+        estado.pizarraHechos.push({ x: p.x, y: p.y, sello: P.verde });
+        if (estado.pizarraHechos.length > 20) estado.pizarraHechos.shift();
+      } else {
+        await volar(p, qj.x + 80, qj.y + 110, 400);
+      }
+      papeles.splice(papeles.indexOf(p), 1);
+    }
+    await dormir(400);
+  }
+
+  async function proponer() {
+    fase('el equipo propone: analogía, contradicción, mecanismo opuesto, otra escala; el tablón puntúa por regla');
+    const q = Q.equipo;
+    const ideas = ['≈', '≠', '⇄', '∑'];
+    for (let ronda = 0; ronda < 2; ronda++) {
+      for (let i = 0; i < 4; i++) {
+        decir(equipo[i], ideas[i], 1200);
+        await dormir(250);
+      }
+      await dormir(800);
+      estado.tablon = ronda === 0 ? [2, 0, 3, 1] : [3, 1, 4, 2];
+      await dormir(700);
+    }
+    // Las dos de más puntos salen hacia el Killer.
+    for (const i of [2, 0]) {
+      const t = { x: q.x + 12 + i * 26, y: q.y + 30, sello: P.cerebro, tarjeta: true };
+      papeles.push(t);
+      await volar(t, Q.killer.x + 8, Q.killer.y + 50, 900);
+    }
+    estado.tablon = [0, 0, 0, 0];
+  }
+
+  async function matar() {
+    fase('el Killer: quince comprobaciones sin modelo primero; el juez solo lo que ROSA no resolvió');
+    const q = Q.killer;
+    const tarjetas = papeles.filter((p) => p.tarjeta);
+    for (let n = 0; n < tarjetas.length; n++) {
+      const t = tarjetas[n];
+      estado.puertas = 0; estado.puertaRoja = -1;
+      const cae = n === 1;
+      const hasta = cae ? 9 : 15;
+      for (let i = 0; i < hasta; i++) {
+        await volar(t, q.x + 8 + i * 7, q.y + 50, 120);
+        estado.puertas = i + 1;
+      }
+      if (cae) {
+        estado.puertaRoja = 9;
+        decir(killer, 'misma cohorte', 1400);
+        await dormir(500);
+        await volar(t, q.x + 66, q.y + 92, 500);
+        papeles.splice(papeles.indexOf(t), 1);
+        await dormir(600);
+      } else {
+        await moverA(killer, q.x + 118, q.y + 56, 40);
+        decir(killer, '¿falsable?', 1200);
+        await dormir(900);
+        await volar(t, q.x + 150, q.y + 50, 600);
+        await moverA(killer, 128, 206, 40);
+      }
+    }
+    estado.puertas = 0; estado.puertaRoja = -1;
+    for (const t of papeles.filter((p) => p.tarjeta)) papeles.splice(papeles.indexOf(t), 1);
+  }
+
+  async function torneo() {
+    fase('torneo: el juez compara pares en los dos órdenes; el Elo lo lleva una regla');
+    const q = Q.torneo;
+    await moverA(juezTorneo, q.x + 14, q.y + 60, 30);
+    decir(juezTorneo, 'A', 800); await dormir(900);
+    await moverA(juezTorneo, q.x + 58, q.y + 60, 30);
+    decir(juezTorneo, 'B', 800); await dormir(900);
+    estado.elo = [1512, 1488];
+    await moverA(juezTorneo, 222, 216, 30);
+    await dormir(600);
+  }
+
+  async function analizar() {
+    fase('análisis in silico: el cerebro programa dentro de la caja sin red; el juez interpreta y un auditor independiente dice si vale');
+    estado.barras = [0, 0, 0, 0, 0]; estado.auditado = null;
+    decir(programador, '…', 2600);
+    for (let k = 0; k < 10; k++) {
+      estado.barras = estado.barras.map((b, i) => Math.min(1, b + (0.06 + i * 0.02)));
+      await dormir(220);
+    }
+    await moverA(auditor, Q.sandbox.x + 66, Q.sandbox.y + 56, 24);
+    decir(auditor, 'vale', 1400);
+    estado.auditado = 'vale';
+    await dormir(1200);
+    await moverA(auditor, 352, 220, 24);
+  }
+
+  async function revisar() {
+    fase('cierre: el revisor del registro recalcula con herramientas; quien escribió, rehace; el juez concluye en GRADE');
+    const q = Q.revision;
+    decir(revisor, '∑', 1500);
+    await dormir(900);
+    estado.hallazgos = 3;
+    await dormir(600);
+    decir(rehacedor, 'rehago', 1200);
+    await dormir(1100);
+    estado.hallazgos = 1;
+    await dormir(500);
+    estado.hallazgos = 0;
+    // La conclusión GRADE: el juez lleva la tarjeta a la balda «baja».
+    await moverA(revisor, q.x + 44, q.y + 60, 26);
+    revisor.llevando = P.verde;
+    await dormir(400);
+    revisor.llevando = null;
+    estado.grade = 2;
+    decir(revisor, 'baja', 1400);
+    await dormir(1400);
+    await moverA(revisor, 400, 204, 26);
+    await dormir(800);
+    estado.grade = null;
+  }
+
+  async function charla() {
+    for (;;) {
+      await dormir(4000 + Math.random() * 4000);
+      decir(medica, '?', 1600);
+      await dormir(1700);
+      decir(asistente, '…', 1500);
+      await dormir(2500);
+    }
+  }
+
+  async function iteracion() {
+    for (let n = 1; ; n++) {
+      await cazar();
+      await verificar();
+      await proponer();
+      await matar();
+      await torneo();
+      await analizar();
+      await revisar();
+      fase(`iteración ${n} cerrada; empieza la siguiente`);
+      await dormir(1500);
+    }
+  }
+  iteracion();
+  charla();
+
+  document.getElementById('pausa').addEventListener('click', (ev) => {
+    pausado = !pausado;
+    ev.currentTarget.setAttribute('aria-pressed', String(pausado));
+    ev.currentTarget.textContent = pausado ? 'Seguir' : 'Pausar';
+  });
+  document.getElementById('rapido').addEventListener('click', (ev) => {
+    const rapido = velocidad < 2;
+    velocidad = rapido ? 2.5 : (reducido ? 0.6 : 1);
+    ev.currentTarget.setAttribute('aria-pressed', String(rapido));
+  });
+})();
+</script>
+</body>
+</html>
