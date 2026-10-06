@@ -13,7 +13,7 @@ import { fechaCorta, tiempoRelativo } from '../lib/formato';
 import { IconExternal, IconX } from './icons';
 import { Chip, descargar } from './piezas';
 import { Revisor } from './Revisor';
-import { traducido, tr, trp } from '../lib/idioma';
+import { traducido, tr, trp, idiomaActual } from '../lib/idioma';
 
 export type PestanaProcedencia = 'mensajes' | 'codigo' | 'registro' | 'entorno' | 'revision' | 'fuentes';
 
@@ -145,7 +145,7 @@ export function Procedencia({
               <div key={m.id} className={`mensaje mensaje-${m.de}`}>
                 <header>
                   <span>{DE[m.de]}</span>
-                  <span title={new Date(m.creadoEn).toLocaleString('es')}>{fechaCorta(m.creadoEn)}</span>
+                  <span title={new Date(m.creadoEn).toLocaleString(idiomaActual() === 'en' ? 'en' : 'es')}>{fechaCorta(m.creadoEn)}</span>
                 </header>
                 {m.texto}
               </div>

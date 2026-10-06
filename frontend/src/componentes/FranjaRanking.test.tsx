@@ -13,6 +13,7 @@ import { estadoDeMuestra } from '../datos/muestra';
 import type { ConclusionHipotesis, Hipotesis } from '../datos/tipos';
 import { Alternativas, alternativasDe, type Alternativa } from './Alternativas';
 import { FranjaRanking } from './FranjaRanking';
+import { fijarIdioma } from '../lib/idioma';
 
 const SIN_TILDE = /\b(hipotesis|conclusion|iteracion|todavia|segun|habia|subiria|bajaria|direccion|comprobacion|explicacion|seleccion|medicion|analisis|arbol|distinguiria|poblacion|informacion|aqui|Que la|Aqui|Todavia|Iteracion|Explicacion|Seleccion)\b/;
 
@@ -27,6 +28,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   nodo.remove();
+  fijarIdioma('es');
 });
 
 const chips = () => [...nodo.querySelectorAll('.chip')].map((c) => c.textContent?.trim() ?? '');
@@ -40,6 +42,32 @@ function conclusion(extra: Partial<ConclusionHipotesis> = {}): ConclusionHipotes
 describe('FranjaRanking', () => {
   const estado = estadoDeMuestra();
   const hip1 = estado.hipotesis.find((x) => x.id === 'hip-1')!;
+
+  it('traduce los fragmentos del ranking y sus tooltips al cambiar de idioma', async () => {
+    const h: Hipotesis = {
+      ...hip1,
+      conclusion: conclusion({ certeza: 'baja', techo: { nivel: 'muy_baja', motivo: 'Only one cohort', acotada: true, certezaDelJuez: 'moderada' } }),
+      bt: { fuerza: 1520, ic95: [1480, 1560], partidos: 4 },
+      tarjeta: { diana: 'GFAP', celula: 'x', etapa: 'x', intervencion: 'x', direccion: 'modula', prediccionFalsable: 'x', riesgos: [], pasoRuta: 'mecanismo' },
+      decisionKiller: 'suspender',
+      revisiones: [{ fecha: 3, quien: 'rosa', accion: 'killer', nota: 'suspender: Only one cohort', aCiegas: false }],
+      conflictoCon: ['hip-2'], absorbe: ['hip-3'],
+    };
+    const original = JSON.stringify(h);
+    fijarIdioma('en');
+    await act(async () => root.render(<FranjaRanking estado={estado} h={h} />));
+    expect(chips()).toContain('Low certainty · ceiling very low');
+    expect(chips()).toContain('BT 1,520 (1,480 to 1,560)');
+    expect(chips()).toContain('Pathway 1/8: Mechanism');
+    expect(chips()).toContain('0 undercut');
+    expect(todoElTexto()).not.toMatch(/Techo:|Motivo:|Detalle:|socavan|Ruta 1|\botra\b/);
+    expect(titulos().join('\n')).toContain('Reason:');
+    expect(JSON.stringify(h)).toBe(original);
+    fijarIdioma('es');
+    await act(async () => root.render(<FranjaRanking estado={estado} h={h} />));
+    expect(chips()).toContain('Certeza baja · techo muy baja');
+    expect(chips()).toContain('BT 1.520 (1.480 a 1.560)');
+  });
 
   it('con hip-1 de la muestra pinta cada componente en orden fijo, con los huecos dichos como huecos', async () => {
     await act(async () => root.render(<FranjaRanking estado={estado} h={hip1} />));

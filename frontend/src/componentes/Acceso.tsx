@@ -12,7 +12,7 @@ import { useMovimientoReducido } from '../lib/movimiento';
 import { ArbolVivo } from './ArbolVivo';
 import { EsqueletoAplicacion } from './Esqueleto';
 import './acceso.css';
-import { tr, trp } from '../lib/idioma';
+import { tr, trp, idiomaActual } from '../lib/idioma';
 
 type Sesion = {
   correo: string | null;
@@ -122,7 +122,7 @@ export function CuentasDelEquipo() {
           {pendientes.map((c) => (
             <li key={c.correo}>
               <span>
-                <strong>{c.correo}</strong> <small>{trp("pidió acceso el {v}", { v: new Date(c.creada).toLocaleString('es-DO') })}</small>
+                <strong>{c.correo}</strong> <small>{trp("pidió acceso el {v}", { v: new Date(c.creada).toLocaleString(idiomaActual() === 'en' ? 'en' : 'es-DO') })}</small>
               </span>
               <span className="acciones">
                 <button type="button" className="btn btn-s" disabled={ocupada === c.correo} onClick={() => void decidir(c.correo, 'activa')}>

@@ -39,7 +39,7 @@ export function aRis(fuentes: Fuente[]): string {
       if (f.doi) lineas.push(`DO  - ${f.doi}`);
       if (f.pagina !== null) lineas.push(`SP  - ${f.pagina}`);
       if (f.pmid) lineas.push(`AN  - ${f.pmid}`);
-      lineas.push(`N1  - ROSA2018: ${f.retraccion ? 'RETRACTADO. ' : ''}${f.textoCompleto ? tr('texto completo') : tr('solo resumen')}`);
+      lineas.push(`N1  - ROSA2018: ${f.retraccion ? `${tr('RETRACTADO')}. ` : ''}${f.textoCompleto ? tr('texto completo') : tr('solo resumen')}`);
       lineas.push('ER  - ');
       return lineas.join('\n');
     })
@@ -106,8 +106,12 @@ export function specificAims(inv: Investigacion, hipotesis: Hipotesis[]): string
   const aims = candidatas
     .map(
       (h, i) =>
-        `## Specific Aim ${i + 1}\n\n**Objetivo general.** ${h.titulo}\n\n**Hipotesis.** ${h.enunciado}\n\n**Razonamiento.** ${h.mecanismo}\n\n**Enfoque.** Biomarcador: ${h.comprobacion.biomarcador}. Cohorte: ${h.comprobacion.cohorte}. Diseño: ${h.comprobacion.diseno}.\n\n**Fuentes.** ${h.procedencia.fuentes.map((f) => `${f.referencia}${f.pagina !== null ? `, pag. ${f.pagina}` : ''}`).join('; ') || tr('sin fuentes')}`,
+        trp('## Specific Aim {numero}\n\n**Objetivo general.** {titulo}\n\n**Hipótesis.** {hipotesis}\n\n**Razonamiento.** {razonamiento}\n\n**Enfoque.** Biomarcador: {biomarcador}. Cohorte: {cohorte}. Diseño: {diseno}.\n\n**Fuentes.** {fuentes}', {
+          numero: i + 1, titulo: h.titulo, hipotesis: h.enunciado, razonamiento: h.mecanismo,
+          biomarcador: h.comprobacion.biomarcador, cohorte: h.comprobacion.cohorte, diseno: h.comprobacion.diseno,
+          fuentes: h.procedencia.fuentes.map((f) => `${f.referencia}${f.pagina !== null ? trp(', pág. {pagina}', { pagina: f.pagina }) : ''}`).join('; ') || tr('sin fuentes'),
+        }),
     )
     .join('\n\n');
-  return trp("# Specific Aims\n\n**Descripcion de la enfermedad.** {objetivo}\n\n**Necesidad no cubierta.** {v}\n\n**Solucion propuesta.** {v2}\n\n{v3}\n\n## Evaluacion piloto\n\nCada aim se comprobara con el biomarcador y la cohorte indicados; las hipotesis se prerregistran en ROSA2018 antes de probarse.\n\n_Generado por ROSA2018 el {v4}. Borrador para revision humana._", { objetivo: inv.objetivo, v: inv.relevancia || tr('Por definir.'), v2: inv.configuracion.preferencias || tr('Por definir.'), v3: aims || tr('_Sin hipótesis candidatas todavía._'), v4: new Date().toISOString().slice(0, 10) });
+  return trp("# Specific Aims\n\n**Descripción de la enfermedad.** {objetivo}\n\n**Necesidad no cubierta.** {v}\n\n**Solución propuesta.** {v2}\n\n{v3}\n\n## Evaluación piloto\n\nCada aim se comprobará con el biomarcador y la cohorte indicados; las hipótesis se prerregistran en ROSA2018 antes de probarse.\n\n_Generado por ROSA2018 el {v4}. Borrador para revisión humana._", { objetivo: inv.objetivo, v: inv.relevancia || tr('Por definir.'), v2: inv.configuracion.preferencias || tr('Por definir.'), v3: aims || tr('_Sin hipótesis candidatas todavía._'), v4: new Date().toISOString().slice(0, 10) });
 }

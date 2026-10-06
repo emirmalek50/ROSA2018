@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AHORA_MUESTRA, estadoDeMuestra } from '../datos/muestra';
 import type { EstadoRosa } from '../datos/tipos';
 import { VENTANA_SIN_VISITA_MS, digest, digestComoTexto, loQueEspera } from './digest';
+import { fijarIdioma } from './idioma';
 
 describe('digest', () => {
   it('solo cuenta lo posterior a la última visita y deja fuera los hechos nuevos', () => {
@@ -37,6 +38,21 @@ describe('digest', () => {
     expect(d.lineas.some((l) => /^Gasto de la corrida \d+: 2318 llamadas/.test(l))).toBe(true);
     const texto = digestComoTexto(d, 'Prueba');
     expect(texto.startsWith('ROSA2018 · Prueba\n- ')).toBe(true);
+  });
+  it('traduce el gasto y conserva llamadas, porcentaje y dólares al volver a español', () => {
+    const e = estadoDeMuestra();
+    const corrida = e.corridas.find((c) => c.investigacionId === 'inv-1')!;
+    corrida.gasto.usd = 12.34;
+    const original = JSON.stringify(e);
+    const pct = Math.round(corrida.gasto.llamadas / corrida.presupuesto.limiteLlamadas * 100);
+    fijarIdioma('en');
+    try {
+      expect(digest(e, 'inv-1', AHORA_MUESTRA).lineas).toContain(`Run ${corrida.numero} spending: ${corrida.gasto.llamadas} model calls (${pct} % of the limit), 12.34 USD`);
+      expect(JSON.stringify(e)).toBe(original);
+    } finally {
+      fijarIdioma('es');
+    }
+    expect(digest(e, 'inv-1', AHORA_MUESTRA).lineas).toContain(`Gasto de la corrida ${corrida.numero}: ${corrida.gasto.llamadas} llamadas (${pct} % del tope), 12.34 USD`);
   });
   it('«Visto» cierra la tarjeta aunque queden decisiones pendientes', () => {
     const e = { ...estadoDeMuestra(), ultimaVisita: AHORA_MUESTRA };

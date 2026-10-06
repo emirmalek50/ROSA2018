@@ -63,7 +63,7 @@ const DEFINICIONES = traducido({
 });
 
 function etiquetaCerteza(nivel: CertezaEvidencia): { etiqueta: string; tono: Tono } {
-  return de(CERTEZA_EVIDENCIA as Record<string, { etiqueta: string; tono: Tono }>, nivel) ?? { etiqueta: `Certeza ${legible(nivel)}`, tono: 'borde' };
+  return de(CERTEZA_EVIDENCIA as Record<string, { etiqueta: string; tono: Tono }>, nivel) ?? { etiqueta: trp('Certeza {nivel}', { nivel: legible(nivel) }), tono: 'borde' };
 }
 
 function etiquetaDireccion(d: DireccionEvidencia): { etiqueta: string; tono: Tono } {
@@ -76,7 +76,7 @@ function etiquetaKiller(k: DecisionKiller): { etiqueta: string; tono: Tono; nota
 
 function etiquetaPaso(p: PasoRutaTerapeutica): string {
   const e = de(PASO_RUTA as Record<string, { etiqueta: string; orden: number }>, p);
-  return e ? `Ruta ${e.orden}/8: ${e.etiqueta}` : `Ruta: ${legible(p)}`;
+  return e ? trp('Ruta {orden}/8: {etiqueta}', { orden: e.orden, etiqueta: e.etiqueta }) : trp('Ruta: {paso}', { paso: legible(p) });
 }
 
 /** La ruta evaluada por regla: cuántos pasos de ocho cubre la evidencia y cuál toca. */
@@ -97,11 +97,11 @@ function ChipCerteza({ c }: { c: ComponentesRanking }) {
   const e = etiquetaCerteza(c.certeza.nivel);
   const t = c.certeza.techo;
   const partesTitulo = [DEFINICIONES.certeza];
-  if (t) partesTitulo.push(`${DEFINICIONES.techo} Techo: ${t.etiqueta.toLowerCase()}${t.acotada ? tr(' (acotada: el juez había dicho más)') : ''}${t.motivo ? `. Motivo: ${t.motivo}` : ''}.`);
+  if (t) partesTitulo.push(trp('{definicion} Techo: {nivel}{acotada}{motivo}.', { definicion: DEFINICIONES.techo, nivel: t.etiqueta.toLowerCase(), acotada: t.acotada ? tr(' (acotada: el juez había dicho más)') : '', motivo: t.motivo ? trp('. Motivo: {motivo}', { motivo: t.motivo }) : '' }));
   return (
     <Chip tono={e.tono} title={partesTitulo.join(' ')}>
       {e.etiqueta}
-      {t && t.acotada && ` · techo ${t.etiqueta.toLowerCase().replace(/^certeza /, '')}`}
+      {t && t.acotada && trp(' · techo {nivel}', { nivel: t.etiqueta.toLowerCase().replace(/^certeza /, '').replace(/ certainty$/, '') })}
     </Chip>
   );
 }
@@ -169,8 +169,8 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           {trp("{aFavor} a favor", { aFavor: formatearEntero(c.aFavor) })}</Chip>
         <Chip tono={c.enContra > 0 ? 'mal' : 'borde'} title={DEFINICIONES.enContra}>
           {trp("{enContra} en contra", { enContra: formatearEntero(c.enContra) })}</Chip>
-        {!compacto && <Chip tono={c.socavan > 0 ? 'aviso' : 'borde'} title={`${DEFINICIONES.socavan}${c.socavadas > 0 ? ` Hoy ${plural(c.socavadas, tr('apoyo socavado no cuenta'), tr('apoyos socavados no cuentan'))}.` : ''}`}>
-          {c.socavan === 1 ? tr('1 socava') : `${formatearEntero(c.socavan)} socavan`}
+        {!compacto && <Chip tono={c.socavan > 0 ? 'aviso' : 'borde'} title={`${DEFINICIONES.socavan}${c.socavadas > 0 ? trp(' Hoy {apoyos}.', { apoyos: plural(c.socavadas, tr('apoyo socavado no cuenta'), tr('apoyos socavados no cuentan')) }) : ''}`}>
+          {c.socavan === 1 ? tr('1 socava') : trp('{n} socavan', { n: formatearEntero(c.socavan) })}
         </Chip>}
         {!compacto && c.razonesEnContra > 0 && (
           <Chip tono="aviso" title={tr("Razones en contra que el juez enumera en la conclusión: no son afirmaciones verificadas (esas son las de 'en contra' y 'socavan'), sino ataques al paso inferencial o cosas que faltan. Se cuentan aparte para que '0 en contra' no se lea como 'sin objeciones'.")}>
@@ -178,7 +178,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           </Chip>
         )}
         {c.killer ? (
-          <Chip tono={etiquetaKiller(c.killer).tono} title={`${DEFINICIONES.killer} ${c.killerMotivo ? `Motivo: ${c.killerMotivo}` : etiquetaKiller(c.killer).nota}`}>{trp("Killer: {etiqueta}", { etiqueta: etiquetaKiller(c.killer).etiqueta })}
+          <Chip tono={etiquetaKiller(c.killer).tono} title={`${DEFINICIONES.killer} ${c.killerMotivo ? trp('Motivo: {motivo}', { motivo: c.killerMotivo }) : etiquetaKiller(c.killer).nota}`}>{trp("Killer: {etiqueta}", { etiqueta: etiquetaKiller(c.killer).etiqueta })}
           </Chip>
         ) : (
           <Chip tono="borde" title={trp("{killer} Todavía no la juzgó.", { killer: DEFINICIONES.killer })}>
@@ -188,7 +188,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
         <Bloqueos c={c} />
         {compacto ? null : c.bt ? (
           <Chip title={DEFINICIONES.bt}>
-            BT {formatearEntero(c.bt.fuerza)} ({formatearEntero(c.bt.ic95[0])} a {formatearEntero(c.bt.ic95[1])})
+            {trp('BT {fuerza} ({desde} a {hasta})', { fuerza: formatearEntero(c.bt.fuerza), desde: formatearEntero(c.bt.ic95[0]), hasta: formatearEntero(c.bt.ic95[1]) })}
           </Chip>
         ) : (
           <Chip tono="borde" title={trp("{bt} Todavía no se calculó: hacen falta partidos.", { bt: DEFINICIONES.bt })}>
@@ -198,7 +198,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
         <Chip tono={pocos ? 'aviso' : 'neutro'} title={DEFINICIONES.partidos}>
           {plural(c.partidos, tr("partido"), tr("partidos"))}
         </Chip>
-        {!compacto && <Chip tono={novedad.tono} title={`${novedad.nota}${c.novedad.detalle ? ` Detalle: ${c.novedad.detalle}` : ''}`}>
+        {!compacto && <Chip tono={novedad.tono} title={`${novedad.nota}${c.novedad.detalle ? trp(' Detalle: {detalle}', { detalle: c.novedad.detalle }) : ''}`}>
           {novedad.etiqueta}
         </Chip>}
         {c.ruta ? (
@@ -211,7 +211,7 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           </Chip>
         ) : null}
         {c.conflictoCon.length > 0 && (
-          <Chip tono="aviso" title={trp("{conflicto} Con: {v}.", { conflicto: DEFINICIONES.conflicto, v: c.conflictoCon.map((x) => x.titulo).join('; ') })}>{trp("Se contradice con {v}", { v: c.conflictoCon.length === 1 ? 'otra' : formatearEntero(c.conflictoCon.length) })}
+          <Chip tono="aviso" title={trp("{conflicto} Con: {v}.", { conflicto: DEFINICIONES.conflicto, v: c.conflictoCon.map((x) => x.titulo).join('; ') })}>{trp("Se contradice con {v}", { v: c.conflictoCon.length === 1 ? tr('otra') : formatearEntero(c.conflictoCon.length) })}
           </Chip>
         )}
         {c.pendiente && (
@@ -220,13 +220,13 @@ export function FranjaRanking({ estado, h, explicar = false, compacto = false }:
           </Chip>
         )}
         {c.fusion === 'fusionada' && (
-          <Chip tono="borde" title={`${DEFINICIONES.fusionada} En: ${c.fusionCon.map((x) => x.titulo).join('; ')}.`}>
+          <Chip tono="borde" title={trp('{fusionada} En: {titulos}.', { fusionada: DEFINICIONES.fusionada, titulos: c.fusionCon.map((x) => x.titulo).join('; ') })}>
             {tr("Fusionada en otra")}
           </Chip>
         )}
         {c.fusion === 'absorbe' && (
           <Chip tono="acento" title={trp("{absorbe} Absorbió: {v}.", { absorbe: DEFINICIONES.absorbe, v: c.fusionCon.map((x) => x.titulo).join('; ') })}>
-            {trp("Absorbió {v}", { v: c.fusionCon.length === 1 ? 'otra' : formatearEntero(c.fusionCon.length) })}
+            {trp("Absorbió {v}", { v: c.fusionCon.length === 1 ? tr('otra') : formatearEntero(c.fusionCon.length) })}
           </Chip>
         )}
       </div>

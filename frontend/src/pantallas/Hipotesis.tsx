@@ -722,7 +722,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                 )}
                 <div className="acciones">
                   <Chip tono={h.experimento.estado === 'datos_recibidos' ? 'ok' : h.experimento.estado === 'propuesto' ? 'borde' : 'aviso'}>
-                    {h.experimento.estado === 'propuesto' ? 'Propuesto' : h.experimento.estado === 'asignado' ? `Asignado a ${h.experimento.laboratorio}` : h.experimento.estado === 'en_curso' ? tr('En curso') : `Datos recibidos: ${h.experimento.ficheroDatos}`}
+                    {h.experimento.estado === 'propuesto' ? tr('Propuesto') : h.experimento.estado === 'asignado' ? trp('Asignado a {laboratorio}', { laboratorio: h.experimento.laboratorio ?? '' }) : h.experimento.estado === 'en_curso' ? tr('En curso') : trp('Datos recibidos: {fichero}', { fichero: h.experimento.ficheroDatos ?? '' })}
                   </Chip>
                   {h.experimento.prerregistradoEn && h.experimento.prerregistroArtefactoId && (
                     <a className="chip chip-ok" href={rutaDe(h.investigacionId, 'artefactos', h.experimento.prerregistroArtefactoId)} title={tr("Hipótesis, protocolo y criterios congelados antes de los datos")}>
@@ -730,8 +730,8 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
                     </a>
                   )}
                   {h.experimento.prerregistradoEn && h.experimento.selloExterno?.ok && (
-                    <Chip tono="ok" title={`sha256 ${h.experimento.selloExterno.hash}. Hora firmada por ${h.experimento.selloExterno.testigos.join(' y ')}: ${h.experimento.selloExterno.primeraHora}. Se verifica sin ROSA2018 con openssl ts -verify sobre el token guardado.`}>
-                      {tr("Sellado por")} {h.experimento.selloExterno.testigos.join(' y ')} ({h.experimento.selloExterno.primeraHora?.slice(0, 16).replace('T', ' ')} {tr("UTC)")}
+                    <Chip tono="ok" title={trp('sha256 {hash}. Hora firmada por {testigos}: {hora}. Se verifica sin ROSA2018 con openssl ts -verify sobre el token guardado.', { hash: h.experimento.selloExterno.hash, testigos: h.experimento.selloExterno.testigos.join(tr(' y ')), hora: h.experimento.selloExterno.primeraHora ?? '' })}>
+                      {tr("Sellado por")} {h.experimento.selloExterno.testigos.join(tr(' y '))} ({h.experimento.selloExterno.primeraHora?.slice(0, 16).replace('T', ' ')} {tr("UTC)")}
                     </Chip>
                   )}
                   {h.experimento.prerregistradoEn && !h.experimento.selloExterno?.ok && (

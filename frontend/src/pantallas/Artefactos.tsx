@@ -27,7 +27,7 @@ import { TIPO_ARTEFACTO } from '../lib/etiquetas';
 import { ProcedenciaDeArtefacto } from '../componentes/Rosa2018';
 import { aBibtex, aCsv, aRis } from '../lib/exportar';
 import { rutaDe } from '../lib/ruta';
-import { traducido, tr, trp } from '../lib/idioma';
+import { traducido, tr, trp, idiomaActual } from '../lib/idioma';
 
 /** Cuánto espera el botón del dossier a que el servidor lo devuelva por el
  *  canal en vivo antes de darse por vencido y decirlo. */
@@ -102,7 +102,7 @@ function DetalleArtefacto({ a, inv, ahora, estado }: { a: Artefacto; inv: Invest
         <span className="meta">{tr("Versión")}</span>
         <div className="segmentos" role="group" aria-label={tr("Versión")}>
           {a.versiones.map((v) => (
-            <button key={v.n} type="button" aria-pressed={v.n === n} onClick={() => setN(v.n)} title={`${v.resumen} · ${new Date(v.creadaEn).toLocaleString('es')}`}>
+            <button key={v.n} type="button" aria-pressed={v.n === n} onClick={() => setN(v.n)} title={`${v.resumen} · ${new Date(v.creadaEn).toLocaleString(idiomaActual() === 'en' ? 'en' : 'es')}`}>
               v{v.n}
             </button>
           ))}

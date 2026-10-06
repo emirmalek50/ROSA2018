@@ -12,7 +12,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { estadoDeMuestra } from '../datos/muestra';
 import type { CapaPerfilDiana, Hipotesis, PerfilDiana, ResultadoExperimento, RutaTerapeuticaEvaluada } from '../datos/tipos';
-import { ContratoDelExperimento, PerfilDeLaDiana, ProtocoloYEnmiendas, RutaTerapeutica, TarjetaDeHipotesis } from './Rosa2018';
+import { ContratoDelExperimento, Jerarquia, PerfilDeLaDiana, ProtocoloYEnmiendas, PuertaYReproducciones, RutaTerapeutica, TarjetaDeHipotesis } from './Rosa2018';
 import { fijarIdioma } from '../lib/idioma';
 
 const almacen = vi.hoisted(() => ({
@@ -59,6 +59,40 @@ afterEach(async () => {
 });
 
 const render = (el: React.ReactElement) => act(async () => root.render(el));
+
+it('traduce los estados de áreas y campañas sin cambiar sus valores canónicos', async () => {
+  const e = structuredClone(estadoDeMuestra());
+  const inv = e.investigaciones[0]!;
+  inv.mision = { poblacion: '', etapa: '', celulaTejido: '', mecanismo: '', tipoIntervencion: '', capacidadesLaboratorio: [], presupuesto: { llamadas: 10, usd: 1, horas: 1 }, propuestaPorRosa: false, aprobadaEn: null, aprobadaPor: null,
+    areas: (['elegida', 'propuesta', 'pausada', 'sin_explorar'] as const).map((estado, i) => ({ id: `area-${i}`, titulo: `Area ${i}`, familiaMecanismo: '', relevancia: '', valorIntervencion: '', incertidumbre: '', comprobabilidad: '', coste: '', demora: '', dependeDe: '', estado, condicionReapertura: '', corridaId: i === 0 ? e.corridas[0]!.id : null })),
+  };
+  const original = JSON.stringify(inv);
+  fijarIdioma('en');
+  await render(<Jerarquia inv={inv} corridas={e.corridas} />);
+  await pulsar(nodo.querySelector('.seccion-plegar')!);
+  const chips = [...nodo.querySelectorAll('.arbol .chip')].map((x) => x.textContent);
+  expect(chips).toEqual(['Chosen', 'Proposed', 'Paused', 'Unexplored']);
+  expect(nodo.textContent).not.toMatch(/elegida|propuesta|pausada|sin explorar|en_curso/);
+  expect(JSON.stringify(inv)).toBe(original);
+  expect([...nodo.querySelectorAll('[aria-label]')].map((x) => x.getAttribute('aria-label')).join('\n')).not.toContain('Explicar');
+});
+
+it('la puerta eximida muestra el estado, la persona y el motivo también en inglés', async () => {
+  const e = structuredClone(estadoDeMuestra());
+  const inv = e.investigaciones[0]!;
+  inv.puertaReproduccion = { requeridas: 3, superadas: 1, estado: 'eximida', eximidaPor: 'Emir Malek', motivo: 'Synthetic demonstration', fecha: 1 };
+  const original = JSON.stringify(inv);
+  fijarIdioma('en');
+  await render(<PuertaYReproducciones inv={inv} estado={e} ahora={2} />);
+  expect(nodo.textContent).toContain('Waived by Emir Malek');
+  expect(nodo.textContent).toContain('Reason: Synthetic demonstration');
+  expect(nodo.textContent).not.toContain('Eximida');
+  expect(nodo.textContent).toContain('1 of 3');
+  expect(JSON.stringify(inv)).toBe(original);
+  fijarIdioma('es');
+  await render(<PuertaYReproducciones inv={inv} estado={e} ahora={2} />);
+  expect(nodo.textContent).toContain('Eximida por Emir Malek');
+});
 const titulos = () => [...nodo.querySelectorAll('[title]')].map((c) => c.getAttribute('title') ?? '');
 const todoElTexto = () => [nodo.textContent ?? '', ...titulos()].join('\n');
 const boton = (texto: string) => [...nodo.querySelectorAll('button')].find((b) => b.textContent?.trim() === texto);

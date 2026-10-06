@@ -39,7 +39,7 @@ import {
   resumirVerificacion,
   variacionElo,
 } from '../lib/hipotesis';
-import { tr, traducido, trp } from '../lib/idioma';
+import { tr, traducido, trp, idiomaActual } from '../lib/idioma';
 import { salidaPorDecision } from '../lib/movimiento';
 import { bloqueosDe } from '../lib/priorizacion';
 import { rutaDe } from '../lib/ruta';
@@ -103,7 +103,7 @@ function FilaCola({ h, ahora, href, horasEspera, estado }: { h: Hip; ahora: numb
           {retractadas.length > 0 && <span className="tono-mal">{tr("depende de una fuente retractada")}</span>}
           <span>{trp("Iteración {iteracion}", { iteracion: h.iteracion })}</span>
           {pendiente ? (
-            <span className={tarde ? 'tono-mal' : ''} title={trp("Creada el {v}{v2}", { v: new Date(h.creadaEn).toLocaleString('es-ES'), v2: tarde ? trp("; supera las {horasEspera} h de la política de esperas", { horasEspera }) : '' })}>{trp("esperando {espera}", { espera: formatearDuracion(espera) })}
+            <span className={tarde ? 'tono-mal' : ''} title={trp("Creada el {v}{v2}", { v: new Date(h.creadaEn).toLocaleString(idiomaActual() === 'en' ? 'en' : 'es-ES'), v2: tarde ? trp("; supera las {horasEspera} h de la política de esperas", { horasEspera }) : '' })}>{trp("esperando {espera}", { espera: formatearDuracion(espera) })}
             </span>
           ) : (
             // Con "esperando 3 h 21 min" delante, la fecha absoluta repetía lo

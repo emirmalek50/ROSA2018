@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { fijarIdioma } from './idioma';
 import {
   coma,
+  fechaCorta,
   formatearCompacto,
   formatearDuracion,
   formatearEntero,
@@ -10,6 +11,18 @@ import {
   plural,
   tiempoRelativo,
 } from './formato';
+
+it('los meses de las fechas cortas cambian de idioma sin cambiar día, hora o instante', () => {
+  const ms = new Date(2026, 11, 6, 14, 30).getTime();
+  fijarIdioma('en');
+  try {
+    expect(fechaCorta(ms)).toBe('6 Dec, 14:30');
+    expect(fechaCorta(new Date(2026, 3, 6, 14, 30).getTime())).toBe('6 Apr, 14:30');
+  } finally {
+    fijarIdioma('es');
+  }
+  expect(fechaCorta(ms)).toBe('6 dic, 14:30');
+});
 
 describe('formatearDuracion', () => {
   it('usa decimales solo por debajo de 10 s', () => {

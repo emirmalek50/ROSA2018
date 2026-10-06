@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { borradorDe, normalizarParada, partesAutomatizadas, resumenParada, textoAutomatizacion } from './parada';
+import { fijarIdioma } from './idioma';
 
 describe('partesAutomatizadas', () => {
   it('separa lo medible de lo que decide una persona', () => {
@@ -21,6 +22,22 @@ describe('partesAutomatizadas', () => {
     expect(p.llamadas).toBe(400);
     expect(p.resto).toBe('');
   });
+});
+
+it('cambia minutos y niveles de certeza al inglés sin traducir los datos de parada', () => {
+  const p = { horas: 0.5, iteraciones: 6, llamadas: null, texto: '', certeza: 'baja' as const, cuantas: 2, sinCambio: null };
+  const original = JSON.stringify(p);
+  fijarIdioma('en');
+  try {
+    expect(resumenParada(p)).toBe('30 minutes, 6 iterations or 2 hypotheses at low certainty, whichever comes first');
+    for (const [nivel, ingles] of [['baja', 'low'], ['moderada', 'moderate'], ['alta', 'high']] as const) {
+      expect(resumenParada({ ...p, horas: null, iteraciones: null, certeza: nivel, cuantas: 1 })).toBe(`one hypothesis at ${ingles} certainty`);
+    }
+    expect(JSON.stringify(p)).toBe(original);
+  } finally {
+    fijarIdioma('es');
+  }
+  expect(resumenParada(p)).toBe('30 minutos, 6 iteraciones o 2 hipótesis en certeza baja, lo que llegue primero');
 });
 
 describe('parada propia de la corrida', () => {

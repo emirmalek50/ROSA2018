@@ -77,7 +77,7 @@ function recortar(t: string, n: number): string {
 
 function certeza(c: string): string {
   const g = CERTEZA_EVIDENCIA[c as keyof typeof CERTEZA_EVIDENCIA];
-  return g ? g.etiqueta.replace('Certeza ', '') : c.replace('_', ' ');
+  return g ? g.etiqueta.replace(/^Certeza /, '').replace(/ certainty$/, '').toLowerCase() : c.replace('_', ' ');
 }
 
 /** Qué espera a una persona ahora mismo en la investigación. */
@@ -263,7 +263,12 @@ export function digest(estado: EstadoRosa, investigacionId: string, ahora: numbe
   if (hayNovedades && corrida) {
     const pct = Math.round((corrida.gasto.llamadas / corrida.presupuesto.limiteLlamadas) * 100);
     const usd = (corrida.gasto as { usd?: number }).usd;
-    lineas.push(`Gasto de la corrida ${corrida.numero}: ${corrida.gasto.llamadas} llamadas (${pct} % del tope)${typeof usd === 'number' && usd > 0 ? `, ${usd.toFixed(2)} USD` : ''}`);
+    lineas.push(trp('Gasto de la corrida {numero}: {llamadas} llamadas ({pct} % del tope){coste}', {
+      numero: corrida.numero,
+      llamadas: corrida.gasto.llamadas,
+      pct,
+      coste: typeof usd === 'number' && usd > 0 ? `, ${usd.toFixed(2)} USD` : '',
+    }));
   }
   return {
     desde,

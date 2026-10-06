@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { acciones, useRosa } from '../datos/almacen';
 import { CAMPOS_ENMENDABLES, CAMPOS_LECTURA_ENMENDABLES, NIVELES_DESENLACE, PROPOSITOS_BIOMARCADOR_VISTA, SISTEMAS_EXPERIMENTALES, TIPOS_LECTURA, empeoraAlEvaluar, etiquetaContrato, hashLecturas, normalizarContrato } from '../datos/acciones';
 import type { CampoLecturaEnmendable, CapaPerfilDiana, EnmiendaPrerregistro, EstadoPasoRuta, LecturaExperimento, PasoRutaEvaluado, RutaTerapeuticaEvaluada, VeredictoLectura, CambioAprendizaje, CasoDorado, Comprobacion, ConocimientoOperativo, EntidadCanonica, Corrida, Dataset, Decision, DimensionesResultado, Ejecucion, EstadoRosa, Hipotesis, Investigacion, MetodoRegistrado, PasoRutaTerapeutica, PlanAnalisis, PreguntaCampana, ProcedenciaDataset, Reproduccion, Responsables, CampoEnmendable, AreaInvestigacion, ConectorCatalogo, RevisionRegistro, ProcedenciaArtefacto, ConsultaBase, NivelPermisoConector, SkillCatalogo, EstadoEspejo } from '../datos/tipos';
-import { ACCESO_DATASET, BLOQUEO, CAPA_DIANA, CLASE_EVIDENCIA, CLASE_HALLAZGO_REGISTRO, COMPROBACION_KILLER, DECISION_KILLER, DEFINICION_PASO_RUTA, DIMENSION_RESULTADO, DIRECCION_GENETICA, ESTADO_APRENDIZAJE, ESTADO_CAPA_DIANA, ESTADO_CONECTOR, ESTADO_EJECUCION, ESTADO_METODO, ESTADO_PASO_RUTA, ESTADO_REPRODUCCION, ETAPA_DECISION, GRAVEDAD_HALLAZGO, GRUPO_CONECTOR, IDENTIFICACION_CAUSAL, INTERPRETACION_EJECUCION, NIVEL_APRENDIZAJE, ORDEN_CAPAS_DIANA, ORIGEN_HALLAZGO, PASO_RUTA, RAMA_NEGATIVO, RELACION_TORNEO, RESUELTO_HALLAZGO, RESULTADO_COMPROBACION, RUNTIME_EJECUCION, TIPO_APRENDIZAJE, TIPO_ARISTA, TIPO_METODO, USO_IA, VEREDICTO_AUDITORIA, killerPendienteDe, nombreActor } from '../lib/etiquetas';
+import { ACCESO_DATASET, BLOQUEO, CAPA_DIANA, CLASE_EVIDENCIA, CLASE_HALLAZGO_REGISTRO, COMPROBACION_KILLER, DECISION_KILLER, DEFINICION_PASO_RUTA, DIMENSION_RESULTADO, DIRECCION_GENETICA, ESTADO_APRENDIZAJE, ESTADO_CAPA_DIANA, ESTADO_CONECTOR, ESTADO_CORRIDA, ESTADO_EJECUCION, ESTADO_METODO, ESTADO_PASO_RUTA, ESTADO_REPRODUCCION, ETAPA_DECISION, GRAVEDAD_HALLAZGO, GRUPO_CONECTOR, IDENTIFICACION_CAUSAL, INTERPRETACION_EJECUCION, NIVEL_APRENDIZAJE, ORDEN_CAPAS_DIANA, ORIGEN_HALLAZGO, PASO_RUTA, RAMA_NEGATIVO, RELACION_TORNEO, RESUELTO_HALLAZGO, RESULTADO_COMPROBACION, RUNTIME_EJECUCION, TIPO_APRENDIZAJE, TIPO_ARISTA, TIPO_METODO, USO_IA, VEREDICTO_AUDITORIA, killerPendienteDe, nombreActor } from '../lib/etiquetas';
 import { EXPLICACION_BLOQUEO } from '../lib/priorizacion';
 import { cambiosPorVersion, etiquetaCampo, resumenDiff } from '../lib/registro';
 import { rutaDe } from '../lib/ruta';
@@ -21,7 +21,7 @@ import { Cargando, Esqueleto, EsqueletoTexto } from './Esqueleto';
 /** Lo que devuelve el almacén cuando el servidor está pero no contestó a tiempo (almacen.ts, SinRespuesta). */
 type SinRespuestaServidor = 'sin_respuesta';
 import { atributosEnVuelo, useEnVuelo } from '../lib/diferido';
-import { traducido, tr, trp } from '../lib/idioma';
+import { traducido, tr, trp, idiomaActual } from '../lib/idioma';
 import { coma } from '../lib/formato';
 
 /* ---------------------------------------------------------------------
@@ -796,6 +796,8 @@ export function EjecucionesInSilico({ h, estado, ahora }: { h: Hipotesis; estado
   );
 }
 
+const TIPO_PLAN_ANALISIS = traducido({ confirmatorio: 'Confirmatorio', exploratorio: 'Exploratorio', reproduccion: 'Reproducción computacional' });
+
 export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: PlanAnalisis | undefined; ahora: number }) {
   const e = ESTADO_EJECUCION[run.estado];
   return (
@@ -809,7 +811,7 @@ export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: Pla
         )}
         {run.ensayoSeco && run.ensayoSeco.estado !== 'no_hecho' && (
           <Chip tono={run.ensayoSeco.estado === 'completado' ? 'ok' : 'aviso'} title={(run.ensayoSeco.intentos === 1 ? trp("El código se corrió antes sobre {filas} filas sintéticas con la forma del dataset ({intentos} intento). {v}", { filas: run.ensayoSeco.filas, intentos: run.ensayoSeco.intentos, v: run.ensayoSeco.error || tr('Sus cifras no cuentan: solo dice si el codigo corre sobre esa forma.') }) : trp("El código se corrió antes sobre {filas} filas sintéticas con la forma del dataset ({intentos} intentos). {v}", { filas: run.ensayoSeco.filas, intentos: run.ensayoSeco.intentos, v: run.ensayoSeco.error || tr('Sus cifras no cuentan: solo dice si el codigo corre sobre esa forma.') }))}>
-            {trp("Ensayo en seco: {v}", { v: run.ensayoSeco.estado === 'completado' ? 'corre' : run.ensayoSeco.estado.replace('_', ' ') })}
+            {trp("Ensayo en seco: {v}", { v: run.ensayoSeco.estado === 'completado' ? tr('corre') : ESTADO_EJECUCION[run.ensayoSeco.estado].etiqueta })}
           </Chip>
         )}
         <span className="meta">
@@ -819,7 +821,7 @@ export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: Pla
       {run.error && (run.estado === 'no_ejecutado' || run.estado === 'error_tecnico' || run.estado === 'tiempo_agotado') && <p className="tono-mal" style={{ fontSize: 13 }}>{run.error.split('\n').slice(-3).join(' ')}</p>}
       {plan && (
         <details className="versiones">
-          <summary>{trp("Plan congelado {hashPlan} ({tipo}) el {v}", { hashPlan: plan.hashPlan, tipo: plan.tipo, v: new Date(plan.congeladoEn).toLocaleString('es') })}</summary>
+          <summary>{trp("Plan congelado {hashPlan} ({tipo}) el {v}", { hashPlan: plan.hashPlan, tipo: TIPO_PLAN_ANALISIS[plan.tipo], v: new Date(plan.congeladoEn).toLocaleString(idiomaActual() === 'en' ? 'en' : 'es') })}</summary>
           <dl className="comprobacion">
             <dt>{tr("Pregunta")}</dt>
             <dd>{plan.pregunta}</dd>
@@ -857,7 +859,7 @@ export function FichaEjecucion({ run, plan, ahora }: { run: Ejecucion; plan: Pla
             {plan.selloExterno && (
               <>
                 <dt>{tr("Sello externo del plan")}</dt>
-                <dd>{plan.selloExterno.ok ? trp("Sellado (RFC 3161) el {v}", { v: plan.selloExterno.primeraHora ?? '' }) : `Sin sello externo${plan.selloExterno.error ? `: ${plan.selloExterno.error}` : ''}`}</dd>
+                <dd>{plan.selloExterno.ok ? trp("Sellado (RFC 3161) el {v}", { v: plan.selloExterno.primeraHora ?? '' }) : `${tr('Sin sello externo')}${plan.selloExterno.error ? `: ${plan.selloExterno.error}` : ''}`}</dd>
               </>
             )}
             <dt>{tr("Baseline")}</dt>
@@ -941,7 +943,7 @@ export function PuertaYReproducciones({ inv, estado, ahora }: { inv: Investigaci
       id="puerta"
       plegable
       abierta={puerta.estado !== 'abierta'}
-      resumen={<span>{puerta.estado === 'abierta' ? trp("Abierta: {superadas} de {requeridas} análisis publicados reproducidos. ROSA2018 ya puede descubrir con datos.", { superadas: puerta.superadas, requeridas: puerta.requeridas }) : puerta.estado === 'eximida' ? `Eximida por ${puerta.eximidaPor}: ${puerta.motivo}` : trp("Bloqueada: {superadas} de {requeridas} reproducidos. Hasta abrirla, ningún análisis con datos cuenta como descubrimiento.", { superadas: puerta.superadas, requeridas: puerta.requeridas })}</span>}
+      resumen={<span>{puerta.estado === 'abierta' ? trp("Abierta: {superadas} de {requeridas} análisis publicados reproducidos. ROSA2018 ya puede descubrir con datos.", { superadas: puerta.superadas, requeridas: puerta.requeridas }) : puerta.estado === 'eximida' ? trp('Eximida por {quien}: {motivo}', { quien: puerta.eximidaPor ?? '', motivo: puerta.motivo ?? '' }) : trp("Bloqueada: {superadas} de {requeridas} reproducidos. Hasta abrirla, ningún análisis con datos cuenta como descubrimiento.", { superadas: puerta.superadas, requeridas: puerta.requeridas })}</span>}
       titulo={tr("Puerta de reproducción")}
       nota={tr("Antes de descubrir nada con datos, ROSA2018 tiene que reproducir análisis ya publicados dentro de una tolerancia fijada de antemano. Si no lo consigue, un resultado nuevo no se distingue de un error del pipeline. Una persona puede eximirla dejando el motivo; queda como cambio de política.")}
       acciones={
@@ -956,7 +958,7 @@ export function PuertaYReproducciones({ inv, estado, ahora }: { inv: Investigaci
     >
       <div className="acciones">
         <Chip tono={tono}>
-          {trp("{v} · {superadas} de {requeridas} reproducidas", { v: puerta.estado === 'abierta' ? 'Abierta' : puerta.estado === 'eximida' ? `Eximida por ${puerta.eximidaPor}` : 'Bloqueada', superadas: puerta.superadas, requeridas: puerta.requeridas })}</Chip>
+          {trp("{v} · {superadas} de {requeridas} reproducidas", { v: puerta.estado === 'abierta' ? tr('Abierta') : puerta.estado === 'eximida' ? trp('Eximida por {quien}', { quien: puerta.eximidaPor ?? '' }) : tr('Bloqueada'), superadas: puerta.superadas, requeridas: puerta.requeridas })}</Chip>
         {puerta.estado === 'eximida' && <span className="meta">{trp("Motivo: {motivo}", { motivo: puerta.motivo })}</span>}
       </div>
       {reps.length > 0 && (
@@ -1632,6 +1634,8 @@ export function ProtocoloYEnmiendas({ h, ahora }: { h: Hipotesis; ahora: number 
 // Gobierno de las areas y jerarquia programa / areas / campanas / preguntas
 // ---------------------------------------------------------------------------
 
+const ESTADO_AREA_VISTA = traducido({ elegida: 'Elegida', propuesta: 'Propuesta', pausada: 'Pausada', sin_explorar: 'Sin explorar' });
+
 /** Elegir, reabrir, pausar con condición, dejar sin explorar y asignar campaña
  *  a un área. La usan la tabla de la misión y la de la ficha de la investigación. */
 export function GobiernoArea({ inv, a, corridas }: { inv: Investigacion; a: AreaInvestigacion; corridas: Corrida[] }) {
@@ -1683,7 +1687,7 @@ function FilaArea({ inv, a, corridas }: { inv: Investigacion; a: AreaInvestigaci
             <ul className="lista-plana">
               {a.historial!.map((hi, i) => (
                 <li key={i} className="meta">
-                  {new Date(hi.fecha).toLocaleDateString('es')} {nombreActor(hi.quien)}: {hi.de === hi.a ? hi.motivo : `${hi.de.replace('_', ' ')} a ${hi.a.replace('_', ' ')}${hi.motivo ? ` (${hi.motivo})` : ''}`}
+                  {new Date(hi.fecha).toLocaleDateString(idiomaActual() === 'en' ? 'en' : 'es')} {nombreActor(hi.quien)}: {hi.de === hi.a ? hi.motivo : trp('{de} a {a}{motivo}', { de: ESTADO_AREA_VISTA[hi.de], a: ESTADO_AREA_VISTA[hi.a], motivo: hi.motivo ? ` (${hi.motivo})` : '' })}
                 </li>
               ))}
             </ul>
@@ -1698,7 +1702,7 @@ function FilaArea({ inv, a, corridas }: { inv: Investigacion; a: AreaInvestigaci
         {a.dependeDe ? trp("; depende de {dependeDe}", { dependeDe: a.dependeDe }) : ''}
       </td>
       <td>
-        <Chip tono={a.estado === 'elegida' ? 'ok' : a.estado === 'sin_explorar' ? 'aviso' : 'borde'}>{a.estado.replace('_', ' ')}</Chip>
+        <Chip tono={a.estado === 'elegida' ? 'ok' : a.estado === 'sin_explorar' ? 'aviso' : 'borde'}>{ESTADO_AREA_VISTA[a.estado]}</Chip>
         {campana && <p className="meta">{trp("Campaña {numero}", { numero: campana.numero })}</p>}
       </td>
       <td>
@@ -1737,7 +1741,7 @@ export function Jerarquia({ inv, corridas }: { inv: Investigacion; corridas: Cor
               const cs = corridas.filter((c) => c.id === a.corridaId);
               return (
                 <li key={a.id}>
-                  <Chip tono={a.estado === 'elegida' ? 'ok' : a.estado === 'pausada' ? 'aviso' : 'borde'}>{a.estado.replace('_', ' ')}</Chip> <strong>{a.titulo}</strong>
+                  <Chip tono={a.estado === 'elegida' ? 'ok' : a.estado === 'pausada' ? 'aviso' : 'borde'}>{ESTADO_AREA_VISTA[a.estado]}</Chip> <strong>{a.titulo}</strong>
                   {a.estado === 'pausada' && a.condicionReapertura ? <span className="meta">{trp(" (se reabre si: {condicionReapertura})", { condicionReapertura: a.condicionReapertura })}</span> : null}
                   <ul>
                     {cs.length === 0 && <li className="meta">{(a.estado === 'elegida' ? tr("Elegida sin campaña asignada.") : tr("Sin campaña."))}</li>}
@@ -1746,7 +1750,7 @@ export function Jerarquia({ inv, corridas }: { inv: Investigacion; corridas: Cor
                         <a className="enlace" href={rutaDe(inv.id, 'corrida', c.id)}>
                           {trp("Campaña {numero}", { numero: c.numero })}
                         </a>{' '}
-                        <span className="meta">({c.estado.replace('_', ' ')})</span>
+                        <span className="meta">({ESTADO_CORRIDA[c.estado]})</span>
                         <ul>
                           <li>{pregunta(c)}</li>
                         </ul>
@@ -1765,7 +1769,7 @@ export function Jerarquia({ inv, corridas }: { inv: Investigacion; corridas: Cor
                       <a className="enlace" href={rutaDe(inv.id, 'corrida', c.id)}>
                         {trp("Campaña {numero}", { numero: c.numero })}
                       </a>{' '}
-                      <span className="meta">({c.estado.replace('_', ' ')})</span>
+                      <span className="meta">({ESTADO_CORRIDA[c.estado]})</span>
                       <ul>
                         <li>{pregunta(c)}</li>
                       </ul>
@@ -1896,7 +1900,7 @@ export function PanelKiller({ estado }: { estado: EstadoRosa }) {
               <Chip tono="borde">{trp("Abstención {v} %", { v: Math.round(ev.resumen.abstencion * 100) })}</Chip>
               <Chip tono={ev.resumen.sobreMatanzaGris !== null && ev.resumen.sobreMatanzaGris > 0 ? 'mal' : 'ok'}>{trp("Mata de más en gris {v}", { v: ev.resumen.sobreMatanzaGris === null ? 'n/a' : `${Math.round(ev.resumen.sobreMatanzaGris * 100)} %` })}</Chip>
               <span className="meta">
-                {trp("{casos} casos sobre {hipotesis} hipótesis, juez {juez}, {usd} USD, {v}", { casos: ev.resumen.casos, hipotesis: ev.resumen.hipotesis, juez: ev.resumen.juez, usd: ev.resumen.usd, v: new Date(ev.fecha).toLocaleString('es') })}
+                {trp("{casos} casos sobre {hipotesis} hipótesis, juez {juez}, {usd} USD, {v}", { casos: ev.resumen.casos, hipotesis: ev.resumen.hipotesis, juez: ev.resumen.juez, usd: ev.resumen.usd, v: new Date(ev.fecha).toLocaleString(idiomaActual() === 'en' ? 'en' : 'es') })}
               </span>
             </div>
             {ev.resumen.acuerdo?.decision && (
@@ -2084,7 +2088,7 @@ export function MemoriaDelProyecto({ inv }: { inv: Investigacion }) {
           <li key={m.id} className="acciones">
             <span style={{ fontSize: 13 }}>{m.texto}</span>
             <span className="meta">
-              {nombreActor(m.quien)}, {new Date(m.fecha).toLocaleDateString('es')}
+              {nombreActor(m.quien)}, {new Date(m.fecha).toLocaleDateString(idiomaActual() === 'en' ? 'en' : 'es')}
             </span>
             <button type="button" className="btn btn-pequeno" onClick={() => acciones.quitarMemoria(inv.id, m.id)}>
               {tr("Quitar")}
@@ -2910,7 +2914,7 @@ export function ConocimientoOperativoDelLaboratorio({ inv }: { inv: Investigacio
       <ul className="lista-plana">
         {lista.map((x) => (
           <li key={x.id}>
-            <Chip tono="borde">{TIPO_OPERATIVO[x.tipo]}</Chip> {x.texto} <span className="meta">({x.quien}, {new Date(x.fecha).toLocaleDateString('es')})</span>{' '}
+            <Chip tono="borde">{TIPO_OPERATIVO[x.tipo]}</Chip> {x.texto} <span className="meta">({x.quien}, {new Date(x.fecha).toLocaleDateString(idiomaActual() === 'en' ? 'en' : 'es')})</span>{' '}
             <button type="button" className="btn btn-fantasma btn-s" onClick={() => acciones.quitarConocimientoOperativo(inv.id, x.id)} aria-label={tr("Quitar")}>
               {tr("Quitar")}
             </button>

@@ -66,6 +66,21 @@
       "id": "viabilidad_celular",
       "url": "https://www.ncbi.nlm.nih.gov/books/NBK144065/",
       "uso": "Cell viability se refiere a células viables y no a factibilidad de ejecutar un estudio (feasibility). Cada ensayo necesita caracterización para su modelo."
+    },
+    {
+      "id": "idt_quimica_aso",
+      "url": "https://www.idtdna.com/pages/products/functional-genomics/antisense-oligos/what-types-of-modifications-are-routinely-used-in-antisense-experiments-",
+      "uso": "Nombres de las modificaciones químicas del oligonucleótido: phosphorothioate linkage y 5-methylcytosine. No cambian la secuencia ni predicen su eficacia."
+    },
+    {
+      "id": "fda_intratecal",
+      "url": "https://www.fda.gov/media/147876/download",
+      "uso": "Intrathecal administration es la vía de administración; lumbar puncture describe el procedimiento de acceso."
+    },
+    {
+      "id": "nih_specific_aims",
+      "url": "https://www.grants.nih.gov/grants-process/write-application/advice-on-application-sections",
+      "uso": "Vocabulario de la página de Specific Aims: objective, hypothesis, rationale, approach y outcomes. La plantilla es un borrador para revisión humana, no una aprobación del NIH."
     }
   ],
   "reglas": [
@@ -195,6 +210,38 @@
       "en": "\\bviability\\b",
       "fuentes": [
         "viabilidad_celular"
+      ]
+    },
+    {
+      "id": "fosforotioato",
+      "es": "\\bfosforotioato\\b",
+      "en": "\\bphosphorothioate\\b",
+      "fuentes": [
+        "idt_quimica_aso"
+      ]
+    },
+    {
+      "id": "metilcitosina",
+      "es": "\\b5-metilcitosina\\b",
+      "en": "\\b5-methylcytosine\\b",
+      "fuentes": [
+        "idt_quimica_aso"
+      ]
+    },
+    {
+      "id": "via_intratecal",
+      "es": "\\bintratecal\\b",
+      "en": "\\bintrathecal\\b",
+      "fuentes": [
+        "fda_intratecal"
+      ]
+    },
+    {
+      "id": "puncion_lumbar",
+      "es": "\\bpuncion lumbar\\b",
+      "en": "\\blumbar puncture\\b|\\bLP\\b",
+      "fuentes": [
+        "fda_intratecal"
       ]
     }
   ],
@@ -354,7 +401,81 @@
     "Cada columna es un paso de la ruta terapéutica: los ocho pasos que separan un mecanismo de un beneficio para una persona. Pasa el ratón por el nombre del paso para leer qué comprueba. En cada celda, cuántas hipótesis vivas de esa diana cubren el paso; en gris, los pasos que ninguna cubre.": "Each column is a step of the therapeutic development pathway: the eight steps that separate a mechanism from a benefit to a person. Hover over the step name to read what it checks. In each cell, how many live hypotheses for that target cover the step; in gray, the steps none covers.",
     "Se comprueba si hay datos cada 10 minutos, con al menos seis horas entre ciclos y nunca mientras una corrida está en marcha. Los casos se separan por investigación; el examen final (al menos 8 casos, dos lecturas del juez por caso) exige mejora media de 0,05 sin ningún caso claramente peor. Se conserva cada versión anterior. El Killer y el juez no se autoentrenan con sus propios veredictos. Los prompts y las respuestas se guardan con redacción de secretos en el registro privado, no en esta pantalla. Pausar impide nuevas promociones; una petición al Gateway ya enviada puede terminar.": "It checks for data every 10 minutes, with at least six hours between cycles and never while a run is in progress. Cases are split by investigation; the final evaluation (at least 8 cases, two assessments by the judge per case) requires a mean improvement of 0.05 with no case clearly worse. Every earlier version is kept. The Killer and the judge do not self-train on their own verdicts. Prompts and responses are stored with secrets redacted in the private log, not on this screen. Pausing prevents new promotions; a request already sent to the Gateway may still finish.",
     "Tipo fuera del vocabulario cerrado (compromiso de diana, viabilidad, función o mecanismo, biomarcador, seguridad); la lista de lo que le falta al contrato lo dice.": "Type outside the closed vocabulary (target engagement, viability, function or mechanism, biomarker, safety); the list of what the contract is missing says so.",
-    "Un fichero de instrucciones por método (como correr una reproducción de GEO, como calcular un tamaño muestral, como hacer control de calidad de célula única). ROSA2018 carga las que casan con el plan y las pasa al modelo junto con los módulos que el sandbox puede importar. Se añaden o cambian editando rosa/skills/; el catálogo se lee al arrancar.": "An instruction file per method (how to reproduce an analysis using GEO data, how to compute a sample size, how to do single-cell quality control). ROSA2018 loads the ones that match the plan and passes them to the model along with the modules the sandbox can import. You add or change them by editing rosa/skills/; the catalog is read at startup."
+    "Un fichero de instrucciones por método (como correr una reproducción de GEO, como calcular un tamaño muestral, como hacer control de calidad de célula única). ROSA2018 carga las que casan con el plan y las pasa al modelo junto con los módulos que el sandbox puede importar. Se añaden o cambian editando rosa/skills/; el catálogo se lee al arrancar.": "An instruction file per method (how to reproduce an analysis using GEO data, how to compute a sample size, how to do single-cell quality control). ROSA2018 loads the ones that match the plan and passes them to the model along with the modules the sandbox can import. You add or change them by editing rosa/skills/; the catalog is read at startup.",
+    "hechos": "facts",
+    "eventos": "events",
+    "memoria": "memory",
+    "corridas": "runs",
+    "datasets": "datasets",
+    "artefactos": "artifacts",
+    "relaciones": "relationships",
+    "Vista actual": "Current view",
+    "Documentación": "Documentation",
+    "investigaciones": "investigations",
+    "Preparar acción": "Prepare action",
+    "Vista calculada": "Computed view",
+    "Leyendo la skill": "Reading the skill",
+    "Panorama del tema": "Topic overview",
+    "Historial de GEPA": "GEPA history",
+    "Cuestiones abiertas": "Open questions",
+    "Lectura de registro": "Log read",
+    "Consulta a servicio": "Service query",
+    "Calculando la vista": "Computing the view",
+    "Abriendo el dataset": "Opening the dataset",
+    "Consulta al dataset": "Dataset query",
+    "Consulta al proyecto": "Project query",
+    "Catálogo de acciones": "Action catalog",
+    "Previsión de borrado": "Deletion preview",
+    "Leyendo el documento": "Reading the document",
+    "Lectura de documento": "Document read",
+    "Catálogo del proyecto": "Project catalog",
+    "Catálogo de servicios": "Service catalog",
+    "Recorriendo el dataset": "Inspecting the dataset",
+    "Búsqueda en el proyecto": "Project search",
+    "Consultando un servicio": "Querying a service",
+    "Leyendo la documentación": "Reading the documentation",
+    "Mirando qué servicios hay": "Checking available services",
+    "Mirando el historial de GEPA": "Reviewing GEPA history",
+    "Leyendo lo que hay en pantalla": "Reading the current view",
+    "{v} minutos": "{v} minutes",
+    "Gasto de la corrida {numero}: {llamadas} llamadas ({pct} % del tope){coste}": "Run {numero} spending: {llamadas} model calls ({pct} % of the limit){coste}",
+    "Certeza {nivel}": "{nivel} certainty",
+    "Ruta {orden}/8: {etiqueta}": "Pathway {orden}/8: {etiqueta}",
+    "Ruta: {paso}": "Pathway: {paso}",
+    "{definicion} Techo: {nivel}{acotada}{motivo}.": "{definicion} Ceiling: {nivel}{acotada}{motivo}.",
+    ". Motivo: {motivo}": ". Reason: {motivo}",
+    " · techo {nivel}": " · ceiling {nivel}",
+    " Hoy {apoyos}.": " Currently, {apoyos}.",
+    "{n} socavan": "{n} undercut",
+    "Motivo: {motivo}": "Reason: {motivo}",
+    "BT {fuerza} ({desde} a {hasta})": "BT {fuerza} ({desde} to {hasta})",
+    " Detalle: {detalle}": " Details: {detalle}",
+    "otra": "another",
+    "{fusionada} En: {titulos}.": "{fusionada} Into: {titulos}.",
+    "RETRACTADO": "RETRACTED",
+    ", pág. {pagina}": ", p. {pagina}",
+    "Sin sello externo": "No external timestamp",
+    "Eximida por {quien}: {motivo}": "Waived by {quien}: {motivo}",
+    "Eximida por {quien}": "Waived by {quien}",
+    "Asignado a {laboratorio}": "Assigned to {laboratorio}",
+    "Datos recibidos: {fichero}": "Data received: {fichero}",
+    "sha256 {hash}. Hora firmada por {testigos}: {hora}. Se verifica sin ROSA2018 con openssl ts -verify sobre el token guardado.": "sha256 {hash}. Timestamp signed by {testigos}: {hora}. Verify independently of ROSA2018 with openssl ts -verify using the stored token.",
+    "fuentes distintas": "distinct sources",
+    "fosforotioato en todos los enlaces": "phosphorothioate at every linkage",
+    "5-metilcitosina": "5-methylcytosine",
+    "intratecal (punción lumbar)": "intrathecal (lumbar puncture)",
+    "## Specific Aim {numero}\n\n**Objetivo general.** {titulo}\n\n**Hipótesis.** {hipotesis}\n\n**Razonamiento.** {razonamiento}\n\n**Enfoque.** Biomarcador: {biomarcador}. Cohorte: {cohorte}. Diseño: {diseno}.\n\n**Fuentes.** {fuentes}": "## Specific Aim {numero}\n\n**Overall objective.** {titulo}\n\n**Hypothesis.** {hipotesis}\n\n**Rationale.** {razonamiento}\n\n**Approach.** Biomarker: {biomarcador}. Cohort: {cohorte}. Design: {diseno}.\n\n**Sources.** {fuentes}",
+    "# Specific Aims\n\n**Descripción de la enfermedad.** {objetivo}\n\n**Necesidad no cubierta.** {v}\n\n**Solución propuesta.** {v2}\n\n{v3}\n\n## Evaluación piloto\n\nCada aim se comprobará con el biomarcador y la cohorte indicados; las hipótesis se prerregistran en ROSA2018 antes de probarse.\n\n_Generado por ROSA2018 el {v4}. Borrador para revisión humana._": "# Specific Aims\n\n**Disease description.** {objetivo}\n\n**Unmet need.** {v}\n\n**Proposed solution.** {v2}\n\n{v3}\n\n## Pilot evaluation\n\nEach aim will be tested using the specified biomarker and cohort; hypotheses are preregistered in ROSA2018 before testing.\n\n_Generated by ROSA2018 on {v4}. Draft for human review._",
+    "Bloqueada": "Blocked",
+    "Toxicidad o inviabilidad": "Toxicity or infeasibility",
+    "corre": "runs",
+    "Para subir a {v}: {falta}": "To reach {v}: {falta}",
+    "Confirmatorio": "Confirmatory",
+    "Exploratorio": "Exploratory",
+    "Reproducción computacional": "Computational reproducibility",
+    "{de} a {a}{motivo}": "{de} to {a}{motivo}",
+    "Explicar {titulo}": "Explain {titulo}",
+    "Qué es esto y qué significan sus términos": "What this is and what its terms mean"
   },
   "unidades": {
     "µM": "µM",

@@ -9,7 +9,7 @@ import { fechaCorta, tiempoRelativo } from '../lib/formato';
 import { terminosEn } from '../lib/glosario';
 import { primeraFrase, useModo } from '../lib/modo';
 import { IconAlert } from './icons';
-import { tr } from '../lib/idioma';
+import { tr, trp, idiomaActual } from '../lib/idioma';
 import { Desplegable } from './Desplegable';
 
 export function Chip({ tono, children, title }: { tono?: 'ok' | 'aviso' | 'mal' | 'acento' | 'borde' | 'neutro'; children: ReactNode; title?: string }) {
@@ -31,7 +31,7 @@ export function Momento({ t, ahora, soloRelativo = false }: { t: number; ahora: 
   const abs = fechaCorta(t);
   const rel = tiempoRelativo(t, ahora);
   return (
-    <time className="momento" dateTime={new Date(t).toISOString()} title={new Date(t).toLocaleString('es')}>
+    <time className="momento" dateTime={new Date(t).toISOString()} title={new Date(t).toLocaleString(idiomaActual() === 'en' ? 'en' : 'es')}>
       {soloRelativo ? rel : `${abs} · ${rel}`}
     </time>
   );
@@ -85,7 +85,7 @@ export function Seccion({ titulo, nota, acciones, children, detalle = false, ple
             )}
             {detalle && <span className="chip chip-borde seccion-etiqueta-detalle" title={tr("Es información de ingeniería o de auditoría: en modo Detalle se abre sola.")}>{tr("detalle")}</span>}
             {hayAyuda && (
-              <button type="button" className="seccion-ayuda" aria-expanded={ayuda} aria-label={`Explicar ${titulo}`} title={tr("Qué es esto y que significan sus términos")} onClick={() => setAyuda((v) => !v)}>
+              <button type="button" className="seccion-ayuda" aria-expanded={ayuda} aria-label={trp('Explicar {titulo}', { titulo })} title={tr("Qué es esto y qué significan sus términos")} onClick={() => setAyuda((v) => !v)}>
                 ?
               </button>
             )}

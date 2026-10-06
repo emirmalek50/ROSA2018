@@ -514,5 +514,53 @@
     "original": "Tipo fuera del vocabulario cerrado (compromiso de diana, viabilidad, función o mecanismo, biomarcador, seguridad); la lista de lo que le falta al contrato lo dice.",
     "traducido": "Type outside the closed vocabulary (target engagement, viability, function or mechanism, biomarker, safety); the list of what the contract is missing says so.",
     "valida": true
+  },
+  {
+    "nombre": "enlaces PS traducidos como phosphorothioate",
+    "original": "fosforotioato en todos los enlaces",
+    "traducido": "phosphorothioate at every linkage",
+    "valida": true
+  },
+  {
+    "nombre": "enlaces PS no se convierten en phosphodiester",
+    "original": "fosforotioato en todos los enlaces",
+    "traducido": "phosphodiester at every linkage",
+    "valida": false
+  },
+  {
+    "nombre": "modificación de citosina conserva identidad",
+    "original": "5-metilcitosina",
+    "traducido": "5-methylcytosine",
+    "valida": true
+  },
+  {
+    "nombre": "metilcitosina no se convierte en hydroxymethylcytosine",
+    "original": "5-metilcitosina",
+    "traducido": "5-hydroxymethylcytosine",
+    "valida": false
+  },
+  {
+    "nombre": "vía intratecal y procedimiento lumbar distintos",
+    "original": "intratecal (punción lumbar)",
+    "traducido": "intrathecal (lumbar puncture)",
+    "valida": true
+  },
+  {
+    "nombre": "vía intratecal no se convierte en intravenosa",
+    "original": "intratecal (punción lumbar)",
+    "traducido": "intravenous (lumbar puncture)",
+    "valida": false
+  },
+  {
+    "nombre": "punción lumbar abreviatura admitida",
+    "original": "punción lumbar",
+    "traducido": "lumbar puncture (LP)",
+    "valida": true
+  },
+  {
+    "nombre": "punción lumbar no se sustituye por anestesia epidural",
+    "original": "punción lumbar",
+    "traducido": "epidural anesthesia",
+    "valida": false
   }
 ]

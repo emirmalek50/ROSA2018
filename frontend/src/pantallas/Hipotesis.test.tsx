@@ -8,6 +8,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fijarIdioma } from '../lib/idioma';
 import { estadoDeMuestra } from '../datos/muestra';
 import type { EstadoRosa, Hipotesis as Hip } from '../datos/tipos';
 import { Hipotesis } from './Hipotesis';
@@ -43,6 +44,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   nodo.remove();
+  fijarIdioma('es');
 });
 
 /** Deja pasar el frame y el temporizador que viene detrás: desde el 19 de
@@ -58,6 +60,32 @@ async function montar(e: EstadoRosa, id: string) {
   await act(async () => root.render(<Hipotesis inv={inv} estado={e} ahora={Date.now()} detalleId={id} cajonAbierto={false} setCajonAbierto={() => undefined} />));
   await esperarPintado();
 }
+
+it('el experimento asignado y el sello se traducen sin alterar hash, hora o archivo', async () => {
+  const e = structuredClone(estadoDeMuestra());
+  const h = e.hipotesis.find((x) => x.experimento)!;
+  h.experimento!.estado = 'asignado';
+  h.experimento!.laboratorio = 'INTEC';
+  h.experimento!.prerregistradoEn = 1;
+  h.experimento!.selloExterno = { algoritmo: 'sha256', hash: 'abcdef123456', pedidoEn: 1, ok: true, testigos: ['FreeTSA', 'DigiCert'], primeraHora: '2026-10-06T10:23:00Z', error: null, sellos: [] };
+  const original = JSON.stringify(h);
+  fijarIdioma('en');
+  await montar(e, h.id);
+  expect(nodo.textContent).toContain('Assigned to INTEC');
+  expect(nodo.textContent).toContain('FreeTSA and DigiCert');
+  const sello = [...nodo.querySelectorAll('[title]')].find((x) => x.getAttribute('title')?.startsWith('sha256'))!;
+  expect(sello.getAttribute('title')).toContain('Timestamp signed by FreeTSA and DigiCert: 2026-10-06T10:23:00Z');
+  expect(sello.getAttribute('title')).toContain('sha256 abcdef123456');
+  expect(sello.getAttribute('title')).toContain('openssl ts -verify');
+  expect(JSON.stringify(h)).toBe(original);
+  h.experimento!.estado = 'datos_recibidos';
+  h.experimento!.ficheroDatos = 'datos-ensayo.csv';
+  await montar(e, h.id);
+  expect(nodo.textContent).toContain('Data received: datos-ensayo.csv');
+  fijarIdioma('es');
+  await montar(e, h.id);
+  expect(nodo.textContent).toContain('Datos recibidos: datos-ensayo.csv');
+});
 
 function conTodo(): { e: EstadoRosa; h: Hip } {
   const e = structuredClone(estadoDeMuestra());

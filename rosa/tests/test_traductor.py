@@ -60,9 +60,9 @@ def test_si_el_modelo_falla_no_se_guarda_nada_y_no_se_lanza(tmp_path):
 
 
 def test_lo_que_el_modelo_no_devuelve_se_dice(tmp_path):
-    r = T.traducir(["a traducir", "otra"], llamar=lambda lote: {"a traducir": "to translate"}, almacen=_cache(tmp_path))
+    r = T.traducir(["a traducir", "otra frase sin traducir"], llamar=lambda lote: {"a traducir": "to translate"}, almacen=_cache(tmp_path))
     assert r["traducciones"] == {"a traducir": "to translate"}
-    assert r["rechazadas"] == {"otra": "el modelo no la devolvió"}
+    assert r["rechazadas"] == {"otra frase sin traducir": "el modelo no la devolvió"}
 
 
 def test_la_peticion_se_limpia_y_tiene_tope():

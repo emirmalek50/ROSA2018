@@ -119,7 +119,7 @@ export function MapaRuta({ mapa, estado }: { mapa: Mapa | null | undefined; esta
                 const hip = [...new Set(Array.isArray(f.hipotesis) ? f.hipotesis.filter((x): x is string => typeof x === 'string' && x !== '') : [])];
                 const huecos = new Set(Array.isArray(f.huecos) ? f.huecos : []);
                 const pasos = f.pasos && typeof f.pasos === 'object' ? f.pasos : ({} as Partial<Record<PasoRutaTerapeutica, CeldaMapaRuta>>);
-                const etiqueta = typeof f.etiqueta === 'string' && f.etiqueta ? f.etiqueta : typeof f.clave === 'string' && f.clave ? f.clave : tr('sin diana');
+                const etiqueta = typeof f.etiqueta === 'string' && f.etiqueta ? tr(f.etiqueta) : typeof f.clave === 'string' && f.clave ? tr(f.clave) : tr('sin diana');
                 return (
                   <tr key={`${f.clave ?? etiqueta}-${i}`}>
                     <td>

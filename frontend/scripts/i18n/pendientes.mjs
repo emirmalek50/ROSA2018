@@ -1,29 +1,28 @@
 // Lo que esta envuelto y todavia no tiene traduccion. Es la lista de trabajo.
 import ts from 'typescript';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { build } from 'esbuild';
+// Auditar el catálogo que consume la interfaz, incluida la revisión compartida
+// con Python. Leer solo en/*.ts omitía esas traducciones y sus prioridades.
+const compilado = await build({ entryPoints: ['src/i18n/en.ts'], bundle: true, write: false, format: 'esm', platform: 'node' });
+const { EN } = await import(`data:text/javascript;base64,${Buffer.from(compilado.outputFiles[0].text).toString('base64')}`);
 // Misma lista que el Proxy, leída de idioma.ts para que no se desincronice.
 const fuenteIdioma = readFileSync('src/lib/idioma.ts', 'utf8');
 const bloque = fuenteIdioma.slice(fuenteIdioma.indexOf('CAMPOS_DE_DATOS'), fuenteIdioma.indexOf(']);', fuenteIdioma.indexOf('CAMPOS_DE_DATOS')));
 const CAMPOS_DE_DATOS = new Set([...bloque.matchAll(/'([A-Za-z]+)'/g)].map((m) => m[1]));
-const cat = new Set();
-for (const f of execSync("ls src/i18n/en/*.ts", { encoding: 'utf8' }).trim().split('\n')) {
-  const sf = ts.createSourceFile(f, readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, true);
-  const ver = (x) => {
-    if (ts.isPropertyAssignment(x)) {
-      const n = x.name;
-      cat.add(ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) ? n.text : n.getText());
-    }
-    ts.forEachChild(x, ver);
-  };
-  ver(sf);
-}
+const cat = new Set(Object.keys(EN));
 // Los valores de enumeracion no van al catalogo: se comparan con el
 // servidor, y traducidos dejan de encajar. Misma regla que el guardian de
 // `src/i18n/catalogo.test.ts`.
 const IDENTIFICADOR = /^(?:[a-z][a-z0-9]*(?:_[a-z0-9]+)+|[a-z]+[A-Z]\w*)$/;
 const faltan = new Map();
-for (const f of execSync("find src -name '*.tsx' -o -name '*.ts' | grep -v '/i18n/' | grep -v '.test.'", { encoding: 'utf8' }).trim().split('\n')) {
+function archivos(directorio) {
+  return readdirSync(directorio, { withFileTypes: true }).flatMap((e) => {
+    const ruta = `${directorio}/${e.name}`;
+    return e.isDirectory() ? archivos(ruta) : /\.tsx?$/.test(e.name) && !ruta.includes('/i18n/') && !ruta.includes('.test.') ? [ruta] : [];
+  });
+}
+for (const f of archivos('src')) {
   const sf = ts.createSourceFile(f, readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   // Las constantes de texto del fichero. `tr(AYUDA)` no lleva el texto en la
   // llamada: hay que ir a buscarlo a `const AYUDA = '...'`. Sin esto, las
@@ -97,3 +96,4 @@ const porFichero = new Map();
 for (const [, f] of faltan) porFichero.set(f, (porFichero.get(f) || 0) + 1);
 for (const [f, n] of [...porFichero].sort((a, b) => b[1] - a[1]).slice(0, 12)) console.log(`  ${String(n).padStart(4)}  ${f.replace('src/', '')}`);
 writeFileSync('/tmp/faltan.json', JSON.stringify([...faltan.keys()].sort((a, b) => a.length - b.length), null, 1));
+if (process.argv.includes('--comprobar') && faltan.size > 0) process.exitCode = 1;

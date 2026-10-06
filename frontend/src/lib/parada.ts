@@ -111,7 +111,7 @@ function horasTexto(h: number): string {
   if (h >= 24 && Number.isInteger(h / 24)) return (h === 24 ? trp("{v} día", { v: h / 24 }) : trp("{v} días", { v: h / 24 }));
   if (h < 1) {
     const m = Math.round(h * 60);
-    return m === 1 ? tr('1 minuto') : `${m} minutos`;
+    return m === 1 ? tr('1 minuto') : trp('{v} minutos', { v: m });
   }
   return (h === 1 ? trp("{h} hora", { h }) : trp("{h} horas", { h }));
 }
@@ -125,7 +125,8 @@ export function resumenParada(p: ParadaCorrida | null | undefined): string {
   if (p.llamadas) partes.push(trp("{llamadas} llamadas al modelo", { llamadas: p.llamadas }));
   if (p.certeza) {
     const n = p.cuantas ?? 1;
-    partes.push(n > 1 ? trp("{n} hipótesis en certeza {certeza}", { n, certeza: p.certeza }) : trp("una hipótesis en certeza {certeza}", { certeza: p.certeza }));
+    const certeza = tr(p.certeza);
+    partes.push(n > 1 ? trp("{n} hipótesis en certeza {certeza}", { n, certeza }) : trp("una hipótesis en certeza {certeza}", { certeza }));
   }
   if (p.sinCambio) partes.push((p.sinCambio === 1 ? trp("{sinCambio} iteración sin avance", { sinCambio: p.sinCambio }) : trp("{sinCambio} iteraciones sin avance", { sinCambio: p.sinCambio })));
   if (p.texto) partes.push(`«${p.texto}»`);

@@ -93,7 +93,9 @@ export function plural(n: number, singular: string, pluralExplicito?: string): s
 /** Fecha corta legible: "10 sep, 14:30". */
 export function fechaCorta(ms: number): string {
   const d = new Date(ms);
-  const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const meses = idiomaActual() === 'en'
+    ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    : ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   const hh = d.getHours().toString().padStart(2, '0');
   const mm = d.getMinutes().toString().padStart(2, '0');
   return `${d.getDate()} ${meses[d.getMonth()]}, ${hh}:${mm}`;

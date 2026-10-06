@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FUENTES, HECHOS, HIPOTESIS, INVESTIGACION } from '../datos/muestra';
 import { aBibtex, aCsv, aRis, expediente, specificAims } from './exportar';
+import { fijarIdioma } from './idioma';
 
 describe('exportar referencias', () => {
   it('BibTeX lleva DOI, pagina y la marca de retractacion', () => {
@@ -47,5 +48,23 @@ describe('specificAims', () => {
   });
   it('sin candidatas lo dice', () => {
     expect(specificAims(INVESTIGACION, [])).toContain('Sin hipótesis candidatas');
+  });
+  it('exporta las etiquetas en inglés sin alterar el contenido científico ni la página', () => {
+    const h = { ...HIPOTESIS[0]!, estado: 'aceptada' as const };
+    const original = JSON.stringify(h);
+    fijarIdioma('en');
+    try {
+      const texto = specificAims(INVESTIGACION, [h]);
+      for (const etiqueta of ['**Disease description.**', '**Hypothesis.**', '**Rationale.**', 'Biomarker:', 'Cohort:', 'Design:', '**Sources.**', '## Pilot evaluation', 'Draft for human review']) expect(texto).toContain(etiqueta);
+      expect(texto).not.toMatch(/Objetivo general|Hipótesis\.|Razonamiento|Biomarcador:|Cohorte:|Diseño:|Fuentes\.|pág\./);
+      expect(texto).toContain(h.enunciado);
+      for (const f of h.procedencia.fuentes) if (f.pagina !== null) expect(texto).toContain(`${f.referencia}, p. ${f.pagina}`);
+      expect(aRis([FUENTES.retractado!])).toContain('RETRACTED.');
+      expect(JSON.stringify(h)).toBe(original);
+    } finally {
+      fijarIdioma('es');
+    }
+    expect(specificAims(INVESTIGACION, [h])).toContain('**Hipótesis.**');
+    expect(aRis([FUENTES.retractado!])).toContain('RETRACTADO.');
   });
 });

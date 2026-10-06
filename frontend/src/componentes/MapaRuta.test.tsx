@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { estadoDeMuestra } from '../datos/muestra';
 import type { EstadoRosa, MapaRuta as Mapa } from '../datos/tipos';
 import { DEFINICIONES_PASO, MapaRuta, PASOS_RUTA } from './MapaRuta';
+import { fijarIdioma } from '../lib/idioma';
 
 const SIN_TILDE = /\b(hipotesis|iteracion|todavia|Todavia|Iteracion|replicacion|poblacion|intervencion|exposicion|raton|maxima|mecanismo biologico)\b/;
 
@@ -23,6 +24,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   nodo.remove();
+  fijarIdioma('es');
 });
 
 const titulos = () => [...nodo.querySelectorAll('[title]')].map((c) => c.getAttribute('title') ?? '');
@@ -67,6 +69,20 @@ function mapa(): Mapa {
 }
 
 describe('MapaRuta', () => {
+  it('traduce la etiqueta sin diana del servidor también en los tooltips y conserva las claves', async () => {
+    const m = mapa();
+    m.filas[0]!.etiqueta = 'sin diana';
+    const original = JSON.stringify(m);
+    fijarIdioma('en');
+    await act(async () => root.render(<MapaRuta mapa={m} />));
+    expect(nodo.querySelector('tbody strong')?.textContent).toBe('no target');
+    expect(titulos().join('\n')).toContain('no target');
+    expect(todoElTexto()).not.toContain('sin diana');
+    expect(JSON.stringify(m)).toBe(original);
+    fijarIdioma('es');
+    await act(async () => root.render(<MapaRuta mapa={m} />));
+    expect(nodo.querySelector('tbody strong')?.textContent).toBe('sin diana');
+  });
   it('sin mapa dice cuándo se calcula', async () => {
     await act(async () => root.render(<MapaRuta mapa={null} />));
     expect(nodo.textContent).toContain('Mapa de la ruta terapéutica');
