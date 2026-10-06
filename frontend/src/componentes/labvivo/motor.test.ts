@@ -22,6 +22,14 @@ function montar(d = datos(), r: Partial<Respuestas> = {}) {
   return resp;
 }
 function ticks(n = 80) { for (let j = 0; j < n; j++) { tiempo += 100; frame(tiempo); } }
+async function avanzar(n: number, observar?: () => void) {
+  for (let j = 0; j < n; j++) {
+    ticks(1);
+    // Las caminatas encadenan promesas; un frame real deja que se resuelvan.
+    for (let k = 0; k < 4; k++) await Promise.resolve();
+    observar?.();
+  }
+}
 beforeEach(() => {
   tiempo = 0; motor = null; nodo = document.createElement('div'); document.body.append(nodo);
   vi.spyOn(performance, 'now').mockImplementation(() => tiempo);
@@ -111,5 +119,64 @@ describe('el motor del laboratorio sigue al servidor', () => {
     const d = { ...datos(), activos: [], trabajando: false, pide: { id: 'permiso', clase: 'permiso' as const, quien: 'Planificador', titulo: 'Presupuesto', detalle: 'Importe', alcances: ['una_vez' as const], requiereArgumentos: true } };
     const resp = montar(d); expect(nodo.querySelector('[data-a=si]')).toBeNull();
     (nodo.querySelector('.lv-pide .yes') as HTMLButtonElement).click(); expect(resp.verEnLaCorrida).toHaveBeenCalledOnce(); expect(resp.conceder).not.toHaveBeenCalled();
+  });
+  it('sigue caminando y conversa con compañeros aunque no lleguen entradas nuevas', async () => {
+    const d = datos(), texto = 'El Killer revisa «Una hipótesis real sobre MAPT»';
+    const e = { ...d.actividad[0]!, agente: 'Killer', sala: 'r4' as const, texto };
+    const estado = { ...d, foco: 'r4' as const, activos: ['Killer'], actividad: [e] };
+    const resp = montar(estado), killer = nodo.querySelector<HTMLElement>('[data-agente="Killer"]')!;
+    const posiciones = new Set<string>(), interlocutores = new Set<string>();
+    let pregunta = false, respuesta = false;
+    await avanzar(600, () => {
+      if (tiempo % 1000 === 0) motor!.actualizar(estado);
+      if (tiempo > 30000) posiciones.add(killer.style.transform);
+      for (const b of nodo.querySelectorAll<HTMLElement>('.lv-bub[data-escena]')) {
+        if (b.dataset.interlocutor) interlocutores.add(b.dataset.interlocutor);
+        pregunta ||= b.textContent?.includes('¿En qué estás ahora?') ?? false;
+        respuesta ||= b.textContent?.includes('Estoy revisando «Una hipótesis real sobre MAPT»') ?? false;
+      }
+      expect(nodo.querySelectorAll('.lv-ag.activo')).toHaveLength(1);
+    });
+    expect(posiciones.size).toBeGreaterThan(20);
+    expect(interlocutores.has('Killer')).toBe(true);
+    expect(pregunta && respuesta).toBe(true);
+    expect(estado.actividad).toEqual([e]); expect(e.texto).toBe(texto);
+    expect(resp.aprobarPlan).not.toHaveBeenCalled(); expect(resp.conceder).not.toHaveBeenCalled();
+  });
+  it('los cuatro generadores salen de sus mesas mientras sus tareas siguen activas', async () => {
+    const d = datos(), nombres = ['Analogía', 'Contradicción', 'Mecanismo opuesto', 'Otra escala'];
+    montar({ ...d, foco: 'r3', activos: nombres, actividad: nombres.map((agente, i) => ({ ...d.actividad[0]!, id: `miembro:${i}`, agente, sala: 'r3', texto: `El miembro «${agente}» genera propuestas en la ronda 1` })) });
+    const posiciones = nombres.map(() => new Set<string>());
+    await avanzar(450, () => nombres.forEach((n, i) => posiciones[i]!.add(nodo.querySelector<HTMLElement>(`[data-agente="${n}"]`)!.style.transform)));
+    posiciones.forEach((p) => expect(p.size).toBeGreaterThan(20));
+    expect(nodo.querySelectorAll('.lv-ag.activo')).toHaveLength(4);
+  });
+  it('detiene encuentros, conversaciones y paseos al pausar o perder la conexión', async () => {
+    const d = datos(); montar(d); await avanzar(180);
+    expect(nodo.querySelectorAll('.lv-ag[data-escena]').length).toBeGreaterThan(0);
+    motor!.actualizar({ ...d, trabajando: false, activos: [], estado: 'pausada', estadoTexto: 'Pausada' });
+    await avanzar(2);
+    const posiciones = [...nodo.querySelectorAll<HTMLElement>('.lv-ag')].map((a) => a.style.transform);
+    await avanzar(250);
+    expect([...nodo.querySelectorAll<HTMLElement>('.lv-ag')].map((a) => a.style.transform)).toEqual(posiciones);
+    expect(nodo.querySelectorAll('[data-escena]')).toHaveLength(0);
+    motor!.actualizar(d); await avanzar(180);
+    motor!.actualizar({ ...d, conexion: 'sin_conexion', trabajando: false, activos: [] });
+    await avanzar(250);
+    expect(nodo.querySelectorAll('[data-escena]')).toHaveLength(0);
+    expect(nodo.querySelectorAll('.lv-ag.activo')).toHaveLength(0);
+  });
+  it('respeta la animación pausada, la pestaña oculta y el movimiento reducido', async () => {
+    montar(); await avanzar(180);
+    const posiciones = () => [...nodo.querySelectorAll<HTMLElement>('.lv-ag')].map((a) => a.style.transform);
+    nodo.querySelector<HTMLButtonElement>('.lv-play')!.click();
+    const antes = posiciones(); await avanzar(150); expect(posiciones()).toEqual(antes);
+    nodo.querySelector<HTMLButtonElement>('.lv-play')!.click();
+    const oculto = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    await avanzar(150); expect(posiciones()).toEqual(antes); oculto.mockRestore();
+    motor!.desmontar(); vi.stubGlobal('matchMedia', () => ({ matches: true })); montar();
+    await avanzar(2); const reducidas = posiciones(); await avanzar(500);
+    expect(posiciones()).toEqual(reducidas);
+    expect(nodo.querySelectorAll('[data-escena]')).toHaveLength(0);
   });
 });

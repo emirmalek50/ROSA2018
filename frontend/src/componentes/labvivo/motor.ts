@@ -9,6 +9,7 @@
 
 import { tr, trp } from '../../lib/idioma';
 import { dialogoDeActividad } from '../../lib/dialogoLaboratorio';
+import './escenas.css';
 import { formatearEntero } from '../../lib/formato';
 import { ALCANCE } from '../../lib/etiquetas';
 import type { ActividadLab, DatosLab, EstadoPasoLab, EstadoSala, FuenteLab, SalaLab } from '../../lib/labVivo';
@@ -314,7 +315,10 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   const P = (n: string): Agente => AG.find((a) => a.name === n) ?? AG[0]!;
   const atHome = (a: Agente) => a.path.length === 0 && Math.abs(a.x - a.hx) < 1 && Math.abs(a.y - a.hy) < 1;
 
-  function walk(ctx: Ctx, a: Agente, pts: [number, number][]) { a.path = pts.map(([x, y]) => ({ x, y })); return ctx.until(() => a.path.length === 0); }
+  function walk(ctx: Ctx, a: Agente, pts: [number, number][]) {
+    if (ctx.dead) return Promise.reject(PARAR);
+    a.path = pts.map(([x, y]) => ({ x, y })); return ctx.until(() => a.path.length === 0);
+  }
   function home(ctx: Ctx, a: Agente) {
     const pts: [number, number][] = [];
     if (Math.abs(a.y - a.hy) > 1 && Math.abs(a.x - a.hx) > 1) pts.push([a.x, a.hy]);
@@ -484,7 +488,118 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   let hoja = false, conv = 0;
   const vistas = new Map<string, string>();
   let identidad = D.identidad;
+  // La coreografía continúa entre mensajes del servidor. Estas escenas no
+  // añaden actividad al registro ni convierten a un compañero en trabajador.
+  interface Escena { ctx: Ctx; agentes: Agente[]; trabajo: boolean }
+  const escenas = new Map<Agente, Escena>();
+  const proximaEscena = new Map<Agente, number>();
+  let rondaEscena = 0, proximoPaseo = 1.5;
+  function cancelarEscena(a: Agente) {
+    const escena = escenas.get(a);
+    if (!escena) return;
+    escena.ctx.kill();
+    for (const b of escena.agentes) {
+      if (escenas.get(b) !== escena) continue;
+      escenas.delete(b);
+      if (b.ictx !== escena.ctx) continue;
+      b.ictx = null; b.busy = false; b.path = []; b.carry = null;
+      b.x = b.hx; b.y = b.hy; b.typing = 0;
+      if (b.bub?.el.dataset.escena) { b.bub.el.remove(); b.bub = null; }
+      delete b.el.dataset.escena;
+    }
+  }
+  const escenaDisponible = () => vivo && !REDUCIR && !asking && D.trabajando && D.conexion === 'en_linea'
+    && !raiz.querySelector('.lv-narra:not([hidden])');
+  const libreParaEscena = (a: Agente) => !a.ictx && !a.busy && !a.bub && !escenas.has(a);
+  const actividadDe = (a: Agente) => [...D.actividad].reverse().find((e) => e.agente === a.name && e.enCurso);
+  function hablarEnEscena(a: Agente, b: Agente | null, texto: string, dur: number, original?: string) {
+    const destinatario = b ? trp('Para {nombre}', { nombre: b.quien || b.label }) : tr('En la escena');
+    say(a, `<em>${esc(destinatario)}</em>${esc(corta(texto, 170))}`, dur, 'escena');
+    if (a.bub) {
+      a.bub.el.dataset.escena = 'dialogo';
+      a.bub.el.dataset.agente = a.name;
+      if (b) a.bub.el.dataset.interlocutor = b.name;
+      a.bub.el.title = original ?? tr('Diálogo de la escena: no es una entrada del registro.');
+    }
+  }
+  // Pasillos bajo las mesas, sin cruzar las paredes ni las cajas de evidencia.
+  function pasillo(a: Agente): number {
+    const suelo: Partial<Record<Sala, number>> = { r1: 192, r2: a.hy < 400 ? 412 : 516, r3: 472, r4: a.hy < 750 ? 708 : 820, r5: 806, r6: 1034 };
+    return suelo[a.room] ?? Math.min(GEOM[a.room][1] + GEOM[a.room][3] - 76, a.hy + 28);
+  }
+  function desplazarse(ctx: Ctx, a: Agente, x: number, y: number) {
+    // Quienes están sentados salen por el lado de su mesa antes de bajar.
+    const salida = a.desk && atHome(a) ? [[a.hx - 12, a.hy] as [number, number]] : [];
+    return walk(ctx, a, [...salida, [salida.length ? a.hx - 12 : a.x, y], [x, y]]);
+  }
+  function empezarEscena(a: Agente, trabajo: boolean) {
+    const companeros = AG.filter((b) => b !== a && b.room === a.room && b.name !== 'Tú' && libreParaEscena(b) && (trabajo || !D.activos.includes(b.name)));
+    const b = companeros.length ? companeros[rondaEscena % companeros.length]! : null;
+    const ctx = nuevoCtx(), participantes = b ? [a, b] : [a];
+    const escena: Escena = { ctx, agentes: participantes, trabajo };
+    const turno = rondaEscena++;
+    participantes.forEach((p) => { escenas.set(p, escena); p.ictx = ctx; p.busy = true; p.el.dataset.escena = D.activos.includes(p.name) ? 'trabajo' : 'espera'; });
+    const [rx, , rw] = GEOM[a.room], izquierda = rx + 12, derecha = rx + rw - 62;
+    const centro = b ? (a.hx + b.hx) / 2 : a.hx + (turno % 2 ? -40 : 40);
+    const x = Math.max(izquierda, Math.min(derecha - (b ? 60 : 0), centro - (b ? 30 : 0)));
+    const y = pasillo(a);
+    const esperar = async (s: number) => { await ctx.wait(s); if (ctx.dead) throw PARAR; };
+    spawn((async () => {
+      try {
+        if (trabajo) a.carry = actividadDe(a)?.tipo === 'resultado' ? 'paper' : 'card';
+        await Promise.all([desplazarse(ctx, a, x, y), ...(b ? [desplazarse(ctx, b, x + 60, y)] : [])]);
+        if (ctx.dead) throw PARAR;
+        a.face = 1; if (b) b.face = -1;
+        if (trabajo) {
+          if (b) { hablarEnEscena(b, a, tr('¿En qué estás ahora?'), 2.5); await esperar(2.8); }
+          const entrada = actividadDe(a);
+          const texto = entrada ? dialogoDeActividad(entrada, true) : trp('Estoy trabajando en esta tarea: «{tarea}».', { tarea: D.pasos.enCurso?.titulo ?? D.estadoTexto });
+          hablarEnEscena(a, b, texto, 6, entrada?.texto);
+          if (b && entrada) FLY.push({ kind: 'card', from: [a.x + 42, a.y + 44], to: [b.x + 6, b.y + 44], t0: simT, dur: 0.7, arc: 18 });
+          type(a, 5); await esperar(6.3);
+          if (b && D.activos.includes(b.name)) {
+            const otra = actividadDe(b);
+            if (otra) { hablarEnEscena(b, a, dialogoDeActividad(otra, true), 5, otra.texto); await esperar(5.3); }
+          }
+        } else {
+          hablarEnEscena(a, b, tr('Voy a estirar las piernas mientras espero mi siguiente tarea.'), 3.5);
+          await esperar(3.8);
+          if (b) { hablarEnEscena(b, a, tr('Yo también estoy esperando mi turno.'), 3); await esperar(3.3); }
+        }
+        a.carry = null;
+        await Promise.all(participantes.map((p) => desplazarse(ctx, p, p.hx, pasillo(p))));
+        await Promise.all(participantes.map((p) => home(ctx, p)));
+      } finally {
+        for (const p of participantes) {
+          // Una entrada SSE nueva puede haber sustituido esta escena.
+          if (escenas.get(p) !== escena) continue;
+          escenas.delete(p);
+          if (p.ictx !== ctx) continue;
+          p.ictx = null; p.busy = false; p.path = []; p.carry = null;
+          delete p.el.dataset.escena;
+          proximaEscena.set(p, simT + 3 + p.i % 5);
+        }
+      }
+    })());
+  }
+  function mantenerEscenas() {
+    if (!escenaDisponible()) { [...escenas.keys()].forEach(cancelarEscena); return; }
+    for (const a of AG) {
+      if (D.activos.includes(a.name) && libreParaEscena(a) && simT >= (proximaEscena.get(a) ?? 0)) empezarEscena(a, true);
+    }
+    // Dos encuentros de espera como máximo: el foco sigue siendo la tarea real.
+    const esperas = new Set([...escenas.values()].filter((e) => !e.trabajo)).size;
+    if (simT < proximoPaseo || esperas >= 2) return;
+    proximoPaseo = simT + 3;
+    const libres = AG.filter((a) => a.room !== 'rec' && !D.activos.includes(a.name) && !AG.some((b) => b.room === a.room && D.activos.includes(b.name))
+      && ![...escenas.keys()].some((b) => b.room === a.room) && libreParaEscena(a) && simT >= (proximaEscena.get(a) ?? 0));
+    const sala = rondaEscena % 3 === 0 ? D.foco : libres[rondaEscena % Math.max(1, libres.length)]?.room;
+    const a = libres.find((p) => p.room === sala);
+    if (a) empezarEscena(a, false);
+  }
   function pararActividad() {
+    [...escenas.keys()].forEach(cancelarEscena);
+    proximaEscena.clear(); proximoPaseo = simT + 1.5;
     AG.forEach((a) => {
       a.ictx?.kill(); a.ictx = null; a.busy = false; a.path = [];
       a.x = a.hx; a.y = a.hy; a.carry = null; a.away = false; a.typing = 0;
@@ -496,6 +611,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
   function anunciar(e: ActividadLab, animar: boolean) {
     const a = P(e.agente);
+    cancelarEscena(a);
     a.ictx?.kill(); a.path = []; a.x = a.hx; a.y = a.hy; a.carry = null;
     const ctx = nuevoCtx(); a.ictx = ctx;
     const enVivo = D.trabajando && e.enCurso && D.activos.includes(a.name);
@@ -514,7 +630,9 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
           await walk(ctx, a, [[a.x, 268], [destino[0], 268], [destino[0], destino[1] + 60]]);
           await ctx.wait(1); await home(ctx, a);
         } else if (!a.desk) {
-          await walk(ctx, a, [[a.hx + 18, a.hy]]);
+          const [rx, , rw] = GEOM[a.room];
+          await desplazarse(ctx, a, Math.min(rx + rw - 62, a.hx + 56), pasillo(a));
+          if (ctx.dead) throw PARAR;
           type(a, 3); await ctx.wait(3); await home(ctx, a);
         } else { type(a, 4); await ctx.wait(4); }
       } finally {
@@ -534,6 +652,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       a.el.dataset.agente = a.name;
       a.el.setAttribute('aria-label', a.label + ': ' + haciendo(a));
       a.el.classList.toggle('activo', D.activos.includes(a.name));
+      if (escenas.has(a)) return;
       if (!D.activos.includes(a.name)) { a.ictx?.kill(); a.ictx = null; a.path = []; a.typing = 0; a.busy = false; }
     });
     hoja = D.activos.includes('Juez');
@@ -769,6 +888,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (D.trabajando && D.activos.includes('Juez')) conv += 12 * dt;
     AG.forEach((a) => { if (D.activos.includes(a.name) && !REDUCIR) a.typing = simT + 1; });
     processWaits();
+    mantenerEscenas();
   }
   let last = performance.now(), raf = 0;
   function frame() {

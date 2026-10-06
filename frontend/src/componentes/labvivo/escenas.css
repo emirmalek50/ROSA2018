@@ -1,0 +1,3 @@
+/* La conversación mantiene la estética del registro, con el destinatario visible. */
+.labvivo .lv-bub.escena{max-width:240px;font-weight:500}
+.labvivo .lv-bub.escena em{display:block;font-style:normal;font-weight:700;font-size:10px;color:#8A5A3B;margin-bottom:2px}

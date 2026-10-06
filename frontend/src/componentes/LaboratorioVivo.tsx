@@ -86,7 +86,7 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
         <strong>{trp('Corrida {n}', { n: datos.corrida })}{datos.iteracion !== null && ` · ${trp('Iteración {n}', { n: datos.iteracion })}`}</strong>
         <span>{datos.estadoTexto}</span>
         {datos.motivo && <span>{datos.motivo}</span>}
-        <span>{tr('Los personajes representan funciones de ROSA; sus mensajes proceden del registro de la corrida.')}</span>
+        <span>{tr('La actividad y los resultados proceden del registro real. Los movimientos y diálogos entre compañeros representan la escena.')}</span>
       </div>
       <div ref={marco} className="labvivo-marco" style={{ height: ALTO * escala }}>
         <div ref={lienzo} className="labvivo" style={{ transform: `scale(${escala})` }} />
