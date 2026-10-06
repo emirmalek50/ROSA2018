@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from typing import Any
 
-VERSION = 1
+VERSION = 2
 
 NIVELES: list[dict[str, Any]] = [
     {
@@ -65,7 +65,7 @@ NIVELES: list[dict[str, Any]] = [
         "cosas": [
             {
                 "que": "Si el sitio está abierto o tapado",
-                "porQue": "Sale de RNAplfold (modelo de Turner, ViennaRNA), que es el estándar. Pero pliega una cadena DESNUDA en un tubo, y en la célula el ARN va recubierto de proteínas que abren unos sitios y cierran otros. La correlación con la potencia real existe y es moderada, no perfecta.",
+                "porQue": "Se calcula con RNAplfold (modelo de Turner, ViennaRNA), que estima la accesibilidad local del ARN. Es un cálculo computacional, no un experimento en un tubo. El modelo no incluye las proteínas que se unen al ARN en la célula y pueden cambiar su accesibilidad. Esta predicción no mide la potencia del oligo ni valida su actividad en células.",
             },
             {
                 "que": "El dibujo del ARN plegado",
@@ -116,7 +116,7 @@ NIVELES: list[dict[str, Any]] = [
 NO_COMPROBADO: list[dict[str, str]] = [
     {
         "que": "El borrador largo del ARN, con sus intrones",
-        "porQue": "El cribado mira el ARN ya empalmado. El corte promiscuo de la RNasa H1 sobre el pre-ARN es el mecanismo conocido de toxicidad hepática de los gapmers de alta afinidad (Burel et al., Nucleic Acids Res 44:2093, 2016), y eso NO se está mirando. Pide el genoma con su anotación, no el transcriptoma.",
+        "porQue": "El cribado mira el ARN mensajero ya empalmado. La degradación fuera de diana de transcritos largos de pre-ARN mensajero, dependiente de la RNasa H1, se estudió como mecanismo de toxicidad hepática de algunos gapmers de alta afinidad en ratones (Burel et al., Nucleic Acids Res 44:2093, 2016). Ese riesgo NO se está evaluando aquí. Requiere el genoma con su anotación, no solo el transcriptoma de ARN empalmado.",
     },
     {
         "que": "Las variantes de cada persona",

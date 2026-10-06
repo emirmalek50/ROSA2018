@@ -472,10 +472,28 @@ describe('lo que va al laboratorio', () => {
     const fiabilidad = nodo.querySelector('.fia')!;
     expect(texto()).toContain('669,547 Ensembl transcripts (GRCh38, cdna.fa.gz and ncrna.fa.gz) in 197.6 s');
     expect(fiabilidad.textContent).toContain('ROSA2018 decided this, and nobody has validated it');
-    expect(texto()).toContain('Unspliced precursor RNA, including its introns');
+    expect(texto()).toContain('Unspliced pre-mRNA, including its introns');
+    expect(fiabilidad.textContent).toContain('RNase H1-mediated cleavage of pre-mRNA');
+    expect(fiabilidad.textContent).not.toContain('pre-RNA');
     expect(texto()).toContain('is a HYPOTHESIS');
     expect(texto()).not.toContain('Esto lo decidió');
     expect(texto()).not.toContain('El borrador largo');
+    expect(JSON.stringify(respuestas.datos)).toBe(original);
+  });
+
+  it('la revisión bibliográfica no se presenta como un banco financiero en inglés', async () => {
+    fijarIdioma('en');
+    respuestas.datos = {
+      ...DATOS,
+      dianas: [{
+        ...SIN_EXPERIMENTO,
+        hojaDePedido: { ...SIN_EXPERIMENTO.hojaDePedido, queSeHace: 'Revisar lo publicado' },
+      }],
+    };
+    const original = JSON.stringify(respuestas.datos);
+    await montar();
+    expect(nodo.querySelector('.lab-mandar')?.textContent).toBe('Not ready for bench testing: the proposal is a review of the published literature');
+    expect(texto()).not.toContain('sent to a bank');
     expect(JSON.stringify(respuestas.datos)).toBe(original);
   });
 
@@ -1004,6 +1022,12 @@ describe('lo que va al laboratorio', () => {
     await pulsar(nodo.querySelector('.lab-abrir-aso')!);
     const extremos = [...nodo.querySelectorAll('.dux-extremo')].map((x) => x.textContent);
     expect(extremos).toEqual(["5'", "3'", "3'", "5'"]);
+    fijarIdioma('en');
+    await act(async () => pintar());
+    expect(nodo.querySelector('.dux-pie-cuenta')?.textContent).toContain('RNase H1-mediated cleavage of the paired RNA');
+    await pulsar(nodo.querySelector('.dux-par-hueco')!);
+    expect(nodo.querySelector('.dux-pie-cuenta')?.textContent).toContain('the enzyme cleaves the paired RNA');
+    expect([...nodo.querySelectorAll('.dux-extremo')].map((x) => x.textContent)).toEqual(extremos);
   });
 
   it('la fila del ARN va en alfabeto de ARN: con U, nunca con T', async () => {

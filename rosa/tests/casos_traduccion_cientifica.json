@@ -400,5 +400,119 @@
     "original": "Duración de 20 ms",
     "traducido": "Duration of 20 s",
     "valida": false
+  },
+  {
+    "nombre": "banco experimental no financiero",
+    "original": "No se manda a un banco: lo propuesto es revisar lo publicado",
+    "traducido": "Nothing is sent to a bank: the proposal is to review published literature",
+    "valida": false
+  },
+  {
+    "nombre": "banco experimental como bench",
+    "original": "No se manda a un banco: lo propuesto es revisar lo publicado",
+    "traducido": "Not ready for bench testing: the proposal is to review published literature",
+    "valida": true
+  },
+  {
+    "nombre": "experimento de banco no bank",
+    "original": "Hay un experimento de banco",
+    "traducido": "There is a bank experiment",
+    "valida": false
+  },
+  {
+    "nombre": "experimento de banco como laboratory",
+    "original": "Hay un experimento de banco",
+    "traducido": "There is a laboratory experiment",
+    "valida": true
+  },
+  {
+    "nombre": "banco de tejidos conserva nombre",
+    "original": "Mount Sinai Brain Bank",
+    "traducido": "Mount Sinai Brain Bank",
+    "valida": true
+  },
+  {
+    "nombre": "enmienda lectura experimental no reading",
+    "original": "Motivo de la enmienda de la lectura",
+    "traducido": "Reason for amending the reading",
+    "valida": false
+  },
+  {
+    "nombre": "enmienda lectura experimental como readout",
+    "original": "Motivo de la enmienda de la lectura",
+    "traducido": "Reason for amending the readout",
+    "valida": true
+  },
+  {
+    "nombre": "campo lectura experimental no reading",
+    "original": "Campo de la lectura a enmendar",
+    "traducido": "Field of the reading to amend",
+    "valida": false
+  },
+  {
+    "nombre": "campo lectura experimental como readout",
+    "original": "Campo de la lectura a enmendar",
+    "traducido": "Readout field to amend",
+    "valida": true
+  },
+  {
+    "nombre": "lectura ordinaria conserva reading",
+    "original": "Leyendo la pregunta",
+    "traducido": "Reading the question",
+    "valida": true
+  },
+  {
+    "nombre": "evaluación humana no requiere readout",
+    "original": "Espero tu lectura antes de decidir",
+    "traducido": "Awaiting your review before deciding",
+    "valida": true
+  },
+  {
+    "nombre": "pre ARN de gapmer no pre RNA",
+    "original": "La RNasa H1 puede cortar el pre-ARN con gapmers",
+    "traducido": "RNase H1 can cleave pre-RNA with gapmers",
+    "valida": false
+  },
+  {
+    "nombre": "pre ARN de gapmer como pre mRNA",
+    "original": "La RNasa H1 puede cortar el pre-ARN con gapmers",
+    "traducido": "RNase H1 can cleave pre-mRNA with gapmers",
+    "valida": true
+  },
+  {
+    "nombre": "precursor ARN ribosómico contexto distinto",
+    "original": "El pre-ARN ribosómico",
+    "traducido": "Pre-ribosomal RNA",
+    "valida": true
+  },
+  {
+    "nombre": "viabilidad celular no factibilidad",
+    "original": "Lectura de viabilidad",
+    "traducido": "Feasibility readout",
+    "valida": false
+  },
+  {
+    "nombre": "viabilidad celular como viability",
+    "original": "Lectura de viabilidad",
+    "traducido": "Cell viability readout",
+    "valida": true
+  },
+  {
+    "nombre": "factibilidad de un estudio distinta de viabilidad",
+    "original": "Factibilidad del estudio",
+    "traducido": "Study feasibility",
+    "valida": true
+  },
+  {
+    "nombre": "contexto celular en vocabulario cerrado no feasibility",
+    "original": "Tipo fuera del vocabulario cerrado (compromiso de diana, viabilidad, función o mecanismo, biomarcador, seguridad); la lista de lo que le falta al contrato lo dice.",
+    "traducido": "Type outside the closed vocabulary (target engagement, feasibility, function or mechanism, biomarker, safety); the list of what the contract is missing says so.",
+    "valida": false
+  },
+  {
+    "nombre": "contexto celular en vocabulario cerrado como viability",
+    "original": "Tipo fuera del vocabulario cerrado (compromiso de diana, viabilidad, función o mecanismo, biomarcador, seguridad); la lista de lo que le falta al contrato lo dice.",
+    "traducido": "Type outside the closed vocabulary (target engagement, viability, function or mechanism, biomarker, safety); the list of what the contract is missing says so.",
+    "valida": true
   }
 ]

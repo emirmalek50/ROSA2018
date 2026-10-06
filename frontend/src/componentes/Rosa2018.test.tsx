@@ -13,6 +13,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { estadoDeMuestra } from '../datos/muestra';
 import type { CapaPerfilDiana, Hipotesis, PerfilDiana, ResultadoExperimento, RutaTerapeuticaEvaluada } from '../datos/tipos';
 import { ContratoDelExperimento, PerfilDeLaDiana, ProtocoloYEnmiendas, RutaTerapeutica, TarjetaDeHipotesis } from './Rosa2018';
+import { fijarIdioma } from '../lib/idioma';
 
 const almacen = vi.hoisted(() => ({
   acciones: {} as Record<string, unknown>,
@@ -54,6 +55,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   nodo.remove();
+  fijarIdioma('es');
 });
 
 const render = (el: React.ReactElement) => act(async () => root.render(el));
@@ -189,6 +191,20 @@ function contratoCompleto(h: Hipotesis, extra: Partial<NonNullable<Hipotesis['ex
 }
 
 describe('ContratoDelExperimento', () => {
+  it('la enmienda en inglés distingue las medidas experimentales de leer texto', async () => {
+    fijarIdioma('en');
+    const h = contratoCompleto(hipConExperimento(), { prerregistradoEn: 1 });
+    const original = JSON.stringify(h);
+    await render(<ContratoDelExperimento h={h} />);
+    await pulsar(boton('Amend')!);
+    const form = nodo.querySelector('[data-enmienda-lectura]')!;
+    expect(form.querySelector('select')?.getAttribute('aria-label')).toBe('Readout field to amend');
+    expect([...form.querySelectorAll('input')].map((el) => el.getAttribute('aria-label'))).toEqual(['New readout text', 'Reason for amending the readout']);
+    expect(form.textContent).toContain('Record a readout amendment');
+    expect(form.textContent).not.toContain('reading');
+    expect(JSON.stringify(h)).toBe(original);
+  });
+
   it('pinta las lecturas con sus etiquetas, el sistema con su límite general, el propósito BEST, el nivel, el puente y los problemas', async () => {
     const h = contratoCompleto(hipConExperimento());
     await render(<ContratoDelExperimento h={h} />);

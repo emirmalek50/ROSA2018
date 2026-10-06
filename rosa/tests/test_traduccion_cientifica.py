@@ -64,3 +64,18 @@ def test_modelo_no_guarda_traducciones_que_alteran_ciencia(tmp_path):
     assert r["traducciones"] == {}
     assert set(r["rechazadas"]) == set(malas)
     assert c.cuantas() == 0
+
+
+@pytest.mark.parametrize("original,antigua", [
+    ("no se manda a un banco: lo propuesto es revisar lo publicado", "nothing is sent to a bank: what is proposed is to review the published literature"),
+    ("Campo de la lectura a enmendar", "Field of the reading to amend"),
+])
+def test_segunda_revision_sustituye_cache_literal_sin_llamar_modelo(tmp_path, original, antigua):
+    c = T.Cache(tmp_path / "cache.db")
+    c.guardar({original: antigua}, "modelo-antiguo")
+
+    def no_llamar(_):
+        pytest.fail("El catálogo revisado debe resolverlo sin pagar una traducción")
+
+    r = T.traducir([original], llamar=no_llamar, almacen=c)
+    assert r["traducciones"] == {original: REVISADAS[original]}

@@ -46,6 +46,26 @@
       "id": "masa_molar",
       "url": "https://goldbook.iupac.org/terms/view/12214",
       "uso": "Una magnitud mostrada en g/mol se etiqueta como molar mass, no como peso genérico."
+    },
+    {
+      "id": "burel_pre_mrna",
+      "url": "https://academic.oup.com/nar/article/44/5/2093/2464593",
+      "uso": "Pre-mRNA y hepatotoxicidad estudiada en ratones: RNase H1 degrada el ARN del híbrido con ADN, no el oligo de ADN."
+    },
+    {
+      "id": "rnaplfold",
+      "url": "https://www.tbi.univie.ac.at/RNA/RNAplfold.1.html",
+      "uso": "RNAplfold calcula probabilidades locales de emparejamiento y de regiones no emparejadas. Es una predicción computacional, no un ensayo físico ni una medida de potencia."
+    },
+    {
+      "id": "bench",
+      "url": "https://irp.nih.gov/nih-clinical-center/advancing-translational-science",
+      "uso": "Bench y desarrollo translacional: laboratorio a clínica. Banco en el contexto experimental no es una entidad financiera."
+    },
+    {
+      "id": "viabilidad_celular",
+      "url": "https://www.ncbi.nlm.nih.gov/books/NBK144065/",
+      "uso": "Cell viability se refiere a células viables y no a factibilidad de ejecutar un estudio (feasibility). Cada ensayo necesita caracterización para su modelo."
     }
   ],
   "reglas": [
@@ -143,6 +163,38 @@
       "en": "\\bimmunoassays?\\b",
       "fuentes": [
         "best"
+      ]
+    },
+    {
+      "id": "enmendar_readout",
+      "es": "\\b(?:lectura a enmendar|enmienda de la lectura|enmendar la lectura|texto nuevo de la lectura|veredicto por lectura)\\b",
+      "en": "\\breadouts?\\b",
+      "fuentes": [
+        "best"
+      ]
+    },
+    {
+      "id": "pre_mrna_gapmer",
+      "es": "\\bpre-arn\\b[\\s\\S]*\\bgapmers?\\b",
+      "en": "\\bpre-mRNA\\b",
+      "fuentes": [
+        "burel_pre_mrna"
+      ]
+    },
+    {
+      "id": "banco_experimental",
+      "es": "\\b(?:experimento de banco|no se manda a un banco)\\b",
+      "en": "\\b(?:bench|wet[- ]lab|laboratory)\\b",
+      "fuentes": [
+        "bench"
+      ]
+    },
+    {
+      "id": "viabilidad_readout",
+      "es": "\\b(?:viabilidad celular|lecturas? de viabilidad|compromiso de diana, viabilidad, funcion)\\b",
+      "en": "\\bviability\\b",
+      "fuentes": [
+        "viabilidad_celular"
       ]
     }
   ],
@@ -266,7 +318,43 @@
     "El gapmer 5-10-5 de 2'-MOE con enlaces fosforotioato y 5-metilcitosina no es una propuesta de ROSA2018: es la arquitectura de los tres gapmers aprobados, y es lo que se escribe en una hoja de pedido.": "The 5-10-5 2'-MOE gapmer with phosphorothioate linkages and 5-methylcytosine is not a ROSA2018 proposal: it is the architecture of the three approved gapmers, and it is what you write on an order form.",
     "Modelo predicho, no medido: el color dice de qué tramos se fía. ": "Predicted structure, not an experimental measurement: colors indicate local model confidence. ",
     "Modelo predicho, no medido: el color dice de qué tramos se fía. Acerca la rueda del ratón sobre la proteína": "Predicted structure, not an experimental measurement: colors indicate local model confidence. Scroll the mouse wheel over the protein",
-    "(CC BY 4.0). Una predicción no es una medición, y en cada lámina se dice de qué tramos se fía el modelo. ROSA2018 no calcula acoplamientos ni propone estructuras nuevas.": "(CC BY 4.0). A prediction is not an experimental measurement; each protein view shows local model confidence. ROSA2018 does not perform molecular docking or propose new structures."
+    "(CC BY 4.0). Una predicción no es una medición, y en cada lámina se dice de qué tramos se fía el modelo. ROSA2018 no calcula acoplamientos ni propone estructuras nuevas.": "(CC BY 4.0). A prediction is not an experimental measurement; each protein view shows local model confidence. ROSA2018 does not perform molecular docking or propose new structures.",
+    "no se manda a un banco: lo propuesto es revisar lo publicado": "Not ready for bench testing: the proposal is a review of the published literature",
+    "Campo de la lectura a enmendar": "Readout field to amend",
+    "Enmienda fechada de la lectura «": "Dated amendment to the readout \"",
+    "Motivo de la enmienda de la lectura": "Reason for amending the readout",
+    "Registrar enmienda de la lectura": "Record a readout amendment",
+    "Texto nuevo de la lectura": "New readout text",
+    "Veredicto por lectura": "Assessment by readout",
+    "Lo que ROSA2018 propone y espera tu lectura, ordenado por Elo. Nada entra al modelo de mundo sin pasar por aquí.": "Proposals from ROSA2018 awaiting your review, ranked by Elo. Nothing enters the world model without going through this review.",
+    "Lo que ROSA2018 propone y espera tu lectura. Arriba lo pendiente, ordenado por Elo. Nada entra al modelo de mundo sin pasar por aquí.": "Proposals from ROSA2018 awaiting your review. Pending proposals are shown first, ranked by Elo. Nothing enters the world model without going through this review.",
+    "Nada impide aceptarla. Tu lectura decide.": "Nothing prevents acceptance. Your review determines whether to accept it.",
+    "El revisor no encontró nada que objetar. Eso no sustituye a tu lectura.": "The reviewer found no objections. This does not replace your own review.",
+    " del oligo · en el hueco de ADN, que es donde corta": " of the oligo · in the DNA gap, where the enzyme cleaves the paired RNA",
+    "en el hueco de ADN, que es donde corta": "in the DNA gap, where the enzyme cleaves the paired RNA",
+    "del hueco: ahí la RNasa H1 no corta.": "of the gap: RNase H1 does not cleave the paired RNA there.",
+    "Hueco de ADN: es lo que la RNasa H1 reconoce para cortar el ARN": "DNA gap: supports RNase H1-mediated cleavage of the paired RNA",
+    ". La RNasa H1 no lee las veinte letras: reconoce la dúplex que forma el": ". RNase H1 does not read all twenty nucleotides: it recognizes the RNA-DNA duplex formed by the",
+    "son el hueco de ADN: lo único que la RNasa H1 reconoce. Selecciona un par o recórrelos con las flechas del teclado.": "form the DNA gap, which supports RNase H1-mediated cleavage of the paired RNA. Select a pair or move between pairs with the keyboard arrows.",
+    "ADN (2'-desoxi), es lo que reconoce la RNasa H1": "DNA (2'-deoxy), supports RNase H1-mediated cleavage of the paired RNA",
+    "Un oligonucleótido antisentido es una cadena de {secuencia} letras que encaja con un tramo del ARN mensajero de {simbolo}. Donde encaja, una enzima de la célula, la RNasa H1, corta el ARN. Sin ARN no se fabrica proteína nueva.": "An antisense oligonucleotide is a strand of {secuencia} nucleotides that hybridizes with a region of the {simbolo} messenger RNA. With these gapmers, a cellular enzyme, RNase H1, cleaves the paired RNA. Without that RNA, new protein cannot be produced from it.",
+    "El borrador largo del ARN, con sus intrones": "Unspliced pre-mRNA, including its introns",
+    "Sale de RNAplfold (modelo de Turner, ViennaRNA), que es el estándar. Pero pliega una cadena DESNUDA en un tubo, y en la célula el ARN va recubierto de proteínas que abren unos sitios y cierran otros. La correlación con la potencia real existe y es moderada, no perfecta.": "Calculated with RNAplfold (Turner model, ViennaRNA), a standard method. It models an isolated RNA strand; in the cell, RNA-binding proteins can make sites more or less accessible. Its correlation with experimental potency is described as moderate, not perfect.",
+    "Se calcula con RNAplfold (modelo de Turner, ViennaRNA), que estima la accesibilidad local del ARN. Es un cálculo computacional, no un experimento en un tubo. El modelo no incluye las proteínas que se unen al ARN en la célula y pueden cambiar su accesibilidad. Esta predicción no mide la potencia del oligo ni valida su actividad en células.": "Calculated with RNAplfold (Turner model, ViennaRNA), which estimates local RNA accessibility. This is a computational prediction, not a test-tube experiment. The model does not include RNA-binding proteins, which can change RNA accessibility in the cell. This prediction does not measure oligonucleotide potency or validate activity in cells.",
+    "El cribado mira el ARN ya empalmado. El corte promiscuo de la RNasa H1 sobre el pre-ARN es el mecanismo conocido de toxicidad hepática de los gapmers de alta afinidad (Burel et al., Nucleic Acids Res 44:2093, 2016), y eso NO se está mirando. Pide el genoma con su anotación, no el transcriptoma.": "The screen examines spliced mRNA. Promiscuous RNase H1-mediated cleavage of pre-mRNA is the known mechanism of hepatotoxicity described for high-affinity gapmers (Burel et al., Nucleic Acids Res 44:2093, 2016), and this is NOT assessed here. It requires the genome and its annotation, not the transcriptome.",
+    "El cribado mira el ARN mensajero ya empalmado. La degradación fuera de diana de transcritos largos de pre-ARN mensajero, dependiente de la RNasa H1, se estudió como mecanismo de toxicidad hepática de algunos gapmers de alta afinidad en ratones (Burel et al., Nucleic Acids Res 44:2093, 2016). Ese riesgo NO se está evaluando aquí. Requiere el genoma con su anotación, no solo el transcriptoma de ARN empalmado.": "The screen examines spliced messenger RNA. RNase H1-dependent off-target degradation of long pre-mRNA transcripts was studied as a mechanism of hepatotoxicity for some high-affinity gapmers in mice (Burel et al., Nucleic Acids Res 44:2093, 2016). That risk is NOT assessed here. It requires the genome and its annotation, not just the spliced-RNA transcriptome.",
+    "La vista de programa de ROSA2018: lo que la investigación aporta al conjunto, no a una hipótesis. Cuatro piezas, calculadas por regla al cerrar cada iteración. Aprendizaje: si las predicciones que ROSA2018 dejó escritas antes de mirar los datos (prerregistro) acertaron, cuánto tarda cada hipótesis en recibir una decisión y si se reutiliza lo heredado de otras investigaciones. Mapa de la ruta terapéutica: por cada diana, cuáles de los ocho pasos entre un mecanismo y un beneficio para una persona están cubiertos. Mapa de la enfermedad: dónde cae la evidencia por fase, región del cerebro y tipo de célula, y qué huecos nombra la misión. Datasets del programa: los conjuntos de datos públicos que ROSA2018 encontró, con su acceso. Los campos que aún no se han calculado lo dicen.": "ROSA2018's program view: what the research contributes to the whole, not to a single hypothesis. Four pieces, computed by rule at the close of each iteration. Learning: whether the predictions ROSA2018 wrote down before looking at the data (preregistration) were right, how long each hypothesis takes to receive a decision, and whether what is inherited from other research is reused. Therapeutic development pathway map: for each target, which of the eight steps between a mechanism and a benefit to a person are covered. Disease map: where the evidence falls by stage, brain region and cell type, and which gaps the mission names. Program datasets: the public datasets ROSA2018 found, with their access. Fields that have not been computed yet say so.",
+    "Paso de la ruta terapéutica en el que está la hipótesis (mecanismo, opciones de intervención, compromiso de diana, efecto funcional, selectividad, exposición, replicación, evidencia en la población). Una campaña celular completada no completa la ruta.": "Step of the therapeutic development pathway the hypothesis is at (mechanism, intervention options, target engagement, functional effect, selectivity, exposure, replication, evidence in the population). A completed cell campaign does not complete the development pathway.",
+    "Ruta terapéutica evaluada por regla sobre la evidencia que tiene: pasos cubiertos de ocho y el primero que falta. El paso que declara la tarjeta es coherente con lo cubierto.": "Therapeutic development pathway assessed by rule over the evidence it has: steps covered out of eight and the first one missing. The step the card declares is consistent with what is covered.",
+    "Ruta terapéutica evaluada por regla sobre la evidencia que tiene: pasos cubiertos de ocho y el primero que falta. El paso que declara la tarjeta va por delante de lo que la evidencia cubre.": "Therapeutic development pathway assessed by rule over the evidence it has: steps covered out of eight and the first one missing. The step the card declares is ahead of what the evidence covers.",
+    "el mapa de la ruta terapéutica": "the therapeutic development pathway map",
+    "Mapa de la ruta terapéutica": "Therapeutic development pathway map",
+    "Paso de la ruta terapéutica": "Step of the therapeutic development pathway",
+    "Ruta terapéutica": "Therapeutic development pathway",
+    "Cada columna es un paso de la ruta terapéutica: los ocho pasos que separan un mecanismo de un beneficio para una persona. Pasa el ratón por el nombre del paso para leer qué comprueba. En cada celda, cuántas hipótesis vivas de esa diana cubren el paso; en gris, los pasos que ninguna cubre.": "Each column is a step of the therapeutic development pathway: the eight steps that separate a mechanism from a benefit to a person. Hover over the step name to read what it checks. In each cell, how many live hypotheses for that target cover the step; in gray, the steps none covers.",
+    "Se comprueba si hay datos cada 10 minutos, con al menos seis horas entre ciclos y nunca mientras una corrida está en marcha. Los casos se separan por investigación; el examen final (al menos 8 casos, dos lecturas del juez por caso) exige mejora media de 0,05 sin ningún caso claramente peor. Se conserva cada versión anterior. El Killer y el juez no se autoentrenan con sus propios veredictos. Los prompts y las respuestas se guardan con redacción de secretos en el registro privado, no en esta pantalla. Pausar impide nuevas promociones; una petición al Gateway ya enviada puede terminar.": "It checks for data every 10 minutes, with at least six hours between cycles and never while a run is in progress. Cases are split by investigation; the final evaluation (at least 8 cases, two assessments by the judge per case) requires a mean improvement of 0.05 with no case clearly worse. Every earlier version is kept. The Killer and the judge do not self-train on their own verdicts. Prompts and responses are stored with secrets redacted in the private log, not on this screen. Pausing prevents new promotions; a request already sent to the Gateway may still finish.",
+    "Tipo fuera del vocabulario cerrado (compromiso de diana, viabilidad, función o mecanismo, biomarcador, seguridad); la lista de lo que le falta al contrato lo dice.": "Type outside the closed vocabulary (target engagement, viability, function or mechanism, biomarker, safety); the list of what the contract is missing says so.",
+    "Un fichero de instrucciones por método (como correr una reproducción de GEO, como calcular un tamaño muestral, como hacer control de calidad de célula única). ROSA2018 carga las que casan con el plan y las pasa al modelo junto con los módulos que el sandbox puede importar. Se añaden o cambian editando rosa/skills/; el catálogo se lee al arrancar.": "An instruction file per method (how to reproduce an analysis using GEO data, how to compute a sample size, how to do single-cell quality control). ROSA2018 loads the ones that match the plan and passes them to the model along with the modules the sandbox can import. You add or change them by editing rosa/skills/; the catalog is read at startup."
   },
   "unidades": {
     "µM": "µM",

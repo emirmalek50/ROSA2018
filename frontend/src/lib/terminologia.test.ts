@@ -23,5 +23,8 @@ describe('traducción científica en ambos lados de la red', () => {
     expect(EN['masa_molar\x04PESO']).toBe('MOLAR MASS');
     expect(EN['proteina\x04LÁMINA']).toBe('OVERVIEW');
     expect(EN['PESO']).not.toBe('MOLAR MASS'); // El peso del ranking es otro concepto.
+    expect(EN['Veredicto por lectura']).toBe('Assessment by readout');
+    expect(EN['Ruta terapéutica']).toBe('Therapeutic development pathway');
+    expect(EN['Tipo fuera del vocabulario cerrado (compromiso de diana, viabilidad, función o mecanismo, biomarcador, seguridad); la lista de lo que le falta al contrato lo dice.']).toContain('target engagement, viability, function');
   });
 });

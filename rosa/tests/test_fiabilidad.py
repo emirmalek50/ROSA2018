@@ -64,6 +64,18 @@ def test_la_ficha_viaja_con_el_diseño():
     assert len(d["fiabilidad"]["niveles"]) == 4
 
 
+def test_los_limites_distinguen_calculo_del_ensayo_y_contexto_del_riesgo():
+    modelo = next(n for n in F.NIVELES if n["nivel"] == "modelo")
+    accesibilidad = modelo["cosas"][0]["porQue"]
+    assert "cálculo computacional, no un experimento" in accesibilidad
+    assert "no mide la potencia" in accesibilidad
+    assert "no incluye las proteínas" in accesibilidad
+    riesgo = F.NO_COMPROBADO[0]["porQue"]
+    assert "pre-ARN mensajero" in riesgo
+    assert "algunos gapmers" in riesgo and "en ratones" in riesgo
+    assert "NO se está evaluando aquí" in riesgo
+
+
 def test_el_texto_plano_lo_dice_todo_tambien():
     # Viaja con el pedido: quien lo reciba tiene que saber qué le mandan.
     t = F.como_texto()
