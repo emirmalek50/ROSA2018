@@ -1460,14 +1460,15 @@ export interface CitaComprobable {
 /** Responde con lo que hay en el modelo de mundo, citando cada hecho una sola
  *  vez por fuente. `fuentes` (por id) permite devolver el PMID y el DOI de
  *  cada cita para que se pueda comprobar fuera de ROSA2018: una referencia de
- *  2026 sin identificador parece inventada aunque venga de PubMed. */
+ *  2026 sin identificador parece inventada aunque venga de PubMed. El ámbito
+ *  `global` consulta los hechos de todas las investigaciones. */
 export function preguntarAlModeloDeMundo(hechos: HechoMundo[], investigacionId: string, pregunta: string, fuentes: Map<string, Pick<Fuente, 'id' | 'referencia' | 'doi' | 'pmid' | 'titulo'>> = new Map()): { respuesta: string; nodos: HechoMundo[]; citas: CitaComprobable[] } {
   const palabras = normalizar(pregunta)
     .split(/[^a-z0-9]+/)
     .filter((p) => p.length > 3);
   if (palabras.length === 0) return { respuesta: 'Escribe una pregunta con alguna palabra del dominio.', nodos: [], citas: [] };
   const puntuados = hechos
-    .filter((h) => h.investigacionId === investigacionId)
+    .filter((h) => investigacionId === 'global' || h.investigacionId === investigacionId)
     .map((h) => {
       const texto = normalizar(`${h.enunciado} ${h.tema} ${h.motivoDescarte ?? ''}`);
       const aciertos = palabras.filter((p) => texto.includes(p)).length;

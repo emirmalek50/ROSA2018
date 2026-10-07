@@ -69,6 +69,50 @@ const turno = (id: string, hilo: string, pregunta: string, respuesta: string): P
   limites: '', herramientas: [], consultas: [], iteraciones: 1, error: null,
 });
 
+it.each(['general', 'investigación'])('busca en todos los hechos sin conexión al comenzar una conversación nueva desde %s', async (pagina) => {
+  const e = estadoDeMuestra();
+  const primera = e.investigaciones[0]!;
+  e.investigaciones = [primera, { ...primera, id: 'inv-otra' }];
+  e.hechos = [
+    { ...e.hechos[0]!, id: 'he-a', investigacionId: primera.id, enunciado: 'Evidencia de MAPT en la investigación A' },
+    { ...e.hechos[0]!, id: 'he-b', investigacionId: 'inv-otra', enunciado: 'Evidencia de MAPT en la investigación B' },
+  ];
+  const inv = pagina === 'general' ? asistenteGeneral(e) : primera;
+  await act(async () => root.render(<ModeloDeMundo inv={inv} estado={e} ahora={AHORA_MUESTRA} />));
+  await esperarPintado();
+  expect(nodo.querySelector('.mundo-compositor-nota')?.textContent).toContain('los 2 hechos');
+  await act(async () => escribir(nodo.querySelector('textarea')!, 'MAPT'));
+  await pulsar(nodo.querySelector('[aria-label="Enviar"]'));
+  expect(nodo.querySelectorAll('.mundo-encontrados li')).toHaveLength(2);
+  expect(nodo.querySelector('.mundo-turnos')?.textContent).toContain('Evidencia de MAPT en la investigación A');
+  expect(nodo.querySelector('.mundo-turnos')?.textContent).toContain('Evidencia de MAPT en la investigación B');
+  expect(api.preguntarALasBases).not.toHaveBeenCalled();
+});
+
+it('la búsqueda local de un hilo antiguo sigue su investigación aunque se abra desde otra página', async () => {
+  const e = estadoDeMuestra();
+  const primera = e.investigaciones[0]!;
+  const segunda = { ...primera, id: 'inv-otra', preguntasABases: [turno('b', 'h-anterior', 'Pregunta anterior', 'Respuesta anterior')] };
+  e.investigaciones = [primera, segunda];
+  e.hechos = [
+    { ...e.hechos[0]!, id: 'he-a', investigacionId: primera.id, enunciado: 'Evidencia de MAPT en la investigación A' },
+    { ...e.hechos[0]!, id: 'he-b', investigacionId: segunda.id, enunciado: 'Evidencia de MAPT en la investigación B' },
+  ];
+  await act(async () => root.render(<ModeloDeMundo inv={primera} estado={e} ahora={AHORA_MUESTRA} />));
+  await esperarPintado();
+  await pulsar(boton('Conversaciones anteriores'));
+  await pulsar([...nodo.querySelectorAll('.mundo-historial-panel li button')].find(b => b.textContent?.includes('Pregunta anterior'))!);
+  expect(nodo.querySelector('.mundo-compositor-nota')?.textContent).toContain('los 1 hechos');
+  await act(async () => escribir(nodo.querySelector('textarea')!, 'MAPT'));
+  await pulsar(nodo.querySelector('[aria-label="Enviar"]'));
+  expect(nodo.querySelectorAll('.mundo-encontrados li')).toHaveLength(1);
+  expect(nodo.querySelector('.mundo-turnos')?.textContent).toContain('Evidencia de MAPT en la investigación B');
+  expect(nodo.querySelector('.mundo-turnos')?.textContent).not.toContain('Evidencia de MAPT en la investigación A');
+  await act(async () => escribir(nodo.querySelector('textarea')!, 'Unicornios'));
+  await pulsar(nodo.querySelector('[aria-label="Enviar"]'));
+  expect(nodo.querySelector('.mundo-turnos')?.textContent).toContain('Entre los 1 hechos');
+});
+
 it('abre un chat vacío aunque exista un hilo recordado y ofrece todo el historial desde cualquier investigación', async () => {
   const e = estadoDeMuestra();
   const primera = { ...e.investigaciones[0]!, preguntasABases: [turno('a', 'h-antiguo', 'Pregunta anterior de MAPT', 'Respuesta anterior de MAPT')] };

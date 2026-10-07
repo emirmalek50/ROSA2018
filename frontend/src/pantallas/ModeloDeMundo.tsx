@@ -160,6 +160,8 @@ type BaseMundo = {
   actualizado: number;
 };
 
+type BaseConversacion = Pick<BaseMundo, "propios" | "porId" | "fuentesPorId" | "sugerencias">;
+
 function derivar(estado: EstadoRosa, invId: string): BaseMundo {
   const fuentesPorId = new Map<string, Fuente>();
   // Un hilo antiguo puede abrirse desde otra investigación: sus referencias
@@ -167,7 +169,7 @@ function derivar(estado: EstadoRosa, invId: string): BaseMundo {
   for (const h of estado.hipotesis)
     for (const f of h.procedencia.fuentes)
       if (!fuentesPorId.has(f.id)) fuentesPorId.set(f.id, f);
-  const propios = estado.hechos.filter((h) => h.investigacionId === invId);
+  const propios = estado.hechos.filter((h) => invId === "global" || h.investigacionId === invId);
   const porId = new Map(estado.hechos.map((h) => [h.id, h]));
   const temas = temasDeHechos(propios);
   const corrida =
@@ -510,6 +512,15 @@ function CuerpoMundo({
   const contenedor = !conversacion || conversacion.investigacionId === "global" ? general
     : estado.investigaciones.find(i => i.id === conversacion.investigacionId);
   const invChat = contenedor ?? general;
+  // El alcance del chat sigue su hilo; los estantes siguen la página abierta.
+  const baseChat = useMemo<BaseConversacion>(() => {
+    if (base.invId === invChat.id) return base;
+    const propios = [...base.porId.values()].filter(h => invChat.id === "global" || h.investigacionId === invChat.id);
+    return {
+      propios, porId: base.porId, fuentesPorId: base.fuentesPorId,
+      sugerencias: sugerencias(propios, temasDeHechos(propios)),
+    };
+  }, [base, invChat.id]);
   const [texto, setTexto] = useState("");
   // Sin selector: con conexión pregunta al modelo de mundo y a las
   // publicaciones; sin ella responde al momento con lo que ya sabe.
@@ -577,10 +588,10 @@ function CuerpoMundo({
     const fecha = Date.now();
     if (modoEnvio === "local") {
       const r = preguntarAlModeloDeMundo(
-        base.propios,
-        inv.id,
+        baseChat.propios,
+        invChat.id,
         pregunta,
-        base.fuentesPorId,
+        baseChat.fuentesPorId,
       );
       setLocales((ls) => [
         ...ls,
@@ -775,7 +786,7 @@ function CuerpoMundo({
         <Conversar
           inv={invChat}
           ahora={ahora}
-          base={base}
+          base={baseChat}
           hilo={hilo}
           guardadas={guardadas}
           locales={locales}
@@ -833,7 +844,7 @@ function CuerpoMundo({
 type PropsConversar = {
   inv: Investigacion;
   ahora: number;
-  base: BaseMundo;
+  base: BaseConversacion;
   hilo: string | null;
   guardadas: PreguntaABases[];
   locales: TurnoLocal[];
@@ -1697,7 +1708,7 @@ function TurnoGuardado({
   investigacionId: string;
   q: PreguntaABases;
   ahora: number;
-  base: BaseMundo;
+  base: BaseConversacion;
   abrirHecho: (id: string) => void;
   reintentar: () => void;
   ocupado: boolean;
@@ -1882,7 +1893,7 @@ function TurnoSoloLoQueSabe({
   ocupado,
 }: {
   t: TurnoLocal;
-  base: BaseMundo;
+  base: BaseConversacion;
   abrirHecho: (id: string) => void;
   buscarFuera?: () => void;
   ocupado: boolean;

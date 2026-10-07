@@ -353,6 +353,16 @@ describe('meta-revision y modelo de mundo', () => {
     expect(preguntarAlModeloDeMundo(e.hechos, 'inv-1', 'unicornios').nodos).toEqual([]);
     expect(preguntarAlModeloDeMundo(e.hechos, 'inv-1', 'a b').respuesta).toMatch(/palabra del dominio/);
   });
+  it('el asistente general consulta todas las investigaciones y los hilos antiguos conservan su ámbito', () => {
+    const e = estadoDeMuestra();
+    const hechos = [
+      { ...e.hechos[0]!, id: 'he-a', investigacionId: 'inv-a', enunciado: 'Evidencia de MAPT en la investigación A' },
+      { ...e.hechos[0]!, id: 'he-b', investigacionId: 'inv-b', enunciado: 'Evidencia de MAPT en la investigación B' },
+    ];
+    expect(preguntarAlModeloDeMundo(hechos, 'global', 'MAPT').nodos.map(h => h.id)).toEqual(['he-a', 'he-b']);
+    expect(preguntarAlModeloDeMundo(hechos, 'inv-b', 'MAPT').nodos.map(h => h.id)).toEqual(['he-b']);
+    expect(preguntarAlModeloDeMundo(hechos, 'inexistente', 'MAPT').nodos).toEqual([]);
+  });
 });
 
 describe('investigaciones y datos', () => {

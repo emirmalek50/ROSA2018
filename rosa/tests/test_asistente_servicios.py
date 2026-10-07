@@ -217,6 +217,7 @@ def test_toda_ruta_api_tiene_clasificacion_explicita(entorno):
         '/api/investigaciones/{investigacion_id}/asistente/{pregunta_id}/{operacion_id}': 'confirmación',
         '/api/preguntar/razonamiento/{seguimiento}': 'progreso del chat',
         '/api/corridas/{corrida_id}/citas/reverificar': 'acción pedirRecuperacionCitas',
+        '/api/corridas/{corrida_id}/laboratorio/conversaciones': 'presencia de la interfaz para animar el laboratorio; el contenido está en el registro de la corrida',
         '/api/hipotesis/{hipotesis_id}/datos': 'adjunto de resultados',
         '/api/investigaciones/{investigacion_id}/datasets': 'adjunto de dataset',
         '/api/acceso/configuracion': 'formulario de instalación y credenciales',
