@@ -234,10 +234,10 @@ describe('lo que se toca en el modelo de mundo', () => {
         atribucion: { citadas: [], sinRespaldo: [] },
       },
     ];
-    sessionStorage.setItem(`rosa.mundo.hilo.${inv.id}`, 'h-prueba');
     await act(async () => root.render(<ModeloDeMundo inv={inv} estado={e} ahora={AHORA_MUESTRA} />));
     await esperarPintado();
-    sessionStorage.clear();
+    await pulsar(boton('Conversaciones anteriores'));
+    await pulsar(nodo.querySelector('.mundo-historial-panel li button'));
     const r = nodo.querySelector('.mundo-respuesta')!;
     // La marca del árbol sigue en cada respuesta (es la marca gráfica de
     // ROSA2018 y no se sustituye): desde el 2 de octubre de 2026 va dentro

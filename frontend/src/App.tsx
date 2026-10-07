@@ -63,6 +63,7 @@ import type { Pantalla } from './lib/ruta';
 import { rutaLaboratorio } from './lib/ruta';
 import { useAhora } from './lib/useAhora';
 import { useRuta } from './lib/useRuta';
+import { asistenteGeneral } from './lib/conversacionesAsistente';
 import { Ajustes } from './pantallas/Ajustes';
 import { Arbol, EsqueletoArbol } from './pantallas/Arbol';
 import { Artefactos } from './pantallas/Artefactos';
@@ -226,12 +227,7 @@ export default function App() {
     pantalla = <NuevaInvestigacion estado={estado} irA={irA} />;
   } else if (ruta.tipo === 'asistente') {
     titulo = tr('Asistente de ROSA');
-    pantalla = <ModeloDeMundo estado={estado} ahora={ahora} inv={estado.asistenteGlobal ?? {
-      id: 'global', titulo, objetivo: 'Operar y consultar todo ROSA', relevancia: '', limites: [],
-      condicionParada: '', revisores: [], estado: 'activa', creadaEn: 0, ramaDe: null,
-      configuracion: { preferencias: '', atributos: [], restricciones: [], amplitud: 'equilibrada' },
-      datasets: [], vigilarLiteraturaHasta: null, preguntasABases: [], memoria: [],
-    }} />;
+    pantalla = <ModeloDeMundo estado={estado} ahora={ahora} inv={asistenteGeneral(estado)} />;
   } else if (ruta.tipo === 'ajustes') {
     titulo = tr('Ajustes');
     pantalla = <Ajustes estado={estado} ahora={ahora} />;

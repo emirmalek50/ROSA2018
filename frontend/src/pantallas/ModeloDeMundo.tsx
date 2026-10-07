@@ -17,9 +17,10 @@
 // Una actualización del canal en vivo no enseña esqueleto: se conserva lo
 // calculado hasta que llega lo nuevo, un fotograma después.
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { acciones, avisar } from "../datos/almacen";
 import { HistorialAsistente } from "../componentes/HistorialAsistente";
+import { asistenteGeneral, preguntasDelAsistente, type ReferenciaConversacion } from "../lib/conversacionesAsistente";
 import { IdentidadChat } from "../componentes/IdentidadChat";
 import { AdjuntosAsistente } from "../componentes/AdjuntosAsistente";
 import { AccionesAsistente } from "../componentes/AccionesAsistente";
@@ -161,12 +162,13 @@ type BaseMundo = {
 
 function derivar(estado: EstadoRosa, invId: string): BaseMundo {
   const fuentesPorId = new Map<string, Fuente>();
+  // Un hilo antiguo puede abrirse desde otra investigación: sus referencias
+  // siguen resolviendo, aunque los estantes se filtren por la página abierta.
   for (const h of estado.hipotesis)
-    if (h.investigacionId === invId)
-      for (const f of h.procedencia.fuentes)
-        if (!fuentesPorId.has(f.id)) fuentesPorId.set(f.id, f);
+    for (const f of h.procedencia.fuentes)
+      if (!fuentesPorId.has(f.id)) fuentesPorId.set(f.id, f);
   const propios = estado.hechos.filter((h) => h.investigacionId === invId);
-  const porId = new Map(propios.map((h) => [h.id, h]));
+  const porId = new Map(estado.hechos.map((h) => [h.id, h]));
   const temas = temasDeHechos(propios);
   const corrida =
     estado.corridas
@@ -212,6 +214,7 @@ function BarraMundo({
   meta,
   onNueva,
   desactivada = false,
+  ocupada = false,
   soloConversar = false,
   historial,
 }: {
@@ -222,6 +225,7 @@ function BarraMundo({
   meta: ReactNode;
   onNueva?: () => void;
   desactivada?: boolean;
+  ocupada?: boolean;
   soloConversar?: boolean;
   historial?: ReactNode;
 }) {
@@ -270,7 +274,7 @@ function BarraMundo({
         <button
           type="button"
           className="btn btn-s mundo-nueva"
-          disabled={desactivada}
+          disabled={desactivada || ocupada}
           onClick={onNueva}
         >
           <IconPen size={14} />
@@ -347,7 +351,6 @@ function SiluetaMundo({ vista }: { vista: Vista }) {
       {barra}
       <div className="mundo-vacio" aria-hidden="true">
         <div className="mundo-vacio-cabeza">
-          <Esqueleto ancho={44} alto={44} radio={999} />
           <Esqueleto ancho={460} alto={32} radio={8} />
         </div>
         <div className="mundo-compositor mundo-compositor-esqueleto">
@@ -433,6 +436,7 @@ export function ModeloDeMundo({
 type ModoPregunta = "bases" | "local";
 type TurnoLocal = {
   id: string;
+  investigacionId: string;
   hilo: string;
   fecha: number;
   pregunta: string;
@@ -440,12 +444,14 @@ type TurnoLocal = {
 };
 type ErrorLocal = {
   id: string;
+  investigacionId: string;
   hilo: string;
   fecha: number;
   pregunta: string;
   error: string;
 };
 type Pendiente = {
+  investigacionId: string;
   hilo: string;
   pregunta: string;
   desde: number;
@@ -463,16 +469,6 @@ const FILTRO_VACIO: FiltroHechos = {
   origen: "todos",
   tema: null,
 };
-const claveHilo = (invId: string) => `rosa.mundo.hilo.${invId}`;
-
-function leerHilo(invId: string): string | null {
-  try {
-    const h = sessionStorage.getItem(claveHilo(invId));
-    return h && /^[a-zA-Z0-9-]{1,40}$/.test(h) ? h : null;
-  } catch {
-    return null;
-  }
-}
 
 /** Una respuesta guardada que corresponde a la pregunta en vuelo: mismo hilo,
  *  mismo texto y de después de enviarla (con margen por relojes desfasados). */
@@ -505,7 +501,14 @@ function CuerpoMundo({
   );
   const [filtro, setFiltro] = useState<FiltroHechos>(FILTRO_VACIO);
   const [seleccion, setSeleccion] = useState<string | null>(null);
-  const [hilo, setHilo] = useState<string | null>(() => leerHilo(inv.id));
+  // Abrir ROSA empieza una conversación nueva. Los hilos guardados solo se
+  // recuperan cuando la persona los elige en el historial general.
+  const [conversacion, setConversacion] = useState<ReferenciaConversacion | null>(null);
+  const hilo = conversacion?.hilo ?? null;
+  const general = asistenteGeneral(estado);
+  const contenedor = !conversacion || conversacion.investigacionId === "global" ? general
+    : estado.investigaciones.find(i => i.id === conversacion.investigacionId);
+  const invChat = contenedor ?? general;
   const [texto, setTexto] = useState("");
   // Sin selector: con conexión pregunta al modelo de mundo y a las
   // publicaciones; sin ella responde al momento con lo que ya sabe.
@@ -515,16 +518,15 @@ function CuerpoMundo({
   const [pendiente, setPendiente] = useState<Pendiente | null>(null);
   const enVuelo = useRef<string | null>(null);
   const entrada = useRef<HTMLTextAreaElement>(null);
-  const guardadas = inv.preguntasABases ?? [];
+  const guardadas = invChat.preguntasABases ?? [];
+  const historial = useMemo(() => preguntasDelAsistente({ asistenteGlobal: estado.asistenteGlobal, investigaciones: estado.investigaciones }), [estado.asistenteGlobal, estado.investigaciones]);
+
+  useEffect(() => {
+    entrada.current?.focus({ preventScroll: true });
+  }, []);
 
   const fijarHilo = (h: string | null) => {
-    setHilo(h);
-    try {
-      if (h) sessionStorage.setItem(claveHilo(inv.id), h);
-      else sessionStorage.removeItem(claveHilo(inv.id));
-    } catch {
-      // Sin sessionStorage (modo privado estricto) la conversación vive solo en memoria.
-    }
+    setConversacion(h ? { investigacionId: invChat.id, hilo: h } : null);
   };
 
   // Lo que va pensando mientras busca, pedido al servidor cada poco. Es un
@@ -583,6 +585,7 @@ function CuerpoMundo({
         ...ls,
         {
           id: `local-${fecha}`,
+          investigacionId: invChat.id,
           hilo: h,
           fecha,
           pregunta,
@@ -594,16 +597,16 @@ function CuerpoMundo({
     const seguimiento = `seg-${fecha.toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     enVuelo.current = seguimiento;
     setPasosEnVivo([]);
-    setPendiente({ hilo: h, pregunta, desde: fecha, listo: false, seguimiento });
+    setPendiente({ investigacionId: invChat.id, hilo: h, pregunta, desde: fecha, listo: false, seguimiento });
     void (async () => {
-      const error = await acciones.preguntarALasBases(inv.id, pregunta, h, seguimiento, { pantalla: "modelo_de_mundo", vista, filtro, seleccion, investigacionId: inv.id });
+      const error = await acciones.preguntarALasBases(invChat.id, pregunta, h, seguimiento, { pantalla: "modelo_de_mundo", vista, filtro, seleccion, investigacionId: inv.id });
       if (error) {
         if (enVuelo.current !== seguimiento) return;
         enVuelo.current = null;
         setPendiente((p) => (p?.seguimiento === seguimiento ? null : p));
         setErrores((es) => [
           ...es,
-          { id: `error-${fecha}`, hilo: h, fecha, pregunta, error },
+          { id: `error-${fecha}`, investigacionId: invChat.id, hilo: h, fecha, pregunta, error },
         ]);
       } else {
         setPendiente((p) =>
@@ -618,7 +621,7 @@ function CuerpoMundo({
     const seguimiento = pendiente.seguimiento;
     setPendiente(p => p?.seguimiento === seguimiento ? { ...p, cancelando: true, errorCancelacion: null } : p);
     setLeerAlLlegar(null);
-    const error = await acciones.cancelarRespuesta(inv.id, seguimiento);
+    const error = await acciones.cancelarRespuesta(pendiente.investigacionId, seguimiento);
     if (error) setPendiente(p => p?.seguimiento === seguimiento ? { ...p, cancelando: false, errorCancelacion: error } : p);
   };
 
@@ -634,19 +637,19 @@ function CuerpoMundo({
   // El borrado puede llegar desde esta pestaña u otra. Abre un hilo nuevo y
   // descarta respuestas tardías sin perder el borrador que se estaba escribiendo.
   useEffect(() => {
-    if (!hilo || !inv.hilosEliminados?.includes(hilo)) return;
+    if (!hilo || (contenedor && !contenedor.hilosEliminados?.includes(hilo))) return;
     fijarHilo(null);
     enVuelo.current = null;
     setPendiente(null);
     setPasosEnVivo([]);
-    setLocales(ls => ls.filter(t => t.hilo !== hilo));
-    setErrores(es => es.filter(t => t.hilo !== hilo));
+    setLocales(ls => ls.filter(t => t.hilo !== hilo || t.investigacionId !== conversacion?.investigacionId));
+    setErrores(es => es.filter(t => t.hilo !== hilo || t.investigacionId !== conversacion?.investigacionId));
     setLeerAlLlegar(null);
     escucha.current?.soltar();
     callar();
     setVoz("nada");
     avisar(tr("Conversación eliminada."));
-  }, [hilo, inv.hilosEliminados]);
+  }, [hilo, contenedor, conversacion?.investigacionId]);
 
   const leer = (q: PreguntaABases) => {
     if (!puedeHablar() || !q.respuesta || q.cancelada) return;
@@ -718,6 +721,11 @@ function CuerpoMundo({
   };
 
   const nueva = () => {
+    if (pendiente) return;
+    escucha.current?.soltar();
+    callar();
+    setVoz("nada");
+    setLeerAlLlegar(null);
     fijarHilo(null);
     setTexto("");
     enfocar();
@@ -758,12 +766,13 @@ function CuerpoMundo({
         movimientos={base.movimientos.length}
         meta={inv.id === "global" ? <span>{tr("Consulta y opera todas las investigaciones de ROSA")}</span> : meta}
         soloConversar={inv.id === "global"}
+        ocupada={!!pendiente}
         onNueva={nueva}
-        historial={<HistorialAsistente preguntas={guardadas} hilo={hilo} disabled={!!pendiente} alElegir={h => { fijarHilo(h); setVista("conversar"); setTexto(""); }} />}
+        historial={<HistorialAsistente preguntas={historial} conversacion={conversacion} disabled={!!pendiente} alElegir={c => { nueva(); setConversacion(c); }} />}
       />
       {vista === "conversar" && (
         <Conversar
-          inv={inv}
+          inv={invChat}
           ahora={ahora}
           base={base}
           hilo={hilo}
@@ -864,13 +873,14 @@ function Conversar(p: PropsConversar) {
   const turnos: Turno[] = [
     ...delHilo.map((q) => ({ tipo: "guardada" as const, fecha: q.fecha, q })),
     ...locales
-      .filter((t) => t.hilo === hilo)
+      .filter((t) => t.hilo === hilo && t.investigacionId === p.inv.id)
       .map((t) => ({ tipo: "local" as const, fecha: t.fecha, t })),
     // Si el servidor guardó el intento fallido, se enseña el guardado y no se repite.
     ...errores
       .filter(
         (e) =>
           e.hilo === hilo &&
+          e.investigacionId === p.inv.id &&
           !delHilo.some((q) =>
             esLaPendiente(q, {
               hilo: e.hilo,

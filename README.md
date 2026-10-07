@@ -1072,6 +1072,12 @@ propia, conserva el contexto del hilo y consulta todas las investigaciones, no
 solo la abierta. Comparte los conectores permitidos de `rosa/herramientas.py` y
 puede contar registros, buscar proteínas y leer hechos, citas, hipótesis,
 corridas, planes, fuentes, datasets, memoria y el estado público del programa.
+El historial de conversaciones es general: reúne los hilos del asistente y los
+que se guardaron antes dentro de cada investigación. Se puede abrir cualquiera
+desde el asistente o desde otra investigación, conservando su contexto y sus
+acciones pendientes. Las conversaciones nuevas se guardan en el asistente
+general. Al entrar o recargar ROSA se muestra una conversación nueva y vacía;
+los hilos anteriores se recuperan desde «Conversaciones anteriores».
 Las búsquedas devuelven el total y páginas explícitas; no confunden una página
 parcial con todos los resultados. Los servicios especializados recuperan la
 evidencia y los archivos del proyecto sin exponer credenciales ni rutas libres.

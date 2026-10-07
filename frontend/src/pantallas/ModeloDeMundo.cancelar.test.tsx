@@ -4,6 +4,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { AHORA_MUESTRA, estadoDeMuestra } from '../datos/muestra';
 import { ModeloDeMundo } from './ModeloDeMundo';
+import { asistenteGeneral } from '../lib/conversacionesAsistente';
+import type { PreguntaABases } from '../datos/tipos';
 const api = vi.hoisted(() => ({ preguntarALasBases: vi.fn(), cancelarRespuesta: vi.fn(), resolverAccionAsistente: vi.fn(), razonamientoDePregunta: vi.fn().mockResolvedValue(null) }));
 vi.mock('../datos/almacen', async (original) => ({ ...(await original<typeof import('../datos/almacen')>()), acciones: api }));
 
@@ -61,6 +63,103 @@ function escribir(el: HTMLInputElement | HTMLTextAreaElement, valor: string) {
   el.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+const boton = (texto: string) => [...nodo.querySelectorAll('button')].find(b => b.textContent === texto) ?? null;
+const turno = (id: string, hilo: string, pregunta: string, respuesta: string): PreguntaABases => ({
+  id, hilo, pregunta, respuesta, fecha: AHORA_MUESTRA, quien: 'persona',
+  limites: '', herramientas: [], consultas: [], iteraciones: 1, error: null,
+});
+
+it('abre un chat vacío aunque exista un hilo recordado y ofrece todo el historial desde cualquier investigación', async () => {
+  const e = estadoDeMuestra();
+  const primera = { ...e.investigaciones[0]!, preguntasABases: [turno('a', 'h-antiguo', 'Pregunta anterior de MAPT', 'Respuesta anterior de MAPT')] };
+  const segunda = { ...primera, id: 'inv-otra', preguntasABases: [turno('b', 'h-antiguo', 'Pregunta anterior de GFAP', 'Respuesta anterior de GFAP')] };
+  e.investigaciones = [primera, segunda];
+  e.asistenteGlobal = { ...asistenteGeneral(e), preguntasABases: [turno('g', 'h-general', 'Pregunta general anterior', 'Respuesta general anterior')] };
+  sessionStorage.setItem('rosa.mundo.hilo.global', 'h-general');
+  sessionStorage.setItem(`rosa.mundo.hilo.${primera.id}`, 'h-antiguo');
+  await act(async () => root.render(<ModeloDeMundo inv={e.asistenteGlobal!} estado={e} ahora={AHORA_MUESTRA} />));
+  await esperarPintado();
+  expect(nodo.querySelector('.mundo-turnos')).toBeNull();
+  expect(nodo.querySelector('textarea')!.value).toBe('');
+  await pulsar(boton('Conversaciones anteriores'));
+  expect(nodo.querySelectorAll('.mundo-historial-panel li')).toHaveLength(3);
+  await pulsar([...nodo.querySelectorAll('.mundo-historial-panel li button')].find(b => b.textContent?.includes('Pregunta anterior de GFAP'))!);
+  expect(nodo.textContent).toContain('Respuesta anterior de GFAP');
+  expect(nodo.textContent).not.toContain('Respuesta anterior de MAPT');
+
+  await act(async () => root.unmount());
+  root = createRoot(nodo);
+  await act(async () => root.render(<ModeloDeMundo inv={primera} estado={e} ahora={AHORA_MUESTRA} />));
+  await esperarPintado();
+  expect(nodo.querySelector('.mundo-turnos')).toBeNull();
+  await pulsar(boton('Conversaciones anteriores'));
+  expect(nodo.querySelectorAll('.mundo-historial-panel li')).toHaveLength(3);
+  await pulsar([...nodo.querySelectorAll('.mundo-historial-panel li button')].find(b => b.textContent?.includes('Pregunta general anterior'))!);
+  expect(nodo.textContent).toContain('Respuesta general anterior');
+});
+
+it('continúa un hilo antiguo en su contexto y guarda las conversaciones nuevas en el asistente general', async () => {
+  api.preguntarALasBases.mockImplementation(() => new Promise(() => {}));
+  const e = estadoDeMuestra();
+  e.conexion = 'en_linea';
+  const primera = e.investigaciones[0]!;
+  const segunda = { ...primera, id: 'inv-otra', preguntasABases: [turno('b', 'h-anterior', 'Revisa GFAP', 'Respuesta de GFAP')] };
+  e.investigaciones = [primera, segunda];
+  await act(async () => root.render(<ModeloDeMundo inv={primera} estado={e} ahora={AHORA_MUESTRA} />));
+  await esperarPintado();
+  await pulsar(boton('Conversaciones anteriores'));
+  await pulsar([...nodo.querySelectorAll('.mundo-historial-panel li button')].find(b => b.textContent?.includes('Revisa GFAP'))!);
+  await act(async () => escribir(nodo.querySelector('textarea')!, '¿Qué controles faltan?'));
+  await pulsar(nodo.querySelector('[aria-label="Enviar"]'));
+  const llamada = api.preguntarALasBases.mock.calls[0]!;
+  expect(llamada[0]).toBe(segunda.id);
+  expect(llamada[2]).toBe('h-anterior');
+  expect(llamada[4]).toMatchObject({ investigacionId: primera.id });
+  expect((boton('Nueva conversación') as HTMLButtonElement).disabled).toBe(true);
+  const q = { ...turno('continuacion', 'h-anterior', llamada[1], 'Estos son los controles'), fecha: Date.now(), seguimiento: llamada[3] };
+  const actualizado = { ...e, investigaciones: [primera, { ...segunda, preguntasABases: [...segunda.preguntasABases, q] }] };
+  await act(async () => root.render(<ModeloDeMundo inv={primera} estado={actualizado} ahora={Date.now()} />));
+  expect(nodo.textContent).toContain('Estos son los controles');
+  expect(nodo.querySelector('[aria-label="Detener respuesta"]')).toBeNull();
+  await pulsar(boton('Nueva conversación'));
+  expect(nodo.querySelector('.mundo-turnos')).toBeNull();
+  await act(async () => escribir(nodo.querySelector('textarea')!, 'Investiga TREM2'));
+  await pulsar(nodo.querySelector('[aria-label="Enviar"]'));
+  expect(api.preguntarALasBases.mock.calls[1]![0]).toBe('global');
+  expect(api.preguntarALasBases.mock.calls[1]![2]).not.toBe('h-anterior');
+});
+
+it('vuelve a un chat nuevo si desaparece la investigación de una conversación antigua abierta desde el asistente general', async () => {
+  const e = estadoDeMuestra();
+  const primera = { ...e.investigaciones[0]!, preguntasABases: [turno('a', 'h-antiguo', 'Revisa MAPT', 'Respuesta de MAPT')] };
+  e.investigaciones = [primera];
+  const general = asistenteGeneral(e);
+  await act(async () => root.render(<ModeloDeMundo inv={general} estado={e} ahora={AHORA_MUESTRA} />));
+  await esperarPintado();
+  await pulsar(boton('Conversaciones anteriores'));
+  await pulsar(nodo.querySelector('.mundo-historial-panel li button'));
+  expect(nodo.textContent).toContain('Respuesta de MAPT');
+  await act(async () => root.render(<ModeloDeMundo inv={general} estado={{ ...e, investigaciones: [] }} ahora={AHORA_MUESTRA} />));
+  expect(nodo.querySelector('.mundo-turnos')).toBeNull();
+  expect(nodo.querySelector('textarea')!.value).toBe('');
+});
+
+it('resuelve las referencias de una conversación antigua al abrirla desde el asistente general', async () => {
+  const e = estadoDeMuestra();
+  const hecho = { ...e.hechos[0]!, id: 'he-mu44icl1-9037' };
+  e.hechos = [hecho];
+  const primera = { ...e.investigaciones[0]!, preguntasABases: [turno('a', 'h-antiguo', 'Revisa la evidencia', 'Consulta el hecho he-mu44icl1-9037.')] };
+  e.investigaciones = [primera];
+  await act(async () => root.render(<ModeloDeMundo inv={asistenteGeneral(e)} estado={e} ahora={AHORA_MUESTRA} />));
+  await esperarPintado();
+  await pulsar(boton('Conversaciones anteriores'));
+  await pulsar(nodo.querySelector('.mundo-historial-panel li button'));
+  const referencia = nodo.querySelector<HTMLButtonElement>('.mundo-ref-hecho');
+  expect(referencia?.title).toBe(hecho.enunciado);
+  await pulsar(referencia);
+  expect(nodo.querySelector('.mundo-detalle')?.textContent).toContain(hecho.enunciado);
+});
+
 
 it('detiene la respuesta vacía, permite reintentar si falla y conserva el siguiente mensaje', async () => {
   sessionStorage.clear();
@@ -83,14 +182,15 @@ it('detiene la respuesta vacía, permite reintentar si falla y conserva el sigui
   expect(nodo.textContent).toContain('No se pudo confirmar la cancelación.');
   expect(detener()?.disabled).toBe(false);
   const [id, pregunta, hilo, seguimiento] = api.preguntarALasBases.mock.calls[0]!;
+  expect(id).toBe('global');
   expect(api.cancelarRespuesta).toHaveBeenLastCalledWith(id, seguimiento);
   await pulsar(detener());
   expect(nodo.querySelector<HTMLButtonElement>('[aria-label="Deteniendo respuesta"]')?.disabled).toBe(true);
   expect(api.preguntarALasBases).toHaveBeenCalledTimes(1);
   expect(nodo.textContent).not.toContain('No se pudo confirmar la cancelación.');
   const q = { id: 'pb-cancelada', fecha: Date.now(), pregunta, hilo, seguimiento, cancelada: true, respuesta: 'Respuesta detenida.', limites: '', herramientas: [], consultas: [], iteraciones: 0, quien: 'persona', error: null };
-  const inv2 = { ...inv, preguntasABases: [q] };
-  await act(async () => root.render(<ModeloDeMundo inv={inv2} estado={e} ahora={Date.now()} />));
+  const actualizado = { ...e, asistenteGlobal: { ...asistenteGeneral(e), preguntasABases: [q] } };
+  await act(async () => root.render(<ModeloDeMundo inv={inv} estado={actualizado} ahora={Date.now()} />));
   expect(nodo.textContent).toContain('Respuesta detenida.');
   expect(nodo.querySelector('[aria-label="Deteniendo respuesta"]')).toBeNull();
   expect(nodo.querySelector('textarea')!.value).toBe('Mi siguiente mensaje');
@@ -113,17 +213,17 @@ it('limpia el hilo eliminado desde otra pestaña y no recupera una respuesta tar
   const e = estadoDeMuestra();
   e.conexion = 'en_linea';
   const inv = { ...e.investigaciones[0]!, preguntasABases: [] };
-  const pintar = (actual: typeof inv & { hilosEliminados?: string[] }) => act(async () => root.render(<ModeloDeMundo inv={actual} estado={e} ahora={AHORA_MUESTRA} />));
-  await pintar(inv);
+  const pintar = (hilosEliminados: string[]) => act(async () => root.render(<ModeloDeMundo inv={inv} estado={{ ...e, asistenteGlobal: { ...asistenteGeneral(e), hilosEliminados } }} ahora={AHORA_MUESTRA} />));
+  await pintar([]);
   await esperarPintado();
   await act(async () => escribir(nodo.querySelector('textarea')!, 'Consulta que borraré'));
   await pulsar(nodo.querySelector('[aria-label="Enviar"]'));
   const hilo = api.preguntarALasBases.mock.calls[0]![2];
   await act(async () => escribir(nodo.querySelector('textarea')!, 'Conserva este borrador'));
   // Un borrado en otro hilo no afecta a la respuesta actual.
-  await pintar({ ...inv, hilosEliminados: ['h-ajeno'] });
+  await pintar(['h-ajeno']);
   expect(nodo.querySelector('[aria-label="Detener respuesta"]')).not.toBeNull();
-  await pintar({ ...inv, hilosEliminados: ['h-ajeno', hilo] });
+  await pintar(['h-ajeno', hilo]);
   expect(nodo.querySelector('[aria-label="Detener respuesta"]')).toBeNull();
   expect(nodo.textContent).not.toContain('Consulta que borraré');
   expect(sessionStorage.getItem(`rosa.mundo.hilo.${inv.id}`)).toBeNull();
@@ -144,9 +244,11 @@ it.each(['eliminarConversacion', 'eliminarInvestigacion'])('muestra una confirma
     fecha: AHORA_MUESTRA, quien: 'persona', limites: '', herramientas: [], consultas: [], iteraciones: 0, error: null,
     acciones: [{ id: 'op-borrar', nombre, argumentos: { investigacion_id: e.investigaciones[0]!.id, ...(nombre === 'eliminarConversacion' ? { hilo: 'h-borrar' } : {}) }, resumen: 'Eliminar MAPT', estado: 'pendiente' as const }],
   }] };
-  sessionStorage.setItem(`rosa.mundo.hilo.${inv.id}`, 'h-borrar');
-  await act(async () => root.render(<ModeloDeMundo inv={inv} estado={e} ahora={AHORA_MUESTRA} />));
+  const actualizado = { ...e, investigaciones: e.investigaciones.map(i => i.id === inv.id ? inv : i) };
+  await act(async () => root.render(<ModeloDeMundo inv={inv} estado={actualizado} ahora={AHORA_MUESTRA} />));
   await esperarPintado();
+  await pulsar([...nodo.querySelectorAll('button')].find(b => b.textContent === 'Conversaciones anteriores')!);
+  await pulsar(nodo.querySelector('.mundo-historial-panel li button'));
   const boton = [...nodo.querySelectorAll('button')].find(b => b.textContent === (nombre === 'eliminarConversacion' ? 'Eliminar conversación' : 'Eliminar investigación'));
   expect(boton).toBeDefined();
   expect(api.resolverAccionAsistente).not.toHaveBeenCalled();
