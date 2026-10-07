@@ -75,7 +75,9 @@ describe('la aplicacion montada en el cliente', () => {
     const raiz = await montar(hash);
     expect(raiz.textContent).toContain('Asistente de ROSA');
     expect(raiz.querySelector('textarea')).toBeTruthy();
-    expect(raiz.textContent).toContain('Consulta y opera todas las investigaciones de ROSA');
+    const alcance = raiz.querySelector('.mundo-alcance');
+    expect(alcance?.textContent).toBe('Todas las investigaciones');
+    expect(alcance?.getAttribute('title')).toBe('Consulta y opera todas las investigaciones de ROSA');
     expect(raiz.querySelector('.hilo')).toBeNull();
     expect(raiz.querySelector('.barra a.nav-item')?.getAttribute('href')).toBe('#/asistente');
     expect(raiz.querySelectorAll('.barra a[href="#/asistente"]')).toHaveLength(1);

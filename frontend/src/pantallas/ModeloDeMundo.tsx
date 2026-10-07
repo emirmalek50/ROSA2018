@@ -249,18 +249,19 @@ function BarraMundo({
     </button>
   );
   return (
-    <div className="mundo-barra" aria-hidden={desactivada || undefined}>
+    <div className={soloConversar ? "mundo-barra mundo-barra-asistente" : "mundo-barra"} aria-hidden={desactivada || undefined}>
       <h2 className="sr-only">{tr("Modelo de mundo")}</h2>
       <div className="mundo-barra-meta">{meta}</div>
-      <div className="mundo-vistas" role="tablist" aria-label={tr("Vista")}>
+      {/* El asistente solo conversa: una pestaña sola no elige nada. */}
+      {!soloConversar && <div className="mundo-vistas" role="tablist" aria-label={tr("Vista")}>
         {boton("conversar", <IconMessage size={15} />, tr("Conversar"))}
-        {!soloConversar && boton(
+        {boton(
           "hechos",
           <IconLayers size={15} />,
           tr("Los hechos"),
           total !== null && <span className="mundo-vista-cuenta">{total}</span>,
         )}
-        {!soloConversar && boton(
+        {boton(
           "cambios",
           <IconClock size={15} />,
           tr("Qué cambió"),
@@ -268,7 +269,7 @@ function BarraMundo({
             <span className="mundo-vista-aviso">{movimientos}</span>
           ),
         )}
-      </div>
+      </div>}
       <div className="mundo-barra-acciones">
         {historial}
         <button
@@ -764,7 +765,7 @@ function CuerpoMundo({
         setVista={setVista}
         total={propios.length}
         movimientos={base.movimientos.length}
-        meta={inv.id === "global" ? <span>{tr("Consulta y opera todas las investigaciones de ROSA")}</span> : meta}
+        meta={inv.id === "global" ? <span className="mundo-alcance" title={tr("Consulta y opera todas las investigaciones de ROSA")}><IconLayers size={13} />{tr("Todas las investigaciones")}</span> : meta}
         soloConversar={inv.id === "global"}
         ocupada={!!pendiente}
         onNueva={nueva}
@@ -908,7 +909,6 @@ function Conversar(p: PropsConversar) {
       <div className="mundo-vacio">
         <IdentidadChat />
         <div className="mundo-vacio-cabeza">
-          <Persona estado="quieta" tamano={44} marca className="mundo-vacio-cara" />
           <h3 className="mundo-vacio-titulo">
             {tr("¿Qué quieres saber de tu investigación?")}
           </h3>

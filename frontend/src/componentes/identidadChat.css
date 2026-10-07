@@ -28,8 +28,86 @@
   filter: brightness(0) invert(1);
 }
 
+/* Como ChatGPT y Claude: logos, pregunta y caja forman un solo bloque,
+   centrado en el alto que queda y un poco por encima de la mitad. Nada de
+   bienvenida arriba y caja abajo con un hueco en medio. */
+.principal > .pagina:has(.mundo-vacio .identidad-chat),
+.contenido.contenido-mundo:has(.mundo-vacio .identidad-chat) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .mundo-vacio:has(.identidad-chat) {
-  padding-top: clamp(24px, 7vh, 72px);
+  flex: 1;
+  max-width: 880px;
+  justify-content: center;
+  gap: 0;
+  padding-top: 0;
+  padding-bottom: clamp(24px, 12vh, 140px);
+}
+
+.mundo-vacio .identidad-chat {
+  gap: 56px;
+  margin-bottom: 44px;
+}
+
+.mundo-vacio .identidad-chat-alzheimer {
+  width: 168px;
+}
+
+.mundo-vacio .identidad-chat-robotix {
+  width: 248px;
+}
+
+.mundo-vacio:has(.identidad-chat) .mundo-vacio-cabeza {
+  margin-bottom: 36px;
+}
+
+.mundo-vacio:has(.identidad-chat) .mundo-vacio-titulo {
+  font-size: 46px;
+}
+
+/* La caja de la intro, más grande y cómoda, como la de ChatGPT al empezar. */
+.mundo-vacio:has(.identidad-chat) .mundo-compositor {
+  gap: 16px;
+  padding: 22px 16px 14px 26px;
+  border-radius: 30px;
+}
+
+.mundo-vacio:has(.identidad-chat) .mundo-compositor-texto {
+  min-height: 72px;
+  font-size: 19px;
+}
+
+.mundo-vacio:has(.identidad-chat) .mundo-enviar {
+  width: 42px;
+  height: 42px;
+}
+
+.mundo-vacio:has(.identidad-chat) .mundo-compositor-zona {
+  gap: 12px;
+}
+
+.mundo-vacio:has(.identidad-chat) .mundo-compositor-nota {
+  font-size: 13.5px;
+}
+
+.mundo-vacio:has(.identidad-chat) .mundo-sugerencias-titulo {
+  font-size: 13.5px;
+}
+
+.mundo-vacio:has(.identidad-chat) .mundo-sugerencia {
+  padding: 16px 10px;
+  margin: 0 -10px;
+}
+
+.mundo-vacio:has(.identidad-chat) .mundo-sugerencia-texto {
+  font-size: 16px;
+}
+
+.mundo-vacio:has(.identidad-chat) .mundo-sugerencia-nota {
+  font-size: 13px;
 }
 
 .identidad-chat-compacta {
@@ -66,11 +144,61 @@
     margin-bottom: 28px;
   }
 
+  .mundo-vacio .identidad-chat {
+    gap: 32px;
+    margin-bottom: 32px;
+  }
+
+  .mundo-vacio .identidad-chat-alzheimer {
+    width: 112px;
+  }
+
+  .mundo-vacio .identidad-chat-robotix {
+    width: 166px;
+  }
+
+  .mundo-vacio:has(.identidad-chat) .mundo-vacio-titulo {
+    font-size: 32px;
+  }
+
+  .mundo-vacio:has(.identidad-chat) .mundo-compositor {
+    padding: 18px 12px 12px 20px;
+    border-radius: 26px;
+  }
+
+  .mundo-vacio:has(.identidad-chat) .mundo-compositor-texto {
+    min-height: 60px;
+    font-size: 17px;
+  }
+
   .identidad-chat-compacta .identidad-chat-alzheimer {
     width: 82px;
   }
 
   .identidad-chat-compacta .identidad-chat-robotix {
     width: 112px;
+  }
+}
+
+/* En pantallas bajas el bloque se aprieta un poco para no salirse del alto. */
+@media (min-width: 641px) and (max-height: 780px) {
+  .mundo-vacio:has(.identidad-chat) {
+    padding-bottom: clamp(16px, 6vh, 60px);
+  }
+
+  .mundo-vacio .identidad-chat {
+    margin-bottom: 32px;
+  }
+
+  .mundo-vacio .identidad-chat-alzheimer {
+    width: 144px;
+  }
+
+  .mundo-vacio .identidad-chat-robotix {
+    width: 212px;
+  }
+
+  .mundo-vacio:has(.identidad-chat) .mundo-vacio-cabeza {
+    margin-bottom: 28px;
   }
 }

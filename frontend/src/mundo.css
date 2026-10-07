@@ -125,6 +125,119 @@
   gap: 6px;
 }
 
+/* El asistente, al estilo de Claude: sin raya ni pestañas. A la izquierda
+   el alcance como una ficha discreta; a la derecha el historial como icono
+   con su rótulo al pasar y la conversación nueva como único botón con borde. */
+.mundo-barra-asistente {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 0;
+  margin-bottom: 8px;
+  border-bottom: 0;
+}
+
+.mundo-barra-asistente .mundo-barra-meta {
+  order: 0;
+}
+
+.mundo-alcance {
+  height: 32px;
+  padding: 0 13px 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: default;
+}
+
+.mundo-alcance svg {
+  color: var(--text-3);
+}
+
+.mundo-barra-asistente .mundo-barra-acciones {
+  align-items: center;
+  gap: 6px;
+}
+
+.mundo-barra-asistente .mundo-barra-acciones .btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+
+.mundo-barra-asistente .mundo-historial .btn {
+  width: 34px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--text-2);
+  font-size: 0;
+}
+
+.mundo-barra-asistente .mundo-barra-acciones .btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.mundo-barra-asistente .mundo-barra-acciones .btn:hover:not(:disabled),
+.mundo-barra-asistente .mundo-barra-acciones .btn[aria-expanded='true'] {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.mundo-barra-asistente [data-tip]:hover:not([aria-expanded='true'])::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 31;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* En el móvil la conversación nueva también queda en icono; el texto sigue
+   ahí para el lector de pantalla. */
+@media (max-width: 640px) {
+  .mundo-barra-asistente .mundo-barra-acciones {
+    flex-wrap: nowrap;
+  }
+
+  .mundo-barra-asistente .mundo-barra-acciones .btn {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .mundo-barra-asistente .mundo-barra-acciones .btn svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
 .mundo-punto {
   display: inline-block;
   width: 7px;
@@ -210,10 +323,6 @@
   gap: 14px;
   text-align: center;
   margin-bottom: 18px;
-}
-
-.mundo-vacio-cara {
-  flex: none;
 }
 
 .mundo-vacio-titulo {

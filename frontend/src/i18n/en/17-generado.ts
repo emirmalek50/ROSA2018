@@ -738,6 +738,7 @@ export const GENERADO: Record<string, string> = {
   "Consulta exacta": "Exact query",
   "Consulta las políticas, la integridad del registro y la copia del estado.": "Check the policies, the log integrity and the state copy.",
   "Consulta y opera todas las investigaciones de ROSA": "Query and operate all ROSA research projects",
+  "Todas las investigaciones": "All investigations",
   "Consulta {numero}": "Query {numero}",
   "Consultado para la versión {version}": "Consulted for version {version}",
   "Consultando bases...": "Querying databases...",

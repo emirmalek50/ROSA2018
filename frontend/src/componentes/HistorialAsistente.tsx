@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import type { PreguntaHistorial, ReferenciaConversacion } from '../lib/conversacionesAsistente';
 import { idiomaActual, tr } from '../lib/idioma';
+import { IconClock } from './icons';
 
 export function HistorialAsistente({ preguntas, conversacion, alElegir, disabled = false }: {
   preguntas: PreguntaHistorial[]; conversacion: ReferenciaConversacion | null;
@@ -28,7 +29,7 @@ export function HistorialAsistente({ preguntas, conversacion, alElegir, disabled
     return [...grupos.values()].filter(g => g.coincide).sort((a, b) => b.fecha - a.fecha);
   }, [preguntas, busqueda]);
   return <div className="mundo-historial" onKeyDown={ev => { if (ev.key === 'Escape') { setAbierto(false); boton.current?.focus(); } }}>
-    <button ref={boton} type="button" className="btn btn-s" disabled={disabled} aria-expanded={abierto} onClick={() => setAbierto(!abierto)}>{tr('Conversaciones anteriores')}</button>
+    <button ref={boton} type="button" className="btn btn-s" disabled={disabled} aria-expanded={abierto} data-tip={tr('Conversaciones anteriores')} onClick={() => setAbierto(!abierto)}><IconClock size={14} />{tr('Conversaciones anteriores')}</button>
     {abierto && <section aria-label={tr('Historial de conversaciones')} className="mundo-historial-panel">
       <label>{tr('Buscar conversación')}<input type="search" value={busqueda} onChange={ev => { setBusqueda(ev.target.value); setLimite(30); }} /></label>
       {conversaciones.length === 0 && <p>{tr('No hay conversaciones que coincidan.')}</p>}

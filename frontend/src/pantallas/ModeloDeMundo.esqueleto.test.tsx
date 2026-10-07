@@ -201,7 +201,7 @@ describe('lo que se toca en el modelo de mundo', () => {
     expect(nodo.textContent).not.toContain('Preguntado antes');
     expect(nodo.querySelector('.mundo-sugerencia svg')).toBeNull();
     expect(nodo.querySelector('.mundo-sugerencias-titulo')?.textContent).toBe('Para empezar');
-    expect(nodo.querySelector('.mundo-vacio-cabeza .mundo-vacio-cara')).not.toBeNull();
+    expect(nodo.querySelector('.mundo-vacio-cabeza .mundo-vacio-cara')).toBeNull();
     const entrada = nodo.querySelector('textarea')!;
     await act(async () => escribir(entrada, `¿Qué sabe de ${palabra}?`));
     await pulsar(nodo.querySelector('.mundo-enviar'));
