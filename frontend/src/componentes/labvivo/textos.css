@@ -1,0 +1,8 @@
+/* Cada documento crece con sus líneas; la cámara ajusta su posición. */
+.labvivo .lv-documento{height:auto;max-height:none;overflow:visible;overflow-wrap:anywhere;padding:4px 8px;pointer-events:auto}
+.labvivo .lv-documento .lv-doc-titular{display:block;-webkit-line-clamp:unset;overflow:visible}
+.labvivo .lv-documento .lv-doc-detalle{overflow-wrap:anywhere}
+.labvivo .lv-documento[data-desplazable="true"]{overflow:auto;overscroll-behavior:contain;scrollbar-width:auto;scrollbar-color:auto}
+.labvivo .lv-documento::-webkit-scrollbar{width:7px;height:7px;background:#E1DCE8}
+.labvivo .lv-documento::-webkit-scrollbar-thumb{background:#61586E;border:1px solid #E1DCE8}
+.labvivo .lv-documento:focus-visible{outline:2px solid #FFB27A;outline-offset:2px}

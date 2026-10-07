@@ -13,6 +13,8 @@ import { desplazamientoGesto, pintarExpresion } from './expresiones';
 import './escenas.css';
 import './pelicula.css';
 import './cadena.css';
+import './textos.css';
+import { configurarDocumento, crearAjustadorTextos } from './textos';
 import { escenasDeApertura } from './inicioPelicula';
 import { ColaPelicula } from './colaPelicula';
 import { CadenciaDialogos, pausaDeRespuesta } from './cadenciaDialogos';
@@ -486,6 +488,35 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   let sel: Agente | null = null, asking = false, mira: (() => [number, number]) | null = null, miraS = 1, kfAct = 1;
   const cam = { s: 1, cx: ANCHO / 2, cy: ALTO_VISTA / 2, tx: 0, ty: 0 };
   const vis = { x: ANCHO / 2, y: ALTO_VISTA / 2, k: 1, izq: 0, der: ANCHO, arr: 0, aba: ALTO_VISTA };
+  const textos = crearAjustadorTextos(utileria, () => ({
+    izq: Math.max(0, (vis.izq - cam.tx) / cam.s), der: Math.min(ANCHO, (vis.der - cam.tx) / cam.s),
+    arr: Math.max(0, (vis.arr - cam.ty) / cam.s), aba: Math.min(ALTO_VISTA, (vis.aba - cam.ty) / cam.s),
+  }), () => [
+    ...AG.flatMap(a => {
+      const y = a.y + a.bob * 2, ancho = a.lb.offsetWidth;
+      const reloj = a.rj.hidden ? [] : [{ x: a.x + a.rj.offsetLeft - a.rj.offsetWidth / 2,
+        y: y + a.rj.offsetTop, w: a.rj.offsetWidth, h: a.rj.offsetHeight }];
+      const bocadillo: { x: number; y: number; w: number; h: number }[] = [];
+      if (a.bub) {
+        const w = a.bub.el.offsetWidth, h = a.bub.el.offsetHeight;
+        bocadillo.push({ x: a.bub.el.offsetLeft - w / 2, y: a.bub.el.offsetTop - h, w, h });
+      }
+      return [
+        { x: a.x, y, w: 48, h: 64 },
+        { x: a.x + 24 - ancho / 2, y: y + (atHome(a) ? a.ldy : 66), w: ancho, h: a.lb.offsetHeight },
+        ...reloj, ...bocadillo,
+      ];
+    }),
+    ...Object.entries(placaEl).map(([sala, placa]) => ({
+      x: GEOM[sala as Sala][0] + placa.offsetLeft, y: GEOM[sala as Sala][1] + placa.offsetTop, w: placa.offsetWidth, h: placa.offsetHeight,
+    })),
+    ...[...capaMarcas.children].map(el => {
+      const etiqueta = el as HTMLElement;
+      return { x: etiqueta.offsetLeft, y: etiqueta.offsetTop, w: etiqueta.offsetWidth, h: etiqueta.offsetHeight };
+    }),
+    ...(!ficha.hidden ? [{ x: (ficha.offsetLeft - cam.tx) / cam.s, y: (ficha.offsetTop - cam.ty) / cam.s,
+      w: ficha.offsetWidth * kfAct / cam.s, h: ficha.offsetHeight * kfAct / cam.s }] : []),
+  ]);
   function medirVisible() {
     const r = vista.getBoundingClientRect(), k = r.width / ANCHO || 1;
     // La cabecera de la página es pegajosa: lo que queda debajo de ella no se ve.
@@ -705,6 +736,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     };
     const hueco = huecos[sala];
     if (hueco) Object.assign(el.style, { left: hueco[0] + 'px', top: hueco[1] + 'px', width: hueco[2] + 'px', maxHeight: hueco[3] + 'px' });
+    configurarDocumento(el, sala, GEOM[sala]);
     el.textContent = corta(texto, 240); el.title = texto;
     return el;
   }
@@ -1921,6 +1953,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         }
       }
     });
+    textos.actualizar();
     refrescarFicha();
     for (let i = STAMPS.length - 1; i >= 0; i--) if (simT > STAMPS[i]!.until) { STAMPS[i]!.el.remove(); STAMPS.splice(i, 1); }
     const c = CH[chIdx]!;
@@ -2018,6 +2051,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     },
     desmontar() {
       vivo = false;
+      textos.limpiar();
       cancelAnimationFrame(raf);
       pararActividad();
       pelicula.limpiar();
