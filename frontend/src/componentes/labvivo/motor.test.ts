@@ -49,27 +49,25 @@ describe('el motor del laboratorio sigue al servidor', () => {
     expect(nodo.querySelector('.lv-chip.on')?.textContent).toContain('Buscan y leen');
     expect(nodo.textContent).not.toContain('Yo miro el resto');
   });
-  it('el Killer habla en primera persona en el bocadillo y la ficha, con el original comprobable', () => {
+  it('los registros técnicos no se convierten en voz ni en comentarios de la ficha', () => {
     const d = datos();
-    const original = 'El Killer revisa «La severidad basal indicada por NfL modifica el valor clínico de una reducción de P-tau181»';
+    const original = 'El Killer revisa «MAPT»: comprobaciones deterministas, fuente 12:14';
     const e = { ...d.actividad[0]!, agente: 'Killer', sala: 'r4' as const, texto: original };
     montar({ ...d, foco: 'r4', activos: ['Killer'], actividad: [e] });
-    const bocadillo = nodo.querySelector('.lv-bub')!;
-    expect(bocadillo.textContent).toContain('Estoy revisando «La severidad basal');
-    expect(bocadillo.textContent).not.toContain('El Killer revisa');
-    expect(bocadillo.getAttribute('title')).toBe(original);
+    expect(nodo.querySelectorAll('.lv-bub')).toHaveLength(0);
     nodo.querySelector<HTMLElement>('[data-agente="Killer"]')!.dispatchEvent(new MouseEvent('mouseenter'));
-    expect(nodo.querySelector('.lv-ahora b')?.textContent).toBe('Estoy revisando ' + original.slice('El Killer revisa '.length));
+    expect(nodo.querySelector('.lv-ahora b')?.textContent).toBe('Preparando el siguiente intercambio');
+    expect(nodo.querySelector('.lv-ficha')?.textContent).not.toContain(original);
     expect(e.texto).toBe(original);
   });
-  it('una entrada nueva sustituye el diálogo y un estado idéntico no lo reinicia', () => {
+  it('el registro queda consultable sin convertir los datos crudos en diálogo', () => {
     const d = datos(); montar(d);
     const e = { ...d.actividad[0]!, id: 'real:2:2', texto: '<img src=x onerror=alert(1)>: 87 resultados', tipo: 'resultado' as const };
     const siguiente = { ...d, actividad: [...d.actividad, e] };
     motor!.actualizar(siguiente);
-    const bocadillo = nodo.querySelector('.lv-bub')!;
-    expect(bocadillo.textContent).toContain(e.texto); expect(bocadillo.querySelector('img')).toBeNull();
-    motor!.actualizar(siguiente); expect(nodo.querySelector('.lv-bub')).toBe(bocadillo);
+    expect(nodo.querySelectorAll('.lv-bub')).toHaveLength(0);
+    expect(nodo.textContent).toContain(e.texto); expect(nodo.querySelector('img[src=x]')).toBeNull();
+    motor!.actualizar(siguiente); expect(nodo.querySelectorAll('.lv-bub')).toHaveLength(0);
   });
   it('la pausa cancela movimientos y la desconexión no deja personajes trabajando', () => {
     const d = datos(); montar(d); ticks(15);
@@ -148,7 +146,8 @@ describe('el motor del laboratorio sigue al servidor', () => {
     await avanzar(450, () => {
       for (const b of nodo.querySelectorAll<HTMLElement>('.lv-bub[data-turno]')) {
         vistos.add(b.dataset.turno!);
-        expect(b.title).toContain('Asociación en ratones');
+        expect(b.title).toBe(b.dataset.turno === turno.id ? turno.texto : respuesta.texto);
+        expect(b.title).not.toContain('PMID');
         expect(b.dataset.interlocutor).toBe(b.dataset.turno === turno.id ? turno.destinatario : turno.agente);
       }
     });
@@ -171,6 +170,47 @@ describe('el motor del laboratorio sigue al servidor', () => {
     motor!.conversar([t], false);
     expect(nodo.querySelectorAll('.lv-bub[data-turno]')).toHaveLength(0);
     await avanzar(250); expect(nodo.querySelectorAll('.lv-bub[data-turno]')).toHaveLength(0);
+  });
+  it('conserva posiciones entre registros, cambios de tarea, conversaciones y permisos', async () => {
+    const d = datos(); montar(d);
+    const posiciones = () => new Map([...nodo.querySelectorAll<HTMLElement>('.lv-ag')].map((a) => {
+      const [x = 0, y = 0] = a.style.transform.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+      return [a.dataset.agente!, [x, y]] as const;
+    }));
+    await avanzar(1);
+    let anteriores = posiciones();
+    const inicio = anteriores.get('Generador de consultas')!;
+    let distancia = 0;
+    const vistos = new Set<string>();
+    const t: TurnoLaboratorio = { id: 'charla-natural', temaId: 'tema', iteracionId: d.identidad.split('/')[1]!, idioma: 'es',
+      agente: 'Generador de consultas', destinatario: 'Explorador', texto: 'Hmm, quiero mirar mejor lo de MAPT. ¿Tú cómo lo ves?', fecha: Date.now(), modelo: 'prueba', materiales: [] };
+    for (let n = 0; n < 400; n++) {
+      if (n % 10 === 0) motor!.actualizar({ ...d, activos: n % 20 ? ['Generador de consultas', 'Explorador'] : d.activos,
+        actividad: [...d.actividad, { ...d.actividad[0]!, id: `entrada-${n}`, texto: `Fuente 12:${n}: comprobaciones deterministas` }] });
+      if (n === 90) motor!.conversar([t]);
+      if (n === 220) motor!.conversar([t], false);
+      await avanzar(1);
+      const actuales = posiciones();
+      for (const [nombre, [x, y]] of actuales) {
+        const antes = anteriores.get(nombre)!;
+        // Velocidad 70 px/s: máximo 7 px por frame, más el balanceo de 2 px.
+        expect(Math.hypot(x - antes[0], y - antes[1]), nombre).toBeLessThanOrEqual(10);
+      }
+      anteriores = actuales;
+      const consulta = actuales.get('Generador de consultas')!;
+      distancia = Math.max(distancia, Math.hypot(consulta[0] - inicio[0], consulta[1] - inicio[1]));
+      nodo.querySelectorAll<HTMLElement>('.lv-bub[data-turno]').forEach((b) => vistos.add(b.dataset.turno!));
+    }
+    expect(distancia).toBeGreaterThan(40);
+    expect(vistos.has(t.id)).toBe(true);
+    const antesPermiso = posiciones();
+    motor!.actualizar({ ...d, trabajando: false, activos: [], pide: { id: 'permiso-en-camino', clase: 'permiso', quien: 'Explorador', titulo: 'Consultar una fuente', detalle: '', alcances: [], requiereArgumentos: false } });
+    await avanzar(1);
+    for (const [nombre, [x, y]] of posiciones()) {
+      const antes = antesPermiso.get(nombre)!;
+      expect(Math.hypot(x - antes[0], y - antes[1]), nombre).toBeLessThanOrEqual(2);
+    }
+    expect(nodo.querySelector('.lv-bub.ask')?.textContent).toBe('¿Me das permiso?');
   });
   it('los cuatro generadores salen de sus mesas mientras sus tareas siguen activas', async () => {
     const d = datos(), nombres = ['Analogía', 'Contradicción', 'Mecanismo opuesto', 'Otra escala'];

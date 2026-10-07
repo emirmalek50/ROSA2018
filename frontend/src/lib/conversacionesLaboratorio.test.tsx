@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { useConversacionesLaboratorio } from './conversacionesLaboratorio';
+import { ESTILO_LABORATORIO, useConversacionesLaboratorio } from './conversacionesLaboratorio';
 
 vi.mock('../datos/almacen', () => ({ cabeceras: () => ({ 'X-Rosa': '1', 'Content-Type': 'application/json' }) }));
 let nodo: HTMLDivElement, root: Root;
@@ -22,6 +22,17 @@ it('los datos de muestra no piden conversaciones y muestran pausa', async () => 
   const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
   await act(async () => root.render(<Vista disponible={false} />));
   expect(fetch).not.toHaveBeenCalled(); expect(nodo.textContent).toContain('pausada');
+});
+
+it('descarta la voz anterior del servidor y conserva las referencias del diálogo natural', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ estado: 'conversando', turnos: [
+    { id: 'vieja', texto: 'Fuente 12:14: comprobaciones deterministas' },
+    { id: 'nueva', estilo: ESTILO_LABORATORIO, texto: 'Me intriga lo de tau. Quiero mirarlo mejor.', materiales: [{ cita: 'PMID:123, p. 4' }] },
+  ] }) }));
+  await act(async () => root.render(<Vista />));
+  expect(nodo.textContent).not.toContain('comprobaciones deterministas');
+  expect(nodo.textContent).toContain('Me intriga lo de tau');
+  expect(nodo.textContent).toContain('PMID:123, p. 4');
 });
 
 it('se recupera de un fallo de red y retira su visita al desactivar', async () => {

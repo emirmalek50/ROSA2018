@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { cabeceras } from '../datos/almacen';
 import type { Idioma } from './idioma';
 
+export const ESTILO_LABORATORIO = 'conversacion-natural-v2';
 export interface MaterialCharla {
   id: string; clase: 'registro' | 'afirmacion'; texto: string;
   titulo?: string; cita?: string | null; fragmento?: string | null;
   veredicto?: string | null; pistaId?: string;
 }
 export interface TurnoLaboratorio {
+  estilo?: string;
   id: string; temaId: string; iteracionId: string; idioma: Idioma;
   agente: string; destinatario: string; texto: string; fecha: number;
   modelo: string; materiales: MaterialCharla[];
@@ -35,7 +37,9 @@ export function useConversacionesLaboratorio(corridaId: string, iteracionId: str
         if (!r.ok) throw new Error('No disponible');
         const d: Respuesta = await r.json();
         if (!Array.isArray(d.turnos)) throw new Error('Respuesta inválida');
-        if (vivo) setDatos({ ...d, clave });
+        // No reproducir la voz anterior mientras el servidor termina una corrida
+        // y carga la nueva versión. La procedencia del diálogo admitido se conserva.
+        if (vivo) setDatos({ ...d, turnos: d.turnos.filter((t) => t.estilo === ESTILO_LABORATORIO), clave });
       } catch {
         if (vivo) setDatos((anterior) => ({ estado: 'no_disponible', turnos: anterior.clave === clave ? anterior.turnos : [], clave }));
       } finally {

@@ -8,7 +8,7 @@ import pytest
 
 from rosa import config, gateway
 from rosa.estado.almacen import Almacen
-from rosa.laboratorio_conversaciones import Conversaciones, REGLAS_JUEZ, tema_de, validar_turno
+from rosa.laboratorio_conversaciones import ESTILO, Conversaciones, REGLAS_JUEZ, tema_de, validar_turno
 from rosa.servidor import crear_app
 
 
@@ -47,10 +47,45 @@ def test_contexto_no_filtra_otras_iteraciones_ni_inyecciones(almacen):
     {"texto": "Yo lo considero confirmado", "referencias": ["af:a"]},
     {"texto": "Yo lo considero confirmed", "referencias": ["af:a"]},
     {"texto": "x" * 421, "referencias": ["af:a"]},
+    {"texto": "Yo voy a revisar fuente 12:14.", "referencias": ["af:a"]},
+    {"texto": "Estoy trabajando en esto: comprobaciones deterministas.", "referencias": ["af:a"]},
+    {"texto": "Yo leí PMID:123, p. 4 y lo revisaría.", "referencias": ["af:a"]},
+    {"texto": "I am reviewing source 12:14 now.", "referencias": ["af:a"]},
+    {"texto": "Voy a revisar `af:a` antes de seguir.", "referencias": ["af:a"]},
+    {"texto": "x" * 221, "referencias": ["af:a"]},
 ])
 def test_rechaza_procedencia_inventada_y_certeza_exagerada(almacen, obj):
     with pytest.raises(ValueError):
         validar_turno(obj, tema_de(almacen.estado, "c", "it"))
+
+
+@pytest.mark.parametrize("texto", [
+    "Hmm, me llama la atención lo de tau en ratones. ¿Tú cómo lo ves?",
+    "Voy a mirar esa asociación con MAPT antes de sacar conclusiones.",
+    "I want to look closer at the tau finding in mice. What do you think?",
+])
+def test_voz_cotidiana_conserva_la_procedencia_fuera_de_lo_que_dicen(almacen, texto):
+    turno = validar_turno({"texto": texto, "referencias": ["af:a"]}, tema_de(almacen.estado, "c", "it"))
+    assert turno == {"texto": texto, "referencias": ["af:a"]}
+
+
+@pytest.mark.asyncio
+async def test_no_recicla_informes_guardados_con_la_voz_anterior(almacen):
+    tema = tema_de(almacen.estado, "c", "it")
+    antiguo = {"id": "charla-antigua", "temaId": tema["huella"], "iteracionId": "it", "idioma": "es", "texto": "Fuente 12:14"}
+    almacen.estado["corridas"][0]["_conversacionesLaboratorio"] = [antiguo]
+    async def llamar(modelo, reglas, contenido, tema):
+        assert not contenido["historial"] or all("Fuente" not in t["texto"] for t in contenido["historial"])
+        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Quiero mirar lo de tau en ratones con más cuidado.", "referencias": ["af:a"]}
+    s = Conversaciones(almacen, llamar)
+    clave = ("c", "it", "es")
+    assert s.leer(clave) == []
+    s.tocar(clave, "persona", True)
+    await s.tareas[clave]
+    assert len(s.leer(clave)) == 3
+    assert all(t["estilo"] == ESTILO for t in s.leer(clave))
+    assert almacen.estado["corridas"][0]["_conversacionesLaboratorio"][0] == antiguo
+    await s.cerrar()
 
 
 @pytest.mark.asyncio

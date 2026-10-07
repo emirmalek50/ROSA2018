@@ -8,7 +8,6 @@
 // mensajes y los contadores se actualizan desde DatosLab al recibir SSE.
 
 import { tr, trp } from '../../lib/idioma';
-import { dialogoDeActividad } from '../../lib/dialogoLaboratorio';
 import type { TurnoLaboratorio } from '../../lib/conversacionesLaboratorio';
 import './escenas.css';
 import { formatearEntero } from '../../lib/formato';
@@ -425,15 +424,13 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     pideEl.style.bottom = ALTO_VISTA - vis.aba + 24 + 'px';
     colocarFicha(kf);
   }
-  /** Lo que el agente está haciendo en la escena, leído de lo que se ve: su
-   *  bocadillo, hacia dónde camina, si escribe o, si está quieto, cómo va su sala. */
+  /** La ficha muestra la voz generada; el registro técnico se consulta en el historial. */
   function haciendo(a: Agente): string {
     if (a.bub?.el.classList.contains('ask')) return tr('Necesito tu permiso');
-    const ultima = [...D.actividad].reverse().find((e) => e.agente === a.name);
-    if (D.activos.includes(a.name)) return ultima ? dialogoDeActividad(ultima, true) : trp('Estoy trabajando en esta tarea: «{tarea}».', { tarea: D.pasos.enCurso?.titulo ?? D.estadoTexto });
     if (D.conexion !== 'en_linea') return tr('No estoy recibiendo actualizaciones de la corrida.');
-    if (!D.trabajando) return D.estadoTexto + (ultima ? ' · ' + dialogoDeActividad(ultima, false) : '');
-    return ultima ? dialogoDeActividad(ultima, false) : tr('Todavía no tengo actividad registrada en esta iteración.');
+    if (!D.trabajando) return D.estadoTexto;
+    const comentario = ultimaCharla.get(a.name);
+    return comentario?.texto ?? tr(D.activos.includes(a.name) ? 'Preparando el siguiente intercambio' : 'Esperan nuevos hallazgos');
   }
   let fichaDe: Agente | null = null, fichaTexto = '';
   function refrescarFicha() {
@@ -508,7 +505,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       escenas.delete(b);
       if (b.ictx !== escena.ctx) continue;
       b.ictx = null; b.busy = false; b.path = []; b.carry = null;
-      b.x = b.hx; b.y = b.hy; b.typing = 0;
+      b.typing = 0;
       if (b.bub?.el.dataset.escena) { b.bub.el.remove(); b.bub = null; }
       delete b.el.dataset.escena;
     }
@@ -517,14 +514,14 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     && !raiz.querySelector('.lv-narra:not([hidden])');
   const libreParaEscena = (a: Agente) => !a.ictx && !a.busy && !a.bub && !escenas.has(a);
   const actividadDe = (a: Agente) => [...D.actividad].reverse().find((e) => e.agente === a.name && e.enCurso);
-  function hablarEnEscena(a: Agente, b: Agente | null, texto: string, dur: number, original?: string) {
+  function hablarEnEscena(a: Agente, b: Agente | null, texto: string, dur: number) {
     const destinatario = b ? trp('Para {nombre}', { nombre: b.quien || b.label }) : tr('En la escena');
-    say(a, `<em>${esc(destinatario)}</em>${esc(corta(texto, 420))}`, dur, 'escena');
+    say(a, `<em>${esc(destinatario)}</em>${esc(corta(texto, 220))}`, dur, 'escena');
     if (a.bub) {
       a.bub.el.dataset.escena = 'dialogo';
       a.bub.el.dataset.agente = a.name;
       if (b) a.bub.el.dataset.interlocutor = b.name;
-      a.bub.el.title = original ?? tr('Diálogo de la escena: no es una entrada del registro.');
+      a.bub.el.title = texto;
     }
   }
   // Pasillos bajo las mesas, sin cruzar las paredes ni las cajas de evidencia.
@@ -575,7 +572,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     })());
   }
   function mostrarDialogo(t: TurnoLaboratorio, a: Agente, b: Agente, dur: number) {
-    hablarEnEscena(a, b, t.texto, dur, t.materiales.map((m) => `${m.titulo || m.cita || m.id}: ${m.texto}`).join('\n'));
+    hablarEnEscena(a, b, t.texto, dur);
     a.bub?.el.setAttribute('data-turno', t.id);
     ultimaCharla.set(a.name, t);
     setEv(esc(t.texto));
@@ -639,7 +636,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     proximaEscena.clear(); proximoPaseo = simT + 1.5;
     AG.forEach((a) => {
       a.ictx?.kill(); a.ictx = null; a.busy = false; a.path = [];
-      a.x = a.hx; a.y = a.hy; a.carry = null; a.away = false; a.typing = 0;
+      a.carry = null; a.away = false; a.typing = 0;
       a.bub?.el.remove(); a.bub = null;
     });
     FLY.length = 0; STAMPS.forEach((s) => s.el.remove()); STAMPS.length = 0;
@@ -648,16 +645,11 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
   function anunciar(e: ActividadLab, animar: boolean) {
     const a = P(e.agente);
-    cancelarEscena(a);
-    a.ictx?.kill(); a.path = []; a.x = a.hx; a.y = a.hy; a.carry = null;
-    const ctx = nuevoCtx(); a.ictx = ctx;
-    const enVivo = D.trabajando && e.enCurso && D.activos.includes(a.name);
-    const rotulo = enVivo ? tr('Ahora mismo') : tr('Mi último registro');
-    const dialogo = dialogoDeActividad(e, enVivo);
-    say(a, `<em>${esc(rotulo)}</em>${esc(corta(dialogo, 190))}`, 9, e.tipo === 'error' ? 'claim error' : 'claim');
-    a.bub?.el.setAttribute('title', e.texto);
+    // El registro permanece en el historial. Solo la IA pone voz a los personajes.
     setEv(esc(e.texto));
-    if (!animar || REDUCIR) return;
+    // Una actualización no interrumpe una caminata ni una conversación en curso.
+    if (!animar || REDUCIR || escenas.has(a) || a.ictx) return;
+    const ctx = nuevoCtx(); a.ictx = ctx;
     a.busy = true;
     spawn((async () => {
       try {
@@ -689,8 +681,6 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       a.el.dataset.agente = a.name;
       a.el.setAttribute('aria-label', a.label + ': ' + haciendo(a));
       a.el.classList.toggle('activo', D.activos.includes(a.name));
-      if (escenas.has(a)) return;
-      if (!D.activos.includes(a.name)) { a.ictx?.kill(); a.ictx = null; a.path = []; a.typing = 0; a.busy = false; }
     });
     hoja = D.activos.includes('Juez');
     processWaits();
@@ -704,7 +694,6 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const p = D.pide;
     if (!p || descartadas.has(p.id) || pidiendo === p.id) return;
     pararActividad();
-    AG.forEach((a) => { if (a.ictx) { a.ictx.kill(); a.ictx = null; a.busy = false; } a.path = []; a.x = a.hx; a.y = a.hy; a.away = false; a.carry = null; });
     pidiendo = p.id; asking = true; sel = null; ficha.hidden = true;
     const quien = P(p.quien);
     quien.face = -1;
@@ -967,8 +956,10 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       D = d;
       const cambio = identidad !== d.identidad;
       if (cambio) { identidad = d.identidad; vistas.clear(); descartadas.clear(); cerrarPeticion(); }
-      const transicion = antes.trabajando !== d.trabajando || antes.activos.join() !== d.activos.join();
-      if (cambio || transicion) pararActividad();
+      // La corrida puede cambiar de tarea mientras termina el intercambio visual.
+      // Solo detenerla, perder la conexión o cambiar de iteración cancela las escenas.
+      const detener = !d.trabajando || d.conexion !== 'en_linea';
+      if (cambio || detener) pararActividad();
       if (cambio) { dialogos.length = 0; dialogosVistos.clear(); ultimaCharla.clear(); }
       if (!d.trabajando || d.conexion !== 'en_linea') dialogos.length = 0;
       pintarSalas(); pintarMarcas(); pintarChips();
@@ -976,8 +967,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (pidiendo && !enviando && (JSON.stringify(antes.pide) !== JSON.stringify(d.pide) || JSON.stringify(antes.pasos.lista) !== JSON.stringify(d.pasos.lista))) cerrarPeticion();
       if (d.pide && !pidiendo) mostrarPeticion();
       if (!asking && (cambio || antes.foco !== d.foco)) chIdx = capituloDe(d.foco);
-      if (cambio || transicion) vistas.clear();
-      sincronizarActividad(cambio || transicion);
+      sincronizarActividad(cambio);
     },
     desmontar() {
       vivo = false;
