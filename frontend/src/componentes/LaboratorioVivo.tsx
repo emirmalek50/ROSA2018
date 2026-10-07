@@ -7,11 +7,11 @@
 // iteraciones anteriores de la misma corrida, ya cerradas.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { acciones } from '../datos/almacen';
+import { acciones, cabeceras } from '../datos/almacen';
 import type { AlcancePermiso, Corrida, EstadoRosa, Investigacion, Iteracion } from '../datos/tipos';
 import { senalDeTope } from '../lib/diferido';
 import type { Evidencia } from '../lib/evidencia';
-import { afirmacionesDeEvidencia, datosDelLaboratorio } from '../lib/labVivo';
+import { datosDelLaboratorio } from '../lib/labVivo';
 import { tr, trp, useIdioma } from '../lib/idioma';
 import { marcaDeTiempo } from '../lib/escenario';
 import { formatearEntero } from '../lib/formato';
@@ -23,6 +23,24 @@ import { ALTO, ANCHO, montarLaboratorio, type Laboratorio } from './labvivo/moto
 import './labvivo/labvivo.css';
 
 type Props = { estado: EstadoRosa; inv: Investigacion; corrida: Corrida; iteracion: Iteracion | null; onVolver: () => void };
+
+/** La extracción escribe un resultado por fuente. La verificación agrupa su
+ * progreso: cinco decisiones o cinco entradas, más el cierre o una pausa.
+ * Los fragmentos de texto que llegan mientras piensa el modelo no disparan
+ * peticiones a la cadena de evidencia. */
+function progresoEvidencia(it: Iteracion | null): string {
+  return JSON.stringify((it?.pistas ?? []).filter((p) => p.tipo === 'extraccion' || p.tipo === 'verificacion').map((p) => {
+    const resultados = p.transcripcion.filter((e) => e.tipo === 'resultado' || e.tipo === 'error');
+    if (p.tipo === 'extraccion') return [p.id, p.estado, resultados.length];
+    let juzgadas = 0, deterministas = '';
+    for (const e of resultados) {
+      const avance = /^Juez:\s*(\d[\d.]*)\s+de\s+\d/.exec(e.texto);
+      if (avance) juzgadas = Number(avance[1]!.replace(/\./g, ''));
+      if (e.texto.startsWith('Deterministas:')) deterministas = e.texto;
+    }
+    return [p.id, p.estado, Math.floor(resultados.length / 5), Math.floor(juzgadas / 5), deterministas];
+  }));
+}
 
 export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: Props) {
   const marco = useRef<HTMLDivElement>(null);
@@ -38,22 +56,29 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
   const pasada = vista !== null;
   // La cadena de evidencia trae las afirmaciones con su artículo y su veredicto.
   const [evidencia, setEvidencia] = useState<{ corridaId: string; datos: Evidencia } | null>(null);
-  const claveEvidencia = `${corrida.id}:${Math.floor(corrida.gasto.llamadas / 20)}:${corrida.busqueda.consultas.length}:${corrida.estado}`;
+  const itEvidencia = iteracion?.corridaId === corrida.id && iteracion.numero === corrida.iteracionActual ? iteracion : null;
+  const claveEvidencia = `${corrida.id}:${itEvidencia?.id ?? ''}:${Math.floor(corrida.gasto.llamadas / 20)}:${corrida.busqueda.consultas.length}:${corrida.estado}:${progresoEvidencia(itEvidencia)}`;
   useEffect(() => {
     if (estado.conexion === 'muestra') return;
     let vivo = true;
     const corridaId = corrida.id;
-    fetch(`/api/corridas/${encodeURIComponent(corridaId)}/evidencia`, { cache: 'no-store', ...senalDeTope() })
+    const abortar = new AbortController(), tope = senalDeTope().signal;
+    const agotar = () => abortar.abort(tope?.reason);
+    if (tope?.aborted) agotar();
+    else tope?.addEventListener('abort', agotar, { once: true });
+    fetch(`/api/corridas/${encodeURIComponent(corridaId)}/evidencia`, { cache: 'no-store', headers: cabeceras(false), signal: abortar.signal })
       .then((r) => (r.ok ? (r.json() as Promise<Evidencia>) : null))
-      .then((d) => { if (vivo && d) setEvidencia({ corridaId, datos: d }); })
+      .then((d) => {
+        if (!vivo || !d || d.corridaId !== corridaId || !Array.isArray(d.fuentes) || !Array.isArray(d.consultas) || !Array.isArray(d.afirmaciones)) return;
+        setEvidencia((anterior) => anterior?.corridaId === corridaId && anterior.datos.version > d.version ? anterior : { corridaId, datos: d });
+      })
       .catch(() => { /* Sin la cadena, las cajas enseñan el recuento y el registro del juez. */ });
-    return () => { vivo = false; };
+    return () => { vivo = false; tope?.removeEventListener('abort', agotar); abortar.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- la clave resume lo que cambia la evidencia
   }, [claveEvidencia, estado.conexion]);
   const ev = evidencia?.corridaId === corrida.id ? evidencia.datos : null;
   const datos = useMemo(() => {
-    const base = pasada ? datosDelLaboratorio(estado, inv, corrida, vista, { pasada: true }) : datosDelLaboratorio(estado, inv, corrida, iteracion);
-    return { ...base, afirmaciones: ev && base.iteracion !== null ? afirmacionesDeEvidencia(ev, base.iteracion) : null };
+    return pasada ? datosDelLaboratorio(estado, inv, corrida, vista, { pasada: true, evidencia: ev }) : datosDelLaboratorio(estado, inv, corrida, iteracion, { evidencia: ev });
   }, [estado, inv, corrida, iteracion, vista, pasada, ev, idioma]);
   const numeros = iteraciones.map((it) => it.numero);
   const iteracionCharla = estado.iteraciones.find((it) => it.corridaId === corrida.id && it.numero === datos.iteracion);

@@ -54,6 +54,7 @@ from rosa import torneo
 from rosa import vigilante_modelos as VIG
 from rosa import vigencia as VIGENCIA
 from rosa.bucle import contexto as T
+from rosa.bucle import eventos_laboratorio as EL
 from rosa.bucle.pista import Pista
 from rosa.estado import acciones as A
 from rosa.estado import plantilla as P
@@ -1436,6 +1437,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             donde = "esta corrida" if actual else f"la corrida {numero_prev}"
             puntuados.append((rel, a, f"ya cribada en {donde} (relevancia {rel}); se reutiliza sin volver a puntuar ni a descargar"))
         sem = asyncio.Semaphore(4)
+        cribado_no_comprobado: set[int] = set()
 
         async def puntuar(a: dict[str, Any]) -> None:
             async with sem:
@@ -1453,6 +1455,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
                     raise
                 except Exception as ex:  # noqa: BLE001
                     # Un fallo del modelo no vuelve irrelevante al articulo: se conserva con nota.
+                    cribado_no_comprobado.add(id(a))
                     puntuados.append((minimo, a, f"sin puntuar (el modelo no respondió: {str(ex)[:60]}); se conserva para no perderlo"))
 
         await _en_paralelo(*(puntuar(a) for a in al_modelo))
@@ -1489,6 +1492,13 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             return True
 
         ctx.mutar(anotar_cribado, "cribado")
+        for _, a_descartado, motivo_descartado in descartados:
+            # Solo identificadores de la fuente; nunca construir una identidad
+            # enlazable deducida del título de un artículo sin identificadores.
+            identificador = next((k for k in sorted(_claves_articulo(a_descartado)) if not k.startswith("titulo:")), None)
+            if identificador:
+                EL.registrar(pista, "nota", f"Excluido del cribado: {a_descartado.get('referencia', '')}",
+                             EL.articulo(identificador, a_descartado, "excluido", motivo_descartado, modo))
         if demasiado_amplia:
             pista.nota(f"Consulta demasiado amplia: {total} resultados y ninguno relevante entre los {len(puntuados)} cribados. Queda marcada para que el plan la acote (nombre exacto en el título y el resumen, o un término más específico).")
 
@@ -1537,7 +1547,8 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
                     extra = f"; {copiadas} afirmaciones ya extraídas y verificadas en la corrida {numero_prev} pasan a esta corrida con su veredicto"
                 elif not actual and fuente_prev.get("extraida") and not nuevos_frags:
                     extra = f"; la corrida {numero_prev} la leyó pero no guardó ninguna afirmación suya: se vuelve a extraer"
-                pista.resultado(f"{a['referencia']} (relevancia {puntuacion}): {motivo[:100]}{extra}")
+                EL.registrar(pista, "resultado", f"{a['referencia']} (relevancia {puntuacion}): {motivo[:100]}{extra}",
+                             EL.articulo(fid, a, "incluido", motivo, modo))
                 continue
             marca, detalle, comprobada = await _comprobar_retraccion(a, pista)
             fragmentos = await _fragmentos_de(ctx, a, pista, con_texto)
@@ -1545,9 +1556,11 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
                 resultado["textoCompleto"] += 1
             tipo = "preprint" if a.get("preprint") or base == "preprints" else "articulo"
             a["_modo"] = modo
-            _registrar_fuente(ctx, a, tipo, fragmentos, puntuacion, marca, detalle, comprobada, consulta["consulta"])
+            fid = _registrar_fuente(ctx, a, tipo, fragmentos, puntuacion, marca, detalle, comprobada, consulta["consulta"])
             resultado["leidos"] += 1
-            pista.resultado(f"{a['referencia']} (relevancia {puntuacion}): {motivo[:100]}")
+            EL.registrar(pista, "resultado", f"{a['referencia']} (relevancia {puntuacion}): {motivo[:100]}",
+                         EL.articulo(fid, a, "no_comprobado" if id(a) in cribado_no_comprobado else "incluido",
+                                     "No pude comprobar la relevancia; se conserva el artículo." if id(a) in cribado_no_comprobado else motivo, modo))
 
         resultado["msFuentes"] += max(0, P.ahora_ms() - t_fuentes)
         _anotar_textos_completos(ctx, pista.id, resultado["textoCompleto"])
@@ -3930,9 +3943,10 @@ async def _torneo(ctx: Ctx, pista: Pista) -> int:
                     h["_dirimidoCon"].append(rival)
             return True
 
-        ctx.mutar(aplicar_regla, "partido")
+        guardado = ctx.mutar(aplicar_regla, "partido")
         jugados += 1
-        pista.resultado(f"{a['titulo'][:50]} vs {b['titulo'][:50]}: {'tablas' if gano_a_r is None else ('gana A' if gano_a_r else 'gana B')} por la regla de solidez, sin juez")
+        EL.registrar(pista, "resultado", f"{a['titulo'][:50]} vs {b['titulo'][:50]}: {'tablas' if gano_a_r is None else ('gana A' if gano_a_r else 'gana B')} por la regla de solidez, sin juez",
+                     EL.torneo(a, b, "no_comprobado" if not guardado else "tablas" if gano_a_r is None else "a" if gano_a_r else "b", True))
         cambios.append(f"{a['titulo'][:40]} vs {b['titulo'][:40]}: por regla")
     if ronda.aplazados:
         pista.nota(f"{ronda.aplazados} pares más se jugarán en las iteraciones siguientes: el tope es de {politicas.MAX_PARTIDOS_CON_JUEZ_POR_ITERACION} partidos con juez por iteración (dos llamadas cada uno). La rejilla no queda cubierta todavía")
@@ -3948,6 +3962,8 @@ async def _torneo(ctx: Ctx, pista: Pista) -> int:
     # 2. Los partidos con juez, a ciegas: la tarjeta va sin título, sin cluster y sin
     #    el bloque de revisiones automáticas (hipotesis_para_torneo).
     for a, b in ronda.pares:
+        EL.registrar(pista, "accion", f"Comparando «{a['titulo']}» con «{b['titulo']}»",
+                     EL.torneo(a, b, "comparando", False))
         try:
             # Las dos lecturas del par (A contra B y B contra A) son
             # independientes: se piden a la vez. En serie costaban dos esperas
@@ -3964,7 +3980,8 @@ async def _torneo(ctx: Ctx, pista: Pista) -> int:
         except VIG.ModeloSinRespuesta:
             raise
         except Exception as ex:  # noqa: BLE001
-            pista.error(f"Partido {a['titulo'][:40]} vs {b['titulo'][:40]}: el juez falló ({str(ex)[:80]})")
+            EL.registrar(pista, "error", f"Partido {a['titulo'][:40]} vs {b['titulo'][:40]}: el juez falló ({str(ex)[:80]})",
+                         EL.torneo(a, b, "no_comprobado", False))
             continue
         gano_a_1 = p1.comparacion.mejor == "A"
         gano_a_2 = p2.comparacion.mejor == "B"  # en la segunda llamada A y B van invertidas
@@ -4008,10 +4025,11 @@ async def _torneo(ctx: Ctx, pista: Pista) -> int:
                         de["ataca"].append({"hipotesisId": hacia["id"], "motivo": "contradiccion_declarada", "detalle": f"El juez del torneo las declaró incompatibles en la iteración {ctx.numero}: {p1.comparacion.resumen[:160]}"})
             return True
 
-        ctx.mutar(aplicar, "partido")
+        guardado = ctx.mutar(aplicar, "partido")
         jugados += 1
         resultado = "tablas" if gano_a is None else ("gana A" if gano_a else "gana B")
-        pista.resultado(f"{a['titulo'][:50]} vs {b['titulo'][:50]}: {resultado} por {p1.comparacion.eje}" + (f"; {relacion.replace('_', ' ')}" if relacion != "distintas" else ""))
+        EL.registrar(pista, "resultado", f"{a['titulo'][:50]} vs {b['titulo'][:50]}: {resultado} por {p1.comparacion.eje}" + (f"; {relacion.replace('_', ' ')}" if relacion != "distintas" else ""),
+                     EL.torneo(a, b, "no_comprobado" if not guardado else "tablas" if gano_a is None else "a" if gano_a else "b", False))
         cambios.append(f"{a['titulo'][:40]} vs {b['titulo'][:40]}: {resultado}")
     if jugados:
         ctx.evento("ranking_cambio", f"Torneo de la iteración {ctx.numero}: {jugados} partidos", f"#/investigaciones/{ctx.investigacion_id}/ranking")
@@ -4220,7 +4238,8 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
             ctx.mutar(lambda e2, h=h: (e2["hipotesis"].append(h), A.con_evento(e2, ctx.investigacion_id, "hipotesis_nueva", f"Hipótesis nueva en la cola: {h['titulo']}", f"#/investigaciones/{ctx.investigacion_id}/hipotesis/{h['id']}", ahora)) and True, "hipotesis_nueva")
             nuevas_ids.append(h["id"])
             existentes_titulos.add(V.normalizar(h["titulo"]))
-            pista.resultado(f"Nueva: {h['titulo'][:90]}")
+            EL.registrar(pista, "resultado", f"Nueva: {h['titulo'][:90]}",
+                         {"tipo": "idea", "hipotesisId": h["id"], "titulo": h["titulo"], "enfoque": enfoque})
     else:
         # Solo cuando el motivo ES ese. Al llegar al tope de hipótesis vivas se
         # vaciaba `validas` y se caía aquí, así que la pista decía "Sin

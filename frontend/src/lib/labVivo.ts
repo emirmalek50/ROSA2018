@@ -1,12 +1,14 @@
 // Proyección del estado canónico al laboratorio. Los diálogos conservan el
 // texto y la procedencia del registro; el reloj visual no avanza la corrida.
 import { nombreDeModelo } from '../componentes/VigilanteModelos';
-import type { AlcancePermiso, ArgumentoSolicitud, Corrida, EntradaTranscripcion, EstadoRosa, Incidencia, Investigacion, Iteracion, PasoPlan, Pista, TipoPermiso, Veredicto } from '../datos/tipos';
+import type { AlcancePermiso, ArgumentoSolicitud, Corrida, EntradaTranscripcion, EstadoRosa, EventoLab, Incidencia, Investigacion, Iteracion, PasoPlan, Pista, TipoPermiso, Veredicto } from '../datos/tipos';
 import { baseDe, busquedasDe } from './escenario';
 import type { Evidencia } from './evidencia';
 import { etiquetaCorrida, proponiendoPlan } from './etiquetas';
 import { tr, trp } from './idioma';
 import { peticionPorPresupuesto } from './peticionPresupuestoLab';
+import { peliculaDelLaboratorio, type PeliculaLab } from './peliculaLab';
+export type { EventoVisualLab, IdeaVisualLab, PeliculaLab } from './peliculaLab';
 
 export type SalaLab = 'plan' | 'r1' | 'r2' | 'r3' | 'r4' | 'r5' | 'r6' | 'r7';
 export type EstadoSala = 'listo' | 'ahora' | 'espera' | 'fallo' | 'despues' | 'no_toca';
@@ -34,6 +36,11 @@ export interface ActividadLab {
   fuente: string;
   titulo: string;
   enCurso: boolean;
+  /** Estado explícito de esta función, independiente del estado de toda la pista. */
+  estadoAgente?: EntradaTranscripcion['estadoAgente'];
+  /** Tipo efectivo de la tarea que emitió la entrada, incluso en pistas compartidas. */
+  tipoPista?: string;
+  eventoLab?: EventoLab;
   /** Tiempo relativo a la pista, nunca a otra pista ni a toda la corrida. */
   t: number | null;
   /** Tarea atribuida que empezó y aún no tiene su «Terminó» en la pista. */
@@ -69,7 +76,7 @@ export interface DatosLab {
   foco: SalaLab;
   activos: string[];
   actividad: ActividadLab[];
-  pasos: { total: number; primero: string | null; aprobado: boolean; estados: EstadoPasoLab[]; enCurso: { n: number; titulo: string } | null; lista: { titulo: string; detalle: string }[] };
+  pasos: { total: number; primero: string | null; aprobado: boolean; estados: EstadoPasoLab[]; enCurso: { n: number; titulo: string } | null; lista: { id?: string; titulo: string; detalle: string; estado?: PasoPlan['estado']; tipo?: string; presupuesto?: number | null }[] };
   fuentes: FuenteLab[];
   lectura: { resultados: number | null; sirven: number | null; recuperados: number | null; leidos: number | null; afirmaciones: number | null };
   /** Progreso del último intento de verificación, sin sumar reintentos. */
@@ -82,6 +89,8 @@ export interface DatosLab {
   afirmaciones: AfirmacionLab[] | null;
   /** Una iteración anterior de la corrida: se mira, no se trabaja en ella. */
   pasada: boolean;
+  /** Película derivada únicamente del registro y la evidencia de esta iteración. */
+  pelicula?: PeliculaLab;
 }
 const TERMINADO = new Set<PasoPlan['estado']>(['hecho', 'fallido', 'omitido', 'sin_trabajo']);
 const SALAS: Record<string, SalaLab[]> = { literatura: ['r1'], ensayos: ['r1'], extraccion: ['r1'], verificacion: ['r2'], modelo: ['r2'], hipotesis: ['r3', 'r4'], novedad: ['r4', 'r7'], analisis: ['r5'], replicacion: ['r5'], meta: ['r6'], grafo: ['r2'] };
@@ -145,8 +154,14 @@ function actividadesDe(it: Iteracion | null): ActividadLab[] {
   const filas: ActividadLab[] = [];
   for (const p of it.pistas) {
     const tipo = tipoDePista(it, p);
-    const base = { pistaId: p.id, hipotesisId: p.hipotesisId ?? null, pasoId: p.pasoId, fuente: p.fuente, titulo: p.titulo, enCurso: p.estado === 'en_curso' };
-    const entradas = p.transcripcion.slice(-40);
+    const base = { pistaId: p.id, hipotesisId: p.hipotesisId ?? null, pasoId: p.pasoId, fuente: p.fuente, titulo: p.titulo, enCurso: p.estado === 'en_curso', tipoPista: tipo };
+    // El registro completo permite reproducir también lo ocurrido antes de las
+    // últimas cuarenta líneas. Los IDs mantienen su índice original al crecer.
+    const entradas = p.transcripcion;
+    // Al conservar el histórico entero, recorrer el resto por cada entrada
+    // sería cuadrático. El último cierre basta para detectar cierres posteriores.
+    const ultimoCierre = new Map<string, number>();
+    entradas.forEach((e, n) => { if (e.agente && e.estadoAgente !== 'en_curso') ultimoCierre.set(e.agente, n); });
     // «Nueva: título» no dice el enfoque; la nota «Entra por el enfoque» del mismo título sí.
     const entran: [string, string][] = [];
     for (const e of p.transcripcion) {
@@ -157,8 +172,11 @@ function actividadesDe(it: Iteracion | null): ActividadLab[] {
     entradas.forEach((e, i) => {
       const agente = autorDe(tipo, e, entran);
       const n = p.transcripcion.length - entradas.length + i;
-      const abierta = p.estado === 'en_curso' && !!e.agente && e.estadoAgente === 'en_curso' && !p.transcripcion.slice(n + 1).some((x) => x.agente === e.agente && x.estadoAgente !== 'en_curso');
-      filas.push({ ...base, id: `${p.id}:${n}:${e.t}`, agente, sala: SALA_AGENTE[agente] ?? SALAS[tipo]?.[0] ?? 'plan', texto: e.texto, tipo: e.tipo, t: e.t, abierta, desde: inicio === null ? null : inicio + e.t });
+      const abierta = p.estado === 'en_curso' && !!e.agente && e.estadoAgente === 'en_curso' && (ultimoCierre.get(e.agente) ?? -1) < n;
+      filas.push({ ...base, id: `${p.id}:${n}:${e.t}`, agente, sala: SALA_AGENTE[agente] ?? SALAS[tipo]?.[0] ?? 'plan', texto: e.texto, tipo: e.tipo, t: e.t, abierta, estadoAgente: e.estadoAgente,
+        // El histórico textual sigue visible; solo una pista atribuida a esta
+        // iteración puede crear sus tarjetas estructuradas en la película.
+        eventoLab: p.iteracionId === it.id ? e.eventoLab : undefined, desde: inicio === null ? null : inicio + e.t });
     });
     // La apertura y el cierre son estados guardados, no parlamentos inventados.
     if (!entradas.length || (p.estado !== 'en_curso' && p.resumen && p.resumen !== entradas.at(-1)?.texto)) {
@@ -171,7 +189,7 @@ function actividadesDe(it: Iteracion | null): ActividadLab[] {
       filas.push({ ...base, id: `${p.id}:estado:${p.estado}`, agente, sala: SALAS[tipo]?.[0] ?? 'plan', texto, tipo: p.estado === 'fallida' ? 'error' : 'estado', t: p.ms, abierta: false, desde: null });
     }
   }
-  if (it.resumen) filas.push({ id: `${it.id}:resumen`, agente: 'Resumidor', sala: 'r6', texto: it.resumen, tipo: 'resultado', pistaId: null, pasoId: null, fuente: '', titulo: tr('Resumen de la iteración'), t: null, enCurso: false, abierta: false, desde: null });
+  if (it.resumen) filas.push({ id: `${it.id}:resumen`, agente: 'Resumidor', sala: 'r6', texto: it.resumen, tipo: 'resultado', pistaId: null, pasoId: null, fuente: '', titulo: tr('Resumen de la iteración'), t: null, enCurso: false, abierta: false, estadoAgente: 'terminado', tipoPista: 'meta', desde: null });
   return filas;
 }
 function juezDe(it: Iteracion | null): DatosLab['juez'] {
@@ -251,7 +269,7 @@ export function afirmacionesDeEvidencia(ev: Evidencia, numero: number): Afirmaci
     return { id: a.id, texto: a.texto, veredicto: a.veredicto, caja, motivo: a.motivo, cita: a.cita, articulo: f?.titulo || f?.referencia || a.cita, biblioteca: base ? baseDe(base).nombre : null };
   });
 }
-export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corrida: Corrida, recibida: Iteracion | null, opciones: { pasada?: boolean } = {}): DatosLab {
+export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corrida: Corrida, recibida: Iteracion | null, opciones: { pasada?: boolean; evidencia?: Evidencia | null } = {}): DatosLab {
   // Un cambio de corrida puede llegar antes que sus iteraciones. Nunca mezclar.
   const pasada = !!opciones.pasada && recibida?.corridaId === corrida.id && recibida.numero !== corrida.iteracionActual;
   const it = recibida?.corridaId === corrida.id && (pasada || recibida.numero === corrida.iteracionActual) ? recibida : null;
@@ -315,13 +333,16 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
   }
   const salud = estado.saludModelos ?? {};
   const modelo = (rol: 'cerebro' | 'volumen' | 'juez') => salud[rol]?.modelo ? nombreDeModelo(salud[rol]!.modelo) : null;
-  return {
+  const evidencia = estado.conexion !== 'muestra' && opciones.evidencia?.corridaId === corrida.id ? opciones.evidencia : null;
+  const datos: DatosLab = {
     identidad: `${corrida.id}/${it?.id ?? 'sin-iteracion'}`, corrida: corrida.numero, iteracion: it?.numero ?? null, titulo: inv.titulo,
     conexion: estado.conexion, estado: corrida.estado, estadoTexto: pasada && it ? trp('Iteración {n} ya cerrada', { n: it.numero }) : etiquetaCorrida(corrida, it), motivo: pasada ? null : cerrada ? corrida.motivoCierre : corrida.estado === 'pausada_por_presupuesto' ? corrida.presupuesto.motivoPausa ?? null : corrida.estado === 'pausada' ? corrida.motivoPausaPropia ?? null : null,
     trabajando: trabajando && !bloquea, salas, foco, activos: [...new Set(activos)], actividad,
-    pasos: { total: plan.length, primero: plan[0]?.titulo ?? null, aprobado: !!it?.planAprobado, estados: plan.map((p) => p.estado === 'fallido' ? 'fallo' : p.estado === 'omitido' || p.estado === 'sin_trabajo' ? 'omitido' : p.estado === 'hecho' ? 'hecho' : trabajando && p.estado === 'en_curso' ? 'ahora' : 'pendiente'), enCurso: trabajando && enCurso ? { n: plan.indexOf(enCurso) + 1, titulo: enCurso.titulo } : null, lista: plan.map((p) => ({ titulo: p.titulo, detalle: p.detalle })) },
+    pasos: { total: plan.length, primero: plan[0]?.titulo ?? null, aprobado: !!it?.planAprobado, estados: plan.map((p) => p.estado === 'fallido' ? 'fallo' : p.estado === 'omitido' || p.estado === 'sin_trabajo' ? 'omitido' : p.estado === 'hecho' ? 'hecho' : trabajando && p.estado === 'en_curso' ? 'ahora' : 'pendiente'), enCurso: trabajando && enCurso ? { n: plan.indexOf(enCurso) + 1, titulo: enCurso.titulo } : null, lista: plan.map((p) => ({ id: p.id, titulo: p.titulo, detalle: p.detalle, estado: p.estado, tipo: p.tipo, presupuesto: p.presupuesto })) },
     ...lecturaDe(it, corrida), juez: juezDe(it), pide, modelos: { cerebro: modelo('cerebro'), volumen: modelo('volumen'), juez: modelo('juez') },
     presupuesto: it && it.presupuesto.limite > 0 ? { usado: it.presupuesto.usado, limite: it.presupuesto.limite, reserva: it.presupuesto.reservaCierre ?? null } : null,
-    afirmaciones: null, pasada,
+    afirmaciones: evidencia && it ? afirmacionesDeEvidencia(evidencia, it.numero) : null, pasada,
   };
+  datos.pelicula = peliculaDelLaboratorio(datos, it, evidencia);
+  return datos;
 }

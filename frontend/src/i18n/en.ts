@@ -53,6 +53,7 @@ import { ESCENAS_LABORATORIO } from './en/28-escenas-laboratorio';
 import { CONVERSACIONES_LABORATORIO } from './en/29-conversaciones-laboratorio';
 import { TRATAMIENTOS } from './en/30-tratamientos';
 import { NOVEDAD } from './en/31-novedad';
+import { PELICULA_LABORATORIO } from './en/32-pelicula-laboratorio';
 
 export const EN: Record<string, string> = {
   // Lo generado por el modelo va PRIMERO: en un objeto gana lo que se
@@ -91,6 +92,7 @@ export const EN: Record<string, string> = {
   ...CONVERSACIONES_LABORATORIO,
   ...TRATAMIENTOS,
   ...NOVEDAD,
+  ...PELICULA_LABORATORIO,
   // La revisión científica prevalece también sobre futuras regeneraciones.
   ...TRADUCCIONES_REVISADAS,
 };

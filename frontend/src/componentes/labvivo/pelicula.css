@@ -1,0 +1,22 @@
+/* Utilería del trabajo real, sobre el mismo suelo y con los mismos papeles. */
+.labvivo .lv-utileria{position:absolute;inset:0;pointer-events:none}
+.labvivo .lv-documento{position:absolute;width:192px;max-height:100px;overflow:hidden;white-space:pre-line;padding:8px 10px;background:#F4F1EA;color:#262332;font-size:11px;line-height:14px;font-weight:500;border:2px solid #17131F;box-shadow:4px 4px 0 #17131F77}
+.labvivo .lv-documento-juicio{left:330px!important;top:310px!important}
+.labvivo .lv-tablon{position:absolute;left:654px;top:314px;display:flex;gap:10px;width:384px;min-height:44px;max-height:58px;padding:7px;background:#6D4B39;border:4px solid #17131F;box-shadow:0 3px 0 #17131F77}
+.labvivo .lv-tarjeta-idea{position:relative;flex:1;min-width:0;background:#F4F1EA;color:#262332;padding:8px 5px 4px;font-size:8px;line-height:10px;box-shadow:2px 2px 0 #17131F88}
+.labvivo .lv-tarjeta-idea i{position:absolute;top:2px;left:50%;width:4px;height:4px;background:#B79CF2;box-shadow:0 1px 0 #17131F}
+.labvivo .lv-tarjeta-idea span{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.labvivo .lv-clavar{animation:lv-clavar .35s steps(3)}
+.labvivo .lv-maquina{position:absolute;left:900px;top:766px;max-width:146px;min-height:22px;padding:5px 7px;background:#17131F;color:#7FD1A5;font-size:10px;line-height:12px;border:2px solid #5A5670;box-shadow:3px 3px 0 #17131F77}
+.labvivo .lv-maquina[data-estado="fallido"]{color:#E2706A}
+.labvivo .lv-expediente-torneo{position:absolute;left:12px;top:888px;width:398px;max-height:30px;overflow:hidden;padding:3px 7px;background:#17131F;color:#C9C4DA;font-size:10px;line-height:12px;border-left:3px solid #E3A57C;pointer-events:auto}
+.labvivo .lv-expediente-torneo span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.labvivo .lv-ag[data-agente="Evaluador de supuestos"] .lv-lbl{max-width:58px;margin-left:-6px}
+/* El estado ya figura en cada sala y en la leyenda; aquí cabe el capítulo completo. */
+.labvivo .lv-chip{font-size:10px;gap:4px;padding-inline:6px}
+.labvivo .lv-chip .s{display:none}
+.labvivo .lv-maquina[data-estado="ejecutando"][data-activa="true"]::before{content:'{ } ';animation:lv-proceso .8s steps(2) infinite}
+.labvivo .lv-utileria [hidden]{display:none}
+@keyframes lv-clavar{50%{transform:translateY(2px)}}
+@keyframes lv-proceso{50%{opacity:.35}}
+@media(prefers-reduced-motion:reduce){.labvivo .lv-clavar,.labvivo .lv-maquina::before{animation:none!important}}

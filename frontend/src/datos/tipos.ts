@@ -837,7 +837,17 @@ export interface EntradaTranscripcion {
   /** Función que emitió la actividad; ausente en el histórico sin atribución. */
   agente?: string;
   estadoAgente?: 'en_curso' | 'terminado' | 'fallido';
+  /** Datos estructurados del acontecimiento real; ausentes en pistas antiguas.
+   *  La película nunca obtiene estos IDs interpretando el título de una tarea. */
+  eventoLab?: EventoLab;
 }
+
+/** Acontecimientos de la corrida emitidos al realizar el trabajo, no por el reloj visual. */
+export type EventoLab =
+  | { tipo: 'articulo'; id: Id; titulo: string; estado: 'incluido' | 'excluido' | 'no_comprobado'; motivo: string; modo: 'foco' | 'amplitud' }
+  | { tipo: 'idea'; hipotesisId: Id; titulo: string; enfoque: string }
+  | { tipo: 'torneo'; hipotesisAId: Id; hipotesisBId: Id; tituloA: string; tituloB: string; estado: 'comparando' | 'a' | 'b' | 'tablas' | 'no_comprobado'; porRegla: boolean }
+  | { tipo: 'analisis'; ejecucionId: Id; estado: 'programando' | 'ejecutando' | 'terminado' | 'fallido' | 'interpretando' | 'auditando'; sintetico: boolean };
 
 export interface Pista {
   id: Id;

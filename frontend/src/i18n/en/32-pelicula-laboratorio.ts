@@ -1,0 +1,18 @@
+export const PELICULA_LABORATORIO: Record<string, string> = {
+  'Código en preparación': 'Preparing the code',
+  'Ejecutando…': 'Running…',
+  'Ejecución terminada': 'Execution finished',
+  'La ejecución falló': 'Execution failed',
+  'Interpretando el resultado': 'Interpreting the result',
+  'Revisando el análisis': 'Reviewing the analysis',
+  'Ensayo sintético': 'Synthetic test',
+  'Frente a': 'Versus',
+  'Resultado registrado': 'Recorded result',
+  'Decisión registrada en la cadena de evidencia': 'Decision recorded in the evidence chain',
+  'Algunas consultas no respondieron': 'Some queries failed to respond',
+  'Comparando': 'Comparing',
+  'Comparación por regla': 'Rule-based comparison',
+  'Todavía no tiene una decisión registrada.': 'No decision has been recorded yet.',
+  'Decisión registrada: {v}.': 'Recorded decision: {v}.',
+  'Decisión registrada': 'Recorded decision',
+};

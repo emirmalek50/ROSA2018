@@ -13,6 +13,7 @@ from typing import Any
 
 from rosa.estado import plantilla as P
 from rosa.estado.almacen import Almacen
+from rosa.bucle.eventos_laboratorio import validar as validar_evento_lab
 
 
 class Pista:
@@ -75,8 +76,10 @@ class Pista:
     LOTE = 8
     ESPERA_S = 1.5
 
-    def linea(self, tipo: str, texto: str, consulta: dict[str, str] | None = None, *, agente: str | None = None, estado_agente: str | None = None) -> None:
+    def linea(self, tipo: str, texto: str, consulta: dict[str, str] | None = None, *, agente: str | None = None, estado_agente: str | None = None, evento_lab: dict[str, Any] | None = None) -> None:
         entrada: dict[str, Any] = {"t": self._ms(), "tipo": tipo, "texto": texto}
+        if evento_lab is not None:
+            entrada["eventoLab"] = validar_evento_lab(evento_lab)
         if agente:
             entrada["agente"] = agente
             entrada["estadoAgente"] = estado_agente
@@ -90,6 +93,14 @@ class Pista:
         primera = "_ultimo_volcado" not in self.__dict__
         ultimo = self.__dict__.setdefault("_ultimo_volcado", time.monotonic())
         if primera or len(buffer) >= self.LOTE or time.monotonic() - ultimo >= self.ESPERA_S or tipo == "error":
+            self.volcar()
+
+    def linea_lab(self, tipo: str, texto: str, evento: dict[str, Any]) -> None:
+        """Un evento real con su texto habitual, publicado antes de una tarea larga."""
+        if tipo not in {"accion", "resultado", "nota", "error"}:
+            raise ValueError("Tipo de entrada del laboratorio no admitido")
+        self.linea(tipo, texto, evento_lab=evento)
+        if tipo == "accion":
             self.volcar()
 
     def volcar(self) -> None:

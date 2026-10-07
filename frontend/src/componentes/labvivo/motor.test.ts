@@ -403,6 +403,22 @@ describe('el motor del laboratorio sigue al servidor', () => {
     }
     expect(nodo.querySelector('.lv-bub.ask')?.textContent).toBe('¿Me das permiso?');
   });
+  it('el juez lee en su mesa una afirmación real de la iteración y sella su veredicto', async () => {
+    const d = datos(), e = { ...d.actividad[0]!, agente: 'Juez', sala: 'r2' as const, texto: 'El juez compara las afirmaciones con sus artículos' };
+    const af = { id: 'af-real', texto: 'MAPT se expresa en neuronas corticales', veredicto: 'no_sostenida' as const, caja: 'no_sostenida' as const, motivo: 'El artículo habla de glía, no de neuronas', cita: 'PMID 1', articulo: 'Un artículo real', biblioteca: null };
+    montar({ ...d, foco: 'r2', activos: ['Juez'], actividad: [e], afirmaciones: [af] });
+    const sellos = new Set<string>(), dichos = new Set<string>();
+    await avanzar(200, () => {
+      nodo.querySelectorAll('.lv-sello').forEach((s) => sellos.add(s.textContent ?? ''));
+      nodo.querySelectorAll('.lv-documento-juicio').forEach((b) => dichos.add(b.textContent ?? ''));
+    });
+    expect([...sellos]).toEqual(['NO SOSTENIDA']);
+    expect([...dichos].some((t) => t.includes(af.texto))).toBe(true);
+    expect([...dichos].some((t) => t.includes(af.motivo))).toBe(true);
+    expect(nodo.querySelectorAll('.lv-bub[data-escena="juicio"]')).toHaveLength(0);
+    motor!.desmontar(); montar({ ...d, foco: 'r2', activos: ['Juez'], actividad: [e], afirmaciones: null });
+    await avanzar(200, () => expect(nodo.querySelectorAll('.lv-sello')).toHaveLength(0));
+  });
   it('los cuatro generadores salen de sus mesas mientras sus tareas siguen activas', async () => {
     const d = datos(), nombres = ['Analogía', 'Contradicción', 'Mecanismo opuesto', 'Otra escala'];
     montar({ ...d, foco: 'r3', activos: nombres, actividad: nombres.map((agente, i) => ({ ...d.actividad[0]!, id: `miembro:${i}`, agente, sala: 'r3', texto: `El miembro «${agente}» genera propuestas en la ronda 1` })) });

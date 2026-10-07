@@ -284,3 +284,23 @@ La auditoría visual entra por la puerta sin sesión real: manda la cabecera
 `x-rosa-interno` con el token de `datos/_token_interno` (solo legible en la
 máquina del servidor) y simula `/api/acceso/estado` con una sesión de
 auditoría; así las pantallas se auditan igual que antes.
+
+El laboratorio en pixel art representa el trabajo de la corrida con una
+película de eventos reales (`lib/peliculaLab.ts`). El plan, las búsquedas,
+los recuentos de lectura y los avances de verificación usan el estado público.
+Las decisiones por artículo, las ideas clavadas en el tablón, los pares del
+torneo y las fases del análisis usan `EntradaTranscripcion.eventoLab`, emitido
+por el backend con el identificador real del objeto. Las pistas antiguas sin
+esos metadatos conservan su registro y sus recuentos, pero no inventan tarjetas
+ni enfrentamientos. Un fallo de consulta no significa ausencia de resultados,
+y una afirmación pendiente nunca recibe un sello.
+
+`componentes/labvivo/colaPelicula.ts` conserva las acciones mientras un actor
+está ocupado y sustituye fases pendientes por su versión más reciente. Las
+conversaciones de IA tienen prioridad sobre las entregas de objetos; al
+interrumpir una entrega se conserva para después y los personajes continúan
+desde su posición. Los papeles, cifras y máquinas no son parlamentos: la voz
+natural sigue viniendo del servicio de conversaciones. La película no ejecuta
+herramientas, no añade llamadas a modelos y no altera el presupuesto de la
+investigación. Al abrir, reanudar o recuperar la conexión se toma el trabajo
+actual; las corridas anteriores y el movimiento reducido permanecen estáticos.

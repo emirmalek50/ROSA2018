@@ -11,6 +11,9 @@ import { tr, trp } from '../../lib/idioma';
 import type { EmocionLaboratorio, GestoLaboratorio, TurnoLaboratorio } from '../../lib/conversacionesLaboratorio';
 import { desplazamientoGesto, pintarExpresion } from './expresiones';
 import './escenas.css';
+import './pelicula.css';
+import { ColaPelicula } from './colaPelicula';
+import type { EventoVisualLab } from '../../lib/peliculaLab';
 import { esPeticionDePresupuesto, pintarFoco, pintarPeticionIncidencia, pintarPeticionPresupuesto, topeConLlamadasMas, vozDePresupuesto } from './peticionPresupuesto';
 import './peticionPresupuesto.css';
 import { formatearEntero } from '../../lib/formato';
@@ -264,6 +267,12 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   const ficha = q('.lv-ficha'), pideEl = q('.lv-pide'), capitulos = q('.lv-capitulos'), botonPlay = q<HTMLButtonElement>('.lv-play'), capk = q('.lv-capk'), capt = q('.lv-capt'), suceso = q('.lv-suceso');
   const capaHots = q('.lv-hots'), objetoEl = q('.lv-objeto'), narraEl = q('.lv-narra'), botonSigue = q<HTMLButtonElement>('.lv-sigue'), botonSonido = q<HTMLButtonElement>('.lv-sonido');
   const cv = q<HTMLCanvasElement>('.lv-lienzo');
+  const utileria = div('lv-utileria', mundo);
+  mundo.insertBefore(utileria, capaAgentes);
+  const tablon = div('lv-tablon', utileria);
+  let firmaTablon = '';
+  const maquina = div('lv-maquina', utileria);
+  const torneo = div('lv-expediente-torneo', utileria);
   // Mientras pide presupuesto, el que pide se queda nítido en su sitio y un cable lo une a la lupa.
   const focoEl = div('lv-foco', null), cableEl = div('lv-foco-cable', null);
   focoEl.hidden = true; cableEl.hidden = true; focoEl.setAttribute('aria-hidden', 'true'); cableEl.setAttribute('aria-hidden', 'true');
@@ -408,7 +417,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
   function type(a: Agente, s: number) { a.typing = simT + s; }
 
-  interface Vuelo { kind: Obj; from: number[]; to: number[]; t0: number; dur: number; arc: number; fin?: () => void }
+  interface Vuelo { kind: Obj; from: number[]; to: number[]; t0: number; dur: number; arc: number; fin?: () => void; ctx?: Ctx }
   const FLY: Vuelo[] = [];
 
   /* ---------- salas y marcas ---------- */
@@ -441,7 +450,10 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const orden = ordenFuentes(D.fuentes);
     CARTEL.forEach((_, i) => {
       const f = orden[i];
-      poner('f' + i, f ? `<span>${esc(f.nombre)}</span> ${f.fallo ? `<span style="color:#E2706A">${esc(tr('no responde'))}</span>` : f.salen !== null ? `<span style="color:#7CC7E8">${ent(f.salen)}</span>` : ''}` : null);
+      const cifra = f?.salen !== null && f?.salen !== undefined ? `<span style="color:#7CC7E8">${ent(f.salen)}</span>` : '';
+      const fallo = f?.fallo ? `<span style="color:${f.salen === null ? '#E2706A' : '#F2C14E'}">${esc(f.salen === null ? tr('no responde') : '!')}</span>` : '';
+      poner('f' + i, f ? `<span>${esc(f.nombre)}</span> ${cifra}${fallo}` : null);
+      TAG['f' + i]!.title = f?.fallo ? tr('Algunas consultas no respondieron') : f?.nombre ?? '';
     });
     const ec = D.pasos.enCurso;
     poner('pizarra', ec ? `<span style="color:#E8925A">●</span> ${esc(trp('Paso {n} de {m}: {t}', { n: ec.n, m: D.pasos.total, t: corta(ec.titulo, 34) }))}`
@@ -618,22 +630,27 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   let identidad = D.identidad;
   // La coreografía continúa entre mensajes del servidor. Estas escenas no
   // añaden actividad al registro ni convierten a un compañero en trabajador.
-  interface Escena { ctx: Ctx; agentes: Agente[]; trabajo: boolean; temaId?: string; listos?: boolean; hasta?: number; esperarHasta?: number; saliendo?: boolean }
+  interface Escena { ctx: Ctx; agentes: Agente[]; trabajo: boolean; evento?: EventoVisualLab; objetos?: HTMLElement[]; temaId?: string; listos?: boolean; hasta?: number; esperarHasta?: number; saliendo?: boolean }
   const escenas = new Map<Agente, Escena>();
+  const pelicula = new ColaPelicula();
   const dialogos: TurnoLaboratorio[] = [], dialogosVistos = new Set<string>();
   const ultimaCharla = new Map<string, TurnoLaboratorio>();
   const proximaEscena = new Map<Agente, number>();
   let rondaEscena = 0, proximoPaseo = 1.5;
-  function cancelarEscena(a: Agente) {
+  function cancelarEscena(a: Agente, devolver = true) {
     const escena = escenas.get(a);
     if (!escena) return;
     escena.ctx.kill();
+    escena.objetos?.forEach(o => o.remove());
+    for (let i = FLY.length - 1; i >= 0; i--) if (FLY[i]!.ctx === escena.ctx) FLY.splice(i, 1);
+    if (devolver && escena.evento) pelicula.devolver(escena.evento);
     for (const b of escena.agentes) {
       if (escenas.get(b) !== escena) continue;
       escenas.delete(b);
       if (b.ictx !== escena.ctx) continue;
       b.ictx = null; b.busy = false; b.path = []; b.carry = null;
       b.typing = 0; b.reaccion = undefined;
+      delete b.el.dataset.evento;
       delete b.el.dataset.emocion; delete b.el.dataset.gesto;
       if (b.bub?.el.dataset.escena) { b.bub.el.remove(); b.bub = null; }
       delete b.el.dataset.escena;
@@ -659,9 +676,186 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     return suelo[a.room] ?? Math.min(GEOM[a.room][1] + GEOM[a.room][3] - 76, a.hy + 28);
   }
   function desplazarse(ctx: Ctx, a: Agente, x: number, y: number) {
+    // Una charla puede interrumpir la consulta en la biblioteca: se vuelve
+    // por el paso inferior, sin atravesar la pared que separa las salas.
+    if (a.room === 'r1' && a.x >= 760) return walk(ctx, a, [[a.x, 268], [a.hx, 268], [a.hx, y], [x, y]]);
     // Quienes están sentados salen por el lado de su mesa antes de bajar.
     const salida = a.desk && atHome(a) ? [[a.hx - 12, a.hy] as [number, number]] : [];
     return walk(ctx, a, [...salida, [salida.length ? a.hx - 12 : a.x, y], [x, y]]);
+  }
+
+  /* Los objetos siguen el registro. Las palabras de los personajes siguen la IA. */
+  function documento(texto: string, sala: SalaLab, clase = '') {
+    const [x, y, w] = GEOM[sala];
+    const el = div('lv-documento ' + clase, utileria);
+    el.style.left = x + w - 216 + 'px'; el.style.top = y + 24 + 'px';
+    // Huecos libres entre la cabecera y las mesas; el papel no tapa las caras.
+    const huecos: Partial<Record<SalaLab, [number, number, number, number]>> = {
+      r1: [436, 170, 150, 88], r2: [12, 330, 180, 70], r4: [12, 650, 390, 18],
+      r5: [450, 810, 126, 64], r6: [760, 934, 280, 42], r7: [770, 618, 270, 34],
+    };
+    const hueco = huecos[sala];
+    if (hueco) Object.assign(el.style, { left: hueco[0] + 'px', top: hueco[1] + 'px', width: hueco[2] + 'px', maxHeight: hueco[3] + 'px' });
+    el.textContent = corta(texto, 240); el.title = texto;
+    return el;
+  }
+  function pintarUtileria() {
+    const ideas = D.pelicula?.ideas ?? [];
+    const ultimas = new Map<string, typeof ideas[number]>();
+    ideas.forEach(i => ultimas.set(i.enfoque, i));
+    const html = [...ultimas.values()].slice(-4).map(i => `<div class="lv-tarjeta-idea" data-hipotesis="${esc(i.hipotesisId)}" title="${esc(i.titulo)}"><i></i><span>${esc(corta(i.titulo, 80))}</span></div>`).join('');
+    if (firmaTablon !== html) { firmaTablon = html; tablon.innerHTML = html; }
+    tablon.hidden = !ideas.length;
+    const partido = [...(D.pelicula?.eventos ?? [])].reverse().find(e => e.dato?.tipo === 'torneo')?.dato;
+    torneo.hidden = partido?.tipo !== 'torneo';
+    if (partido?.tipo === 'torneo') {
+      torneo.dataset.hipotesisA = partido.hipotesisAId; torneo.dataset.hipotesisB = partido.hipotesisBId;
+      torneo.dataset.estado = partido.estado;
+      const resultado = partido.estado === 'comparando' ? tr('Comparando') : partido.estado === 'a' ? partido.tituloA : partido.estado === 'b' ? partido.tituloB : partido.estado === 'tablas' ? tr('Empate') : tr('No pude comprobar');
+      const texto = `${partido.tituloA} · ${tr('Frente a')} ${partido.tituloB}\n${partido.porRegla ? tr('Comparación por regla') : tr('Resultado registrado')}: ${resultado}`;
+      torneo.innerHTML = texto.split('\n').map(t => `<span>${esc(t)}</span>`).join(''); torneo.title = texto;
+    } else { torneo.textContent = ''; delete torneo.dataset.hipotesisA; delete torneo.dataset.hipotesisB; delete torneo.dataset.estado; }
+    const analisis = [...(D.pelicula?.eventos ?? [])].reverse().find(e => e.dato?.tipo === 'analisis')?.dato;
+    maquina.hidden = analisis?.tipo !== 'analisis';
+    if (analisis?.tipo === 'analisis') {
+      maquina.dataset.estado = analisis.estado;
+      maquina.dataset.ejecucion = analisis.ejecucionId;
+      maquina.dataset.activa = String(playing && D.trabajando && D.conexion === 'en_linea' && !D.pasada);
+      const estados = { programando: tr('Código en preparación'), ejecutando: tr('Ejecutando…'), terminado: tr('Ejecución terminada'), fallido: tr('La ejecución falló'), interpretando: tr('Interpretando el resultado'), auditando: tr('Revisando el análisis') };
+      maquina.textContent = `${analisis.sintetico ? tr('Ensayo sintético') + ' · ' : ''}${estados[analisis.estado]}`;
+    } else { maquina.textContent = ''; delete maquina.dataset.estado; delete maquina.dataset.ejecucion; delete maquina.dataset.activa; }
+  }
+  function sincronizarPelicula(inicial = false) {
+    const eventos = D.pelicula?.eventos ?? [];
+    pelicula.recibir(eventos, D.identidad, inicial);
+    // Al abrir no se reproduce toda la historia. Solo una escena del trabajo actual por sala.
+    if (inicial && D.trabajando && D.conexion === 'en_linea' && !D.pasada) {
+      const actuales = new Map<SalaLab, EventoVisualLab>();
+      eventos.forEach(e => { if (e.agentes.some(a => D.activos.includes(a))) actuales.set(e.sala, e); });
+      actuales.forEach(e => pelicula.devolver(e));
+    }
+    pintarUtileria();
+  }
+  function actoresDe(e: EventoVisualLab): Agente[] {
+    const nombres = [...e.agentes];
+    // Son gestos de entrega, no nuevas tareas atribuidas a los compañeros.
+    if (e.tipo === 'plan' && nombres.includes('Planificador')) nombres.unshift('Misión, Áreas y Pregunta');
+    if (e.dato?.tipo === 'articulo' && e.dato.estado === 'incluido') nombres.push('Extractor de afirmaciones');
+    if (e.tipo === 'evidencia' && nombres.includes('Asignador de evidencia')) nombres.push('Actualizador del modelo de mundo');
+    if (e.tipo === 'analisis' && nombres.includes('Planificador de análisis')) nombres.push('Programador y Reparador');
+    const entregaRevision: Record<string, string> = { 'Revisor inicial': 'Killer', Killer: 'Evaluador de supuestos', 'Juez de viabilidad': 'Concluidor' };
+    if (e.tipo === 'revision' && entregaRevision[nombres[0]!]) nombres.push(entregaRevision[nombres[0]!]!);
+    return [...new Set(nombres)].map(n => AG.find(a => a.name === n)).filter((a): a is Agente => !!a);
+  }
+  function mantenerPelicula() {
+    const permitido = vivo && !REDUCIR && !asking && !D.pasada && D.conexion === 'en_linea' && !siguiendo;
+    if (!permitido) return;
+    const ocupadas = new Set([...escenas.values()].filter(e => e.evento || e.temaId).map(e => e.agentes[0]?.room));
+    if (ocupadas.size >= 3) return;
+    const e = pelicula.siguiente(e => {
+      if (!D.trabajando && !(D.estado === 'terminada' && e.tipo === 'cierre')) return false;
+      if (ocupadas.has(e.sala)) return false;
+      const actores = actoresDe(e);
+      return actores.length > 0 && actores.every(a => {
+        const escena = escenas.get(a);
+        return escena ? !escena.temaId && !escena.evento : libreParaEscena(a);
+      });
+    });
+    if (!e) return;
+    const actores = actoresDe(e), ctx = nuevoCtx();
+    actores.forEach(a => cancelarEscena(a));
+    const escena: Escena = { ctx, agentes: actores, trabajo: true, evento: e, objetos: [] };
+    actores.forEach(a => { escenas.set(a, escena); a.ictx = ctx; a.busy = true; a.el.dataset.escena = 'pelicula'; a.el.dataset.evento = e.id; });
+    const a = actores[0]!, b = actores[1];
+    const esperar = async (s: number) => { await ctx.wait(s); if (ctx.dead) throw PARAR; };
+    const mostrar = (texto = e.texto, sala = e.sala) => { const el = documento(texto, sala); el.dataset.evento = e.id; escena.objetos!.push(el); return el; };
+    const vuelo = async (kind: Obj, desde: number[], hasta: number[]) => {
+      FLY.push({ kind, from: desde, to: hasta, t0: simT, dur: 0.7, arc: 28, ctx }); await esperar(0.7);
+    };
+    const entregar = async () => {
+      if (!b) { a.carry = 'paper'; type(a, 2); await esperar(2); return; }
+      const [rx, , rw] = GEOM[e.sala], x = Math.max(rx + 12, Math.min(rx + rw - 122, (a.hx + b.hx) / 2 - 30)), y = pasillo(a);
+      a.carry = 'card';
+      await Promise.all([desplazarse(ctx, a, x, y), desplazarse(ctx, b, x + 60, y)]);
+      if (ctx.dead) throw PARAR;
+      a.face = 1; b.face = -1; a.carry = null;
+      await vuelo('card', [a.x + 42, a.y + 44], [b.x + 6, b.y + 44]); b.carry = 'card'; await esperar(1.2);
+    };
+    setEv(esc(e.texto));
+    spawn((async () => {
+      try {
+        if (e.tipo === 'plan') {
+          await entregar();
+          const planificador = actores.find(a => a.name === 'Planificador') ?? a;
+          await desplazarse(ctx, planificador, 128, 158);
+          mostrar(D.pasos.lista.length ? `${tr('Plan')}\n${D.pasos.lista.map((p, i) => `${i + 1}. ${p.titulo}`).join('\n')}` : e.texto);
+          type(planificador, 3); await esperar(3);
+        } else if (e.tipo === 'fuente' && ['Generador de consultas', 'Explorador'].includes(a.name)) {
+          const indice = ordenFuentes(D.fuentes).findIndex(f => e.texto.includes(f.nombre));
+          if (indice >= 0) {
+            const [x, y] = ESTANTE[indice]!;
+            await walk(ctx, a, [[a.x, 268], [x, 268], [x, y + 60]]);
+            mostrar(); await esperar(1.5);
+            const fuente = ordenFuentes(D.fuentes)[indice]!;
+            if (fuente.salen !== null && fuente.salen > 0) a.carry = 'book';
+            if (fuente.fallo) a.emo = { k: 'gota', t0: rt };
+          } else { mostrar(); type(a, 2); await esperar(2); }
+        } else if (e.dato?.tipo === 'articulo') {
+          const dato = e.dato;
+          await Promise.all(actores.map(a => home(ctx, a)));
+          const doc = mostrar(`${dato.titulo}\n${dato.estado === 'incluido' ? tr('Incluido') : dato.estado === 'excluido' ? tr('Excluido') : tr('No pude comprobar')}\n${dato.motivo}`);
+          type(a, 2); await esperar(2);
+          doc.remove();
+          if (dato.estado === 'incluido') {
+            await entregar();
+            if (b) { b.carry = null; await vuelo('paper', [b.x + 24, b.y + 44], convAt(0)); }
+          } else if (dato.estado === 'excluido') await vuelo('paper', [a.x + 24, a.y + 44], [a.hx + 20, a.hy + 90]);
+        } else if (e.tipo === 'lectura' || e.tipo === 'extraccion') {
+          mostrar(); type(a, 2); await esperar(2);
+          if ((D.lectura.afirmaciones ?? 0) > 0) await vuelo('paper', [a.x + 24, a.y + 44], convAt(0));
+        } else if (e.dato?.tipo === 'idea') {
+          a.carry = 'card'; await desplazarse(ctx, a, Math.max(648, Math.min(988, a.hx)), 472);
+          a.carry = null;
+          await vuelo('card', [a.x + 24, a.y + 44], [a.x + 24, 340]);
+          tablon.classList.remove('lv-clavar'); void tablon.offsetWidth; tablon.classList.add('lv-clavar'); await esperar(1.8);
+        } else if (e.dato?.tipo === 'torneo') {
+          mostrar(`${e.dato.tituloA}\n${tr('Frente a')}\n${e.dato.tituloB}`);
+          await entregar(); type(a, 2); if (b) type(b, 2); await esperar(2);
+          if (e.dato.estado !== 'comparando') {
+            const decision = e.dato.estado === 'a' ? e.dato.tituloA : e.dato.estado === 'b' ? e.dato.tituloB : e.dato.estado === 'tablas' ? tr('Empate') : tr('No pude comprobar');
+            mostrar(`${tr('Resultado registrado')}: ${decision}`); await esperar(2);
+          }
+        } else if (e.tipo === 'analisis') {
+          await entregar(); mostrar();
+          const programador = actores.find(a => a.name === 'Programador y Reparador');
+          if (programador) { await desplazarse(ctx, programador, 688, 816); type(programador, 3); }
+          await esperar(3);
+          if (e.dato?.tipo === 'analisis' && e.dato.estado === 'terminado') SON.campana();
+        } else if (e.tipo === 'cierre') {
+          mostrar(); a.carry = 'paper';
+          if (a.name === 'Resumidor') {
+            await walk(ctx, a, [[a.x, 1112], [116, 1112], [116, 1240]]);
+            a.carry = null; await vuelo('paper', [a.x + 24, a.y + 44], [146, 1244]);
+          } else { await desplazarse(ctx, a, Math.min(990, a.hx + 80), 1034); type(a, 2); }
+          await esperar(2);
+        } else {
+          mostrar(); await entregar(); type(a, 2); await esperar(2);
+        }
+        await Promise.all(actores.map(a => {
+          if (a.room === 'r1' && a.x >= 760) return walk(ctx, a, [[a.x, 268], [a.hx, 268], [a.hx, a.hy]]);
+          if (a.room === 'r6' && a.y > 1128) return walk(ctx, a, [[a.x, 1112], [a.hx, 1112], [a.hx, a.hy]]);
+          return walk(ctx, a, [[a.hx, a.y], [a.hx, a.hy]]);
+        }));
+      } finally {
+        escena.objetos?.forEach(o => o.remove());
+        for (const p of actores) {
+          if (escenas.get(p) !== escena || p.ictx !== ctx) continue;
+          escenas.delete(p); p.ictx = null; p.busy = false; p.carry = null; p.typing = 0;
+          delete p.el.dataset.escena; delete p.el.dataset.evento;
+          proximaEscena.set(p, simT + 3);
+        }
+      }
+    })());
   }
   function empezarEscena(a: Agente, trabajo: boolean) {
     const companeros = AG.filter((b) => b !== a && b.room === a.room && b.name !== 'Tú' && libreParaEscena(b) && (trabajo || !D.activos.includes(b.name)));
@@ -762,8 +956,13 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     }
   }
   function mantenerEscenas() {
-    if (!escenaDisponible()) { [...escenas.keys()].forEach(cancelarEscena); return; }
+    if (!escenaDisponible()) {
+      [...escenas.entries()].forEach(([a, e]) => { if (!(e.evento?.tipo === 'cierre' && D.estado === 'terminada' && D.conexion === 'en_linea' && !D.pasada && !asking)) cancelarEscena(a, false); });
+      mantenerPelicula(); return;
+    }
     mantenerDialogos();
+    mantenerPelicula();
+    mantenerJuicio();
     for (const a of AG) {
       if (D.activos.includes(a.name) && libreParaEscena(a) && simT >= (proximaEscena.get(a) ?? 0)) empezarEscena(a, true);
     }
@@ -778,7 +977,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (a) empezarEscena(a, false);
   }
   function pararActividad() {
-    [...escenas.keys()].forEach(cancelarEscena);
+    [...escenas.keys()].forEach(a => cancelarEscena(a, false));
     proximaEscena.clear(); proximoPaseo = simT + 1.5;
     AG.forEach((a) => {
       a.ictx?.kill(); a.ictx = null; a.busy = false; a.path = [];
@@ -796,7 +995,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     // El registro permanece en el historial. Solo la IA pone voz a los personajes.
     setEv(esc(e.texto));
     // Una actualización no interrumpe una caminata ni una conversación en curso.
-    if (!animar || REDUCIR || escenas.has(a) || a.ictx) return;
+    if (D.pelicula || !animar || REDUCIR || escenas.has(a) || a.ictx) return;
     const ctx = nuevoCtx(); a.ictx = ctx;
     SON.teclas();
     a.busy = true;
@@ -997,6 +1196,9 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       const est = D.salas[c.room], st = COLOR_ESTADO[est];
       c.chip!.innerHTML = `<span class="n" style="background:${st.c}">${NUMERO[c.room] ?? '·'}</span>${esc(c.title)}<span class="s" style="color:${st.c}">${esc(est === 'ahora' && !D.trabajando ? tr('Paró') : NOMBRE_ESTADO[est])}</span><span class="pg"></span>`;
       c.chip!.classList.toggle('on', i === chIdx);
+      c.chip!.title = `${c.title} · ${nombreEstado(est)}`;
+      c.chip!.setAttribute('aria-label', c.chip!.title);
+      c.chip!.setAttribute('aria-pressed', String(i === chIdx));
     });
   }
   const IC = {
@@ -1005,7 +1207,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   };
   const pintarPlay = () => { botonPlay.innerHTML = playing ? IC.pause : IC.play; botonPlay.title = playing ? tr('Pausar la animación') : tr('Seguir la animación'); botonPlay.setAttribute('aria-label', botonPlay.title); };
   pintarPlay();
-  botonPlay.onclick = () => { playing = !playing; pintarPlay(); };
+  botonPlay.onclick = () => { playing = !playing; pintarPlay(); pintarUtileria(); };
   raiz.querySelectorAll<HTMLButtonElement>('.lv-velocidad button').forEach((b) => {
     b.onclick = () => { speed = Number(b.dataset.s); raiz.querySelectorAll('.lv-velocidad button').forEach((x) => x.classList.toggle('on', x === b)); };
   });
@@ -1165,7 +1367,6 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const [gx, gy, gw, gh] = GEOM[a], dx = gx + gw / 2 - 24, dy = gy + gh - 76;
     const ctx = nuevoCtx();
     m.ictx = ctx; m.recado = true; m.busy = true; m.gesto = null; m.carry = 'card';
-    say(m, esc(trp('Llevo el expediente a «{sala}»', { sala: TITULO_SALA[a]! })), 3, 'small');
     setEv(esc(trp('{q} lleva el expediente a la sala siguiente: {sala}', { q: nombreDe(m), sala: TITULO_SALA[a]! })));
     spawn((async () => {
       try {
@@ -1177,8 +1378,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         await ctx.wait(1.2);
         await walk(ctx, m, [[m.hx, m.y], [m.hx, m.hy]]);
       } finally {
-        if (m.ictx === ctx) { m.ictx = null; m.busy = false; }
-        m.recado = false; m.carry = null;
+        if (m.ictx === ctx) { m.ictx = null; m.busy = false; m.recado = false; m.carry = null; }
       }
     })());
   }
@@ -1235,16 +1435,17 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     dejarDeSeguir(false); cerrarObjeto(false);
     if (sel) { sel.el.classList.remove('sel'); sel = null; ficha.hidden = true; }
     sigIdx = (sigIdx + 1) % afs.length;
-    const af = afs[sigIdx]!, ext = P('Extractor de afirmaciones'), juez = P('Juez');
+    const af = afs[sigIdx]!, ext = P('Extractor de afirmaciones');
     const orden = ordenFuentes(D.fuentes), fi = Math.max(0, af.biblioteca ? orden.findIndex((f) => f.nombre === af.biblioteca) : 0);
     const [ex, ey] = ESTANTE[fi]!, et = veredictoDe(af.veredicto).etiqueta, titulo = af.articulo.replace(/[.\s]+$/, '');
     const pasos = [
       af.biblioteca ? trp('Sale de un artículo que llegó desde {b}: «{a}».', { b: af.biblioteca, a: titulo }) : trp('Sale del artículo «{a}».', { a: titulo }),
       trp('{q} copia del artículo la frase que se puede comprobar.', { q: nombreDe(ext) }),
       tr('La cinta la lleva hasta la mesa del juez.'),
-      trp('{q} la compara con lo que dice el artículo: {v}.', { q: nombreDe(juez), v: et }) + (af.motivo ? ' ' + af.motivo : ''),
+      (af.veredicto === 'sin_verificar' ? tr('Todavía no tiene una decisión registrada.') : trp('Decisión registrada: {v}.', { v: et })) + (af.motivo ? ' ' + af.motivo : ''),
       trp('Cae en la caja «{c}».', { c: nombreCaja(af.caja) }),
     ];
+    if (af.veredicto === 'sin_verificar') pasos.pop();
     siguiendo = true; pintarSigue();
     if (REDUCIR) { narrar(af, pasos, -1); return; }
     const ctx = nuevoCtx(); sigCtx = ctx;
@@ -1257,6 +1458,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       narrar(af, pasos, 2); await volar(ctx, 476, 182, 0.8, 12);
       const t0 = simT;
       await ctx.until(() => { const d = Math.min(CL, (simT - t0) * 80), p = convAt(d); papel.x = p[0]; papel.y = p[1]; return d >= CL; });
+      if (af.veredicto === 'sin_verificar') { narrar(af, pasos, 3); return; }
       narrar(af, pasos, 3); await volar(ctx, 312, 378, 0.9, 16); await ctx.wait(1);
       const st = div('lv-sello', capaBocadillos, esc(et));
       st.style.left = '312px'; st.style.top = '356px'; st.style.color = COLOR_CAJA[af.caja];
@@ -1280,6 +1482,64 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (a === 'otra') seguir(); else if (a === 'cerrar') dejarDeSeguir();
   });
   botonSigue.onclick = () => { if (siguiendo) dejarDeSeguir(); else seguir(); };
+
+  /* ---------- el juez lee una afirmación real y la sella ---------- */
+  // Mientras el juez trabaja, su mesa enseña afirmaciones que ya decidió en
+  // esta iteración (la cadena de evidencia): la lee, sella su veredicto y la
+  // deja en su caja. Cada decisión se representa una vez, sin resolver nada nuevo.
+  const MARCA_CAJA: Record<AfirmacionLab['caja'], string> = { sostenida: 'S', parcial: 'P', no_sostenida: 'N', otras: 'X' };
+  const juzgadas = new Set<string>();
+  let proximoJuicio = 2;
+  const claveJuicio = (a: AfirmacionLab) => JSON.stringify([a.id, a.veredicto, a.motivo]);
+  const textoSello = (af: AfirmacionLab) => af.caja === 'sostenida' ? tr('SOSTENIDA') : af.caja === 'parcial' ? tr('PARCIAL')
+    : af.caja === 'no_sostenida' ? tr('NO SOSTENIDA') : veredictoDe(af.veredicto).etiqueta.toLocaleUpperCase();
+  function siguienteJuicio(): AfirmacionLab | null {
+    const afs = D.afirmaciones;
+    if (!afs?.length) return null;
+    return afs.find((a) => a.veredicto !== 'sin_verificar' && !juzgadas.has(claveJuicio(a))) ?? null;
+  }
+  function mantenerJuicio() {
+    const J = P('Juez');
+    if (siguiendo || simT < proximoJuicio || !D.activos.includes('Juez') || !libreParaEscena(J) || !atHome(J)) return;
+    const af = siguienteJuicio();
+    if (af) juzgar(J, af);
+  }
+  function juzgar(J: Agente, af: AfirmacionLab) {
+    const clave = claveJuicio(af); juzgadas.add(clave);
+    const ctx = nuevoCtx(), escena: Escena = { ctx, agentes: [J], trabajo: true, objetos: [] };
+    escenas.set(J, escena); J.ictx = ctx; J.busy = true; J.el.dataset.escena = 'trabajo';
+    const color = COLOR_CAJA[af.caja];
+    const vuela = (from: number[], to: number[], dur: number, arc: number) => { FLY.push({ kind: 'paper', from, to, t0: simT, dur, arc, ctx }); return ctx.wait(dur); };
+    spawn((async () => {
+      try {
+        hoja = false;
+        await vuela(convAt(CL), [312, 378], 0.6, 30); hoja = true;
+        setEv(esc(tr('Decisión registrada en la cadena de evidencia')));
+        const doc = documento([tr('Decisión registrada'), af.texto, af.articulo, af.cita, af.motivo].filter(Boolean).join('\n'), 'r2', 'lv-documento-juicio');
+        doc.dataset.afirmacion = af.id; escena.objetos!.push(doc);
+        type(J, 2); await ctx.wait(3);
+        const st = div('lv-sello', capaBocadillos, esc(textoSello(af)));
+        st.style.left = '312px'; st.style.top = '352px'; st.style.color = color;
+        STAMPS.push({ el: st, until: simT + 1.8 }); escena.objetos!.push(st); SON.sello();
+        await ctx.wait(1.2); hoja = false;
+        await vuela([312, 378], BOCA[af.caja], 0.7, 60);
+        const t = TAG[MARCA_CAJA[af.caja]];
+        if (t) { t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop'); }
+        setEv(`<span style="color:${color}">${esc(trp('Veredicto: {v}', { v: veredictoDe(af.veredicto).etiqueta }))}</span>`);
+        await ctx.wait(1);
+      } finally {
+        escena.objetos?.forEach(o => o.remove());
+        if (ctx.dead) juzgadas.delete(clave);
+        if (escenas.get(J) === escena) {
+          hoja = D.activos.includes('Juez');
+          escenas.delete(J);
+          if (J.ictx === ctx) { J.ictx = null; J.busy = false; }
+          delete J.el.dataset.escena;
+        }
+        proximoJuicio = simT + 4;
+      }
+    })());
+  }
 
   /* ---------- sonido ---------- */
   function pintarSonido() {
@@ -1483,8 +1743,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     dibujarCuartoNovedad();
     ordenFuentes(D.fuentes).forEach((f, i) => {
       const [x, y] = ESTANTE[i]!;
-      g.fillStyle = f.fallo ? '#E2706A' : '#7CC7E8'; g.fillRect(x, y, 81, 5);
-      if (f.fallo) { g.fillRect(x, y + 44, 81, 8); g.fillStyle = '#C6524A'; g.fillRect(x + 12, y + 41, 8, 13); g.fillRect(x + 59, y + 41, 8, 13); }
+      g.fillStyle = f.fallo ? f.salen === null ? '#E2706A' : '#F2C14E' : '#7CC7E8'; g.fillRect(x, y, 81, 5);
+      if (f.fallo && f.salen === null) { g.fillRect(x, y + 44, 81, 8); g.fillStyle = '#C6524A'; g.fillRect(x + 12, y + 41, 8, 13); g.fillRect(x + 59, y + 41, 8, 13); }
     });
     D.pasos.estados.slice(0, 7).forEach((e, i) => {
       const r = RENGLON[e], y = 40 + i * 14;
@@ -1574,6 +1834,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
 
   pintarSalas(); pintarMarcas();
   sincronizarActividad(true);
+  sincronizarPelicula(true);
   pintarSigue();
   mostrarPeticion();
   raf = requestAnimationFrame(frame);
@@ -1603,11 +1864,11 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       const antes = D;
       D = d;
       const cambio = identidad !== d.identidad;
-      if (cambio) { identidad = d.identidad; vistas.clear(); descartadas.clear(); cerrarPeticion(); dejarDeSeguir(); cerrarObjeto(false); sigIdx = -1; }
+      if (cambio) { identidad = d.identidad; vistas.clear(); descartadas.clear(); cerrarPeticion(); dejarDeSeguir(); cerrarObjeto(false); sigIdx = -1; juzgadas.clear(); pelicula.limpiar(); }
       // La corrida puede cambiar de tarea mientras termina el intercambio visual.
       // Solo detenerla, perder la conexión o cambiar de iteración cancela las escenas.
       const detener = !d.trabajando || d.conexion !== 'en_linea';
-      if (cambio || detener) pararActividad();
+      if (cambio || (detener && (antes.trabajando || antes.conexion !== d.conexion))) pararActividad();
       if (cambio) { dialogos.length = 0; dialogosVistos.clear(); ultimaCharla.clear(); }
       if (!d.trabajando || d.conexion !== 'en_linea') dialogos.length = 0;
       pintarSalas(); pintarMarcas(); pintarChips();
@@ -1616,7 +1877,10 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (d.pide && !pidiendo) mostrarPeticion();
       if (!asking && (cambio || antes.foco !== d.foco)) chIdx = capituloDe(d.foco);
       sincronizarActividad(cambio);
-      if (!cambio && antes.foco !== d.foco) mensajero(antes.foco, d.foco);
+      const fotoNueva = cambio || antes.conexion !== d.conexion || (!antes.trabajando && d.trabajando) || (antes.trabajando && !d.trabajando && d.estado !== 'terminada');
+      if (fotoNueva) pelicula.limpiar();
+      sincronizarPelicula(fotoNueva);
+      if (!D.pelicula && !cambio && antes.foco !== d.foco) mensajero(antes.foco, d.foco);
       const u0 = antes.presupuesto?.usado ?? null, u1 = d.presupuesto?.usado ?? null;
       if (!cambio && u0 !== null && u1 !== null && u1 > u0) monedas(u1 - u0);
       if (!cambio && (d.juez.hechas ?? 0) > (antes.juez.hechas ?? 0)) SON.sello();
@@ -1627,6 +1891,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       vivo = false;
       cancelAnimationFrame(raf);
       pararActividad();
+      pelicula.limpiar();
       AG.forEach((a) => a.ictx?.kill());
       processWaits();
       window.removeEventListener('keydown', teclas);

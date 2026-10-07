@@ -39,6 +39,7 @@ from rosa import datos as D
 from rosa import skills as SK
 from rosa import vigilante_modelos as VIG
 from rosa.bucle import contexto as T
+from rosa.bucle import eventos_laboratorio as EL
 from rosa.bucle.pista import Pista
 from rosa.estado import acciones as A
 from rosa.estado import plantilla as P
@@ -209,7 +210,7 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
     # correspondiendo a su hash y el fichero de datos al hash con el que se planifico.
     bloqueo = await asyncio.to_thread(_verificar_congelado, plan, ruta)
     if bloqueo:
-        pista.error(bloqueo)
+        EL.registrar(pista, "error", bloqueo, EL.analisis(run["id"], "fallido", sintetico))
         res = X.Resultado(estado="no_ejecutado", runtime=runtime, error=bloqueo)
     # Ensayo en seco: el mismo codigo sobre una tabla sintetica con la forma del
     # dataset (columnas, tipos, rangos) antes de tocar los datos reales. Detecta
@@ -219,15 +220,19 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
         codigo, run["ensayoSeco"] = await _ensayo_en_seco(ctx, plan, codigo, ruta, esquema, run["id"], entorno, ficheros, pista)
         ctx.mutar(lambda e: _actualizar_run(e, run["id"], {"ensayoSeco": run["ensayoSeco"], "codigo": codigo}), "ensayo_seco")
     for intento in range(int(run.get("_intento", 0)), 0 if bloqueo or (res and res.estado != "error_tecnico") else MAX_REPARACIONES + 1):
-        pista.accion(f"Ejecutando en el sandbox ({runtime}), intento {intento + 1}")
         if res is None:
+            EL.registrar(pista, "accion", f"Ejecutando en el sandbox ({runtime}), intento {intento + 1}",
+                         EL.analisis(run["id"], "ejecutando", sintetico))
             res = await asyncio.to_thread(X.ejecutar, codigo, ruta, plan["semilla"], sintetico, run["id"], entorno, ficheros)
             checkpoint(_resultadoSandbox=asdict(res), codigo=codigo, _intento=intento)
         if res.estado in ("completado", "no_ejecutado", "tiempo_agotado"):
             break
         if intento < MAX_REPARACIONES:
-            pista.error(f"Error técnico: {res.error[-200:]}. Se intenta reparar sin cambiar el plan")
+            EL.registrar(pista, "error", f"Error técnico: {res.error[-200:]}. Se intenta reparar sin cambiar el plan",
+                         EL.analisis(run["id"], "fallido", sintetico))
             try:
+                EL.registrar(pista, "accion", "Reparando el código sin cambiar el plan congelado",
+                             EL.analisis(run["id"], "programando", sintetico))
                 p2 = await ctx.llamar("cerebro", ctx.programas.reparar, plan=_texto_plan(plan), codigo=codigo, error=res.error[-1500:] or res.salida[-800:], esquema_datos=esquema)
                 codigo = _limpiar_codigo(p2.codigo_corregido)
                 checkpoint(codigo=codigo, _resultadoSandbox=None, _intento=intento + 1)
@@ -253,7 +258,7 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
             if any(r.get("semilla") == semilla2 for r in repeticiones):
                 continue
             codigo2 = _cambiar_semilla(codigo, plan["semilla"], semilla2)
-            pista.accion(f"Repetición con semilla {semilla2}")
+            EL.registrar(pista, "accion", f"Repetición con semilla {semilla2}", EL.analisis(run["id"], "ejecutando", sintetico))
             r2 = await asyncio.to_thread(X.ejecutar, codigo2, ruta, semilla2, sintetico, run["id"] + f"-s{extra}", entorno, ficheros)
             repeticiones.append({"semilla": semilla2, "estado": r2.estado, "resultados": r2.resultados if r2.estado == "completado" else {}})
             checkpoint(repeticiones=repeticiones)
@@ -266,6 +271,8 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
         if res.no_evaluable:
             interpretacion = {"estado": "no_evaluable", "resumen": f"El análisis no se pudo evaluar con estos datos: {res.no_evaluable}"}
         else:
+            EL.registrar(pista, "accion", "Interpretando las cifras de la ejecución registrada",
+                         EL.analisis(run["id"], "interpretando", sintetico))
             texto_rep = ""
             if repeticiones:
                 texto_rep = "\n\nRepeticiones con otras semillas (mismo plan y código):\n" + "\n".join(f"- semilla {r['semilla']} ({r['estado']}): " + ("; ".join(f"{k}={v}" for k, v in r["resultados"].items()) or "sin cifras") for r in repeticiones)
@@ -290,6 +297,8 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
     deterministas = X.comprobaciones_deterministas(codigo, plan, res, repeticiones) if res.estado == "completado" else []
     if res.estado == "completado" and interpretacion and interpretacion["estado"] != "no_evaluable":
         try:
+            EL.registrar(pista, "accion", "Auditando la ejecución registrada con sus comprobaciones",
+                         EL.analisis(run["id"], "auditando", sintetico))
             pa = await ctx.llamar(
                 "juez",
                 ctx.programas.auditar_analisis,
@@ -346,7 +355,8 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
 
     ctx.mutar(guardar, "ejecucion")
     estado_txt = res.estado if res.estado != "completado" else (interpretacion or {}).get("estado", "completado")
-    pista.resultado(f"Ejecución {run['id']}: {estado_txt}" + (f"; auditoría {auditoria['veredicto']}" if auditoria else "") + (f". {res.error[-160:]}" if res.estado != "completado" else ""))
+    EL.registrar(pista, "resultado", f"Ejecución {run['id']}: {estado_txt}" + (f"; auditoría {auditoria['veredicto']}" if auditoria else "") + (f". {res.error[-160:]}" if res.estado != "completado" else ""),
+                 EL.analisis(run["id"], "terminado" if res.estado == "completado" else "fallido", sintetico))
     return copy.deepcopy(next(r for r in ctx.e["ejecuciones"] if r["id"] == run["id"]))
 
 
