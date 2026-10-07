@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { estadoDeMuestra } from '../datos/muestra';
 import type { EstadoCorrida, EntradaTranscripcion, EstadoRosa, Iteracion } from '../datos/tipos';
+import type { AfirmacionEvidencia, Evidencia } from './evidencia';
 import { datosDelLaboratorio } from './labVivo';
 
 function caso(tipo = 'literatura', transcripcion: EntradaTranscripcion[] = [{ t: 1000, tipo: 'accion', texto: 'Consulta: MAPT' }]) {
@@ -14,6 +15,72 @@ function caso(tipo = 'literatura', transcripcion: EntradaTranscripcion[] = [{ t:
   c.busqueda = { ...c.busqueda, consultas: [] };
   return { estado, inv, c, i, datos: () => datosDelLaboratorio(estado, inv, c, i) };
 }
+
+function cadena(corridaId: string, veredictos: AfirmacionEvidencia['veredicto'][]): Evidencia {
+  return { corridaId, version: 10, consultas: [], fuentes: [], afirmaciones: veredictos.map((veredicto, n) => ({
+    id: `af-real-${n}`, texto: `Afirmación del registro ${n}`, cita: `PMID ${n}, tabla 2`, veredicto,
+    motivo: 'Motivo registrado', entidadDistinta: false, tipo: 'literatura', tema: 'MAPT', fuenteId: `fuente-${n}`,
+    localizador: 'tabla 2', iteracion: 1,
+  })) };
+}
+
+describe('las cajas cuentan las afirmaciones reales de la iteración', () => {
+  it('muestra decisiones durante la verificación y cambia la caja al cambiar el veredicto', () => {
+    const f = caso('verificacion', [{ t: 1, tipo: 'resultado', texto: 'Deterministas: 2 resueltas sin juez; 3 van al juez' }, { t: 2, tipo: 'resultado', texto: 'Juez: 1 de 3' }]);
+    f.i.pistas[0]!.tipo = 'verificacion';
+    const evidencia = cadena(f.c.id, ['sostenida', 'parcial', 'no_sostenida', 'sin_verificar', 'cita_no_resuelve']);
+    const obtener = () => datosDelLaboratorio(f.estado, f.inv, f.c, f.i, { evidencia });
+    const antes = obtener();
+    expect(antes.juez).toEqual({ hechas: 1, total: 3, sinJuez: 2, veredictos: { sostenida: 1, parcial: 1, no_sostenida: 1, otras: 2 } });
+    expect(antes.afirmaciones?.filter(a => a.caja === 'otras')).toHaveLength(2);
+    evidencia.afirmaciones[0]!.veredicto = 'no_sostenida';
+    evidencia.afirmaciones[3]!.veredicto = 'parcial';
+    const despues = obtener();
+    expect(despues.juez.veredictos).toEqual({ sostenida: 0, parcial: 2, no_sostenida: 2, otras: 1 });
+    expect(despues.afirmaciones?.filter(a => a.caja === 'no_sostenida')).toHaveLength(2);
+    expect(antes.juez.veredictos).toEqual({ sostenida: 1, parcial: 1, no_sostenida: 1, otras: 2 });
+  });
+
+  it('una cadena cargada vacía da ceros y prevalece sobre el resumen de otro intento', () => {
+    const f = caso('verificacion');
+    f.i.pistas[0]!.tipo = 'verificacion'; f.i.pistas[0]!.estado = 'hecha';
+    f.i.pistas[0]!.resumen = '30 afirmaciones: 30 sostenida; 0 bloqueadas';
+    const d = datosDelLaboratorio(f.estado, f.inv, f.c, f.i, { evidencia: cadena(f.c.id, []) });
+    expect(d.afirmaciones).toEqual([]);
+    expect(d.juez.veredictos).toEqual({ sostenida: 0, parcial: 0, no_sostenida: 0, otras: 0 });
+  });
+
+  it('sin cadena conserva el resumen válido, y sin resumen mantiene desconocidos los conteos', () => {
+    const f = caso('verificacion'); f.i.pistas[0]!.tipo = 'verificacion';
+    expect(f.datos().juez.veredictos).toBeNull();
+    f.i.pistas[0]!.estado = 'hecha'; f.i.pistas[0]!.resumen = '3 afirmaciones: 1 sostenida, 1 parcial, 1 no sostenida; 1 bloqueadas';
+    expect(f.datos().juez.veredictos).toEqual({ sostenida: 1, parcial: 1, no_sostenida: 1, otras: 0 });
+  });
+
+  it('filtra la iteración, rechaza otra corrida y nunca mezcla la cadena con la muestra', () => {
+    const f = caso('verificacion'), evidencia = cadena(f.c.id, ['parcial']);
+    evidencia.afirmaciones.push({ ...evidencia.afirmaciones[0]!, id: 'af-otra-iteracion', veredicto: 'sostenida', iteracion: 2 });
+    const actual = datosDelLaboratorio(f.estado, f.inv, f.c, f.i, { evidencia });
+    expect(actual.juez.veredictos).toEqual({ sostenida: 0, parcial: 1, no_sostenida: 0, otras: 0 });
+    for (const corridaId of ['otra-corrida', f.c.id]) {
+      const estado = corridaId === f.c.id ? { ...f.estado, conexion: 'muestra' as const } : f.estado;
+      const d = datosDelLaboratorio(estado, f.inv, f.c, f.i, { evidencia: { ...evidencia, corridaId } });
+      expect(d.afirmaciones).toBeNull(); expect(d.juez.veredictos).toBeNull();
+    }
+    const ajena = datosDelLaboratorio(f.estado, f.inv, f.c, { ...f.i, corridaId: 'otra-corrida' }, { evidencia });
+    expect(ajena.afirmaciones).toBeNull(); expect(ajena.juez.veredictos).toBeNull();
+  });
+
+  it('un histórico sin procedencia mantiene su veredicto y solo cuenta la iteración elegida', () => {
+    const f = caso('verificacion'), evidencia = cadena(f.c.id, ['sostenida', 'parcial', 'no_sostenida']);
+    evidencia.afirmaciones.push({ ...evidencia.afirmaciones[0]!, id: 'af-actual', iteracion: 2 });
+    f.c.iteracionActual = 2; f.i.terminadaEn = f.i.empezadaEn + 1000;
+    const d = datosDelLaboratorio(f.estado, f.inv, f.c, f.i, { pasada: true, evidencia });
+    expect(d.juez.veredictos).toEqual({ sostenida: 1, parcial: 1, no_sostenida: 1, otras: 0 });
+    expect(d.afirmaciones).toHaveLength(3); expect(d.afirmaciones![0]).not.toHaveProperty('procedenciaVeredicto');
+    expect(d.pasada).toBe(true); expect(d.trabajando).toBe(false);
+  });
+});
 
 describe('el laboratorio recibe la corrida canónica', () => {
   it('los especialistas de patentes y compañías siguen actividad real independiente en la cuarto exclusivo de novedad', () => {

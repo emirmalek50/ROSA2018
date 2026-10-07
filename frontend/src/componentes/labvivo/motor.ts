@@ -16,7 +16,8 @@ import './cadena.css';
 import './textos.css';
 import './puestaEnEscena.css';
 import { claveVozPlan, turnoVigente, vozDisponible } from './vozDisponible';
-import { lineasResultado, materialDelEvento, participantesDeEntrega, pasaPorJuez, seriesResultados } from './puestaEnEscena';
+import { claveJuicioLab, lineasResultado, materialDelEvento, participantesDeEntrega, pasaPorJuez, seleccionarJuicioPendiente, seriesResultados } from './puestaEnEscena';
+import { dibujarCajasJuez, resumenCajasJuez } from './cajasJuez';
 import { configurarDocumento, crearAjustadorTextos } from './textos';
 import { escenasDeApertura } from './inicioPelicula';
 import { ColaPelicula } from './colaPelicula';
@@ -842,7 +843,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const a = actores[0]!, b = actores[1];
     const material = materialDelEvento(e, D);
     const esperar = async (s: number) => { await ctx.wait(s); if (ctx.dead) throw PARAR; };
-    const titular = e.texto.split('\n')[0] || e.texto;
+    const titular = (e.id.startsWith('verificacion:') ? resumenCajasJuez(D.juez.veredictos) : null) ?? (e.texto.split('\n')[0] || e.texto);
     const presentada = () => { escena.presentada = true; escena.protegidaHasta = Math.min(escena.protegidaHasta ?? simT + 2, simT + 2); };
     // La barra cambia cuando la novedad aparece en la sala, no al empezar a caminar.
     let hojaEscena: HTMLElement | null = null;
@@ -1792,14 +1793,13 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   // deja en su caja. Cada decisión se representa una vez, sin resolver nada nuevo.
   const MARCA_CAJA: Record<AfirmacionLab['caja'], string> = { sostenida: 'S', parcial: 'P', no_sostenida: 'N', otras: 'X' };
   const juzgadas = new Set<string>();
+  let ultimoVeredicto: AfirmacionLab['veredicto'] | null = null;
   let proximoJuicio = 0;
-  const claveJuicio = (a: AfirmacionLab) => JSON.stringify([a.id, a.veredicto, a.motivo, a.procedenciaVeredicto?.origen]);
+  const claveJuicio = claveJuicioLab;
   const textoSello = (af: AfirmacionLab) => af.caja === 'sostenida' ? tr('SOSTENIDA') : af.caja === 'parcial' ? tr('PARCIAL')
     : af.caja === 'no_sostenida' ? tr('NO SOSTENIDA') : veredictoDe(af.veredicto).etiqueta.toLocaleUpperCase();
   function siguienteJuicio(): AfirmacionLab | null {
-    const afs = D.afirmaciones;
-    if (!afs?.length) return null;
-    return afs.find((a) => pasaPorJuez(a) && !juzgadas.has(claveJuicio(a))) ?? null;
+    return seleccionarJuicioPendiente(D.afirmaciones, juzgadas, ultimoVeredicto);
   }
   function mantenerJuicio() {
     const J = P('Juez');
@@ -1857,6 +1857,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         st.style.left = '312px'; st.style.top = '352px'; st.style.color = color;
         STAMPS.push({ el: st, until: simT + 1.8 }); escena.objetos!.push(st); SON.sello();
         escena.presentada = true; escena.protegidaHasta = simT + 2;
+        ultimoVeredicto = af.veredicto;
         await ctx.wait(1.2); hoja = false;
         if (!D.afirmaciones?.some(a => claveJuicio(a) === clave && pasaPorJuez(a))) { ctx.kill(); throw PARAR; }
         recorrido.dataset.etapa = 'caja'; recorrido.dataset.veredicto = af.veredicto;
@@ -2080,6 +2081,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     g.fillStyle = '#0E0D14'; g.fillRect(0, 0, ANCHO, ALTO_VISTA);
     if (FONDO.complete) g.drawImage(FONDO, -0.5, -0.5, ANCHO + 1, ALTO_VISTA + 1);
     dibujarCuartoNovedad();
+    dibujarCajasJuez(g, FONDO, D.juez.veredictos);
     ordenFuentes(D.fuentes).forEach((f, i) => {
       const [x, y] = ESTANTE[i]!;
       g.fillStyle = f.fallo ? f.salen === null ? '#E2706A' : '#F2C14E' : '#7CC7E8'; g.fillRect(x, y, 81, 5);
@@ -2222,7 +2224,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         if (a.bub?.el.dataset.turno && t?.id === a.bub.el.dataset.turno && !turnoVigente(t, D)) { a.bub.el.remove(); a.bub = null; }
       }
       const cambio = identidad !== d.identidad;
-      if (cambio) { identidad = d.identidad; vistas.clear(); descartadas.clear(); cerrarPeticion(); dejarDeSeguir(); cerrarObjeto(false); sigIdx = -1; juzgadas.clear(); pelicula.limpiar(); }
+      if (cambio) { identidad = d.identidad; vistas.clear(); descartadas.clear(); cerrarPeticion(); dejarDeSeguir(); cerrarObjeto(false); sigIdx = -1; juzgadas.clear(); ultimoVeredicto = null; pelicula.limpiar(); }
       // La corrida puede cambiar de tarea mientras termina el intercambio visual.
       // Solo detenerla, perder la conexión o cambiar de iteración cancela las escenas.
       const detener = !vozDisponible(d);

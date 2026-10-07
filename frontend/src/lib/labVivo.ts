@@ -82,7 +82,7 @@ export interface DatosLab {
   pasos: { total: number; primero: string | null; aprobado: boolean; estados: EstadoPasoLab[]; enCurso: { n: number; titulo: string } | null; lista: { id?: string; titulo: string; detalle: string; estado?: PasoPlan['estado']; tipo?: string; presupuesto?: number | null }[] };
   fuentes: FuenteLab[];
   lectura: { resultados: number | null; sirven: number | null; recuperados: number | null; leidos: number | null; afirmaciones: number | null };
-  /** Progreso del último intento de verificación, sin sumar reintentos. */
+  /** Progreso del último intento; cajas de toda la evidencia de esta iteración si está cargada. */
   juez: { hechas: number | null; total: number | null; sinJuez: number | null; veredictos: { sostenida: number; parcial: number; no_sostenida: number; otras: number } | null };
   pide: PeticionLab | null;
   modelos: { cerebro: string | null; volumen: string | null; juez: string | null };
@@ -365,14 +365,24 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
   const salud = estado.saludModelos ?? {};
   const modelo = (rol: 'cerebro' | 'volumen' | 'juez') => salud[rol]?.modelo ? nombreDeModelo(salud[rol]!.modelo) : null;
   const evidencia = estado.conexion !== 'muestra' && opciones.evidencia?.corridaId === corrida.id ? opciones.evidencia : null;
+  const afirmaciones = evidencia && it ? afirmacionesDeEvidencia(evidencia, it.numero) : null;
+  const juez = juezDe(it);
+  if (afirmaciones !== null) {
+    // El resumen de la pista es de un intento y solo llega al cerrar. Las cajas
+    // muestran las mismas afirmaciones guardadas que se pueden abrir ahora.
+    juez.veredictos = afirmaciones.reduce((cuentas, a) => {
+      cuentas[a.caja] += 1;
+      return cuentas;
+    }, { sostenida: 0, parcial: 0, no_sostenida: 0, otras: 0 });
+  }
   const datos: DatosLab = {
     identidad: `${corrida.id}/${it?.id ?? 'sin-iteracion'}`, corrida: corrida.numero, iteracion: it?.numero ?? null, titulo: inv.titulo,
     conexion: estado.conexion, estado: corrida.estado, estadoTexto: pasada && it ? trp('Iteración {n} ya cerrada', { n: it.numero }) : etiquetaCorrida(corrida, it), motivo: pasada ? null : cerrada ? corrida.motivoCierre : corrida.estado === 'pausada_por_presupuesto' ? corrida.presupuesto.motivoPausa ?? null : corrida.estado === 'pausada' ? corrida.motivoPausaPropia ?? null : null,
     trabajando: trabajando && !bloquea, planificando, ...(planificando && Number.isInteger(corrida.planificandoIteracion) && (corrida.planificandoIteracion ?? 0) > 0 ? { planificandoIteracion: corrida.planificandoIteracion } : {}), salas, foco, activos: [...new Set(activos)], actividad,
     pasos: { total: plan.length, primero: plan[0]?.titulo ?? null, aprobado: !!it?.planAprobado, estados: plan.map((p) => p.estado === 'fallido' ? 'fallo' : p.estado === 'omitido' || p.estado === 'sin_trabajo' ? 'omitido' : p.estado === 'hecho' ? 'hecho' : trabajando && p.estado === 'en_curso' ? 'ahora' : 'pendiente'), enCurso: trabajando && enCurso ? { n: plan.indexOf(enCurso) + 1, titulo: enCurso.titulo } : null, lista: plan.map((p) => ({ id: p.id, titulo: p.titulo, detalle: p.detalle, estado: p.estado, tipo: p.tipo, presupuesto: p.presupuesto })) },
-    ...lecturaDe(it, corrida), juez: juezDe(it), pide, modelos: { cerebro: modelo('cerebro'), volumen: modelo('volumen'), juez: modelo('juez') },
+    ...lecturaDe(it, corrida), juez, pide, modelos: { cerebro: modelo('cerebro'), volumen: modelo('volumen'), juez: modelo('juez') },
     presupuesto: it && it.presupuesto.limite > 0 ? { usado: it.presupuesto.usado, limite: it.presupuesto.limite, reserva: it.presupuesto.reservaCierre ?? null } : null,
-    afirmaciones: evidencia && it ? afirmacionesDeEvidencia(evidencia, it.numero) : null, pasada,
+    afirmaciones, pasada,
   };
   datos.pelicula = peliculaDelLaboratorio(datos, it, evidencia, estado);
   return datos;

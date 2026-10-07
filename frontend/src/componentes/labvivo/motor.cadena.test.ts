@@ -62,6 +62,39 @@ it('una afirmación pendiente no inicia el recorrido de una decisión ni genera 
   });
 });
 
+it('un rechazo real no espera detrás de 89 sostenidas y cada sello conserva su decisión', async () => {
+  const d = fotografia(), af = d.afirmaciones![0]!;
+  d.afirmaciones = [
+    ...Array.from({ length: 89 }, (_, n) => ({ ...af, id: `sostenida-${n}`, veredicto: 'sostenida' as const, caja: 'sostenida' as const })),
+    { ...af, id: 'rechazada-real', veredicto: 'no_sostenida', caja: 'no_sostenida', motivo: 'El pasaje no contiene esa comparación' },
+  ];
+  montar(d); const sellos: string[] = [], vistos = new Set<Element>(), papeles = new Set<string>();
+  await avanzar(45, () => {
+    raiz.querySelectorAll<HTMLElement>('.lv-hoja-trazada[data-etapa="caja"]').forEach(p => {
+      papeles.add(p.dataset.afirmacion!);
+      const original = d.afirmaciones!.find(a => a.id === p.dataset.afirmacion)!;
+      expect(p.dataset.veredicto).toBe(original.veredicto);
+    });
+    raiz.querySelectorAll('.lv-sello').forEach(s => { if (!vistos.has(s)) { vistos.add(s); sellos.push(s.textContent!); } });
+  });
+  expect(sellos.slice(0, 2)).toEqual(['SOSTENIDA', 'NO SOSTENIDA']);
+  expect(papeles.has('rechazada-real')).toBe(true);
+  expect(d.afirmaciones.filter(a => a.veredicto === 'no_sostenida')).toHaveLength(1);
+});
+
+it('incorpora un rechazo que llega mientras lee sin reiniciar ni alterar la sostenida', async () => {
+  const d = fotografia(), af = d.afirmaciones![0]!;
+  d.afirmaciones = Array.from({ length: 8 }, (_, n) => ({ ...af, id: `sostenida-${n}`, veredicto: 'sostenida', caja: 'sostenida' }));
+  montar(d); await avanzar(3); const papel = raiz.querySelector('.lv-hoja-trazada');
+  const nueva: DatosLab = { ...d, afirmaciones: [...d.afirmaciones, { ...af, id: 'negativa-nueva', veredicto: 'no_sostenida', caja: 'no_sostenida' }] };
+  lab!.actualizar(nueva); expect(raiz.querySelector('.lv-hoja-trazada')).toBe(papel);
+  const sellos: string[] = [], vistos = new Set<Element>();
+  await avanzar(36, () => {
+    raiz.querySelectorAll('.lv-sello').forEach(s => { if (!vistos.has(s)) { vistos.add(s); sellos.push(s.textContent!); } });
+  });
+  expect(sellos.slice(0, 2)).toEqual(['SOSTENIDA', 'NO SOSTENIDA']);
+});
+
 it('si se retira la decisión durante el viaje no deposita ni sella la versión anterior', async () => {
   const d = fotografia(); montar(d); await avanzar(3);
   expect(raiz.querySelector('.lv-hoja-trazada')?.getAttribute('data-etapa')).toBe('cinta');

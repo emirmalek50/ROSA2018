@@ -48,6 +48,35 @@ export function pasaPorJuez(a: AfirmacionLab): boolean {
   return a.veredicto !== 'sin_verificar' && (a.procedenciaVeredicto?.origen === 'juez' || a.procedenciaVeredicto?.origen === 'mixta');
 }
 
+/** Una decisión cambiada puede volver a presentarse; una copia idéntica, no. */
+export function claveJuicioLab(a: AfirmacionLab): string {
+  return JSON.stringify([a.id, a.veredicto, a.motivo, a.procedenciaVeredicto?.origen]);
+}
+
+/** Alterna categorías que existen en los datos, sin cambiar el veredicto ni
+ *  el orden de las afirmaciones dentro de cada categoría. La última categoría
+ *  corresponde a un sello presentado, no a una escena que pudo cancelarse. */
+export function seleccionarJuicioPendiente(
+  afirmaciones: readonly AfirmacionLab[] | null | undefined,
+  presentadas: ReadonlySet<string>,
+  ultimoVeredicto: AfirmacionLab['veredicto'] | null,
+): AfirmacionLab | null {
+  const categorias: AfirmacionLab['veredicto'][] = [];
+  const primeras = new Map<AfirmacionLab['veredicto'], AfirmacionLab>();
+  for (const a of afirmaciones ?? []) {
+    if (!pasaPorJuez(a)) continue;
+    if (!categorias.includes(a.veredicto)) categorias.push(a.veredicto);
+    if (!presentadas.has(claveJuicioLab(a)) && !primeras.has(a.veredicto)) primeras.set(a.veredicto, a);
+  }
+  const ultima = ultimoVeredicto === null ? -1 : categorias.indexOf(ultimoVeredicto);
+  for (let i = 1; i <= categorias.length; i++) {
+    const categoria = categorias[(ultima + i) % categorias.length]!;
+    const siguiente = primeras.get(categoria);
+    if (siguiente) return siguiente;
+  }
+  return null;
+}
+
 type Material = DecisionVisualLab | AsignacionVisualLab | AnalisisVisualLab | RevisionVisualLab;
 export function materialDelEvento(e: EventoVisualLab, datos: DatosLab): Material | null {
   const etapas = datos.pelicula?.etapas;

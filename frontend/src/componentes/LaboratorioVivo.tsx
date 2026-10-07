@@ -60,24 +60,70 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
   const [evidencia, setEvidencia] = useState<{ corridaId: string; datos: Evidencia } | null>(null);
   const itEvidencia = iteracion?.corridaId === corrida.id && iteracion.numero === corrida.iteracionActual ? iteracion : null;
   const claveEvidencia = `${corrida.id}:${itEvidencia?.id ?? ''}:${Math.floor(corrida.gasto.llamadas / 20)}:${corrida.busqueda.consultas.length}:${corrida.estado}:${progresoEvidencia(itEvidencia)}`;
+  const contextoEvidencia = useRef({ clave: claveEvidencia, activa: false });
+  contextoEvidencia.current = { clave: claveEvidencia, activa: corrida.estado === 'en_marcha' || corrida.estado === 'esperando_plan' || corrida.estado === 'esperando_modelo' };
+  const refrescarEvidencia = useRef<(() => void) | null>(null);
   useEffect(() => {
-    if (estado.conexion === 'muestra') return;
-    let vivo = true;
+    if (estado.conexion !== 'en_linea') return;
+    let vivo = true, enCurso = false, pendiente = false, bloqueada = false, errores = 0, ultimaClave = '';
+    let temporizador: ReturnType<typeof setTimeout> | null = null;
+    let abortar: AbortController | null = null;
+    let limpiarTope: (() => void) | null = null;
     const corridaId = corrida.id;
-    const abortar = new AbortController(), tope = senalDeTope().signal;
-    const agotar = () => abortar.abort(tope?.reason);
-    if (tope?.aborted) agotar();
-    else tope?.addEventListener('abort', agotar, { once: true });
-    fetch(`/api/corridas/${encodeURIComponent(corridaId)}/evidencia`, { cache: 'no-store', headers: cabeceras(false), signal: abortar.signal })
-      .then((r) => (r.ok ? (r.json() as Promise<Evidencia>) : null))
-      .then((d) => {
-        if (!vivo || !d || d.corridaId !== corridaId || !Array.isArray(d.fuentes) || !Array.isArray(d.consultas) || !Array.isArray(d.afirmaciones)) return;
+    const limpiarTimer = () => { if (temporizador !== null) clearTimeout(temporizador); temporizador = null; };
+    const programar = (ms: number) => {
+      limpiarTimer();
+      temporizador = setTimeout(() => { temporizador = null; void pedir(); }, ms);
+    };
+    async function pedir() {
+      if (!vivo || bloqueada) return;
+      if (enCurso) { pendiente = true; return; }
+      limpiarTimer(); enCurso = true; pendiente = false; ultimaClave = contextoEvidencia.current.clave;
+      // Cada petición tiene su propio tope; un aborto anterior no contamina el reintento.
+      const peticion = new AbortController(), tope = senalDeTope().signal;
+      abortar = peticion;
+      const agotar = () => peticion.abort(tope?.reason);
+      const retirarTope = () => tope?.removeEventListener('abort', agotar);
+      limpiarTope = retirarTope;
+      if (tope?.aborted) agotar();
+      else tope?.addEventListener('abort', agotar, { once: true });
+      try {
+        const r = await fetch(`/api/corridas/${encodeURIComponent(corridaId)}/evidencia`, { cache: 'no-store', headers: cabeceras(false), signal: peticion.signal });
+        if (!vivo) return;
+        // Un acceso rechazado requiere recuperar la sesión, no insistir por reloj.
+        if (r.status === 401 || r.status === 403) { bloqueada = true; return; }
+        if (!r.ok) throw new Error('evidencia_http');
+        const d = await r.json() as Evidencia;
+        if (!vivo) return;
+        if (!d || d.corridaId !== corridaId || !Number.isSafeInteger(d.version) || d.version < 0 || !Array.isArray(d.fuentes) || !Array.isArray(d.consultas) || !Array.isArray(d.afirmaciones)) throw new Error('evidencia_invalida');
         setEvidencia((anterior) => anterior?.corridaId === corridaId && anterior.datos.version > d.version ? anterior : { corridaId, datos: d });
-      })
-      .catch(() => { /* Sin la cadena, las cajas enseñan el recuento y el registro del juez. */ });
-    return () => { vivo = false; tope?.removeEventListener('abort', agotar); abortar.abort(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- la clave resume lo que cambia la evidencia
-  }, [claveEvidencia, estado.conexion]);
+        errores = 0;
+      } catch {
+        if (vivo) errores += 1;
+      } finally {
+        retirarTope();
+        if (limpiarTope === retirarTope) limpiarTope = null;
+        abortar = null; enCurso = false;
+        if (vivo && !bloqueada) {
+          if (errores) programar(Math.min(30000, 10000 * 2 ** Math.min(errores - 1, 2)));
+          else if (pendiente && ultimaClave !== contextoEvidencia.current.clave) void pedir();
+          else if (contextoEvidencia.current.activa) programar(10000);
+        }
+      }
+    }
+    const refrescar = () => {
+      if (!vivo || bloqueada || ultimaClave === contextoEvidencia.current.clave) return;
+      if (enCurso) pendiente = true;
+      else if (!errores) void pedir();
+    };
+    refrescarEvidencia.current = refrescar;
+    void pedir();
+    return () => {
+      vivo = false; limpiarTimer(); limpiarTope?.(); limpiarTope = null; abortar?.abort();
+      if (refrescarEvidencia.current === refrescar) refrescarEvidencia.current = null;
+    };
+  }, [corrida.id, estado.conexion]);
+  useEffect(() => { refrescarEvidencia.current?.(); }, [claveEvidencia]);
   const ev = evidencia?.corridaId === corrida.id ? evidencia.datos : null;
   const datos = useMemo(() => {
     return pasada ? datosDelLaboratorio(estado, inv, corrida, vista, { pasada: true, evidencia: ev }) : datosDelLaboratorio(estado, inv, corrida, iteracion, { evidencia: ev });

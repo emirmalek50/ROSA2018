@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { estadoDeMuestra } from '../datos/muestra';
-import type { Iteracion } from '../datos/tipos';
+import type { Corrida, EstadoRosa, Iteracion } from '../datos/tipos';
 import type { Evidencia } from '../lib/evidencia';
 import type { DatosLab } from '../lib/labVivo';
 import { senalDeTope } from '../lib/diferido';
@@ -27,7 +27,7 @@ beforeEach(() => {
   window.location.hash = '#/inicio';
   nodo = document.createElement('div'); document.body.append(nodo); root = createRoot(nodo);
 });
-afterEach(async () => { await act(async () => root.unmount()); nodo.remove(); vi.unstubAllGlobals(); });
+afterEach(async () => { await act(async () => root.unmount()); nodo.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 function caso(indice = 0) {
   const estado = estadoDeMuestra(), inv = estado.investigaciones[0]!;
@@ -48,8 +48,9 @@ function enLinea(tipo: 'extraccion' | 'verificacion' = 'verificacion') {
   const iteracion: Iteracion = { ...original, numero: 1, terminadaEn: null, resumen: '', planAprobado: true,
     pistas: [{ ...original.pistas[0]!, id: 'pista-cadena', tipo, estado: 'en_curso' as const, transcripcion: [] }],
   };
-  const corrida = { ...f.corrida, iteracionActual: 1, estado: 'en_marcha' as const, terminadaEn: null };
-  return { ...f, corrida, iteracion, estado: { ...f.estado, conexion: 'en_linea' as const, corridas: [corrida], iteraciones: [iteracion], solicitudes: [], incidencias: [] } };
+  const corrida: Corrida = { ...f.corrida, iteracionActual: 1, estado: 'en_marcha', terminadaEn: null };
+  const estado: EstadoRosa = { ...f.estado, conexion: 'en_linea', corridas: [corrida], iteraciones: [iteracion], solicitudes: [], incidencias: [] };
+  return { ...f, corrida, iteracion, estado };
 }
 type CasoEnLinea = ReturnType<typeof enLinea>;
 function cadena(f: CasoEnLinea, version = 1): Evidencia {
@@ -70,6 +71,15 @@ function anadirEntrada(f: CasoEnLinea, tipo: 'resultado' | 'nota', texto: string
   const p = f.iteracion.pistas[0]!;
   f.iteracion = { ...f.iteracion, pistas: [{ ...p, transcripcion: [...p.transcripcion, { t: p.transcripcion.length, tipo, texto }] }] };
   f.estado = { ...f.estado, iteraciones: [f.iteracion] };
+}
+async function avanzar(ms: number) { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); }
+function esperarHastaAborto(_url: RequestInfo | URL, opciones?: RequestInit): Promise<Response> {
+  return new Promise((_resolve, reject) => {
+    const signal = opciones?.signal;
+    const cancelar = () => reject(new DOMException('Petición abortada', 'AbortError'));
+    if (signal?.aborted) cancelar();
+    else signal?.addEventListener('abort', cancelar, { once: true });
+  });
 }
 
 it('la entrada del personaje abre su dossier real en la investigación actual', async () => {
@@ -178,16 +188,22 @@ it('aborta la petición anterior al cambiar de corrida y no aplica su respuesta 
 });
 
 it('conserva el tope de espera y también aborta al desmontar', async () => {
+  vi.useFakeTimers();
   const f = enLinea(), tope = new AbortController();
   vi.mocked(senalDeTope).mockReturnValueOnce({ signal: tope.signal });
-  vi.mocked(fetch).mockImplementation(() => new Promise(() => {}));
+  vi.mocked(fetch).mockImplementation(esperarHastaAborto);
   await pintar(f);
   const primera = vi.mocked(fetch).mock.calls[0]![1]!.signal!;
-  tope.abort(); expect(primera.aborted).toBe(true);
+  await act(async () => tope.abort()); expect(primera.aborted).toBe(true);
   anadirEntrada(f, 'resultado', 'Juez: 10 de 20'); await pintar(f);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  await avanzar(10000);
   const segunda = vi.mocked(fetch).mock.calls[1]![1]!.signal!;
+  expect(segunda).not.toBe(primera); expect(segunda.aborted).toBe(false);
+  expect(senalDeTope).toHaveBeenCalledTimes(2);
   await act(async () => root.render(null));
   expect(segunda.aborted).toBe(true);
+  await avanzar(60000); expect(fetch).toHaveBeenCalledTimes(2);
 });
 
 it('no retrocede a una versión de evidencia más antigua de la misma corrida', async () => {
@@ -214,4 +230,94 @@ it('el historial usa la misma cadena filtrada a la iteración elegida, sin nueva
   expect(ultimoDato().pasada).toBe(true);
   expect(ultimoDato().trabajando).toBe(false);
   expect(fetch).toHaveBeenCalledTimes(1);
+});
+
+it('refresca cada diez segundos aunque el SSE no cambie la clave, sin peticiones simultáneas', async () => {
+  vi.useFakeTimers();
+  const f = enLinea(), inicial = cadena(f, 8), actual = cadena(f, 9);
+  actual.afirmaciones[0]!.veredicto = 'no_sostenida';
+  let completar!: (r: Response) => void;
+  vi.mocked(fetch).mockResolvedValueOnce(devolverCadena(inicial) as Response)
+    .mockImplementationOnce(() => new Promise(resolve => { completar = resolve; }))
+    .mockResolvedValue(devolverCadena(actual) as Response);
+  await pintar(f); await avanzar(9999); expect(fetch).toHaveBeenCalledTimes(1);
+  await avanzar(1); expect(fetch).toHaveBeenCalledTimes(2);
+  anadirEntrada(f, 'resultado', 'Juez: 10 de 30'); await pintar(f);
+  anadirEntrada(f, 'resultado', 'Juez: 20 de 30'); await pintar(f);
+  await avanzar(60000); expect(fetch).toHaveBeenCalledTimes(2);
+  await act(async () => completar(devolverCadena(actual) as Response));
+  expect(fetch).toHaveBeenCalledTimes(3);
+  expect(ultimoDato().afirmaciones![0]!.veredicto).toBe('no_sostenida');
+  expect(ultimoDato().juez.veredictos).toEqual({ sostenida: 0, parcial: 0, no_sostenida: 1, otras: 0 });
+  await avanzar(9999); expect(fetch).toHaveBeenCalledTimes(3);
+  await avanzar(1); expect(fetch).toHaveBeenCalledTimes(4);
+});
+
+it('un 503 no deja congelado el veredicto anterior y el progreso no salta el backoff', async () => {
+  vi.useFakeTimers();
+  const f = enLinea(), inicial = cadena(f, 8), actual = cadena(f, 9);
+  actual.afirmaciones[0]!.veredicto = 'parcial';
+  vi.mocked(fetch).mockResolvedValueOnce(devolverCadena(inicial) as Response)
+    .mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+    .mockResolvedValue(devolverCadena(actual) as Response);
+  await pintar(f);
+  anadirEntrada(f, 'resultado', 'Juez: 10 de 20'); await pintar(f);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(ultimoDato().afirmaciones![0]!.veredicto).toBe('sostenida');
+  anadirEntrada(f, 'resultado', 'Juez: 20 de 20'); await pintar(f);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  await avanzar(9999); expect(fetch).toHaveBeenCalledTimes(2);
+  await avanzar(1); expect(fetch).toHaveBeenCalledTimes(3);
+  expect(ultimoDato().afirmaciones![0]!.veredicto).toBe('parcial');
+  expect(ultimoDato().juez.veredictos).toEqual({ sostenida: 0, parcial: 1, no_sostenida: 0, otras: 0 });
+});
+
+it('los fallos repetidos esperan diez, veinte y como máximo treinta segundos', async () => {
+  vi.useFakeTimers();
+  const f = enLinea();
+  vi.mocked(fetch).mockResolvedValue({ ok: false, status: 502 } as Response);
+  await pintar(f);
+  for (const [ms, antes] of [[10000, 1], [20000, 2], [30000, 3], [30000, 4]]) {
+    await avanzar(ms! - 1); expect(fetch).toHaveBeenCalledTimes(antes!);
+    await avanzar(1); expect(fetch).toHaveBeenCalledTimes(antes! + 1);
+  }
+  expect(ultimoDato().afirmaciones).toBeNull();
+});
+
+it.each([401, 403])('no reintenta un acceso rechazado %s por reloj ni por progreso', async status => {
+  vi.useFakeTimers();
+  const f = enLinea();
+  vi.mocked(fetch).mockResolvedValue({ ok: false, status } as Response);
+  await pintar(f); await avanzar(90000);
+  anadirEntrada(f, 'resultado', 'Juez: 10 de 20'); await pintar(f);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  f.estado = { ...f.estado, conexion: 'sin_conexion' }; await pintar(f);
+  vi.mocked(fetch).mockResolvedValue(devolverCadena(cadena(f)) as Response);
+  f.estado = { ...f.estado, conexion: 'en_linea' }; await pintar(f);
+  expect(fetch).toHaveBeenCalledTimes(2); expect(ultimoDato().afirmaciones).toHaveLength(1);
+});
+
+it('no mantiene polling tras pausar y limpia el reloj al desconectar o entrar en muestra', async () => {
+  vi.useFakeTimers();
+  const f = enLinea(); vi.mocked(fetch).mockResolvedValue(devolverCadena(cadena(f)) as Response);
+  await pintar(f);
+  f.corrida = { ...f.corrida, estado: 'pausada' }; await pintar(f);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  await avanzar(60000); expect(fetch).toHaveBeenCalledTimes(2);
+  f.corrida = { ...f.corrida, estado: 'en_marcha' }; await pintar(f);
+  expect(fetch).toHaveBeenCalledTimes(3);
+  f.estado = { ...f.estado, conexion: 'sin_conexion' }; await pintar(f);
+  await avanzar(60000); expect(fetch).toHaveBeenCalledTimes(3);
+  f.estado = { ...f.estado, conexion: 'muestra' }; await pintar(f);
+  await avanzar(60000); expect(fetch).toHaveBeenCalledTimes(3);
+  expect(ultimoDato().afirmaciones).toBeNull();
+});
+
+it('rechaza una versión malformada y la recuperación puede cargar una cadena válida', async () => {
+  vi.useFakeTimers();
+  const f = enLinea(), invalida = { ...cadena(f), version: Number.NaN };
+  vi.mocked(fetch).mockResolvedValueOnce(devolverCadena(invalida) as Response)
+    .mockResolvedValue(devolverCadena(cadena(f, 9)) as Response);
+  await pintar(f); expect(ultimoDato().afirmaciones).toBeNull();
+  await avanzar(10000); expect(ultimoDato().afirmaciones).toHaveLength(1);
 });
