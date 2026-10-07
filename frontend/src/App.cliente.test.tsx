@@ -68,15 +68,18 @@ async function montar(hash: string): Promise<HTMLElement> {
 }
 
 describe('la aplicacion montada en el cliente', () => {
-  it('abre el asistente global sin crear una investigación ficticia', async () => {
+  it.each(['', '#/', '#/asistente'])('abre el asistente global desde %s sin crear una investigación ficticia', async (hash) => {
     localStorage.setItem('rosa.recorrido.v1', '1');
     const base = { ...estadoDeMuestra(), investigaciones: [], corridas: [] };
     await act(async () => aplicar(() => base));
-    const raiz = await montar('#/asistente');
+    const raiz = await montar(hash);
     expect(raiz.textContent).toContain('Asistente de ROSA');
     expect(raiz.querySelector('textarea')).toBeTruthy();
     expect(raiz.textContent).toContain('Consulta y opera todas las investigaciones de ROSA');
     expect(raiz.querySelector('.hilo')).toBeNull();
+    expect(raiz.querySelector('.barra a.nav-item')?.getAttribute('href')).toBe('#/asistente');
+    expect(raiz.querySelectorAll('.barra a[href="#/asistente"]')).toHaveLength(1);
+    expect(raiz.querySelector('.barra a[href="#/inicio"]')).toBeTruthy();
     await act(async () => aplicar(() => estadoDeMuestra()));
   });
   it('conserva la pantalla si una actualización omite la investigación y se recupera después', async () => {

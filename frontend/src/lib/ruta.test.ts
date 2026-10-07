@@ -3,8 +3,10 @@ import { formatearRuta, parsearRuta, rutaDe, vistaDeRanking } from './ruta';
 
 describe('parsearRuta', () => {
   it('reconoce las rutas simples', () => {
-    expect(parsearRuta('')).toEqual({ tipo: 'inicio' });
-    expect(parsearRuta('#/')).toEqual({ tipo: 'inicio' });
+    expect(parsearRuta('')).toEqual({ tipo: 'asistente' });
+    expect(parsearRuta('#/')).toEqual({ tipo: 'asistente' });
+    expect(parsearRuta('#/asistente')).toEqual({ tipo: 'asistente' });
+    expect(parsearRuta('#/inicio')).toEqual({ tipo: 'inicio' });
     expect(parsearRuta('#/nueva')).toEqual({ tipo: 'nueva' });
     expect(parsearRuta('#/ajustes/')).toEqual({ tipo: 'ajustes' });
   });
@@ -36,7 +38,7 @@ describe('parsearRuta', () => {
 
 describe('formatearRuta', () => {
   it('es inverso de parsearRuta', () => {
-    const rutas = ['#/', '#/nueva', '#/ajustes', '#/investigaciones/inv-1/ranking', '#/investigaciones/inv-1/artefactos/art-2'];
+    const rutas = ['#/asistente', '#/inicio', '#/nueva', '#/ajustes', '#/investigaciones/inv-1/ranking', '#/investigaciones/inv-1/artefactos/art-2'];
     for (const r of rutas) expect(formatearRuta(parsearRuta(r))).toBe(r);
   });
   it('escapa los ids', () => {

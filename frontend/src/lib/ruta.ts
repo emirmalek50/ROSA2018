@@ -4,6 +4,8 @@
 // pantallas pueden construir sin escribir cadenas.
 //
 // Formas:
+//   #/ o #/asistente (entrada principal)
+//   #/inicio (resumen de investigaciones)
 //   #/nueva
 //   #/investigaciones/<id>/<pantalla>
 //   #/investigaciones/<id>/hipotesis/<hipotesisId>
@@ -33,7 +35,7 @@ function esPantalla(valor: string): valor is Pantalla {
  *  una pantalla en blanco por una URL vieja. */
 export function parsearRuta(hash: string): Ruta {
   const limpio = hash.replace(/^#/, '').replace(/^\/+/, '').replace(/\/+$/, '');
-  if (limpio === '') return { tipo: 'inicio' };
+  if (limpio === '') return { tipo: 'asistente' };
   let partes: string[];
   try {
     partes = limpio.split('/').map((p) => decodeURIComponent(p));
@@ -41,6 +43,7 @@ export function parsearRuta(hash: string): Ruta {
     return { tipo: 'inicio' }; // un % suelto en la URL no tumba la aplicacion
   }
   if (partes[0] === 'asistente') return { tipo: 'asistente' };
+  if (partes[0] === 'inicio') return { tipo: 'inicio' };
   if (partes[0] === 'nueva') return { tipo: 'nueva' };
   if (partes[0] === 'ajustes') return { tipo: 'ajustes' };
   // #/laboratorio/<uniprot>/aso abre directo el oligonucleótido, para poder
@@ -86,7 +89,7 @@ export function parsearRuta(hash: string): Ruta {
 export function formatearRuta(ruta: Ruta): string {
   switch (ruta.tipo) {
     case 'inicio':
-      return '#/';
+      return '#/inicio';
     case 'asistente':
       return '#/asistente';
     case 'nueva':

@@ -181,7 +181,7 @@ describe('la espera al cambiar de pantalla desde App', () => {
     e.conexion = 'conectando';
     await conEstado(e);
     const g = grabar();
-    await montarEn('#/');
+    await montarEn('#/inicio');
     await esperarPintado();
     g.parar();
     expect(raiz.querySelector('.esqueleto-app')).toBeNull();

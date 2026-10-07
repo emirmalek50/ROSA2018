@@ -12,6 +12,7 @@ import {
   IconDocument,
   IconGlobe,
   IconLayers,
+  IconMessage,
   IconPlus,
   IconSearch,
   IconAyuda,
@@ -137,6 +138,11 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
           </div>
         </a>
 
+        <a className="nav-item" href="#/asistente" aria-current={ruta.tipo === 'asistente' ? 'page' : undefined} onClick={onCerrar}>
+          <IconMessage size={15} />
+          {tr('Asistente de ROSA')}
+        </a>
+
         <button type="button" className="nav-item nav-buscar" onClick={onBuscar} disabled={actual === null} title={tr('Buscar en la investigación (Cmd+K o Ctrl+K)')}>
           <IconSearch size={14} />
           {tr('Buscar')}
@@ -147,7 +153,7 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
 
         <div className="barra-seccion">
           <div className="barra-titulo">
-            <span>{tr('Investigaciones')}</span>
+            <a href="#/inicio" aria-current={ruta.tipo === 'inicio' ? 'page' : undefined} onClick={onCerrar}>{tr('Investigaciones')}</a>
             <a href="#/nueva" onClick={onCerrar} title={tr('Nueva investigación')}>
               <IconPlus size={13} /> {tr('Nueva')}
             </a>
@@ -186,7 +192,6 @@ export function BarraLateral({ estado, ruta, abierta, onCerrar, onBuscar, onAyud
           <div className="barra-titulo">
             <span>{tr('De todas las investigaciones')}</span>
           </div>
-          <a className="nav-item" href="#/asistente" aria-current={ruta.tipo === 'asistente' ? 'page' : undefined} onClick={onCerrar}>{tr('Asistente de ROSA')}</a>
           <a className="nav-item" href={rutaLaboratorio()} aria-current={ruta.tipo === 'laboratorio' ? 'page' : undefined} onClick={onCerrar}>
             <IconEstructura size={15} />
             {tr('Al laboratorio')}
