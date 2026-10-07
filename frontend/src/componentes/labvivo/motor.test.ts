@@ -119,6 +119,23 @@ describe('el motor del laboratorio sigue al servidor', () => {
     const resp = montar(d); expect(nodo.querySelector('[data-a=si]')).toBeNull();
     (nodo.querySelector('.lv-pide .yes') as HTMLButtonElement).click(); expect(resp.verEnLaCorrida).toHaveBeenCalledOnce(); expect(resp.conceder).not.toHaveBeenCalled();
   });
+  it('el preguntador acerca la cámara y lleva al presupuesto sin conceder permisos ni reanudar', () => {
+    const d = { ...datos(), estado: 'pausada_por_presupuesto' as const, activos: [], trabajando: false,
+      pide: { id: 'presupuesto', clase: 'presupuesto' as const, quien: 'Preguntador', titulo: 'Necesito más presupuesto para seguir. ¿Lo revisamos?', detalle: 'Faltan 5 llamadas para cerrar', alcances: [], requiereArgumentos: false } };
+    const resp = montar(d);
+    expect(nodo.querySelector<HTMLElement>('.lv-pide')!.hidden).toBe(false);
+    expect(nodo.querySelector('.lv-bub.ask')?.textContent).toBe(d.pide.titulo);
+    expect(nodo.querySelector('.lv-pide')?.textContent).toContain(d.pide.detalle);
+    motor!.actualizar(d); ticks(20);
+    expect(nodo.querySelector('.lv-bub.ask')?.textContent).toBe(d.pide.titulo);
+    expect(nodo.querySelector('[data-a=si]')).toBeNull();
+    expect(nodo.querySelector('[data-a=no]')).toBeNull();
+    nodo.querySelector<HTMLButtonElement>('.lv-pide [data-a=ver]')!.click();
+    expect(resp.verEnLaCorrida).toHaveBeenCalledOnce();
+    expect(resp.conceder).not.toHaveBeenCalled(); expect(resp.denegar).not.toHaveBeenCalled();
+    motor!.actualizar({ ...d, estado: 'en_marcha', pide: null });
+    expect(nodo.querySelector<HTMLElement>('.lv-pide')!.hidden).toBe(true);
+  });
   it('sigue caminando entre entradas sin inventar conversaciones', async () => {
     const d = datos(), texto = 'El Killer revisa «Una hipótesis real sobre MAPT»';
     const e = { ...d.actividad[0]!, agente: 'Killer', sala: 'r4' as const, texto };

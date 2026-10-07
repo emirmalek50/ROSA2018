@@ -2253,6 +2253,9 @@ class Supervisor:
         """`_cerrar_iteracion` con la misma puerta de presupuesto que los pasos y
         con el coste del cierre calculado ANTES de entrar (S-14):
 
+        - Si la estimación de la iteración no alcanza y la corrida tiene margen,
+          se amplía el reparto con la autonomía en «actuar», sin subir el tope
+          autorizado ni saltarse un permiso denegado.
         - Si lo que queda (el menor entre el tope de la corrida y el de la
           iteración) no llega a lo que el cierre necesita como mucho
           (`coste_estimado_del_cierre`), la corrida se pausa antes de empezarlo,
@@ -2269,6 +2272,21 @@ class Supervisor:
         e = self.almacen.estado
         estimado = coste_estimado_del_cierre(e, c, it)
         restante = llamadas_restantes(e, c, it)
+        if restante < estimado["total"]:
+            def ampliar(e2: dict[str, Any]) -> bool:
+                c2 = A.corrida_de(e2, c["id"])
+                if not c2 or c2["estado"] != "en_marcha":
+                    return False
+                it2 = A.iteracion_actual_de(e2, c2)
+                if not it2 or it2["id"] != it["id"]:
+                    return False
+                return ampliar_iteracion_si_queda_corrida(e2, c2, minimo_restante=estimado["total"]) is not None
+
+            if self.almacen.mutar(ampliar, "presupuesto"):
+                e = self.almacen.estado
+                c = A.corrida_de(e, c["id"]) or c
+                it = A.iteracion_actual_de(e, c) or it
+                restante = llamadas_restantes(e, c, it)
         if 0 < restante < estimado["total"]:
             motivo = motivo_de_pausa_por_cierre(c, it, estimado, restante)
             self.almacen.mutar(lambda e2: _pausar_por_presupuesto(e2, c["id"], motivo=motivo), "presupuesto")
@@ -4439,9 +4457,10 @@ def _pausar_por_etapas_en_vacio(e: dict[str, Any], corrida_id: str, motivo: str)
     return True
 
 
-def ampliar_iteracion_si_queda_corrida(e: dict[str, Any], c: dict[str, Any]) -> str | None:
+def ampliar_iteracion_si_queda_corrida(e: dict[str, Any], c: dict[str, Any], *, minimo_restante: int = 0) -> str | None:
     """El reparto por iteración se amplía solo mientras a la corrida le quede
-    tope (28 de septiembre de 2026). Devuelve el aviso si amplió, o None.
+    tope (28 de septiembre de 2026). `minimo_restante` anticipa el coste del
+    cierre antes de agotarse el reparto. Devuelve el aviso si amplió, o None.
 
     El tope de una iteración no lo pone nadie: lo ESTIMA el planificador sumando
     lo que cree que costará cada paso más la reserva del cierre. Cuando la
@@ -4466,7 +4485,7 @@ def ampliar_iteracion_si_queda_corrida(e: dict[str, Any], c: dict[str, Any]) -> 
         return None
     limite_corrida = int((c.get("presupuesto") or {}).get("limiteLlamadas") or 0)
     restante = limite_corrida - int((c.get("gasto") or {}).get("llamadas") or 0)
-    if restante <= 0:
+    if restante <= 0 or restante < minimo_restante:
         return None
     it = A.iteracion_actual_de(e, c)
     if it is None or it.get("terminadaEn") is not None or it.get("_presupuestoDenegado"):
@@ -4476,12 +4495,13 @@ def ampliar_iteracion_si_queda_corrida(e: dict[str, Any], c: dict[str, Any]) -> 
     if pres is None or not isinstance(limite, (int, float)) or isinstance(limite, bool):
         return None
     usado = int(pres.get("usado") or 0)
-    if usado < int(limite):
+    if usado < int(limite) and int(limite) - usado >= minimo_restante:
         return None  # el trozo de la iteración no es el que se agotó
     pres["limite"] = usado + restante
     pres["ampliadoSolo"] = int(pres.get("ampliadoSolo") or 0) + 1
+    causa = f"agotó su reparto de {int(limite)} llamadas" if usado >= int(limite) else f"necesita {minimo_restante} llamadas para cerrar y su reparto de {int(limite)} llamadas no alcanza"
     texto = (
-        f"La iteración {it.get('numero')} agotó su reparto de {int(limite)} llamadas y se amplió sola a {pres['limite']}: "
+        f"La iteración {it.get('numero')} {causa} y se amplió sola a {pres['limite']}: "
         f"a la corrida le quedan {restante} de {limite_corrida} y el freno es el tope de la corrida, no el reparto del plan. "
         "ROSA2018 sigue sin esperar a nadie."
     )

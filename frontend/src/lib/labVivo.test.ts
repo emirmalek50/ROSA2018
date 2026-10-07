@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { estadoDeMuestra } from '../datos/muestra';
-import type { EstadoCorrida, EntradaTranscripcion, Iteracion } from '../datos/tipos';
+import type { EstadoCorrida, EntradaTranscripcion, EstadoRosa, Iteracion } from '../datos/tipos';
 import { datosDelLaboratorio } from './labVivo';
 
 function caso(tipo = 'literatura', transcripcion: EntradaTranscripcion[] = [{ t: 1000, tipo: 'accion', texto: 'Consulta: MAPT' }]) {
@@ -10,7 +10,7 @@ function caso(tipo = 'literatura', transcripcion: EntradaTranscripcion[] = [{ t:
   const original = e.iteraciones.find((i) => i.corridaId === c.id)!;
   const paso = { ...original.plan[0]!, id: 'paso-real', tipo, estado: 'en_curso' as const };
   const i: Iteracion = { ...original, id: 'iteracion-real', numero: 1, terminadaEn: null, resumen: '', revisionRegistro: null, plan: [paso], planAprobado: true, pistas: [{ ...original.pistas[0]!, id: 'pista-real', pasoId: paso.id, tipo: tipo === 'hipotesis' ? 'modelo' : 'literatura', estado: 'en_curso', fuente: 'PubMed', titulo: tipo === 'hipotesis' ? 'Generar y revisar hipótesis' : 'Búsqueda MAPT', resumen: '', transcripcion }] };
-  const estado = { ...e, conexion: 'en_linea' as const, solicitudes: [], incidencias: [], iteraciones: [i], corridas: [c] };
+  const estado: EstadoRosa = { ...e, conexion: 'en_linea' as const, solicitudes: [], incidencias: [], iteraciones: [i], corridas: [c] };
   c.busqueda = { ...c.busqueda, consultas: [] };
   return { estado, inv, c, i, datos: () => datosDelLaboratorio(estado, inv, c, i) };
 }
@@ -81,6 +81,20 @@ describe('el laboratorio recibe la corrida canónica', () => {
     const f = caso(); f.c.estado = 'esperando_plan'; f.i.planAprobado = false;
     const d = f.datos(); expect(d.pide?.clase).toBe('plan'); expect(d.pasos.lista).toHaveLength(1);
     expect(d.activos).toEqual([]); expect(d.trabajando).toBe(false); expect(d.foco).toBe('plan');
+  });
+  it('el preguntador muestra la pausa por presupuesto aunque no haya solicitudes', () => {
+    const f = caso(); f.c.estado = 'pausada_por_presupuesto';
+    f.c.presupuesto.motivoPausa = 'Faltan 5 llamadas para cerrar';
+    const d = f.datos();
+    expect(d.pide).toMatchObject({ clase: 'presupuesto', quien: 'Preguntador', detalle: f.c.presupuesto.motivoPausa, alcances: [] });
+    expect(d.trabajando).toBe(false);
+    f.c.estado = 'en_marcha'; expect(f.datos().pide).toBeNull();
+    f.c.estado = 'pausada'; expect(f.datos().pide).toBeNull();
+  });
+  it('un permiso pendiente tiene prioridad sobre la pregunta de presupuesto', () => {
+    const f = caso(); f.c.estado = 'pausada_por_presupuesto';
+    f.estado.solicitudes.push({ ...estadoDeMuestra().solicitudes[0]!, id: 'permiso', corridaId: f.c.id, estado: 'pendiente', argumentos: [] });
+    expect(f.datos().pide).toMatchObject({ id: 'permiso', clase: 'permiso' });
   });
   it('la planificación inicial está activa aunque la iteración todavía no exista', () => {
     const f = caso(); f.c.estado = 'esperando_plan';

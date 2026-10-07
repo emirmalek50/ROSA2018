@@ -5,6 +5,7 @@ import type { AlcancePermiso, Corrida, EntradaTranscripcion, EstadoRosa, Investi
 import { busquedasDe } from './escenario';
 import { etiquetaCorrida, proponiendoPlan } from './etiquetas';
 import { tr } from './idioma';
+import { peticionPorPresupuesto } from './peticionPresupuestoLab';
 
 export type SalaLab = 'plan' | 'r1' | 'r2' | 'r3' | 'r4' | 'r5' | 'r6';
 export type EstadoSala = 'listo' | 'ahora' | 'espera' | 'fallo' | 'despues' | 'no_toca';
@@ -26,7 +27,7 @@ export interface ActividadLab {
 }
 export interface PeticionLab {
   id: string;
-  clase: 'permiso' | 'plan';
+  clase: 'permiso' | 'plan' | 'presupuesto';
   quien: string;
   titulo: string;
   detalle: string;
@@ -172,6 +173,7 @@ function peticionDe(estado: EstadoRosa, corrida: Corrida, it: Iteracion | null):
   if (estado.conexion !== 'en_linea' || corrida.estado === 'detenida' || corrida.estado === 'terminada') return null;
   const s = estado.solicitudes.filter((x) => x.corridaId === corrida.id && x.estado === 'pendiente').sort((a, b) => a.creadaEn - b.creadaEn)[0];
   if (s) return { id: s.id, clase: 'permiso', quien: QUIEN_PIDE[s.tipo], titulo: s.titulo, detalle: s.detalle, alcances: s.alcances, requiereArgumentos: s.argumentos.length > 0 };
+  if (corrida.estado === 'pausada_por_presupuesto') return peticionPorPresupuesto(corrida, it);
   if (it && corrida.estado === 'esperando_plan' && !it.planAprobado && it.terminadaEn === null && it.plan.length > 0) return { id: it.id, clase: 'plan', quien: 'Planificador', titulo: '', detalle: '', alcances: [], requiereArgumentos: false };
   return null;
 }

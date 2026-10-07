@@ -2,6 +2,10 @@
 // componentes/labvivo/motor.ts, 6 de octubre de 2026): salas, diálogos de los
 // agentes, la petición de permiso y el elenco. Escritas y revisadas a mano.
 export const LABORATORIO_VIVO: Record<string, string> = {
+  'Necesito más presupuesto para seguir. ¿Lo revisamos?': 'I need more budget to continue. Shall we review it?',
+  'La corrida se pausó por presupuesto. Revisa el tope para continuar.': 'The run paused because of its budget. Review the limit to continue.',
+  'El preguntador necesita tu respuesta': 'The asker needs your response',
+  'Revisar el presupuesto': 'Review the budget',
   // La subvista y su entrada desde la corrida
   'Verlo como laboratorio': 'View as a lab',
   'Los agentes de ROSA en sus salas, trabajando en esta iteración': "ROSA's agents in their rooms, working on this iteration",

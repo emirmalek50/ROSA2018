@@ -659,7 +659,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     AG.forEach((a) => {
       a.ictx?.kill(); a.ictx = null; a.busy = false; a.path = [];
       a.carry = null; a.away = false; a.typing = 0;
-      a.bub?.el.remove(); a.bub = null; a.reaccion = undefined;
+      if (!a.bub?.el.classList.contains('ask')) { a.bub?.el.remove(); a.bub = null; }
+      a.reaccion = undefined;
       delete a.el.dataset.emocion; delete a.el.dataset.gesto;
     });
     FLY.length = 0; STAMPS.forEach((s) => s.el.remove()); STAMPS.length = 0;
@@ -720,11 +721,13 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     pidiendo = p.id; asking = true; sel = null; ficha.hidden = true;
     const quien = P(p.quien);
     quien.face = -1;
-    say(quien, esc(p.clase === 'plan' ? tr('¿Me apruebas el plan?') : tr('¿Me das permiso?')), 3600, 'ask');
+    say(quien, esc(p.clase === 'plan' ? tr('¿Me apruebas el plan?') : p.clase === 'presupuesto' ? p.titulo : tr('¿Me das permiso?')), 3600, 'ask');
     zoomTo(quien, 2.3);
     setEv(esc(trp('{q} necesita tu respuesta', { q: quien.label })));
     if (p.clase === 'plan') {
       pideEl.innerHTML = `<div class="k">${esc(tr('El planificador te enseña el plan'))}</div><h3>${esc(trp('El plan tiene {m} pasos', { m: D.pasos.total }))}</h3><ol class="plan">${D.pasos.lista.map((paso) => `<li><b>${esc(paso.titulo)}</b>${paso.detalle ? `<small>${esc(paso.detalle)}</small>` : ''}</li>`).join('')}</ol><div class="row"><button type="button" class="no" data-a="ver">${esc(tr('Revisarlo en la corrida'))}</button><button type="button" class="yes" data-a="plan">${esc(tr('Aprobar el plan'))}</button></div><button type="button" class="luego" data-a="luego">${esc(tr('Ahora no'))}</button>`;
+    } else if (p.clase === 'presupuesto') {
+      pideEl.innerHTML = `<div class="k">${esc(tr('El preguntador necesita tu respuesta'))}</div><h3>${esc(p.titulo)}</h3><p>${esc(p.detalle)}</p><div class="row"><button type="button" class="yes" data-a="ver">${esc(tr('Revisar el presupuesto'))}</button></div><button type="button" class="luego" data-a="luego">${esc(tr('Ahora no'))}</button>`;
     } else {
       pideEl.innerHTML = `<div class="k">${esc(trp('{q} pide permiso', { q: quien.label }))}</div><h3>${esc(p.titulo)}</h3><p>${esc(p.detalle)}</p>${p.alcances.length ? `<label>${esc(tr('Alcance del permiso'))}<select class="lv-alcance">${p.alcances.map((a) => `<option value="${esc(a)}">${esc(ALCANCE[a])}</option>`).join('')}</select></label>` : ''}<div class="row"><button type="button" class="no" data-a="no">${esc(tr('Denegar'))}</button>${p.requiereArgumentos ? `<button type="button" class="yes" data-a="ver">${esc(tr('Completar en la corrida'))}</button>` : `<button type="button" class="yes" data-a="si">${esc(tr('Permitir'))}</button>`}</div><div class="row2"><button type="button" class="luego" data-a="ver">${esc(tr('Verlo en la corrida'))}</button><button type="button" class="luego" data-a="luego">${esc(tr('Ahora no'))}</button></div>`;
     }

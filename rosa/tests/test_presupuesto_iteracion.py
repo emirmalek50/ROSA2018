@@ -15,6 +15,11 @@ una persona denegó, y la autonomía de gasto puesta en "preguntar".
 
 from __future__ import annotations
 
+import asyncio
+from types import SimpleNamespace
+
+import pytest
+
 from rosa.bucle import corrida as CO
 from rosa.tests.test_integracion_corrida import _preparar
 
@@ -170,3 +175,46 @@ def test_el_tope_que_salta_dentro_del_cierre_si_amplia_y_el_cierre_se_retoma():
     assert c["estado"] == "en_marcha"
     assert it["presupuesto"]["limite"] == 900 and it["presupuesto"]["ampliadoSolo"] == 1
     al.cerrar()
+
+
+@pytest.mark.parametrize('restante_it', [21, 0])
+def test_el_cierre_amplia_el_reparto_antes_de_pausar_si_cabe_en_la_corrida(monkeypatch, restante_it):
+    al, ids = _preparar()
+    try:
+        _preparar_topes(al, ids, corrida_limite=1500, corrida_gasto=369, it_limite=367 + restante_it, it_usado=367)
+        sup = CO.Supervisor(al, SimpleNamespace(), SimpleNamespace())
+        cerradas = []
+
+        async def cerrar(c, it):
+            cerradas.append(CO.llamadas_restantes(al.estado, c, it))
+
+        monkeypatch.setattr(sup, '_cerrar_iteracion', cerrar)
+        monkeypatch.setattr(CO, 'coste_estimado_del_cierre', lambda *args: {'total': 26, 'desglose': {'conclusiones': 26}})
+        asyncio.run(sup._cerrar_con_presupuesto(_corrida(al, ids), _iteracion(al, ids)))
+        c, it = _corrida(al, ids), _iteracion(al, ids)
+        assert cerradas == [1131]
+        assert c['estado'] == 'en_marcha' and c['presupuesto']['limiteLlamadas'] == 1500
+        assert c['gasto']['llamadas'] == 369 and it['presupuesto']['limite'] == 1498
+        assert it['presupuesto']['ampliadoSolo'] == 1 and not al.estado['solicitudes']
+    finally:
+        al.cerrar()
+
+
+@pytest.mark.parametrize('cambios', [{'corrida_gasto': 1480}, {'denegado': True}, {'autonomia': 'preguntar'}])
+def test_el_cierre_respeta_el_tope_real_y_las_decisiones_humanas(monkeypatch, cambios):
+    al, ids = _preparar()
+    try:
+        _preparar_topes(al, ids, **{'corrida_limite': 1500, 'corrida_gasto': 369, 'it_limite': 388, 'it_usado': 367, **cambios})
+        sup = CO.Supervisor(al, SimpleNamespace(), SimpleNamespace())
+
+        async def no_cerrar(*args):
+            pytest.fail('No puede empezar un cierre que requiere permiso o no cabe')
+
+        monkeypatch.setattr(sup, '_cerrar_iteracion', no_cerrar)
+        monkeypatch.setattr(CO, 'coste_estimado_del_cierre', lambda *args: {'total': 26, 'desglose': {'conclusiones': 26}})
+        asyncio.run(sup._cerrar_con_presupuesto(_corrida(al, ids), _iteracion(al, ids)))
+        assert _corrida(al, ids)['estado'] == 'pausada_por_presupuesto'
+        assert _iteracion(al, ids)['presupuesto']['limite'] == 388
+        assert 'ampliadoSolo' not in _iteracion(al, ids)['presupuesto']
+    finally:
+        al.cerrar()
