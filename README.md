@@ -1200,3 +1200,22 @@ JSON incremental usa [ijson](https://github.com/ICRAR/ijson). GEPA pagina los ci
 separadamente con `desde_ciclos` y `limite_ciclos`; las respuestas incluyen
 `siguienteCiclos`, `hasta` y `hastaCiclos` para recorrer el historial sin incorporar
 las nuevas inserciones a mitad de la consulta.
+
+### Conversaciones del laboratorio pixel art
+
+Los 43 compañeros tienen voces propias y responden por separado al turno real
+de su interlocutor. La memoria oral conserva lo que cada personaje dijo a
+otros compañeros de la misma corrida e idioma, incluso entre iteraciones;
+esa memoria no cuenta como evidencia. Las aperturas recientes ayudan a evitar
+muletillas compartidas. Un comentario largo repetido se reformula una sola vez
+y la nueva versión también pasa por el juez; las reacciones breves pueden repetirse.
+No hay un banco de frases ni una secuencia obligatoria de pregunta y asentimiento.
+
+Los autores no reutilizan respuestas de la caché de DSPy. Se conserva el muestreo
+nativo de los modelos: el [catálogo del Gateway](https://ai-gateway.vercel.sh/v1/models)
+no anuncia `temperature` para los modelos actuales, y la
+[API de Claude](https://platform.claude.com/docs/en/api/messages/create#body-temperature)
+ya no permite ajustarla en las generaciones posteriores a Opus 4.6. Las referencias,
+el presupuesto y la reserva del cierre siguen siendo obligatorios. La voz v3 se
+activa conjuntamente en servidor e interfaz; las conversaciones anteriores permanecen
+guardadas, pero no se reproducen como si fueran nuevas.

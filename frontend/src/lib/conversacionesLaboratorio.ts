@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { cabeceras } from '../datos/almacen';
 import type { Idioma } from './idioma';
 
-export const ESTILO_LABORATORIO = 'conversacion-natural-v2';
+export const ESTILO_LABORATORIO = 'conversacion-natural-v3';
 export type EmocionLaboratorio = 'neutral' | 'curioso' | 'alegre' | 'frustrado' | 'preocupado' | 'sorprendido';
 export type GestoLaboratorio = 'ninguno' | 'asentir' | 'negar';
 export interface MaterialCharla {

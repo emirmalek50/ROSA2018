@@ -128,7 +128,7 @@ async def test_asentimiento_breve_pasa_por_el_juez_y_escucha_al_companero(almace
         assert contenido["personalidadCompanero"] == personalidad_de(contenido["destinatario"])
         if contenido["turno"] > 1:
             assert contenido["historial"][-1]["agente"] == contenido["destinatario"]
-        return {"texto": "Me intriga esa asociación con tau." if contenido["turno"] == 1 else "Vale.",
+        return {"texto": "Me intriga esa asociación." if contenido["turno"] == 1 else "Vale.",
                 "referencias": ["af:a"], "emocion": "curioso" if contenido["turno"] == 1 else "neutral", "gesto": "ninguno" if contenido["turno"] == 1 else "asentir"}
     anterior = copy.deepcopy(almacen.estado)
     s = Conversaciones(almacen, llamar)
@@ -166,7 +166,7 @@ async def test_no_recicla_informes_guardados_con_la_voz_anterior(almacen):
     almacen.estado["corridas"][0]["_conversacionesLaboratorio"] = [antiguo]
     async def llamar(modelo, reglas, contenido, tema):
         assert not contenido["historial"] or all("Fuente" not in t["texto"] for t in contenido["historial"])
-        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Quiero mirar lo de tau en ratones con más cuidado.", "referencias": ["af:a"]}
+        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Quiero revisar tau en ratones.", "referencias": ["af:a"]}
     s = Conversaciones(almacen, llamar)
     clave = ("c", "it", "es")
     assert s.leer(clave) == []
@@ -186,7 +186,7 @@ async def test_respuestas_independientes_leen_al_companero_y_se_comparten(almace
               "Yo conservaré esa distinción al comentar la evidencia."]
     async def llamar(modelo, reglas, contenido, tema):
         llamadas.append((modelo, reglas, copy.deepcopy(contenido)))
-        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": textos[contenido["turno"] - 1], "referencias": ["af:a"]}
+        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": textos[contenido["turno"] - 1] if contenido["tipoConversacion"] == "actividad" else "Solo veo asociación en ratones.", "referencias": ["af:a"]}
     s = Conversaciones(almacen, llamar)
     clave = ("c", "it", "es")
     anterior = copy.deepcopy(almacen.estado)
@@ -243,7 +243,7 @@ async def test_otros_companeros_conversan_en_paralelo_sin_apropiarse_de_la_tarea
         if len(llegaron) == 3:
             ambos.set()
         await asyncio.wait_for(ambos.wait(), 2)
-        return {"texto": "Me intriga lo que leyeron sobre tau en ratones. Quiero mirarlo mejor.", "referencias": ["af:a"]}
+        return {"texto": "Quiero revisar esa asociación.", "referencias": ["af:a"]}
     s = Conversaciones(almacen, llamar)
     clave = ("c", "it", "es")
     s.tocar(clave, "persona", True)
@@ -262,7 +262,7 @@ async def test_otros_companeros_conversan_en_paralelo_sin_apropiarse_de_la_tarea
 @pytest.mark.asyncio
 async def test_rota_salas_y_personas_sin_repetir_indefinidamente_el_mismo_hallazgo(almacen):
     async def llamar(modelo, reglas, contenido, tema):
-        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Yo quiero mirar mejor lo que leyeron sobre tau en ratones.", "referencias": ["af:a"]}
+        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Quiero revisar tau en ratones.", "referencias": ["af:a"]}
     s = Conversaciones(almacen, llamar)
     clave = ("c", "it", "es")
     async def comentar_hallazgo():
@@ -298,7 +298,7 @@ async def test_un_solo_intercambio_si_el_presupuesto_no_alcanza_para_dos(almacen
     almacen.estado["iteraciones"][0]["presupuesto"]["limite"] = 16  # Se conserva la reserva de diez.
     async def llamar(modelo, reglas, contenido, tema):
         llamadas.append(contenido["tipoConversacion"])
-        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Yo veo una asociación en ratones y quiero mirarla mejor.", "referencias": ["af:a"]}
+        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Solo veo asociación en ratones.", "referencias": ["af:a"]}
     s = Conversaciones(almacen, llamar)
     clave = ("c", "it", "es")
     s.tocar(clave, "persona", True)
@@ -313,7 +313,7 @@ async def test_nueva_tanda_a_los_cuatro_segundos_sin_duplicar_una_en_curso(almac
     ahora = 0.0
     monkeypatch.setattr('rosa.laboratorio_conversaciones.time.monotonic', lambda: ahora)
     async def llamar(modelo, reglas, contenido, tema):
-        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Me intriga lo que leyeron sobre tau en ratones. Quiero mirarlo mejor.", "referencias": ["af:a"]}
+        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Quiero revisar esa asociación.", "referencias": ["af:a"]}
     s = Conversaciones(almacen, llamar)
     clave = ("c", "it", "es")
     s.tocar(clave, "persona", True)
@@ -341,7 +341,7 @@ async def test_publica_primeros_comentarios_sin_esperar_las_respuestas(almacen):
         if contenido['turno'] == 2:
             esperando.set()
             await respuestas.wait()
-        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Me intriga lo que leyeron sobre tau en ratones. Quiero mirarlo mejor.", "referencias": ["af:a"]}
+        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Quiero revisar esa asociación.", "referencias": ["af:a"]}
     s = Conversaciones(almacen, llamar)
     clave = ("c", "it", "es")
     s.tocar(clave, "persona", True)
@@ -375,7 +375,7 @@ async def test_acorta_un_borrador_largo_con_ia_y_lo_audita_antes_de_publicar(alm
             return {'admisible': True}
         if contenido.get('correccion'):
             acortados.append((modelo, contenido['borrador']))
-            return {'texto': 'Me intriga lo de tau en ratones, aunque esa asociación no implica causalidad.', 'referencias': ['af:a']}
+            return {'texto': 'Solo veo asociación en ratones.', 'referencias': ['af:a']}
         return {'texto': 'Me intriga lo de tau en ratones. ' + 'Quiero mirar sus límites con más cuidado. ' * 7, 'referencias': ['af:a']}
     s = Conversaciones(almacen, llamar)
     clave = ('c', 'it', 'es')
@@ -412,7 +412,7 @@ async def test_corrige_el_matiz_rechazado_y_vuelve_a_auditar_sin_publicar_el_bor
             return {'admisible': bool(contenido.get('correccion')), 'motivo': 'Es una asociación en ratones, no un efecto probado en humanos.'}
         if contenido.get('correccion'):
             assert 'ratones' in contenido['revisionAnterior']
-            return {'texto': 'Me intriga la asociación con tau en ratones, pero no la daría por causal.', 'referencias': ['af:a']}
+            return {'texto': 'Solo veo asociación en ratones.', 'referencias': ['af:a']}
         return {'texto': 'Yo veo una reducción de tau en humanos que me llama la atención.', 'referencias': ['af:a']}
     s = Conversaciones(almacen, llamar)
     clave = ('c', 'it', 'es')
