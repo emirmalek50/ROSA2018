@@ -458,7 +458,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   marca('sirven', 514, 184, '#7FD1A5'); marca('van', 514, 214, '#F4F1EA'); marca('cola', 380, 372, '#C9C4DA');
   marca('S', 96, 580, '#7FD1A5'); marca('P', 208, 580, '#F2C14E'); marca('N', 322, 580, '#E2706A'); marca('X', 436, 580, '#9C97B3'); marca('lleva', 380, 444, '#FFB27A');
   CARTEL.forEach(([x, y], i) => { marca('f' + i, x, y, '#F4F1EA'); TAG['f' + i]!.classList.add('cartel'); });
-  marca('pizarra', 186, 153, '#F4F1EA'); marca('hucha', 82, 152, '#F2C14E');
+  marca('hucha', 82, 152, '#F2C14E');
   const poner = (id: string, html: string | null) => { const t = TAG[id]!; t.innerHTML = html ?? ''; t.style.visibility = html ? 'visible' : 'hidden'; };
   function pintarMarcas() {
     const { resultados, sirven } = D.lectura, j = D.juez, v = j.veredictos;
@@ -470,9 +470,6 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       poner('f' + i, f ? `<span>${esc(f.nombre)}</span> ${cifra}${fallo}` : null);
       TAG['f' + i]!.title = f?.fallo ? tr('Algunas consultas no respondieron') : f?.nombre ?? '';
     });
-    const ec = D.pasos.enCurso;
-    poner('pizarra', ec ? `<span style="color:#E8925A">●</span> ${esc(trp('Paso {n} de {m}: {t}', { n: ec.n, m: D.pasos.total, t: corta(ec.titulo, 34) }))}`
-      : D.pasos.total > 0 ? esc(D.pasos.estados.every((e) => e === 'hecho') ? trp('Los {m} pasos, hechos', { m: D.pasos.total }) : trp('Plan de {m} pasos', { m: D.pasos.total })) : null);
     poner('sirven', sirven !== null && resultados !== null ? trp('<b>{n}</b> de {m} sirven', { n: ent(sirven), m: ent(resultados) }) : null);
     const alJuez = j.total;
     poner('van', alJuez !== null ? trp('<b>{n}</b> van al juez', { n: ent(alJuez) }) : null);
@@ -896,23 +893,20 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
           await entregar();
           const planificador = actores.find(a => a.name === 'Planificador') ?? a;
           await desplazarse(ctx, planificador, 128, 158);
-          const lista = [...D.pasos.lista], pasos = lista.map((p, i) => `${i + 1}. ${p.titulo}`).join('\n');
+          const lista = [...D.pasos.lista];
+          presentada(); setEv(esc(titular));
           if (lista.length) {
             renglonesEscritos = 0;
             for (let i = 0; i < Math.min(lista.length, 7); i++) {
-              const p = lista[i]!, cabeza = trp('Paso {n}: {titulo}', { n: i + 1, titulo: p.titulo });
-              const doc = mostrar([cabeza, p.detalle].filter(Boolean).join('\n'), p.detalle, cabeza);
-              doc.dataset.paso = p.id; doc.dataset.renglon = String(i + 1);
-              type(planificador, 1.1); await esperar(1.1); renglonesEscritos = i + 1; await esperar(0.8); doc.remove();
+              type(planificador, 1.1); await esperar(1.1); renglonesEscritos = i + 1; await esperar(0.8);
             }
             renglonesEscritos = null;
-            mostrar(`${tr('Plan')}\n${pasos}`, pasos, lista.length > 7 ? trp('Y {n} pasos más', { n: lista.length - 7 }) : titular);
             // Los compañeros leen el plan escrito, sin atribuirles nuevas llamadas.
             for (const lector of actores.slice(2)) {
               lector.face = planificador.x >= lector.x ? 1 : -1; lector.reaccion = { emocion: 'neutral', gesto: 'ninguno', desde: simT, hasta: simT + 1.2 };
               await esperar(1.2);
             }
-          } else { mostrar(); type(planificador, 2); await esperar(2); }
+          } else { type(planificador, 2); await esperar(2); }
         } else if (e.tipo === 'fuente' && ['Generador de consultas', 'Explorador'].includes(a.name)) {
           const indice = ordenFuentes(D.fuentes).findIndex(f => e.texto.includes(f.nombre));
           if (indice >= 0) {

@@ -67,9 +67,10 @@ describe('el motor representa la película del registro, sin inventar el trabajo
       { id: 'p3', titulo: 'Comparar hipótesis rivales', detalle: 'Dos revisores', estado: 'pendiente' as const }];
     const e: EventoVisualLab = { id: 'plan:iteracion-real', sala: 'plan', agentes: ['Planificador'], tipo: 'plan', texto: 'Plan real aprobado' };
     const actualizado = conEvento({ ...d, pasos: { ...d.pasos, lista } }, e);
-    motor!.actualizar(actualizado); const vistos = new Set<string>();
-    await avanzar(700, () => documentos().forEach(el => vistos.add(el.title)));
-    expect([...vistos].some(t => lista.every(p => t.includes(p.titulo)))).toBe(true);
+    motor!.actualizar(actualizado);
+    await avanzar(700, () => expect(nodo.querySelector('.lv-documento[data-sala="plan"]')).toBeNull());
+    nodo.querySelector<HTMLButtonElement>('[aria-label="Abrir la pizarra del plan"]')!.click();
+    expect([...nodo.querySelectorAll('.lv-o-pasos li b')].map(p => p.textContent)).toEqual(lista.map(p => p.titulo));
     expect(nodo.querySelector('[data-agente="Planificador"]')).toBe(planificador);
     expect(nodo.querySelectorAll('.lv-bub')).toHaveLength(0);
   });

@@ -55,15 +55,20 @@ describe('las entregas conservan los datos de la corrida', () => {
     expect(vistos.size).toBe(1); expect([...portadores]).toEqual(['Generador de consultas', 'Puntuador preguntas']);
   });
 
-  it('escribe cada paso real por orden y mantiene el plan completo accesible', async () => {
+  it('escribe en la pizarra sin recuadros flotantes y mantiene el plan completo accesible', async () => {
     const d = fotografia(); montar(d);
     const lista = ['PubMed', 'Citas originales', 'Hipótesis rivales'].map((titulo, i) => ({ id: `paso-${i}`, titulo, detalle: `Detalle ${i}`, estado: 'pendiente' as const }));
     const e: EventoVisualLab = { id: 'plan:it-escena', sala: 'plan', tipo: 'plan', agentes: ['Planificador'], texto: 'Plan real' };
-    motor!.actualizar(agregar({ ...d, pasos: { ...d.pasos, lista } }, e)); const pasos: string[] = [], textos = new Set<string>();
-    await avanzar(60, () => nodo.querySelectorAll<HTMLElement>('.lv-documento').forEach(p => {
-      if (p.dataset.paso && !pasos.includes(p.dataset.paso)) pasos.push(p.dataset.paso); textos.add(p.title);
-    }));
-    expect(pasos).toEqual(lista.map(p => p.id)); expect([...textos].some(t => lista.every(p => t.includes(p.titulo)))).toBe(true);
+    motor!.actualizar(agregar({ ...d, pasos: { ...d.pasos, lista } }, e)); let transportado = false;
+    await avanzar(60, () => {
+      transportado ||= papeles().some(p => p.dataset.evento === e.id && !!p.dataset.portador);
+      expect(nodo.querySelector('.lv-documento[data-sala="plan"]')).toBeNull();
+      expect([...nodo.querySelectorAll('.lv-tag')].some(p => p.textContent?.includes('Paso '))).toBe(false);
+    });
+    expect(transportado).toBe(true);
+    nodo.querySelector<HTMLButtonElement>('[aria-label="Abrir la pizarra del plan"]')!.click();
+    expect([...nodo.querySelectorAll('.lv-o-pasos li b')].map(p => p.textContent)).toEqual(lista.map(p => p.titulo));
+    expect([...nodo.querySelectorAll('.lv-o-pasos li small')].map(p => p.textContent)).toEqual(lista.map(p => p.detalle));
   });
 
   it('la asignación conserva los IDs de afirmaciones y el hecho exacto hasta el modelo', async () => {

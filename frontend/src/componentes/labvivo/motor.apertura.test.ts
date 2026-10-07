@@ -68,9 +68,11 @@ it('al entrar a mitad de corrida muestra resultados guardados y el progreso actu
     });
     if (tiempo % 500 === 0) lab!.actualizar(d);
   });
-  expect([...vistas.keys()]).toEqual(expect.arrayContaining(d.pelicula!.eventos.map(e => e.id)));
-  // La pizarra tiene varias hojas, una por paso. El mismo episodio conserva
-  // un único expediente, también al recibir la misma foto por SSE.
+  expect([...vistas.keys()]).toEqual(expect.arrayContaining(d.pelicula!.eventos.filter(e => e.tipo !== 'plan').map(e => e.id)));
+  expect(vistas.has('plan:iteracion-apertura')).toBe(false);
+  expect(expedientes.has('plan:iteracion-apertura')).toBe(true);
+  // La pizarra conserva la escritura sin hojas flotantes. El mismo episodio
+  // mantiene un único expediente al recibir la misma foto por SSE.
   expect([...expedientes.values()].every(elementos => elementos.size === 1)).toBe(true);
   expect(raiz.querySelector('[data-agente="Puntuador preguntas"]')!.classList.contains('activo')).toBe(false);
   expect(raiz.querySelectorAll('.lv-bub')).toHaveLength(0);
