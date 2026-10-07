@@ -72,7 +72,7 @@ describe('las conversaciones y los acontecimientos reales se dejan avanzar', () 
       turno('ideas', 'Analogía', 'Contradicción'),
       turno('patentes', 'Especialista en patentes', 'Especialista en compañías'),
     ]);
-    await avanzar(1);
+    await avanzar(50);
     expect(nodo.querySelectorAll('[data-escena="conversacion_espera"]')).toHaveLength(6);
     motor!.actualizar(conEventos(d, [e]));
     await avanzar(20);

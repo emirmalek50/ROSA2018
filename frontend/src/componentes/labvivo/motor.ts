@@ -12,8 +12,10 @@ import type { EmocionLaboratorio, GestoLaboratorio, TurnoLaboratorio } from '../
 import { desplazamientoGesto, pintarExpresion } from './expresiones';
 import './escenas.css';
 import './pelicula.css';
+import './cadena.css';
 import { escenasDeApertura } from './inicioPelicula';
 import { ColaPelicula } from './colaPelicula';
+import { CadenciaDialogos, pausaDeRespuesta } from './cadenciaDialogos';
 import type { EventoVisualLab } from '../../lib/peliculaLab';
 import { esPeticionDePresupuesto, pintarFoco, pintarPeticionIncidencia, pintarPeticionPresupuesto, topeConLlamadasMas, vozDePresupuesto } from './peticionPresupuesto';
 import './peticionPresupuesto.css';
@@ -631,10 +633,13 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   let identidad = D.identidad;
   // La coreografía continúa entre mensajes del servidor. Estas escenas no
   // añaden actividad al registro ni convierten a un compañero en trabajador.
-  interface Escena { ctx: Ctx; agentes: Agente[]; trabajo: boolean; evento?: EventoVisualLab; objetos?: HTMLElement[]; temaId?: string; listos?: boolean; hasta?: number; esperarHasta?: number; saliendo?: boolean; presentada?: boolean; protegidaHasta?: number }
+  interface Escena { ctx: Ctx; agentes: Agente[]; trabajo: boolean; evento?: EventoVisualLab; afirmacionId?: string; objetos?: HTMLElement[]; temaId?: string; listos?: boolean; hasta?: number; esperarHasta?: number; saliendo?: boolean; presentada?: boolean; protegidaHasta?: number }
   const escenas = new Map<Agente, Escena>();
   const pelicula = new ColaPelicula();
+  const cadencia = new CadenciaDialogos();
   const dialogos: TurnoLaboratorio[] = [], dialogosVistos = new Set<string>();
+  // Comentar durante una entrega no toma el control de la caminata ni del objeto.
+  const dialogosEnPelicula = new Map<string, { agentes: Agente[]; hasta: number }>();
   const ultimaCharla = new Map<string, TurnoLaboratorio>();
   // Después de hablar, los mismos actores dejan pasar un acontecimiento real.
   // La siguiente intervención vuelve a tener prioridad tras mostrarlo brevemente.
@@ -756,7 +761,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   function mantenerPelicula() {
     const permitido = vivo && !REDUCIR && !asking && !D.pasada && D.conexion === 'en_linea' && !siguiendo;
     if (!permitido) return;
-    const ocupadas = new Set([...escenas.values()].filter(e => e.evento).map(e => e.agentes[0]?.room));
+    const ocupadas = new Set([...escenas.values()].filter(e => e.evento || e.afirmacionId).map(e => e.agentes[0]?.room));
     if (ocupadas.size >= 3) return;
     const e = pelicula.siguiente(e => {
       if (!D.trabajando && !(D.estado === 'terminada' && e.tipo === 'cierre')) return false;
@@ -764,7 +769,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       const actores = actoresDe(e);
       return actores.length > 0 && actores.every(a => {
         const escena = escenas.get(a);
-        return escena ? !escena.temaId && !escena.evento : libreParaEscena(a);
+        return escena ? !escena.temaId && !escena.evento && !escena.afirmacionId : libreParaEscena(a);
       });
     });
     if (!e) return;
@@ -911,23 +916,63 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     setEv(esc(t.texto));
     if (fichaDe === a && !ficha.hidden) showCard(a);
   }
+  const puedeEmitirDialogo = () => cadencia.puedeHablar(simT) && AG.filter(a => a.bub?.el.dataset.turno && simT <= a.bub.until).length < 3;
+  function emitirDialogo(t: TurnoLaboratorio, a: Agente, b: Agente): number | null {
+    if (!puedeEmitirDialogo() || !cadencia.registrar(t.id, simT)) return null;
+    const dur = t.texto.length < 60 ? Math.max(3.5, 2 + t.texto.length / 20) : Math.max(7, Math.min(14, t.texto.length / 26));
+    // Quien camina conserva su dirección; quien escucha puede mirarlo sin desplazarse.
+    if (!a.path.length) a.face = b.x >= a.x ? 1 : -1;
+    if (!b.path.length) b.face = a.x >= b.x ? 1 : -1;
+    mostrarDialogo(t, a, b, dur);
+    return simT + dur + pausaDeRespuesta(t.id);
+  }
   function intervenir(charla: Escena, t: TurnoLaboratorio) {
     const a = charla.agentes.find((p) => p.name === t.agente), b = charla.agentes.find((p) => p.name === t.destinatario);
     if (!a || !b) return;
-    const dur = t.texto.length < 60 ? Math.max(3.5, 2 + t.texto.length / 20) : Math.max(7, Math.min(14, t.texto.length / 26));
-    mostrarDialogo(t, a, b, dur);
-    charla.hasta = simT + dur + 0.2;
-    const pendiente = pelicula.hayPendiente(e => actoresDe(e).some(a => charla.agentes.includes(a)));
+    const hasta = emitirDialogo(t, a, b);
+    if (hasta === null) return;
+    charla.hasta = hasta;
+    const pendiente = !REDUCIR && pelicula.hayPendiente(e => actoresDe(e).some(a => charla.agentes.includes(a)));
     charla.esperarHasta = charla.hasta + (pendiente ? 0 : 30);
-    a.carry = charla.trabajo && charla.listos ? 'card' : null; b.carry = null;
-    if (charla.trabajo && charla.listos) FLY.push({ kind: 'card', from: [a.x + 42, a.y + 44], to: [b.x + 6, b.y + 44], t0: simT, dur: 0.7, arc: 18 });
+    a.carry = !REDUCIR && charla.trabajo && charla.listos ? 'card' : null; b.carry = null;
+    if (!REDUCIR && charla.trabajo && charla.listos) FLY.push({ kind: 'card', from: [a.x + 42, a.y + 44], to: [b.x + 6, b.y + 44], t0: simT, dur: 0.7, arc: 18 });
+  }
+  const hablandoEnPelicula = (a: Agente) => [...dialogosEnPelicula.values()].some(p => p.hasta > simT && p.agentes.includes(a));
+  function comentarPelicula() {
+    if (REDUCIR) return;
+    for (const [tema, pareja] of dialogosEnPelicula) {
+      if (pareja.hasta <= simT && !dialogos.some(t => t.temaId === tema) && (simT >= pareja.hasta + 30 || !pareja.agentes.some(a => escenas.get(a)?.evento || escenas.get(a)?.afirmacionId))) dialogosEnPelicula.delete(tema);
+    }
+    if (!puedeEmitirDialogo()) return;
+    for (let i = 0; i < dialogos.length; i++) {
+      const t = dialogos[i]!;
+      if (t.tipoConversacion !== 'actividad') continue;
+      if (dialogos.slice(0, i).some(anterior => anterior.temaId === t.temaId)) continue;
+      const a = AG.find(p => p.name === t.agente), b = AG.find(p => p.name === t.destinatario);
+      if (!a || !b || a === b || a.room !== b.room) continue;
+      const pareja = dialogosEnPelicula.get(t.temaId);
+      if (pareja && (pareja.hasta > simT || !pareja.agentes.includes(a) || !pareja.agentes.includes(b))) continue;
+      const escenaA = escenas.get(a), escenaB = escenas.get(b);
+      const entrega = escenaA?.evento || escenaA?.afirmacionId ? escenaA : pareja && (escenaB?.evento || escenaB?.afirmacionId) ? escenaB : null;
+      if (!entrega || [escenaA, escenaB].some(e => e && e !== entrega)) continue;
+      if ([a, b].some(p => {
+        if ([...dialogosEnPelicula.entries()].some(([tema, par]) => tema !== t.temaId && par.hasta > simT && par.agentes.includes(p))) return true;
+        return escenas.get(p) !== entrega && !libreParaEscena(p);
+      })) continue;
+      const hasta = emitirDialogo(t, a, b);
+      if (hasta === null) return;
+      dialogos.splice(i, 1);
+      dialogosEnPelicula.set(t.temaId, { agentes: [a, b], hasta });
+      return;
+    }
   }
   function mantenerDialogos() {
+    comentarPelicula();
     const charlas = new Set([...escenas.values()].filter((e) => e.temaId));
     // Cada pareja tiene su propio reloj y su propia cola de respuestas.
     for (const charla of charlas) {
       if (charla.saliendo || !charla.listos || simT < (charla.hasta ?? 0)) continue;
-      if (pelicula.hayPendiente(e => actoresDe(e).some(a => charla.agentes.includes(a)))) {
+      if (!REDUCIR && pelicula.hayPendiente(e => actoresDe(e).some(a => charla.agentes.includes(a)))) {
         // No se borra la respuesta pendiente: el mismo tema continúa al acabar
         // la presentación. Cancelar conserva la posición actual de la pareja.
         charla.agentes.forEach(a => { if (pelicula.hayPendiente(e => actoresDe(e).includes(a))) prioridadPelicula.add(a); });
@@ -938,6 +983,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       const indice = dialogos.findIndex((t) => t.temaId === charla.temaId);
       if (indice < 0) {
         if (simT < (charla.esperarHasta ?? 0)) continue;
+        if (REDUCIR) { cancelarEscena(charla.agentes[0]!); charlas.delete(charla); continue; }
         charla.saliendo = true;
         spawn((async () => {
           try { await Promise.all(charla.agentes.map((a) => home(charla.ctx, a))); }
@@ -945,6 +991,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         })());
         continue;
       }
+      if (!puedeEmitirDialogo()) continue;
       const t = dialogos.splice(indice, 1)[0]!;
       intervenir(charla, t);
     }
@@ -953,15 +1000,21 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     for (let i = 0; i < dialogos.length && charlas.size < 3; i++) {
       const t = dialogos[i]!;
       if ([...charlas].some((e) => e.temaId === t.temaId)) continue;
+      if (dialogos.slice(0, i).some(anterior => anterior.temaId === t.temaId)) continue;
       const a = AG.find((p) => p.name === t.agente), b = AG.find((p) => p.name === t.destinatario);
       if (!a || !b || a === b || a.name === 'Tú' || b.name === 'Tú' || a.room !== b.room) { dialogos.splice(i--, 1); continue; }
       if ([...charlas].some((e) => e.agentes.some((p) => p.room === a.room))) continue;
       const participantes = [a, b];
+      if (participantes.some(hablandoEnPelicula)) continue;
       if (participantes.some(p => {
         const escena = escenas.get(p);
-        return !!escena?.evento && simT < (escena.protegidaHasta ?? 0);
+        return !!(escena?.evento || escena?.afirmacionId) && simT < (escena.protegidaHasta ?? 0);
       })) continue;
       if (participantes.some(p => prioridadPelicula.has(p)) && pelicula.hayPendiente(e => actoresDe(e).some(p => participantes.includes(p)))) continue;
+      // Una voz de actividad puede acompañar la tarea que empieza este frame,
+      // en lugar de sacar al autor a otra caminata antes de la entrega.
+      if (!REDUCIR && t.tipoConversacion === 'actividad' && pelicula.hayPendiente(e => actoresDe(e).includes(a))) continue;
+      if (!puedeEmitirDialogo()) break;
       participantes.forEach((p) => {
         // Si ya se vio el documento o la entrega, no vuelve a representarse
         // por cada respuesta. Una interrupción anterior conserva la pendiente.
@@ -969,12 +1022,13 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         p.ictx?.kill(); p.path = []; p.bub?.el.remove(); p.bub = null;
       });
       const ctx = nuevoCtx();
-      const nueva: Escena = { ctx, agentes: [a, b], trabajo: t.tipoConversacion !== 'companeros', temaId: t.temaId, listos: false };
+      const nueva: Escena = { ctx, agentes: [a, b], trabajo: t.tipoConversacion !== 'companeros', temaId: t.temaId, listos: REDUCIR };
       charlas.add(nueva);
       [a, b].forEach((p) => { escenas.set(p, nueva); p.ictx = ctx; p.busy = true; p.el.dataset.escena = nueva.trabajo ? 'conversacion' : 'conversacion_espera'; });
       // El primer comentario llega antes de la caminata; las respuestas mantienen su orden.
       dialogos.splice(i--, 1);
       intervenir(nueva, t);
+      if (REDUCIR) continue;
       const [rx, , rw] = GEOM[a.room], x = Math.max(rx + 12, Math.min(rx + rw - 122, (a.hx + b.hx) / 2 - 30)), y = pasillo(a);
       spawn((async () => {
         await Promise.all([desplazarse(ctx, a, x, y), desplazarse(ctx, b, x + 60, y)]);
@@ -988,10 +1042,12 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       [...escenas.entries()].forEach(([a, e]) => { if (!(e.evento?.tipo === 'cierre' && D.estado === 'terminada' && D.conexion === 'en_linea' && !D.pasada && !asking)) cancelarEscena(a, false); });
       mantenerPelicula(); return;
     }
+    mantenerJuicio();
     mantenerDialogos();
     mantenerPelicula();
-    mantenerJuicio();
     for (const a of AG) {
+      // La lectura registrada tiene prioridad sobre un paseo genérico del juez.
+      if (a.name === 'Juez' && siguienteJuicio()) continue;
       if (D.activos.includes(a.name) && libreParaEscena(a) && simT >= (proximaEscena.get(a) ?? 0)) empezarEscena(a, true);
     }
     // Dos encuentros de espera como máximo: el foco sigue siendo la tarea real.
@@ -1006,6 +1062,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
   function pararActividad() {
     [...escenas.keys()].forEach(a => cancelarEscena(a, false));
+    cadencia.limpiar();
+    dialogosEnPelicula.clear();
     prioridadPelicula.clear();
     proximaEscena.clear(); proximoPaseo = simT + 1.5;
     AG.forEach((a) => {
@@ -1518,7 +1576,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   // deja en su caja. Cada decisión se representa una vez, sin resolver nada nuevo.
   const MARCA_CAJA: Record<AfirmacionLab['caja'], string> = { sostenida: 'S', parcial: 'P', no_sostenida: 'N', otras: 'X' };
   const juzgadas = new Set<string>();
-  let proximoJuicio = 2;
+  let proximoJuicio = 0;
   const claveJuicio = (a: AfirmacionLab) => JSON.stringify([a.id, a.veredicto, a.motivo]);
   const textoSello = (af: AfirmacionLab) => af.caja === 'sostenida' ? tr('SOSTENIDA') : af.caja === 'parcial' ? tr('PARCIAL')
     : af.caja === 'no_sostenida' ? tr('NO SOSTENIDA') : veredictoDe(af.veredicto).etiqueta.toLocaleUpperCase();
@@ -1529,29 +1587,65 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
   function mantenerJuicio() {
     const J = P('Juez');
-    if (siguiendo || simT < proximoJuicio || !D.activos.includes('Juez') || !libreParaEscena(J) || !atHome(J)) return;
+    if (siguiendo || simT < proximoJuicio || !D.activos.includes('Juez') || !libreParaEscena(J)) return;
     const af = siguienteJuicio();
     if (af) juzgar(J, af);
   }
   function juzgar(J: Agente, af: AfirmacionLab) {
     const clave = claveJuicio(af); juzgadas.add(clave);
-    const ctx = nuevoCtx(), escena: Escena = { ctx, agentes: [J], trabajo: true, objetos: [] };
+    const ctx = nuevoCtx(), escena: Escena = { ctx, agentes: [J], trabajo: true, objetos: [], afirmacionId: af.id, presentada: false, protegidaHasta: simT + 12 };
     escenas.set(J, escena); J.ictx = ctx; J.busy = true; J.el.dataset.escena = 'trabajo';
     const color = COLOR_CAJA[af.caja];
-    const vuela = (from: number[], to: number[], dur: number, arc: number) => { FLY.push({ kind: 'paper', from, to, t0: simT, dur, arc, ctx }); return ctx.wait(dur); };
+    // El mismo papel conserva su afirmación y cita durante todo el recorrido.
+    // Representa una decisión guardada; no vuelve a extraerla ni a verificarla.
+    const recorrido = div('lv-hoja-trazada', utileria);
+    recorrido.dataset.afirmacion = af.id;
+    recorrido.title = [af.texto, af.articulo, af.cita].filter(Boolean).join('\n');
+    recorrido.setAttribute('role', 'img'); recorrido.setAttribute('aria-label', recorrido.title);
+    escena.objetos!.push(recorrido);
+    const posicion = { x: P('Extractor de afirmaciones').hx + 24, y: P('Extractor de afirmaciones').hy + 44 };
+    const colocar = (x: number, y: number) => {
+      posicion.x = x; posicion.y = y;
+      recorrido.style.transform = `translate(${x - 6}px,${y - 8}px)`;
+    };
+    const vuela = (to: number[], dur: number, arc: number) => {
+      const { x, y } = posicion, inicio = simT;
+      return ctx.until(() => {
+        const t = Math.min(1, (simT - inicio) / dur), suavizado = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        colocar(x + (to[0]! - x) * suavizado, y + (to[1]! - y) * suavizado - Math.sin(Math.PI * t) * arc);
+        return t >= 1;
+      });
+    };
+    colocar(posicion.x, posicion.y); recorrido.dataset.etapa = 'extractor';
     spawn((async () => {
       try {
+        if (!atHome(J)) await home(ctx, J);
         hoja = false;
-        await vuela(convAt(CL), [312, 378], 0.6, 30); hoja = true;
+        await vuela(convAt(0), 0.7, 16);
+        recorrido.dataset.etapa = 'cinta';
+        const inicio = simT;
+        await ctx.until(() => {
+          const distancia = Math.min(CL, (simT - inicio) * 100), p = convAt(distancia);
+          colocar(p[0], p[1]); return distancia >= CL;
+        });
+        await vuela([312, 378], 0.6, 30); hoja = true;
+        recorrido.dataset.etapa = 'juez';
         setEv(esc(tr('Decisión registrada en la cadena de evidencia')));
         const doc = documento([tr('Decisión registrada'), af.texto, af.articulo, af.cita, af.motivo].filter(Boolean).join('\n'), 'r2', 'lv-documento-juicio');
         doc.dataset.afirmacion = af.id; escena.objetos!.push(doc);
         type(J, 2); await ctx.wait(3);
+        // Una actualización puede retirar o cambiar la decisión durante el
+        // viaje del papel. Solo se sella si esa misma versión sigue registrada.
+        if (!D.afirmaciones?.some(a => claveJuicio(a) === clave && a.veredicto !== 'sin_verificar')) { ctx.kill(); throw PARAR; }
         const st = div('lv-sello', capaBocadillos, esc(textoSello(af)));
         st.style.left = '312px'; st.style.top = '352px'; st.style.color = color;
         STAMPS.push({ el: st, until: simT + 1.8 }); escena.objetos!.push(st); SON.sello();
+        escena.presentada = true; escena.protegidaHasta = simT + 2;
         await ctx.wait(1.2); hoja = false;
-        await vuela([312, 378], BOCA[af.caja], 0.7, 60);
+        if (!D.afirmaciones?.some(a => claveJuicio(a) === clave && a.veredicto !== 'sin_verificar')) { ctx.kill(); throw PARAR; }
+        recorrido.dataset.etapa = 'caja'; recorrido.dataset.veredicto = af.veredicto;
+        recorrido.style.setProperty('--sello', color);
+        await vuela(BOCA[af.caja], 0.7, 60);
         const t = TAG[MARCA_CAJA[af.caja]];
         if (t) { t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop'); }
         setEv(`<span style="color:${color}">${esc(trp('Veredicto: {v}', { v: veredictoDe(af.veredicto).etiqueta }))}</span>`);
@@ -1856,7 +1950,14 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     rt += dt;
     if (document.hidden) { raf = requestAnimationFrame(frame); return; }
     camara(dt);
-    if (playing && !document.hidden && !REDUCIR) { dt *= speed; while (dt > 0) { const d = Math.min(0.05, dt); step(d); dt -= d; } }
+    if (playing && !document.hidden) {
+      dt *= speed;
+      if (REDUCIR) {
+        // Avanza solo la lectura: no se ejecutan caminatas, gestos ni película.
+        simT += dt;
+        if (vivo && !asking && D.trabajando && D.conexion === 'en_linea' && !D.pasada && !siguiendo) mantenerDialogos();
+      } else while (dt > 0) { const d = Math.min(0.05, dt); step(d); dt -= d; }
+    }
     draw(); syncDom();
     raf = requestAnimationFrame(frame);
   }
@@ -1872,6 +1973,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     conversar(turnos: TurnoLaboratorio[], habilitada = true) {
       if (!habilitada) {
         dialogos.length = 0;
+        cadencia.limpiar();
+        dialogosEnPelicula.clear();
         [...escenas.entries()].filter(([, e]) => e.temaId).forEach(([a]) => cancelarEscena(a));
         AG.forEach((a) => {
           if (a.bub?.el.dataset.turno) { a.bub.el.remove(); a.bub = null; }
@@ -1882,10 +1985,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         if (!D.identidad.endsWith('/' + t.iteracionId) || dialogosVistos.has(t.id)) continue;
         dialogosVistos.add(t.id); ultimaCharla.set(t.agente, t);
         if (!habilitada || !D.trabajando || D.conexion !== 'en_linea' || Date.now() - t.fecha > 90000) continue;
-        if (REDUCIR) {
-          const a = AG.find((x) => x.name === t.agente), b = AG.find((x) => x.name === t.destinatario);
-          if (a && b) mostrarDialogo(t, a, b, 14);
-        } else dialogos.push(t);
+        dialogos.push(t);
       }
       if (dialogos.length > 20) dialogos.splice(0, dialogos.length - 20);
     },
