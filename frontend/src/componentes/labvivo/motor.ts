@@ -579,27 +579,42 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (fichaDe === a && !ficha.hidden) showCard(a);
   }
   function mantenerDialogos() {
-    let charla = [...escenas.values()].find((e) => e.temaId);
-    const siguiente = dialogos[0];
-    if (charla?.saliendo) return;
-    if (charla && simT < (charla.hasta ?? 0)) return;
-    if (charla && (!siguiente || siguiente.temaId !== charla.temaId)) {
-      if (!siguiente && simT < (charla.esperarHasta ?? 0)) return;
-      const anterior = charla; anterior.saliendo = true;
-      spawn((async () => {
-        try { await Promise.all(anterior.agentes.map((a) => home(anterior.ctx, a))); }
-        finally { if (escenas.get(anterior.agentes[0]!) === anterior) cancelarEscena(anterior.agentes[0]!); }
-      })());
-      return;
+    const charlas = new Set([...escenas.values()].filter((e) => e.temaId));
+    // Cada pareja tiene su propio reloj y su propia cola de respuestas.
+    for (const charla of charlas) {
+      if (charla.saliendo || !charla.listos || simT < (charla.hasta ?? 0)) continue;
+      const indice = dialogos.findIndex((t) => t.temaId === charla.temaId);
+      if (indice < 0) {
+        if (simT < (charla.esperarHasta ?? 0)) continue;
+        charla.saliendo = true;
+        spawn((async () => {
+          try { await Promise.all(charla.agentes.map((a) => home(charla.ctx, a))); }
+          finally { if (escenas.get(charla.agentes[0]!) === charla) cancelarEscena(charla.agentes[0]!); }
+        })());
+        continue;
+      }
+      const t = dialogos.splice(indice, 1)[0]!;
+      const a = charla.agentes.find((p) => p.name === t.agente), b = charla.agentes.find((p) => p.name === t.destinatario);
+      if (!a || !b) continue;
+      const dur = Math.max(7, Math.min(14, t.texto.length / 26));
+      mostrarDialogo(t, a, b, dur);
+      charla.hasta = simT + dur + 0.5; charla.esperarHasta = charla.hasta + 30;
+      a.carry = charla.trabajo ? 'card' : null; b.carry = null;
+      if (charla.trabajo) FLY.push({ kind: 'card', from: [a.x + 42, a.y + 44], to: [b.x + 6, b.y + 44], t0: simT, dur: 0.7, arc: 18 });
     }
-    if (!siguiente) return;
-    const a = AG.find((x) => x.name === siguiente.agente), b = AG.find((x) => x.name === siguiente.destinatario);
-    if (!a || !b || a.room !== b.room) { dialogos.shift(); return; }
-    if (!charla) {
+    // Hasta tres intercambios en salas distintas, sin robar un interlocutor
+    // a otra conversación ni convertir a los compañeros en tareas activas.
+    for (let i = 0; i < dialogos.length && charlas.size < 3; i++) {
+      const t = dialogos[i]!;
+      if ([...charlas].some((e) => e.temaId === t.temaId)) continue;
+      const a = AG.find((p) => p.name === t.agente), b = AG.find((p) => p.name === t.destinatario);
+      if (!a || !b || a === b || a.name === 'Tú' || b.name === 'Tú' || a.room !== b.room) { dialogos.splice(i--, 1); continue; }
+      if ([...charlas].some((e) => e.agentes.some((p) => p.room === a.room))) continue;
       [a, b].forEach((p) => { cancelarEscena(p); p.ictx?.kill(); p.path = []; p.bub?.el.remove(); p.bub = null; });
-      const ctx = nuevoCtx(); charla = { ctx, agentes: [a, b], trabajo: true, temaId: siguiente.temaId, listos: false };
-      const nueva = charla;
-      [a, b].forEach((p) => { escenas.set(p, nueva); p.ictx = ctx; p.busy = true; p.el.dataset.escena = 'conversacion'; });
+      const ctx = nuevoCtx();
+      const nueva: Escena = { ctx, agentes: [a, b], trabajo: t.tipoConversacion !== 'companeros', temaId: t.temaId, listos: false };
+      charlas.add(nueva);
+      [a, b].forEach((p) => { escenas.set(p, nueva); p.ictx = ctx; p.busy = true; p.el.dataset.escena = nueva.trabajo ? 'conversacion' : 'conversacion_espera'; });
       const [rx, , rw] = GEOM[a.room], x = Math.max(rx + 12, Math.min(rx + rw - 122, (a.hx + b.hx) / 2 - 30)), y = pasillo(a);
       spawn((async () => {
         await Promise.all([desplazarse(ctx, a, x, y), desplazarse(ctx, b, x + 60, y)]);
@@ -607,13 +622,6 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         a.face = 1; b.face = -1; nueva.listos = true;
       })());
     }
-    if (!charla.listos) return;
-    dialogos.shift();
-    const dur = Math.max(7, Math.min(14, siguiente.texto.length / 26));
-    mostrarDialogo(siguiente, a, b, dur);
-    charla.hasta = simT + dur + 0.5; charla.esperarHasta = charla.hasta + 15;
-    a.carry = 'card'; b.carry = null;
-    FLY.push({ kind: 'card', from: [a.x + 42, a.y + 44], to: [b.x + 6, b.y + 44], t0: simT, dur: 0.7, arc: 18 });
   }
   function mantenerEscenas() {
     if (!escenaDisponible()) { [...escenas.keys()].forEach(cancelarEscena); return; }

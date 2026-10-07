@@ -171,6 +171,41 @@ describe('el motor del laboratorio sigue al servidor', () => {
     expect(nodo.querySelectorAll('.lv-bub[data-turno]')).toHaveLength(0);
     await avanzar(250); expect(nodo.querySelectorAll('.lv-bub[data-turno]')).toHaveLength(0);
   });
+  it('varias salas conversan a la vez sin marcar como trabajadores a quienes esperan', async () => {
+    const d = datos(), resp = montar(d);
+    const base: TurnoLaboratorio = { id: '', temaId: '', iteracionId: d.identidad.split('/')[1]!, idioma: 'es',
+      agente: '', destinatario: '', texto: 'Hmm, quiero mirar mejor lo que leyeron sobre MAPT. ¿Tú cómo lo ves?', fecha: Date.now(), modelo: 'prueba', materiales: [] };
+    const parejas = [
+      ['Generador de consultas', 'Explorador'], ['Planificador', 'Proponente de experimento'],
+      ['Analogía', 'Contradicción'], ['Revisor del registro', 'Resumidor'],
+    ];
+    // La respuesta de una sala llega intercalada con el primer turno de otra.
+    const turnos = [0, 1, 2].flatMap((n) => parejas.map(([a, b], i) => ({ ...base, id: `${i}-${n}`, temaId: `tema-${i}`,
+      agente: (n === 1 ? b : a)!, destinatario: (n === 1 ? a : b)!, tipoConversacion: i ? 'companeros' as const : 'actividad' as const })));
+    motor!.conversar(turnos);
+    const vistos = new Set<string>(), hablado = new Map<string, string[]>();
+    let simultaneas = 0;
+    await avanzar(850, () => {
+      const bocadillos = [...nodo.querySelectorAll<HTMLElement>('.lv-bub[data-turno]')];
+      simultaneas = Math.max(simultaneas, bocadillos.length);
+      expect(bocadillos.length).toBeLessThanOrEqual(3);
+      for (const b of bocadillos) {
+        const t = turnos.find((t) => t.id === b.dataset.turno)!;
+        expect(b.dataset.interlocutor).toBe(t.destinatario);
+        if (!vistos.has(t.id)) { vistos.add(t.id); hablado.set(t.temaId, [...(hablado.get(t.temaId) ?? []), t.id]); }
+      }
+      expect(nodo.querySelectorAll('.lv-ag.activo')).toHaveLength(1);
+      parejas.slice(1).flat().forEach((p) => expect(nodo.querySelector(`[data-agente="${p}"]`)?.classList.contains('activo')).toBe(false));
+    });
+    expect(simultaneas).toBe(3);
+    expect(vistos.size).toBe(turnos.length);
+    parejas.forEach((_, i) => expect(hablado.get(`tema-${i}`)).toEqual([`${i}-0`, `${i}-1`, `${i}-2`]));
+    motor!.conversar(turnos);
+    await avanzar(600);
+    expect(nodo.querySelectorAll('.lv-bub[data-turno]')).toHaveLength(0);
+    expect(d.activos).toEqual(['Generador de consultas']);
+    expect(resp.conceder).not.toHaveBeenCalled(); expect(resp.aprobarPlan).not.toHaveBeenCalled();
+  });
   it('conserva posiciones entre registros, cambios de tarea, conversaciones y permisos', async () => {
     const d = datos(); montar(d);
     const posiciones = () => new Map([...nodo.querySelectorAll<HTMLElement>('.lv-ag')].map((a) => {

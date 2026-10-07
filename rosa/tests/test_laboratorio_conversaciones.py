@@ -1,6 +1,8 @@
 """Diálogo con procedencia, turnos independientes y límites de la corrida."""
 import asyncio
 import copy
+import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
@@ -8,7 +10,7 @@ import pytest
 
 from rosa import config, gateway
 from rosa.estado.almacen import Almacen
-from rosa.laboratorio_conversaciones import ESTILO, Conversaciones, REGLAS_JUEZ, tema_de, validar_turno
+from rosa.laboratorio_conversaciones import COMPANEROS, ESTILO, Conversaciones, REGLAS_JUEZ, modelo_de, tema_de, validar_turno
 from rosa.servidor import crear_app
 
 
@@ -82,7 +84,7 @@ async def test_no_recicla_informes_guardados_con_la_voz_anterior(almacen):
     assert s.leer(clave) == []
     s.tocar(clave, "persona", True)
     await s.tareas[clave]
-    assert len(s.leer(clave)) == 3
+    assert len(s.leer(clave)) == 6
     assert all(t["estilo"] == ESTILO for t in s.leer(clave))
     assert almacen.estado["corridas"][0]["_conversacionesLaboratorio"][0] == antiguo
     await s.cerrar()
@@ -105,21 +107,115 @@ async def test_respuestas_independientes_leen_al_companero_y_se_comparten(almace
     s.tocar(clave, "persona-b", True)
     assert s.tareas[clave] is tarea  # Dos espectadores no duplican las llamadas.
     await tarea
-    turnos = s.leer(clave)
+    turnos = [t for t in s.leer(clave) if t["tipoConversacion"] == "actividad"]
+    autores = [x for x in llamadas if x[1] != REGLAS_JUEZ and x[2]["tipoConversacion"] == "actividad"]
     assert [t["texto"] for t in turnos] == textos
     assert turnos[1]["agente"] == turnos[0]["destinatario"]
-    assert llamadas[2][2]["historial"][-1]["texto"] == textos[0]
-    assert llamadas[4][2]["historial"][-1]["texto"] == textos[1]
+    assert autores[1][2]["historial"][-1]["texto"] == textos[0]
+    assert autores[2][2]["historial"][-1]["texto"] == textos[1]
     assert all(t["materiales"][0]["cita"] == "PMID:123, p. 4" for t in turnos)
-    assert len(llamadas) == 6
-    assert all(m == gateway.JUEZ for m, _, _ in llamadas)
+    assert len(llamadas) == 12
+    assert all(m == gateway.JUEZ for m, _, c in llamadas if c["tipoConversacion"] == "actividad")
     despues = copy.deepcopy(almacen.estado)
     despues["corridas"][0].pop("_conversacionesLaboratorio")
     assert despues == anterior  # Ninguna decisión o afirmación científica cambia.
     assert s.leer(("c", "it", "en")) == []
     s.proxima[clave] = 0
     s.tocar(clave, "persona-a", True)
-    assert s.tareas[clave] is tarea  # Un hallazgo ya comentado no se repite.
+    await s.tareas[clave]
+    assert len([x for x in llamadas if x[2]["tipoConversacion"] == "actividad"]) == 6
+    await s.cerrar()
+
+
+def test_todos_los_companeros_existen_en_el_laboratorio_y_comparten_sala():
+    motor = (Path(__file__).resolve().parents[2] / "frontend/src/componentes/labvivo/motor.ts").read_text()
+    elenco = re.search(r"const ELENCO = `(.*?)`;", motor, re.S).group(1)
+    filas = {f[0]: f for f in (linea.split("|") for linea in elenco.splitlines())}
+    geometria = {s: tuple(map(int, (x, y, w, h))) for s, x, y, w, h in re.findall(r"(\w+): \[(\d+), (\d+), (\d+), (\d+)\]", motor)}
+    def sala(nombre):
+        f = filas[nombre]
+        x, y = int(f[2]) + 24, int(f[3]) + 40
+        return next(s for s, (gx, gy, w, h) in geometria.items() if gx <= x < gx + w and gy <= y < gy + h)
+    for personas in COMPANEROS.values():
+        assert len(personas) >= 2
+        assert len({sala(p) for p in personas}) == 1
+        for p in personas:
+            assert modelo_de(p) == {"#B79CF2": gateway.CEREBRO, "#E3A57C": gateway.JUEZ, "#7CC7E8": gateway.VOLUMEN}[filas[p][4]]
+    assert {p for grupo in COMPANEROS.values() for p in grupo} == {p for p in filas if int(filas[p][3]) < 1136}
+
+
+@pytest.mark.asyncio
+async def test_otros_companeros_conversan_en_paralelo_sin_apropiarse_de_la_tarea(almacen):
+    llegaron = set()
+    ambos = asyncio.Event()
+    async def llamar(modelo, reglas, contenido, tema):
+        if reglas == REGLAS_JUEZ:
+            return {"admisible": True}
+        llegaron.add(contenido["tipoConversacion"])
+        if len(llegaron) == 2:
+            ambos.set()
+        await asyncio.wait_for(ambos.wait(), 2)
+        return {"texto": "Me intriga lo que leyeron sobre tau en ratones. Quiero mirarlo mejor.", "referencias": ["af:a"]}
+    s = Conversaciones(almacen, llamar)
+    clave = ("c", "it", "es")
+    s.tocar(clave, "persona", True)
+    await s.tareas[clave]
+    principal = [t for t in s.leer(clave) if t["tipoConversacion"] == "actividad"]
+    espera = [t for t in s.leer(clave) if t["tipoConversacion"] == "companeros"]
+    assert len(principal) == len(espera) == 3
+    assert {t["temaId"] for t in principal}.isdisjoint(t["temaId"] for t in espera)
+    assert {t["agente"] for t in principal}.isdisjoint(t["agente"] for t in espera)
+    assert {t["hallazgoId"] for t in principal + espera} == {tema_de(almacen.estado, "c", "it")["huella"]}
+    assert all(t["materiales"][0]["cita"] == "PMID:123, p. 4" for t in espera)
+    await s.cerrar()
+
+
+@pytest.mark.asyncio
+async def test_rota_salas_y_personas_sin_repetir_indefinidamente_el_mismo_hallazgo(almacen):
+    async def llamar(modelo, reglas, contenido, tema):
+        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Yo quiero mirar mejor lo que leyeron sobre tau en ratones.", "referencias": ["af:a"]}
+    s = Conversaciones(almacen, llamar)
+    clave = ("c", "it", "es")
+    async def comentar_hallazgo():
+        anterior = None
+        for _ in range(10):
+            s.proxima[clave] = 0
+            s.tocar(clave, "persona", True)
+            tarea = s.tareas[clave]
+            if tarea is anterior:
+                break
+            await tarea
+            anterior = tarea
+    await comentar_hallazgo()
+    primero = list(s.leer(clave))
+    assert len(primero) == 24  # Tres turnos del registro y tres por cada una de siete salas.
+    assert {t["salaConversacion"] for t in primero if t["tipoConversacion"] == "companeros"} == set(COMPANEROS)
+    await comentar_hallazgo()
+    assert s.leer(clave) == primero
+    almacen.estado["iteraciones"][0]["pistas"][0]["transcripcion"].append({"t": 2400, "tipo": "nota", "texto": "Sigue abierta la duda sobre la asociación de MAPT con tau en ratones."})
+    await comentar_hallazgo()
+    segundos = s.leer(clave)[len(primero):]
+    for sala in COMPANEROS:
+        a = {t["agente"] for t in primero if t.get("salaConversacion") == sala}
+        b = {t["agente"] for t in segundos if t.get("salaConversacion") == sala}
+        if len(COMPANEROS[sala]) > 2 and sala != "evidencia":
+            assert a != b
+    await s.cerrar()
+
+
+@pytest.mark.asyncio
+async def test_un_solo_intercambio_si_el_presupuesto_no_alcanza_para_dos(almacen):
+    llamadas = []
+    almacen.estado["iteraciones"][0]["presupuesto"]["limite"] = 16  # Se conserva la reserva de diez.
+    async def llamar(modelo, reglas, contenido, tema):
+        llamadas.append(contenido["tipoConversacion"])
+        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Yo veo una asociación en ratones y quiero mirarla mejor.", "referencias": ["af:a"]}
+    s = Conversaciones(almacen, llamar)
+    clave = ("c", "it", "es")
+    s.tocar(clave, "persona", True)
+    await s.tareas[clave]
+    assert llamadas == ["actividad"] * 6
+    assert almacen.estado["iteraciones"][0]["presupuesto"]["reservaCierre"] == 10
     await s.cerrar()
 
 

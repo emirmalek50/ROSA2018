@@ -10,6 +10,7 @@ export interface MaterialCharla {
 }
 export interface TurnoLaboratorio {
   estilo?: string;
+  tipoConversacion?: 'actividad' | 'companeros';
   id: string; temaId: string; iteracionId: string; idioma: Idioma;
   agente: string; destinatario: string; texto: string; fecha: number;
   modelo: string; materiales: MaterialCharla[];
