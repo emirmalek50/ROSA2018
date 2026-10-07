@@ -13,9 +13,9 @@
 //   #/laboratorio
 //   #/ajustes
 
-export type Pantalla = 'corrida' | 'hipotesis' | 'ranking' | 'panorama' | 'mundo' | 'arbol' | 'atlas' | 'mecanismos' | 'citas' | 'artefactos' | 'investigacion';
+export type Pantalla = 'corrida' | 'hipotesis' | 'ranking' | 'novedad' | 'panorama' | 'mundo' | 'arbol' | 'atlas' | 'mecanismos' | 'citas' | 'artefactos' | 'investigacion';
 
-export const PANTALLAS: Pantalla[] = ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'atlas', 'mecanismos', 'citas', 'artefactos', 'investigacion'];
+export const PANTALLAS: Pantalla[] = ['corrida', 'hipotesis', 'ranking', 'novedad', 'panorama', 'mundo', 'arbol', 'atlas', 'mecanismos', 'citas', 'artefactos', 'investigacion'];
 
 export type Ruta =
   | { tipo: 'inicio' }
@@ -116,6 +116,24 @@ export function rutaLaboratorio(dianaId: string | null = null, panel: 'aso' | nu
 /** Atajo para las pantallas de una investigacion. */
 export function rutaDe(investigacionId: string, pantalla: Pantalla, detalleId: string | null = null): string {
   return formatearRuta({ tipo: 'investigacion', investigacionId, pantalla, detalleId });
+}
+
+export type AgenteNovedad = 'patentes' | 'companias';
+
+/** La selección del dossier viaja en la URL: volver y recargar conservan
+ *  el tratamiento y el especialista. Sin hipótesis se abre su índice. */
+export function rutaNovedad(investigacionId: string, hipotesisId: string | null = null, agente: AgenteNovedad | null = null): string {
+  const detalle = agente ? `${agente}${hipotesisId ? `:${hipotesisId}` : ''}` : hipotesisId;
+  return rutaDe(investigacionId, 'novedad', detalle);
+}
+
+export function seleccionDeNovedad(detalleId: string | null | undefined): { agente: AgenteNovedad | null; hipotesisId: string | null } {
+  if (!detalleId) return { agente: null, hipotesisId: null };
+  for (const agente of ['patentes', 'companias'] as const) {
+    if (detalleId === agente) return { agente, hipotesisId: null };
+    if (detalleId.startsWith(`${agente}:`)) return { agente, hipotesisId: detalleId.slice(agente.length + 1) || null };
+  }
+  return { agente: null, hipotesisId: detalleId };
 }
 
 /** Las vistas del ranking, que viajan en el hueco del detalle de la URL

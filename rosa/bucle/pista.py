@@ -16,13 +16,15 @@ from rosa.estado.almacen import Almacen
 
 
 class Pista:
-    def __init__(self, almacen: Almacen, iteracion_id: str, paso_id: str | None, tipo: str, titulo: str, fuente: str):
+    def __init__(self, almacen: Almacen, iteracion_id: str, paso_id: str | None, tipo: str, titulo: str, fuente: str, *, hipotesis_id: str | None = None):
         self.almacen = almacen
         self.iteracion_id = iteracion_id
         self.id = P.nuevo_id("pi")
         self._t0 = time.monotonic()
         pista = P.nueva_pista(iteracion_id, paso_id, tipo, titulo, fuente)
         pista["id"] = self.id
+        if hipotesis_id is not None:
+            pista["hipotesisId"] = hipotesis_id
 
         def crear(e: dict[str, Any]) -> bool:
             for it in e["iteraciones"]:
@@ -95,7 +97,7 @@ class Pista:
         pendientes = list(self.__dict__.get("_buffer", []))
         if not pendientes:
             return
-        self._buffer = []
+        self._buffer: list[dict[str, Any]] = []
         self._ultimo_volcado = time.monotonic()
 
         def fn(p: dict[str, Any]) -> None:

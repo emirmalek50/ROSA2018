@@ -10,7 +10,7 @@ import pytest
 
 from rosa import config, gateway
 from rosa.estado.almacen import Almacen
-from rosa.laboratorio_conversaciones import COMPANEROS, ESTILO, Conversaciones, REGLAS_JUEZ, modelo_de, tema_de, validar_turno
+from rosa.laboratorio_conversaciones import COMPANEROS, ESTILO, SALAS, Conversaciones, REGLAS_JUEZ, modelo_de, tema_de, validar_turno
 from rosa.servidor import crear_app
 from rosa.laboratorio_personalidades import PERSONALIDADES, personalidad_de
 
@@ -99,12 +99,22 @@ def test_los_especialistas_comentan_su_propia_actividad_y_no_la_del_planificador
     pista = almacen.estado["iteraciones"][0]["pistas"][0]
     pista["tipo"] = "novedad"
     pista["titulo"] = "Revisión del tratamiento"
+    pista["hipotesisId"] = "h-real"
     pista["transcripcion"] = [{"t": 1500, "tipo": "resultado", "texto": "Una coincidencia parcial requiere comparar el tratamiento concreto.", "agente": tag, "estadoAgente": "terminado"}]
     tema = tema_de(almacen.estado, "c", "it")
     assert tema["participantes"][0] == nombre
     assert tema["materiales"][0]["agente"] == nombre
+    assert tema["materiales"][0]["hipotesisId"] == "h-real"
     assert modelo_de(nombre) == gateway.CEREBRO
-    assert nombre in COMPANEROS["revision"]
+    assert set(tema["participantes"]) == set(SALAS["novedad"])
+    assert set(COMPANEROS["novedad"]) == set(SALAS["novedad"])
+    assert nombre not in COMPANEROS["revision"]
+
+
+def test_registros_historicos_no_atribuyen_hipotesis_por_titulo(almacen):
+    pista = almacen.estado["iteraciones"][0]["pistas"][0]
+    pista["titulo"] = "Especialista en patentes: MAPT"
+    assert "hipotesisId" not in tema_de(almacen.estado, "c", "it")["materiales"][0]
 
 
 @pytest.mark.asyncio
@@ -267,7 +277,7 @@ async def test_rota_salas_y_personas_sin_repetir_indefinidamente_el_mismo_hallaz
             anterior = tarea
     await comentar_hallazgo()
     primero = list(s.leer(clave))
-    assert len(primero) == 24  # Tres turnos del registro y tres por cada una de siete salas.
+    assert len(primero) == 3 * (1 + len(COMPANEROS))  # Tres turnos del registro y tres por sala.
     assert {t["salaConversacion"] for t in primero if t["tipoConversacion"] == "companeros"} == set(COMPANEROS)
     await comentar_hallazgo()
     assert s.leer(clave) == primero

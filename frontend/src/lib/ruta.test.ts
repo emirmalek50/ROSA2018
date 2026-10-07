@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatearRuta, parsearRuta, rutaDe, vistaDeRanking } from './ruta';
+import { formatearRuta, parsearRuta, rutaDe, rutaNovedad, seleccionDeNovedad, vistaDeRanking } from './ruta';
 
 describe('parsearRuta', () => {
   it('reconoce las rutas simples', () => {
@@ -101,5 +101,29 @@ describe('las vistas del ranking', () => {
     for (const v of ['podio', 'pendientes', 'lista', 'clusters', 'laboratorio'] as const) {
       expect(vistaDeRanking(v)).toBe(v);
     }
+  });
+});
+
+describe('dossiers de Novedad', () => {
+  it('conserva agente e hipótesis al recargar un enlace con caracteres escapados', () => {
+    for (const agente of ['patentes', 'companias'] as const) {
+      const hash = rutaNovedad('inv /ñ', 'hip /ñ:2', agente);
+      const ruta = parsearRuta(hash);
+      expect(ruta.tipo).toBe('investigacion');
+      if (ruta.tipo !== 'investigacion') throw new Error('No se reconoció Novedad');
+      expect(ruta.investigacionId).toBe('inv /ñ');
+      expect(ruta.pantalla).toBe('novedad');
+      expect(seleccionDeNovedad(ruta.detalleId)).toEqual({ agente, hipotesisId: 'hip /ñ:2' });
+      expect(formatearRuta(ruta)).toBe(hash);
+    }
+  });
+
+  it('abre el índice del agente cuando no existe una hipótesis asociada', () => {
+    expect(rutaNovedad('inv-1', null, 'patentes')).toBe('#/investigaciones/inv-1/novedad/patentes');
+    expect(seleccionDeNovedad('patentes')).toEqual({ agente: 'patentes', hipotesisId: null });
+    expect(seleccionDeNovedad('companias:')).toEqual({ agente: 'companias', hipotesisId: null });
+    expect(seleccionDeNovedad(null)).toEqual({ agente: null, hipotesisId: null });
+    expect(seleccionDeNovedad('hip-2')).toEqual({ agente: null, hipotesisId: 'hip-2' });
+    expect(parsearRuta(rutaNovedad('inv-1'))).toEqual({ tipo: 'investigacion', investigacionId: 'inv-1', pantalla: 'novedad', detalleId: null });
   });
 });

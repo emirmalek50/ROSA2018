@@ -77,6 +77,7 @@ import { Inicio } from './pantallas/Inicio';
 import { Investigacion } from './pantallas/Investigacion';
 import { ModeloDeMundo } from './pantallas/ModeloDeMundo';
 import { NuevaInvestigacion } from './pantallas/NuevaInvestigacion';
+import { Novedad } from './pantallas/Novedad';
 import { Panorama } from './pantallas/Panorama';
 import { Ranking } from './pantallas/Ranking';
 import { tr, traducido, trp, useIdioma } from './lib/idioma';
@@ -88,6 +89,7 @@ const TITULO_PANTALLA = traducido({
   // con el ranking el 1 de octubre de 2026.
   hipotesis: 'Hipótesis',
   ranking: 'Hipótesis y ranking',
+  novedad: 'Novedad',
   panorama: 'Panorama',
   mundo: 'Modelo de mundo',
   arbol: 'Árbol de la investigación',
@@ -264,6 +266,9 @@ export default function App() {
           break;
         case 'ranking':
           pantalla = <Ranking inv={inv} estado={estado} detalleId={ruta.detalleId} irA={irA} />;
+          break;
+        case 'novedad':
+          pantalla = <Novedad inv={inv} estado={estado} detalleId={ruta.detalleId} />;
           break;
         case 'panorama':
           pantalla = <Panorama inv={inv} estado={estado} ahora={ahora} />;

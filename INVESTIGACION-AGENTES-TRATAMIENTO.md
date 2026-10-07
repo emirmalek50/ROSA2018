@@ -78,8 +78,15 @@ mundo haya investigado un tratamiento.
 
 `hipotesis.revisionTratamiento` contiene perfil y dos informes independientes,
 fecha, modelos, citas, URLs, diferencias, consultas, paginación, errores y
-limitaciones. Aparecen en la pestaña de evidencia de la hipótesis y su actividad
-real se atribuye a los personajes del laboratorio. La novedad previa sigue
+limitaciones. Los informes completos tienen su pantalla **Novedad** en cada
+investigación, con índice de tratamientos y acceso separado a cada especialista.
+La pestaña de evidencia de la hipótesis enlaza directamente a ambos dossiers.
+En el laboratorio pixel art, Sofía y Damián comparten un cuarto propio sin
+otros agentes. Pulsar su personaje abre Novedad con su informe y la hipótesis
+asociada al registro real de la iteración; si ese registro antiguo no guarda
+la asociación, se abre el índice del especialista sin adivinar un tratamiento.
+La selección queda en la URL para conservarla al recargar o volver atrás.
+La novedad previa sigue
 existiendo: anterioridad científica y propiedad intelectual son cuestiones
 distintas. Las conclusiones reciben el dossier completo; nuevas fuentes
 invalidan su huella, volver a consultar lo mismo no la cambia por una fecha.

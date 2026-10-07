@@ -224,7 +224,7 @@ def _acotar_recuperacion(rec: dict[str, Any]) -> dict[str, Any]:
     grupos: dict[str, list[dict[str, Any]]] = {}
     for d in rec["documentos"]:
         grupos.setdefault(d["fuente"], []).append(d)
-    documentos = []
+    documentos: list[dict[str, Any]] = []
     indice = 0
     while len(documentos) < MAX_DOCUMENTOS:
         vuelta = [filas[indice] for filas in grupos.values() if indice < len(filas)]
@@ -298,7 +298,7 @@ def _guardar(ctx: Ctx, hid: str, firma: str, fn: Any) -> bool:
 
 
 def _informe(ctx: Ctx, tipo: str, recuperacion: dict[str, Any], dictamen: DictamenTratamiento | None,
-             *, no_aplica: bool = False, error: str | None = None) -> dict[str, Any]:
+             *, no_aplica: bool = False, error: str | None = None, hipotesis_id: str | None = None) -> dict[str, Any]:
     docs = {d["id"]: d for d in recuperacion.get("documentos", [])}
     limitaciones = list(recuperacion.get("limitaciones", []))
     encontrados = []
@@ -337,6 +337,8 @@ def _informe(ctx: Ctx, tipo: str, recuperacion: dict[str, Any], dictamen: Dictam
         estado = "sin_coincidencias_en_fuentes_consultadas"
         resumen = "No encontré coincidencias en las consultas efectuadas. Esto no demuestra ausencia de patentes o programas empresariales."
     return {"agente": NOMBRES[tipo], "estado": estado, "resumen": resumen, "fecha": P.ahora_ms(),
+            "corridaId": ctx.corrida_id, "iteracionId": ctx.iteracion_id,
+            **({"hipotesisId": hipotesis_id} if hipotesis_id is not None else {}),
             "modelo": _modelo(ctx, "cerebro"), "revisor": _modelo(ctx, "juez") if dictamen is not None else None,
             "hallazgos": encontrados, "consultas": consultas, "limitaciones": list(dict.fromkeys(limitaciones)),
             "_intento": f"{ctx.corrida_id}:{ctx.iteracion_id}"}
@@ -365,7 +367,7 @@ async def _revisar(ctx: Ctx, hid: str, paso_id: str | None = None) -> bool:
     if perfil_fallido and all((r.get(tipo) or {}).get("_intento") == f"{ctx.corrida_id}:{ctx.iteracion_id}" for tipo in NOMBRES):
         return False
     if r.get("huella") != firma or r.get("version") != VERSION or perfil_fallido:
-        pista = ctx.pista(paso_id, "novedad", "Definir el tratamiento antes de comparar", "Cerebro de ROSA")
+        pista = ctx.pista(paso_id, "novedad", "Definir el tratamiento antes de comparar", "Cerebro de ROSA", hipotesis_id=hid)
         pista.actividad("patentes", "Voy a precisar la intervención para comparar la misma composición y su uso.", "en_curso")
         pista.actividad("companias", "Voy a distinguir el tratamiento de otras propuestas que comparten su diana.", "en_curso")
         error_perfil = None
@@ -394,7 +396,7 @@ async def _revisar(ctx: Ctx, hid: str, paso_id: str | None = None) -> bool:
         r = {"version": VERSION, "huella": firma, "fecha": P.ahora_ms(), "perfil": perfil}
         if error_perfil:
             for tipo in NOMBRES:
-                r[tipo] = _informe(ctx, tipo, {}, None, error=error_perfil)
+                r[tipo] = _informe(ctx, tipo, {}, None, error=error_perfil, hipotesis_id=hid)
         if not _guardar(ctx, hid, firma, lambda y: y.update(revisionTratamiento=r)):
             pista.cerrar("La propuesta cambió; no se aplica el perfil.", "detenida")
             return False
@@ -415,13 +417,13 @@ async def _revisar(ctx: Ctx, hid: str, paso_id: str | None = None) -> bool:
         anterior = (h.get("revisionTratamiento") or {}).get(tipo)
         if anterior and str(anterior.get("_intento") or "").startswith(ctx.corrida_id + ":") and (anterior["estado"] != "no_comprobado" or anterior.get("_intento") == f"{ctx.corrida_id}:{ctx.iteracion_id}"):
             continue
-        pista = ctx.pista(paso_id, "novedad", NOMBRES[tipo] + ": " + (h.get("titulo") or "Tratamiento")[:90], "Cerebro y juez de ROSA")
+        pista = ctx.pista(paso_id, "novedad", NOMBRES[tipo] + ": " + (h.get("titulo") or "Tratamiento")[:90], "Cerebro y juez de ROSA", hipotesis_id=hid)
         pista.actividad(tipo, "Voy a comparar el tratamiento con las reivindicaciones publicadas." if tipo == "patentes" else
                         "Voy a revisar qué compañías estudian o estudiaron este tratamiento.", "en_curso")
         rec: dict[str, Any] = {"documentos": [], "consultas": [], "limitaciones": []}
         try:
             if perfil["tipo"] == "observacional":
-                informe = _informe(ctx, tipo, rec, None, no_aplica=True)
+                informe = _informe(ctx, tipo, rec, None, no_aplica=True, hipotesis_id=hid)
             else:
                 cache = ctx.corrida().get("_revisionTratamientoFuentes", {}).get(hid, {})
                 if cache.get("huella") == firma and tipo in cache:
@@ -476,9 +478,9 @@ async def _revisar(ctx: Ctx, hid: str, paso_id: str | None = None) -> bool:
                         return cambio
                     pred = await ctx.llamar("juez", ctx.programas.auditar_tratamiento, especialidad=tipo,
                                            perfil=_dato(perfil), documentos=_dato(inventario), borrador=_dato(borrador.model_dump()), metodo=metodo)
-                    informe = _informe(ctx, tipo, rec, DictamenTratamiento.model_validate(pred.dictamen))
+                    informe = _informe(ctx, tipo, rec, DictamenTratamiento.model_validate(pred.dictamen), hipotesis_id=hid)
                 else:
-                    informe = _informe(ctx, tipo, rec, None)
+                    informe = _informe(ctx, tipo, rec, None, hipotesis_id=hid)
                 if perfil["tipo"] == "indefinido":
                     informe["limitaciones"].append("La propuesta no define completamente la identidad del tratamiento; solo pueden evaluarse los componentes descritos.")
                     for x in informe["hallazgos"]:
@@ -489,7 +491,7 @@ async def _revisar(ctx: Ctx, hid: str, paso_id: str | None = None) -> bool:
             pista.cerrar("Revisión pausada; los informes completados se conservan.", "detenida")
             raise
         except Exception as ex:  # noqa: BLE001
-            informe = _informe(ctx, tipo, rec, None, error=f"No pude completar la revisión ({type(ex).__name__}); no se afirma ausencia.")
+            informe = _informe(ctx, tipo, rec, None, error=f"No pude completar la revisión ({type(ex).__name__}); no se afirma ausencia.", hipotesis_id=hid)
         if not _activa(ctx) or not _actual(ctx, hid, firma):
             pista.cerrar("La propuesta cambió o la corrida se detuvo; no se aplica el informe.", "detenida")
             return cambio
@@ -530,7 +532,7 @@ async def revisar_pendientes(ctx: Ctx, paso_id: str | None, hipotesis_ids: list[
 
 def texto_informe(h: dict[str, Any]) -> str:
     r = h.get("revisionTratamiento") or {}
-    if r.get("huella") != huella(h):
+    if r.get("version") != VERSION or r.get("huella") != huella(h):
         return "Revisión del tratamiento pendiente; no se afirma ausencia de patentes ni compañías."
     lineas = []
     for tipo in NOMBRES:

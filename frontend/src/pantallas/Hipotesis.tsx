@@ -27,14 +27,13 @@ import { EsqueletoPantalla } from '../componentes/Esqueleto';
 import { Bloqueos, ConsultasABases, ContextoDeBases, ContratoDelExperimento, DecisionesKiller, Dimensiones, EjecucionesInSilico, FusionYConflictos, GrafoCausalDeHipotesis, PerfilDeLaDiana, ProtocoloYEnmiendas, TarjetaDeHipotesis } from '../componentes/Rosa2018';
 import { FranjaRanking } from '../componentes/FranjaRanking';
 import { Alternativas } from '../componentes/Alternativas';
-import { RevisionTratamiento } from '../componentes/RevisionTratamiento';
 import { dependeDeRetractada, resumenEvidencia, tramosFuertes } from '../lib/calidad';
 import { ACCION_REVISION_HIPOTESIS, ALCANCE_SUPUESTO, DONDE_SE_RESPONDE, ESTADO_HIPOTESIS, ESTADO_SUPUESTO, EVIDENCIA_ESTADISTICA, RELEVANCIA, TIPO_REVISION, RESULTADO_LABORATORIO, killerPendienteDe } from '../lib/etiquetas';
 import { expediente } from '../lib/exportar';
 import { TONO_ESTADO, hallazgosVigentes, motivoNoAceptable } from '../lib/hipotesis';
 import { bloqueosDe } from '../lib/priorizacion';
 import { componentesDe } from '../lib/ranking';
-import { rutaDe } from '../lib/ruta';
+import { rutaDe, rutaNovedad } from '../lib/ruta';
 import { atributosEnVuelo, useCalculoDiferido, useEnVuelo, useEsperaSenal } from '../lib/diferido';
 import { ESPERA_DOSSIER_MS, huellaDossier } from './Artefactos';
 import { tr, trp } from '../lib/idioma';
@@ -318,7 +317,12 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               </div>
             </div>
           </Seccion>
-          <RevisionTratamiento revision={h.revisionTratamiento} />
+          <Seccion titulo={tr('Patentes y programas de compañías')} nota={tr('Los informes completos de Sofía y Damián están en Novedad, separados de la revisión científica de esta hipótesis.')}>
+            <div className="acciones">
+              <a className="btn btn-s" href={rutaNovedad(h.investigacionId, h.id, 'patentes')}>{tr('Ver el informe de Sofía')}</a>
+              <a className="btn btn-s" href={rutaNovedad(h.investigacionId, h.id, 'companias')}>{tr('Ver el informe de Damián')}</a>
+            </div>
+          </Seccion>
           <Seccion detalle titulo={tr("Novedad")} nota={tr("Consultas baratas antes de gastar una corrida: Open Targets, ClinicalTrials.gov, Agora, la genética humana (GWAS Catalog, ClinVar), los fármacos contra la diana (ChEMBL, DGIdb), los datos públicos para comprobarla (GEO, CELLxGENE) y si alguien ya lo propuso en la literatura. Con Exa, además, patentes y proyectos financiados anteriores a la hipótesis: una idea ya protegida o ya financiada no es nueva aunque no esté publicada.")}>
             <div className="novedad novedad-4">
               <div className="novedad-item">

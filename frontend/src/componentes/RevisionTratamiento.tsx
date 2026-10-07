@@ -13,7 +13,7 @@ function enlaceComprobable(url: string): string | null {
   }
 }
 
-function Fecha({ fecha }: { fecha?: number }) {
+export function FechaRevision({ fecha }: { fecha?: number }) {
   const idioma = useIdioma();
   if (!fecha || !Number.isFinite(fecha)) return <span>{tr('Fecha no disponible')}</span>;
   const d = new Date(fecha);
@@ -59,7 +59,9 @@ function DatosDelRegistro({ datos }: { datos: Record<string, unknown> }) {
   return visibles.length ? <dl>{visibles.map(([nombre, valor]) => <div key={nombre} style={{ marginTop: 8 }}><dt className="meta">{nombre}</dt><dd data-sin-traducir style={{ margin: 0 }}>{valor}</dd></div>)}</dl> : null;
 }
 
-function etiquetaEstado(informe?: InformeTratamiento): string {
+export type AgenteTratamiento = 'patentes' | 'companias';
+
+export function etiquetaEstado(informe?: InformeTratamiento): string {
   switch (informe?.estado) {
     case 'coincidencias': return tr('Coincidencias que revisar');
     case 'sin_coincidencias_en_fuentes_consultadas': return tr('Sin coincidencias en las fuentes consultadas');
@@ -82,19 +84,19 @@ function etiquetaRelacion(relacion: string): string {
 function Informe({ nombre, informe }: { nombre: string; informe?: InformeTratamiento }) {
   const consultas = informe?.consultas ?? [];
   const incompletas = consultas.filter(c => !c.completa || c.error);
-  return <section className="ficha-bloque" aria-label={nombre}>
+  return <section className="ficha-bloque revision-informe" aria-label={nombre}>
     <div className="acciones" style={{ justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
       <h3 className="ficha-h">{nombre}</h3>
       <Chip tono={informe?.estado === 'coincidencias' || incompletas.length ? 'aviso' : 'borde'}>{etiquetaEstado(informe)}</Chip>
     </div>
-    <p>{informe?.resumen || tr('Este agente todavía no ha completado la revisión de este tratamiento.')}</p>
+    <p className="revision-dictamen">{informe?.resumen || tr('Este agente todavía no ha completado la revisión de este tratamiento.')}</p>
     {informe && <>
-      <p className="meta">{tr('Comprobado el')} <Fecha fecha={informe.fecha} /></p>
+      <p className="meta">{tr('Revisión registrada el')} <FechaRevision fecha={informe.fecha} /></p>
       <p className="meta">{trp('Consultas registradas: {n}; incompletas o sin respuesta: {m}.', { n: consultas.length, m: incompletas.length })}</p>
       {informe.modelo && <p className="meta">{tr('Modelo del especialista')}: <span data-sin-traducir>{informe.modelo}</span>{informe.revisor && <> · {tr('Revisión independiente')}: <span data-sin-traducir>{informe.revisor}</span></>}</p>}
       {(informe.hallazgos ?? []).map(h => {
         const url = enlaceComprobable(h.url);
-        return <article key={h.id} style={{ marginTop: 20 }}>
+        return <article className="revision-hallazgo" key={h.id} style={{ marginTop: 20 }}>
           <div className="acciones" style={{ alignItems: 'baseline', gap: 10 }}>
             <h4 data-sin-traducir style={{ margin: 0 }}>{url ? <a className="enlace" href={url} target="_blank" rel="noopener noreferrer">{h.titulo}</a> : h.titulo}</h4>
             <Chip tono={h.relacion === 'mismo_tratamiento' ? 'aviso' : 'borde'}>{etiquetaRelacion(h.relacion)}</Chip>
@@ -120,17 +122,20 @@ function Informe({ nombre, informe }: { nombre: string; informe?: InformeTratami
           })}</tbody>
         </table></div>
       </details>}
-      {(informe.limitaciones ?? []).length > 0 && <div style={{ marginTop: 16 }}><strong>{tr('Límites de esta revisión')}</strong><ul>{informe.limitaciones.map((l, i) => <li key={i}>{l}</li>)}</ul></div>}
+      {(informe.limitaciones ?? []).length > 0 && <div className="revision-limites" style={{ marginTop: 16 }}><strong>{tr('Límites de esta revisión')}</strong><ul>{informe.limitaciones.map((l, i) => <li key={i}>{l}</li>)}</ul></div>}
     </>}
   </section>;
 }
 
-export function RevisionTratamiento({ revision }: { revision?: Revision | null }) {
+export function RevisionTratamiento({ revision, agente, dossier = false }: { revision?: Revision | null; agente?: AgenteTratamiento; dossier?: boolean }) {
   useIdioma();
-  if (revision?.vigente === false) return <Seccion titulo={tr('Patentes y programas de compañías')}><p role="status">{tr('El tratamiento cambió. La revisión anterior no se aplica a esta versión; los especialistas tienen una revisión pendiente.')}</p></Seccion>;
-  return <Seccion titulo={tr('Patentes y desarrollo empresarial del tratamiento')} nota={tr('Dos especialistas comparan el tratamiento concreto con documentos de patentes y programas de compañías. Compartir una diana no significa estar probando el mismo tratamiento.')}>
-    {revision?.perfil && <div className="ficha-bloque">
+  const aviso = <p role="status">{tr('El tratamiento cambió. La revisión anterior no se aplica a esta versión; los especialistas tienen una revisión pendiente.')}</p>;
+  if (revision?.vigente === false) return dossier ? <div className="revision-pendiente">{aviso}</div> : <Seccion titulo={tr('Patentes y programas de compañías')}>{aviso}</Seccion>;
+  const contenido = <>
+    {revision?.perfil && <div className="ficha-bloque revision-perfil">
+      <h3 className="revision-perfil-titulo">{tr('Perfil del tratamiento comparado')}</h3>
       <h3 className="ficha-h">{revision.perfil.nombre ? <span data-sin-traducir>{revision.perfil.nombre}</span> : tr('Tratamiento pendiente de identificar')}</h3>
+      <p className="meta">{tr('Tipo de propuesta')}: {tr(revision.perfil.tipo === 'intervencion' ? 'Intervención terapéutica' : revision.perfil.tipo === 'observacional' ? 'Estudio observacional' : 'Tratamiento sin concretar')}</p>
       <p className="meta">{[revision.perfil.modalidad, revision.perfil.indicacion].filter(Boolean).join(' · ')}</p>
       {revision.perfil.direccion && <p>{tr('Dirección de la intervención')}: {revision.perfil.direccion}</p>}
       {(revision.perfil.ingredientes ?? []).length > 0 && <p>{tr('Ingredientes identificados')}: <span data-sin-traducir>{revision.perfil.ingredientes.join(', ')}</span></p>}
@@ -141,9 +146,12 @@ export function RevisionTratamiento({ revision }: { revision?: Revision | null }
       {revision.perfil.dosis && <p>{tr('Dosis propuesta')}: <span data-sin-traducir>{revision.perfil.dosis}</span></p>}
       {revision.perfil.formulacion && <p>{tr('Formulación propuesta')}: {revision.perfil.formulacion}</p>}
       {revision.perfil.secuencia && <p style={{ overflowWrap: 'anywhere' }}>{tr('Secuencia propuesta')}: <span data-sin-traducir>{revision.perfil.secuencia}</span></p>}
+      {(revision.perfil.consultasPatentes ?? []).length > 0 && <p>{tr('Consultas previstas de patentes')}: <span data-sin-traducir>{revision.perfil.consultasPatentes.join('; ')}</span></p>}
+      {(revision.perfil.consultasProgramas ?? []).length > 0 && <p>{tr('Nombres previstos para buscar programas')}: <span data-sin-traducir>{revision.perfil.consultasProgramas.join('; ')}</span></p>}
     </div>}
-    <Informe nombre={tr('Especialista en patentes')} informe={revision?.patentes} />
-    <Informe nombre={tr('Especialista en compañías')} informe={revision?.companias} />
-    <p className="meta">{tr('Una búsqueda pública no garantiza que no exista una patente ni un programa confidencial. La cobertura y los documentos consultados delimitan el resultado; la revisión de patentes no es un dictamen de libertad de operación.')}</p>
-  </Seccion>;
+    {(!agente || agente === 'patentes') && <Informe nombre={tr('Especialista en patentes')} informe={revision?.patentes} />}
+    {(!agente || agente === 'companias') && <Informe nombre={tr('Especialista en compañías')} informe={revision?.companias} />}
+    <p className="meta revision-alcance">{tr('Una búsqueda pública no garantiza que no exista una patente ni un programa confidencial. La cobertura y los documentos consultados delimitan el resultado; la revisión de patentes no es un dictamen de libertad de operación.')}</p>
+  </>;
+  return dossier ? <div className="revision-dossier">{contenido}</div> : <Seccion titulo={tr('Patentes y desarrollo empresarial del tratamiento')} nota={tr('Dos especialistas comparan el tratamiento concreto con documentos de patentes y programas de compañías. Compartir una diana no significa estar probando el mismo tratamiento.')}>{contenido}</Seccion>;
 }

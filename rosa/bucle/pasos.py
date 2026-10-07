@@ -427,8 +427,8 @@ class Ctx:
     def evento(self, tipo: str, texto: str, ruta: str | None = None) -> None:
         self.mutar(lambda e: A.con_evento(e, self.investigacion_id, tipo, texto, ruta, P.ahora_ms()) or True, "evento")
 
-    def pista(self, paso_id: str | None, tipo: str, titulo: str, fuente: str) -> Pista:
-        return Pista(self.almacen, self.iteracion_id, paso_id, tipo, titulo, fuente)
+    def pista(self, paso_id: str | None, tipo: str, titulo: str, fuente: str, *, hipotesis_id: str | None = None) -> Pista:
+        return Pista(self.almacen, self.iteracion_id, paso_id, tipo, titulo, fuente, hipotesis_id=hipotesis_id)
 
     # -- modelos -----------------------------------------------------------
 

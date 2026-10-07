@@ -122,3 +122,16 @@ it('no crea enlaces ejecutables y tolera una fecha malformada', async () => {
   expect(nodo.textContent).toContain('Enlace de la fuente no disponible');
   expect(nodo.textContent).toContain('Fecha no disponible');
 });
+
+it('el dossier seleccionable muestra un solo especialista sin alterar la vista conjunta', async () => {
+  const r = revision();
+  r.companias = { ...informe(), resumen: 'Resumen exclusivo de compañías', hallazgos: [] };
+  await act(async () => root.render(<RevisionTratamiento revision={r} agente="companias" dossier />));
+  expect(nodo.querySelectorAll('.revision-informe')).toHaveLength(1);
+  expect(nodo.textContent).toContain('Resumen exclusivo de compañías');
+  expect(nodo.textContent).not.toContain('Document about TREM2');
+  expect(nodo.querySelector('.seccion')).toBeNull();
+  await act(async () => root.render(<RevisionTratamiento revision={r} />));
+  expect(nodo.querySelectorAll('.revision-informe')).toHaveLength(2);
+  expect(nodo.textContent).toContain('Document about TREM2');
+});

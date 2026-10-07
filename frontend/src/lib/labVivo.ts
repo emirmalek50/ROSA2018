@@ -8,7 +8,7 @@ import { etiquetaCorrida, proponiendoPlan } from './etiquetas';
 import { tr, trp } from './idioma';
 import { peticionPorPresupuesto } from './peticionPresupuestoLab';
 
-export type SalaLab = 'plan' | 'r1' | 'r2' | 'r3' | 'r4' | 'r5' | 'r6';
+export type SalaLab = 'plan' | 'r1' | 'r2' | 'r3' | 'r4' | 'r5' | 'r6' | 'r7';
 export type EstadoSala = 'listo' | 'ahora' | 'espera' | 'fallo' | 'despues' | 'no_toca';
 export type EstadoPasoLab = 'hecho' | 'ahora' | 'pendiente' | 'fallo' | 'omitido';
 export interface FuenteLab {
@@ -28,6 +28,8 @@ export interface ActividadLab {
   texto: string;
   tipo: EntradaTranscripcion['tipo'] | 'estado';
   pistaId: string | null;
+  /** Asociación explícita de la pista; nunca se infiere del título. */
+  hipotesisId?: string | null;
   pasoId: string | null;
   fuente: string;
   titulo: string;
@@ -82,10 +84,10 @@ export interface DatosLab {
   pasada: boolean;
 }
 const TERMINADO = new Set<PasoPlan['estado']>(['hecho', 'fallido', 'omitido', 'sin_trabajo']);
-const SALAS: Record<string, SalaLab[]> = { literatura: ['r1'], ensayos: ['r1'], extraccion: ['r1'], verificacion: ['r2'], modelo: ['r2'], hipotesis: ['r3', 'r4'], novedad: ['r4'], analisis: ['r5'], replicacion: ['r5'], meta: ['r6'], grafo: ['r2'] };
+const SALAS: Record<string, SalaLab[]> = { literatura: ['r1'], ensayos: ['r1'], extraccion: ['r1'], verificacion: ['r2'], modelo: ['r2'], hipotesis: ['r3', 'r4'], novedad: ['r4', 'r7'], analisis: ['r5'], replicacion: ['r5'], meta: ['r6'], grafo: ['r2'] };
 const AGENTE: Record<string, string> = { literatura: 'Generador de consultas', ensayos: 'Explorador', extraccion: 'Extractor de afirmaciones', verificacion: 'Juez', modelo: 'Actualizador del modelo de mundo', grafo: 'Actualizador del modelo de mundo', hipotesis: 'Contradicción', novedad: 'Juez de viabilidad', analisis: 'Programador y Reparador', replicacion: 'Programador y Reparador', meta: 'Meta-revisor' };
 const ATRIBUCION: Record<string, string> = { analogia: 'Analogía', contradiccion: 'Contradicción', mecanismo_opuesto: 'Mecanismo opuesto', otra_escala: 'Otra escala', killer: 'Killer', revision_inicial: 'Revisor inicial', supuestos: 'Evaluador de supuestos', torneo_a: 'Juez del torneo', torneo_b: 'Juez del torneo B', patentes: 'Especialista en patentes', companias: 'Especialista en compañías' };
-const SALA_AGENTE: Record<string, SalaLab> = { 'Puntuador preguntas': 'r1', 'Puntuador amplitud': 'r1', 'Explorador': 'r1', 'Killer': 'r4', 'Juez del torneo': 'r4', 'Juez del torneo B': 'r4', 'Revisor inicial': 'r4', 'Evaluador de supuestos': 'r4', 'Concluidor': 'r4', 'Especialista en patentes': 'r4', 'Especialista en compañías': 'r4', 'Analogía': 'r3', 'Contradicción': 'r3', 'Mecanismo opuesto': 'r3', 'Otra escala': 'r3', 'Planificador de análisis': 'r5', 'Auditor del análisis': 'r5', 'Intérprete': 'r5', 'Revisor del registro': 'r6', 'Resumidor': 'r6' };
+const SALA_AGENTE: Record<string, SalaLab> = { 'Puntuador preguntas': 'r1', 'Puntuador amplitud': 'r1', 'Explorador': 'r1', 'Killer': 'r4', 'Juez del torneo': 'r4', 'Juez del torneo B': 'r4', 'Revisor inicial': 'r4', 'Evaluador de supuestos': 'r4', 'Concluidor': 'r4', 'Especialista en patentes': 'r7', 'Especialista en compañías': 'r7', 'Analogía': 'r3', 'Contradicción': 'r3', 'Mecanismo opuesto': 'r3', 'Otra escala': 'r3', 'Planificador de análisis': 'r5', 'Auditor del análisis': 'r5', 'Intérprete': 'r5', 'Revisor del registro': 'r6', 'Resumidor': 'r6' };
 const numero = (s: string) => Number(s.replace(/\./g, ''));
 function tipoDePaso(it: Iteracion, p: PasoPlan): string {
   return p.tipo ?? it.pistas.find((x) => x.pasoId === p.id)?.tipo ?? '';
@@ -143,7 +145,7 @@ function actividadesDe(it: Iteracion | null): ActividadLab[] {
   const filas: ActividadLab[] = [];
   for (const p of it.pistas) {
     const tipo = tipoDePista(it, p);
-    const base = { pistaId: p.id, pasoId: p.pasoId, fuente: p.fuente, titulo: p.titulo, enCurso: p.estado === 'en_curso' };
+    const base = { pistaId: p.id, hipotesisId: p.hipotesisId ?? null, pasoId: p.pasoId, fuente: p.fuente, titulo: p.titulo, enCurso: p.estado === 'en_curso' };
     const entradas = p.transcripcion.slice(-40);
     // «Nueva: título» no dice el enfoque; la nota «Entra por el enfoque» del mismo título sí.
     const entran: [string, string][] = [];
@@ -260,7 +262,7 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
   const pide = pasada ? null : peticionDe(estado, corrida, it, actividad.at(-1)?.agente);
   // Una incidencia no para la corrida: el resto del trabajo sigue a la vista detrás del letrero.
   const bloquea = !!pide && pide.clase !== 'incidencia';
-  const salas: DatosLab['salas'] = { plan: it?.planAprobado ? 'listo' : 'despues', r1: 'no_toca', r2: 'no_toca', r3: 'no_toca', r4: 'no_toca', r5: 'no_toca', r6: 'despues' };
+  const salas: DatosLab['salas'] = { plan: it?.planAprobado ? 'listo' : 'despues', r1: 'no_toca', r2: 'no_toca', r3: 'no_toca', r4: 'no_toca', r5: 'no_toca', r6: 'despues', r7: 'no_toca' };
   const enCurso = plan.find((p) => p.estado === 'en_curso');
   const siguiente = enCurso ?? plan.find((p) => p.estado === 'pendiente');
   let foco: SalaLab = it?.planAprobado ? (SALAS[it && siguiente ? tipoDePaso(it, siguiente) : '']?.[0] ?? 'r6') : 'plan';
@@ -268,6 +270,13 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
     const pasos = plan.filter((p) => it && SALAS[tipoDePaso(it, p)]?.includes(s));
     if (pasos.length) salas[s] = pasos.every((p) => TERMINADO.has(p.estado)) ? (pasos.some((p) => p.estado === 'fallido') ? 'fallo' : pasos.some((p) => p.estado === 'hecho') ? 'listo' : 'no_toca') : 'despues';
   }
+  // El checkpoint de especialistas también puede ocurrir fuera de un paso de
+  // novedad. Un paso antiguo cerrado, sin sus registros, no prueba su revisión.
+  const pistasNovedad = new Set(actividad.filter((a) => a.sala === 'r7').map((a) => a.pistaId));
+  const propias = it?.pistas.filter((p) => pistasNovedad.has(p.id)) ?? [];
+  if (propias.length && propias.every((p) => p.estado !== 'en_curso')) {
+    salas.r7 = propias.some((p) => p.estado === 'fallida') ? 'fallo' : propias.some((p) => p.estado === 'hecha') ? 'listo' : 'espera';
+  } else if (!propias.length && (salas.r7 === 'listo' || salas.r7 === 'fallo')) salas.r7 = 'no_toca';
   const activos: string[] = [];
   if (!pasada && it?.terminadaEn === null) {
     const pistasVivas = it.pistas.filter((p) => p.estado === 'en_curso' && (!p.pasoId || !TERMINADO.has(plan.find((x) => x.id === p.pasoId)?.estado ?? 'pendiente')));

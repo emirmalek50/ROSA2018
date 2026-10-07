@@ -86,6 +86,7 @@ const PANTALLAS: { clave: Pantalla; etiqueta: string; icono: (p: { size?: number
   // aquí el 1 de octubre de 2026 porque las dos enseñaban la misma lista con
   // otro orden. El contador de lo que espera tu decisión viene con ella.
   { clave: 'ranking', etiqueta: 'Hipótesis y ranking', icono: IconTrophy },
+  { clave: 'novedad', etiqueta: 'Novedad', icono: IconSearch },
   { clave: 'panorama', etiqueta: 'Panorama', icono: IconGlobe },
   { clave: 'mundo', etiqueta: 'Modelo de mundo', icono: IconLayers },
   { clave: 'arbol', etiqueta: 'Árbol', icono: IconTree },

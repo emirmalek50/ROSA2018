@@ -55,7 +55,8 @@ def dictamen(doc=None, relacion="mismo_tratamiento", cita=None):
 
 
 class PistaFalsa:
-    def __init__(self):
+    def __init__(self, hipotesis_id=None):
+        self.hipotesis_id = hipotesis_id
         self.actividades = []
         self.cierres = []
 
@@ -88,8 +89,8 @@ class ContextoFalso:
     def mutar(self, fn, nombre):
         return fn(self.e)
 
-    def pista(self, *args):
-        p = PistaFalsa()
+    def pista(self, *args, hipotesis_id=None):
+        p = PistaFalsa(hipotesis_id)
         self.pistas.append(p)
         return p
 
@@ -127,6 +128,50 @@ def instalar_recuperacion(monkeypatch, patentes=None, companias=None):
     return llamadas
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tipo_perfil", ["intervencion", "observacional", "error"])
+async def test_pistas_e_informes_atribuyen_la_hipotesis_real_y_la_ejecucion(monkeypatch, tipo_perfil):
+    h = hipotesis()
+    gemela = deepcopy(h)
+    gemela["id"] = "h-2"
+    ctx = ContextoFalso([h, gemela])
+    instalar_recuperacion(monkeypatch)
+    if tipo_perfil == "observacional":
+        h["tarjeta"]["intervencion"] = "ninguna"
+        ctx.respuestas["perfil"] = perfil(tipo="observacional")
+    elif tipo_perfil == "error":
+        ctx.respuestas["perfil"] = ValueError("Perfil no verificable")
+    await AT.revisar(ctx, "h-1")
+    assert all(p.hipotesis_id == "h-1" for p in ctx.pistas)
+    assert "revisionTratamiento" not in gemela
+    for tipo in AT.NOMBRES:
+        informe = h["revisionTratamiento"][tipo]
+        assert informe["hipotesisId"] == "h-1"
+        assert informe["corridaId"] == "corrida-1"
+        assert informe["iteracionId"] == "iteracion-1"
+
+
+@pytest.mark.asyncio
+async def test_informe_completado_conserva_su_iteracion_al_reanudar(monkeypatch):
+    from rosa.bucle.pasos import CorridaParada
+
+    ctx = ContextoFalso()
+    dc = documento()
+    instalar_recuperacion(monkeypatch, companias=recuperacion([dc]))
+    ctx.respuestas["companias"] = [CorridaParada("pausada"), dictamen(dc)]
+    ctx.respuestas["auditar"] = dictamen(dc)
+    with pytest.raises(CorridaParada):
+        await AT.revisar(ctx, "h-1")
+    patentes = deepcopy(ctx.e["hipotesis"][0]["revisionTratamiento"]["patentes"])
+    ctx.iteracion_id = "iteracion-2"
+    await AT.revisar(ctx, "h-1")
+    revision = ctx.e["hipotesis"][0]["revisionTratamiento"]
+    assert revision["patentes"] == patentes
+    assert revision["patentes"]["iteracionId"] == "iteracion-1"
+    assert revision["companias"]["iteracionId"] == "iteracion-2"
+    assert revision["companias"]["hipotesisId"] == "h-1"
+
+
 def test_huella_cambia_con_dosis_via_ingrediente_y_combinacion():
     h = hipotesis()
     original = AT.huella(h)
@@ -145,6 +190,14 @@ def test_huella_no_cambia_por_torneo_estado_lab_o_resultado():
     h.update(elo=9999, partidos=[{"gana": "h-1"}], certeza="alta")
     h["experimento"].update(estado="recibido", laboratorio="Laboratorio", resultado={"clasificacion": "positivo"}, ficheroDatos="privado.csv")
     assert AT.huella(h) == original
+
+
+def test_informe_con_misma_intervencion_y_version_antigua_no_entra_al_juez():
+    h = hipotesis()
+    h["revisionTratamiento"] = {"version": AT.VERSION - 1, "huella": AT.huella(h),
+                               "patentes": {"resumen": "Patente antigua no vigente"}}
+    assert "pendiente" in AT.texto_informe(h)
+    assert "Patente antigua" not in AT.texto_informe(h)
 
 
 def test_hipotesis_antigua_con_novedad_resuelta_tiene_revision_pendiente():

@@ -30,6 +30,18 @@ def test_cambiar_estado_del_laboratorio_no_invalida_la_identidad():
     assert _limpiar_para_cliente(h)["revisionTratamiento"]["vigente"] is True
 
 
+def test_publicacion_conserva_origen_por_informe_y_no_atribuye_historicos():
+    h = {"id": "h", "investigacionId": "inv", "titulo": "A"}
+    h["revisionTratamiento"] = {"version": VERSION, "huella": huella(h),
+        "patentes": {"hipotesisId": "h", "corridaId": "cor-1", "iteracionId": "it-1", "_intento": "cor-1:it-1"},
+        "companias": {"_intento": "cor-0:it-0"}}
+    original = deepcopy(h)
+    informes = _limpiar_para_cliente(h)["revisionTratamiento"]
+    assert informes["patentes"] == {"hipotesisId": "h", "corridaId": "cor-1", "iteracionId": "it-1"}
+    assert informes["companias"] == {}
+    assert h == original
+
+
 def test_el_corpus_reserva_fuentes_web_y_limita_tamano_antes_del_checkpoint():
     documentos = [{"id": str(i), "fuente": "ClinicalTrials.gov", "texto": "a" * 16000} for i in range(100)]
     documentos.append({"id": "web", "fuente": "Web (Exa)", "texto": "Programa preclínico"})

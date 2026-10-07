@@ -3,11 +3,11 @@
 // tamano de una investigacion, recorrer las listas es instantaneo.
 
 import type { EstadoRosa } from '../datos/tipos';
-import { rutaDe } from './ruta';
+import { rutaDe, rutaNovedad } from './ruta';
 import { tr, trp } from './idioma';
 
 export interface Resultado {
-  tipo: 'hipotesis' | 'hecho' | 'fuente' | 'artefacto' | 'iteracion' | 'evento';
+  tipo: 'hipotesis' | 'hecho' | 'fuente' | 'artefacto' | 'iteracion' | 'evento' | 'novedad';
   titulo: string;
   detalle: string;
   ruta: string;
@@ -31,6 +31,22 @@ export function buscar(estado: EstadoRosa, investigacionId: string, consulta: st
     if (casa(h.titulo, h.enunciado, h.mecanismo, h.cluster)) salida.push({ tipo: 'hipotesis', titulo: h.titulo, detalle: `Elo ${h.elo}`, ruta: rutaDe(investigacionId, 'hipotesis', h.id) });
     for (const f of h.procedencia.fuentes) {
       if (casa(f.referencia, f.titulo, f.doi, f.pmid, f.nct)) salida.push({ tipo: 'fuente', titulo: f.referencia, detalle: f.titulo, ruta: rutaDe(investigacionId, 'hipotesis', h.id) });
+    }
+    const revision = h.revisionTratamiento;
+    // Solo el servidor acredita la identidad vigente. Un dossier antiguo sigue
+    // disponible en Novedad, pero no se ofrece como coincidencia actual al buscar.
+    if (revision?.vigente === true) {
+      const perfil = revision.perfil;
+      const coincidePerfil = perfil ? casa(perfil.nombre, ...(perfil.ingredientes ?? []), ...(perfil.sinonimos ?? []), ...(perfil.dianas ?? []), ...(perfil.combinacion ?? [])) : false;
+      for (const agente of ['patentes', 'companias'] as const) {
+        const informe = revision[agente];
+        if (!informe || (informe.hipotesisId && informe.hipotesisId !== h.id)) continue;
+        const coincideInforme = casa(informe.agente, informe.resumen, ...(informe.limitaciones ?? []),
+          ...(informe.consultas ?? []).map(c => c.consulta),
+          ...(informe.hallazgos ?? []).flatMap(f => [f.id, f.titulo, f.fuente, f.url, f.cita, f.explicacion, ...(f.diferencias ?? []), JSON.stringify(f.datos)]));
+        if (coincidePerfil || coincideInforme) salida.push({ tipo: 'novedad', titulo: h.titulo,
+          detalle: `${informe.agente}: ${informe.resumen}`, ruta: rutaNovedad(investigacionId, h.id, agente) });
+      }
     }
   }
   for (const he of estado.hechos) {

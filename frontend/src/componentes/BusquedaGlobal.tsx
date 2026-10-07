@@ -25,6 +25,7 @@ const TIPO: Record<Resultado['tipo'], string> = traducido({
   artefacto: 'Artefacto',
   iteracion: 'Iteración',
   evento: 'Evento',
+  novedad: 'Novedad',
 });
 
 /** Tres filas con la silueta de un resultado por significado (.busqueda-item:

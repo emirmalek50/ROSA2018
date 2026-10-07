@@ -14,6 +14,7 @@ import json
 import re
 import time
 from typing import Any
+from urllib.parse import quote
 
 import dspy
 
@@ -68,6 +69,13 @@ class ConversarConRosa(H.PreguntarConHerramientas):
     científicos consulta skills y leer_skill; no confundas un método con evidencia.
     Los resultados largos se paginan con desde o se seleccionan con camino.
     Usa enlaces de descarga devueltos por las herramientas, no los inventes.
+    La sección Novedad contiene los informes de patentes y compañías de cada
+    tratamiento. catalogo_proyecto indica su ubicación y recuento; consulta
+    hipótesis y usa leer_registro("hipotesis", id) para leer revisionTratamiento.
+    Comprueba vigente y el origen de cada informe: pertenecer a una hipótesis no
+    significa que lo produjo la corrida que está abierta. Un origen histórico
+    ausente es desconocido; no lo infieras por título o fecha. La búsqueda pública
+    sin coincidencias no acredita ausencia mundial de patentes ni de compañías.
     El botón Adjuntar datos permite cargar datasets y resultados experimentales;
     sus filas no se envían al modelo sin la autorización de procedencia de ROSA.
     Para eliminar un dataset, identifica su dataset_id e investigacion_id con
@@ -343,7 +351,29 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
         Incluye programa, configuración, permisos, datasets, memoria y fuentes.
         Las fuentes son registros por corrida, no publicaciones únicas.
         """
-        return json.dumps({k: len(v) for k, v in tablas(estado()).items()}, ensure_ascii=False)
+        e = estado()
+        salida: dict[str, Any] = {k: len(v) for k, v in tablas(e).items()}
+        revisadas = [h for h in e.get("hipotesis", []) if isinstance(h.get("revisionTratamiento"), dict)]
+        por_estado: dict[str, dict[str, int]] = {"patentes": {}, "companias": {}}
+        for h in revisadas:
+            for tipo in por_estado:
+                informe = h["revisionTratamiento"].get(tipo)
+                if isinstance(informe, dict):
+                    estado_informe = str(informe.get("estado") or "desconocido")
+                    por_estado[tipo][estado_informe] = por_estado[tipo].get(estado_informe, 0) + 1
+        salida["informesTratamiento"] = {
+            "ubicacion": "revisionTratamiento dentro de cada registro de hipotesis",
+            "lectura": "consultar_proyecto('hipotesis') y leer_registro('hipotesis', id, investigacion=investigacionId); seguir siguiente para leer el informe completo",
+            "pantalla": "Novedad", "hipotesisConRevision": len(revisadas),
+            "vigentes": sum(h["revisionTratamiento"].get("vigente") is True for h in revisadas),
+            "informesPorEstado": por_estado,
+            "nota": "Los estados incluyen históricos; leer vigente y el origen corridaId/iteracionId/hipotesisId de cada informe. Un origen ausente es desconocido, no la corrida abierta. No equivalen a eficacia, certeza GRADE ni libertad de operación.",
+            "ejemplos": [{"hipotesisId": h["id"], "investigacionId": h["investigacionId"],
+                          "vigente": h["revisionTratamiento"].get("vigente"),
+                          "ruta": f"#/investigaciones/{quote(str(h['investigacionId']), safe='')}/novedad/{quote(str(h['id']), safe='')}"}
+                         for h in revisadas[:5]],
+        }
+        return json.dumps(salida, ensure_ascii=False)
 
     def panorama_del_tema(tema: str) -> str:
         """Cuánta información guarda ROSA sobre una proteína o tema en TODO el

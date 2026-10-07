@@ -17,6 +17,7 @@ import { formatearEntero } from '../../lib/formato';
 import { ALCANCE, veredictoDe } from '../../lib/etiquetas';
 import { baseDe } from '../../lib/escenario';
 import type { ActividadLab, AfirmacionLab, DatosLab, EstadoPasoLab, EstadoSala, FuenteLab, SalaLab } from '../../lib/labVivo';
+import type { AgenteNovedad } from '../../lib/ruta';
 import urlFondo from '../../assets/labvivo/fondo.png';
 import fgZuSK4 from '../../assets/labvivo/fg/ZuSK4.png';
 import fgkXLTR from '../../assets/labvivo/fg/kXLTR.png';
@@ -40,6 +41,7 @@ export interface Respuestas {
   ampliarPresupuesto: (corridaId: string, limite: number) => Promise<boolean | null>;
   resolverIncidencia: (id: string, resolucion: string) => Promise<boolean | null>;
   verEnLaCorrida: () => void;
+  verNovedad: (agente: AgenteNovedad, hipotesisId?: string) => void;
 }
 
 export interface Laboratorio {
@@ -59,11 +61,12 @@ const GEOM: Record<Sala, [number, number, number, number]> = {
   r2: [0, 288, 624, 312],
   r3: [632, 288, 432, 312],
   r4: [0, 608, 432, 312],
-  r5: [440, 608, 624, 312],
+  r7: [440, 608, 624, 144],
+  r5: [440, 760, 624, 160],
   r6: [0, 928, 1064, 200],
   rec: [0, 1136, 1064, 176],
 };
-const NUMERO: Partial<Record<Sala, number>> = { r1: 1, r2: 2, r3: 3, r4: 4, r5: 5, r6: 6 };
+const NUMERO: Partial<Record<Sala, number>> = { r1: 1, r2: 2, r3: 3, r4: 4, r5: 5, r6: 6, r7: 7 };
 const COLOR_ESTADO: Record<EstadoSala | 'siempre', { bg: string; c: string }> = {
   listo: { bg: '#1F3B2F', c: '#7FD1A5' },
   ahora: { bg: '#4A2A17', c: '#FFB27A' },
@@ -129,23 +132,23 @@ Analogía|Analogía con otro campo|712|376|#B79CF2|rapado|1|3|0|b|82|1|Busca ide
 Contradicción|Contradicción|784|376|#B79CF2|coleta|0|2|3|g|82|1|Parte de lo que no encaja para proponer ideas.
 Mecanismo opuesto|Mecanismo opuesto|856|376|#B79CF2|mono|3|6|4|g|82|1|Prueba la idea contraria a la que todos dan por buena.
 Otra escala|Otra escala|928|376|#B79CF2|corto|2|5|2|b|82|1|Mira el problema a otra escala: célula, persona, población.
-Planificador de análisis|Planificador de análisis|596|770|#B79CF2|rizos|4|1|1||66|0|Decide qué análisis de datos hace falta.
-Programador y Reparador|Programador y Reparador|680|770|#B79CF2|largo|1|4|0||66|0|Escribe el código del análisis y lo arregla si falla.
-Intérprete|Intérprete|764|770|#E3A57C|melena|3|0|4|g|66|0|Explica qué significa el resultado.
-Auditor del análisis|Auditor del análisis|848|770|#E3A57C|afro|0|3|3||66|0|Revisa que el análisis esté bien hecho.
+Planificador de análisis|Planificador de análisis|596|808|#B79CF2|rizos|4|1|1||66|0|Decide qué análisis de datos hace falta.
+Programador y Reparador|Programador y Reparador|680|808|#B79CF2|largo|1|4|0||66|0|Escribe el código del análisis y lo arregla si falla.
+Intérprete|Intérprete|764|808|#E3A57C|melena|3|0|4|g|66|0|Explica qué significa el resultado.
+Auditor del análisis|Auditor del análisis|848|808|#E3A57C|afro|0|3|3||66|0|Revisa que el análisis esté bien hecho.
 Killer|Killer|10|672|#E3A57C|flequillo|2|6|2||66|0|Intenta tumbar cada idea antes de gastar en ella.
 Revisor inicial|Revisor inicial|80|672|#E3A57C|rapado|4|2|1|gb|66|0|Primer filtro: aparta las ideas que no cumplen lo básico.
 Evaluador de supuestos|Evaluador de supuestos|150|672|#7CC7E8|mono|1|5|0||66|0|Saca a la luz lo que cada idea da por hecho.
 Juez del torneo|Juez del torneo ×2|210|672|#E3A57C|corto|0|4|3|b|66|0|Enfrenta ideas de dos en dos y elige la mejor.
 Juez del torneo B|Juez del torneo|238|666|#E3A57C|corto|0|4|3|b|66|0|Enfrenta ideas de dos en dos y elige la mejor.
 Juez de viabilidad|Juez de viabilidad|298|672|#E3A57C|rizos|2|0|2||66|0|Decide si la idea se puede probar con lo que hay.
-Especialista en patentes|Especialista en patentes|368|672|#B79CF2|melena|3|1|2|g|66|0|Lee patentes relacionadas con el tratamiento y distingue lo reivindicado de una semejanza.
+Especialista en patentes|Especialista en patentes|580|664|#B79CF2|melena|3|1|2|g|66|0|Lee patentes relacionadas con el tratamiento y distingue lo reivindicado de una semejanza.
 Auditor de descartes|Auditor de descartes|10|792|#B79CF2|largo|4|3|1||66|0|Revisa que no se haya tirado una buena idea.
 Concluidor|Concluidor|80|792|#E3A57C|melena|1|6|0||66|0|Cierra cada idea con una conclusión.
 Evaluador de resultado|Evaluador de resultado|150|792|#E3A57C|afro|3|2|4|g|66|0|Juzga si el resultado responde a la pregunta.
 Tarjeta y Nombre corto|Tarjeta y Nombre corto|220|792|#7CC7E8|flequillo|0|5|3||66|0|Pone a cada idea una tarjeta y un nombre corto.
 Resumen en llano|Resumen en llano|290|792|#B79CF2|rapado|2|1|2|b|66|0|Resume cada idea en palabras sencillas.
-Especialista en compañías|Especialista en compañías|368|792|#B79CF2|corto|1|3|4|b|66|0|Contrasta quién está probando o ha probado el tratamiento con registros y documentos públicos.
+Especialista en compañías|Especialista en compañías|860|664|#B79CF2|corto|1|3|4|b|66|0|Contrasta quién está probando o ha probado el tratamiento con registros y documentos públicos.
 Revisor del registro|Revisor del registro|52|998|#E3A57C|mono|4|4|1||68|0|Repasa el registro de todo lo que pasó.
 Rehacedor|Rehacedor|204|998|#B79CF2|coleta|1|0|0||68|0|Rehace lo que salió mal.
 Revisor de la reparación|Revisor de la reparación|356|998|#E3A57C|corto|3|3|4|gb|68|0|Comprueba que lo rehecho quedó bien.
@@ -173,6 +176,7 @@ const NOMBRE_PROPIO: Record<string, string> = {
   'Revisor de la reparación': 'Arjun', 'Meta-revisor': 'Emma', 'Revisor del arnés': 'Camila', Resumidor: 'Ada',
   'Auditor de GEPA': 'Bruno', 'Asistente del chat': 'Iván', Preguntador: 'Paula', Traductor: 'Aisha',
 };
+const ESPECIALISTA: Record<string, AgenteNovedad> = { 'Especialista en patentes': 'patentes', 'Especialista en compañías': 'companias' };
 
 
 /* ---------- sprites: rejilla de 12 × 16 ---------- */
@@ -304,7 +308,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   };
 
   /* ---------- textos ---------- */
-  const TITULO_SALA: Partial<Record<Sala, string>> = { plan: tr('El plan'), r1: tr('Buscan y leen artículos'), r2: tr('Comprueban cada dato'), r3: tr('Proponen ideas nuevas'), r4: tr('Juzgan las ideas'), r5: tr('Las prueban con datos'), r6: tr('Revisan el trabajo'), rec: tr('Hablan contigo') };
+  const TITULO_SALA: Partial<Record<Sala, string>> = { plan: tr('El plan'), r1: tr('Buscan y leen artículos'), r2: tr('Comprueban cada dato'), r3: tr('Proponen ideas nuevas'), r4: tr('Juzgan las ideas'), r5: tr('Las prueban con datos'), r6: tr('Revisan el trabajo'), r7: tr('Patentes y compañías'), rec: tr('Hablan contigo') };
   const estadoDe = (s: Sala): EstadoSala | 'siempre' => (s === 'bib' ? 'listo' : s === 'rec' ? 'siempre' : D.salas[s]);
   const NOMBRE_ESTADO: Record<EstadoSala | 'siempre', string> = { listo: tr('Listo'), ahora: tr('Ahora'), despues: tr('Después'), no_toca: tr('No toca'), espera: tr('En espera'), fallo: tr('Falló'), siempre: tr('Siempre') };
   // Con la corrida parada, la sala en foco es donde se quedó, no algo que esté pasando.
@@ -384,6 +388,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     };
   });
   AG.forEach((a) => { a.turno = AG.filter((b) => b.room === a.room && b.i < a.i).length; });
+  AG.forEach((a) => { a.el.dataset.sala = a.room; });
   const P = (n: string): Agente => AG.find((a) => a.name === n) ?? AG[0]!;
   const atHome = (a: Agente) => a.path.length === 0 && Math.abs(a.x - a.hx) < 1 && Math.abs(a.y - a.hy) < 1;
 
@@ -412,6 +417,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   for (const k of Object.keys(GEOM) as Sala[]) {
     const r = GEOM[k];
     const d = div('lv-sala', capaSalas);
+    d.dataset.sala = k;
     d.style.cssText = `left:${r[0]}px;top:${r[1]}px;width:${r[2]}px;height:${r[3]}px`;
     salaEl[k] = d;
     if (TITULO_SALA[k]) placaEl[k] = div('lv-placa' + (NUMERO[k] ? '' : ' nonum'), d);
@@ -580,6 +586,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     ficha.style.left = x + 'px'; ficha.style.top = y + 'px';
   }
   function showCard(a: Agente) {
+    // Estos dos abren su dossier científico, sin la ficha genérica del motor.
+    if (ESPECIALISTA[a.name]) { ficha.hidden = true; fichaDe = null; return; }
     const est = estadoDe(a.room), st = COLOR_ESTADO[est], n = NUMERO[a.room];
     fichaDe = a; fichaTexto = haciendo(a);
     const rol = a.label.replace(' ×2', '');
@@ -601,6 +609,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     { room: 'plan', title: tr('El plan') }, { room: 'r1', title: tr('Buscan y leen') },
     { room: 'r2', title: tr('Comprueban datos') }, { room: 'r3', title: tr('Proponen ideas') },
     { room: 'r4', title: tr('Las juzgan') }, { room: 'r5', title: tr('Las prueban') }, { room: 'r6', title: tr('Revisan todo') },
+    { room: 'r7', title: tr('Novedad') },
   ];
   const capituloDe = (s: SalaLab) => Math.max(0, CH.findIndex((c) => c.room === s));
   let chIdx = capituloDe(D.foco);
@@ -646,7 +655,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
   // Pasillos bajo las mesas, sin cruzar las paredes ni las cajas de evidencia.
   function pasillo(a: Agente): number {
-    const suelo: Partial<Record<Sala, number>> = { r1: 192, r2: a.hy < 400 ? 412 : 516, r3: 472, r4: a.hy < 750 ? 708 : 820, r5: 806, r6: 1034 };
+    const suelo: Partial<Record<Sala, number>> = { r1: 192, r2: a.hy < 400 ? 412 : 516, r3: 472, r4: a.hy < 750 ? 708 : 820, r5: 806, r6: 1034, r7: 664 };
     return suelo[a.room] ?? Math.min(GEOM[a.room][1] + GEOM[a.room][3] - 76, a.hy + 28);
   }
   function desplazarse(ctx: Ctx, a: Agente, x: number, y: number) {
@@ -823,7 +832,10 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       const ab = D.trabajando && D.activos.includes(a.name) ? [...D.actividad].reverse().find((e) => e.agente === a.name && e.enCurso) : undefined;
       a.desde = ab?.abierta && ab.desde ? ab.desde : null;
       a.el.dataset.agente = a.name;
-      a.el.setAttribute('aria-label', a.label + ': ' + haciendo(a));
+      const especialista = ESPECIALISTA[a.name];
+      const descripcion = especialista ? `${a.quien} · ${a.label}: ${tr('Abrir dossier en Novedad')}` : a.label + ': ' + haciendo(a);
+      a.el.setAttribute('aria-label', descripcion);
+      if (especialista) a.el.title = `${descripcion}. ${haciendo(a)}`;
       a.el.classList.toggle('activo', D.activos.includes(a.name));
     });
     hoja = D.activos.includes('Juez');
@@ -953,6 +965,13 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (asking) return;
       cerrarObjeto(false); dejarDeSeguir(false);
       AG.forEach((b) => b.el.classList.remove('sel'));
+      const especialista = ESPECIALISTA[a.name];
+      if (especialista) {
+        sel = null; ficha.hidden = true; fichaDe = null;
+        const ultima = [...D.actividad].reverse().find((e) => e.agente === a.name);
+        resp.verNovedad(especialista, ultima?.hipotesisId ?? undefined);
+        return;
+      }
       if (sel === a) { sel = null; zoomOut(); ficha.hidden = true; return; }
       sel = a; a.el.classList.add('sel'); zoomTo(a, 2); showCard(a);
     };
@@ -1140,7 +1159,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   /* ---------- el mensajero y las monedas ---------- */
   /** Cuando el trabajo pasa de una sala a otra, alguien libre lleva el expediente. */
   function mensajero(de: SalaLab, a: SalaLab) {
-    if (REDUCIR || asking || D.conexion !== 'en_linea' || de === a) return;
+    if (REDUCIR || asking || D.conexion !== 'en_linea' || de === a || de === 'r7' || a === 'r7') return;
     const m = AG.find((b) => b.room === de && !b.desk && !b.busy && !b.ictx && !b.recado && !D.activos.includes(b.name) && atHome(b));
     if (!m) return;
     const [gx, gy, gw, gh] = GEOM[a], dx = gx + gw / 2 - 24, dy = gy + gh - 76;
@@ -1297,6 +1316,25 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   const FG = DELANTE.map(([src, x, y, w, h]) => ({ im: carga(src), x, y, w, h }));
   const CL = 230 + 104;
   const convAt = (s: number): [number, number, number] => (s <= 230 ? [476, 182 + s, 0] : [476 - (s - 230), 412, 1]);
+  /** Cuarto exclusivo de los dos especialistas, sobre el suelo ya existente. */
+  function dibujarCuartoNovedad() {
+    if (!g) return;
+    const [x, y, w, h] = GEOM.r7;
+    g.fillStyle = '#353146'; g.fillRect(x, y, w, 44);
+    for (let dy = 44; dy < h; dy += 16) for (let dx = 0; dx < w; dx += 16) {
+      g.fillStyle = (dx / 16 + Math.floor((dy - 44) / 16)) % 2 ? '#262332' : '#292635';
+      g.fillRect(x + dx, y + dy, Math.min(16, w - dx), Math.min(16, h - dy));
+    }
+    g.fillStyle = '#17131F'; g.fillRect(x, y + h, w, 8);
+    g.fillStyle = '#353146'; g.fillRect(x, y + h + 8, w, 44);
+    g.fillStyle = '#5A5670'; g.fillRect(x, y + h + 8, w, 4);
+    // Dos expedientes en la pared, con el mismo acento lavanda de sus batas.
+    for (const dx of [w - 112, w - 64]) {
+      g.fillStyle = '#17131F'; g.fillRect(x + dx, y + 10, 32, 26);
+      g.fillStyle = '#B79CF2'; g.fillRect(x + dx + 4, y + 14, 24, 4);
+      g.fillStyle = '#C9C4DA'; g.fillRect(x + dx + 4, y + 22, 16, 2); g.fillRect(x + dx + 4, y + 28, 20, 2);
+    }
+  }
   function drawObj(kind: Obj, x: number, y: number, rot: number) {
     if (!g) return;
     g.save(); g.translate(Math.round(x), Math.round(y));
@@ -1442,6 +1480,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     g.setTransform(2, 0, 0, 2, 0, 0); g.imageSmoothingEnabled = false;
     g.fillStyle = '#0E0D14'; g.fillRect(0, 0, ANCHO, ALTO_VISTA);
     if (FONDO.complete) g.drawImage(FONDO, -0.5, -0.5, ANCHO + 1, ALTO_VISTA + 1);
+    dibujarCuartoNovedad();
     ordenFuentes(D.fuentes).forEach((f, i) => {
       const [x, y] = ESTANTE[i]!;
       g.fillStyle = f.fallo ? '#E2706A' : '#7CC7E8'; g.fillRect(x, y, 81, 5);

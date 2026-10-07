@@ -38,7 +38,8 @@ SALAS = {
     "verificacion": ["Juez", "Señalizador de sesgo"],
     "modelo": ["Actualizador del modelo de mundo", "Asignador de evidencia"],
     "hipotesis": ["Contradicción", "Analogía", "Mecanismo opuesto", "Otra escala"],
-    "revision": ["Killer", "Evaluador de supuestos", "Revisor inicial", "Juez del torneo", "Juez del torneo B", "Especialista en patentes", "Especialista en compañías"],
+    "revision": ["Killer", "Evaluador de supuestos", "Revisor inicial", "Juez del torneo", "Juez del torneo B"],
+    "novedad": ["Especialista en patentes", "Especialista en compañías"],
     "analisis": ["Intérprete", "Auditor del análisis", "Programador y Reparador", "Planificador de análisis"],
     "meta": ["Revisor del registro", "Resumidor"],
 }
@@ -49,7 +50,8 @@ COMPANEROS = {
     "lectura": ["Generador de consultas", "Explorador", "Puntuador preguntas", "Puntuador amplitud", "Extractor de afirmaciones"],
     "evidencia": ["Juez", "Señalizador de sesgo", "Asignador de evidencia", "Actualizador del modelo de mundo"],
     "ideas": ["Contradicción", "Analogía", "Mecanismo opuesto", "Otra escala"],
-    "revision": ["Killer", "Revisor inicial", "Evaluador de supuestos", "Juez del torneo", "Juez del torneo B", "Juez de viabilidad", "Auditor de descartes", "Concluidor", "Evaluador de resultado", "Tarjeta y Nombre corto", "Resumen en llano", "Especialista en patentes", "Especialista en compañías"],
+    "revision": ["Killer", "Revisor inicial", "Evaluador de supuestos", "Juez del torneo", "Juez del torneo B", "Juez de viabilidad", "Auditor de descartes", "Concluidor", "Evaluador de resultado", "Tarjeta y Nombre corto", "Resumen en llano"],
+    "novedad": ["Especialista en patentes", "Especialista en compañías"],
     "analisis": ["Planificador de análisis", "Programador y Reparador", "Intérprete", "Auditor del análisis"],
     "cierre": ["Revisor del registro", "Rehacedor", "Revisor de la reparación", "Meta-revisor", "Revisor del arnés", "Resumidor", "Auditor de GEPA"],
 }
@@ -158,11 +160,15 @@ def _autor(pista: dict[str, Any], entrada: dict[str, Any]) -> tuple[str, list[st
     if pista.get("titulo") == "Meta-revisión y panorama":
         tipo = "meta"
     autor = ATRIBUCION.get(str(entrada.get("agente") or ""))
-    if autor in SALAS["revision"] or re.match(r"(?:El Killer|Killer:|Revisada:|Revisión inicial|Evaluando supuestos)", texto):
+    if autor in SALAS["novedad"]:
+        grupo = SALAS["novedad"]
+    elif autor in SALAS["revision"] or re.match(r"(?:El Killer|Killer:|Revisada:|Revisión inicial|Evaluando supuestos)", texto):
         grupo = SALAS["revision"]
         autor = autor or ("Revisor inicial" if texto.startswith("Revisión inicial") else "Evaluador de supuestos" if texto.startswith("Evaluando supuestos") else "Killer")
     else:
-        grupo = SALAS.get(tipo, SALAS["plan"])
+        # Las pistas antiguas de novedad incluyen búsquedas generales. Solo una
+        # atribución explícita coloca a los nuevos especialistas en su sala.
+        grupo = SALAS.get(tipo, SALAS["plan"]) if tipo != "novedad" else SALAS["plan"]
         if tipo == "literatura" and texto.startswith(("Relevancia:", "Reranker")):
             autor = "Puntuador preguntas"
         autor = autor or grupo[0]
@@ -193,7 +199,8 @@ def tema_de(e: dict[str, Any], corrida_id: str, iteracion_id: str) -> dict[str, 
     autor, voces = _autor(pista, ultimo)
     materiales: list[dict[str, Any]] = []
     for _, p, j, x in registros[-6:]:
-        materiales.append({"id": f"{p['id']}:{j}:{x.get('t', 0)}", "clase": "registro", "texto": str(x["texto"])[:1800], "tipo": x["tipo"], "pistaId": p["id"], "titulo": p.get("titulo", ""), "agente": _autor(p, x)[0]})
+        materiales.append({"id": f"{p['id']}:{j}:{x.get('t', 0)}", "clase": "registro", "texto": str(x["texto"])[:1800], "tipo": x["tipo"], "pistaId": p["id"], "titulo": p.get("titulo", ""), "agente": _autor(p, x)[0],
+                           **({"hipotesisId": p["hipotesisId"]} if p.get("hipotesisId") is not None else {})})
     for a in [x for x in c.get("_afirmaciones", []) if x.get("iteracion") == it["numero"] and not x.get("sospechosoInyeccion")][-6:]:
         materiales.append({"id": "af:" + str(a.get("id") or hashlib.sha256(str(a.get("texto")).encode()).hexdigest()[:12]), "clase": "afirmacion", **{k: a.get(k) for k in ("texto", "cita", "fragmento", "veredicto", "cohorte", "efecto", "incertidumbre", "sintetico")}})
     inv: dict[str, Any] = next((x for x in e.get("investigaciones", []) if x["id"] == c["investigacionId"]), {})

@@ -842,6 +842,8 @@ export interface EntradaTranscripcion {
 export interface Pista {
   id: Id;
   iteracionId: Id;
+  /** Hipótesis real de la tarea; ausente en pistas históricas sin atribución. */
+  hipotesisId?: Id | null;
   /** Paso del plan al que sirve. Null en pistas antiguas sin esa marca. */
   pasoId: Id | null;
   tipo: TipoPista;
@@ -1362,6 +1364,10 @@ export interface ConsultaTratamiento {
 
 export interface InformeTratamiento {
   agente: string;
+  /** Ejecución e hipótesis de origen; ausentes en informes históricos. */
+  corridaId?: Id;
+  iteracionId?: Id;
+  hipotesisId?: Id;
   estado: 'coincidencias' | 'sin_coincidencias_en_fuentes_consultadas' | 'no_comprobado' | 'no_aplica';
   resumen: string;
   fecha: number;

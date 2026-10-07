@@ -18,7 +18,7 @@ function datos(): DatosLab {
   return datosDelLaboratorio({ ...e, conexion: 'en_linea', solicitudes: [], incidencias: [] }, inv, c, i);
 }
 function montar(d = datos(), r: Partial<Respuestas> = {}) {
-  const resp: Respuestas = { conceder: vi.fn(async () => true), denegar: vi.fn(async () => true), aprobarPlan: vi.fn(async () => true), ampliarPresupuesto: vi.fn(async () => true), resolverIncidencia: vi.fn(async () => true), verEnLaCorrida: vi.fn(), ...r };
+  const resp: Respuestas = { conceder: vi.fn(async () => true), denegar: vi.fn(async () => true), aprobarPlan: vi.fn(async () => true), ampliarPresupuesto: vi.fn(async () => true), resolverIncidencia: vi.fn(async () => true), verEnLaCorrida: vi.fn(), verNovedad: vi.fn(), ...r };
   motor = montarLaboratorio(nodo, d, resp);
   return resp;
 }
@@ -43,18 +43,70 @@ afterEach(async () => { motor?.desmontar(); nodo.remove(); await Promise.resolve
 
 describe('el motor del laboratorio sigue al servidor', () => {
   it('ambos especialistas existen y reciben actividad sin recrear los personajes al actualizar', async () => {
-    const d = datos(), a = { ...d.actividad[0]!, agente: 'Especialista en patentes', sala: 'r4' as const, texto: 'Revisión de patentes del tratamiento' };
-    const actual = { ...d, foco: 'r4' as const, salas: { ...d.salas, r4: 'ahora' as const }, activos: ['Especialista en patentes'], actividad: [a] };
+    const d = datos(), a = { ...d.actividad[0]!, agente: 'Especialista en patentes', sala: 'r7' as const, texto: 'Revisión de patentes del tratamiento' };
+    const actual = { ...d, foco: 'r7' as const, salas: { ...d.salas, r7: 'ahora' as const }, activos: ['Especialista en patentes'], actividad: [a] };
     montar(actual); await avanzar(10);
     const patentes = nodo.querySelector<HTMLElement>('[data-agente="Especialista en patentes"]')!;
     const companias = nodo.querySelector<HTMLElement>('[data-agente="Especialista en compañías"]')!;
     expect(patentes).not.toBeNull(); expect(companias).not.toBeNull();
+    expect([...nodo.querySelectorAll<HTMLElement>('.lv-ag[data-sala="r7"]')].map(a => a.dataset.agente)).toEqual(['Especialista en patentes', 'Especialista en compañías']);
+    expect(nodo.querySelector('.lv-sala[data-sala="r7"]')?.textContent).toContain('Patentes y compañías');
     expect(patentes.classList.contains('activo')).toBe(true);
     motor!.actualizar({ ...actual, activos: ['Especialista en compañías'], actividad: [{ ...a, id: 'companias-real', agente: 'Especialista en compañías' }] });
     expect(nodo.querySelector('[data-agente="Especialista en patentes"]')).toBe(patentes);
     expect(nodo.querySelector('[data-agente="Especialista en compañías"]')).toBe(companias);
     expect(patentes.classList.contains('activo')).toBe(false); expect(companias.classList.contains('activo')).toBe(true);
     expect(nodo.querySelectorAll('.lv-bub')).toHaveLength(0);
+  });
+  it('click y Enter abren el dossier del especialista con el ID explícito, sin ficha ni zoom genéricos', () => {
+    const d = datos(), a = { ...d.actividad[0]!, agente: 'Especialista en patentes', sala: 'r7' as const, hipotesisId: 'hip-real' };
+    const resp = montar({ ...d, foco: 'r7', activos: ['Especialista en patentes'], actividad: [a] });
+    const sofia = nodo.querySelector<HTMLElement>('[data-agente="Especialista en patentes"]')!;
+    sofia.dispatchEvent(new MouseEvent('mouseenter'));
+    expect(nodo.querySelector<HTMLElement>('.lv-ficha')!.hidden).toBe(true);
+    expect(sofia.getAttribute('aria-label')).toContain('Sofía'); expect(sofia.getAttribute('aria-label')).toContain('Abrir dossier en Novedad');
+    sofia.click(); expect(resp.verNovedad).toHaveBeenCalledWith('patentes', 'hip-real');
+    expect(sofia.classList.contains('sel')).toBe(false); expect(nodo.querySelector<HTMLElement>('.lv-ficha')!.hidden).toBe(true);
+    const damian = nodo.querySelector<HTMLElement>('[data-agente="Especialista en compañías"]')!;
+    damian.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(resp.verNovedad).toHaveBeenLastCalledWith('companias', undefined);
+    expect(nodo.querySelector<HTMLElement>('.lv-ficha')!.hidden).toBe(true);
+    expect(resp.verEnLaCorrida).not.toHaveBeenCalled();
+  });
+  it('el dossier usa la asociación más reciente de su agente y el replay conserva el ID real', () => {
+    const d = datos(), a = { ...d.actividad[0]!, agente: 'Especialista en compañías', sala: 'r7' as const, hipotesisId: 'hip-anterior' };
+    const resp = montar({ ...d, trabajando: false, pasada: true, activos: [], actividad: [a] });
+    const damian = nodo.querySelector<HTMLElement>('[data-agente="Especialista en compañías"]')!;
+    damian.click(); expect(resp.verNovedad).toHaveBeenLastCalledWith('companias', 'hip-anterior');
+    motor!.actualizar({ ...d, actividad: [a, { ...a, id: 'registro-nuevo', hipotesisId: 'hip-siguiente' }] });
+    damian.click(); expect(resp.verNovedad).toHaveBeenLastCalledWith('companias', 'hip-siguiente');
+    motor!.actualizar({ ...d, actividad: [a, { ...a, id: 'sin-asociacion', hipotesisId: null, titulo: 'Especialista en compañías: hip-inventada' }] });
+    damian.click(); expect(resp.verNovedad).toHaveBeenLastCalledWith('companias', undefined);
+    expect(nodo.querySelector('[data-agente="Especialista en compañías"]')).toBe(damian);
+  });
+  it('Sofía y Damián siguen conversando y caminando dentro de su cuarto, sin reiniciar los personajes', async () => {
+    const d = datos(), actividad = { ...d.actividad[0]!, sala: 'r7' as const, agente: 'Especialista en patentes', hipotesisId: 'hip-real' };
+    const estado = { ...d, foco: 'r7' as const, activos: ['Especialista en patentes'], actividad: [actividad] };
+    const resp = montar(estado);
+    const sofia = nodo.querySelector<HTMLElement>('[data-agente="Especialista en patentes"]')!;
+    const damian = nodo.querySelector<HTMLElement>('[data-agente="Especialista en compañías"]')!;
+    const base: TurnoLaboratorio = { id: 'sofia-1', temaId: 'novedad-real', iteracionId: d.identidad.split('/')[1]!, idioma: 'es', agente: 'Especialista en patentes', destinatario: 'Especialista en compañías', texto: 'Encontré una reivindicación parecida. ¿Tú ves el mismo tratamiento?', fecha: Date.now(), modelo: 'prueba', materiales: [] };
+    motor!.conversar([base, { ...base, id: 'damian-1', agente: base.destinatario, destinatario: base.agente, texto: 'Vale, voy a comprobar qué intervención están probando.' }]);
+    const vistos = new Set<string>(), posiciones = new Set<string>();
+    await avanzar(430, () => {
+      for (const p of [sofia, damian]) {
+        const m = /translate\(([\d.-]+)px,([\d.-]+)px\)/.exec(p.style.transform);
+        expect(m).not.toBeNull();
+        if (m) { expect(Number(m[1])).toBeGreaterThanOrEqual(440); expect(Number(m[1]) + 48).toBeLessThanOrEqual(1064); expect(Number(m[2])).toBeGreaterThanOrEqual(652); expect(Number(m[2]) + 64).toBeLessThanOrEqual(752); }
+      }
+      posiciones.add(sofia.style.transform);
+      nodo.querySelectorAll<HTMLElement>('.lv-bub[data-turno]').forEach(b => vistos.add(b.dataset.turno!));
+      if (tiempo % 1000 === 0) motor!.actualizar(estado);
+    });
+    expect(vistos).toEqual(new Set(['sofia-1', 'damian-1'])); expect(posiciones.size).toBeGreaterThan(10);
+    expect(nodo.querySelector('[data-agente="Especialista en patentes"]')).toBe(sofia);
+    expect(nodo.querySelector('[data-agente="Especialista en compañías"]')).toBe(damian);
+    expect(resp.verNovedad).not.toHaveBeenCalled();
   });
   it('la voz sigue el registro y el tiempo visual no ejecuta capítulos nuevos', async () => {
     montar(); ticks(400); await Promise.resolve();

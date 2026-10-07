@@ -4,6 +4,7 @@ from typing import Any
 import pytest
 
 from rosa.bucle.pista import Pista
+from rosa.estado.almacen import Almacen
 
 
 class Memoria:
@@ -12,6 +13,31 @@ class Memoria:
 
     def mutar(self, fn, _nombre):
         return fn(self.estado)
+
+
+def test_pistas_de_mismo_titulo_conservan_id_real_en_publicacion_y_replay(tmp_path):
+    ruta = tmp_path / "pistas.db"
+    almacen = Almacen(ruta)
+    almacen.mutar(lambda e: e.update(iteraciones=[{"id": "it", "pistas": []}]) or True, "prueba")
+    for hid in ("h-1", "h-2"):
+        pista = Pista(almacen, "it", None, "novedad", "Mismo título", "ROSA", hipotesis_id=hid)
+        pista.actividad("patentes", "Voy a comparar el tratamiento.", "en_curso")
+        pista.cerrar("Revisión terminada")
+    assert [p["hipotesisId"] for p in almacen.instantanea()["iteraciones"][0]["pistas"]] == ["h-1", "h-2"]
+    almacen.cerrar()
+    replay = Almacen(ruta)
+    try:
+        pistas = replay.instantanea()["iteraciones"][0]["pistas"]
+        assert [(p["hipotesisId"], p["titulo"], p["estado"]) for p in pistas] == [
+            ("h-1", "Mismo título", "hecha"), ("h-2", "Mismo título", "hecha")]
+    finally:
+        replay.cerrar()
+
+
+def test_pistas_historicas_no_reciben_una_hipotesis_inferida_del_titulo():
+    almacen: Any = Memoria()
+    Pista(almacen, "it", None, "novedad", "Especialista en patentes: MAPT", "ROSA")
+    assert "hipotesisId" not in almacen.estado["iteraciones"][0]["pistas"][0]
 
 
 @pytest.mark.parametrize("tipo", ["accion", "nota", "resultado"])

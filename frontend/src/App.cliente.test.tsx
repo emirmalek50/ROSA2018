@@ -10,7 +10,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import App from './App';
 import { estadoDeMuestra } from './datos/muestra';
-import { rutaDe } from './lib/ruta';
+import { rutaDe, rutaNovedad } from './lib/ruta';
 import { aplicar } from './datos/almacen';
 
 beforeAll(() => {
@@ -148,7 +148,7 @@ describe('la aplicacion montada en el cliente', () => {
     localStorage.setItem('rosa.recorrido.v1', '1');
     const e = estadoDeMuestra();
     const inv = e.investigaciones[0]!;
-    for (const pantalla of ['corrida', 'hipotesis', 'ranking', 'panorama', 'mundo', 'arbol', 'artefactos', 'investigacion'] as const) {
+    for (const pantalla of ['corrida', 'hipotesis', 'ranking', 'novedad', 'panorama', 'mundo', 'arbol', 'artefactos', 'investigacion'] as const) {
       const raiz = await montar(rutaDe(inv.id, pantalla));
       expect(raiz.querySelector('.hilo'), pantalla).toBeTruthy();
       expect(raiz.querySelectorAll('.hilo-etapa').length, pantalla).toBe(7);
@@ -176,6 +176,23 @@ describe('la aplicacion montada en el cliente', () => {
     const hrefs = [...lab.querySelectorAll<HTMLAnchorElement>('.hilo-etapa')].map((a) => a.getAttribute('href'));
     expect(new Set(hrefs).size).toBe(hrefs.length - 2); // solo Plan, Literatura y Verificar comparten destino (la corrida)
   }, 20_000); // monta todas las pantallas (atlas, esqueletos incluidos): bajo carga pasaba de los 5 s por defecto
+
+  it('Novedad abre desde su enlace directo y queda seleccionada en la navegación principal', async () => {
+    localStorage.setItem('rosa.recorrido.v1', '1');
+    const e = estadoDeMuestra();
+    const inv = e.investigaciones[0]!;
+    const hip = e.hipotesis.find(h => h.investigacionId === inv.id)!;
+    await act(async () => aplicar(() => e));
+    const hash = rutaNovedad(inv.id, hip.id, 'companias');
+    const raiz = await montar(hash);
+    const entrada = raiz.querySelector<HTMLAnchorElement>(`.barra a[href="${rutaDe(inv.id, 'novedad')}"]`);
+    expect(entrada?.textContent).toContain('Novedad');
+    expect(entrada?.getAttribute('aria-current')).toBe('page');
+    expect(raiz.textContent).toContain('Damián');
+    expect(raiz.textContent).toContain(hip.titulo);
+    expect(raiz.textContent).not.toContain('Esta pantalla no se pudo abrir');
+    expect(window.location.hash).toBe(hash);
+  });
 
   it('decidir sobre una hipotesis deja un aviso para deshacer, y deshacer la devuelve', async () => {
     localStorage.setItem('rosa.recorrido.v1', '1');

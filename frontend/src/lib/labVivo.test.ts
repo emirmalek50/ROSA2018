@@ -16,20 +16,38 @@ function caso(tipo = 'literatura', transcripcion: EntradaTranscripcion[] = [{ t:
 }
 
 describe('el laboratorio recibe la corrida canónica', () => {
-  it('los especialistas de patentes y compañías siguen actividad real independiente en la sala de revisión', () => {
+  it('los especialistas de patentes y compañías siguen actividad real independiente en la cuarto exclusivo de novedad', () => {
     const f = caso('novedad', [
       { t: 1, tipo: 'accion', texto: 'Revisando el tratamiento TREM2', agente: 'patentes', estadoAgente: 'en_curso' },
       { t: 2, tipo: 'accion', texto: 'Contrastando programas sobre TREM2', agente: 'companias', estadoAgente: 'en_curso' },
       { t: 3, tipo: 'resultado', texto: 'Informe de patentes guardado', agente: 'patentes', estadoAgente: 'terminado' },
     ]);
     f.i.pistas[0]!.tipo = 'novedad';
+    f.i.pistas[0]!.hipotesisId = 'hip-trem2-real';
     const d = f.datos();
     expect(d.actividad.map(a => [a.agente, a.sala])).toEqual([
-      ['Especialista en patentes', 'r4'], ['Especialista en compañías', 'r4'], ['Especialista en patentes', 'r4'],
+      ['Especialista en patentes', 'r7'], ['Especialista en compañías', 'r7'], ['Especialista en patentes', 'r7'],
     ]);
-    expect(d.activos).toEqual(['Especialista en compañías']); expect(d.salas.r4).toBe('ahora');
+    expect(d.activos).toEqual(['Especialista en compañías']); expect(d.salas.r7).toBe('ahora');
+    expect(d.foco).toBe('r7'); expect(d.actividad.every(a => a.hipotesisId === 'hip-trem2-real')).toBe(true);
     f.i.pistas[0]!.transcripcion.push({ t: 4, tipo: 'error', texto: 'No pude comprobar el programa empresarial', agente: 'companias', estadoAgente: 'fallido' });
     expect(f.datos().activos).toEqual([]);
+  });
+  it('una pista sin asociación no inventa el ID desde el título, y la novedad antigua no completa la sala nueva', () => {
+    const f = caso('novedad');
+    f.i.pistas[0]!.titulo = 'Especialista en patentes: hip-supuesto';
+    f.i.plan[0]!.estado = 'hecho'; f.i.pistas[0]!.estado = 'hecha';
+    const d = f.datos();
+    expect(d.actividad.every(a => a.hipotesisId === null)).toBe(true);
+    expect(d.salas.r7).toBe('no_toca');
+  });
+  it('la revisión de especialistas fuera del paso de novedad deja su cuarto completado en el replay', () => {
+    const f = caso('hipotesis', [{ t: 1, tipo: 'resultado', texto: 'Informe guardado', agente: 'patentes', estadoAgente: 'terminado' }]);
+    f.i.pistas[0]!.hipotesisId = 'hip-real'; f.i.pistas[0]!.estado = 'hecha'; f.i.plan[0]!.estado = 'hecho';
+    f.i.terminadaEn = Date.now(); f.c.iteracionActual = 2;
+    const d = datosDelLaboratorio(f.estado, f.inv, f.c, f.i, { pasada: true });
+    expect(d.salas.r7).toBe('listo'); expect(d.activos).toEqual([]);
+    expect(d.actividad[0]!.hipotesisId).toBe('hip-real'); expect(d.actividad[0]!.sala).toBe('r7');
   });
   it.each(['empezando', 'Empezando...', 'Empezando…'])('una pista sin registro muestra su tarea real en vez de «%s»', (resumen) => {
     const f = caso('literatura', []);

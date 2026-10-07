@@ -15,6 +15,7 @@ import { afirmacionesDeEvidencia, datosDelLaboratorio } from '../lib/labVivo';
 import { tr, trp, useIdioma } from '../lib/idioma';
 import { marcaDeTiempo } from '../lib/escenario';
 import { formatearEntero } from '../lib/formato';
+import { rutaNovedad } from '../lib/ruta';
 import { IconoEsc } from './IconosEscenario';
 import { ConversacionesLaboratorio } from './ConversacionesLaboratorio';
 import { useConversacionesLaboratorio } from '../lib/conversacionesLaboratorio';
@@ -66,6 +67,8 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
   // para que siempre llame a la versión actual de onVolver.
   const volver = useRef(onVolver);
   volver.current = onVolver;
+  const contextoNovedad = useRef({ investigacionId: inv.id, hipotesis: estado.hipotesis });
+  contextoNovedad.current = { investigacionId: inv.id, hipotesis: estado.hipotesis };
 
   useLayoutEffect(() => {
     const el = marco.current;
@@ -87,6 +90,11 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
       ampliarPresupuesto: (id: string, limite: number) => acciones.ampliarPresupuestoVerificado(id, limite),
       resolverIncidencia: (id: string, resolucion: string) => acciones.resolverIncidenciaVerificada(id, resolucion),
       verEnLaCorrida: () => volver.current(),
+      verNovedad: (agente, hipotesisId) => {
+        const contexto = contextoNovedad.current;
+        const id = contexto.hipotesis.some((h) => h.id === hipotesisId && h.investigacionId === contexto.investigacionId) ? hipotesisId! : null;
+        window.location.hash = rutaNovedad(contexto.investigacionId, id, agente);
+      },
     });
     motor.current = lab;
     return () => {
@@ -121,7 +129,7 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
           <IconoEsc nombre="arrow-up-left" size={14} /> {tr('Volver a la corrida')}
         </button>
         <h2>{tr('El laboratorio en vivo')}</h2>
-        <p>{tr('Cada sala representa una etapa de la investigación. Pasa el ratón por un agente (o recórrelos con el tabulador y las flechas) para ver su actividad; haz clic para acercarte. La pizarra, las estanterías, las cajas del juez y la hucha también se abren con un clic.')}</p>
+        <p>{tr('Cada sala representa una etapa de la investigación. Pasa el ratón por un agente (o recórrelos con el tabulador y las flechas) para ver su actividad; haz clic para acercarte. Sofía y Damián abren su dossier en Novedad. La pizarra, las estanterías, las cajas del juez y la hucha también se abren con un clic.')}</p>
       </div>
       {aviso && <p className="labvivo-aviso">{aviso}</p>}
       <div className="labvivo-estado" role="status">
