@@ -62,16 +62,24 @@ def configurar_mlflow() -> None:
         print(f"MLflow no disponible ({ex}); ROSA2018 sigue sin registrar las optimizaciones en MLflow (las trazas de entrenamiento van aparte, a datos/_gepa).", file=sys.stderr)
 
 
-async def correr_con_tope(servidor: Any, supervisor: Any, tope_s: float = TOPE_APAGADO_S) -> None:
-    """Corre el servidor HTTP y el supervisor del bucle a la vez. Cuando uno de
-    los dos termina (la señal de parada cierra el servidor; un fallo tumba el
-    supervisor), al otro se le pide parar y se le deja terminar lo que tenga en
-    vuelo hasta `tope_s` segundos; pasado el tope se cancela. Así el Killer que
+async def correr_con_tope(servidor: Any, supervisor: Any, tope_s: float = TOPE_APAGADO_S, *, cierre_pedido: asyncio.Event | None = None) -> None:
+    """Corre el servidor HTTP y el supervisor del bucle a la vez. Cuando llega
+    la señal de cierre o uno de los dos termina, se pide parar y se deja terminar
+    lo que tenga en vuelo hasta `tope_s` segundos; pasado el tope se cancela. Así el Killer que
     está a medias escribe su decisión (que ya se pagó) antes de que este proceso
     suelte la base, y una ROSA2018 nueva la encuentra en vez de repetirla (S-01)."""
     t_servidor = asyncio.ensure_future(servidor.serve())
     t_supervisor = asyncio.ensure_future(supervisor.correr())
-    hechas, pendientes = await asyncio.wait({t_servidor, t_supervisor}, return_when=asyncio.FIRST_COMPLETED)
+    trabajos = {t_servidor, t_supervisor}
+    t_cierre = asyncio.ensure_future(cierre_pedido.wait()) if cierre_pedido is not None else None
+    try:
+        hechas, _ = await asyncio.wait(trabajos | ({t_cierre} if t_cierre is not None else set()), return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        if t_cierre is not None and not t_cierre.done():
+            t_cierre.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await t_cierre
+    pendientes = {t for t in trabajos if not t.done()}
     for t in hechas:
         # Una tarea cancelada no tiene excepción que leer (`exception()` lanzaría).
         if t is t_supervisor and not t.cancelled() and t.exception() is not None:
@@ -147,10 +155,13 @@ async def principal() -> None:
     if espejo.estado["activo"]:
         print(f"Espejo en Convex activo: {config.CONVEX_URL}")
 
+    cierre_pedido = asyncio.Event()
+
     def parar(*_: object) -> None:
         print(f"ROSA2018 está cerrando: deja terminar el paso en curso (hasta {int(TOPE_APAGADO_S)} s) y suelta la base al salir. No arranques otra ROSA2018 hasta que este proceso termine.", file=sys.stderr, flush=True)
         supervisor.parar()
         servidor.should_exit = True
+        cierre_pedido.set()
 
     for s in (signal.SIGINT, signal.SIGTERM):
         with contextlib.suppress(NotImplementedError):
@@ -169,7 +180,7 @@ async def principal() -> None:
     print(f"ROSA2018 en http://{config.HOST}:{config.PUERTO}  (base {config.RUTA_BD.name}, versión {almacen.version})")
     tarea_gepa = asyncio.create_task(gepa.correr(), name="gepa-continuo") if gepa else None
     try:
-        await correr_con_tope(servidor, supervisor)
+        await correr_con_tope(servidor, supervisor, cierre_pedido=cierre_pedido)
     finally:
         if gepa and tarea_gepa:
             gepa.parar.set()
