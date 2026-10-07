@@ -2,7 +2,7 @@
    .labvivo para no tocar el resto de la app; el lienzo mide 1064 × 1416 y el
    envoltorio lo escala al ancho disponible. */
 .labvivo-marco{position:relative;width:100%;overflow:hidden}
-.labvivo{position:absolute;left:0;top:0;width:1064px;height:1416px;transform-origin:0 0;color:#F4F1EA;font-family:Inter,system-ui,sans-serif}
+.labvivo{position:absolute;left:0;top:0;width:1064px;height:1416px;transform-origin:0 0;color:#F4F1EA;font-family:"Inter Variable",Inter,system-ui,sans-serif}
 .labvivo *{box-sizing:border-box;margin:0;padding:0}
 .labvivo .lv-vista{width:1064px;height:1312px;position:relative;overflow:hidden;border-radius:14px;border:1px solid #FFFFFF14;background:#0E0D14}
 .labvivo .lv-mundo{position:absolute;left:0;top:0;width:1064px;height:1312px;transform-origin:0 0}
@@ -86,7 +86,7 @@
 .labvivo .lv-pide .plan small{display:block;color:#9C97B3;font-size:11px;margin-top:2px}
 .labvivo .lv-pide .row,.labvivo .lv-pide .row2{display:flex;gap:8px}
 .labvivo .lv-pide .row2{margin-top:8px}
-.labvivo .lv-pide button{flex:1;font:600 13px Inter,sans-serif;padding:9px 0;border-radius:6px;border:1px solid #FFFFFF22;background:transparent;color:#F4F1EA;cursor:pointer}
+.labvivo .lv-pide button{flex:1;font:600 13px "Inter Variable",Inter,sans-serif;padding:9px 0;border-radius:6px;border:1px solid #FFFFFF22;background:transparent;color:#F4F1EA;cursor:pointer}
 .labvivo .lv-pide button:disabled{opacity:.55;cursor:progress}
 .labvivo .lv-pide button.yes{background:#FFB27A;color:#17131F;border-color:#FFB27A}
 .labvivo .lv-pide button.luego{border-color:transparent;color:#9C97B3;font-size:12px;padding:6px 0;margin-top:6px;width:100%}
@@ -95,7 +95,7 @@
 
 .labvivo .lv-barra{position:absolute;left:0;top:1320px;width:1064px;height:96px;background:#15131C;border:1px solid #FFFFFF14;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .labvivo .lv-capitulos{display:flex;gap:6px}
-.labvivo .lv-chip{flex:1;display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;background:#FFFFFF08;border:1px solid transparent;cursor:pointer;font:600 11px Inter,sans-serif;color:#C9C4DA;position:relative;overflow:hidden;text-align:left;white-space:nowrap}
+.labvivo .lv-chip{flex:1;display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;background:#FFFFFF08;border:1px solid transparent;cursor:pointer;font:600 11px "Inter Variable",Inter,sans-serif;color:#C9C4DA;position:relative;overflow:hidden;text-align:left;white-space:nowrap}
 .labvivo .lv-chip .n{width:16px;height:16px;border-radius:3px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;color:#0E0D14;flex:none}
 .labvivo .lv-chip .s{margin-left:auto;font-size:9.5px;font-weight:600;opacity:.85}
 .labvivo .lv-chip.on{background:#FFFFFF14;border-color:#FFFFFF40;color:#F4F1EA}
@@ -107,7 +107,7 @@
 .labvivo .lv-capt{font-size:13px;font-weight:500;color:#E6E1F2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .labvivo .lv-suceso{font-size:11.5px;font-weight:600;color:#F4F1EA;background:#FFFFFF0A;border-radius:6px;padding:6px 10px;max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .labvivo .lv-velocidad{display:flex;gap:2px;background:#FFFFFF0A;border-radius:7px;padding:2px}
-.labvivo .lv-velocidad button{font:600 11px Inter,sans-serif;color:#9C97B3;background:none;border:0;padding:6px 9px;border-radius:5px;cursor:pointer}
+.labvivo .lv-velocidad button{font:600 11px "Inter Variable",Inter,sans-serif;color:#9C97B3;background:none;border:0;padding:6px 9px;border-radius:5px;cursor:pointer}
 .labvivo .lv-velocidad button.on{background:#F4F1EA;color:#0E0D14}
 .labvivo button:focus-visible{outline:2px solid #FFB27A;outline-offset:2px}
 
@@ -139,3 +139,66 @@
 .labvivo .lv-pide label{display:block;font-size:12px;margin:12px 0}
 .labvivo .lv-pide select{display:block;width:100%;padding:8px;margin-top:5px;background:#24222E;color:#F4F1EA;border:1px solid #FFFFFF33;border-radius:6px}
 .labvivo .lv-pide .lv-respuesta{font-size:12px;color:#F2C14E}
+
+/* Objetos que se abren: pizarra, hucha, estanterías y cajas del juez. */
+.labvivo .lv-hots{position:absolute;inset:0;pointer-events:none}
+.labvivo .lv-hot{position:absolute;pointer-events:auto;cursor:pointer;background:transparent;border:0;border-radius:6px;padding:0}
+.labvivo .lv-hot[hidden]{display:none}
+.labvivo .lv-hot:hover,.labvivo .lv-hot.on{background:#FFFFFF10;box-shadow:inset 0 0 0 2px #FFB27A99}
+.labvivo .lv-hot:focus-visible{outline:2px solid #FFB27A;outline-offset:2px;background:#FFFFFF10}
+.labvivo .lv-ag:focus-visible{outline:2px solid #FFB27A;outline-offset:2px;border-radius:4px}
+.labvivo .lv-objeto{position:absolute;left:20px;top:20px;width:340px;overflow:auto;background:#17151F;border:2px solid #FFB27A;border-radius:10px;padding:16px 18px 18px;transform-origin:0 0;z-index:6;color:#F4F1EA;box-shadow:0 0 0 6px #FFB27A22,0 20px 60px #000a;animation:lv-pide .35s cubic-bezier(.3,1.4,.5,1)}
+.labvivo .lv-objeto[hidden],.labvivo .lv-narra[hidden]{display:none}
+.labvivo .lv-objeto .k,.labvivo .lv-narra .k{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#FFB27A;margin-bottom:4px;padding-right:28px}
+.labvivo .lv-objeto h3{font-size:17px;font-weight:700;line-height:22px;margin:0 0 12px;padding-right:28px}
+.labvivo .lv-objeto p{font-size:12px;line-height:17px;color:#CFC9DD;margin:0 0 8px}
+.labvivo .lv-cerrar{position:absolute;right:10px;top:10px;width:28px;height:28px;border-radius:6px;border:1px solid #FFFFFF22;background:#FFFFFF0A;color:#F4F1EA;font:600 17px/1 "Inter Variable",Inter,sans-serif;cursor:pointer}
+.labvivo .lv-o-pasos{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.labvivo .lv-o-pasos li{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:start;font-size:12px;line-height:16px}
+.labvivo .lv-o-pasos i{width:10px;height:10px;margin-top:3px;background:var(--c);border-radius:2px}
+.labvivo .lv-o-pasos small{display:block;color:#9C97B3;font-size:11px;margin-top:2px}
+.labvivo .lv-o-pasos span{font-size:10px;font-weight:700;color:var(--c);white-space:nowrap}
+.labvivo .lv-o-cifras{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 12px}
+.labvivo .lv-o-cifras div{background:#FFFFFF0A;border-radius:6px;padding:8px}
+.labvivo .lv-o-cifras dt{font-size:10px;color:#9C97B3}
+.labvivo .lv-o-cifras dd{margin:4px 0 0;font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+.labvivo .lv-o-mal{color:#E2706A!important;font-weight:600}
+.labvivo .lv-o-barra{height:10px;border-radius:3px;background:#FFFFFF14;overflow:hidden;margin:0 0 10px}
+.labvivo .lv-o-barra i{display:block;height:100%;background:#F2C14E}
+.labvivo .lv-o-afs{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
+.labvivo .lv-o-afs li{border-left:3px solid #FFFFFF22;padding-left:10px}
+.labvivo .lv-o-afs q{display:block;font-size:12px;line-height:17px;color:#F4F1EA}
+.labvivo .lv-o-afs small{display:block;font-size:11px;color:#9C97B3;margin-top:3px}
+.labvivo .lv-o-afs em{display:inline-block;font-style:normal;font-size:10px;font-weight:700;color:#C9C4DA;background:#FFFFFF10;border-radius:3px;padding:1px 5px;margin-top:4px}
+.labvivo .lv-o-afs p{font-size:11px!important;margin:4px 0 0!important}
+.labvivo .lv-o-mas{margin-top:10px!important;color:#9C97B3!important}
+.labvivo .lv-o-reg{margin-top:12px}
+.labvivo .lv-o-reg>span{display:block;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#9C97B3;margin-bottom:6px}
+.labvivo .lv-o-reg ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px}
+.labvivo .lv-o-reg li{font-size:11.5px;line-height:16px;color:#CFC9DD}
+.labvivo .lv-o-reg b{color:#F4F1EA}
+
+/* Sigue una afirmación: la narración, abajo y centrada. */
+.labvivo .lv-narra{position:absolute;left:50%;bottom:24px;width:440px;margin-left:-220px;transform-origin:50% 100%;background:#17151F;border:2px solid #FFB27A;border-radius:10px;padding:14px 16px;z-index:6;color:#F4F1EA;box-shadow:0 0 0 6px #FFB27A22,0 20px 60px #000a}
+.labvivo .lv-narra q{display:block;font-size:13px;font-weight:600;line-height:18px;margin-bottom:8px}
+.labvivo .lv-narra p,.labvivo .lv-narra ol{font-size:12px;line-height:17px;color:#CFC9DD;margin:0 0 10px}
+.labvivo .lv-narra ol{padding-left:18px}
+.labvivo .lv-narra .row{display:flex;gap:8px;justify-content:flex-end}
+.labvivo .lv-narra button{font:600 12px "Inter Variable",Inter,sans-serif;padding:7px 12px;border-radius:6px;border:1px solid #FFFFFF22;background:transparent;color:#F4F1EA;cursor:pointer}
+.labvivo .lv-narra button.yes{background:#FFB27A;color:#17131F;border-color:#FFB27A}
+.labvivo .lv-sigue,.labvivo .lv-sonido{flex:none;display:flex;align-items:center;gap:6px;height:34px;border-radius:8px;border:1px solid #FFFFFF22;background:#FFFFFF0A;color:#F4F1EA;cursor:pointer;font:600 11.5px "Inter Variable",Inter,sans-serif;padding:0 10px;white-space:nowrap}
+.labvivo .lv-sigue[aria-pressed="true"]{background:#FFB27A;color:#17131F;border-color:#FFB27A}
+.labvivo .lv-sigue[aria-pressed="true"] path{fill:#17131F}
+.labvivo .lv-sigue:disabled{opacity:.45;cursor:not-allowed}
+.labvivo .lv-sonido{width:34px;padding:0;justify-content:center;opacity:.7}
+.labvivo .lv-sonido.on{opacity:1;border-color:#FFB27A}
+
+/* El selector de iteración, junto al estado. */
+.labvivo-iter{display:inline-flex;align-items:center;gap:6px}
+.labvivo-iter button{font:600 18px/1 "Inter Variable",Inter,sans-serif;min-width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;padding:0 6px}
+.labvivo-iter button:disabled{opacity:.4;cursor:not-allowed}
+.labvivo-iter button.vuelve{font-size:12px;line-height:1;padding:0 10px;margin-left:4px}
+@media (prefers-reduced-motion: reduce){.labvivo .lv-objeto{animation:none}}
+.labvivo .lv-reloj{position:absolute;left:24px;top:-14px;transform:translateX(-50%);width:max-content;font:600 9.5px/11px "Inter Variable",Inter,sans-serif;font-variant-numeric:tabular-nums;color:#0E0D14;background:#FFB27A;padding:1px 4px;border-radius:2px;pointer-events:none}
+.labvivo .lv-reloj[hidden]{display:none}
+.labvivo .lv-ag.away .lv-reloj{opacity:.55}

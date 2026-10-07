@@ -11,11 +11,12 @@ import { tr, trp } from '../../lib/idioma';
 import type { EmocionLaboratorio, GestoLaboratorio, TurnoLaboratorio } from '../../lib/conversacionesLaboratorio';
 import { desplazamientoGesto, pintarExpresion } from './expresiones';
 import './escenas.css';
-import { esPeticionDePresupuesto, pintarPeticionPresupuesto, vozDePresupuesto } from './peticionPresupuesto';
+import { esPeticionDePresupuesto, pintarFoco, pintarPeticionIncidencia, pintarPeticionPresupuesto, topeConLlamadasMas, vozDePresupuesto } from './peticionPresupuesto';
 import './peticionPresupuesto.css';
 import { formatearEntero } from '../../lib/formato';
-import { ALCANCE } from '../../lib/etiquetas';
-import type { ActividadLab, DatosLab, EstadoPasoLab, EstadoSala, FuenteLab, SalaLab } from '../../lib/labVivo';
+import { ALCANCE, veredictoDe } from '../../lib/etiquetas';
+import { baseDe } from '../../lib/escenario';
+import type { ActividadLab, AfirmacionLab, DatosLab, EstadoPasoLab, EstadoSala, FuenteLab, SalaLab } from '../../lib/labVivo';
 import urlFondo from '../../assets/labvivo/fondo.png';
 import fgZuSK4 from '../../assets/labvivo/fg/ZuSK4.png';
 import fgkXLTR from '../../assets/labvivo/fg/kXLTR.png';
@@ -37,6 +38,7 @@ export interface Respuestas {
   denegar: (id: string) => Promise<boolean | null>;
   aprobarPlan: (iteracionId: string) => Promise<boolean | null>;
   ampliarPresupuesto: (corridaId: string, limite: number) => Promise<boolean | null>;
+  resolverIncidencia: (id: string, resolucion: string) => Promise<boolean | null>;
   verEnLaCorrida: () => void;
 }
 
@@ -47,7 +49,7 @@ export interface Laboratorio {
 }
 
 type Sala = 'bib' | 'rec' | SalaLab;
-type Obj = 'paper' | 'book' | 'card';
+type Obj = 'paper' | 'book' | 'card' | 'coin';
 
 /** Geometría de las salas sobre el fondo (coordenadas del dibujo de 1064 × 1312). */
 const GEOM: Record<Sala, [number, number, number, number]> = {
@@ -90,6 +92,20 @@ function ordenFuentes(fuentes: FuenteLab[]): FuenteLab[] {
   const con = fuentes.filter((f) => !f.fallo), caidas = fuentes.filter((f) => f.fallo);
   return [con[0], con[1], caidas[0], ...con.slice(2), ...caidas.slice(1)].filter((f): f is FuenteLab => f !== undefined).slice(0, ESTANTE.length);
 }
+
+/** La pantalla de cada escritorio con ordenador (20 × 16), por agente. */
+const PANTALLA: Record<string, [number, number]> = {
+  'Extractor de afirmaciones': [440, 92], 'Puntuador preguntas': [552, 92], 'Puntuador amplitud': [664, 92], 'Asistente del chat': [314, 1236], Traductor: [834, 1236],
+};
+const GLIFO: Record<'!' | '?', string[]> = {
+  '!': ['..##..', '..##..', '..##..', '..##..', '..##..', '......', '..##..', '..##..'],
+  '?': ['.####.', '##..##', '....##', '...##.', '..##..', '......', '..##..', '..##..'],
+};
+const GOTA = ['..#..', '.###.', '#####', '#####', '.###.'];
+const ZETA = ['####', '..#.', '.#..', '####'];
+/** Los estados de la corrida en que algo la paró y no va a seguir sola enseguida. */
+const PARADA_ROJA = new Set(['detenida', 'pausada_por_presupuesto']);
+const PARADA_AMBAR = new Set(['pausada', 'esperando_modelo']);
 
 const ROL_DE_COLOR: Record<string, 'cerebro' | 'volumen' | 'juez' | 'tu'> = { '#B79CF2': 'cerebro', '#7CC7E8': 'volumen', '#E3A57C': 'juez', '#F4F1EA': 'tu' };
 
@@ -185,6 +201,10 @@ interface Agente {
   i: number; name: string; quien: string; label: string; hx: number; hy: number; x: number; y: number; coat: string; look: Aspecto; ldy: number; desk: boolean; what: string;
   path: { x: number; y: number }[]; face: number; carry: Obj | null; bub: Bocadillo | null; busy: boolean; typing: number; cool: number;
   room: Sala; ictx: Ctx | null; away: boolean; bob: number; el: HTMLDivElement; lb: HTMLDivElement;
+  /** Cronómetro de la tarea abierta: desde cuándo espera la respuesta (hora real). */
+  rj: HTMLDivElement; desde: number | null; rjTxt: string;
+  /** Gesto encima de la cabeza (nuevo registro, nota, error) y gesto de espera. */
+  emo: { k: '!' | '?' | 'gota'; t0: number } | null; gesto: { k: 'estira' | 'cafe' | 'mira'; hasta: number; cara: number } | null; prox: number; recado: boolean; turno: number;
   reaccion?: { emocion: EmocionLaboratorio; gesto: GestoLaboratorio; desde: number; hasta: number };
 }
 
@@ -214,6 +234,11 @@ function corta(s: string, n: number): string {
   return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s;
 }
 const ent = (n: number) => formatearEntero(n);
+/** Tiempo transcurrido desde una hora real, como m:ss o h:mm:ss. */
+function transcurrido(desde: number): string {
+  const s = Math.max(0, Math.floor((Date.now() - desde) / 1000)), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, ss = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+}
 
 export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Respuestas): Laboratorio {
   let D = inicial;
@@ -226,15 +251,21 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     return d;
   };
 
-  raiz.innerHTML = `<div class="lv-vista"><div class="lv-mundo"><canvas class="lv-lienzo" width="${ANCHO * 2}" height="${ALTO_VISTA * 2}"></canvas><div class="lv-salas"></div><div class="lv-marcas"></div><div class="lv-agentes"></div><div class="lv-bocadillos"></div></div><div class="lv-ficha" hidden></div><div class="lv-pide" hidden role="dialog" aria-live="assertive"></div></div><div class="lv-barra"><div class="lv-capitulos"></div><div class="lv-pie"><button type="button" class="lv-play"></button><div class="lv-texto"><div class="lv-capk"></div><div class="lv-capt"></div></div><div class="lv-suceso"></div><div class="lv-velocidad"><button type="button" data-s="1" class="on">1×</button><button type="button" data-s="2">2×</button></div></div></div>`;
+  raiz.innerHTML = `<div class="lv-vista"><div class="lv-mundo"><canvas class="lv-lienzo" width="${ANCHO * 2}" height="${ALTO_VISTA * 2}"></canvas><div class="lv-salas"></div><div class="lv-marcas"></div><div class="lv-hots"></div><div class="lv-agentes"></div><div class="lv-bocadillos"></div></div><div class="lv-ficha" hidden></div><div class="lv-pide" hidden role="dialog" aria-live="assertive"></div><div class="lv-objeto" hidden role="dialog"></div><div class="lv-narra" hidden role="status" aria-live="polite"></div></div><div class="lv-barra"><div class="lv-capitulos"></div><div class="lv-pie"><button type="button" class="lv-play"></button><div class="lv-texto"><div class="lv-capk"></div><div class="lv-capt"></div></div><div class="lv-suceso"></div><button type="button" class="lv-sigue"></button><div class="lv-velocidad"><button type="button" data-s="1" class="on">1×</button><button type="button" data-s="2">2×</button></div><button type="button" class="lv-sonido"></button></div></div>`;
   const q = <T extends HTMLElement = HTMLDivElement>(s: string) => raiz.querySelector(s) as T;
   const vista = q('.lv-vista'), mundo = q('.lv-mundo'), capaSalas = q('.lv-salas'), capaMarcas = q('.lv-marcas'), capaAgentes = q('.lv-agentes'), capaBocadillos = q('.lv-bocadillos');
   const ficha = q('.lv-ficha'), pideEl = q('.lv-pide'), capitulos = q('.lv-capitulos'), botonPlay = q<HTMLButtonElement>('.lv-play'), capk = q('.lv-capk'), capt = q('.lv-capt'), suceso = q('.lv-suceso');
+  const capaHots = q('.lv-hots'), objetoEl = q('.lv-objeto'), narraEl = q('.lv-narra'), botonSigue = q<HTMLButtonElement>('.lv-sigue'), botonSonido = q<HTMLButtonElement>('.lv-sonido');
   const cv = q<HTMLCanvasElement>('.lv-lienzo');
+  // Mientras pide presupuesto, el que pide se queda nítido en su sitio y un cable lo une a la lupa.
+  const focoEl = div('lv-foco', null), cableEl = div('lv-foco-cable', null);
+  focoEl.hidden = true; cableEl.hidden = true; focoEl.setAttribute('aria-hidden', 'true'); cableEl.setAttribute('aria-hidden', 'true');
+  vista.insertBefore(cableEl, pideEl); vista.insertBefore(focoEl, pideEl);
   const g = cv.getContext('2d');
 
   /* ---------- reloj ---------- */
-  let simT = 0, speed = 1, playing = true, vivo = true;
+  // simT avanza con la animación (se para en pausa); rt es el reloj real, para luces y gestos.
+  let simT = 0, rt = 0, speed = 1, playing = true, vivo = true;
   const ESPERAS: Espera[] = [];
   const reloj = () => simT;
   const nuevoCtx = () => new Ctx(ESPERAS, reloj);
@@ -246,6 +277,28 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       else if (w.cond()) { ESPERAS.splice(i, 1); w.res(); }
     }
   }
+
+  /* ---------- sonidos de 8 bits: apagados salvo que los actives ---------- */
+  const CLAVE_SONIDO = 'rosa.labvivo.sonido';
+  let sonido = false;
+  try { sonido = localStorage.getItem(CLAVE_SONIDO) === '1'; } catch { /* Sin almacenamiento local. */ }
+  let audio: AudioContext | null = null;
+  function tono(f: number, dur: number, forma: OscillatorType = 'square', vol = 0.04, retraso = 0) {
+    if (!sonido || document.hidden || typeof AudioContext === 'undefined') return;
+    try {
+      audio ??= new AudioContext();
+      const t = audio.currentTime + retraso, o = audio.createOscillator(), v = audio.createGain();
+      o.type = forma; o.frequency.setValueAtTime(f, t);
+      v.gain.setValueAtTime(vol, t); v.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(v).connect(audio.destination); o.start(t); o.stop(t + dur + 0.02);
+    } catch { /* El navegador no deja sonar. */ }
+  }
+  const SON = {
+    teclas: () => { for (let i = 0; i < 4; i++) tono(900 + Math.random() * 500, 0.03, 'square', 0.02, i * 0.09); },
+    sello: () => { tono(140, 0.12, 'square', 0.06); tono(90, 0.16, 'triangle', 0.06, 0.04); },
+    campana: () => { tono(988, 0.18, 'square', 0.035); tono(1319, 0.3, 'square', 0.035, 0.12); },
+    moneda: () => { tono(1319, 0.06, 'square', 0.03); tono(1760, 0.16, 'square', 0.03, 0.06); },
+  };
 
   /* ---------- textos ---------- */
   const TITULO_SALA: Partial<Record<Sala, string>> = { plan: tr('El plan'), r1: tr('Buscan y leen artículos'), r2: tr('Comprueban cada dato'), r3: tr('Proponen ideas nuevas'), r4: tr('Juzgan las ideas'), r5: tr('Las prueban con datos'), r6: tr('Revisan el trabajo'), rec: tr('Hablan contigo') };
@@ -283,6 +336,11 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const fila = (y: number) => rej[y]!;
     if (frame === 1) for (let x = 2; x < 6; x++) { fila(14)[x] = '#'; fila(15)[x] = '.'; }
     if (frame === 2) for (let x = 7; x < 11; x++) { fila(14)[x] = '#'; fila(15)[x] = '.'; }
+    if (frame === 3) {
+      // Se estira: los brazos suben a los lados de la cabeza.
+      for (let y = 3; y <= 10; y++) { fila(y)[0] = '#'; fila(y)[11] = '#'; fila(y)[1] = y < 5 ? 's' : 'B'; fila(y)[10] = y < 5 ? 's' : 'B'; }
+      fila(2)[1] = '#'; fila(2)[10] = '#'; fila(11)[2] = 'B'; fila(11)[9] = 'B';
+    }
     const pal: Record<string, string> = { '#': '#17131F', H: PELO[L.h]!, s: PIEL[L.k]!, o: '#17131F', B: a.coat, c: CAMISA[L.c]!, g: '#F4F1EA', P: '#3A3550' };
     const c = document.createElement('canvas');
     c.width = 12; c.height = 16;
@@ -314,12 +372,15 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const nombre = f[0]!;
     const el = div('lv-ag' + (nombre === 'Juez del torneo B' ? ' twin' : ''), capaAgentes);
     const lb = div('lv-lbl', el, esc(tr(f[1]!)));
+    const rj = div('lv-reloj', el); rj.hidden = true;
     return {
       i, name: nombre, quien: NOMBRE_PROPIO[nombre] ?? '', label: tr(f[1]!), hx, hy, x: hx, y: hy, coat: f[4]!, look: { s: f[5]!, k: Number(f[6]), h: Number(f[7]), c: Number(f[8]), g: acc.includes('g'), b: acc.includes('b'), a: acc.includes('a') },
       ldy: Number(f[10]), desk: f[11] === '1', what: tr(f[12]!), path: [], face: 1, carry: null, bub: null, busy: false, typing: 0, cool: 0,
-      room: salaDe(hx, hy), ictx: null, away: false, bob: 0, el, lb,
+      room: salaDe(hx, hy), ictx: null, away: false, bob: 0, el, lb, rj, desde: null, rjTxt: '',
+      emo: null, gesto: null, prox: 4 + Math.random() * 20, recado: false, turno: 0,
     };
   });
+  AG.forEach((a) => { a.turno = AG.filter((b) => b.room === a.room && b.i < a.i).length; });
   const P = (n: string): Agente => AG.find((a) => a.name === n) ?? AG[0]!;
   const atHome = (a: Agente) => a.path.length === 0 && Math.abs(a.x - a.hx) < 1 && Math.abs(a.y - a.hy) < 1;
 
@@ -339,7 +400,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
   function type(a: Agente, s: number) { a.typing = simT + s; }
 
-  interface Vuelo { kind: Obj; from: number[]; to: number[]; t0: number; dur: number; arc: number }
+  interface Vuelo { kind: Obj; from: number[]; to: number[]; t0: number; dur: number; arc: number; fin?: () => void }
   const FLY: Vuelo[] = [];
 
   /* ---------- salas y marcas ---------- */
@@ -364,7 +425,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   marca('sirven', 514, 184, '#7FD1A5'); marca('van', 514, 214, '#F4F1EA'); marca('cola', 380, 372, '#C9C4DA');
   marca('S', 96, 580, '#7FD1A5'); marca('P', 208, 580, '#F2C14E'); marca('N', 322, 580, '#E2706A'); marca('X', 436, 580, '#9C97B3'); marca('lleva', 380, 444, '#FFB27A');
   CARTEL.forEach(([x, y], i) => { marca('f' + i, x, y, '#F4F1EA'); TAG['f' + i]!.classList.add('cartel'); });
-  marca('pizarra', 186, 153, '#F4F1EA');
+  marca('pizarra', 186, 153, '#F4F1EA'); marca('hucha', 82, 152, '#F2C14E');
   const poner = (id: string, html: string | null) => { const t = TAG[id]!; t.innerHTML = html ?? ''; t.style.visibility = html ? 'visible' : 'hidden'; };
   function pintarMarcas() {
     const { resultados, sirven } = D.lectura, j = D.juez, v = j.veredictos;
@@ -387,6 +448,9 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     bin('P', tr('Parcial'), v ? v.parcial : null);
     bin('N', tr('No sostenida'), v ? v.no_sostenida : null);
     bin('X', tr('Otros veredictos'), v ? v.otras : null);
+    const pr = D.presupuesto;
+    poner('hucha', pr ? trp('<b>{n}</b>/{m} llamadas', { n: ent(pr.usado), m: ent(pr.limite) }) : null);
+    pintarHots();
   }
   const STAMPS: Bocadillo[] = [];
   const setEv = (html: string) => { suceso.innerHTML = html || '&nbsp;'; };
@@ -395,22 +459,25 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   // La cámara se centra en quien miras y lo sigue cuando camina. El centro es
   // el de la parte del laboratorio que se ve en pantalla, que puede ser más
   // alto que la ventana. Guarda qué punto del mundo queda en ese centro.
-  let sel: Agente | null = null, asking = false, mira: Agente | null = null, miraS = 1;
+  let sel: Agente | null = null, asking = false, mira: (() => [number, number]) | null = null, miraS = 1, kfAct = 1;
   const cam = { s: 1, cx: ANCHO / 2, cy: ALTO_VISTA / 2, tx: 0, ty: 0 };
   const vis = { x: ANCHO / 2, y: ALTO_VISTA / 2, k: 1, izq: 0, der: ANCHO, arr: 0, aba: ALTO_VISTA };
   function medirVisible() {
     const r = vista.getBoundingClientRect(), k = r.width / ANCHO || 1;
-    const arr = Math.max(0, -r.top / k), aba = Math.min(ALTO_VISTA, (window.innerHeight - r.top) / k);
+    // La cabecera de la página es pegajosa: lo que queda debajo de ella no se ve.
+    const tapa = Math.max(0, document.querySelector('.cabecera')?.getBoundingClientRect().bottom ?? 0);
+    const arr = Math.max(0, (tapa - r.top) / k), aba = Math.min(ALTO_VISTA, (window.innerHeight - r.top) / k);
     const izq = Math.max(0, -r.left / k), der = Math.min(ANCHO, (window.innerWidth - r.left) / k);
     Object.assign(vis, aba - arr > 80 ? { arr, aba } : { arr: 0, aba: ALTO_VISTA }, der - izq > 80 ? { izq, der } : { izq: 0, der: ANCHO }, { k });
     vis.x = (vis.izq + vis.der) / 2; vis.y = (vis.arr + vis.aba) / 2;
   }
-  function zoomTo(a: Agente, s: number) { mira = a; miraS = s; }
+  function zoomTo(a: Agente, s: number) { mira = () => [a.x + 24, a.y + 32]; miraS = s; }
+  function zoomPunto(f: () => [number, number], s: number) { mira = f; miraS = s; }
   function zoomOut() { mira = null; miraS = 1; }
   function camara(dt: number) {
     medirVisible();
     const s = mira ? miraS : 1;
-    let cx = mira ? mira.x + 24 : vis.x, cy = mira ? mira.y + 32 : vis.y;
+    let [cx, cy] = mira ? mira() : [vis.x, vis.y];
     if (mira) {
       // Centrado en el agente, pero sin dejar más de BORDE de vacío fuera del laboratorio.
       const BORDE = 32, ajusta = (c: number, a: number, b: number, total: number) => {
@@ -429,17 +496,49 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const kf = Math.min(1.8, Math.max(1, 1 / vis.k));
     pideEl.style.scale = String(kf);
     pideEl.style.bottom = ALTO_VISTA - vis.aba + 24 + 'px';
-    if (pideEl.classList.contains('lv-pide-presupuesto')) {
-      // Este diálogo conserva texto y controles legibles incluso en el móvil.
-      const escala = 1 / vis.k, ancho = Math.min(460, (vis.der - vis.izq) * vis.k - 32);
-      pideEl.style.scale = String(escala);
-      pideEl.style.width = Math.max(220, ancho) + 'px';
-      pideEl.style.left = vis.x - Math.max(220, ancho) * escala / 2 + 'px';
-      pideEl.style.right = 'auto'; pideEl.style.bottom = 'auto';
-      pideEl.style.top = vis.arr + 16 * escala + 'px';
-      pideEl.style.maxHeight = Math.max(180, (vis.aba - vis.arr) * vis.k - 32) + 'px';
-    }
+    if (pideEl.classList.contains('lv-pide-presupuesto')) colocarLupa();
     colocarFicha(kf);
+    kfAct = kf;
+    // El panel de un objeto va arriba, del lado contrario al objeto; la narración, abajo.
+    if (!objetoEl.hidden) {
+      objetoEl.style.scale = String(kf);
+      objetoEl.style.top = vis.arr + 20 + 'px';
+      objetoEl.style.maxHeight = Math.max(160, (vis.aba - vis.arr - 40) / kf) + 'px';
+      objetoEl.style.left = (objetoIzq ? vis.izq + 20 : vis.der - 20 - objetoEl.offsetWidth * kf) + 'px';
+    }
+    if (!narraEl.hidden) { narraEl.style.scale = String(kf); narraEl.style.bottom = ALTO_VISTA - vis.aba + 24 + 'px'; }
+  }
+  /** Como en el diseño: la lupa y, a su derecha, el que pide resaltado y unido a ella por un
+   * cable, todo centrado en lo que se ve del laboratorio. La página no se mueve mientras tanto. */
+  function colocarLupa() {
+    const e = 1 / vis.k, margen = 16 * e, HUECO = 10, FOCO = 136;
+    const cabe = (vis.der - vis.izq) * vis.k - 32, conFoco = cabe >= 460 + HUECO + FOCO;
+    const ancho = Math.max(220, Math.min(460, cabe)), w = ancho * e;
+    pideEl.style.scale = String(e);
+    pideEl.style.width = ancho + 'px';
+    pideEl.style.right = 'auto'; pideEl.style.bottom = 'auto';
+    pideEl.style.maxHeight = Math.max(180, (vis.aba - vis.arr) * vis.k - 32) + 'px';
+    const h = pideEl.offsetHeight * e, left = vis.x - (w + (conFoco ? (HUECO + FOCO) * e : 0)) / 2;
+    const top = Math.max(vis.arr + margen, Math.min(vis.y - h / 2, vis.aba - margen - h));
+    pideEl.style.left = left + 'px';
+    pideEl.style.top = top + 'px';
+    focoEl.hidden = cableEl.hidden = !conFoco;
+    if (!conFoco) return;
+    const fx = left + w + HUECO * e, fy = top + 22 * e, et = focoEl.querySelector<HTMLElement>('.lv-foco-pide');
+    focoEl.style.transform = `translate(${fx}px,${fy}px) scale(${e})`;
+    if (et) et.style.left = Math.max(0, 68 - et.offsetWidth / 2) + 'px';
+    Object.assign(cableEl.style, { left: left + w + 'px', top: fy + 74 * e + 'px', width: 44 * e + HUECO * e + 'px', height: 4 * e + 'px' });
+  }
+  /** Mientras se decide, la página no sube ni baja (solo el cuerpo de la lupa, si no cabe). */
+  function quieta(e: Event) {
+    const cuerpo = (e.target as Element | null)?.closest?.('.lv-permiso-cuerpo');
+    if (!cuerpo || cuerpo.scrollHeight <= cuerpo.clientHeight) e.preventDefault();
+  }
+  function fijarPagina(si: boolean) {
+    for (const t of ['wheel', 'touchmove'] as const) {
+      if (si) window.addEventListener(t, quieta, { passive: false });
+      else window.removeEventListener(t, quieta);
+    }
   }
   /** La ficha muestra la voz generada; el registro técnico se consulta en el historial. */
   function haciendo(a: Agente): string {
@@ -673,7 +772,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       a.ictx?.kill(); a.ictx = null; a.busy = false; a.path = [];
       a.carry = null; a.away = false; a.typing = 0;
       if (!a.bub?.el.classList.contains('ask')) { a.bub?.el.remove(); a.bub = null; }
-      a.reaccion = undefined;
+      a.recado = false; a.gesto = null; a.reaccion = undefined;
       delete a.el.dataset.emocion; delete a.el.dataset.gesto;
     });
     FLY.length = 0; STAMPS.forEach((s) => s.el.remove()); STAMPS.length = 0;
@@ -687,6 +786,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     // Una actualización no interrumpe una caminata ni una conversación en curso.
     if (!animar || REDUCIR || escenas.has(a) || a.ictx) return;
     const ctx = nuevoCtx(); a.ictx = ctx;
+    SON.teclas();
     a.busy = true;
     spawn((async () => {
       try {
@@ -711,10 +811,14 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     vistas.clear(); D.actividad.forEach((e) => vistas.set(e.id, e.texto));
     const porAgente = new Map<string, ActividadLab>();
     nuevas.forEach((e) => { if (!inicial || (e.enCurso && D.activos.includes(e.agente))) porAgente.set(e.agente, e); });
+    // Un gesto sobre la cabeza: «!» registro nuevo, «?» nota o pregunta, gota de sudor si hubo error.
+    if (!inicial) porAgente.forEach((e) => { const a = AG.find((x) => x.name === e.agente); if (a) a.emo = { k: e.tipo === 'error' ? 'gota' : e.tipo === 'nota' || e.texto.trim().endsWith('?') ? '?' : '!', t0: rt }; });
     if (D.conexion === 'en_linea' && !asking) {
       [...porAgente.values()].slice(-6).forEach((e) => anunciar(e, D.trabajando && D.activos.includes(e.agente)));
     }
     AG.forEach((a) => {
+      const ab = D.trabajando && D.activos.includes(a.name) ? [...D.actividad].reverse().find((e) => e.agente === a.name && e.enCurso) : undefined;
+      a.desde = ab?.abierta && ab.desde ? ab.desde : null;
       a.el.dataset.agente = a.name;
       a.el.setAttribute('aria-label', a.label + ': ' + haciendo(a));
       a.el.classList.toggle('activo', D.activos.includes(a.name));
@@ -732,19 +836,31 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const p = D.pide;
     if (!p || descartadas.has(p.id) || pidiendo === p.id) return;
     pararActividad();
+    dejarDeSeguir(false); cerrarObjeto(false);
     pidiendo = p.id; asking = true; sel = null; ficha.hidden = true;
+    pintarSigue();
     const quien = P(p.quien);
-    const presupuesto = esPeticionDePresupuesto(p);
+    const presupuesto = esPeticionDePresupuesto(p), incidencia = p.clase === 'incidencia', lupa = presupuesto || incidencia;
     quien.face = -1;
-    say(quien, esc(presupuesto ? vozDePresupuesto(p) : p.clase === 'plan' ? tr('¿Me apruebas el plan?') : p.clase === 'presupuesto' ? p.titulo : tr('¿Me das permiso?')), 3600, 'ask');
-    zoomTo(quien, 2.3);
+    say(quien, esc(presupuesto ? vozDePresupuesto(p) : incidencia ? tr('Algo me impide seguir') : p.clase === 'plan' ? tr('¿Me apruebas el plan?') : p.clase === 'presupuesto' ? p.titulo : tr('¿Me das permiso?')), 3600, 'ask');
+    // La lupa ya amplía al que pide: el laboratorio se queda entero detrás.
+    if (lupa) zoomOut(); else zoomTo(quien, 2.3);
     setEv(esc(trp('{q} necesita tu respuesta', { q: quien.label })));
-    pideEl.classList.toggle('lv-pide-presupuesto', presupuesto);
-    vista.classList.toggle('lv-espera', presupuesto);
+    pideEl.classList.toggle('lv-pide-presupuesto', lupa);
+    vista.classList.toggle('lv-espera', lupa);
     pideEl.setAttribute('aria-label', p.titulo || tr('El planificador te enseña el plan'));
-    if (presupuesto) {
+    if (lupa) {
       pideEl.setAttribute('aria-modal', 'true');
-      pintarPeticionPresupuesto(pideEl, D, quien.label, D.modelos.cerebro, sprite(quien, 0));
+      if (incidencia) pintarPeticionIncidencia(pideEl, D, quien.label, sprite(quien, 0));
+      else pintarPeticionPresupuesto(pideEl, D, quien.label, D.modelos.cerebro, sprite(quien, 0));
+      pintarFoco(focoEl, quien.label, incidencia ? tr('encontró un problema') : p.clase === 'presupuesto' ? tr('pide presupuesto') : tr('pide permiso'), sprite(quien, 0));
+      // Si apenas se ve el laboratorio, la página se coloca una vez para que quepa la lupa y ahí se queda.
+      const r = vista.getBoundingClientRect(), tapa = Math.max(0, document.querySelector('.cabecera')?.getBoundingClientRect().bottom ?? 0);
+      if (Math.min(window.innerHeight, r.bottom) - Math.max(tapa, r.top) < Math.min(640, window.innerHeight - tapa - 16)) {
+        vista.style.scrollMarginTop = tapa + 12 + 'px';
+        vista.scrollIntoView?.({ block: 'start' });
+      }
+      fijarPagina(true);
     } else if (p.clase === 'plan') {
       pideEl.innerHTML = `<div class="k">${esc(tr('El planificador te enseña el plan'))}</div><h3>${esc(trp('El plan tiene {m} pasos', { m: D.pasos.total }))}</h3><ol class="plan">${D.pasos.lista.map((paso) => `<li><b>${esc(paso.titulo)}</b>${paso.detalle ? `<small>${esc(paso.detalle)}</small>` : ''}</li>`).join('')}</ol><div class="row"><button type="button" class="no" data-a="ver">${esc(tr('Revisarlo en la corrida'))}</button><button type="button" class="yes" data-a="plan">${esc(tr('Aprobar el plan'))}</button></div><button type="button" class="luego" data-a="luego">${esc(tr('Ahora no'))}</button>`;
     } else if (p.clase === 'presupuesto') {
@@ -752,17 +868,18 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     } else {
       pideEl.innerHTML = `<div class="k">${esc(trp('{q} pide permiso', { q: quien.label }))}</div><h3>${esc(p.titulo)}</h3><p>${esc(p.detalle)}</p>${p.alcances.length ? `<label>${esc(tr('Alcance del permiso'))}<select class="lv-alcance">${p.alcances.map((a) => `<option value="${esc(a)}">${esc(ALCANCE[a])}</option>`).join('')}</select></label>` : ''}<div class="row"><button type="button" class="no" data-a="no">${esc(tr('Denegar'))}</button>${p.requiereArgumentos ? `<button type="button" class="yes" data-a="ver">${esc(tr('Completar en la corrida'))}</button>` : `<button type="button" class="yes" data-a="si">${esc(tr('Permitir'))}</button>`}</div><div class="row2"><button type="button" class="luego" data-a="ver">${esc(tr('Verlo en la corrida'))}</button><button type="button" class="luego" data-a="luego">${esc(tr('Ahora no'))}</button></div>`;
     }
-    if (!presupuesto) pideEl.insertAdjacentHTML('beforeend', '<p class="lv-respuesta" role="status"></p>');
+    if (!lupa) pideEl.insertAdjacentHTML('beforeend', '<p class="lv-respuesta" role="status"></p>');
     pideEl.hidden = false;
-    if (presupuesto) {
+    if (lupa) {
       focoAntes = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      pideEl.querySelector<HTMLInputElement>('.lv-llamadas')?.focus({ preventScroll: true });
+      pideEl.querySelector<HTMLInputElement>('.lv-llamadas,.lv-resolucion')?.focus({ preventScroll: true });
     }
   }
   function cerrarPeticion() {
     if (!pidiendo) return;
-    pidiendo = null; asking = false; pideEl.hidden = true; zoomOut();
+    pidiendo = null; asking = false; pideEl.hidden = true; zoomOut(); pintarSigue();
     vista.classList.remove('lv-espera'); pideEl.classList.remove('lv-pide-presupuesto');
+    focoEl.hidden = true; cableEl.hidden = true; fijarPagina(false);
     pideEl.removeAttribute('aria-modal');
     for (const propiedad of ['scale', 'width', 'left', 'right', 'bottom', 'top', 'max-height']) pideEl.style.removeProperty(propiedad);
     if (focoAntes?.isConnected) focoAntes.focus({ preventScroll: true });
@@ -771,7 +888,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (quien) { quien.bub?.el.remove(); quien.bub = null; }
     paintChapter();
   }
-  let enviando: string | null = null;
+  let enviando: string | null = null, aprobada: string | null = null;
   pideEl.addEventListener('click', async (e) => {
     const b = (e.target as HTMLElement).closest('button'), p = D.pide;
     if (!b || !p || pidiendo !== p.id) return;
@@ -785,11 +902,14 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if ((accion === 'si' && presupuesto) || accion === 'presupuesto') {
       if (!input?.reportValidity() || !Number.isSafeInteger(input.valueAsNumber)) return;
     }
+    const propia = pideEl.querySelector<HTMLInputElement>('.lv-resolucion');
+    if (accion === 'incidencia' && !propia?.value.trim() && !p.incidencia?.alternativa) { propia?.reportValidity(); return; }
     if (accion === 'si' && ((p.requiereArgumentos && !presupuesto) || (p.alcances.length > 0 && (alcance === null || !p.alcances.includes(alcance as typeof p.alcances[number]))))) return;
     const enviar = accion === 'plan' && p.clase === 'plan' ? () => resp.aprobarPlan(p.id)
-      : accion === 'presupuesto' && p.clase === 'presupuesto' && p.presupuesto && input ? () => resp.ampliarPresupuesto(p.presupuesto!.corridaId, input.valueAsNumber)
+      : accion === 'presupuesto' && p.clase === 'presupuesto' && p.presupuesto && input ? () => resp.ampliarPresupuesto(p.presupuesto!.corridaId, topeConLlamadasMas(p, input.valueAsNumber))
       : accion === 'si' && p.clase === 'permiso' ? () => presupuesto ? resp.conceder(p.id, alcance, { llamadas: input!.value }) : resp.conceder(p.id, alcance)
-        : accion === 'no' && p.clase === 'permiso' ? () => resp.denegar(p.id) : null;
+        : accion === 'no' && p.clase === 'permiso' ? () => resp.denegar(p.id)
+          : accion === 'incidencia' && p.clase === 'incidencia' ? () => resp.resolverIncidencia(p.id, propia?.value.trim() || p.incidencia!.alternativa!) : null;
     if (!enviar) return;
     enviando = p.id;
     pideEl.querySelectorAll<HTMLButtonElement | HTMLSelectElement | HTMLInputElement>('button,select,input').forEach((x) => { x.disabled = true; });
@@ -799,6 +919,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     try { ok = await enviar(); } catch { /* El estado sigue pendiente hasta confirmarlo. */ }
     if (!vivo) return;
     enviando = null;
+    if (ok === true && accion !== 'no') aprobada = p.id;
     if (pidiendo !== p.id || D.pide?.id !== p.id) return;
     pideEl.querySelectorAll<HTMLButtonElement | HTMLSelectElement | HTMLInputElement>('button,select,input').forEach((x) => { x.disabled = ok === true; });
     if (mensaje) mensaje.textContent = ok === true ? tr('Respuesta guardada. Esperando el estado actualizado…') : ok === false ? tr('El servidor rechazó la respuesta. Revisa el estado de la corrida.') : tr('No pude comprobar si se guardó. Revisa la corrida antes de repetir.');
@@ -808,7 +929,18 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   AG.forEach((a) => {
     a.el.setAttribute('role', 'button');
     a.el.tabIndex = 0;
-    a.el.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); a.el.click(); } };
+    a.el.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); a.el.click(); return; }
+      const dir = FLECHA[e.key];
+      if (!dir || asking) return;
+      e.preventDefault();
+      const b = vecino(a, dir[0], dir[1]);
+      if (!b) return;
+      b.el.focus({ preventScroll: !!sel });
+      if (sel) b.el.click();
+    };
+    a.el.onfocus = () => { if (!asking && !sel) showCard(a); };
+    a.el.onblur = () => { if (sel === a || asking) return; if (sel) showCard(sel); else if (fichaDe === a) ficha.hidden = true; };
     const nb = AG.filter((b) => b !== a && Math.abs(b.hy - a.hy) < 12 && b.name !== 'Juez del torneo B' && a.name !== 'Juez del torneo B').map((b) => Math.abs(b.hx - a.hx));
     a.lb.style.maxWidth = Math.max(64, Math.min(104, (nb.length ? Math.min(...nb) : 120) - 6)) + 'px';
     a.el.onmouseenter = () => { if (!asking) showCard(a); };
@@ -816,12 +948,17 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     a.el.onclick = (e) => {
       e.stopPropagation();
       if (asking) return;
+      cerrarObjeto(false); dejarDeSeguir(false);
       AG.forEach((b) => b.el.classList.remove('sel'));
       if (sel === a) { sel = null; zoomOut(); ficha.hidden = true; return; }
       sel = a; a.el.classList.add('sel'); zoomTo(a, 2); showCard(a);
     };
   });
-  vista.onclick = () => { if (sel && !asking) { sel.el.classList.remove('sel'); sel = null; zoomOut(); ficha.hidden = true; } };
+  vista.onclick = () => {
+    if (asking) return;
+    cerrarObjeto(false);
+    if (sel) { sel.el.classList.remove('sel'); sel = null; ficha.hidden = true; if (!siguiendo) zoomOut(); }
+  };
   CH.forEach((c, i) => {
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'lv-chip';
@@ -851,7 +988,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     b.onclick = () => { speed = Number(b.dataset.s); raiz.querySelectorAll('.lv-velocidad button').forEach((x) => x.classList.toggle('on', x === b)); };
   });
   const teclas = (e: KeyboardEvent) => {
-    const t = e.target as HTMLElement | null;
+    const t = e.target;
     if (asking && pideEl.classList.contains('lv-pide-presupuesto')) {
       if (e.key === 'Tab') {
         const elementos = [...pideEl.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),summary')];
@@ -864,10 +1001,16 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (e.key === 'Enter' && t instanceof Element && pideEl.contains(t) && !t.closest('button,summary')) {
         e.preventDefault(); pideEl.querySelector<HTMLButtonElement>('.yes')?.click(); return;
       }
+      // Las teclas que desplazan la página tampoco la mueven; dentro del número siguen editándolo.
+      const enCampo = t instanceof Element && !!t.closest('input'), enBoton = t instanceof Element && !!t.closest('button');
+      if ((['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].includes(e.key) && !enCampo) || (e.key === ' ' && !enCampo && !enBoton)) e.preventDefault();
     }
-    if (t && (t.closest('input,textarea,select,[contenteditable="true"]'))) return;
-    if (e.key === 'Escape' && pidiendo && D.pide) { descartadas.add(D.pide.id); cerrarPeticion(); }
-    else if (e.key === 'Escape' && sel) vista.click();
+    if (t instanceof Element && t.closest('input,textarea,select,[contenteditable="true"]')) return;
+    if (e.key !== 'Escape') return;
+    if (pidiendo && D.pide) { descartadas.add(D.pide.id); cerrarPeticion(); }
+    else if (objetoId) cerrarObjeto();
+    else if (siguiendo) dejarDeSeguir();
+    else if (sel) vista.click();
   };
   window.addEventListener('keydown', teclas);
 
@@ -889,6 +1032,262 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (!D.trabajando) setEv(esc(D.estadoTexto));
   }
 
+  /* ---------- objetos que se abren: pizarra, hucha, estanterías y cajas ---------- */
+  const ZONA: Record<string, [number, number, number, number]> = { pizarra: [152, 12, 248, 136], hucha: [84, 84, 52, 66], S: [92, 492, 88, 108], P: [204, 492, 88, 108], N: [316, 492, 88, 108], X: [430, 570, 130, 30] };
+  ESTANTE.forEach(([x, y], i) => { ZONA['f' + i] = [x, y, 81, 120]; });
+  const CAJA: Record<'S' | 'P' | 'N' | 'X', { caja: AfirmacionLab['caja']; nombre: string }> = {
+    S: { caja: 'sostenida', nombre: tr('Sostenida') }, P: { caja: 'parcial', nombre: tr('Parcial') },
+    N: { caja: 'no_sostenida', nombre: tr('No sostenida') }, X: { caja: 'otras', nombre: tr('Otros veredictos') },
+  };
+  const esCaja = (id: string): id is keyof typeof CAJA => Object.hasOwn(CAJA, id);
+  const nombreCaja = (c: AfirmacionLab['caja']) => Object.values(CAJA).find((x) => x.caja === c)!.nombre;
+  const NOMBRE_PASO: Record<EstadoPasoLab, string> = { hecho: tr('Completado'), ahora: tr('En curso'), pendiente: tr('Pendiente'), fallo: tr('Falló'), omitido: tr('Omitido') };
+  const nombreDe = (a: Agente) => (a.quien ? `${a.quien} (${a.label})` : a.label);
+  const HOT: Record<string, HTMLButtonElement> = {};
+  for (const [id, [x, y, w, h]] of Object.entries(ZONA)) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'lv-hot';
+    b.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+    b.onclick = (e) => { e.stopPropagation(); if (!asking) abrirObjeto(id); };
+    capaHots.appendChild(b); HOT[id] = b;
+  }
+  let objetoId: string | null = null, objetoIzq = false, objetoHtml = '';
+  function pintarHots() {
+    const orden = ordenFuentes(D.fuentes);
+    const etiqueta = (b: HTMLButtonElement, t: string) => { b.setAttribute('aria-label', t); b.title = t; };
+    etiqueta(HOT.pizarra!, tr('Abrir la pizarra del plan'));
+    HOT.hucha!.hidden = !D.presupuesto; etiqueta(HOT.hucha!, tr('Abrir la hucha del presupuesto'));
+    ESTANTE.forEach((_, i) => { const f = orden[i], b = HOT['f' + i]!; b.hidden = !f; if (f) etiqueta(b, trp('Abrir la estantería de {f}', { f: f.nombre })); });
+    for (const [k, c] of Object.entries(CAJA)) etiqueta(HOT[k]!, trp('Abrir la caja «{c}»', { c: c.nombre }));
+    if (objetoId && HOT[objetoId]?.hidden) cerrarObjeto(false); else pintarObjeto();
+  }
+  const registro = (es: ActividadLab[], titulo: string) => (es.length
+    ? `<div class="lv-o-reg"><span>${esc(titulo)}</span><ul>${es.map((e) => { const ag = AG.find((x) => x.name === e.agente); return `<li><b>${esc(ag ? ag.quien || ag.label : e.agente)}</b> ${esc(corta(e.texto, 160))}</li>`; }).join('')}</ul></div>` : '');
+  function pintarObjeto() {
+    const id = objetoId;
+    if (!id) return;
+    let k = '', t = '', cuerpo = '';
+    if (id === 'pizarra') {
+      const L = D.pasos.lista, E = D.pasos.estados;
+      k = tr('La pizarra del plan');
+      t = L.length ? trp('{m} pasos · {n} hechos', { m: L.length, n: E.filter((e) => e === 'hecho').length }) : tr('Todavía no hay plan en esta iteración');
+      cuerpo = L.length ? `<ol class="lv-o-pasos">${L.map((p, i) => { const e = E[i] ?? 'pendiente'; return `<li style="--c:${RENGLON[e].caja}"><i></i><div><b>${esc(p.titulo)}</b>${p.detalle ? `<small>${esc(p.detalle)}</small>` : ''}</div><span>${esc(NOMBRE_PASO[e])}</span></li>`; }).join('')}</ol>` : '';
+    } else if (id === 'hucha') {
+      const pr = D.presupuesto;
+      if (!pr) { cerrarObjeto(false); return; }
+      k = tr('La hucha del presupuesto');
+      t = trp('{n} de {m} llamadas al modelo', { n: ent(pr.usado), m: ent(pr.limite) });
+      cuerpo = `<div class="lv-o-barra"><i style="width:${Math.min(100, (pr.usado / pr.limite) * 100)}%"></i></div><p>${esc(pr.usado > pr.limite ? trp('Esta iteración pasó su tope en {n} llamadas.', { n: ent(pr.usado - pr.limite) }) : pr.usado === pr.limite ? tr('Esta iteración llegó a su tope de llamadas.') : trp('Quedan {n} llamadas en esta iteración.', { n: ent(pr.limite - pr.usado) }))}</p>`
+        + (pr.reserva ? `<p>${esc(trp('{n} están reservadas para cerrar la iteración.', { n: ent(pr.reserva) }))}</p>` : '');
+    } else if (esCaja(id)) {
+      const c = CAJA[id], afs = D.afirmaciones?.filter((a) => a.caja === c.caja) ?? null, n = D.juez.veredictos ? D.juez.veredictos[c.caja] : null;
+      k = tr('Caja del juez'); t = afs ? `${c.nombre} · ${ent(afs.length)}` : c.nombre;
+      if (afs) {
+        cuerpo = afs.length
+          ? `<ul class="lv-o-afs">${afs.slice(0, 40).map((a) => `<li><q>${esc(corta(a.texto, 240))}</q><small>${esc(a.articulo)}</small>${c.caja === 'otras' ? `<em>${esc(veredictoDe(a.veredicto).etiqueta)}</em>` : ''}${a.motivo ? `<p>${esc(corta(a.motivo, 220))}</p>` : ''}</li>`).join('')}</ul>${afs.length > 40 ? `<p class="lv-o-mas">${esc(trp('Y {n} más…', { n: ent(afs.length - 40) }))}</p>` : ''}`
+          : `<p>${esc(tr('Ninguna afirmación de esta iteración cayó en esta caja.'))}</p>`;
+      } else {
+        cuerpo = `<p>${esc(n !== null ? trp('El resumen de la verificación cuenta {n} en esta caja.', { n: ent(n) }) : tr('La verificación de esta iteración todavía no tiene recuento.'))}</p>`
+          + registro(D.actividad.filter((e) => e.agente === 'Juez').slice(-4), tr('Lo último del registro del juez'));
+      }
+    } else {
+      const f = ordenFuentes(D.fuentes)[Number(id.slice(1))];
+      if (!f) { cerrarObjeto(false); return; }
+      const no = tr('No registrado'), cifra = (x: number | null) => (x !== null ? ent(x) : no);
+      k = tr('Estantería'); t = f.nombre;
+      cuerpo = `<dl class="lv-o-cifras"><div><dt>${esc(tr('Resultados'))}</dt><dd>${esc(cifra(f.salen))}</dd></div><div><dt>${esc(tr('Sirven'))}</dt><dd>${esc(cifra(f.sirven))}</dd></div><div><dt>${esc(tr('Consultas'))}</dt><dd>${esc(ent(f.consultas))}</dd></div></dl>`
+        + (f.fallo ? `<p class="lv-o-mal">${esc(tr('No responde: una consulta falló sin devolver resultados.'))}</p>` : '')
+        + registro(D.actividad.filter((e) => e.fuente && (e.fuente.includes(f.nombre) || baseDe(e.fuente).nombre === f.nombre)).slice(-3), tr('Lo último del registro en esta biblioteca'));
+    }
+    const html = `<button type="button" class="lv-cerrar" aria-label="${esc(tr('Cerrar'))}">×</button><div class="k">${esc(k)}</div><h3>${esc(t)}</h3>${cuerpo}`;
+    if (html === objetoHtml) return;
+    const foco = objetoEl.contains(document.activeElement);
+    objetoHtml = html; objetoEl.innerHTML = html; objetoEl.setAttribute('aria-label', t);
+    if (foco) objetoEl.querySelector<HTMLButtonElement>('.lv-cerrar')?.focus({ preventScroll: true });
+  }
+  function abrirObjeto(id: string) {
+    if (objetoId === id) { cerrarObjeto(); return; }
+    dejarDeSeguir(false);
+    if (sel) { sel.el.classList.remove('sel'); sel = null; ficha.hidden = true; }
+    objetoId = id; objetoHtml = '';
+    const [x, y, w, h] = ZONA[id]!, ox = x + w / 2, oy = y + h / 2;
+    objetoIzq = ox > ANCHO / 2;
+    objetoEl.classList.toggle('izq', objetoIzq);
+    pintarObjeto(); objetoEl.hidden = false;
+    // El objeto queda en el centro del hueco que deja el panel, con el zoom que quepa en ese hueco.
+    medirVisible();
+    const hueco = vis.der - vis.izq - objetoEl.offsetWidth * kfAct - 60;
+    zoomPunto(() => [ox + ((objetoIzq ? -1 : 1) * objetoEl.offsetWidth * kfAct) / 2 / miraS, oy], Math.max(1, Math.min(1.7, hueco / (w + 48))));
+    Object.entries(HOT).forEach(([k, b]) => b.classList.toggle('on', k === id));
+    objetoEl.querySelector<HTMLButtonElement>('.lv-cerrar')?.focus({ preventScroll: true });
+  }
+  function cerrarObjeto(enfocar = true) {
+    if (!objetoId) return;
+    const b = HOT[objetoId];
+    objetoId = null; objetoHtml = ''; objetoEl.hidden = true; objetoEl.innerHTML = '';
+    Object.values(HOT).forEach((x) => x.classList.remove('on'));
+    if (!sel && !asking && !siguiendo) zoomOut();
+    if (enfocar && b && !b.hidden) b.focus({ preventScroll: true });
+  }
+  objetoEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if ((e.target as HTMLElement).closest('.lv-cerrar')) cerrarObjeto();
+  });
+
+  /* ---------- el mensajero y las monedas ---------- */
+  /** Cuando el trabajo pasa de una sala a otra, alguien libre lleva el expediente. */
+  function mensajero(de: SalaLab, a: SalaLab) {
+    if (REDUCIR || asking || D.conexion !== 'en_linea' || de === a) return;
+    const m = AG.find((b) => b.room === de && !b.desk && !b.busy && !b.ictx && !b.recado && !D.activos.includes(b.name) && atHome(b));
+    if (!m) return;
+    const [gx, gy, gw, gh] = GEOM[a], dx = gx + gw / 2 - 24, dy = gy + gh - 76;
+    const ctx = nuevoCtx();
+    m.ictx = ctx; m.recado = true; m.busy = true; m.gesto = null; m.carry = 'card';
+    say(m, esc(trp('Llevo el expediente a «{sala}»', { sala: TITULO_SALA[a]! })), 3, 'small');
+    setEv(esc(trp('{q} lleva el expediente a la sala siguiente: {sala}', { q: nombreDe(m), sala: TITULO_SALA[a]! })));
+    spawn((async () => {
+      try {
+        await walk(ctx, m, [[m.x, dy], [dx, dy]]);
+        m.carry = null;
+        FLY.push({ kind: 'card', from: [dx + 42, dy + 44], to: [dx + 58, dy + 60], t0: simT, dur: 0.5, arc: 14 });
+        const recibe = AG.find((b) => b.room === a && D.activos.includes(b.name));
+        if (recibe) recibe.emo = { k: '!', t0: rt };
+        await ctx.wait(1.2);
+        await walk(ctx, m, [[m.hx, m.y], [m.hx, m.hy]]);
+      } finally {
+        if (m.ictx === ctx) { m.ictx = null; m.busy = false; }
+        m.recado = false; m.carry = null;
+      }
+    })());
+  }
+  function monedas(n: number) {
+    if (REDUCIR || !D.presupuesto || n <= 0) return;
+    for (let i = 0; i < Math.min(5, n); i++) FLY.push({ kind: 'coin', from: [110, 30], to: [110, 92], t0: simT + i * 0.3, dur: 0.7, arc: 0, fin: SON.moneda });
+  }
+
+  /* ---------- gestos de espera ---------- */
+  function gestos() {
+    for (const a of AG) {
+      if (a.gesto && simT >= a.gesto.hasta) { if (a.gesto.k === 'mira') a.face = a.gesto.cara; a.gesto = null; }
+      if (a.gesto) { if (a.gesto.k === 'mira') a.face = Math.floor((a.gesto.hasta - simT) / 0.8) % 2 ? -a.gesto.cara : a.gesto.cara; continue; }
+      if (simT < a.prox) continue;
+      a.prox = simT + 10 + Math.random() * 22;
+      if (asking || !atHome(a) || a.busy || a.ictx || a.bub || a.recado || a.name === 'Tú' || D.activos.includes(a.name) || dormido(a)) continue;
+      const op = a.desk ? (['estira', 'mira'] as const) : (['estira', 'cafe', 'mira'] as const);
+      const k = op[Math.floor(Math.random() * op.length)]!;
+      a.gesto = { k, hasta: simT + (k === 'estira' ? 1.6 : k === 'cafe' ? 4 : 2.4), cara: a.face };
+    }
+  }
+
+  /* ---------- sigue una afirmación ---------- */
+  const papel = { x: 0, y: 0, on: false };
+  let sigCtx: Ctx | null = null, sigIdx = -1, siguiendo = false, sigueHtml = '';
+  function pintarSigue() {
+    const afs = D.afirmaciones, t = siguiendo ? tr('Dejar de seguir') : tr('Sigue una afirmación');
+    const html = `<svg width="11" height="13" viewBox="0 0 11 13" aria-hidden="true"><path d="M1 1h6l3 3v8H1z" fill="#F4F1EA"/><path d="M3 6h5M3 9h3" stroke="#9C97B3"/></svg><span>${esc(t)}</span>`;
+    if (html !== sigueHtml) { sigueHtml = html; botonSigue.innerHTML = html; }
+    botonSigue.disabled = !siguiendo && (!afs || afs.length === 0 || asking);
+    botonSigue.title = siguiendo ? t : afs === null ? tr('La cadena de evidencia todavía no ha llegado') : afs.length === 0 ? tr('Esta iteración no tiene afirmaciones en la cadena de evidencia') : trp('Recorre una de las {n} afirmaciones de esta iteración, del artículo a su caja', { n: ent(afs.length) });
+    botonSigue.setAttribute('aria-pressed', String(siguiendo));
+  }
+  function narrar(af: AfirmacionLab, pasos: string[], i: number) {
+    const final = i < 0 || i === pasos.length - 1;
+    narraEl.innerHTML = `<div class="k">${esc(i < 0 ? tr('Sigue una afirmación') : trp('Sigue una afirmación · paso {n} de {m}', { n: i + 1, m: pasos.length }))}</div><q>${esc(corta(af.texto, 220))}</q>`
+      + (i < 0 ? `<ol>${pasos.map((p) => `<li>${esc(p)}</li>`).join('')}</ol>` : `<p>${esc(pasos[i]!)}</p>`)
+      + `<div class="row">${final ? `<button type="button" data-a="cerrar">${esc(tr('Cerrar'))}</button><button type="button" class="yes" data-a="otra">${esc(tr('Seguir otra'))}</button>` : `<button type="button" data-a="cerrar">${esc(tr('Dejar de seguir'))}</button>`}</div>`;
+    narraEl.hidden = false;
+  }
+  function volar(ctx: Ctx, x: number, y: number, dur: number, arc: number) {
+    const x0 = papel.x, y0 = papel.y, t0 = simT;
+    return ctx.until(() => {
+      const t = Math.min(1, (simT - t0) / dur), e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      papel.x = x0 + (x - x0) * e; papel.y = y0 + (y - y0) * e - Math.sin(Math.PI * t) * arc;
+      return t >= 1;
+    });
+  }
+  const BOCA: Record<AfirmacionLab['caja'], [number, number]> = { sostenida: [136, 540], parcial: [248, 540], no_sostenida: [360, 540], otras: [490, 586] };
+  const COLOR_CAJA: Record<AfirmacionLab['caja'], string> = { sostenida: '#7FD1A5', parcial: '#F2C14E', no_sostenida: '#E2706A', otras: '#9C97B3' };
+  function seguir() {
+    const afs = D.afirmaciones;
+    if (!afs?.length || asking) return;
+    dejarDeSeguir(false); cerrarObjeto(false);
+    if (sel) { sel.el.classList.remove('sel'); sel = null; ficha.hidden = true; }
+    sigIdx = (sigIdx + 1) % afs.length;
+    const af = afs[sigIdx]!, ext = P('Extractor de afirmaciones'), juez = P('Juez');
+    const orden = ordenFuentes(D.fuentes), fi = Math.max(0, af.biblioteca ? orden.findIndex((f) => f.nombre === af.biblioteca) : 0);
+    const [ex, ey] = ESTANTE[fi]!, et = veredictoDe(af.veredicto).etiqueta, titulo = af.articulo.replace(/[.\s]+$/, '');
+    const pasos = [
+      af.biblioteca ? trp('Sale de un artículo que llegó desde {b}: «{a}».', { b: af.biblioteca, a: titulo }) : trp('Sale del artículo «{a}».', { a: titulo }),
+      trp('{q} copia del artículo la frase que se puede comprobar.', { q: nombreDe(ext) }),
+      tr('La cinta la lleva hasta la mesa del juez.'),
+      trp('{q} la compara con lo que dice el artículo: {v}.', { q: nombreDe(juez), v: et }) + (af.motivo ? ' ' + af.motivo : ''),
+      trp('Cae en la caja «{c}».', { c: nombreCaja(af.caja) }),
+    ];
+    siguiendo = true; pintarSigue();
+    if (REDUCIR) { narrar(af, pasos, -1); return; }
+    const ctx = nuevoCtx(); sigCtx = ctx;
+    papel.x = ex + 40; papel.y = ey + 50; papel.on = true;
+    zoomPunto(() => [papel.x, papel.y], 1.8);
+    spawn((async () => {
+      narrar(af, pasos, 0); await ctx.wait(3.2);
+      narrar(af, pasos, 1); await volar(ctx, ext.hx + 40, ext.hy + 40, 1.4, 30);
+      type(ext, 2.4); SON.teclas(); await ctx.wait(2.6);
+      narrar(af, pasos, 2); await volar(ctx, 476, 182, 0.8, 12);
+      const t0 = simT;
+      await ctx.until(() => { const d = Math.min(CL, (simT - t0) * 80), p = convAt(d); papel.x = p[0]; papel.y = p[1]; return d >= CL; });
+      narrar(af, pasos, 3); await volar(ctx, 312, 378, 0.9, 16); await ctx.wait(1);
+      const st = div('lv-sello', capaBocadillos, esc(et));
+      st.style.left = '312px'; st.style.top = '356px'; st.style.color = COLOR_CAJA[af.caja];
+      STAMPS.push({ el: st, until: simT + 2.4 }); SON.sello();
+      await ctx.wait(2.4);
+      narrar(af, pasos, 4);
+      const [bx, by] = BOCA[af.caja];
+      await volar(ctx, bx, by, 1, 24);
+    })());
+  }
+  function dejarDeSeguir(zoom = true) {
+    if (!siguiendo) return;
+    siguiendo = false; sigCtx?.kill(); sigCtx = null; processWaits();
+    papel.on = false; narraEl.hidden = true; narraEl.innerHTML = '';
+    pintarSigue();
+    if (zoom && !sel && !asking && !objetoId) zoomOut();
+  }
+  narraEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const a = (e.target as HTMLElement).closest('button')?.dataset.a;
+    if (a === 'otra') seguir(); else if (a === 'cerrar') dejarDeSeguir();
+  });
+  botonSigue.onclick = () => { if (siguiendo) dejarDeSeguir(); else seguir(); };
+
+  /* ---------- sonido ---------- */
+  function pintarSonido() {
+    botonSonido.innerHTML = `<svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true"><path d="M1 4h3l4-3v10L4 8H1z" fill="#F4F1EA"/>${sonido ? '<path d="M10 3.5c1 .8 1.5 1.6 1.5 2.5S11 7.7 10 8.5" stroke="#F4F1EA" stroke-width="1.4" fill="none"/>' : '<path d="M10 4l3 4M13 4l-3 4" stroke="#F4F1EA" stroke-width="1.4"/>'}</svg>`;
+    botonSonido.title = sonido ? tr('Silenciar los sonidos') : tr('Activar los sonidos de 8 bits');
+    botonSonido.setAttribute('aria-label', tr('Sonidos de 8 bits'));
+    botonSonido.setAttribute('aria-pressed', String(sonido));
+    botonSonido.classList.toggle('on', sonido);
+  }
+  botonSonido.onclick = () => {
+    sonido = !sonido;
+    try { localStorage.setItem(CLAVE_SONIDO, sonido ? '1' : '0'); } catch { /* Sin almacenamiento local. */ }
+    pintarSonido(); SON.campana();
+  };
+  pintarSonido();
+
+  /* ---------- teclado: de agente en agente con las flechas ---------- */
+  function vecino(a: Agente, dx: number, dy: number): Agente | null {
+    let mejor: Agente | null = null, min = Infinity;
+    for (const b of AG) {
+      if (b === a || b.name === 'Juez del torneo B') continue;
+      const vx = b.hx - a.hx, vy = b.hy - a.hy, along = vx * dx + vy * dy, perp = Math.abs(vx * dy - vy * dx);
+      if (along <= 8) continue;
+      const sc = along + 2 * perp;
+      if (sc < min) { min = sc; mejor = b; }
+    }
+    return mejor;
+  }
+  const FLECHA: Record<string, [number, number]> = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1] };
+
   /* ---------- dibujo ---------- */
   const carga = (src: string) => { const im = new Image(); im.src = src; return im; };
   const FONDO = carga(urlFondo);
@@ -903,6 +1302,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       g.fillStyle = '#17131F'; g.fillRect(-w / 2 - 1, -h / 2 - 1, w + 2, h + 2);
       g.fillStyle = '#F4F1EA'; g.fillRect(-w / 2, -h / 2, w, h);
       g.fillStyle = '#9C97B3'; g.fillRect(-w / 2 + 2, -h / 2 + 3, w - 4, 1); g.fillRect(-w / 2 + 2, -h / 2 + 6, w - 5, 1);
+    } else if (kind === 'coin') {
+      g.fillStyle = '#17131F'; g.fillRect(-4, -4, 8, 8); g.fillStyle = '#F2C14E'; g.fillRect(-3, -3, 6, 6); g.fillStyle = '#FFF2B8'; g.fillRect(-2, -2, 2, 2);
     } else if (kind === 'book') {
       g.fillStyle = '#17131F'; g.fillRect(-6, -7, 12, 14); g.fillStyle = '#C6524A'; g.fillRect(-5, -6, 10, 12); g.fillStyle = '#F2C14E'; g.fillRect(-5, -2, 10, 2);
     } else {
@@ -913,7 +1314,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   function drawAgent(a: Agente) {
     if (!g) return;
     const moving = a.path.length > 0;
-    const frame = moving ? (Math.floor(simT * 7) % 2 ? 1 : 2) : 0;
+    const ge = !moving && a.gesto && simT < a.gesto.hasta ? a.gesto : null;
+    const frame = moving ? (Math.floor(simT * 7) % 2 ? 1 : 2) : ge?.k === 'estira' ? 3 : 0;
     let bob = 0;
     if (moving) bob = frame === 1 ? -1 : 0;
     else if (a.typing > simT) bob = Math.floor(simT * 5) % 2 ? -1 : 0;
@@ -925,6 +1327,112 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     else g.drawImage(s, a.x + gx!, a.y + bob * 2 + gy!, 48, 64);
     g.restore();
     if (a.carry) drawObj(a.carry, a.x + (a.face < 0 ? 6 : 42), a.y + 44 + bob * 2, 0);
+    if (ge?.k === 'cafe') {
+      // Una taza en la mano y un hilo de vapor.
+      const x = a.x + (a.face < 0 ? 2 : 38), y = a.y + 34;
+      g.fillStyle = '#17131F'; g.fillRect(x - 1, y - 1, 10, 10); g.fillRect(x + 9, y + 2, 3, 4);
+      g.fillStyle = '#F4F1EA'; g.fillRect(x, y, 8, 8); g.fillStyle = '#7A4B2A'; g.fillRect(x + 1, y + 1, 6, 2);
+      if (!REDUCIR) { g.fillStyle = '#C9C4DA88'; const o = Math.floor(rt * 3) % 2; g.fillRect(x + 2 + o, y - 5, 1, 3); g.fillRect(x + 5 - o, y - 8, 1, 3); }
+    }
+  }
+  /** Una matriz de pixeles ('#') pintada a escala k. */
+  function pixeles(m: string[], x: number, y: number, k: number, col: string) {
+    if (!g) return;
+    g.fillStyle = col;
+    m.forEach((r, j) => { for (let i = 0; i < r.length; i++) if (r[i] === '#') g.fillRect(x + i * k, y + j * k, k, k); });
+  }
+  function dibujarEmote(a: Agente) {
+    if (!g || !a.emo) return;
+    const t = rt - a.emo.t0;
+    if (t > 3.2) { a.emo = null; return; }
+    const pop = REDUCIR ? 0 : t < 0.25 ? Math.round((1 - t / 0.25) * 6) : 0, x = a.x + 40, y = a.y + 2 - pop + a.bob * 2;
+    if (a.emo.k === 'gota') {
+      const cae = REDUCIR ? 0 : Math.floor((t * 6) % 4);
+      pixeles(GOTA, x - 1, y + 5 + cae, 2, '#17131F'); pixeles(GOTA, x, y + 4 + cae, 2, '#7CC7E8');
+      return;
+    }
+    g.fillStyle = '#17131F'; g.fillRect(x - 1, y - 1, 16, 20);
+    g.fillStyle = '#F4F1EA'; g.fillRect(x, y, 14, 18);
+    pixeles(GLIFO[a.emo.k], x + 1, y + 1, 2, a.emo.k === '!' ? '#E8925A' : '#2E2A3A');
+  }
+  /** Quien no tiene trabajo en esta iteración da cabezadas. */
+  function dibujarZetas(a: Agente) {
+    if (!g) return;
+    for (let j = 0; j < 3; j++) {
+      const f = REDUCIR ? 0.15 + j * 0.33 : (rt * 0.5 + j / 3) % 1;
+      g.globalAlpha = Math.max(0, 1 - f);
+      pixeles(ZETA, Math.round(a.x + 36 + f * 12), Math.round(a.y + 6 - f * 26), f > 0.5 ? 2 : 1.5, '#C9C4DA');
+    }
+    g.globalAlpha = 1;
+  }
+  const dormido = (a: Agente) => {
+    const e = estadoDe(a.room === 'bib' ? 'r1' : a.room);
+    return e === 'no_toca' && a.turno % 3 === 0 && atHome(a) && !a.bub && !D.activos.includes(a.name) && !a.recado;
+  };
+  /** Las pantallas de los escritorios se llenan de renglones mientras alguien escribe. */
+  function dibujarPantallas() {
+    if (!g) return;
+    for (const a of AG) {
+      const p = PANTALLA[a.name];
+      if (!p || a.typing <= simT || !atHome(a)) continue;
+      const [x, y] = p, k0 = Math.floor(simT * 5);
+      g.fillStyle = '#2B5566'; g.fillRect(x, y, 20, 16);
+      for (let i = 0; i < 4; i++) {
+        const k = k0 + i, w = i === 3 ? 2 + (Math.floor(simT * 10) % 12) : 4 + ((k * 7 + a.i * 3) % 11);
+        g.fillStyle = i === 3 ? '#F4F1EA' : '#7FD1A5'; g.fillRect(x + 2, y + 2 + i * 3, w, 2);
+      }
+    }
+  }
+  /** La hucha del presupuesto: se llena de monedas según las llamadas al modelo gastadas. */
+  function dibujarHucha() {
+    if (!g) return;
+    const pr = D.presupuesto, x = 94, y = 94, w = 32, h = 42;
+    g.fillStyle = '#17131F'; g.fillRect(x - 2, y + h, w + 4, 4); g.fillRect(x + 2, y + h + 4, 3, 10); g.fillRect(x + w - 5, y + h + 4, 3, 10);
+    g.fillStyle = '#5B3A29'; g.fillRect(x - 1, y + h + 1, w + 2, 2);
+    const lleno = pr ? Math.min(1, pr.usado / pr.limite) : 0, tope = pr !== null && pr.usado >= pr.limite;
+    g.fillStyle = tope && !REDUCIR && Math.floor(rt * 2) % 2 ? '#E2706A' : '#17131F';
+    g.fillRect(x - 1, y + 3, w + 2, h - 2); g.fillRect(x + 3, y - 1, w - 6, 5);
+    g.fillStyle = '#CFE6FF55'; g.fillRect(x, y + 4, w, h - 4);
+    const hm = Math.round((h - 6) * lleno);
+    if (hm > 0) {
+      g.fillStyle = '#C9962E'; g.fillRect(x + 1, y + h - 1 - hm, w - 2, hm);
+      g.fillStyle = '#F2C14E';
+      for (let j = y + h - 1 - hm; j < y + h - 1; j += 4) for (let i = x + 2 + ((j / 4) % 2) * 3; i < x + w - 4; i += 6) g.fillRect(i, j, 4, 2);
+    }
+    g.fillStyle = '#F4F1EA88'; g.fillRect(x + 3, y + 7, 2, h - 14);
+    g.fillStyle = '#8A3B2E'; g.fillRect(x + 4, y, w - 8, 4); g.fillStyle = '#17131F'; g.fillRect(x + 11, y + 1, 10, 2);
+  }
+  /** La luz de cada sala según su estado real, y la alarma donde la corrida paró o falló. */
+  function dibujarLuces() {
+    if (!g) return;
+    for (const k of Object.keys(GEOM) as Sala[]) {
+      if (k === 'rec') continue;
+      const [x, y, w, h] = GEOM[k], e = estadoDe(k === 'bib' ? 'r1' : k);
+      // Solo se atenúan, y poco, las salas que no forman parte de esta corrida; las que vienen después siguen encendidas.
+      if (e === 'no_toca') { g.fillStyle = '#07060C2E'; g.fillRect(x, y, w, h); }
+      else if (e === 'ahora' && D.trabajando && k !== 'bib') {
+        const gr = g.createRadialGradient(x + w / 2, y + h / 2, 10, x + w / 2, y + h / 2, Math.max(w, h) * 0.7);
+        gr.addColorStop(0, '#FFC48A40'); gr.addColorStop(1, '#FFC48A00');
+        g.fillStyle = gr; g.fillRect(x, y, w, h);
+      }
+      if (k === 'bib') continue;
+      const roja = e === 'fallo' || (e === 'ahora' && !D.trabajando && !D.pasada && PARADA_ROJA.has(D.estado));
+      const ambar = !roja && e === 'ahora' && !D.trabajando && !D.pasada && PARADA_AMBAR.has(D.estado);
+      if (roja || ambar) alarma(x + w - 30, y + 12, roja ? '#E2706A' : '#F2C14E');
+    }
+  }
+  function alarma(x: number, y: number, col: string) {
+    if (!g) return;
+    const on = REDUCIR || Math.floor(rt * 2.4) % 2 === 0;
+    if (on) {
+      const gr = g.createRadialGradient(x + 7, y + 6, 2, x + 7, y + 6, 46);
+      gr.addColorStop(0, col + '66'); gr.addColorStop(1, col + '00');
+      g.fillStyle = gr; g.fillRect(x - 40, y - 40, 94, 94);
+    }
+    g.fillStyle = '#17131F'; g.fillRect(x - 1, y - 1, 16, 14); g.fillRect(x - 3, y + 12, 20, 5);
+    g.fillStyle = on ? col : '#5A3438'; g.fillRect(x, y, 14, 12);
+    g.fillStyle = on ? '#FFFFFFAA' : '#77728C55'; g.fillRect(x + 2, y + 2, 3, 4);
+    g.fillStyle = '#3A3550'; g.fillRect(x - 2, y + 13, 18, 3);
   }
   function draw() {
     if (!g) return;
@@ -943,6 +1451,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (e !== 'pendiente') { g.fillStyle = r.fondo ?? '#E8E6F0'; g.fillRect(169, y + 2, 4, 4); }
       g.fillStyle = r.linea; g.fillRect(183, y + 3, 70 + ((i * 37) % 60), 3);
     });
+    dibujarHucha();
     // La cinta lleva papeles mientras quedan afirmaciones por juzgar.
     const quedan = D.juez.total !== null && D.juez.hechas !== null ? D.juez.total - D.juez.hechas : 0;
     const n = D.trabajando && D.activos.includes('Juez') ? Math.min(11, Math.max(0, quedan)) : 0;
@@ -950,12 +1459,22 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const seated = AG.filter((a) => a.desk && atHome(a)), rest = AG.filter((a) => !(a.desk && atHome(a))).sort((p, q) => p.y - q.y);
     seated.forEach(drawAgent);
     FG.forEach((f) => { if (f.im.complete) g.drawImage(f.im, f.x, f.y, f.w, f.h); });
+    dibujarPantallas();
     if (hoja) drawObj('paper', 312, 378, 0);
     rest.forEach(drawAgent);
-    FLY.forEach((f) => {
+    for (let i = FLY.length - 1; i >= 0; i--) {
+      const f = FLY[i]!;
+      if (simT < f.t0) continue;
       const t = Math.min(1, (simT - f.t0) / f.dur), e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
       drawObj(f.kind, f.from[0]! + (f.to[0]! - f.from[0]!) * e, f.from[1]! + (f.to[1]! - f.from[1]!) * e - Math.sin(Math.PI * t) * f.arc, 0);
-    });
+      if (t >= 1) { FLY.splice(i, 1); f.fin?.(); }
+    }
+    dibujarLuces();
+    AG.forEach((a) => { if (dormido(a)) dibujarZetas(a); dibujarEmote(a); });
+    if (papel.on) {
+      g.fillStyle = '#FFB27A66'; g.fillRect(Math.round(papel.x) - 12, Math.round(papel.y) - 13, 24, 26);
+      drawObj('paper', papel.x, papel.y, 0);
+    }
   }
   function syncDom() {
     AG.forEach((a) => {
@@ -966,6 +1485,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       a.el.style.transform = `translate(${a.x}px,${a.y + b}px)`;
       a.lb.style.top = (atHome(a) ? a.ldy : 66) + 'px';
       a.el.classList.toggle('away', a.away);
+      const rjTxt = a.desde === null ? '' : trp('En curso · {t}', { t: transcurrido(a.desde) });
+      if (rjTxt !== a.rjTxt) { a.rjTxt = rjTxt; a.rj.textContent = rjTxt; a.rj.hidden = !rjTxt; }
       if (a.bub) {
         if (simT > a.bub.until) { a.bub.el.remove(); a.bub = null; }
         else {
@@ -992,6 +1513,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     });
     if (D.trabajando && D.activos.includes('Juez')) conv += 12 * dt;
     AG.forEach((a) => { if (D.activos.includes(a.name) && !REDUCIR) a.typing = simT + 1; });
+    gestos();
     processWaits();
     mantenerEscenas();
   }
@@ -1000,6 +1522,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const now = performance.now();
     let dt = Math.min(0.1, (now - last) / 1000);
     last = now;
+    rt += dt;
     if (document.hidden) { raf = requestAnimationFrame(frame); return; }
     camara(dt);
     if (playing && !document.hidden && !REDUCIR) { dt *= speed; while (dt > 0) { const d = Math.min(0.05, dt); step(d); dt -= d; } }
@@ -1009,6 +1532,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
 
   pintarSalas(); pintarMarcas();
   sincronizarActividad(true);
+  pintarSigue();
   mostrarPeticion();
   raf = requestAnimationFrame(frame);
 
@@ -1037,7 +1561,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       const antes = D;
       D = d;
       const cambio = identidad !== d.identidad;
-      if (cambio) { identidad = d.identidad; vistas.clear(); descartadas.clear(); cerrarPeticion(); }
+      if (cambio) { identidad = d.identidad; vistas.clear(); descartadas.clear(); cerrarPeticion(); dejarDeSeguir(); cerrarObjeto(false); sigIdx = -1; }
       // La corrida puede cambiar de tarea mientras termina el intercambio visual.
       // Solo detenerla, perder la conexión o cambiar de iteración cancela las escenas.
       const detener = !d.trabajando || d.conexion !== 'en_linea';
@@ -1050,6 +1574,12 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (d.pide && !pidiendo) mostrarPeticion();
       if (!asking && (cambio || antes.foco !== d.foco)) chIdx = capituloDe(d.foco);
       sincronizarActividad(cambio);
+      if (!cambio && antes.foco !== d.foco) mensajero(antes.foco, d.foco);
+      const u0 = antes.presupuesto?.usado ?? null, u1 = d.presupuesto?.usado ?? null;
+      if (!cambio && u0 !== null && u1 !== null && u1 > u0) monedas(u1 - u0);
+      if (!cambio && (d.juez.hechas ?? 0) > (antes.juez.hechas ?? 0)) SON.sello();
+      if (aprobada && d.pide?.id !== aprobada) { aprobada = null; SON.campana(); monedas(3); }
+      pintarSigue();
     },
     desmontar() {
       vivo = false;
@@ -1058,6 +1588,9 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       AG.forEach((a) => a.ictx?.kill());
       processWaits();
       window.removeEventListener('keydown', teclas);
+      fijarPagina(false);
+      sigCtx?.kill();
+      void audio?.close().catch(() => undefined);
       raiz.innerHTML = '';
     },
   };

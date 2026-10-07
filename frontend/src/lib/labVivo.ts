@@ -1,16 +1,26 @@
 // Proyección del estado canónico al laboratorio. Los diálogos conservan el
 // texto y la procedencia del registro; el reloj visual no avanza la corrida.
 import { nombreDeModelo } from '../componentes/VigilanteModelos';
-import type { AlcancePermiso, ArgumentoSolicitud, Corrida, EntradaTranscripcion, EstadoRosa, Investigacion, Iteracion, PasoPlan, Pista, TipoPermiso } from '../datos/tipos';
-import { busquedasDe } from './escenario';
+import type { AlcancePermiso, ArgumentoSolicitud, Corrida, EntradaTranscripcion, EstadoRosa, Incidencia, Investigacion, Iteracion, PasoPlan, Pista, TipoPermiso, Veredicto } from '../datos/tipos';
+import { baseDe, busquedasDe } from './escenario';
+import type { Evidencia } from './evidencia';
 import { etiquetaCorrida, proponiendoPlan } from './etiquetas';
-import { tr } from './idioma';
+import { tr, trp } from './idioma';
 import { peticionPorPresupuesto } from './peticionPresupuestoLab';
 
 export type SalaLab = 'plan' | 'r1' | 'r2' | 'r3' | 'r4' | 'r5' | 'r6';
 export type EstadoSala = 'listo' | 'ahora' | 'espera' | 'fallo' | 'despues' | 'no_toca';
 export type EstadoPasoLab = 'hecho' | 'ahora' | 'pendiente' | 'fallo' | 'omitido';
-export interface FuenteLab { nombre: string; salen: number | null; fallo: boolean }
+export interface FuenteLab {
+  nombre: string; salen: number | null; fallo: boolean;
+  /** Relevantes y consultas de esta biblioteca. Sirven es null si el cribado se compartió. */
+  sirven: number | null; consultas: number;
+}
+/** Una afirmación real de la iteración, tal como la guarda la cadena de evidencia. */
+export interface AfirmacionLab {
+  id: string; texto: string; veredicto: Veredicto; caja: 'sostenida' | 'parcial' | 'no_sostenida' | 'otras';
+  motivo: string; cita: string; articulo: string; biblioteca: string | null;
+}
 export interface ActividadLab {
   id: string;
   agente: string;
@@ -24,10 +34,14 @@ export interface ActividadLab {
   enCurso: boolean;
   /** Tiempo relativo a la pista, nunca a otra pista ni a toda la corrida. */
   t: number | null;
+  /** Tarea atribuida que empezó y aún no tiene su «Terminó» en la pista. */
+  abierta?: boolean;
+  /** Hora en que se escribió la entrada (inicio de la pista más t), si se sabe. */
+  desde?: number | null;
 }
 export interface PeticionLab {
   id: string;
-  clase: 'permiso' | 'plan' | 'presupuesto';
+  clase: 'permiso' | 'plan' | 'presupuesto' | 'incidencia';
   quien: string;
   titulo: string;
   detalle: string;
@@ -35,7 +49,9 @@ export interface PeticionLab {
   requiereArgumentos: boolean;
   tipo?: TipoPermiso;
   argumentos?: ArgumentoSolicitud[];
-  presupuesto?: { corridaId: string; limite: number; usado: number };
+  presupuesto?: { corridaId: string; limite: number; usado: number; propuesta?: number };
+  /** Algo impide seguir: lo que ROSA2018 propone y si la corrida sigue con lo demás. */
+  incidencia?: { tipo: Incidencia['tipo']; recurso: string; alternativa: string | null; corridaEnMarcha: boolean };
 }
 export interface DatosLab {
   identidad: string;
@@ -58,6 +74,12 @@ export interface DatosLab {
   juez: { hechas: number | null; total: number | null; sinJuez: number | null; veredictos: { sostenida: number; parcial: number; no_sostenida: number; otras: number } | null };
   pide: PeticionLab | null;
   modelos: { cerebro: string | null; volumen: string | null; juez: string | null };
+  /** Llamadas al modelo de la iteración frente a su tope. */
+  presupuesto: { usado: number; limite: number; reserva: number | null } | null;
+  /** Null mientras la cadena de evidencia no ha llegado (o en modo muestra). */
+  afirmaciones: AfirmacionLab[] | null;
+  /** Una iteración anterior de la corrida: se mira, no se trabaja en ella. */
+  pasada: boolean;
 }
 const TERMINADO = new Set<PasoPlan['estado']>(['hecho', 'fallido', 'omitido', 'sin_trabajo']);
 const SALAS: Record<string, SalaLab[]> = { literatura: ['r1'], ensayos: ['r1'], extraccion: ['r1'], verificacion: ['r2'], modelo: ['r2'], hipotesis: ['r3', 'r4'], novedad: ['r4'], analisis: ['r5'], replicacion: ['r5'], meta: ['r6'], grafo: ['r2'] };
@@ -80,9 +102,23 @@ function tipoDePista(it: Iteracion, p: Pista): string {
 }
 /** Solo prefijos emitidos por el backend. Mencionar un método dentro de una
  * afirmación no significa que ese método esté ejecutándose. */
-function autorDe(tipo: string, e: EntradaTranscripcion): string {
+function autorDe(tipo: string, e: EntradaTranscripcion, entran: [string, string][] = []): string {
   const t = e.texto;
   if (e.agente && ATRIBUCION[e.agente]) return ATRIBUCION[e.agente]!;
+  if (tipo === 'hipotesis') {
+    // Lo que rosa/bucle/pasos.py emite sin agente dentro de la revisión del
+    // Killer (_killer, _evaluar_sesgo_fuentes, contexto_de_bases, reformular).
+    if (/^(?:Revisada: |Reformulada |No se pudo reformular|Bases para |Las bases no respondieron|No se pudo comprobar la viabilidad|Índice semántico|Riesgo de sesgo de |Auditoría de la decisión|La hipótesis cambió a la versión|El Killer no respondió)/.test(t)) return 'Killer';
+    if (/^[^:]{1,60}: (?:RoB 2|ROBINS-I|QUADAS-2|ROBIS|SYRCLE)\b/.test(t)) return 'Killer';
+    if (/^(?:Partido |.{1,50} vs .{1,50}: (?:tablas|gana)|\d+ pares |\d+ partidos se decidieron|Sin torneo|Menos de dos hipótesis vivas)/.test(t)) return 'Juez del torneo';
+    const fuera = /^Se queda fuera «.*» \(([a-z_]+),/.exec(t);
+    if (fuera && ATRIBUCION[fuera[1]!]) return ATRIBUCION[fuera[1]!]!;
+    if (t.startsWith('Nueva: ')) {
+      const titulo = t.slice(7);
+      const de = entran.find(([x]) => x.startsWith(titulo) || titulo.startsWith(x));
+      if (de) return de[1];
+    }
+  }
   if (/^(?:Killer:|Killer sobre |Hypothesis Killer:)/.test(t)) return 'Killer';
   if (/^(?:Revisión inicial |Evaluando supuestos)/.test(t)) return 'Revisor inicial';
   if (/^(?:Torneo:|Partido:|Dos jueces)/.test(t)) return 'Juez del torneo';
@@ -95,6 +131,13 @@ function autorDe(tipo: string, e: EntradaTranscripcion): string {
   }
   return AGENTE[tipo] ?? 'Planificador';
 }
+/** Los ids del backend llevan la hora de creación en base 36 (rosa/estado/plantilla.py
+ * `nuevo_id`); la pista crea el suyo al empezar, que es el cero de sus `t`. */
+function inicioDeId(id: string): number | null {
+  const m = /^[a-z]+-([0-9a-z]{7,9})-/.exec(id);
+  const ms = m ? parseInt(m[1]!, 36) : NaN;
+  return ms > 1.5e12 && ms < 4e12 ? ms : null;
+}
 function actividadesDe(it: Iteracion | null): ActividadLab[] {
   if (!it) return [];
   const filas: ActividadLab[] = [];
@@ -102,9 +145,18 @@ function actividadesDe(it: Iteracion | null): ActividadLab[] {
     const tipo = tipoDePista(it, p);
     const base = { pistaId: p.id, pasoId: p.pasoId, fuente: p.fuente, titulo: p.titulo, enCurso: p.estado === 'en_curso' };
     const entradas = p.transcripcion.slice(-40);
+    // «Nueva: título» no dice el enfoque; la nota «Entra por el enfoque» del mismo título sí.
+    const entran: [string, string][] = [];
+    for (const e of p.transcripcion) {
+      const m = /^Entra por el enfoque «([a-z_]+)» \([^)]*\): (.+)$/.exec(e.texto);
+      if (m && ATRIBUCION[m[1]!]) entran.push([m[2]!, ATRIBUCION[m[1]!]!]);
+    }
+    const inicio = inicioDeId(p.id);
     entradas.forEach((e, i) => {
-      const agente = autorDe(tipo, e);
-      filas.push({ ...base, id: `${p.id}:${p.transcripcion.length - entradas.length + i}:${e.t}`, agente, sala: SALA_AGENTE[agente] ?? SALAS[tipo]?.[0] ?? 'plan', texto: e.texto, tipo: e.tipo, t: e.t });
+      const agente = autorDe(tipo, e, entran);
+      const n = p.transcripcion.length - entradas.length + i;
+      const abierta = p.estado === 'en_curso' && !!e.agente && e.estadoAgente === 'en_curso' && !p.transcripcion.slice(n + 1).some((x) => x.agente === e.agente && x.estadoAgente !== 'en_curso');
+      filas.push({ ...base, id: `${p.id}:${n}:${e.t}`, agente, sala: SALA_AGENTE[agente] ?? SALAS[tipo]?.[0] ?? 'plan', texto: e.texto, tipo: e.tipo, t: e.t, abierta, desde: inicio === null ? null : inicio + e.t });
     });
     // La apertura y el cierre son estados guardados, no parlamentos inventados.
     if (!entradas.length || (p.estado !== 'en_curso' && p.resumen && p.resumen !== entradas.at(-1)?.texto)) {
@@ -114,10 +166,10 @@ function actividadesDe(it: Iteracion | null): ActividadLab[] {
       // real; ese texto provisional no describe una actividad del agente.
       const provisional = /^empezando(?:\.{3}|…)?$/i.test(p.resumen.trim());
       const texto = provisional ? p.titulo : p.resumen || p.titulo;
-      filas.push({ ...base, id: `${p.id}:estado:${p.estado}`, agente, sala: SALAS[tipo]?.[0] ?? 'plan', texto, tipo: p.estado === 'fallida' ? 'error' : 'estado', t: p.ms });
+      filas.push({ ...base, id: `${p.id}:estado:${p.estado}`, agente, sala: SALAS[tipo]?.[0] ?? 'plan', texto, tipo: p.estado === 'fallida' ? 'error' : 'estado', t: p.ms, abierta: false, desde: null });
     }
   }
-  if (it.resumen) filas.push({ id: `${it.id}:resumen`, agente: 'Resumidor', sala: 'r6', texto: it.resumen, tipo: 'resultado', pistaId: null, pasoId: null, fuente: '', titulo: tr('Resumen de la iteración'), t: null, enCurso: false });
+  if (it.resumen) filas.push({ id: `${it.id}:resumen`, agente: 'Resumidor', sala: 'r6', texto: it.resumen, tipo: 'resultado', pistaId: null, pasoId: null, fuente: '', titulo: tr('Resumen de la iteración'), t: null, enCurso: false, abierta: false, desde: null });
   return filas;
 }
 function juezDe(it: Iteracion | null): DatosLab['juez'] {
@@ -151,8 +203,11 @@ function lecturaDe(it: Iteracion | null, corrida: Corrida): { fuentes: FuenteLab
   const filas = busquedasDe(it, corrida.busqueda.consultas);
   const porFuente = new Map<string, FuenteLab>();
   for (const f of filas) {
-    const a = porFuente.get(f.fuente) ?? { nombre: f.fuente, salen: null, fallo: false };
+    const a = porFuente.get(f.fuente) ?? { nombre: f.fuente, salen: null, fallo: false, sirven: 0, consultas: 0 };
+    a.consultas += 1;
     if (f.salen !== null) a.salen = (a.salen ?? 0) + f.salen;
+    // Como en el total: el cribado compartido no se reparte entre bibliotecas.
+    a.sirven = a.sirven === null || f.compartida || f.sirven === null ? null : a.sirven + f.sirven;
     if (f.estado === 'fallida' && f.salen === null) a.fallo = true;
     porFuente.set(f.fuente, a);
   }
@@ -172,22 +227,39 @@ function lecturaDe(it: Iteracion | null, corrida: Corrida): { fuentes: FuenteLab
   return { fuentes: [...porFuente.values()], lectura: { resultados: conocidas('salen'), sirven: conocidas('sirven'), recuperados: conocidas('enteros'), leidos, afirmaciones } };
 }
 const QUIEN_PIDE: Record<TipoPermiso, string> = { presupuesto_grande: 'Planificador', trabajo_largo: 'Planificador', fuente_externa: 'Explorador', acceso_corpus: 'Explorador', aceptar_hipotesis: 'Concluidor' };
-function peticionDe(estado: EstadoRosa, corrida: Corrida, it: Iteracion | null): PeticionLab | null {
+function peticionDe(estado: EstadoRosa, corrida: Corrida, it: Iteracion | null, ultimo: string | undefined): PeticionLab | null {
   if (estado.conexion !== 'en_linea' || corrida.estado === 'detenida' || corrida.estado === 'terminada') return null;
   const s = estado.solicitudes.filter((x) => x.corridaId === corrida.id && x.estado === 'pendiente').sort((a, b) => a.creadaEn - b.creadaEn)[0];
   if (s) return { id: s.id, clase: 'permiso', quien: QUIEN_PIDE[s.tipo], titulo: s.titulo, detalle: s.detalle, alcances: s.alcances, requiereArgumentos: s.argumentos.length > 0, tipo: s.tipo, argumentos: s.argumentos, presupuesto: { corridaId: corrida.id, limite: corrida.presupuesto.limiteLlamadas, usado: corrida.gasto.llamadas } };
   if (corrida.estado === 'pausada_por_presupuesto') return peticionPorPresupuesto(corrida, it);
+  // Las mismas incidencias que la corrida enseña en «Algo impide seguir»; las de modelo sin respuesta se resuelven solas.
+  const inc = estado.incidencias.filter((x) => x.corridaId === corrida.id && x.estado === 'pendiente' && x.tipo !== 'modelo_sin_respuesta').sort((a, b) => a.creadaEn - b.creadaEn)[0];
+  if (inc) return { id: inc.id, clase: 'incidencia', quien: ultimo ?? 'Planificador', titulo: inc.titulo, detalle: inc.detalle, alcances: [], requiereArgumentos: false, incidencia: { tipo: inc.tipo, recurso: inc.recurso, alternativa: inc.alternativa, corridaEnMarcha: corrida.estado === 'en_marcha' } };
   if (it && corrida.estado === 'esperando_plan' && !it.planAprobado && it.terminadaEn === null && it.plan.length > 0) return { id: it.id, clase: 'plan', quien: 'Planificador', titulo: '', detalle: '', alcances: [], requiereArgumentos: false };
   return null;
 }
-export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corrida: Corrida, recibida: Iteracion | null): DatosLab {
+/** Las afirmaciones de una iteración en la cadena de evidencia, con su artículo
+ *  y la biblioteca de la primera consulta que lo trajo. */
+export function afirmacionesDeEvidencia(ev: Evidencia, numero: number): AfirmacionLab[] {
+  const fuentes = new Map(ev.fuentes.map((f) => [f.id, f]));
+  const bases = new Map(ev.consultas.map((c) => [c.consulta, c.base]));
+  return ev.afirmaciones.filter((a) => a.iteracion === numero).map((a) => {
+    const f = fuentes.get(a.fuenteId), base = f?.consultas.map((q) => bases.get(q)).find((b) => b !== undefined);
+    const caja = a.veredicto === 'sostenida' || a.veredicto === 'parcial' || a.veredicto === 'no_sostenida' ? a.veredicto : 'otras';
+    return { id: a.id, texto: a.texto, veredicto: a.veredicto, caja, motivo: a.motivo, cita: a.cita, articulo: f?.titulo || f?.referencia || a.cita, biblioteca: base ? baseDe(base).nombre : null };
+  });
+}
+export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corrida: Corrida, recibida: Iteracion | null, opciones: { pasada?: boolean } = {}): DatosLab {
   // Un cambio de corrida puede llegar antes que sus iteraciones. Nunca mezclar.
-  const it = recibida?.corridaId === corrida.id && recibida.numero === corrida.iteracionActual ? recibida : null;
+  const pasada = !!opciones.pasada && recibida?.corridaId === corrida.id && recibida.numero !== corrida.iteracionActual;
+  const it = recibida?.corridaId === corrida.id && (pasada || recibida.numero === corrida.iteracionActual) ? recibida : null;
   const plan = it?.plan ?? [];
   const actividad = actividadesDe(it);
   const proponiendo = proponiendoPlan(corrida, it);
-  const trabajando = estado.conexion === 'en_linea' && (proponiendo || (corrida.estado === 'en_marcha' && it?.terminadaEn === null && it.planAprobado));
-  const pide = peticionDe(estado, corrida, it);
+  const trabajando = !pasada && estado.conexion === 'en_linea' && (proponiendo || (corrida.estado === 'en_marcha' && it?.terminadaEn === null && it.planAprobado));
+  const pide = pasada ? null : peticionDe(estado, corrida, it, actividad.at(-1)?.agente);
+  // Una incidencia no para la corrida: el resto del trabajo sigue a la vista detrás del letrero.
+  const bloquea = !!pide && pide.clase !== 'incidencia';
   const salas: DatosLab['salas'] = { plan: it?.planAprobado ? 'listo' : 'despues', r1: 'no_toca', r2: 'no_toca', r3: 'no_toca', r4: 'no_toca', r5: 'no_toca', r6: 'despues' };
   const enCurso = plan.find((p) => p.estado === 'en_curso');
   const siguiente = enCurso ?? plan.find((p) => p.estado === 'pendiente');
@@ -197,7 +269,7 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
     if (pasos.length) salas[s] = pasos.every((p) => TERMINADO.has(p.estado)) ? (pasos.some((p) => p.estado === 'fallido') ? 'fallo' : pasos.some((p) => p.estado === 'hecho') ? 'listo' : 'no_toca') : 'despues';
   }
   const activos: string[] = [];
-  if (it?.terminadaEn === null) {
+  if (!pasada && it?.terminadaEn === null) {
     const pistasVivas = it.pistas.filter((p) => p.estado === 'en_curso' && (!p.pasoId || !TERMINADO.has(plan.find((x) => x.id === p.pasoId)?.estado ?? 'pendiente')));
     for (const p of pistasVivas) {
       const ultima = [...actividad].reverse().find((e) => e.pistaId === p.id);
@@ -210,8 +282,11 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
         miembros.forEach((e) => { const a = autorDe('hipotesis', e); salas[SALA_AGENTE[a]!] = trabajando ? 'ahora' : 'espera'; if (trabajando) activos.push(a); });
       } else {
         salas[foco] = trabajando ? 'ahora' : 'espera';
-        const estadoAutor = [...atribuidas.entries()].find(([id]) => ATRIBUCION[id] === ultima.agente)?.[1].estadoAgente;
-        if (trabajando && !estadoAutor && !ultima.texto.startsWith('El miembro «')) activos.push(ultima.agente);
+        // Una tarea atribuida que acaba de terminar no deja a nadie trabajando;
+        // lo que su autor escribe después (Revisada, Reformulada) sí es trabajo.
+        const cruda = p.transcripcion.at(-1);
+        const recienTerminada = !!cruda?.agente && !!ATRIBUCION[cruda.agente] && cruda.estadoAgente !== 'en_curso';
+        if (trabajando && !recienTerminada && !ultima.texto.startsWith('El miembro «')) activos.push(ultima.agente);
       }
     }
     if (!pistasVivas.length && siguiente && it.planAprobado) {
@@ -219,13 +294,13 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
       if (trabajando && enCurso) activos.push(AGENTE[tipoDePaso(it, enCurso)] ?? 'Planificador');
     }
   }
-  if (proponiendo || pide?.clase === 'plan') {
+  if (!pasada && (proponiendo || pide?.clase === 'plan')) {
     foco = 'plan'; salas.plan = trabajando ? 'ahora' : 'espera';
     if (trabajando) activos.push('Planificador');
   }
   if (it?.resumen || it?.revisionRegistro) salas.r6 = 'listo';
-  if (pide) { activos.length = 0; salas[foco] = 'espera'; }
-  const cerrada = corrida.estado === 'terminada' || corrida.estado === 'detenida';
+  if (bloquea) { activos.length = 0; salas[foco] = 'espera'; }
+  const cerrada = pasada || corrida.estado === 'terminada' || corrida.estado === 'detenida';
   if (cerrada) {
     for (const s of Object.keys(salas) as SalaLab[]) if (salas[s] === 'despues') salas[s] = s === 'r6' ? 'no_toca' : 'espera';
   }
@@ -233,9 +308,11 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
   const modelo = (rol: 'cerebro' | 'volumen' | 'juez') => salud[rol]?.modelo ? nombreDeModelo(salud[rol]!.modelo) : null;
   return {
     identidad: `${corrida.id}/${it?.id ?? 'sin-iteracion'}`, corrida: corrida.numero, iteracion: it?.numero ?? null, titulo: inv.titulo,
-    conexion: estado.conexion, estado: corrida.estado, estadoTexto: etiquetaCorrida(corrida, it), motivo: cerrada ? corrida.motivoCierre : corrida.estado === 'pausada_por_presupuesto' ? corrida.presupuesto.motivoPausa ?? null : corrida.estado === 'pausada' ? corrida.motivoPausaPropia ?? null : null,
-    trabajando: trabajando && !pide, salas, foco, activos: [...new Set(activos)], actividad,
+    conexion: estado.conexion, estado: corrida.estado, estadoTexto: pasada && it ? trp('Iteración {n} ya cerrada', { n: it.numero }) : etiquetaCorrida(corrida, it), motivo: pasada ? null : cerrada ? corrida.motivoCierre : corrida.estado === 'pausada_por_presupuesto' ? corrida.presupuesto.motivoPausa ?? null : corrida.estado === 'pausada' ? corrida.motivoPausaPropia ?? null : null,
+    trabajando: trabajando && !bloquea, salas, foco, activos: [...new Set(activos)], actividad,
     pasos: { total: plan.length, primero: plan[0]?.titulo ?? null, aprobado: !!it?.planAprobado, estados: plan.map((p) => p.estado === 'fallido' ? 'fallo' : p.estado === 'omitido' || p.estado === 'sin_trabajo' ? 'omitido' : p.estado === 'hecho' ? 'hecho' : trabajando && p.estado === 'en_curso' ? 'ahora' : 'pendiente'), enCurso: trabajando && enCurso ? { n: plan.indexOf(enCurso) + 1, titulo: enCurso.titulo } : null, lista: plan.map((p) => ({ titulo: p.titulo, detalle: p.detalle })) },
     ...lecturaDe(it, corrida), juez: juezDe(it), pide, modelos: { cerebro: modelo('cerebro'), volumen: modelo('volumen'), juez: modelo('juez') },
+    presupuesto: it && it.presupuesto.limite > 0 ? { usado: it.presupuesto.usado, limite: it.presupuesto.limite, reserva: it.presupuesto.reservaCierre ?? null } : null,
+    afirmaciones: null, pasada,
   };
 }

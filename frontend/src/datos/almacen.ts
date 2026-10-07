@@ -764,6 +764,12 @@ export const acciones = {
     aplicar((e) => A.resolverIncidencia(e, id, resolucion, Date.now()));
     return enviar('resolverIncidencia', { incidencia_id: id, resolucion });
   },
+  /** El laboratorio deja el letrero hasta que el servidor confirme la resolución. */
+  resolverIncidenciaVerificada: async (id: string, resolucion: string): Promise<boolean | null> => {
+    const ok = await enviarYComprobar('resolverIncidencia', { incidencia_id: id, resolucion });
+    void resincronizar();
+    return ok;
+  },
   fijarAutonomia: (clase: ClaseAccion, nivel: NivelAutonomia) => {
     aplicar((e) => A.fijarAutonomia(e, clase, nivel));
     enviar('fijarAutonomia', { clase, nivel });

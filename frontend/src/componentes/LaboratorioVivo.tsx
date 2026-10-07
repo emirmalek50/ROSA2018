@@ -3,12 +3,15 @@
 // el escenario de la corrida en vivo ("Verlo como laboratorio") y se vuelve
 // con "Volver a la corrida". Lo que enseña sale del estado real de la
 // iteración (lib/labVivo.ts); cuando un agente necesita tu permiso, la cámara
-// se acerca a él y puedes responder aquí mismo.
+// se acerca a él y puedes responder aquí mismo. Con ‹ › se repasan las
+// iteraciones anteriores de la misma corrida, ya cerradas.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { acciones } from '../datos/almacen';
 import type { AlcancePermiso, Corrida, EstadoRosa, Investigacion, Iteracion } from '../datos/tipos';
-import { datosDelLaboratorio } from '../lib/labVivo';
+import { senalDeTope } from '../lib/diferido';
+import type { Evidencia } from '../lib/evidencia';
+import { afirmacionesDeEvidencia, datosDelLaboratorio } from '../lib/labVivo';
 import { tr, trp, useIdioma } from '../lib/idioma';
 import { marcaDeTiempo } from '../lib/escenario';
 import { formatearEntero } from '../lib/formato';
@@ -27,10 +30,36 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
   const [escala, setEscala] = useState(1);
   const idioma = useIdioma();
   const [charlasActivas, setCharlasActivas] = useState(true);
-  const datos = useMemo(() => datosDelLaboratorio(estado, inv, corrida, iteracion), [estado, inv, corrida, iteracion, idioma]);
+  // Las iteraciones de esta corrida, en orden; null en «verNumero» es la que está en curso.
+  const iteraciones = useMemo(() => estado.iteraciones.filter((it) => it.corridaId === corrida.id).sort((a, b) => a.numero - b.numero), [estado.iteraciones, corrida.id]);
+  const [verNumero, setVerNumero] = useState<{ corridaId: string; numero: number } | null>(null);
+  const vista = verNumero?.corridaId === corrida.id && verNumero.numero !== corrida.iteracionActual ? iteraciones.find((it) => it.numero === verNumero.numero) ?? null : null;
+  const pasada = vista !== null;
+  // La cadena de evidencia trae las afirmaciones con su artículo y su veredicto.
+  const [evidencia, setEvidencia] = useState<{ corridaId: string; datos: Evidencia } | null>(null);
+  const claveEvidencia = `${corrida.id}:${Math.floor(corrida.gasto.llamadas / 20)}:${corrida.busqueda.consultas.length}:${corrida.estado}`;
+  useEffect(() => {
+    if (estado.conexion === 'muestra') return;
+    let vivo = true;
+    const corridaId = corrida.id;
+    fetch(`/api/corridas/${encodeURIComponent(corridaId)}/evidencia`, { cache: 'no-store', ...senalDeTope() })
+      .then((r) => (r.ok ? (r.json() as Promise<Evidencia>) : null))
+      .then((d) => { if (vivo && d) setEvidencia({ corridaId, datos: d }); })
+      .catch(() => { /* Sin la cadena, las cajas enseñan el recuento y el registro del juez. */ });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- la clave resume lo que cambia la evidencia
+  }, [claveEvidencia, estado.conexion]);
+  const ev = evidencia?.corridaId === corrida.id ? evidencia.datos : null;
+  const datos = useMemo(() => {
+    const base = pasada ? datosDelLaboratorio(estado, inv, corrida, vista, { pasada: true }) : datosDelLaboratorio(estado, inv, corrida, iteracion);
+    return { ...base, afirmaciones: ev && base.iteracion !== null ? afirmacionesDeEvidencia(ev, base.iteracion) : null };
+  }, [estado, inv, corrida, iteracion, vista, pasada, ev, idioma]);
+  const numeros = iteraciones.map((it) => it.numero);
   const iteracionCharla = estado.iteraciones.find((it) => it.corridaId === corrida.id && it.numero === datos.iteracion);
   const conversar = charlasActivas && datos.trabajando && datos.iteracion === corrida.iteracionActual;
   const charlas = useConversacionesLaboratorio(corrida.id, iteracionCharla?.id ?? null, idioma, estado.conexion === 'en_linea', conversar);
+  const posicion = datos.iteracion !== null ? numeros.indexOf(datos.iteracion) : -1;
+  const ir = (numero: number | undefined) => { if (numero !== undefined) setVerNumero(numero === corrida.iteracionActual ? null : { corridaId: corrida.id, numero }); };
   const actuales = useRef(datos);
   actuales.current = datos;
   // El motor vive fuera de React: las respuestas le llegan por esta referencia
@@ -56,6 +85,7 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
       denegar: (id: string) => acciones.resolverSolicitudVerificada(id, 'denegar', null),
       aprobarPlan: (iteracionId: string) => acciones.aprobarPlanVerificado(iteracionId),
       ampliarPresupuesto: (id: string, limite: number) => acciones.ampliarPresupuestoVerificado(id, limite),
+      resolverIncidencia: (id: string, resolucion: string) => acciones.resolverIncidenciaVerificada(id, resolucion),
       verEnLaCorrida: () => volver.current(),
     });
     motor.current = lab;
@@ -74,8 +104,9 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
     motor.current?.conversar(charlas.turnos, conversar);
   }, [charlas.turnos, conversar, idioma]);
 
-  const aviso =
-    estado.conexion !== 'en_linea'
+  const aviso = pasada
+    ? tr('Estás viendo una iteración anterior: nada de lo que ves está pasando ahora.')
+    : estado.conexion !== 'en_linea'
       ? estado.conexion === 'muestra' ? tr('Datos de muestra: este laboratorio no está conectado a una corrida real.') : tr('Sin conexión en vivo: se muestra el último estado recibido')
       : corrida.estado === 'detenida' || corrida.estado === 'terminada'
         ? tr('La corrida ya terminó: el laboratorio enseña cómo quedó la última iteración.')
@@ -90,11 +121,17 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
           <IconoEsc nombre="arrow-up-left" size={14} /> {tr('Volver a la corrida')}
         </button>
         <h2>{tr('El laboratorio en vivo')}</h2>
-        <p>{tr('Cada sala representa una etapa de la investigación. Pasa el ratón por un agente para ver su actividad; haz clic para acercarte.')}</p>
+        <p>{tr('Cada sala representa una etapa de la investigación. Pasa el ratón por un agente (o recórrelos con el tabulador y las flechas) para ver su actividad; haz clic para acercarte. La pizarra, las estanterías, las cajas del juez y la hucha también se abren con un clic.')}</p>
       </div>
       {aviso && <p className="labvivo-aviso">{aviso}</p>}
       <div className="labvivo-estado" role="status">
-        <strong>{trp('Corrida {n}', { n: datos.corrida })}{datos.iteracion !== null && ` · ${trp('Iteración {n}', { n: datos.iteracion })}`}</strong>
+        <strong>{trp('Corrida {n}', { n: datos.corrida })}{datos.iteracion !== null && numeros.length <= 1 && ` · ${trp('Iteración {n}', { n: datos.iteracion })}`}</strong>
+        {numeros.length > 1 && datos.iteracion !== null && <span className="labvivo-iter" role="group" aria-label={tr('Cambiar de iteración')}>
+          <button type="button" aria-label={tr('Iteración anterior')} title={tr('Iteración anterior')} disabled={posicion <= 0} onClick={() => ir(numeros[posicion - 1])}>‹</button>
+          <strong>{trp('Iteración {n}', { n: datos.iteracion })}</strong>
+          <button type="button" aria-label={tr('Iteración siguiente')} title={tr('Iteración siguiente')} disabled={posicion < 0 || posicion >= numeros.length - 1} onClick={() => ir(numeros[posicion + 1])}>›</button>
+          {pasada && <button type="button" className="vuelve" onClick={() => setVerNumero(null)}>{tr('Volver a la iteración en curso')}</button>}
+        </span>}
         <span>{datos.estadoTexto}</span>
         {datos.motivo && <span>{datos.motivo}</span>}
         <span>{tr('Los personajes comentan los hallazgos de esta corrida con IA, con referencias al registro y la evidencia.')}</span>

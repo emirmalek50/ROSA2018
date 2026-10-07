@@ -82,15 +82,29 @@ describe('el laboratorio recibe la corrida canónica', () => {
     const d = f.datos(); expect(d.pide?.clase).toBe('plan'); expect(d.pasos.lista).toHaveLength(1);
     expect(d.activos).toEqual([]); expect(d.trabajando).toBe(false); expect(d.foco).toBe('plan');
   });
-  it('el preguntador muestra la pausa por presupuesto aunque no haya solicitudes', () => {
+  it('el planificador pide más llamadas cuando la corrida se pausa por presupuesto', () => {
     const f = caso(); f.c.estado = 'pausada_por_presupuesto';
-    f.c.presupuesto.motivoPausa = 'Faltan 5 llamadas para cerrar';
+    f.c.presupuesto.motivoPausa = 'El cierre necesita unas 26 llamadas y quedan 21. Amplía el tope en al menos 5 llamadas para seguir.';
     const d = f.datos();
-    expect(d.pide).toMatchObject({ clase: 'presupuesto', quien: 'Preguntador', detalle: f.c.presupuesto.motivoPausa, alcances: [] });
-    expect(d.pide?.presupuesto).toEqual({ corridaId: f.c.id, limite: f.c.presupuesto.limiteLlamadas, usado: f.c.gasto.llamadas });
+    expect(d.pide).toMatchObject({ clase: 'presupuesto', quien: 'Planificador', alcances: [] });
+    expect(d.pide?.titulo).toContain('al menos 5 llamadas más');
+    expect(d.pide?.presupuesto).toEqual({ corridaId: f.c.id, limite: f.c.presupuesto.limiteLlamadas, usado: f.c.gasto.llamadas, propuesta: 5 });
+    f.c.presupuesto.motivoPausa = 'El cierre de la iteración 1 quedó a medias: le faltan unas 12 llamadas.';
+    expect(f.datos().pide?.presupuesto?.propuesta).toBe(12);
     expect(d.trabajando).toBe(false);
     f.c.estado = 'en_marcha'; expect(f.datos().pide).toBeNull();
     f.c.estado = 'pausada'; expect(f.datos().pide).toBeNull();
+  });
+  it('una incidencia pendiente sale en el laboratorio sin parar el resto del trabajo', () => {
+    const f = caso();
+    const base = { corridaId: f.c.id, tipo: 'modelo_bloqueado' as const, detalle: 'El modelo no devolvió nada.', recurso: 'anthropic/claude-sonnet-5', alternativa: 'Revisar el paso.', estado: 'pendiente' as const, resueltaEn: null, resolucion: null };
+    f.estado.incidencias.push({ ...base, id: 'nueva', titulo: 'Nueva', creadaEn: 20 }, { ...base, id: 'vieja', titulo: 'Claude Sonnet 5 tarda más de 240 s', creadaEn: 10 }, { ...base, id: 'sola', tipo: 'modelo_sin_respuesta', titulo: 'Se resuelve sola', creadaEn: 1 }, { ...base, id: 'otra', corridaId: 'otra-corrida', titulo: 'Otra', creadaEn: 0 });
+    const d = f.datos();
+    expect(d.pide).toMatchObject({ id: 'vieja', clase: 'incidencia', quien: 'Generador de consultas', titulo: 'Claude Sonnet 5 tarda más de 240 s', incidencia: { tipo: 'modelo_bloqueado', recurso: 'anthropic/claude-sonnet-5', alternativa: 'Revisar el paso.', corridaEnMarcha: true } });
+    expect(d.trabajando).toBe(true);
+    expect(d.activos).toEqual(['Generador de consultas']);
+    f.estado.incidencias.forEach((x) => { x.estado = 'resuelta'; });
+    expect(f.datos().pide).toBeNull();
   });
   it('un permiso pendiente tiene prioridad sobre la pregunta de presupuesto', () => {
     const f = caso(); f.c.estado = 'pausada_por_presupuesto';

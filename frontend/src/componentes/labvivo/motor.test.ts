@@ -15,10 +15,10 @@ function datos(): DatosLab {
     plan: [{ ...anterior.plan[0]!, id: 'paso', tipo: 'literatura', estado: 'en_curso' }],
     pistas: [{ ...anterior.pistas[0]!, id: 'real', pasoId: 'paso', estado: 'en_curso', tipo: 'literatura', fuente: 'PubMed', titulo: 'Buscar MAPT', resumen: '', transcripcion: [{ t: 1, tipo: 'accion', texto: 'Consulta: MAPT' }] }],
   };
-  return datosDelLaboratorio({ ...e, conexion: 'en_linea', solicitudes: [] }, inv, c, i);
+  return datosDelLaboratorio({ ...e, conexion: 'en_linea', solicitudes: [], incidencias: [] }, inv, c, i);
 }
 function montar(d = datos(), r: Partial<Respuestas> = {}) {
-  const resp: Respuestas = { conceder: vi.fn(async () => true), denegar: vi.fn(async () => true), aprobarPlan: vi.fn(async () => true), ampliarPresupuesto: vi.fn(async () => true), verEnLaCorrida: vi.fn(), ...r };
+  const resp: Respuestas = { conceder: vi.fn(async () => true), denegar: vi.fn(async () => true), aprobarPlan: vi.fn(async () => true), ampliarPresupuesto: vi.fn(async () => true), resolverIncidencia: vi.fn(async () => true), verEnLaCorrida: vi.fn(), ...r };
   motor = montarLaboratorio(nodo, d, resp);
   return resp;
 }
@@ -119,30 +119,36 @@ describe('el motor del laboratorio sigue al servidor', () => {
     const resp = montar(d); expect(nodo.querySelector('[data-a=si]')).toBeNull();
     (nodo.querySelector('.lv-pide .yes') as HTMLButtonElement).click(); expect(resp.verEnLaCorrida).toHaveBeenCalledOnce(); expect(resp.conceder).not.toHaveBeenCalled();
   });
-  it('la pausa utiliza la pantalla de gasto con el tope real y espera la respuesta del servidor', async () => {
+  it('la pausa abre la misma lupa de gasto y amplía el tope con las llamadas de más', async () => {
     const d = { ...datos(), estado: 'pausada_por_presupuesto' as const, activos: [], trabajando: false,
-      pide: { id: 'presupuesto', clase: 'presupuesto' as const, quien: 'Preguntador', titulo: '¿Revisamos el presupuesto para seguir?', detalle: 'Faltan 5 llamadas para cerrar', alcances: [], requiereArgumentos: false, presupuesto: { corridaId: 'corrida-real', limite: 1500, usado: 369 } } };
+      pide: { id: 'presupuesto', clase: 'presupuesto' as const, quien: 'Planificador', titulo: 'La iteración 1 necesita al menos 5 llamadas más para seguir', detalle: 'La corrida lleva 369 de 1500 llamadas y está en pausa.', alcances: [], requiereArgumentos: false, presupuesto: { corridaId: 'corrida-real', limite: 1500, usado: 369, propuesta: 5 } } };
     const resp = montar(d, { ampliarPresupuesto: vi.fn(async () => false) });
     expect(nodo.querySelector<HTMLElement>('.lv-pide')!.hidden).toBe(false);
-    expect(nodo.querySelector('.lv-bub.ask')?.textContent).toBe(d.pide.titulo);
+    expect(nodo.querySelector('.lv-bub.ask')?.textContent).toBe('¿Puedo gastar 5 llamadas más?');
+    expect(nodo.querySelector('.lv-permiso-voz')?.textContent).toBe('¿Puedo gastar 5 llamadas más?');
     expect(nodo.querySelector('.lv-pide')?.textContent).toContain(d.pide.detalle);
     expect(nodo.querySelector('.lv-pide-presupuesto .lv-permiso-personaje canvas')).not.toBeNull();
-    expect(nodo.querySelector<HTMLInputElement>('.lv-llamadas')!.value).toBe('1500');
+    const input = nodo.querySelector<HTMLInputElement>('.lv-llamadas')!;
+    expect(input.value).toBe('5');
+    expect(nodo.querySelector('.lv-permiso-tope')?.textContent).toContain('1.505');
     expect(resp.ampliarPresupuesto).not.toHaveBeenCalled();
+    const rueda = () => { const e = new WheelEvent('wheel', { cancelable: true, bubbles: true }); document.body.dispatchEvent(e); return e.defaultPrevented; };
+    expect(rueda()).toBe(true);
     motor!.actualizar(d); ticks(20);
-    expect(nodo.querySelector('.lv-bub.ask')?.textContent).toBe(d.pide.titulo);
     expect(nodo.querySelector('[data-a=si]')).toBeNull();
     expect(nodo.querySelector('[data-a=no]')).toBeNull();
-    nodo.querySelector<HTMLButtonElement>('.lv-pide [data-a=ver]')!.click();
-    expect(resp.verEnLaCorrida).toHaveBeenCalledOnce();
-    expect(resp.conceder).not.toHaveBeenCalled(); expect(resp.denegar).not.toHaveBeenCalled();
+    expect(nodo.querySelector('[data-a=luego]')).not.toBeNull();
+    input.value = '40'; input.dispatchEvent(new Event('input'));
+    expect(nodo.querySelector('.lv-permiso-acciones .yes')?.textContent).toBe('Aprobar 40');
     nodo.querySelector<HTMLButtonElement>('[data-a=presupuesto]')!.click();
     await Promise.resolve(); await Promise.resolve();
-    expect(resp.ampliarPresupuesto).toHaveBeenCalledWith('corrida-real', 1500);
+    expect(resp.conceder).not.toHaveBeenCalled(); expect(resp.denegar).not.toHaveBeenCalled();
+    expect(resp.ampliarPresupuesto).toHaveBeenCalledWith('corrida-real', 1540);
     expect(nodo.querySelector('.lv-respuesta')?.textContent).toContain('rechazó');
     expect(nodo.querySelector<HTMLElement>('.lv-pide')!.hidden).toBe(false);
     motor!.actualizar({ ...d, estado: 'en_marcha', pide: null });
     expect(nodo.querySelector<HTMLElement>('.lv-pide')!.hidden).toBe(true);
+    expect(rueda()).toBe(false);
   });
   it('el permiso de gasto permite ajustar llamadas y alcance sin salir del laboratorio', async () => {
     const d = { ...datos(), trabajando: false, activos: [], pide: { id: 'gasto-real', clase: 'permiso' as const, tipo: 'presupuesto_grande' as const, quien: 'Planificador', titulo: 'Gastar 447 llamadas', detalle: 'Buscar una réplica independiente', alcances: ['una_vez' as const, 'esta_corrida' as const], requiereArgumentos: true,
@@ -160,11 +166,35 @@ describe('el motor del laboratorio sigue al servidor', () => {
     motor!.actualizar({ ...d, pide: null }); expect(nodo.querySelector<HTMLElement>('.lv-pide')!.hidden).toBe(true);
   });
   it('Esc cierra la pantalla de gasto sin denegar ni cambiar el presupuesto', () => {
-    const d = { ...datos(), trabajando: false, activos: [], pide: { id: 'presupuesto', clase: 'presupuesto' as const, quien: 'Preguntador', titulo: 'Presupuesto', detalle: '', alcances: [], requiereArgumentos: false, presupuesto: { corridaId: 'real', limite: 100, usado: 100 } } };
+    const d = { ...datos(), trabajando: false, activos: [], pide: { id: 'presupuesto', clase: 'presupuesto' as const, quien: 'Planificador', titulo: 'Presupuesto', detalle: '', alcances: [], requiereArgumentos: false, presupuesto: { corridaId: 'real', limite: 100, usado: 100 } } };
     const resp = montar(d);
     nodo.querySelector<HTMLInputElement>('.lv-llamadas')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(nodo.querySelector<HTMLElement>('.lv-pide')!.hidden).toBe(true);
     expect(resp.ampliarPresupuesto).not.toHaveBeenCalled(); expect(resp.denegar).not.toHaveBeenCalled();
+  });
+  it('una incidencia abre la lupa y se resuelve con lo que propone o con otra resolución', async () => {
+    const d = { ...datos(), pide: { id: 'inc-real', clase: 'incidencia' as const, quien: 'Generador de consultas', titulo: 'Claude Sonnet 5 tarda más de 240 s con esta petición', detalle: 'La petición sigue sin respuesta.', alcances: [], requiereArgumentos: false,
+      incidencia: { tipo: 'modelo_bloqueado' as const, recurso: 'anthropic/claude-sonnet-5', alternativa: 'Revisar el paso o la petición.', corridaEnMarcha: true } } };
+    const resp = montar(d, { resolverIncidencia: vi.fn(async () => false) });
+    const lupa = nodo.querySelector<HTMLElement>('.lv-pide.lv-pide-presupuesto')!;
+    expect(lupa.hidden).toBe(false);
+    expect(lupa.textContent).toContain('Revisar el paso o la petición.');
+    expect(lupa.textContent).toContain('La corrida sigue con lo demás mientras decides.');
+    expect(nodo.querySelector('.lv-foco-pide')?.textContent).toContain('encontró un problema');
+    const rueda = new WheelEvent('wheel', { cancelable: true, bubbles: true }); document.body.dispatchEvent(rueda);
+    expect(rueda.defaultPrevented).toBe(true);
+    const input = nodo.querySelector<HTMLInputElement>('.lv-resolucion')!;
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(resp.resolverIncidencia).toHaveBeenCalledWith('inc-real', 'Revisar el paso o la petición.');
+    await Promise.resolve(); await Promise.resolve();
+    expect(nodo.querySelector('.lv-respuesta')?.textContent).toContain('rechazó');
+    input.value = 'Usar otro proveedor'; input.dispatchEvent(new Event('input'));
+    expect(nodo.querySelector('.lv-permiso-acciones .yes')?.textContent).toBe('Aplicar mi resolución');
+    nodo.querySelector<HTMLButtonElement>('[data-a=incidencia]')!.click();
+    expect(resp.resolverIncidencia).toHaveBeenLastCalledWith('inc-real', 'Usar otro proveedor');
+    await Promise.resolve(); await Promise.resolve();
+    motor!.actualizar({ ...d, pide: null });
+    expect(lupa.hidden).toBe(true);
   });
   it('sigue caminando entre entradas sin inventar conversaciones', async () => {
     const d = datos(), texto = 'El Killer revisa «Una hipótesis real sobre MAPT»';
