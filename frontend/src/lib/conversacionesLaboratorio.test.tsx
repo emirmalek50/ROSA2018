@@ -25,7 +25,7 @@ it('los datos de muestra no piden conversaciones y muestran pausa', async () => 
 });
 
 it('descarta la voz anterior del servidor y conserva las referencias del diálogo natural', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ estado: 'conversando', turnos: [
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ estilo: ESTILO_LABORATORIO, estado: 'conversando', turnos: [
     { id: 'vieja', texto: 'Fuente 12:14: comprobaciones deterministas' },
     { id: 'nueva', estilo: ESTILO_LABORATORIO, texto: 'Me intriga lo de tau. Quiero mirarlo mejor.', materiales: [{ cita: 'PMID:123, p. 4' }] },
   ] }) }));
@@ -73,7 +73,7 @@ it('recibe el primer comentario al segundo y conserva una sola petición en vuel
   expect(fetch).toHaveBeenCalledTimes(3);
   await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
   expect(fetch).toHaveBeenCalledTimes(3);
-  await act(async () => { resolver({ ok: true, json: async () => ({ estado: 'conversando', turnos: [
+  await act(async () => { resolver({ ok: true, json: async () => ({ estilo: ESTILO_LABORATORIO, estado: 'conversando', turnos: [
     { id: 'natural', estilo: ESTILO_LABORATORIO, texto: 'Me intriga lo de tau. ¿Tú cómo lo ves?' },
   ] }) }); });
   expect(nodo.textContent).toContain('Me intriga lo de tau');
@@ -112,11 +112,75 @@ it('se recupera de un fallo de red y retira su visita al desactivar', async () =
 
 it('una respuesta tardía de otra iteración no sustituye las conversaciones actuales', async () => {
   let resolver: (v: unknown) => void = () => undefined;
-  const fetch = vi.fn().mockImplementationOnce(() => new Promise((r) => { resolver = r; })).mockResolvedValue({ ok: true, json: async () => ({ estilo: ESTILO_LABORATORIO, estado: 'esperando_hallazgos', turnos: [] }) });
+  const fetch = vi.fn().mockImplementationOnce(() => new Promise((r) => { resolver = r; })).mockResolvedValue({ ok: true, json: async () => ({ estilo: 'conversacion-natural-v2', estado: 'esperando_hallazgos', turnos: [] }) });
   vi.stubGlobal('fetch', fetch);
   await act(async () => root.render(<Vista it="anterior" />));
   await act(async () => root.render(<Vista it="actual" />));
-  await act(async () => { resolver({ ok: true, json: async () => ({ estado: 'conversando', turnos: [{ texto: 'Una conversación antigua' }] }) }); });
+  await act(async () => { resolver({ ok: true, json: async () => ({ estilo: ESTILO_LABORATORIO, estado: 'conversando', turnos: [{ estilo: ESTILO_LABORATORIO, texto: 'Una conversación antigua' }] }) }); });
   expect(nodo.textContent).not.toContain('antigua'); expect(nodo.textContent).toContain('esperando_hallazgos');
+  expect(JSON.parse(nodo.textContent!).estilo).toBe('conversacion-natural-v2');
   expect(JSON.parse(fetch.mock.calls[1]![1].body)).toMatchObject({ iteracionId: 'anterior', activo: false });
+});
+
+it.each(['conversacion-natural-v2', ESTILO_LABORATORIO])('negocia %s sin activar la primera visita y conserva solo su voz y procedencia', async (estilo) => {
+  const material = { id: 'af:a', clase: 'afirmacion', texto: 'Asociación en ratones', cita: 'PMID:123, p. 4' };
+  const turno = { id: 'admitida', estilo, texto: 'Voy a mirar esa asociación.', materiales: [material], emocion: 'curioso', gesto: 'ninguno' };
+  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ estilo, estado: 'conversando', turnos: [
+    turno,
+    { ...turno, id: 'otra-version', estilo: estilo === ESTILO_LABORATORIO ? 'conversacion-natural-v2' : ESTILO_LABORATORIO },
+    { ...turno, id: 'v1', estilo: 'conversacion-natural-v1' },
+    { id: 'sin-version', texto: 'Fuente 12:14' },
+  ] }) });
+  vi.stubGlobal('fetch', fetch);
+  await act(async () => root.render(<Vista />));
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(fetch.mock.calls[0]![1].body).activo).toBe(false);
+  expect(JSON.parse(nodo.textContent!).turnos).toEqual([turno]);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(JSON.parse(fetch.mock.calls[1]![1].body).activo).toBe(true);
+  expect(JSON.parse(nodo.textContent!).estilo).toBe(estilo);
+});
+
+it.each([undefined, 'conversacion-natural-v1', 'conversacion-natural-v4', 'desconocido'])('no negocia una versión ausente o desconocida: %s', async (estilo) => {
+  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ estilo, estado: 'conversando', turnos: [
+    { id: 'suelta', estilo: ESTILO_LABORATORIO, texto: 'Esta voz no basta para negociar la respuesta.' },
+    { id: 'antigua', estilo, texto: 'Fuente 12:14' },
+  ] }) });
+  vi.stubGlobal('fetch', fetch);
+  await act(async () => root.render(<Vista />));
+  await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+  expect(JSON.parse(nodo.textContent!)).toMatchObject({ estado: 'actualizando', turnos: [] });
+  expect(fetch.mock.calls.every((c) => !JSON.parse(c[1].body).activo)).toBe(true);
+});
+
+it('migra de v2 a v3 y rechaza una respuesta posterior v2 sin reiniciar la sesión', async () => {
+  let estilo = 'conversacion-natural-v2';
+  const fetch = vi.fn().mockImplementation(async () => ({ ok: true, json: async () => ({ estilo, estado: 'conversando', turnos: [
+    { id: 'v2', estilo: 'conversacion-natural-v2', texto: 'Comentario anterior.', materiales: [{ id: 'af:a' }] },
+    { id: 'v3', estilo: ESTILO_LABORATORIO, texto: 'Comentario nuevo.', materiales: [{ id: 'af:b', cita: 'PMID:456, p. 2' }] },
+  ] }) }));
+  vi.stubGlobal('fetch', fetch);
+  await act(async () => root.render(<Vista />));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(JSON.parse(nodo.textContent!).turnos.map((t: { id: string }) => t.id)).toEqual(['v2']);
+  estilo = ESTILO_LABORATORIO;
+  await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+  expect(JSON.parse(nodo.textContent!)).toMatchObject({ estilo: ESTILO_LABORATORIO, turnos: [
+    { id: 'v3', materiales: [{ id: 'af:b', cita: 'PMID:456, p. 2' }] },
+  ] });
+  estilo = 'conversacion-natural-v2';
+  await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+  expect(JSON.parse(nodo.textContent!)).toMatchObject({ estilo: ESTILO_LABORATORIO, estado: 'actualizando', turnos: [] });
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(JSON.parse(fetch.mock.calls.at(-1)![1].body).activo).toBe(false);
+  // Una pausa y un cambio de iteración conservan la negociación máxima del hook.
+  await act(async () => root.render(<Vista activo={false} />));
+  await act(async () => root.render(<Vista it="siguiente" />));
+  expect(JSON.parse(nodo.textContent!)).toMatchObject({ estilo: ESTILO_LABORATORIO, estado: 'actualizando', turnos: [] });
+  expect(JSON.parse(fetch.mock.calls.at(-1)![1].body).activo).toBe(false);
+  estilo = ESTILO_LABORATORIO;
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(JSON.parse(nodo.textContent!)).toMatchObject({ estilo: ESTILO_LABORATORIO, estado: 'conversando' });
+  expect(JSON.parse(fetch.mock.calls.at(-1)![1].body).activo).toBe(true);
 });

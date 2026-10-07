@@ -1211,11 +1211,20 @@ muletillas compartidas. Un comentario largo repetido se reformula una sola vez
 y la nueva versión también pasa por el juez; las reacciones breves pueden repetirse.
 No hay un banco de frases ni una secuencia obligatoria de pregunta y asentimiento.
 
+En el primer encuentro de cada pareja se saludan con su propia voz; no reinician
+el saludo en cada tema. Las salas que aún no hablaron tienen prioridad. Cuando un
+hallazgo no cambia, los compañeros pueden retomarlo después de 45 segundos,
+con dos intercambios adicionales de dos turnos por sala y hallazgo. Esas charlas
+siguen pasando por el juez y conservan la procedencia; no fabrican resultados
+nuevos. Los agentes que ya terminaron su parte de una pista abierta quedan libres
+para conversar. Se mantienen el límite de llamadas y la reserva del cierre.
+
 Los autores no reutilizan respuestas de la caché de DSPy. Se conserva el muestreo
 nativo de los modelos: el [catálogo del Gateway](https://ai-gateway.vercel.sh/v1/models)
 no anuncia `temperature` para los modelos actuales, y la
 [API de Claude](https://platform.claude.com/docs/en/api/messages/create#body-temperature)
 ya no permite ajustarla en las generaciones posteriores a Opus 4.6. Las referencias,
-el presupuesto y la reserva del cierre siguen siendo obligatorios. La voz v3 se
-activa conjuntamente en servidor e interfaz; las conversaciones anteriores permanecen
-guardadas, pero no se reproducen como si fueran nuevas.
+el presupuesto y la reserva del cierre siguen siendo obligatorios. La interfaz
+acepta la voz natural v2 durante una corrida que aún usa el servidor anterior;
+al recibir v3, esa sesión conserva v3. Las versiones sin identificar y los informes
+antiguos no se reproducen. Los diálogos guardados conservan sus fechas y procedencia.

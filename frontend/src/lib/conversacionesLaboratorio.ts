@@ -3,6 +3,8 @@ import { cabeceras } from '../datos/almacen';
 import type { Idioma } from './idioma';
 
 export const ESTILO_LABORATORIO = 'conversacion-natural-v3';
+const ESTILOS_COMPATIBLES = ['conversacion-natural-v2', ESTILO_LABORATORIO] as const;
+type EstiloCompatible = typeof ESTILOS_COMPATIBLES[number];
 export type EmocionLaboratorio = 'neutral' | 'curioso' | 'alegre' | 'frustrado' | 'preocupado' | 'sorprendido';
 export type GestoLaboratorio = 'ninguno' | 'asentir' | 'negar';
 export interface MaterialCharla {
@@ -24,6 +26,9 @@ interface Respuesta { estado: EstadoCharla; turnos: TurnoLaboratorio[]; estilo?:
 export function useConversacionesLaboratorio(corridaId: string, iteracionId: string | null, idioma: Idioma, disponible: boolean, activo: boolean): Respuesta {
   const cliente = useRef<string>();
   if (!cliente.current) cliente.current = crypto.randomUUID();
+  // La actualización se conserva al pausar o cambiar de iteración: una respuesta
+  // de un servidor anterior no puede devolver esta sesión a la voz v2.
+  const estiloSeleccionado = useRef<EstiloCompatible | null>(null);
   const clave = useMemo(() => ({}), [corridaId, iteracionId, idioma, disponible, activo]);
   const [datos, setDatos] = useState<Respuesta & { clave: object }>({ estado: 'cargando', turnos: [], clave });
   useEffect(() => {
@@ -43,15 +48,19 @@ export function useConversacionesLaboratorio(corridaId: string, iteracionId: str
         if (!r.ok) throw new Error('No disponible');
         const d: Respuesta = await r.json();
         if (!Array.isArray(d.turnos)) throw new Error('Respuesta inválida');
-        // No reproducir la voz anterior mientras el servidor termina una corrida
-        // y carga la nueva versión. La procedencia del diálogo admitido se conserva.
-        const turnos = d.turnos.filter((t) => t.estilo === ESTILO_LABORATORIO);
+        if (!vivo) return;
+        // v2 también es conversación natural. Permitirla durante una corrida
+        // evita silenciarla cuando la interfaz se actualiza antes que el backend.
+        // La versión debe venir declarada; turnos sueltos no negocian el protocolo.
+        const anunciado = ESTILOS_COMPATIBLES.find((e) => e === d.estilo) ?? null;
+        if (anunciado === ESTILO_LABORATORIO || estiloSeleccionado.current === null) estiloSeleccionado.current = anunciado;
         const anterior = compatible;
-        compatible = d.estilo === ESTILO_LABORATORIO || turnos.length > 0;
-        const estado = activo && !compatible ? 'actualizando' : d.estado;
+        compatible = anunciado !== null && anunciado === estiloSeleccionado.current;
+        const turnos = compatible ? d.turnos.filter((t) => t.estilo === estiloSeleccionado.current) : [];
+        const estado = compatible ? d.estado : activo ? 'actualizando' : 'pausada';
         if (compatible && !anterior && activo) espera = 0;
         else if (estado === 'conversando' && activo) espera = 1000;
-        if (vivo) setDatos({ estado, turnos, clave });
+        setDatos({ estado, turnos, estilo: estiloSeleccionado.current ?? undefined, clave });
       } catch {
         if (vivo) setDatos((anterior) => ({ estado: 'no_disponible', turnos: anterior.clave === clave ? anterior.turnos : [], clave }));
       } finally {
