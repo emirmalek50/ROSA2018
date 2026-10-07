@@ -32,6 +32,9 @@ interface Respuesta { estado: EstadoCharla; turnos: TurnoLaboratorio[]; estilo?:
 export function useConversacionesLaboratorio(corridaId: string, iteracionId: string | null, idioma: Idioma, disponible: boolean, activo: boolean): Respuesta {
   const cliente = useRef<string>();
   if (!cliente.current) cliente.current = crypto.randomUUID();
+  // El contador sobrevive a los efectos: una retirada anterior puede llegar
+  // después de reactivar la vista y debe conservar su orden de emisión.
+  const secuenciaVisita = useRef(0);
   // La actualización se conserva al pausar o cambiar de iteración: una respuesta
   // de un servidor anterior no puede devolver esta sesión a la voz v2.
   const estiloSeleccionado = useRef<EstiloCompatible | null>(null);
@@ -42,7 +45,7 @@ export function useConversacionesLaboratorio(corridaId: string, iteracionId: str
     let vivo = true, compatible = false, timer: ReturnType<typeof setTimeout> | null = null;
     const url = `/api/corridas/${encodeURIComponent(corridaId)}/laboratorio/conversaciones`;
     let peticion: AbortController | null = null;
-    const cuerpo = (habilitado: boolean) => JSON.stringify({ iteracionId, idioma, cliente: cliente.current, activo: habilitado });
+    const cuerpo = (habilitado: boolean) => JSON.stringify({ iteracionId, idioma, cliente: cliente.current, activo: habilitado, secuencia: ++secuenciaVisita.current });
     const visitar = async () => {
       if (peticion || !vivo) return;
       const abortar = new AbortController(); peticion = abortar;

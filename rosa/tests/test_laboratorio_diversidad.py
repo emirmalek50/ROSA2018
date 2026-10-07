@@ -178,8 +178,10 @@ async def test_sonar_distinto_inventando_eficacia_no_elude_el_juez(almacen):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("motivo", ["presupuesto", "pausa"])
+@pytest.mark.parametrize("motivo", ["presupuesto", "presupuesto_iteracion_preguntar", "pausa"])
 async def test_cambio_de_corrida_durante_reparacion_impide_publicar(almacen, motivo):
+    if motivo == "presupuesto_iteracion_preguntar":
+        almacen.estado["autonomia"]["gastar_grande"] = "preguntar"
     guardar_voz(almacen)
     autores, revisiones = [], []
     async def llamar(modelo, reglas, contenido, tema):
@@ -193,7 +195,14 @@ async def test_cambio_de_corrida_durante_reparacion_impide_publicar(almacen, mot
             else:
                 def agotar(e):
                     p = e["iteraciones"][0]["presupuesto"]
-                    p["usado"] = p["limite"] - p["reservaCierre"]
+                    if motivo == "presupuesto_iteracion_preguntar":
+                        p["usado"] = p["limite"] - p["reservaCierre"]
+                    else:
+                        from rosa.bucle.corrida import coste_previsto_del_cierre
+
+                        c = e["corridas"][0]
+                        reserva = max(p["reservaCierre"], coste_previsto_del_cierre(e, c["investigacionId"]))
+                        c["gasto"]["llamadas"] = c["presupuesto"]["limiteLlamadas"] - reserva
                     return True
                 almacen.mutar(agotar, "agotar")
             return {"texto": NUEVO, "referencias": ["af:a"]}

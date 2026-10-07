@@ -184,3 +184,56 @@ it('migra de v2 a v3 y rechaza una respuesta posterior v2 sin reiniciar la sesi�
   expect(JSON.parse(nodo.textContent!)).toMatchObject({ estilo: ESTILO_LABORATORIO, estado: 'conversando' });
   expect(JSON.parse(fetch.mock.calls.at(-1)![1].body).activo).toBe(true);
 });
+
+it('los sondeos y las retiradas conservan una secuencia creciente al cambiar de iteración', async () => {
+  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ estilo: ESTILO_LABORATORIO, estado: 'conversando', turnos: [] }) });
+  vi.stubGlobal('fetch', fetch);
+  await act(async () => root.render(<Vista it="primera" />));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  await act(async () => root.render(<Vista it="segunda" />));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const cuerpos = fetch.mock.calls.map(c => JSON.parse(c[1].body));
+  expect(cuerpos.map(c => c.secuencia)).toEqual(cuerpos.map((_, i) => i + 1));
+  expect(new Set(cuerpos.map(c => c.cliente)).size).toBe(1);
+  expect(cuerpos.find(c => c.iteracionId === 'primera' && c.activo)).toBeDefined();
+  expect(cuerpos.filter(c => c.iteracionId === 'segunda').at(-1).activo).toBe(true);
+});
+
+it('una retirada de un efecto anterior conserva una secuencia menor aunque su respuesta llegue tarde', async () => {
+  const retiradas: (() => void)[] = [];
+  const respuesta = { ok: true, json: async () => ({ estilo: ESTILO_LABORATORIO, estado: 'conversando', turnos: [] }) };
+  const fetch = vi.fn().mockImplementation((_url, opciones) => opciones.keepalive
+    ? new Promise(resolve => retiradas.push(() => resolve(respuesta))) : Promise.resolve(respuesta));
+  vi.stubGlobal('fetch', fetch);
+  await act(async () => root.render(<Vista />));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  await act(async () => root.render(<Vista activo={false} />));
+  await act(async () => root.render(<Vista />));
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const cuerpos = fetch.mock.calls.map(c => JSON.parse(c[1].body));
+  const ultimaActiva = cuerpos.filter(c => c.activo).at(-1);
+  const antiguas = fetch.mock.calls.filter(c => c[1].keepalive).map(c => JSON.parse(c[1].body));
+  expect(antiguas).toHaveLength(2);
+  expect(antiguas.every(c => c.secuencia < ultimaActiva.secuencia)).toBe(true);
+  expect(cuerpos.map(c => c.secuencia)).toEqual(cuerpos.map((_, i) => i + 1));
+  await act(async () => retiradas.reverse().forEach(resolver => resolver()));
+  expect(nodo.textContent).toContain('conversando');
+});
+
+it('ocultar y volver a mostrar la pestaña ordena la baja y el nuevo sondeo sin cambiar de cliente', async () => {
+  let oculta = false;
+  const visibilidad = vi.spyOn(document, 'hidden', 'get').mockImplementation(() => oculta);
+  try {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ estilo: ESTILO_LABORATORIO, estado: 'conversando', turnos: [] }) });
+    vi.stubGlobal('fetch', fetch);
+    await act(async () => root.render(<Vista />));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await act(async () => { oculta = true; document.dispatchEvent(new Event('visibilitychange')); });
+    const baja = JSON.parse(fetch.mock.calls.at(-1)![1].body);
+    expect(baja.activo).toBe(false);
+    await act(async () => { oculta = false; document.dispatchEvent(new Event('visibilitychange')); });
+    const alta = JSON.parse(fetch.mock.calls.at(-1)![1].body);
+    expect(alta).toMatchObject({ activo: true, cliente: baja.cliente });
+    expect(alta.secuencia).toBeGreaterThan(baja.secuencia);
+  } finally { visibilidad.mockRestore(); }
+});

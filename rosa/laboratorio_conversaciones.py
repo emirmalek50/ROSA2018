@@ -21,7 +21,7 @@ from typing import Any
 from rosa import gateway
 from rosa.estado import plantilla as P
 from rosa.laboratorio_personalidades import EMOCIONES, GESTOS, personalidad_de
-from rosa.modulos.contador import Contador, ContextoLlamada, contexto_actual
+from rosa.modulos.contador import Contador, ContextoLlamada, PresupuestoAgotado, contexto_actual
 
 log = logging.getLogger(__name__)
 
@@ -468,17 +468,18 @@ class Conversaciones:
     INTERVALO = 4.0
     VIDA_VISITA = 35.0
     RETOMAR_TRAS = 45.0
-    MAX_CONTINUACIONES = 2
 
     def __init__(self, almacen: Any, llamar: Llamar | None = None):
         self.almacen = almacen
         self.llamar = llamar or self._llamar
         self.visitas: dict[tuple[str, str, str], dict[str, float]] = {}
+        self.ultimas_visitas: dict[tuple[str, str, str], dict[str, int]] = {}
         self.tareas: dict[tuple[str, str, str], asyncio.Task] = {}
         self.proxima: dict[tuple[str, str, str], float] = {}
         self.errores: dict[tuple[str, str, str], str] = {}
         self.intentos: dict[tuple[str, str, str], dict[str, int]] = {}
         self.semaforo = asyncio.Semaphore(3)
+        self.llamadas_en_vuelo: dict[str, int] = {}
 
     def _vigente(self, clave: tuple[str, str, str]) -> bool:
         cid, iid, _ = clave
@@ -510,6 +511,7 @@ class Conversaciones:
         it = next((x for x in e["iteraciones"] if x["id"] == tema["iteracionId"]), None)
         if not c:
             return False
+        en_vuelo = self.llamadas_en_vuelo.get(tema["corridaId"], 0)
         if tema.get("preparandoPlan"):
             if tema["iteracionId"] != clave_planificando(e, tema["corridaId"]):
                 return False
@@ -519,12 +521,25 @@ class Conversaciones:
             from rosa.bucle.corrida import coste_previsto_del_cierre
 
             libres = c["presupuesto"]["limiteLlamadas"] - c["gasto"]["llamadas"] - coste_previsto_del_cierre(e, c["investigacionId"])
-            return libres >= llamadas
+            return libres - en_vuelo >= llamadas
         if not it or it.get("corridaId") != tema["corridaId"]:
             return False
         p = it["presupuesto"]
-        libres = p["limite"] - p["usado"] - int(p.get("reservaCierre") or 0)
-        return libres >= llamadas and c["presupuesto"]["limiteLlamadas"] - c["gasto"]["llamadas"] >= llamadas
+        if it.get("_presupuestoDenegado"):
+            return False
+        from rosa.bucle.corrida import coste_previsto_del_cierre
+
+        reserva = max(int(p.get("reservaCierre") or 0), coste_previsto_del_cierre(e, c["investigacionId"]))
+        libres_corrida = c["presupuesto"]["limiteLlamadas"] - c["gasto"]["llamadas"] - reserva - en_vuelo
+        if libres_corrida < llamadas:
+            return False
+        # El reparto del plan es una estimación cuando el gasto es autónomo.
+        # La voz sigue contando en ambos presupuestos, pero no se apaga por
+        # esa estimación antes de que el bucle tenga ocasión de ampliarla.
+        if (e.get("autonomia") or {}).get("gastar_grande") == "actuar":
+            return True
+        libres = p["limite"] - p["usado"] - int(p.get("reservaCierre") or 0) - en_vuelo
+        return libres >= llamadas
 
     async def _llamar(self, modelo: str, reglas: str, contenido: dict[str, Any], tema: dict[str, Any]) -> dict[str, Any]:
         import dspy
@@ -538,17 +553,35 @@ class Conversaciones:
         # Se conserva su muestreo nativo; la voz no reutiliza un borrador de
         # la caché. La revisión de fidelidad sí puede reutilizarse.
         cliente = gateway.lm(modelo, max_tokens=16000, timeout=60, cache=reglas == REGLAS_JUEZ, response_format=formato)
+        # Comprobar y reservar sin ceder el bucle de eventos. Dos idiomas o
+        # espectadores no pueden encargar la misma última llamada disponible.
+        if not self._presupuesto(tema, 1):
+            raise PresupuestoAgotado("No queda presupuesto de conversación fuera de la reserva del cierre")
+        cid = tema["corridaId"]
+        self.llamadas_en_vuelo[cid] = self.llamadas_en_vuelo.get(cid, 0) + 1
         token = contexto_actual.set(ContextoLlamada(tema["corridaId"], tema["iteracion"], "laboratorio_conversacion"))
         try:
             with dspy.context(lm=cliente, callbacks=[Contador(self.almacen)]):
                 return _objeto(await cliente.acall(messages=[{"role": "system", "content": reglas}, {"role": "user", "content": json.dumps(contenido, ensure_ascii=False)}]))
         finally:
             contexto_actual.reset(token)
+            restantes = self.llamadas_en_vuelo[cid] - 1
+            if restantes:
+                self.llamadas_en_vuelo[cid] = restantes
+            else:
+                self.llamadas_en_vuelo.pop(cid, None)
 
     def leer(self, clave: tuple[str, str, str]) -> list[dict[str, Any]]:
+        return self._historial(clave)[-90:]
+
+    def _historial(self, clave: tuple[str, str, str]) -> list[dict[str, Any]]:
         cid, iid, idioma = clave
         c: dict[str, Any] = next((x for x in self.almacen.estado.get("corridas", []) if x["id"] == cid), {})
-        return [x for x in c.get("_conversacionesLaboratorio", []) if x["iteracionId"] == iid and x["idioma"] == idioma and x.get("estilo") == ESTILO][-90:]
+        return [x for x in c.get("_conversacionesLaboratorio", []) if x["iteracionId"] == iid and x["idioma"] == idioma and x.get("estilo") == ESTILO]
+
+    def _memoria_sala(self, clave: tuple[str, str, str], sala: str) -> dict[str, Any]:
+        c = next((x for x in self.almacen.estado.get("corridas", []) if x["id"] == clave[0]), {})
+        return c.get("_memoriaConversacionesLaboratorio", {}).get(_huella([clave[1], clave[2], sala]), {})
 
     def _recuerdos(self, clave: tuple[str, str, str], agente: str) -> dict[str, Any]:
         """Memoria oral de esta corrida e idioma, incluso al cambiar de compañero."""
@@ -573,9 +606,12 @@ class Conversaciones:
 
     def _temas(self, clave: tuple[str, str, str], tema: dict[str, Any]) -> list[dict[str, Any]]:
         """Rotar salas y retomar brevemente, sin presentar otra vez el hallazgo."""
-        historial = self.leer(clave)
+        historial = self._historial(clave)
         intentos = self.intentos.setdefault(clave, {})
         publicados = {x["temaId"] for x in historial}
+        corrida = next((x for x in self.almacen.estado.get("corridas", []) if x["id"] == clave[0]), {})
+        publicados.update(m["temaId"] for m in corrida.get("_memoriaConversacionesLaboratorio", {}).values()
+                          if m.get("iteracionId") == clave[1] and m.get("idioma") == clave[2])
         def pendiente(huella: str) -> bool:
             return huella not in publicados and intentos.get(huella, 0) < 2
         comienzos = intenciones_de(self.almacen.estado, clave[0], clave[1])
@@ -617,6 +653,12 @@ class Conversaciones:
                 ultima_sala[t["salaConversacion"]] = n
             ultima_persona[t["agente"]] = n
             ultima_persona[t["destinatario"]] = n
+        for sala in COMPANEROS:
+            memoria = self._memoria_sala(clave, sala)
+            if memoria:
+                ultima_sala[sala] = memoria["fecha"]
+            else:
+                ultima_sala[sala] = max((t.get("fecha", 0) for t in historial if t.get("salaConversacion") == sala), default=0)
         salas_principales = {s for s, personas in COMPANEROS.items() if ocupados.intersection(personas)}
         continuaciones = []
         for sala in sorted(COMPANEROS, key=lambda s: ultima_sala.get(s, -1)):
@@ -625,6 +667,9 @@ class Conversaciones:
             if temas and sala in salas_principales:
                 continue
             huella = hashlib.sha256(f"{tema['huella']}:companeros:{sala}".encode()).hexdigest()[:24]
+            memoria = self._memoria_sala(clave, sala)
+            if memoria.get("hallazgoId") == tema["huella"]:
+                publicados.add(huella)
             personas = sorted((p for p in COMPANEROS[sala] if p not in ocupados), key=lambda p: ultima_persona.get(p, -1))
             if len(personas) >= 2 and pendiente(huella):
                 temas.append({**tema, "huella": huella, "hallazgoId": tema["huella"], "participantes": personas[:2], "tipoConversacion": "companeros", "salaConversacion": sala})
@@ -633,14 +678,15 @@ class Conversaciones:
             elif len(personas) >= 2:
                 previos = [t for t in historial if t.get("salaConversacion") == sala and t.get("hallazgoId") == tema["huella"]]
                 retomas = {t["temaId"] for t in previos if t.get("continuacion")}
-                ultimo = max((t.get("fecha", 0) for t in historial if t.get("salaConversacion") == sala), default=0)
-                if not previos or len(retomas) >= self.MAX_CONTINUACIONES or P.ahora_ms() - ultimo < self.RETOMAR_TRAS * 1000:
+                ultimo = ultima_sala[sala]
+                if (not previos and memoria.get("hallazgoId") != tema["huella"]) or P.ahora_ms() - ultimo < self.RETOMAR_TRAS * 1000:
                     continue
-                huella_retoma = hashlib.sha256(f"{huella}:retoma:{len(retomas) + 1}".encode()).hexdigest()[:24]
+                ronda = max(len(retomas), int(memoria.get("ronda") or 0)) + 1
+                huella_retoma = hashlib.sha256(f"{huella}:retoma:{ronda}".encode()).hexdigest()[:24]
                 if pendiente(huella_retoma):
-                    continuaciones.append({**tema, "huella": huella_retoma, "hallazgoId": tema["huella"], "participantes": personas[:2], "tipoConversacion": "companeros", "salaConversacion": sala, "continuacion": True})
+                    continuaciones.append({**tema, "huella": huella_retoma, "hallazgoId": tema["huella"], "participantes": personas[:2], "tipoConversacion": "companeros", "salaConversacion": sala, "continuacion": True, "rondaConversacion": ronda})
         # Los compañeros que todavía no hablaron tienen prioridad. Una retoma es
-        # de dos turnos, con un tope persistido de dos retomas por sala y hallazgo.
+        # de dos turnos y espera el intervalo de su sala, sin inventar novedades.
         temas.extend(continuaciones[:3 - len(temas)])
         # Dos turnos por retoma y tres por charla nueva, siempre autor y juez.
         # No iniciar más parejas que las que caben; cada llamada comprueba el límite.
@@ -653,14 +699,22 @@ class Conversaciones:
         if any(x["temaId"] in {t["huella"] for t in temas} for x in self.leer(clave)):
             self.errores.pop(clave, None)
 
-    def tocar(self, clave: tuple[str, str, str], cliente: str, activo: bool) -> dict[str, Any]:
+    def tocar(self, clave: tuple[str, str, str], cliente: str, activo: bool, secuencia: int | None = None) -> dict[str, Any]:
         visitas = self.visitas.setdefault(clave, {})
-        if activo:
-            visitas[cliente] = time.monotonic() + self.VIDA_VISITA
-        else:
-            visitas.pop(cliente, None)
+        anteriores = self.ultimas_visitas.setdefault(clave, {})
+        ultima = anteriores.get(cliente)
+        # Un aviso atrasado no retira ni renueva una visita más reciente.
+        # Clientes antiguos siguen funcionando mientras no negocien secuencia.
+        aceptar = (ultima is None) if secuencia is None else (ultima is None or secuencia > ultima)
+        if aceptar:
+            if secuencia is not None:
+                anteriores[cliente] = secuencia
+            if activo:
+                visitas[cliente] = time.monotonic() + self.VIDA_VISITA
+            else:
+                visitas.pop(cliente, None)
         pendiente = self.tareas.get(clave)
-        if self._vigente(clave) and (not pendiente or pendiente.done()) and time.monotonic() >= self.proxima.get(clave, 0):
+        if aceptar and self._vigente(clave) and (not pendiente or pendiente.done()) and time.monotonic() >= self.proxima.get(clave, 0):
             tema = tema_de(self.almacen.estado, clave[0], clave[1])
             intentos = self.intentos.setdefault(clave, {})
             temas = self._temas(clave, tema) if tema else []
@@ -686,8 +740,10 @@ class Conversaciones:
                 a, b = tema["participantes"]
                 historial = [{k: t[k] for k in ("agente", "destinatario", "texto")} for t in self.leer(clave) if {t["agente"], t["destinatario"]} <= {a, b}][-6:]
                 corrida = next(c for c in self.almacen.estado["corridas"] if c["id"] == clave[0])
-                encuentro_inicial = not any(t.get("estilo") == ESTILO and t.get("idioma") == clave[2] and {t["agente"], t["destinatario"]} == {a, b}
-                                           for t in corrida.get("_conversacionesLaboratorio", []))
+                pareja_id = _huella([clave[2], sorted((a, b)), ESTILO])
+                encuentro_inicial = not tema.get("continuacion") and pareja_id not in corrida.get("_encuentrosLaboratorio", {}) and not any(
+                    t.get("estilo") == ESTILO and t.get("idioma") == clave[2] and {t["agente"], t["destinatario"]} == {a, b}
+                    for t in corrida.get("_conversacionesLaboratorio", []))
                 parejas = ((a, b), (b, a)) if tema.get("continuacion") else ((a, b), (b, a), (a, b))
                 for n, (agente, destinatario) in enumerate(parejas):
                     if not self._tema_vigente(clave, tema) or not self._presupuesto(tema):
@@ -755,11 +811,25 @@ class Conversaciones:
                             return False
                         filas.append(turno)
                         c["_conversacionesLaboratorio"] = filas[-300:]
+                        sala = tema.get("salaConversacion") or f"actividad:{tema['autor']}"
+                        memoria = c.setdefault("_memoriaConversacionesLaboratorio", {})
+                        identidad = _huella([clave[1], clave[2], sala])
+                        previa = memoria.get(identidad, {})
+                        memoria[identidad] = {"iteracionId": clave[1], "idioma": clave[2], "sala": sala,
+                                             "hallazgoId": tema.get("hallazgoId", tema["huella"]), "temaId": tema["huella"],
+                                             "fecha": turno["fecha"], "ronda": max(int(previa.get("ronda") or 0), int(tema.get("rondaConversacion") or 0))}
+                        # Solo se conserva el contador y el último contexto de cada
+                        # sala; la prosa y los materiales siguen acotados a 300 turnos.
+                        if len(memoria) > 300:
+                            del memoria[min(memoria, key=lambda k: memoria[k]["fecha"])]
+                        c.setdefault("_encuentrosLaboratorio", {})[pareja_id] = True
                         return True
                     await asyncio.to_thread(self.almacen.mutar, guardar, "conversacion_laboratorio")
                     historial.append({k: turno[k] for k in ("agente", "destinatario", "texto")})
         except asyncio.CancelledError:
             raise
+        except PresupuestoAgotado:
+            pass  # La voz cede a la investigación y al cierre; no es un fallo de modelo.
         except Exception as exc:  # noqa: BLE001 -- la conversación no interrumpe la investigación
             log.warning("Conversación del laboratorio interrumpida: %s", type(exc).__name__)
             self.errores[clave] = "No pude generar una conversación comprobable. La investigación continúa."

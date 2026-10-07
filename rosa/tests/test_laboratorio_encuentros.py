@@ -15,6 +15,7 @@ import pytest
 
 from rosa.estado.almacen import Almacen
 from rosa.laboratorio_conversaciones import COMPANEROS, ESTILO, REGLAS_JUEZ, Conversaciones, tema_de
+from rosa.modulos.contador import PresupuestoAgotado
 
 CLAVE = ("cor", "it-1", "es")
 
@@ -25,6 +26,7 @@ def almacen(tmp_path):
 
     def preparar(e):
         e.update(
+            autonomia={**e.get("autonomia", {}), "gastar_grande": "preguntar"},
             investigaciones=[{"id": "inv", "titulo": "Asociación de MAPT"}],
             corridas=[{
                 "id": cid, "investigacionId": "inv", "estado": "en_marcha", "iteracionActual": 1,
@@ -257,7 +259,7 @@ async def test_las_salas_que_aun_no_hablaron_tienen_prioridad_sobre_una_continua
 
 
 @pytest.mark.asyncio
-async def test_cada_sala_agota_dos_continuaciones_y_reabrir_no_reinicia_el_limite(almacen, reloj):
+async def test_las_retomas_continuan_durante_la_corrida_y_reabrir_conserva_su_secuencia(almacen, reloj):
     s = Conversaciones(almacen, hablar)
     habilitar(s)
     tema = tema_actual(almacen)
@@ -265,13 +267,12 @@ async def test_cada_sala_agota_dos_continuaciones_y_reabrir_no_reinicia_el_limit
         await completar_pendientes(s, tema)
         iniciales = Counter(t["salaConversacion"] for t in s.leer(CLAVE) if t["tipoConversacion"] == "companeros")
         assert set(iniciales) == set(COMPANEROS)
-        for _ in range(2):
+        for _ in range(3):
             reloj[0] += 45_000
             await completar_pendientes(s, tema)
         finales = Counter(t["salaConversacion"] for t in s.leer(CLAVE) if t["tipoConversacion"] == "companeros")
-        assert finales == Counter({sala: n + 4 for sala, n in iniciales.items()})
+        assert finales == Counter({sala: n + 6 for sala, n in iniciales.items()})
         assert len({t["id"] for t in s.leer(CLAVE)}) == len(s.leer(CLAVE))
-        reloj[0] += 3_600_000
         assert s._temas(CLAVE, tema) == []
     finally:
         await s.cerrar()
@@ -283,6 +284,12 @@ async def test_cada_sala_agota_dos_continuaciones_y_reabrir_no_reinicia_el_limit
         habilitar(reiniciado)
         assert reiniciado._temas(CLAVE, tema_actual(al)) == []
         assert Counter(t["salaConversacion"] for t in reiniciado.leer(CLAVE) if t["tipoConversacion"] == "companeros") == finales
+        reloj[0] += 45_000
+        siguientes = reiniciado._temas(CLAVE, tema_actual(al))
+        assert siguientes and all(t.get("continuacion") and t["rondaConversacion"] == 4 for t in siguientes)
+        anteriores = {t["id"] for t in reiniciado.leer(CLAVE)}
+        await reiniciado._ronda(CLAVE, siguientes)
+        assert len({t["id"] for t in reiniciado.leer(CLAVE)} - anteriores) == 2 * len(siguientes)
     finally:
         await reiniciado.cerrar()
         al.cerrar()
@@ -490,7 +497,7 @@ async def test_una_continuacion_cuesta_cuatro_llamadas_y_no_toca_la_reserva(alma
         assert s._temas(CLAVE, tema)
 
         def acotar(e):
-            e["corridas"][0]["gasto"]["llamadas"] = 500 - libres
+            e["corridas"][0]["gasto"]["llamadas"] = 500 - 20 - libres
             e["iteraciones"][0]["presupuesto"]["usado"] = 380 - libres
             return True
 
@@ -506,7 +513,7 @@ async def test_una_continuacion_cuesta_cuatro_llamadas_y_no_toca_la_reserva(alma
             await s.tareas[CLAVE]
             assert len(llamadas) == 4 and llamadas.count(REGLAS_JUEZ) == 2
             assert len(s.leer(CLAVE)) == len(anteriores) + 2
-            assert almacen.estado["corridas"][0]["gasto"]["llamadas"] == 500
+            assert almacen.estado["corridas"][0]["gasto"]["llamadas"] == 480
             assert almacen.estado["iteraciones"][0]["presupuesto"]["usado"] == 380
         else:
             assert CLAVE not in s.tareas and llamadas == []
@@ -545,4 +552,203 @@ async def test_perder_al_observador_durante_el_juez_impide_publicar_la_continuac
         assert s.leer(CLAVE) == anteriores
         assert almacen.estado["hipotesis"][0]["estado"] == "propuesta"
     finally:
+        await s.cerrar()
+
+
+@pytest.mark.asyncio
+async def test_prevision_real_agotada_no_apaga_la_voz_con_tope_global_disponible(almacen, monkeypatch):
+    monkeypatch.setattr("rosa.bucle.corrida.coste_previsto_del_cierre", lambda e, inv: 24)
+    almacen.estado["autonomia"]["gastar_grande"] = "actuar"
+    c = almacen.estado["corridas"][0]
+    c["presupuesto"]["limiteLlamadas"] = 1500
+    c["gasto"]["llamadas"] = 535
+    it = almacen.estado["iteraciones"][0]
+    it["presupuesto"].update(limite=542, usado=518, reservaCierre=28)
+    llamadas = []
+
+    async def consumir(modelo, reglas, contenido, tema):
+        llamadas.append(reglas)
+        c["gasto"]["llamadas"] += 1
+        it["presupuesto"]["usado"] += 1
+        return await hablar(modelo, reglas, contenido, tema)
+
+    s = Conversaciones(almacen, consumir)
+    try:
+        respuesta = s.tocar(CLAVE, "persona", True)
+        assert respuesta["estado"] == "conversando"
+        await s.tareas[CLAVE]
+        assert len(s.leer(CLAVE)) == 9 and len(llamadas) == 18
+        assert llamadas.count(REGLAS_JUEZ) == 9
+        assert c["gasto"]["llamadas"] == 553 and it["presupuesto"]["usado"] == 536
+        assert it["presupuesto"] == {"limite": 542, "usado": 536, "reservaCierre": 28}
+    finally:
+        await s.cerrar()
+
+
+@pytest.mark.parametrize("autonomia,denegado,global_usado,reserva_estimada,esperado", [
+    ("actuar", False, 535, 24, True),
+    ("preguntar", False, 535, 24, False),
+    ("actuar", True, 535, 24, False),
+    ("actuar", False, 1500, 24, False),
+    ("actuar", False, 1472, 24, False),
+    ("actuar", False, 1470, 24, True),
+    ("actuar", False, 1470, 31, False),
+    ("preguntar", False, 1472, 24, False),
+])
+def test_voz_respeta_global_reserva_actual_y_decisiones_humanas(almacen, monkeypatch, autonomia, denegado, global_usado, reserva_estimada, esperado):
+    monkeypatch.setattr("rosa.bucle.corrida.coste_previsto_del_cierre", lambda e, inv: reserva_estimada)
+    almacen.estado["autonomia"]["gastar_grande"] = autonomia
+    c = almacen.estado["corridas"][0]
+    c["presupuesto"]["limiteLlamadas"] = 1500
+    c["gasto"]["llamadas"] = global_usado
+    it = almacen.estado["iteraciones"][0]
+    it["presupuesto"].update(limite=542, usado=518, reservaCierre=28)
+    it["_presupuestoDenegado"] = denegado
+    s = Conversaciones(almacen)
+    assert s._presupuesto(tema_actual(almacen), 2) is esperado
+
+
+@pytest.mark.asyncio
+async def test_historial_recortado_y_reinicio_no_reusan_rondas_ni_saludan_otra_vez(almacen, reloj):
+    s = Conversaciones(almacen, hablar)
+    habilitar(s)
+    tema = tema_actual(almacen)
+    try:
+        await completar_pendientes(s, tema)
+        for _ in range(3):
+            reloj[0] += 45_000
+            await completar_pendientes(s, tema)
+        anteriores = {t["id"] for t in s._historial(CLAVE)}
+        memoria = copy.deepcopy(almacen.estado["corridas"][0]["_memoriaConversacionesLaboratorio"])
+
+        def recortar(e):
+            filas = e["corridas"][0]["_conversacionesLaboratorio"]
+            base = {**filas[-1], "idioma": "en"}
+            e["corridas"][0]["_conversacionesLaboratorio"] = [{**base, "id": f"otro-turno-{i}"} for i in range(300)]
+            return True
+
+        almacen.mutar(recortar, "recorte_temporal_de_historial")
+        assert s.leer(CLAVE) == []
+        assert s._temas(CLAVE, tema) == []
+    finally:
+        await s.cerrar()
+    ruta = almacen.ruta
+    almacen.cerrar()
+    al = Almacen(ruta)
+    vistos = []
+
+    async def continuar(modelo, reglas, contenido, tema):
+        if reglas != REGLAS_JUEZ:
+            vistos.append(copy.deepcopy(contenido))
+        return await hablar(modelo, reglas, contenido, tema)
+
+    nuevo = Conversaciones(al, continuar)
+    habilitar(nuevo)
+    try:
+        assert al.estado["corridas"][0]["_memoriaConversacionesLaboratorio"] == memoria
+        assert nuevo._temas(CLAVE, tema_actual(al)) == []
+        reloj[0] += 45_000
+        candidatas = nuevo._temas(CLAVE, tema_actual(al))
+        assert candidatas and all(t.get("continuacion") and t["rondaConversacion"] == 4 for t in candidatas)
+        await nuevo._ronda(CLAVE, candidatas)
+        nuevos = nuevo.leer(CLAVE)
+        assert len(nuevos) == len(vistos) == 2 * len(candidatas)
+        assert anteriores.isdisjoint(t["id"] for t in nuevos)
+        assert all(not c["encuentroInicial"] for c in vistos)
+        assert all(c["materiales"] == tema["materiales"] for c in vistos)
+        assert len(al.estado["corridas"][0]["_conversacionesLaboratorio"]) == 300
+        assert nuevo._temas(CLAVE, tema_actual(al)) != candidatas
+    finally:
+        await nuevo.cerrar()
+        al.cerrar()
+
+
+def respuesta_modelo_de_prueba():
+    from litellm import ModelResponse
+
+    return ModelResponse(model="openai/prueba", choices=[{"index": 0, "message": {
+        "role": "assistant", "content": '{"texto":"Vale.","referencias":["af:a"]}'}, "finish_reason": "stop"}],
+        usage={"prompt_tokens": 10, "completion_tokens": 5, "cost": 0.001})
+
+
+@pytest.mark.asyncio
+async def test_dos_idiomas_reservan_llamadas_en_vuelo_sin_invadir_el_cierre(almacen, monkeypatch):
+    import dspy
+
+    monkeypatch.setattr("rosa.bucle.corrida.coste_previsto_del_cierre", lambda e, inv: 28)
+    almacen.estado["autonomia"]["gastar_grande"] = "actuar"
+    c = almacen.estado["corridas"][0]
+    c["presupuesto"]["limiteLlamadas"] = 1500
+    c["gasto"]["llamadas"] = 1470
+    almacen.estado["iteraciones"][0]["presupuesto"].update(limite=542, usado=518, reservaCierre=28)
+    entraron, liberar = asyncio.Event(), asyncio.Event()
+    llamadas = []
+    lm = dspy.LM("openai/prueba", cache=False)
+
+    async def responder(**kwargs):
+        llamadas.append(kwargs)
+        if len(llamadas) == 2:
+            entraron.set()
+        await liberar.wait()
+        return respuesta_modelo_de_prueba()
+
+    monkeypatch.setattr(lm, "aforward", responder)
+    monkeypatch.setattr("rosa.laboratorio_conversaciones.gateway.lm", lambda *a, **kw: lm)
+    s = Conversaciones(almacen)
+    tema = tema_actual(almacen)
+    tareas = [asyncio.create_task(s._llamar("modelo-de-prueba", "Reglas", {"idioma": idioma}, tema)) for idioma in ("es", "en")]
+    try:
+        await asyncio.wait_for(entraron.wait(), 2)
+        assert s.llamadas_en_vuelo == {"cor": 2}
+        assert not s._presupuesto(tema, 1)
+        with pytest.raises(PresupuestoAgotado):
+            await s._llamar("modelo-de-prueba", "Reglas", {"idioma": "es"}, tema)
+        assert len(llamadas) == 2
+        liberar.set()
+        await asyncio.gather(*tareas)
+        assert s.llamadas_en_vuelo == {}
+        assert c["gasto"]["llamadas"] == 1472
+        assert not s._presupuesto(tema, 1)
+        assert almacen.estado["iteraciones"][0]["presupuesto"]["reservaCierre"] == 28
+    finally:
+        liberar.set()
+        await asyncio.gather(*tareas, return_exceptions=True)
+        await s.cerrar()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("interrupcion", ["error", "cancelacion"])
+async def test_error_o_cancelacion_libera_la_reserva_de_llamada(almacen, monkeypatch, interrupcion):
+    import dspy
+
+    empezo, liberar = asyncio.Event(), asyncio.Event()
+    lm = dspy.LM("openai/prueba", cache=False)
+
+    async def responder(**kwargs):
+        empezo.set()
+        await liberar.wait()
+        if interrupcion == "error":
+            raise RuntimeError("Error local de prueba")
+        return respuesta_modelo_de_prueba()
+
+    monkeypatch.setattr(lm, "aforward", responder)
+    monkeypatch.setattr("rosa.laboratorio_conversaciones.gateway.lm", lambda *a, **kw: lm)
+    s = Conversaciones(almacen)
+    tema = tema_actual(almacen)
+    tarea = asyncio.create_task(s._llamar("modelo-de-prueba", "Reglas", {}, tema))
+    try:
+        await asyncio.wait_for(empezo.wait(), 2)
+        assert s.llamadas_en_vuelo == {"cor": 1}
+        if interrupcion == "cancelacion":
+            tarea.cancel()
+        else:
+            liberar.set()
+        with pytest.raises(asyncio.CancelledError if interrupcion == "cancelacion" else RuntimeError):
+            await tarea
+        assert s.llamadas_en_vuelo == {}
+        assert s._presupuesto(tema, 2)
+        assert almacen.estado["corridas"][0]["gasto"]["llamadas"] == 0
+    finally:
+        liberar.set()
+        await asyncio.gather(tarea, return_exceptions=True)
         await s.cerrar()

@@ -183,8 +183,10 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
   }, [datos]);
 
   useEffect(() => {
-    motor.current?.conversar(charlas.turnos, conversar);
-  }, [charlas.turnos, conversar, idioma]);
+    // Una pausa de conexión o un permiso conserva lo aún no dicho. El apagado
+    // manual descarta la espera, aunque la voz ya estuviera pausada.
+    motor.current?.conversar(charlas.turnos, conversar, charlasActivas);
+  }, [charlas.turnos, conversar, charlasActivas, idioma]);
 
   const aviso = pasada
     ? tr('Estás viendo una iteración anterior: nada de lo que ves está pasando ahora.')

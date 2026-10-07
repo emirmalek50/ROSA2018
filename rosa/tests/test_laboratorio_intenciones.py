@@ -15,6 +15,7 @@ from rosa.laboratorio_conversaciones import (
 def almacen(tmp_path):
     al = Almacen(tmp_path / 'intenciones.db')
     al.estado.update(
+        autonomia={**al.estado.get("autonomia", {}), "gastar_grande": "preguntar"},
         investigaciones=[{'id': 'inv', 'titulo': 'Tau', 'objetivo': 'Comparar MAPT y tau en neuronas', 'mision': {}}],
         corridas=[{'id': 'c', 'investigacionId': 'inv', 'estado': 'en_marcha', 'iteracionActual': 1,
                    'presupuesto': {'limiteLlamadas': 200}, 'gasto': {'llamadas': 0}}],

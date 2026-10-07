@@ -19,6 +19,7 @@ from rosa.laboratorio_personalidades import PERSONALIDADES, personalidad_de
 def almacen(tmp_path):
     al = Almacen(tmp_path / "charlas.db")
     al.estado.update(
+        autonomia={**al.estado.get("autonomia", {}), "gastar_grande": "preguntar"},
         investigaciones=[{"id": "inv", "titulo": "MAPT", "mision": {"objetivo": "Estudiar MAPT"}}],
         corridas=[{"id": "c", "investigacionId": "inv", "estado": "en_marcha", "iteracionActual": 1,
                    "presupuesto": {"limiteLlamadas": 100}, "gasto": {"llamadas": 0},
@@ -142,6 +143,8 @@ async def test_asentimiento_breve_pasa_por_el_juez_y_escucha_al_companero(almace
     assert len([c for c in llamadas if c.get("intervencion", {}).get("texto") == "Vale."]) == 6
     despues = copy.deepcopy(almacen.estado)
     despues["corridas"][0].pop("_conversacionesLaboratorio")
+    despues["corridas"][0].pop("_memoriaConversacionesLaboratorio")
+    despues["corridas"][0].pop("_encuentrosLaboratorio")
     assert despues == anterior
     await s.cerrar()
 
@@ -206,6 +209,8 @@ async def test_respuestas_independientes_leen_al_companero_y_se_comparten(almace
     assert all(m == gateway.JUEZ for m, _, c in llamadas if c["tipoConversacion"] == "actividad")
     despues = copy.deepcopy(almacen.estado)
     despues["corridas"][0].pop("_conversacionesLaboratorio")
+    despues["corridas"][0].pop("_memoriaConversacionesLaboratorio")
+    despues["corridas"][0].pop("_encuentrosLaboratorio")
     assert despues == anterior  # Ninguna decisión o afirmación científica cambia.
     assert s.leer(("c", "it", "en")) == []
     s.proxima[clave] = 0

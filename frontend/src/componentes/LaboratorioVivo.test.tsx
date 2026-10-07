@@ -6,6 +6,7 @@ import { estadoDeMuestra } from '../datos/muestra';
 import type { Corrida, EstadoRosa, Iteracion } from '../datos/tipos';
 import type { Evidencia } from '../lib/evidencia';
 import type { DatosLab } from '../lib/labVivo';
+import { useConversacionesLaboratorio, type TurnoLaboratorio } from '../lib/conversacionesLaboratorio';
 import { senalDeTope } from '../lib/diferido';
 import { rutaNovedad } from '../lib/ruta';
 import { LaboratorioVivo } from './LaboratorioVivo';
@@ -13,14 +14,16 @@ import { montarLaboratorio, type Respuestas } from './labvivo/motor';
 
 vi.mock('../datos/almacen', () => ({ acciones: {}, cabeceras: () => ({ 'X-Rosa': '1' }) }));
 vi.mock('../lib/diferido', () => ({ senalDeTope: vi.fn(() => ({})) }));
-vi.mock('../lib/conversacionesLaboratorio', () => ({ useConversacionesLaboratorio: () => ({ estado: 'pausada', turnos: [] }) }));
-vi.mock('./ConversacionesLaboratorio', () => ({ ConversacionesLaboratorio: () => null }));
+vi.mock('../lib/conversacionesLaboratorio', () => ({ useConversacionesLaboratorio: vi.fn() }));
+vi.mock('./ConversacionesLaboratorio', () => ({ ConversacionesLaboratorio: ({ activo, onCambiar }: { activo: boolean; onCambiar: (activo: boolean) => void }) =>
+  <input type="checkbox" aria-label="Conversaciones de IA" checked={activo} onChange={e => onCambiar(e.target.checked)} /> }));
 vi.mock('./labvivo/motor', () => ({ ANCHO: 1064, ALTO: 1416, montarLaboratorio: vi.fn(() => ({ actualizar: vi.fn(), conversar: vi.fn(), desmontar: vi.fn() })) }));
 
 let nodo: HTMLDivElement, root: Root;
 beforeEach(() => {
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   vi.clearAllMocks();
+  vi.mocked(useConversacionesLaboratorio).mockReset().mockReturnValue({ estado: 'pausada', turnos: [] });
   vi.mocked(senalDeTope).mockReset().mockReturnValue({});
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })));
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
@@ -320,4 +323,40 @@ it('rechaza una versión malformada y la recuperación puede cargar una cadena v
     .mockResolvedValue(devolverCadena(cadena(f, 9)) as Response);
   await pintar(f); expect(ultimoDato().afirmaciones).toBeNull();
   await avanzar(10000); expect(ultimoDato().afirmaciones).toHaveLength(1);
+});
+
+it.each(['sin_conexion', 'pausada', 'modal'] as const)('conserva los pendientes al pausar temporalmente por %s y recupera la voz', async causa => {
+  const f = enLinea(), turnos: TurnoLaboratorio[] = [{ id: 'voz-real', temaId: 'tema-real', iteracionId: f.iteracion.id, idioma: 'es',
+    agente: 'Juez', destinatario: 'Señalizador de sesgo', texto: 'Voy a mirar esa comparación.', fecha: Date.now(), modelo: 'prueba', materiales: [] }];
+  vi.mocked(useConversacionesLaboratorio).mockReturnValue({ estado: 'conversando', turnos });
+  await pintar(f);
+  const lab = vi.mocked(montarLaboratorio).mock.results[0]!.value;
+  expect(lab.conversar).toHaveBeenLastCalledWith(turnos, true, true);
+  if (causa === 'sin_conexion') f.estado = { ...f.estado, conexion: 'sin_conexion' };
+  else if (causa === 'pausada') f.corrida = { ...f.corrida, estado: 'pausada' };
+  else await act(async () => respuestas().estadoPeticion?.(true));
+  await pintar(f);
+  expect(lab.conversar).toHaveBeenLastCalledWith(turnos, false, true);
+  if (causa === 'sin_conexion') f.estado = { ...f.estado, conexion: 'en_linea' };
+  else if (causa === 'pausada') f.corrida = { ...f.corrida, estado: 'en_marcha' };
+  else await act(async () => respuestas().estadoPeticion?.(false));
+  await pintar(f);
+  expect(lab.conversar).toHaveBeenLastCalledWith(turnos, true, true);
+  expect(montarLaboratorio).toHaveBeenCalledTimes(1);
+});
+
+it('el apagado manual descarta pendientes aunque ya haya una pausa temporal', async () => {
+  const f = enLinea(); await pintar(f);
+  const lab = vi.mocked(montarLaboratorio).mock.results[0]!.value;
+  await act(async () => respuestas().estadoPeticion?.(true));
+  expect(lab.conversar).toHaveBeenLastCalledWith([], false, true);
+  const llamadasAntes = vi.mocked(lab.conversar).mock.calls.length;
+  const control = nodo.querySelector<HTMLInputElement>('input[aria-label="Conversaciones de IA"]')!;
+  await act(async () => control.click());
+  expect(lab.conversar).toHaveBeenLastCalledWith([], false, false);
+  expect(vi.mocked(lab.conversar).mock.calls.length).toBe(llamadasAntes + 1);
+  await act(async () => respuestas().estadoPeticion?.(false));
+  expect(lab.conversar).toHaveBeenLastCalledWith([], false, false);
+  await act(async () => control.click());
+  expect(lab.conversar).toHaveBeenLastCalledWith([], true, true);
 });

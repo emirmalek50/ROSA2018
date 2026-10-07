@@ -59,7 +59,7 @@ export interface Respuestas {
 
 export interface Laboratorio {
   actualizar: (d: DatosLab) => void;
-  conversar: (turnos: TurnoLaboratorio[], habilitada?: boolean) => void;
+  conversar: (turnos: TurnoLaboratorio[], habilitada?: boolean, conservarPendientes?: boolean) => void;
   desmontar: () => void;
 }
 
@@ -680,6 +680,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   const pelicula = new ColaPelicula();
   const cadencia = new CadenciaDialogos();
   const dialogos: TurnoLaboratorio[] = [], dialogosVistos = new Set<string>();
+  let conservarDialogosEnPausa = false, vocesHabilitadas = true;
   // Comentar durante una entrega no toma el control de la caminata ni del objeto.
   const dialogosEnPelicula = new Map<string, { agentes: Agente[]; hasta: number }>();
   const ultimaCharla = new Map<string, TurnoLaboratorio>();
@@ -1154,6 +1155,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (!puedeEmitirDialogo()) return;
     for (let i = 0; i < dialogos.length; i++) {
       const t = dialogos[i]!;
+      if (!turnoVigente(t, D)) { dialogos.splice(i--, 1); continue; }
       if (t.tipoConversacion !== 'actividad') continue;
       if (dialogos.slice(0, i).some(anterior => anterior.temaId === t.temaId)) continue;
       const a = AG.find(p => p.name === t.agente), b = AG.find(p => p.name === t.destinatario);
@@ -1175,6 +1177,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     }
   }
   function mantenerDialogos() {
+    if (!vocesHabilitadas) return;
     comentarPelicula();
     const charlas = new Set([...escenas.values()].filter((e) => e.temaId));
     // Cada pareja tiene su propio reloj y su propia cola de respuestas.
@@ -2194,9 +2197,10 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   raf = requestAnimationFrame(frame);
 
   return {
-    conversar(turnos: TurnoLaboratorio[], habilitada = true) {
+    conversar(turnos: TurnoLaboratorio[], habilitada = true, conservarPendientes = false) {
+      vocesHabilitadas = habilitada; conservarDialogosEnPausa = conservarPendientes;
       if (!habilitada) {
-        dialogos.length = 0;
+        if (!conservarPendientes) dialogos.length = 0;
         cadencia.limpiar();
         dialogosEnPelicula.clear();
         [...escenas.entries()].filter(([, e]) => e.temaId).forEach(([a]) => cancelarEscena(a));
@@ -2205,6 +2209,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
           a.reaccion = undefined; delete a.el.dataset.emocion; delete a.el.dataset.gesto;
         });
       }
+      if (!habilitada && conservarPendientes) return;
       for (const t of turnos) {
         if (!turnoVigente(t, D) || dialogosVistos.has(t.id)) continue;
         dialogosVistos.add(t.id); ultimaCharla.set(t.agente, t);
@@ -2230,7 +2235,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       const detener = !vozDisponible(d);
       if (cambio || (detener && (antes.trabajando || antes.conexion !== d.conexion))) pararActividad();
       if (cambio) { dialogos.length = 0; dialogosVistos.clear(); ultimaCharla.clear(); }
-      if (!vozDisponible(d)) dialogos.length = 0;
+      if (!vozDisponible(d) && !conservarDialogosEnPausa) dialogos.length = 0;
       pintarSalas(); pintarMarcas(); pintarChips();
       if (pidiendo && (!d.pide || d.pide.id !== pidiendo)) cerrarPeticion();
       if (pidiendo && !enviando && (JSON.stringify(antes.pide) !== JSON.stringify(d.pide) || JSON.stringify(antes.pasos.lista) !== JSON.stringify(d.pasos.lista))) cerrarPeticion();
