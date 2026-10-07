@@ -15,8 +15,8 @@ export interface TurnoLaboratorio {
   agente: string; destinatario: string; texto: string; fecha: number;
   modelo: string; materiales: MaterialCharla[];
 }
-export type EstadoCharla = 'cargando' | 'conversando' | 'esperando_hallazgos' | 'pausada' | 'sin_presupuesto' | 'no_disponible';
-interface Respuesta { estado: EstadoCharla; turnos: TurnoLaboratorio[] }
+export type EstadoCharla = 'cargando' | 'conversando' | 'esperando_hallazgos' | 'pausada' | 'sin_presupuesto' | 'no_disponible' | 'actualizando';
+interface Respuesta { estado: EstadoCharla; turnos: TurnoLaboratorio[]; estilo?: string }
 
 export function useConversacionesLaboratorio(corridaId: string, iteracionId: string | null, idioma: Idioma, disponible: boolean, activo: boolean): Respuesta {
   const cliente = useRef<string>();
@@ -25,7 +25,7 @@ export function useConversacionesLaboratorio(corridaId: string, iteracionId: str
   const [datos, setDatos] = useState<Respuesta & { clave: object }>({ estado: 'cargando', turnos: [], clave });
   useEffect(() => {
     if (!disponible || !iteracionId) return;
-    let vivo = true, timer: ReturnType<typeof setTimeout> | null = null;
+    let vivo = true, compatible = false, timer: ReturnType<typeof setTimeout> | null = null;
     const url = `/api/corridas/${encodeURIComponent(corridaId)}/laboratorio/conversaciones`;
     let peticion: AbortController | null = null;
     const cuerpo = (habilitado: boolean) => JSON.stringify({ iteracionId, idioma, cliente: cliente.current, activo: habilitado });
@@ -33,20 +33,28 @@ export function useConversacionesLaboratorio(corridaId: string, iteracionId: str
       if (peticion || !vivo) return;
       const abortar = new AbortController(); peticion = abortar;
       const tope = setTimeout(() => abortar.abort(), 12000);
+      let espera = activo ? 2000 : 10000;
       try {
-        const r = await fetch(url, { method: 'POST', headers: cabeceras(), body: cuerpo(activo && !document.hidden), signal: abortar.signal });
+        // Comprobar primero la versión sin encargar voz antigua que no se verá.
+        const r = await fetch(url, { method: 'POST', headers: cabeceras(), body: cuerpo(activo && compatible && !document.hidden), signal: abortar.signal });
         if (!r.ok) throw new Error('No disponible');
         const d: Respuesta = await r.json();
         if (!Array.isArray(d.turnos)) throw new Error('Respuesta inválida');
         // No reproducir la voz anterior mientras el servidor termina una corrida
         // y carga la nueva versión. La procedencia del diálogo admitido se conserva.
-        if (vivo) setDatos({ ...d, turnos: d.turnos.filter((t) => t.estilo === ESTILO_LABORATORIO), clave });
+        const turnos = d.turnos.filter((t) => t.estilo === ESTILO_LABORATORIO);
+        const anterior = compatible;
+        compatible = d.estilo === ESTILO_LABORATORIO || turnos.length > 0;
+        const estado = activo && !compatible ? 'actualizando' : d.estado;
+        if (compatible && !anterior && activo) espera = 0;
+        else if (estado === 'conversando' && activo) espera = 1000;
+        if (vivo) setDatos({ estado, turnos, clave });
       } catch {
         if (vivo) setDatos((anterior) => ({ estado: 'no_disponible', turnos: anterior.clave === clave ? anterior.turnos : [], clave }));
       } finally {
         peticion = null;
         clearTimeout(tope);
-        if (vivo && !document.hidden) timer = setTimeout(() => void visitar(), 4000);
+        if (vivo && !document.hidden) timer = setTimeout(() => void visitar(), espera);
       }
     };
     const visibilidad = () => {

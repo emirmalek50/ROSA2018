@@ -84,7 +84,7 @@ async def test_no_recicla_informes_guardados_con_la_voz_anterior(almacen):
     assert s.leer(clave) == []
     s.tocar(clave, "persona", True)
     await s.tareas[clave]
-    assert len(s.leer(clave)) == 6
+    assert len(s.leer(clave)) == 9
     assert all(t["estilo"] == ESTILO for t in s.leer(clave))
     assert almacen.estado["corridas"][0]["_conversacionesLaboratorio"][0] == antiguo
     await s.cerrar()
@@ -114,7 +114,7 @@ async def test_respuestas_independientes_leen_al_companero_y_se_comparten(almace
     assert autores[1][2]["historial"][-1]["texto"] == textos[0]
     assert autores[2][2]["historial"][-1]["texto"] == textos[1]
     assert all(t["materiales"][0]["cita"] == "PMID:123, p. 4" for t in turnos)
-    assert len(llamadas) == 12
+    assert len(llamadas) == 18
     assert all(m == gateway.JUEZ for m, _, c in llamadas if c["tipoConversacion"] == "actividad")
     despues = copy.deepcopy(almacen.estado)
     despues["corridas"][0].pop("_conversacionesLaboratorio")
@@ -151,8 +151,8 @@ async def test_otros_companeros_conversan_en_paralelo_sin_apropiarse_de_la_tarea
     async def llamar(modelo, reglas, contenido, tema):
         if reglas == REGLAS_JUEZ:
             return {"admisible": True}
-        llegaron.add(contenido["tipoConversacion"])
-        if len(llegaron) == 2:
+        llegaron.add(contenido["huella"])
+        if len(llegaron) == 3:
             ambos.set()
         await asyncio.wait_for(ambos.wait(), 2)
         return {"texto": "Me intriga lo que leyeron sobre tau en ratones. Quiero mirarlo mejor.", "referencias": ["af:a"]}
@@ -162,7 +162,8 @@ async def test_otros_companeros_conversan_en_paralelo_sin_apropiarse_de_la_tarea
     await s.tareas[clave]
     principal = [t for t in s.leer(clave) if t["tipoConversacion"] == "actividad"]
     espera = [t for t in s.leer(clave) if t["tipoConversacion"] == "companeros"]
-    assert len(principal) == len(espera) == 3
+    assert len(principal) == 3 and len(espera) == 6
+    assert len({t['salaConversacion'] for t in espera}) == 2
     assert {t["temaId"] for t in principal}.isdisjoint(t["temaId"] for t in espera)
     assert {t["agente"] for t in principal}.isdisjoint(t["agente"] for t in espera)
     assert {t["hallazgoId"] for t in principal + espera} == {tema_de(almacen.estado, "c", "it")["huella"]}
@@ -216,6 +217,121 @@ async def test_un_solo_intercambio_si_el_presupuesto_no_alcanza_para_dos(almacen
     await s.tareas[clave]
     assert llamadas == ["actividad"] * 6
     assert almacen.estado["iteraciones"][0]["presupuesto"]["reservaCierre"] == 10
+    await s.cerrar()
+
+
+@pytest.mark.asyncio
+async def test_nueva_tanda_a_los_cuatro_segundos_sin_duplicar_una_en_curso(almacen, monkeypatch):
+    ahora = 0.0
+    monkeypatch.setattr('rosa.laboratorio_conversaciones.time.monotonic', lambda: ahora)
+    async def llamar(modelo, reglas, contenido, tema):
+        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Me intriga lo que leyeron sobre tau en ratones. Quiero mirarlo mejor.", "referencias": ["af:a"]}
+    s = Conversaciones(almacen, llamar)
+    clave = ("c", "it", "es")
+    s.tocar(clave, "persona", True)
+    primera = s.tareas[clave]
+    s.tocar(clave, "otra-persona", True)
+    assert s.tareas[clave] is primera
+    await primera
+    assert len(s.leer(clave)) == 9
+    ahora = 3.9
+    s.tocar(clave, "persona", True)
+    assert s.tareas[clave] is primera
+    ahora = 4.0
+    s.tocar(clave, "persona", True)
+    assert s.tareas[clave] is not primera
+    await s.tareas[clave]
+    assert len(s.leer(clave)) == 18
+    await s.cerrar()
+
+
+@pytest.mark.asyncio
+async def test_publica_primeros_comentarios_sin_esperar_las_respuestas(almacen):
+    respuestas = asyncio.Event()
+    esperando = asyncio.Event()
+    async def llamar(modelo, reglas, contenido, tema):
+        if contenido['turno'] == 2:
+            esperando.set()
+            await respuestas.wait()
+        return {"admisible": True} if reglas == REGLAS_JUEZ else {"texto": "Me intriga lo que leyeron sobre tau en ratones. Quiero mirarlo mejor.", "referencias": ["af:a"]}
+    s = Conversaciones(almacen, llamar)
+    clave = ("c", "it", "es")
+    s.tocar(clave, "persona", True)
+    await asyncio.wait_for(esperando.wait(), 2)
+    # Las tres parejas publican antes de que ninguna haya terminado de responder.
+    for _ in range(100):
+        if len(s.leer(clave)) == 3:
+            break
+        await asyncio.sleep(0.01)
+    assert len(s.leer(clave)) == 3
+    assert not s.tareas[clave].done()
+    assert s.tocar(clave, 'persona', True)['estado'] == 'conversando'
+    respuestas.set()
+    await s.tareas[clave]
+    assert len(s.leer(clave)) == 9
+    await s.cerrar()
+
+
+def test_dos_parejas_si_caben_doce_llamadas_fuera_de_la_reserva(almacen):
+    almacen.estado['iteraciones'][0]['presupuesto']['limite'] = 22
+    s = Conversaciones(almacen)
+    assert len(s._temas(('c', 'it', 'es'), tema_de(almacen.estado, 'c', 'it'))) == 2
+
+
+@pytest.mark.asyncio
+async def test_acorta_un_borrador_largo_con_ia_y_lo_audita_antes_de_publicar(almacen):
+    acortados, revisados = [], []
+    async def llamar(modelo, reglas, contenido, tema):
+        if reglas == REGLAS_JUEZ:
+            revisados.append(contenido['intervencion']['texto'])
+            return {'admisible': True}
+        if contenido.get('correccion'):
+            acortados.append((modelo, contenido['borrador']))
+            return {'texto': 'Me intriga lo de tau en ratones, aunque esa asociación no implica causalidad.', 'referencias': ['af:a']}
+        return {'texto': 'Me intriga lo de tau en ratones. ' + 'Quiero mirar sus límites con más cuidado. ' * 7, 'referencias': ['af:a']}
+    s = Conversaciones(almacen, llamar)
+    clave = ('c', 'it', 'es')
+    s.tocar(clave, 'persona', True)
+    await s.tareas[clave]
+    assert len(s.leer(clave)) == len(acortados) == len(revisados) == 9
+    assert all(t['texto'] in revisados and len(t['texto']) <= 220 for t in s.leer(clave))
+    assert all(b['referencias'] == ['af:a'] for _, b in acortados)
+    await s.cerrar()
+
+
+@pytest.mark.asyncio
+async def test_borrador_aun_largo_no_se_trunca_ni_se_reintenta_sin_limite(almacen):
+    llamadas = []
+    async def llamar(modelo, reglas, contenido, tema):
+        llamadas.append(contenido)
+        assert reglas != REGLAS_JUEZ
+        return {'texto': 'Me intriga lo de tau en ratones. ' * 10, 'referencias': ['af:a']}
+    s = Conversaciones(almacen, llamar)
+    clave = ('c', 'it', 'es')
+    s.tocar(clave, 'persona', True)
+    await s.tareas[clave]
+    assert len(llamadas) == 6  # Primer borrador y una reparación por cada pareja.
+    assert not s.leer(clave)
+    await s.cerrar()
+
+
+@pytest.mark.asyncio
+async def test_corrige_el_matiz_rechazado_y_vuelve_a_auditar_sin_publicar_el_borrador(almacen):
+    revisiones = []
+    async def llamar(modelo, reglas, contenido, tema):
+        if reglas == REGLAS_JUEZ:
+            revisiones.append(contenido['intervencion']['texto'])
+            return {'admisible': bool(contenido.get('correccion')), 'motivo': 'Es una asociación en ratones, no un efecto probado en humanos.'}
+        if contenido.get('correccion'):
+            assert 'ratones' in contenido['revisionAnterior']
+            return {'texto': 'Me intriga la asociación con tau en ratones, pero no la daría por causal.', 'referencias': ['af:a']}
+        return {'texto': 'Yo veo una reducción de tau en humanos que me llama la atención.', 'referencias': ['af:a']}
+    s = Conversaciones(almacen, llamar)
+    clave = ('c', 'it', 'es')
+    s.tocar(clave, 'persona', True)
+    await s.tareas[clave]
+    assert len(revisiones) == 18 and len(s.leer(clave)) == 9
+    assert all('ratones' in t['texto'] and 'humanos' not in t['texto'] for t in s.leer(clave))
     await s.cerrar()
 
 

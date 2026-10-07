@@ -206,6 +206,19 @@ describe('el motor del laboratorio sigue al servidor', () => {
     expect(d.activos).toEqual(['Generador de consultas']);
     expect(resp.conceder).not.toHaveBeenCalled(); expect(resp.aprobarPlan).not.toHaveBeenCalled();
   });
+  it('muestra el primer comentario al recibirlo, mientras se acercan los compañeros', async () => {
+    const d = datos(); montar(d);
+    const t: TurnoLaboratorio = { id: 'inmediata', temaId: 'tema', iteracionId: d.identidad.split('/')[1]!, idioma: 'es', tipoConversacion: 'companeros',
+      agente: 'Planificador', destinatario: 'Proponente de experimento', texto: 'Me intriga lo que leyeron sobre MAPT. ¿Tú cómo lo ves?', fecha: Date.now(), modelo: 'prueba', materiales: [] };
+    const a = nodo.querySelector<HTMLElement>('[data-agente="Planificador"]')!;
+    motor!.conversar([t]);
+    await avanzar(1);
+    expect(nodo.querySelector('.lv-bub[data-turno="inmediata"]')?.textContent).toContain(t.texto);
+    const inicio = a.style.transform;
+    await avanzar(10);
+    expect(a.style.transform).not.toBe(inicio);
+    expect(nodo.querySelectorAll('.lv-ag.activo')).toHaveLength(1);
+  });
   it('conserva posiciones entre registros, cambios de tarea, conversaciones y permisos', async () => {
     const d = datos(); montar(d);
     const posiciones = () => new Map([...nodo.querySelectorAll<HTMLElement>('.lv-ag')].map((a) => {

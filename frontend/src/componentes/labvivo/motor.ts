@@ -578,6 +578,15 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     setEv(esc(t.texto));
     if (fichaDe === a && !ficha.hidden) showCard(a);
   }
+  function intervenir(charla: Escena, t: TurnoLaboratorio) {
+    const a = charla.agentes.find((p) => p.name === t.agente), b = charla.agentes.find((p) => p.name === t.destinatario);
+    if (!a || !b) return;
+    const dur = Math.max(7, Math.min(14, t.texto.length / 26));
+    mostrarDialogo(t, a, b, dur);
+    charla.hasta = simT + dur + 0.2; charla.esperarHasta = charla.hasta + 30;
+    a.carry = charla.trabajo && charla.listos ? 'card' : null; b.carry = null;
+    if (charla.trabajo && charla.listos) FLY.push({ kind: 'card', from: [a.x + 42, a.y + 44], to: [b.x + 6, b.y + 44], t0: simT, dur: 0.7, arc: 18 });
+  }
   function mantenerDialogos() {
     const charlas = new Set([...escenas.values()].filter((e) => e.temaId));
     // Cada pareja tiene su propio reloj y su propia cola de respuestas.
@@ -594,13 +603,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         continue;
       }
       const t = dialogos.splice(indice, 1)[0]!;
-      const a = charla.agentes.find((p) => p.name === t.agente), b = charla.agentes.find((p) => p.name === t.destinatario);
-      if (!a || !b) continue;
-      const dur = Math.max(7, Math.min(14, t.texto.length / 26));
-      mostrarDialogo(t, a, b, dur);
-      charla.hasta = simT + dur + 0.5; charla.esperarHasta = charla.hasta + 30;
-      a.carry = charla.trabajo ? 'card' : null; b.carry = null;
-      if (charla.trabajo) FLY.push({ kind: 'card', from: [a.x + 42, a.y + 44], to: [b.x + 6, b.y + 44], t0: simT, dur: 0.7, arc: 18 });
+      intervenir(charla, t);
     }
     // Hasta tres intercambios en salas distintas, sin robar un interlocutor
     // a otra conversación ni convertir a los compañeros en tareas activas.
@@ -615,6 +618,9 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       const nueva: Escena = { ctx, agentes: [a, b], trabajo: t.tipoConversacion !== 'companeros', temaId: t.temaId, listos: false };
       charlas.add(nueva);
       [a, b].forEach((p) => { escenas.set(p, nueva); p.ictx = ctx; p.busy = true; p.el.dataset.escena = nueva.trabajo ? 'conversacion' : 'conversacion_espera'; });
+      // El primer comentario llega antes de la caminata; las respuestas mantienen su orden.
+      dialogos.splice(i--, 1);
+      intervenir(nueva, t);
       const [rx, , rw] = GEOM[a.room], x = Math.max(rx + 12, Math.min(rx + rw - 122, (a.hx + b.hx) / 2 - 30)), y = pasillo(a);
       spawn((async () => {
         await Promise.all([desplazarse(ctx, a, x, y), desplazarse(ctx, b, x + 60, y)]);

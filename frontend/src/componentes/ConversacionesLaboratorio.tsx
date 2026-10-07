@@ -7,6 +7,7 @@ const ESTADO: Record<EstadoCharla, string> = {
   cargando: 'Conectando las conversaciones', conversando: 'Preparando el siguiente intercambio',
   esperando_hallazgos: 'Esperan nuevos hallazgos', pausada: 'Conversaciones en pausa',
   sin_presupuesto: 'Presupuesto reservado para la investigación', no_disponible: 'Las conversaciones no están disponibles',
+  actualizando: 'Las conversaciones nuevas se activarán al terminar la corrida en curso',
 };
 export function ConversacionesLaboratorio({ estado, turnos, activo, onCambiar }: { estado: EstadoCharla; turnos: TurnoLaboratorio[]; activo: boolean; onCambiar: (activo: boolean) => void }) {
   return <section className="lab-charlas" aria-label={tr('Conversaciones del laboratorio')}>
@@ -15,7 +16,7 @@ export function ConversacionesLaboratorio({ estado, turnos, activo, onCambiar }:
       <label><input type="checkbox" checked={activo} onChange={(e) => onCambiar(e.target.checked)} />{tr('Conversaciones de IA')}</label>
     </div>
     <p className="lab-charlas-nota">{tr('Comentan los hallazgos reales y responden a sus compañeros. Sus interpretaciones no cambian los resultados de la investigación.')}</p>
-    {turnos.length === 0 ? <p className="lab-charlas-vacia">{tr('La próxima conversación aparecerá cuando haya un hallazgo que comentar.')}</p> : <ol>
+    {turnos.length === 0 ? estado !== 'actualizando' && <p className="lab-charlas-vacia">{tr('La próxima conversación aparecerá cuando haya un hallazgo que comentar.')}</p> : <ol>
       {turnos.slice(-12).map((t) => <li key={t.id} data-turno={t.id}>
         <div className="lab-charlas-quien"><strong>{tr(t.agente)}</strong><span>→ {tr(t.destinatario)}</span></div>
         <p>{t.texto}</p>

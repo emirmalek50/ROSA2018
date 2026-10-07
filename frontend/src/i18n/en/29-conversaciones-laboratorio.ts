@@ -4,6 +4,7 @@ export const CONVERSACIONES_LABORATORIO: Record<string, string> = {
   'Conversaciones de IA': 'AI conversations',
   'Conectando las conversaciones': 'Connecting conversations',
   'Preparando el siguiente intercambio': 'Preparing the next exchange',
+  'Las conversaciones nuevas se activarán al terminar la corrida en curso': 'The updated conversations will become available when the current run ends',
   'Esperan nuevos hallazgos': 'Waiting for new findings',
   'Conversaciones en pausa': 'Conversations paused',
   'Presupuesto reservado para la investigación': 'Budget reserved for the research',
