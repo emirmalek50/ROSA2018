@@ -16,6 +16,21 @@ function caso(tipo = 'literatura', transcripcion: EntradaTranscripcion[] = [{ t:
 }
 
 describe('el laboratorio recibe la corrida canónica', () => {
+  it('los especialistas de patentes y compañías siguen actividad real independiente en la sala de revisión', () => {
+    const f = caso('novedad', [
+      { t: 1, tipo: 'accion', texto: 'Revisando el tratamiento TREM2', agente: 'patentes', estadoAgente: 'en_curso' },
+      { t: 2, tipo: 'accion', texto: 'Contrastando programas sobre TREM2', agente: 'companias', estadoAgente: 'en_curso' },
+      { t: 3, tipo: 'resultado', texto: 'Informe de patentes guardado', agente: 'patentes', estadoAgente: 'terminado' },
+    ]);
+    f.i.pistas[0]!.tipo = 'novedad';
+    const d = f.datos();
+    expect(d.actividad.map(a => [a.agente, a.sala])).toEqual([
+      ['Especialista en patentes', 'r4'], ['Especialista en compañías', 'r4'], ['Especialista en patentes', 'r4'],
+    ]);
+    expect(d.activos).toEqual(['Especialista en compañías']); expect(d.salas.r4).toBe('ahora');
+    f.i.pistas[0]!.transcripcion.push({ t: 4, tipo: 'error', texto: 'No pude comprobar el programa empresarial', agente: 'companias', estadoAgente: 'fallido' });
+    expect(f.datos().activos).toEqual([]);
+  });
   it.each(['empezando', 'Empezando...', 'Empezando…'])('una pista sin registro muestra su tarea real en vez de «%s»', (resumen) => {
     const f = caso('literatura', []);
     f.i.pistas[0]!.resumen = resumen;

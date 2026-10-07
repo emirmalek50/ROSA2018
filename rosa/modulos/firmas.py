@@ -1500,6 +1500,14 @@ class Programas:
         self.viabilidad = dspy.ChainOfThought(JuzgarViabilidad)
         self.nombre_corto = dspy.Predict(NombreCortoHipotesis)
         self.experimento = dspy.ChainOfThought(ProponerExperimento)
+        # Dos especialistas usan el cerebro configurado, con auditoría separada
+        # del juez. No delegan juicio científico/jurídico al modelo de volumen.
+        from rosa.agentes_tratamiento import AuditarTratamiento, DefinirTratamiento, InvestigarCompanias, InvestigarPatentes
+
+        self.perfil_tratamiento = dspy.ChainOfThought(DefinirTratamiento)
+        self.patentes_tratamiento = dspy.ChainOfThought(InvestigarPatentes)
+        self.companias_tratamiento = dspy.ChainOfThought(InvestigarCompanias)
+        self.auditar_tratamiento = dspy.ChainOfThought(AuditarTratamiento)
         self.concluir = dspy.ChainOfThought(ConcluirHipotesis)
         self.asignar_evidencia = dspy.Predict(AsignarEvidencia)
         self.evaluar_resultado = dspy.ChainOfThought(EvaluarResultado)

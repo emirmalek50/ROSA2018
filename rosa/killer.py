@@ -346,9 +346,19 @@ def huella_evidencia(h: dict[str, Any]) -> str:
     procedencia = h.get("procedencia") if isinstance(h.get("procedencia"), dict) else {}
     fuentes = sorted(str(f.get("id") or f.get("referencia") or "") for f in (procedencia.get("fuentes") or []) if isinstance(f, dict))
     supuestos = sorted((str(x.get("texto") or ""), str(x.get("estado") or "")) for x in (h.get("supuestos") or []) if isinstance(x, dict))
-    novedad = h.get("novedad") if isinstance(h.get("novedad"), dict) else {}
+    novedad: dict[str, Any] = h.get("novedad") or {} if isinstance(h.get("novedad"), dict) else {}
     estado_novedad = {k: str((novedad.get(k) or {}).get("estado") if isinstance(novedad.get(k), dict) else novedad.get(k)) for k in ("precedente", "patentes", "financiacion")}
+    if "companias" in novedad:
+        estado_novedad["companias"] = str((novedad.get("companias") or {}).get("estado"))
     carga = {"afirmaciones": afirmaciones, "fuentes": fuentes, "version": h.get("version", 1), "supuestos": supuestos, "novedad": estado_novedad}
+    revision = h.get("revisionTratamiento")
+    if isinstance(revision, dict):
+        # La evidencia comprobada cambia el dossier, pero volver a consultar lo
+        # mismo no obliga a reconcluir por una fecha o intento distinto.
+        carga["tratamiento"] = {"version": revision.get("version"), "huella": revision.get("huella"),
+                                **{k: {"estado": (revision.get(k) or {}).get("estado"),
+                                       "hallazgos": sorted((revision.get(k) or {}).get("hallazgos") or [], key=lambda x: str(x.get("id")))}
+                                   for k in ("patentes", "companias")}}
     return hashlib.sha256(json.dumps(carga, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
 
 

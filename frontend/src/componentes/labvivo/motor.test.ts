@@ -42,6 +42,20 @@ beforeEach(() => {
 afterEach(async () => { motor?.desmontar(); nodo.remove(); await Promise.resolve(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('el motor del laboratorio sigue al servidor', () => {
+  it('ambos especialistas existen y reciben actividad sin recrear los personajes al actualizar', async () => {
+    const d = datos(), a = { ...d.actividad[0]!, agente: 'Especialista en patentes', sala: 'r4' as const, texto: 'Revisión de patentes del tratamiento' };
+    const actual = { ...d, foco: 'r4' as const, salas: { ...d.salas, r4: 'ahora' as const }, activos: ['Especialista en patentes'], actividad: [a] };
+    montar(actual); await avanzar(10);
+    const patentes = nodo.querySelector<HTMLElement>('[data-agente="Especialista en patentes"]')!;
+    const companias = nodo.querySelector<HTMLElement>('[data-agente="Especialista en compañías"]')!;
+    expect(patentes).not.toBeNull(); expect(companias).not.toBeNull();
+    expect(patentes.classList.contains('activo')).toBe(true);
+    motor!.actualizar({ ...actual, activos: ['Especialista en compañías'], actividad: [{ ...a, id: 'companias-real', agente: 'Especialista en compañías' }] });
+    expect(nodo.querySelector('[data-agente="Especialista en patentes"]')).toBe(patentes);
+    expect(nodo.querySelector('[data-agente="Especialista en compañías"]')).toBe(companias);
+    expect(patentes.classList.contains('activo')).toBe(false); expect(companias.classList.contains('activo')).toBe(true);
+    expect(nodo.querySelectorAll('.lv-bub')).toHaveLength(0);
+  });
   it('la voz sigue el registro y el tiempo visual no ejecuta capítulos nuevos', async () => {
     montar(); ticks(400); await Promise.resolve();
     expect(nodo.querySelectorAll('.lv-ag.activo')).toHaveLength(1);

@@ -94,6 +94,19 @@ def test_cada_companero_tiene_una_voz_estable_y_distinta():
     assert len({personalidad_de(p) for p in personas}) == len(personas)
 
 
+@pytest.mark.parametrize("tag,nombre", [("patentes", "Especialista en patentes"), ("companias", "Especialista en compañías")])
+def test_los_especialistas_comentan_su_propia_actividad_y_no_la_del_planificador(almacen, tag, nombre):
+    pista = almacen.estado["iteraciones"][0]["pistas"][0]
+    pista["tipo"] = "novedad"
+    pista["titulo"] = "Revisión del tratamiento"
+    pista["transcripcion"] = [{"t": 1500, "tipo": "resultado", "texto": "Una coincidencia parcial requiere comparar el tratamiento concreto.", "agente": tag, "estadoAgente": "terminado"}]
+    tema = tema_de(almacen.estado, "c", "it")
+    assert tema["participantes"][0] == nombre
+    assert tema["materiales"][0]["agente"] == nombre
+    assert modelo_de(nombre) == gateway.CEREBRO
+    assert nombre in COMPANEROS["revision"]
+
+
 @pytest.mark.asyncio
 async def test_asentimiento_breve_pasa_por_el_juez_y_escucha_al_companero(almacen):
     llamadas = []

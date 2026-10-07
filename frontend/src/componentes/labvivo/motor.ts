@@ -133,17 +133,19 @@ Planificador de análisis|Planificador de análisis|596|770|#B79CF2|rizos|4|1|1|
 Programador y Reparador|Programador y Reparador|680|770|#B79CF2|largo|1|4|0||66|0|Escribe el código del análisis y lo arregla si falla.
 Intérprete|Intérprete|764|770|#E3A57C|melena|3|0|4|g|66|0|Explica qué significa el resultado.
 Auditor del análisis|Auditor del análisis|848|770|#E3A57C|afro|0|3|3||66|0|Revisa que el análisis esté bien hecho.
-Killer|Killer|18|672|#E3A57C|flequillo|2|6|2||66|0|Intenta tumbar cada idea antes de gastar en ella.
-Revisor inicial|Revisor inicial|102|672|#E3A57C|rapado|4|2|1|gb|66|0|Primer filtro: aparta las ideas que no cumplen lo básico.
-Evaluador de supuestos|Evaluador de supuestos|186|672|#7CC7E8|mono|1|5|0||66|0|Saca a la luz lo que cada idea da por hecho.
-Juez del torneo|Juez del torneo ×2|270|672|#E3A57C|corto|0|4|3|b|66|0|Enfrenta ideas de dos en dos y elige la mejor.
-Juez del torneo B|Juez del torneo|306|666|#E3A57C|corto|0|4|3|b|66|0|Enfrenta ideas de dos en dos y elige la mejor.
-Juez de viabilidad|Juez de viabilidad|354|672|#E3A57C|rizos|2|0|2||66|0|Decide si la idea se puede probar con lo que hay.
-Auditor de descartes|Auditor de descartes|18|792|#B79CF2|largo|4|3|1||66|0|Revisa que no se haya tirado una buena idea.
-Concluidor|Concluidor|102|792|#E3A57C|melena|1|6|0||66|0|Cierra cada idea con una conclusión.
-Evaluador de resultado|Evaluador de resultado|186|792|#E3A57C|afro|3|2|4|g|66|0|Juzga si el resultado responde a la pregunta.
-Tarjeta y Nombre corto|Tarjeta y Nombre corto|270|792|#7CC7E8|flequillo|0|5|3||66|0|Pone a cada idea una tarjeta y un nombre corto.
-Resumen en llano|Resumen en llano|354|792|#B79CF2|rapado|2|1|2|b|66|0|Resume cada idea en palabras sencillas.
+Killer|Killer|10|672|#E3A57C|flequillo|2|6|2||66|0|Intenta tumbar cada idea antes de gastar en ella.
+Revisor inicial|Revisor inicial|80|672|#E3A57C|rapado|4|2|1|gb|66|0|Primer filtro: aparta las ideas que no cumplen lo básico.
+Evaluador de supuestos|Evaluador de supuestos|150|672|#7CC7E8|mono|1|5|0||66|0|Saca a la luz lo que cada idea da por hecho.
+Juez del torneo|Juez del torneo ×2|210|672|#E3A57C|corto|0|4|3|b|66|0|Enfrenta ideas de dos en dos y elige la mejor.
+Juez del torneo B|Juez del torneo|238|666|#E3A57C|corto|0|4|3|b|66|0|Enfrenta ideas de dos en dos y elige la mejor.
+Juez de viabilidad|Juez de viabilidad|298|672|#E3A57C|rizos|2|0|2||66|0|Decide si la idea se puede probar con lo que hay.
+Especialista en patentes|Especialista en patentes|368|672|#B79CF2|melena|3|1|2|g|66|0|Lee patentes relacionadas con el tratamiento y distingue lo reivindicado de una semejanza.
+Auditor de descartes|Auditor de descartes|10|792|#B79CF2|largo|4|3|1||66|0|Revisa que no se haya tirado una buena idea.
+Concluidor|Concluidor|80|792|#E3A57C|melena|1|6|0||66|0|Cierra cada idea con una conclusión.
+Evaluador de resultado|Evaluador de resultado|150|792|#E3A57C|afro|3|2|4|g|66|0|Juzga si el resultado responde a la pregunta.
+Tarjeta y Nombre corto|Tarjeta y Nombre corto|220|792|#7CC7E8|flequillo|0|5|3||66|0|Pone a cada idea una tarjeta y un nombre corto.
+Resumen en llano|Resumen en llano|290|792|#B79CF2|rapado|2|1|2|b|66|0|Resume cada idea en palabras sencillas.
+Especialista en compañías|Especialista en compañías|368|792|#B79CF2|corto|1|3|4|b|66|0|Contrasta quién está probando o ha probado el tratamiento con registros y documentos públicos.
 Revisor del registro|Revisor del registro|52|998|#E3A57C|mono|4|4|1||68|0|Repasa el registro de todo lo que pasó.
 Rehacedor|Rehacedor|204|998|#B79CF2|coleta|1|0|0||68|0|Rehace lo que salió mal.
 Revisor de la reparación|Revisor de la reparación|356|998|#E3A57C|corto|3|3|4|gb|68|0|Comprueba que lo rehecho quedó bien.
@@ -166,6 +168,7 @@ const NOMBRE_PROPIO: Record<string, string> = {
   'Programador y Reparador': 'Mei', Intérprete: 'Leila', 'Auditor del análisis': 'Oskar', Killer: 'Rocío',
   'Revisor inicial': 'Bayo', 'Evaluador de supuestos': 'Yuki', 'Juez del torneo': 'Pablo', 'Juez del torneo B': 'Pedro',
   'Juez de viabilidad': 'Inés', 'Auditor de descartes': 'Nia', Concluidor: 'Carmen', 'Evaluador de resultado': 'Malik',
+  'Especialista en patentes': 'Sofía', 'Especialista en compañías': 'Damián',
   'Tarjeta y Nombre corto': 'Lars', 'Resumen en llano': 'Omar', 'Revisor del registro': 'Imani', Rehacedor: 'Julia',
   'Revisor de la reparación': 'Arjun', 'Meta-revisor': 'Emma', 'Revisor del arnés': 'Camila', Resumidor: 'Ada',
   'Auditor de GEPA': 'Bruno', 'Asistente del chat': 'Iván', Preguntador: 'Paula', Traductor: 'Aisha',

@@ -44,6 +44,7 @@ import dspy.clients.base_lm
 import pytest
 
 from rosa import conectores as CON
+from rosa import agentes_tratamiento as AT
 from rosa import lecciones as LEC
 from rosa import ontologias as ONTO
 from rosa import sesgo as SESGO
@@ -55,7 +56,7 @@ from rosa.bucle.pasos import Ctx
 from rosa.estado import plantilla as P
 from rosa.estado.almacen import Almacen
 from rosa.fuentes import base as FB
-from rosa.fuentes import clinicaltrials, crossref, europepmc, exa, openalex, opentargets, pdf, unpaywall
+from rosa.fuentes import clinicaltrials, crossref, europepmc, exa, openalex, opentargets, patentes_tratamiento, pdf, programas_clinicos, unpaywall
 from rosa.fuentes.base import FuenteNoDisponible
 from rosa.modulos import contador as CT
 from rosa.modulos.contador import ContextoLlamada, PresupuestoAgotado, contexto_actual
@@ -143,6 +144,26 @@ LOCALIZADORES_ESPERADOS = {"sección Results", "pág. 3", "pág. 4", "resumen", 
 TITULO_NUEVA = "La reactividad astrocitaria medida por GFAP precede al daño axonal medido por NfL"
 ENUNCIADO_HECHO = "En personas con amiloide positivo, el GFAP en plasma se altera antes que el NfL en cuatro cohortes independientes"
 
+# Intervención y documentos inventados exclusivamente para recorrer los dos
+# especialistas. No son datos científicos ni patentes o programas reales.
+TRATAMIENTO_FALSO = "ROSA-AB-001"
+PATENTE_TRATAMIENTO = {
+    "id": "patente-simulada-ab001", "titulo": "Patente simulada sobre ROSA-AB-001",
+    "url": "https://example.org/patentes/ab001", "fuente": "Registro de patentes simulado",
+    "texto": "La formulación experimental ROSA-AB-001 se propone para reducir la reactividad astrocitaria.",
+    "datos": {"patent_number": "TEST-AB001"},
+}
+ENSAYO_TRATAMIENTO = {
+    "nct": "NCT00000001", "url": "https://clinicaltrials.gov/study/NCT00000001",
+    "titulo": "Ensayo simulado de ROSA-AB-001 con biomarcadores GFAP y NfL",
+    "patrocinador": {"nombre": "Compañía simulada para el test", "clase": "INDUSTRY"},
+    "colaboradores": [], "estado": "TERMINATED", "hasResults": False,
+    "whyStopped": "Decisión empresarial, sin resultado de eficacia registrado",
+    "fases": ["PHASE2"], "condiciones": ["Alzheimer"],
+    "intervenciones": [{"nombre": TRATAMIENTO_FALSO, "tipo": "DRUG", "otrosNombres": [], "descripcion": "Intervención simulada"}],
+    "fechas": {"inicio": {"fecha": "2025-01-01", "tipo": "ACTUAL"}},
+}
+
 IDS_GFAP = {"simbolo": "GFAP", "nombre": "glial fibrillary acidic protein", "ensembl": "ENSG00000131095", "uniprot": "P14136", "entrez": "2670"}
 RESPUESTAS_CONECTORES: dict[str, Any] = {
     "mygene_gen": IDS_GFAP,
@@ -204,6 +225,14 @@ def _fuentes_falsas(mp: pytest.MonkeyPatch, registro: dict[str, list[Any]]) -> N
         registro["opentargets"].append(simbolo)
         return {"encontrado": True, "puntuacion": 0.42, "tipos": {"genetic_association": 0.3, "literature": 0.6}}
 
+    async def patentes_buscar(consultas: list[str], ingredientes: list[str]):
+        registro["patentes_tratamiento"].append((consultas, ingredientes))
+        return {"documentos": [copy.deepcopy(PATENTE_TRATAMIENTO)], "consultas": [{"fuente": "Registro simulado", "consulta": consultas[0], "url": "https://example.org/patentes", "total": 1, "recuperados": 1, "paginas": 1, "completa": True, "error": None}], "limitaciones": ["Fuente simulada; no es una revisión jurídica."], "costeUsd": 0.0}
+
+    async def programas_buscar(terminos: list[str]):
+        registro["programas_clinicos"].append(terminos)
+        return {"estudios": [copy.deepcopy(ENSAYO_TRATAMIENTO)], "consultas": [{"fuente": "ClinicalTrials.gov simulado", "consulta": terminos[0], "url": "https://clinicaltrials.gov/search", "total": 1, "recuperados": 1, "paginas": 1, "completa": True, "error": None}], "limitaciones": ["Registro simulado; no acredita eficacia."]}
+
     async def lecciones(*a: Any, **k: Any) -> str:
         return "Ninguna todavía."
 
@@ -223,6 +252,8 @@ def _fuentes_falsas(mp: pytest.MonkeyPatch, registro: dict[str, list[Any]]) -> N
     mp.setattr(openalex, "buscar", oa_buscar)
     mp.setattr(clinicaltrials, "buscar", ct_buscar)
     mp.setattr(opentargets, "asociacion_alzheimer", ot_asociacion)
+    mp.setattr(patentes_tratamiento, "buscar", patentes_buscar)
+    mp.setattr(programas_clinicos, "buscar", programas_buscar)
     mp.setattr(LEC, "para", lecciones)
     mp.setattr(ONTO, "normalizar", sin_ontologias)
     consultar = consultar_falso(RESPUESTAS_CONECTORES)
@@ -364,7 +395,34 @@ class Simulador:
             contexto_actual.reset(token)
 
 
-def _respuestas() -> dict[str, Any]:
+def _perfil_tratamiento(kw: dict[str, Any]) -> SimpleNamespace:
+    intervencion = TRATAMIENTO_FALSO in kw["propuesta"]
+    return SimpleNamespace(perfil=AT.PerfilTratamiento(
+        tipo="intervencion" if intervencion else "observacional",
+        nombre=TRATAMIENTO_FALSO if intervencion else "Orden temporal de GFAP y NfL",
+        ingredientes=[TRATAMIENTO_FALSO] if intervencion else [], dianas=["GFAP"],
+        modalidad="anticuerpo experimental" if intervencion else "cohorte longitudinal",
+        direccion="reducir reactividad astrocitaria" if intervencion else "sin intervención",
+        indicacion="Alzheimer", consultasPatentes=[TRATAMIENTO_FALSO] if intervencion else [],
+        consultasProgramas=[TRATAMIENTO_FALSO] if intervencion else [],
+    ))
+
+
+def _dictamen_tratamiento(tipo: str) -> SimpleNamespace:
+    return SimpleNamespace(dictamen=AT.DictamenTratamiento(hallazgos=[AT.HallazgoTratamiento(
+        id=PATENTE_TRATAMIENTO["id"] if tipo == "patentes" else ENSAYO_TRATAMIENTO["nct"],
+        relacion="mismo_tratamiento",
+        cita=PATENTE_TRATAMIENTO["texto"] if tipo == "patentes" else ENSAYO_TRATAMIENTO["titulo"],
+        explicacion="El documento simulado identifica esta intervención; no demuestra eficacia ni vigencia de una patente.",
+        diferencias=[],
+    )], limitaciones=["Solo se evaluaron documentos simulados para esta prueba."]))
+
+
+def _respuestas(tratamiento: bool = False) -> dict[str, Any]:
+    propuesta = _hipotesis_propuesta()
+    if tratamiento:
+        propuesta.hipotesis[0].intervencion = TRATAMIENTO_FALSO
+        propuesta.hipotesis[0].direccion = "disminuye"
     return {
         "consultas": SimpleNamespace(consultas=[Consulta(base="europepmc", consulta="GFAP AND NfL AND APOE4", tema="GFAP y NfL")]),
         "explorar": SimpleNamespace(consultas=[]),
@@ -373,7 +431,11 @@ def _respuestas() -> dict[str, Any]:
         "extraer": _extraer,
         "juzgar": _juzgar,
         "mundo": _mundo(),
-        "hipotesis": _hipotesis_propuesta(),
+        "hipotesis": propuesta,
+        "perfil_tratamiento": _perfil_tratamiento,
+        "patentes_tratamiento": lambda kw: _dictamen_tratamiento("patentes"),
+        "companias_tratamiento": lambda kw: _dictamen_tratamiento("companias"),
+        "auditar_tratamiento": lambda kw: _dictamen_tratamiento(kw["especialidad"]),
         "revisar_inicial": SimpleNamespace(revision=SimpleNamespace(pasa=True, resumen="Es específica y falsable; depende de que el GFAP refleje la reactividad astrocitaria.", supuestos=["Las plataformas de medida de GFAP y NfL son comparables entre cohortes"])),
         "evaluar_supuesto": SimpleNamespace(evaluacion=SimpleNamespace(estado="sin_evidencia", evidencia="ninguna", indices_que_lo_niegan=[])),
         "senalizacion": _senalizacion,
@@ -442,6 +504,14 @@ def _preparar_plan(al: Almacen, ids: dict[str, str], limite_corrida: int | None 
         # conclusión de una iteración anterior con su huella.
         h["novedad"]["precedente"] = {"estado": "sin_precedente", "detalle": "Sin precedente claro: 4 obras evaluadas de 27 que casan con «GFAP NfL APOE» en OpenAlex"}
         h["novedad"]["genetica"] = {"estado": "sin_vinculo", "detalle": "GFAP: sin asociaciones GWAS con Alzheimer"}
+        # La hipótesis previa ya fue revisada por ambos especialistas en ESTA
+        # corrida. Se guarda antes de calcular la conclusión anterior: conservar
+        # la evidencia idéntica sigue probándose, sin desactivar los agentes.
+        ctx = SimpleNamespace(corrida_id=ids["cor"], iteracion_id=ids["it"], modelos=_modelos())
+        perfil = AT.PerfilTratamiento(tipo="observacional", nombre="Orden temporal de GFAP y NfL").model_dump()
+        informes = {tipo: AT._informe(ctx, tipo, {}, None, no_aplica=True) for tipo in AT.NOMBRES}
+        h["revisionTratamiento"] = {"version": AT.VERSION, "huella": AT.huella(h), "fecha": ahora, "perfil": perfil, **informes}
+        h["novedad"]["companias"] = {"estado": informes["companias"]["estado"], "detalle": informes["companias"]["resumen"], "url": None}
         _conclusion_previa(h)
         return True
 
@@ -449,13 +519,13 @@ def _preparar_plan(al: Almacen, ids: dict[str, str], limite_corrida: int | None 
     return ahora
 
 
-def _arnes(mp: pytest.MonkeyPatch, limite_corrida: int | None = None) -> dict[str, Any]:
+def _arnes(mp: pytest.MonkeyPatch, limite_corrida: int | None = None, *, tratamiento: bool = False) -> dict[str, Any]:
     al, ids = _preparar()
     ahora = _preparar_plan(al, ids, limite_corrida)
-    registro: dict[str, list[Any]] = {k: [] for k in ("europepmc", "europepmc_texto", "crossref", "pdf", "exa", "exa_contenidos", "openalex", "clinicaltrials", "opentargets")}
+    registro: dict[str, list[Any]] = {k: [] for k in ("europepmc", "europepmc_texto", "crossref", "pdf", "exa", "exa_contenidos", "openalex", "clinicaltrials", "opentargets", "patentes_tratamiento", "programas_clinicos")}
     _fuentes_falsas(mp, registro)
     modelos = _modelos()
-    sim = Simulador(al, _respuestas(), modelos)
+    sim = Simulador(al, _respuestas(tratamiento), modelos)
 
     async def llamar(self: Ctx, rol: str, programa: str, **kw: Any) -> Any:
         return await sim.llamar(self, rol, programa, **kw)
@@ -524,6 +594,8 @@ def test_ningun_programa_real_se_llamo_sin_respuesta_simulada(corrida):
     assert sim.faltantes == [], f"programas llamados sin respuesta simulada: {sorted(set(sim.faltantes))}"
     llamados = {p for p, _ in sim.vistas}
     assert {"consultas", "relevancia", "extraer", "juzgar", "mundo", "hipotesis", "revisar_inicial", "evaluar_supuesto", "killer", "comparar", "resumir", "en_llano", "concluir", "revisar_registro", "meta", "asignar_evidencia", "explorar"} <= llamados, llamados
+    assert {"perfil_tratamiento", "patentes_tratamiento", "companias_tratamiento", "auditar_tratamiento"} <= vars(corrida["sup"].programas).keys()
+    assert "perfil_tratamiento" in llamados
 
 
 def test_nada_salio_a_la_red_y_las_fuentes_falsas_se_consultaron(corrida):
@@ -661,6 +733,55 @@ def test_el_torneo_juega_un_partido_con_huella_y_la_ganadora_sube_de_elo(corrida
 # ---------------------------------------------------------------------------
 # Novedad
 # ---------------------------------------------------------------------------
+
+
+def test_propuesta_observacional_revisada_sin_inventar_un_tratamiento(corrida):
+    previa, nueva = _hips(corrida)
+    revision = nueva["revisionTratamiento"]
+    assert revision["perfil"]["tipo"] == "observacional"
+    assert revision["huella"] == AT.huella(nueva)
+    assert revision["patentes"]["estado"] == revision["companias"]["estado"] == "no_aplica"
+    assert corrida["sim"].cuenta("perfil_tratamiento") == 1
+    assert all(corrida["sim"].cuenta(p) == 0 for p in ("patentes_tratamiento", "companias_tratamiento", "auditar_tratamiento"))
+    assert not corrida["registro"]["patentes_tratamiento"] and not corrida["registro"]["programas_clinicos"]
+    assert AT.pendiente(previa, corrida["ids"]["cor"], corrida["ids"]["it"]) is False
+    assert AT.pendiente(nueva, corrida["ids"]["cor"], corrida["ids"]["it"]) is False
+
+
+def test_intervencion_recorre_ambos_especialistas_y_el_juez_en_una_corrida_completa(monkeypatch):
+    """La variante con tratamiento consume las cinco llamadas reales del
+    protocolo, recupera ambas fuentes y conserva el gasto real del contador."""
+    r = _arnes(monkeypatch, tratamiento=True)
+    try:
+        asyncio.run(asyncio.wait_for(r["sup"].correr_corrida(r["ids"]["cor"]), timeout=120))
+        _, nueva = _hips(r)
+        revision = nueva["revisionTratamiento"]
+        assert _corrida(r)["estado"] == "terminada"
+        assert all(p["estado"] == "hecho" for p in _it(r)["plan"])
+        assert r["sim"].faltantes == []
+        assert revision["perfil"]["tipo"] == "intervencion" and revision["perfil"]["nombre"] == TRATAMIENTO_FALSO
+        for tipo, ident in (("patentes", PATENTE_TRATAMIENTO["id"]), ("companias", ENSAYO_TRATAMIENTO["nct"])):
+            informe = revision[tipo]
+            assert informe["estado"] == "coincidencias"
+            assert informe["hallazgos"][0]["id"] == ident
+            assert informe["hallazgos"][0]["relacion"] == "mismo_tratamiento"
+            assert informe["modelo"] == r["sup"].modelos.cerebro.model
+            assert informe["revisor"] == r["sup"].modelos.juez.model
+            assert informe["consultas"][0]["completa"] is True
+            assert informe["_intento"] == f"{r['ids']['cor']}:{r['ids']['it']}"
+        assert len(r["registro"]["patentes_tratamiento"]) == len(r["registro"]["programas_clinicos"]) == 1
+        assert r["sim"].cuenta("perfil_tratamiento") == 1
+        assert r["sim"].cuenta("patentes_tratamiento") == r["sim"].cuenta("companias_tratamiento") == 1
+        assert r["sim"].cuenta("auditar_tratamiento") == 2
+        assert {k["especialidad"] for k in r["sim"].kw("auditar_tratamiento")} == {"patentes", "companias"}
+        assert nueva["novedad"]["companias"]["url"] == ENSAYO_TRATAMIENTO["url"]
+        assert revision["companias"]["hallazgos"][0]["datos"]["whyStopped"] == ENSAYO_TRATAMIENTO["whyStopped"]
+        assert AT.pendiente(nueva, r["ids"]["cor"], r["ids"]["it"]) is False
+        n = len(r["sim"].vistas)
+        assert _corrida(r)["gasto"]["llamadas"] == _it(r)["presupuesto"]["usado"] == n
+        assert _corrida(r)["gasto"]["usdReal"] == pytest.approx(COSTE_GATEWAY * n, rel=1e-3)
+    finally:
+        r["al"].cerrar()
 
 
 def test_novedad_no_comprobado_cuando_openalex_devuelve_cero_obras(corrida):

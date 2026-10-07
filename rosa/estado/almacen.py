@@ -247,7 +247,13 @@ def _limpiar_para_cliente(valor: Any) -> Any:
     """Quita las claves privadas (empiezan por `_`) antes de mandar el estado
     al navegador. Son banderas internas del bucle."""
     if isinstance(valor, dict):
-        return {k: _limpiar_para_cliente(v) for k, v in valor.items() if not (isinstance(k, str) and k.startswith("_"))}
+        salida = {k: _limpiar_para_cliente(v) for k, v in valor.items() if not (isinstance(k, str) and k.startswith("_"))}
+        if isinstance(valor.get("revisionTratamiento"), dict) and "investigacionId" in valor:
+            from rosa.agentes_tratamiento import VERSION, huella
+
+            revision = salida["revisionTratamiento"]
+            revision["vigente"] = revision.get("version") == VERSION and revision.get("huella") == huella(valor)
+        return salida
     if isinstance(valor, list):
         return [_limpiar_para_cliente(v) for v in valor]
     return valor

@@ -27,6 +27,7 @@ import { EsqueletoPantalla } from '../componentes/Esqueleto';
 import { Bloqueos, ConsultasABases, ContextoDeBases, ContratoDelExperimento, DecisionesKiller, Dimensiones, EjecucionesInSilico, FusionYConflictos, GrafoCausalDeHipotesis, PerfilDeLaDiana, ProtocoloYEnmiendas, TarjetaDeHipotesis } from '../componentes/Rosa2018';
 import { FranjaRanking } from '../componentes/FranjaRanking';
 import { Alternativas } from '../componentes/Alternativas';
+import { RevisionTratamiento } from '../componentes/RevisionTratamiento';
 import { dependeDeRetractada, resumenEvidencia, tramosFuertes } from '../lib/calidad';
 import { ACCION_REVISION_HIPOTESIS, ALCANCE_SUPUESTO, DONDE_SE_RESPONDE, ESTADO_HIPOTESIS, ESTADO_SUPUESTO, EVIDENCIA_ESTADISTICA, RELEVANCIA, TIPO_REVISION, RESULTADO_LABORATORIO, killerPendienteDe } from '../lib/etiquetas';
 import { expediente } from '../lib/exportar';
@@ -317,6 +318,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               </div>
             </div>
           </Seccion>
+          <RevisionTratamiento revision={h.revisionTratamiento} />
           <Seccion detalle titulo={tr("Novedad")} nota={tr("Consultas baratas antes de gastar una corrida: Open Targets, ClinicalTrials.gov, Agora, la genética humana (GWAS Catalog, ClinVar), los fármacos contra la diana (ChEMBL, DGIdb), los datos públicos para comprobarla (GEO, CELLxGENE) y si alguien ya lo propuso en la literatura. Con Exa, además, patentes y proyectos financiados anteriores a la hipótesis: una idea ya protegida o ya financiada no es nueva aunque no esté publicada.")}>
             <div className="novedad novedad-4">
               <div className="novedad-item">
@@ -379,9 +381,9 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               )}
               {h.novedad.patentes && (
                 <div className="novedad-item">
-                  <strong>{tr("Patentes (vía Exa)")}</strong>
+                  <strong>{tr("Anterioridad en publicaciones de patentes")}</strong>
                   <Chip tono={h.novedad.patentes.estado === 'sin_patente' ? 'ok' : h.novedad.patentes.estado === 'parcial' ? 'aviso' : h.novedad.patentes.estado === 'patente_relacionada' ? 'mal' : 'borde'}>
-                    {h.novedad.patentes.estado === 'sin_patente' ? tr('Sin patente cercana') : h.novedad.patentes.estado === 'parcial' ? tr('Relación parcial') : h.novedad.patentes.estado === 'patente_relacionada' ? tr('Ya patentado o muy cercano') : 'No comprobado'}
+                    {h.novedad.patentes.estado === 'sin_patente' ? tr('Sin coincidencia cercana en la búsqueda anterior') : h.novedad.patentes.estado === 'parcial' ? tr('Relación parcial') : h.novedad.patentes.estado === 'patente_relacionada' ? tr('Publicación de patente relacionada') : tr('No comprobado')}
                   </Chip>
                   <p>
                     {h.novedad.patentes.detalle}

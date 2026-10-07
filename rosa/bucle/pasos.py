@@ -47,6 +47,7 @@ from rosa import metodos as METODOS
 from rosa import verificador as V
 from rosa import solidez as SOL
 from rosa import equipo as EQ
+from rosa import agentes_tratamiento as TRAT
 from rosa import tareas as TA
 from rosa import viabilidad as VIA
 from rosa import torneo
@@ -3352,7 +3353,7 @@ async def _killer(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: str, pista: P
             ctx.programas.killer,
             objetivo=inv["objetivo"],
             mision=_texto_mision(inv),
-            hipotesis=T.hipotesis_texto(h) + "\n" + K.texto_tarjeta(h) + "\n" + DI.texto_perfil(h.get("perfilDiana")),
+            hipotesis=T.hipotesis_texto(h) + "\n" + K.texto_tarjeta(h) + "\n" + DI.texto_perfil(h.get("perfilDiana")) + "\n" + K.como_dato(TRAT.texto_informe(h)),
             afirmaciones=afs_texto,
             # Registros incompletos (supuesto sin 'evidencia', o un texto suelto) no
             # pueden convertirse en "el juez no respondió": este argumento se monta
@@ -4229,6 +4230,10 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
         if not tope_de_vivas:
             pista.nota("Sin afirmaciones sostenidas: no se generan hipótesis nuevas en esta iteración")
 
+    # Revisión de tratamiento independiente de la novedad antigua: también
+    # alcanza las propuestas humanas y los cambios de intervención/experimento.
+    await TRAT.revisar_pendientes(ctx, paso["id"])
+
     # Revision de las nuevas y de las humanas sin revisar.
     a_revisar = [h for h in ctx.e["hipotesis"] if h["investigacionId"] == ctx.investigacion_id and (h["id"] in nuevas_ids or (h["origen"] == "humana" and h["ultimaRevisionAutomatica"] is None) or h.get("_revisionPedida"))]
     for h in a_revisar:
@@ -4542,9 +4547,10 @@ def novedad_pendiente(h: dict[str, Any]) -> bool:
 
 
 async def paso_novedad(ctx: Ctx, paso: dict[str, Any]) -> str:
+    tratamientos = await TRAT.revisar_pendientes(ctx, paso["id"])
     pendientes = [h for h in ctx.e["hipotesis"] if h["investigacionId"] == ctx.investigacion_id and h["estado"] not in ("descartada",) and novedad_pendiente(h)]
     if not pendientes:
-        return "Todas las hipótesis tienen la novedad comprobada"
+        return f"Revisado el tratamiento de {tratamientos} hipótesis" if tratamientos else "No quedan revisiones pendientes de novedad en esta iteración"
     # Las menos intentadas primero: si las seis primeras de la lista se quedan en
     # "no comprobado" (sin términos en inglés y sin Exa), sin este orden se
     # repetirían cada iteración y las demás no llegarían nunca a comprobarse

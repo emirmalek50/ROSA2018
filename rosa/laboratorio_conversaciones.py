@@ -28,6 +28,7 @@ ATRIBUCION = {
     "analogia": "Analogía", "contradiccion": "Contradicción", "mecanismo_opuesto": "Mecanismo opuesto",
     "otra_escala": "Otra escala", "killer": "Killer", "revision_inicial": "Revisor inicial",
     "supuestos": "Evaluador de supuestos", "torneo_a": "Juez del torneo", "torneo_b": "Juez del torneo B",
+    "patentes": "Especialista en patentes", "companias": "Especialista en compañías",
 }
 SALAS = {
     "plan": ["Planificador", "Proponente de experimento"],
@@ -37,7 +38,7 @@ SALAS = {
     "verificacion": ["Juez", "Señalizador de sesgo"],
     "modelo": ["Actualizador del modelo de mundo", "Asignador de evidencia"],
     "hipotesis": ["Contradicción", "Analogía", "Mecanismo opuesto", "Otra escala"],
-    "revision": ["Killer", "Evaluador de supuestos", "Revisor inicial", "Juez del torneo", "Juez del torneo B"],
+    "revision": ["Killer", "Evaluador de supuestos", "Revisor inicial", "Juez del torneo", "Juez del torneo B", "Especialista en patentes", "Especialista en compañías"],
     "analisis": ["Intérprete", "Auditor del análisis", "Programador y Reparador", "Planificador de análisis"],
     "meta": ["Revisor del registro", "Resumidor"],
 }
@@ -48,7 +49,7 @@ COMPANEROS = {
     "lectura": ["Generador de consultas", "Explorador", "Puntuador preguntas", "Puntuador amplitud", "Extractor de afirmaciones"],
     "evidencia": ["Juez", "Señalizador de sesgo", "Asignador de evidencia", "Actualizador del modelo de mundo"],
     "ideas": ["Contradicción", "Analogía", "Mecanismo opuesto", "Otra escala"],
-    "revision": ["Killer", "Revisor inicial", "Evaluador de supuestos", "Juez del torneo", "Juez del torneo B", "Juez de viabilidad", "Auditor de descartes", "Concluidor", "Evaluador de resultado", "Tarjeta y Nombre corto", "Resumen en llano"],
+    "revision": ["Killer", "Revisor inicial", "Evaluador de supuestos", "Juez del torneo", "Juez del torneo B", "Juez de viabilidad", "Auditor de descartes", "Concluidor", "Evaluador de resultado", "Tarjeta y Nombre corto", "Resumen en llano", "Especialista en patentes", "Especialista en compañías"],
     "analisis": ["Planificador de análisis", "Programador y Reparador", "Intérprete", "Auditor del análisis"],
     "cierre": ["Revisor del registro", "Rehacedor", "Revisor de la reparación", "Meta-revisor", "Revisor del arnés", "Resumidor", "Auditor de GEPA"],
 }

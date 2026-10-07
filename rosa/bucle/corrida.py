@@ -58,6 +58,8 @@ from rosa import cifras_aprendizaje as CIFRAS, dianas as DI, experimento as XP, 
 from rosa.bucle import contexto as T
 from rosa.bucle import evidencia as EV
 from rosa.bucle import pasos as PASOS
+from rosa import agentes_tratamiento as TRAT
+from rosa import killer as K
 from rosa.bucle.pasos import Ctx
 from rosa.estado import acciones as A
 from rosa.estado import plantilla as P
@@ -117,7 +119,9 @@ NOMBRE_POR_ROL = {"cerebro": "GPT-6 Astra", "juez": "Claude Opus 5", "volumen": 
 # es una llamada por artículo, la extracción una por fragmento, el juez una
 # por afirmación. El modelo que propone el plan no conoce este coste, así que
 # su cifra se sustituye por esta.
-COSTE_POR_TIPO = {"literatura": 70, "ensayos": 4, "extraccion": 60, "verificacion": 80, "novedad": 25, "modelo": 4, "hipotesis": 97, "analisis": 14, "meta": 4, "indicacion": 0}
+COSTE_POR_TIPO = {"literatura": 70, "ensayos": 4, "extraccion": 60, "verificacion": 80, "novedad": 55, "modelo": 4, "hipotesis": 127, "analisis": 14, "meta": 4, "indicacion": 0}
+# Cada barrido de tratamiento reserva hasta 30 llamadas: seis perfiles y dos
+# especialistas con juez por perfil. Los checkpoints evitan repetir los completos.
 # El paso de hipótesis sube de 90 a 97 el 27 de septiembre de 2026: el equipo de
 # generación (rosa/equipo.py) son cuatro enfoques en dos rondas, ocho llamadas al
 # cerebro en vez de una. El resto del paso (revisión, supuestos, Killer, torneo) no
@@ -1608,6 +1612,28 @@ class Supervisor:
             return True
 
         self.almacen.mutar(fn, "experimento")
+        # El protocolo puede concretar otra molécula, vía o combinación. Revisar
+        # esa versión, dentro de una corrida activa, conserva el informe anterior
+        # hasta que la nueva revisión pueda sustituirlo.
+        if experimento:
+            def pedir_revision(e: dict[str, Any]) -> bool:
+                y = next((z for z in e["hipotesis"] if z["id"] == h["id"]), None)
+                if not y:
+                    return False
+                y["_revisionTratamientoPendiente"] = True
+                return True
+            self.almacen.mutar(pedir_revision, "pedir_revision_tratamiento")
+            await TRAT.revisar_pendientes(ctx, None, [h["id"]])
+            self._cerrar_peticion_tratamiento(ctx, h["id"])
+
+    def _cerrar_peticion_tratamiento(self, ctx: Ctx, hid: str) -> None:
+        def fn(e: dict[str, Any]) -> bool:
+            h = next((x for x in e["hipotesis"] if x["id"] == hid), None)
+            if not h or TRAT.pendiente(h, ctx.corrida_id, ctx.iteracion_id):
+                return False
+            h.pop("_revisionTratamientoPendiente", None)
+            return True
+        self.almacen.mutar(fn, "revision_tratamiento_atendida")
 
     async def _concluir_hipotesis(self, ctx: Ctx, h: dict[str, Any]) -> None:
         """La conclusión provisional de ROSA2018 sobre la hipótesis con lo que hay.
@@ -1624,7 +1650,7 @@ class Supervisor:
                 afirmaciones="\n".join(f"- [{a['veredicto']}, {a['tipo']}, clase {a.get('clase', 'literatura')}{', SINTÉTICO: no cuenta como evidencia' if a.get('sintetico') else ''}{MARCA_RELACION.get(a.get('relacion'), '')}{', añadida en la iteración ' + str(a['iteracion']) if a.get('relacion') and a.get('iteracion') else ''}{', cohorte ' + a['cohorte'] if a.get('cohorte') else ''}] {a['texto']} {a['cita']}" for a in h["afirmaciones"]) or "Ninguna",
                 supuestos="\n".join(f"- [{s['estado']}] {s['texto']} ({s['evidencia']})" for s in h["supuestos"]) or "Sin supuestos evaluados",
                 partidos="\n".join(f"- {p['resultado']} por {p['ejeDecisivo']}: {p['resumenDebate']}" for p in h["partidos"]) or "Sin partidos todavía",
-                novedad="; ".join(f"{k}: {v['detalle']}" for k, v in h["novedad"].items()) + f". Cohortes distintas entre las fuentes: {len(PR.cohortes_de(h))}" + (f" ({', '.join(PR.cohortes_de(h))})" if PR.cohortes_de(h) else "") + ". " + SESGO.texto_para_grade(h["procedencia"]["fuentes"]),
+                novedad="; ".join(f"{k}: {v['detalle']}" for k, v in h["novedad"].items()) + "\n" + K.como_dato(TRAT.texto_informe(h)) + f". Cohortes distintas entre las fuentes: {len(PR.cohortes_de(h))}" + (f" ({', '.join(PR.cohortes_de(h))})" if PR.cohortes_de(h) else "") + ". " + SESGO.texto_para_grade(h["procedencia"]["fuentes"]),
                 revisiones_humanas=T.revisiones_humanas(h) + (f"\nKiller: {h.get('decisionKiller')}" if h.get("decisionKiller") else ""),
                 resultado_experimental=T.resultado_experimental(h),
                 techo_por_regla=_texto_techo_por_regla(h),
@@ -1925,6 +1951,15 @@ class Supervisor:
                 corrida = A.ultima_corrida_de(e, h["investigacionId"])
                 if _puede_gastar(corrida):
                     await self._proponer_experimento(self._ctx(corrida), h)
+                    return
+            # Reanudar una revisión interrumpida tras guardar el experimento:
+            # el protocolo ya existe y no debe volver a proponerse ni pagarse.
+            if h.get("_revisionTratamientoPendiente") and h.get("estado") != "descartada":
+                corrida = A.ultima_corrida_de(e, h["investigacionId"])
+                if corrida and corrida.get("estado") == "en_marcha" and _puede_gastar(corrida):
+                    ctx = self._ctx(corrida)
+                    await TRAT.revisar_pendientes(ctx, None, [h["id"]])
+                    self._cerrar_peticion_tratamiento(ctx, h["id"])
                     return
             if h.get("tarjeta") is None and not h.get("_tarjetaIntentada") and h["estado"] != "descartada":
                 corrida = A.ultima_corrida_de(e, h["investigacionId"])

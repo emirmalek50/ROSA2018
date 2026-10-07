@@ -1310,9 +1310,77 @@ export interface Novedad {
    *  protegida o ya financiada no es nueva aunque no esté publicada. */
   patentes?: { estado: 'no_comprobado' | 'patente_relacionada' | 'parcial' | 'sin_patente'; detalle: string; url: string | null };
   financiacion?: { estado: 'no_comprobado' | 'proyecto_financiado' | 'parcial' | 'sin_proyecto'; detalle: string; url: string | null };
+  /** Resumen de la auditoría industrial; el informe con fuentes y cobertura vive separado. */
+  companias?: { estado: 'coincidencias' | 'sin_coincidencias_en_fuentes_consultadas' | 'no_comprobado' | 'no_aplica'; detalle: string; url?: string | null };
   agora: { estado: 'no_nominada' | 'nominada'; detalle: string };
   /** Si alguien ya lo propuso en la literatura (comprobacion tipo Owl). */
   precedente: { estado: 'sin_precedente' | 'parcial' | 'ya_publicado' | 'no_comprobado'; detalle: string };
+}
+
+export interface PerfilTratamiento {
+  tipo: 'intervencion' | 'observacional' | 'indefinido';
+  nombre: string;
+  ingredientes: string[];
+  sinonimos: string[];
+  dianas: string[];
+  modalidad: string;
+  direccion: string;
+  indicacion: string;
+  via?: string;
+  dosis?: string;
+  formulacion?: string;
+  secuencia?: string;
+  combinacion: string[];
+  consultasPatentes: string[];
+  consultasProgramas: string[];
+}
+
+export interface HallazgoTratamiento {
+  id: string;
+  titulo: string;
+  url: string;
+  fuente: string;
+  relacion: 'mismo_tratamiento' | 'componente_de_combinacion' | 'misma_diana' | 'mismo_mecanismo' | 'relacionado' | 'incierto';
+  /** Pasaje original de la fuente, conservado sin traducir ni parafrasear. */
+  cita: string;
+  explicacion: string;
+  diferencias: string[];
+  datos: Record<string, unknown>;
+}
+
+export interface ConsultaTratamiento {
+  fuente: string;
+  consulta: string;
+  url: string;
+  total: number | null;
+  recuperados: number;
+  paginas: number;
+  completa: boolean;
+  error: string | null;
+  parametros?: Record<string, unknown>;
+}
+
+export interface InformeTratamiento {
+  agente: string;
+  estado: 'coincidencias' | 'sin_coincidencias_en_fuentes_consultadas' | 'no_comprobado' | 'no_aplica';
+  resumen: string;
+  fecha: number;
+  modelo: string | null;
+  revisor: string | null;
+  hallazgos: HallazgoTratamiento[];
+  consultas: ConsultaTratamiento[];
+  limitaciones: string[];
+}
+
+export interface RevisionTratamiento {
+  /** Calculado por el servidor: evita presentar informes de otra intervención. */
+  vigente?: boolean;
+  version: number;
+  huella: string;
+  fecha: number;
+  perfil: PerfilTratamiento;
+  patentes?: InformeTratamiento;
+  companias?: InformeTratamiento;
 }
 
 export interface PuntoElo {
@@ -1702,6 +1770,8 @@ export interface Hipotesis {
   historialElo: PuntoElo[];
   rivales: Id[];
   novedad: Novedad;
+  /** Patentes y programas empresariales del tratamiento concreto, con límites de búsqueda. */
+  revisionTratamiento?: RevisionTratamiento | null;
   afirmaciones: Afirmacion[];
   procedencia: Procedencia;
   hallazgos: HallazgoRevisor[];

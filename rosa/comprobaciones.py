@@ -73,6 +73,7 @@ def medir(e: dict[str, Any], corrida_id: str, investigacion_id: str) -> dict[str
     septiembre de 2026 sobre rosa.db: `_fallosFuente` y `vivero` son
     `setdefault`, así que pueden faltar)."""
     from rosa.bucle import pasos as PASOS
+    from rosa import agentes_tratamiento as TRAT
 
     c = next((x for x in e.get("corridas", []) if isinstance(x, dict) and x.get("id") == corrida_id), None) or {}
     inv = next((i for i in e.get("investigaciones", []) if isinstance(i, dict) and i.get("id") == investigacion_id), None) or {}
@@ -80,6 +81,7 @@ def medir(e: dict[str, Any], corrida_id: str, investigacion_id: str) -> dict[str
     fuentes = [f for f in (c.get("_fuentes") or {}).values() if isinstance(f, dict)]
     hips = [h for h in e.get("hipotesis", []) or [] if isinstance(h, dict) and h.get("investigacionId") == investigacion_id]
     vivas = [h for h in hips if h.get("estado") != "descartada"]
+    actual: dict[str, Any] = next((it for it in e.get("iteraciones", []) if it.get("corridaId") == corrida_id and it.get("numero") == c.get("iteracionActual")), {})
     b = c.get("busqueda") or {}
     return {
         "consultas": len(b.get("consultas") or []),
@@ -97,7 +99,7 @@ def medir(e: dict[str, Any], corrida_id: str, investigacion_id: str) -> dict[str
         "hipotesisVivas": len(vivas),
         "partidos": sum(len(h.get("partidos") or []) for h in hips),
         "versiones": sum(int(h.get("version") or 0) for h in hips),
-        "novedadPendiente": sum(1 for h in vivas if PASOS.novedad_pendiente(h)),
+        "novedadPendiente": sum(1 for h in vivas if PASOS.novedad_pendiente(h) or TRAT.pendiente(h, corrida_id, str(actual.get("id") or ""))),
         "semillasVivero": len(inv.get("vivero") or []),
         "panorama": len(c.get("panorama") or []),
         "datasetsAprobados": sum(1 for d in (inv.get("datasets") or []) if isinstance(d, dict) and d.get("estado") == "aprobado" and (d.get("procedencia") or {}).get("hash")),

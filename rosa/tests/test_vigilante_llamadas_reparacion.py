@@ -118,7 +118,12 @@ def test_ningun_except_exception_de_pasos_que_envuelve_una_llamada_al_modelo_se_
             faltan.append(f"línea {nodo.lineno}")
         else:
             cuerpo = nodo.handlers[idx_vig].body
-            assert len(cuerpo) == 1 and isinstance(cuerpo[0], ast.Raise) and cuerpo[0].exc is None, f"línea {nodo.lineno}: el except del vigilante debe relanzar tal cual"
+            # Atribuir la espera a un miembro del laboratorio no consume la
+            # excepción: se permite esa traza antes de relanzarla intacta.
+            trazas = cuerpo[:-1]
+            assert all(isinstance(x, ast.Expr) and isinstance(x.value, ast.Call) and isinstance(x.value.func, ast.Attribute)
+                       and x.value.func.attr == "actividad" for x in trazas), f"línea {nodo.lineno}: solo puede registrar actividad antes de relanzar"
+            assert isinstance(cuerpo[-1], ast.Raise) and cuerpo[-1].exc is None, f"línea {nodo.lineno}: el except del vigilante debe relanzar tal cual"
     assert revisados >= 14, f"se esperaban al menos 14 bloques con llamada al modelo y except Exception; hay {revisados}"
     assert faltan == [], f"bloques que se tragan ModeloSinRespuesta: {faltan}"
 
