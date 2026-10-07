@@ -855,6 +855,10 @@ class Almacen:
                 {k: a.get(k) for k in ("id", "texto", "cita", "veredicto", "motivo", "entidadDistinta", "tipo", "tema", "fuenteId", "localizador", "iteracion")}
                 for a in c.get("_afirmaciones", [])
             ]
+            from rosa.bucle.eventos_laboratorio import metadatos_veredicto
+
+            for publica, privada in zip(afirmaciones, c.get("_afirmaciones", []), strict=True):
+                publica.update(metadatos_veredicto(privada))
             return {"corridaId": corrida_id, "version": self.version, "consultas": list(c["busqueda"]["consultas"]), "fuentes": fuentes, "afirmaciones": afirmaciones}
 
     def intervalos_de_llamadas(self, corrida_id: str) -> list[tuple[int, int]]:

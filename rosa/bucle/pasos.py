@@ -2072,7 +2072,7 @@ async def paso_extraccion(ctx: Ctx, paso: dict[str, Any]) -> str:
                         tipo_af = "literatura"
                     else:
                         tipo_af = a.tipo
-                    nuevas.append({"id": P.nuevo_id("af"), "texto": a.texto.strip(), "cita": cita, "fragmento": a.fragmento.strip(), "veredicto": veredicto_inicial, "motivo": motivo, "entidadDistinta": False, "tipo": tipo_af, "clase": "literatura", "sintetico": False, "cohorte": cohorte, "sospechosoInyeccion": sospechoso, "nivelMedicion": nivel, **registro, "sinResolver": sin_resolver, "tema": a.tema, "fuenteId": f["id"], "localizador": fr["localizador"], "deFondo": de_fondo, "iteracion": ctx.numero, "encabezado": fr.get("encabezado", "")})
+                    nuevas.append({"id": P.nuevo_id("af"), "texto": a.texto.strip(), "cita": cita, "fragmento": a.fragmento.strip(), "veredicto": veredicto_inicial, "motivo": motivo, "procedenciaVeredicto": EL.procedencia_veredicto("sin_verificar" if veredicto_inicial == "sin_verificar" else "regla", comprobaciones=[] if veredicto_inicial == "sin_verificar" else ["cita_y_pasaje_guardado"]), "entidadDistinta": False, "tipo": tipo_af, "clase": "literatura", "sintetico": False, "cohorte": cohorte, "sospechosoInyeccion": sospechoso, "nivelMedicion": nivel, **registro, "sinResolver": sin_resolver, "tema": a.tema, "fuenteId": f["id"], "localizador": fr["localizador"], "deFondo": de_fondo, "iteracion": ctx.numero, "encabezado": fr.get("encabezado", "")})
 
             if not fallo:
                 leidos_ok.append(fr["localizador"])
@@ -2168,9 +2168,11 @@ async def verificar_afirmaciones(ctx: Ctx, afirmaciones: list[dict[str, Any]], p
         # referencia corta ("Sin autor", dos "Bhagunde et al., 2026") ya no se cruzan (S-04).
         r = _comprobar_determinista(a["texto"], a["cita"], a.get("fragmento"), frags, frags, excluir, a.get("fuenteId"))
         if r.necesita_juez:
+            a["procedenciaVeredicto"] = EL.procedencia_veredicto("sin_verificar")
             al_juez.append((a, r))
         else:
             a["veredicto"], a["motivo"] = r.veredicto, r.motivo
+            a["procedenciaVeredicto"] = EL.procedencia_veredicto("regla", comprobaciones=["verificador_determinista"])
             # Una abstención se acepta y no cuenta como evidencia (V.Resultado).
             if r.abstencion:
                 a["abstencion"] = True
@@ -2197,6 +2199,7 @@ async def verificar_afirmaciones(ctx: Ctx, afirmaciones: list[dict[str, Any]], p
                 v = pred.veredicto
                 a["veredicto"] = v.veredicto
                 a["motivo"] = v.motivo
+                a["procedenciaVeredicto"] = EL.procedencia_veredicto("juez", EL.modelo_de(ctx, rol), ["dictamen_del_modelo"])
                 a["entidadDistinta"] = bool(v.entidad_distinta) and v.veredicto == "no_sostenida"
                 # El juez ve una ventana de 6.000 caracteres de la página, no el
                 # pasaje que se guarda: puede votar "sostenida" con razón y dejar
@@ -2207,6 +2210,7 @@ async def verificar_afirmaciones(ctx: Ctx, afirmaciones: list[dict[str, Any]], p
                     if falta:
                         a["veredicto"] = "parcial"
                         a["motivo"] = f"{v.motivo} | Rebajado a parcial por regla: {falta}"
+                        a["procedenciaVeredicto"] = EL.procedencia_veredicto("mixta", EL.modelo_de(ctx, rol), ["dictamen_del_modelo", "cobertura_del_pasaje"])
             except PresupuestoAgotado:
                 raise
             except VIG.ModeloSinRespuesta:
@@ -2214,12 +2218,22 @@ async def verificar_afirmaciones(ctx: Ctx, afirmaciones: list[dict[str, Any]], p
             except Exception as ex:  # noqa: BLE001
                 a["veredicto"] = "sin_verificar"
                 a["motivo"] = f"El juez no dictaminó: {str(ex)[:120]}"
+                a["procedenciaVeredicto"] = EL.procedencia_veredicto("sin_verificar")
         juzgadas += 1
         recuento[a["veredicto"]] = recuento.get(a["veredicto"], 0) + 1
         if pista and juzgadas % 10 == 0:
             pista.resultado(f"Juez: {juzgadas} de {len(al_juez)}")
 
-    await _en_paralelo(*(juzgar(a, r) for a, r in al_juez))
+    try:
+        await _en_paralelo(*(juzgar(a, r) for a, r in al_juez))
+    finally:
+        # También un lote menor de diez publica su avance real. Si se corta,
+        # juzgadas conserva únicamente las tareas que llegaron a terminar.
+        if pista and juzgadas % 10:
+            pista.resultado(f"Juez: {juzgadas} de {len(al_juez)}")
+        volcar = getattr(pista, "volcar", None)
+        if callable(volcar):
+            volcar()
     ctx.mutar(lambda e: True, "veredictos")
     return recuento
 
@@ -2385,6 +2399,7 @@ async def paso_modelo(ctx: Ctx, paso: dict[str, Any]) -> str:
     resueltas = 0
     fundidos = 0
     omitidos = 0
+    entregas: list[dict[str, Any]] = []
     # Genes nombrados en los hechos nuevos, resueltos en HGNC (con cache en el estado).
     cache_ent = dict(ctx.e.get("entidadesCache") or {})
     simbolos_nuevos = sorted({s_ for hp in pred.hechos for s_ in simbolos_de_genes(hp.enunciado)})[:12]
@@ -2489,6 +2504,8 @@ async def paso_modelo(ctx: Ctx, paso: dict[str, Any]) -> str:
                     continue
                 if fundir_hecho(duplicado, procedencia, citas, ids_afirmaciones, ahora, f"Fundido en la iteración {ctx.numero} con «{hp.enunciado[:100]}»: {motivo_dup}"):
                     fundidos += 1
+                    if tipo_hecho == "hecho":
+                        entregas.append({"tipo": "asignacion_hecho", "hechoId": duplicado["id"], "afirmacionIds": ids_afirmaciones, "estado": "fundido", "enunciado": duplicado["enunciado"]})
                 else:
                     omitidos += 1
                 if tipo_hecho == "hecho":
@@ -2508,6 +2525,7 @@ async def paso_modelo(ctx: Ctx, paso: dict[str, Any]) -> str:
             por_id[h["id"]] = h
             if hp.tipo == "hecho":
                 anadidos += 1
+                entregas.append({"tipo": "asignacion_hecho", "hechoId": h["id"], "afirmacionIds": ids_afirmaciones, "estado": "nuevo", "enunciado": h["enunciado"]})
                 A.con_evento(e2, ctx.investigacion_id, "hecho_nuevo", f"Hecho nuevo: {hp.enunciado[:120]}", f"#/investigaciones/{ctx.investigacion_id}/mundo", ahora)
                 enlazar(h, hp, citas)
             else:
@@ -2517,6 +2535,8 @@ async def paso_modelo(ctx: Ctx, paso: dict[str, Any]) -> str:
         return True
 
     ctx.mutar(aplicar, "modelo_de_mundo")
+    for entrega in entregas:
+        EL.registrar(pista, "resultado", f"Evidencia enlazada al hecho «{entrega['enunciado'][:100]}»", entrega)
     pista.resultado(f"{anadidos} hechos y {preguntas} preguntas nuevas" + (f"; {sustituidos} hechos sustituidos" if sustituidos else "") + (f"; {contradichos} contradichos" if contradichos else "") + (f"; {resueltas} cuestiones resueltas" if resueltas else "") + (f"; {fundidos} fundidos con hechos que ya decían lo mismo (se suma su procedencia y se conserva lo que resuelven o sustituyen)" if fundidos else "") + (f"; {omitidos} omitidos por repetir un hecho descartado o uno que ya tenía esa procedencia" if omitidos else ""))
     # Instantanea del modelo de mundo como artefacto.
     contenido = "# Modelo de mundo\n\n" + T.modelo_de_mundo(ctx.e["hechos"], ctx.investigacion_id, maximo=500, investigaciones=ctx.e["investigaciones"])
@@ -3301,7 +3321,11 @@ async def _killer(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: str, pista: P
     # ¿Se puede hacer la prueba con los ensayos que nombra? Si es revisar lo ya
     # publicado, se leen sus criterios de elegibilidad antes de que el Killer juzgue la
     # factibilidad (rosa/viabilidad.py). Una vez por versión de la prueba.
+    viabilidad_antes = (h.get("viabilidad") or {}).get("fecha")
     try:
+        if pista and VIA.necesita(h):
+            EL.registrar(pista, "accion", f"Comprobando la viabilidad de la prueba de «{h['titulo'][:80]}»",
+                         EL.decision_hipotesis(h, "viabilidad", "en_curso", origen="sin_verificar"))
         await VIA.asegurar(ctx, h, pista)
     except EXCEPCIONES_QUE_CORTAN_EL_PASO:  # presupuesto, modelo caído o corrida parada
         raise
@@ -3309,6 +3333,10 @@ async def _killer(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: str, pista: P
         if pista:
             pista.nota(f"No se pudo comprobar la viabilidad de la prueba: {str(ex)[:100]}")
     h = next((y for y in e["hipotesis"] if y["id"] == h["id"]), h)
+    viable = h.get("viabilidad")
+    if pista and isinstance(viable, dict) and viable.get("huella") == VIA.huella(h) and viable.get("fecha") != viabilidad_antes:
+        EL.registrar(pista, "resultado", f"Viabilidad registrada para «{h['titulo'][:80]}»: {viable.get('estado', 'sin comprobar')}",
+                     EL.decision_hipotesis(h, "viabilidad", "no_comprobado" if viable.get("estado") == "no_comprobable" else "terminado", str(viable.get("estado") or ""), origen="mixta" if viable.get("juez") else "regla", modelo=viable.get("juez"), comprobaciones=[str(viable.get("explicacion") or "")]))
     deterministas = K.comprobaciones_deterministas(h, e)
     # Entidades canonicas de la hipotesis (HGNC para la diana, diccionario curado
     # para lo demas) y redundancia por identificador: dos hipotesis vivas que
@@ -3361,6 +3389,8 @@ async def _killer(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: str, pista: P
     mundo_h = await T.modelo_de_mundo_para(ctx.almacen, ctx.investigacion_id, f"{h['titulo']}. {h['enunciado']}", maximo=40)
     juez_fallo: str | None = None
     try:
+        EL.registrar(pista, "accion", f"Revisando con el Killer «{h['titulo'][:80]}» (v{h.get('version', 1)})",
+                     EL.decision_hipotesis(h, "killer", "en_curso", origen="sin_verificar", modelo=EL.modelo_de(ctx, "juez")))
         pred = await _actividad_registrada(pista, "killer", f"El Killer revisa «{h['titulo']}»", ctx.llamar(
             "juez",
             ctx.programas.killer,
@@ -3432,12 +3462,14 @@ async def _killer(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: str, pista: P
             d = A.registrar_decision(e2, x, "killer_1", decision, f"[Sobre la versión {version_juzgada}; la hipótesis ya está en la {x.get('version', 1)} y se volverá a juzgar] {motivo}", quien, ahora, comprobaciones, falta)
             d["version"] = version_juzgada
             d["corridaId"] = ctx.corrida_id
+            d["iteracionId"] = ctx.iteracion_id
             x["_revisionPedida"] = True
             return d
         anterior = x.get("decisionKiller")
         d = A.registrar_decision(e2, x, "killer_1", decision, motivo, quien, ahora, comprobaciones, falta)
         d["_alternativas"] = alternativas
         d["corridaId"] = ctx.corrida_id
+        d["iteracionId"] = ctx.iteracion_id
         # La huella de la evidencia que vio el Killer: rosa/bucle/corrida.py la
         # compara con la actual para pedir revisión solo cuando cambie (S-08, S-13).
         d["huella"] = _huella(x)
@@ -3520,6 +3552,11 @@ async def _killer(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: str, pista: P
         return d
 
     d = ctx.mutar(aplicar, "killer")
+    if pista and isinstance(d, dict):
+        EL.registrar(pista, "resultado", f"Decisión registrada para «{h['titulo'][:80]}» (v{version_juzgada}): {decision.replace('_', ' ')}",
+                     EL.decision_hipotesis({**h, "version": version_juzgada}, "killer", "terminado", decision,
+                                          origen="regla" if juez_fallo is not None else "mixta", modelo=None if juez_fallo is not None else quien,
+                                          comprobaciones=[f"{c['comprobacion']}: {c['resultado']}" for c in comprobaciones]))
     actual = next((y for y in ctx.e["hipotesis"] if y["id"] == h["id"]), h)
     if actual.get("version", 1) != version_juzgada:
         if pista:
@@ -3583,7 +3620,7 @@ async def _auditar_descarte(ctx: Ctx, h: dict[str, Any], decision: dict[str, Any
         auditoria = {"quien": quien, "acuerdo": None, "estado": "no_respondio", "motivo": f"El auditor no respondió: {str(ex)[:120]}", "argumentoAFavor": "", "fecha": P.ahora_ms(), "comprobacionDiscutida": ""}
         ctx.incidencia("auditoria_sin_respuesta", f"La auditoría del Killer sobre «{h['titulo'][:60]}» quedó sin respuesta", str(ex)[:400], decision["id"], "La decisión queda sin auditar (no cuenta como acuerdo); se vuelve a muestrear en la siguiente decisión.")
 
-    resultado: dict[str, Any] = {"nueva": None}
+    resultado: dict[str, Any] = {"nueva": None, "evento": None}
     ahora = P.ahora_ms()
     ruta_h = f"#/investigaciones/{h['investigacionId']}/hipotesis/{h['id']}"
 
@@ -3616,6 +3653,7 @@ async def _auditar_descarte(ctx: Ctx, h: dict[str, Any], decision: dict[str, Any
         nueva, motivo2 = K.decidir(comps, tiene_prediccion, x.get("version", 1))
         d2 = A.registrar_decision(e, x, "killer_2", nueva, f"Recalculada por regla tras el desacuerdo de la auditoría sobre {nombre.replace('_', ' ')} (se abstiene, no mata): {motivo2}", quien, ahora, comps, auditoria["argumentoAFavor"][:400] if nueva != "avanzar" else "")
         d2["corridaId"] = ctx.corrida_id
+        d2["iteracionId"] = ctx.iteracion_id
         d2["huella"] = d.get("huella")
         d2["discuteA"] = d["id"]
         anterior = d["decision"]
@@ -3631,12 +3669,17 @@ async def _auditar_descarte(ctx: Ctx, h: dict[str, Any], decision: dict[str, Any
         x["procedencia"]["mensajes"].append({"id": P.nuevo_id("m"), "de": "revisor", "texto": f"Auditoría en desacuerdo con el Killer sobre {nombre.replace('_', ' ')}. Argumento a favor: {auditoria['argumentoAFavor'][:240] or 'sin detallar'}. Recalculado por regla: {nueva.replace('_', ' ')}.", "creadoEn": ahora})
         A.con_evento(e, h["investigacionId"], "killer", f"Auditoría en desacuerdo con el Killer sobre «{x['titulo'][:60]}»: el Killer dijo {anterior.replace('_', ' ')} por {nombre.replace('_', ' ')}; el auditor: {auditoria['argumentoAFavor'][:120] or auditoria['motivo'][:120]}. Recalculado por regla: {nueva.replace('_', ' ')}. Decide tú.", ruta_h, ahora)
         resultado["nueva"] = nueva
+        resultado["evento"] = EL.decision_hipotesis(x, "killer", "terminado", nueva, origen="regla", comprobaciones=[str(c.get("comprobacion") or "") for c in comps])
         return True
 
     ctx.mutar(fn, "auditoria_descarte")
     if pista:
         estado = "sin respuesta del auditor (no cuenta como acuerdo)" if auditoria["acuerdo"] is None else ("de acuerdo" if auditoria["acuerdo"] else f"EN DESACUERDO; recalculado por regla: {resultado['nueva'].replace('_', ' ') if resultado['nueva'] else 'sin recalcular'}")
-        pista.resultado(f"Auditoría de la decisión sobre '{h['titulo'][:40]}': {estado}")
+        texto = f"Auditoría de la decisión sobre '{h['titulo'][:40]}': {estado}"
+        if resultado["evento"] is not None:
+            EL.registrar(pista, "resultado", texto, resultado["evento"])
+        else:
+            pista.resultado(texto)
     return resultado["nueva"]
 
 
@@ -3713,6 +3756,8 @@ async def _revisar_hipotesis(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: st
             pista.nota(f"Revisión inicial ya hecha para la versión {version} de «{h['titulo'][:50]}»: se reevalúan los supuestos con la evidencia acumulada y se vuelve a pasar el Killer")
     else:
         try:
+            EL.registrar(pista, "accion", f"Revisión inicial de «{h['titulo'][:80]}» (v{version})",
+                         EL.decision_hipotesis(h, "revision_inicial", "en_curso", origen="sin_verificar", modelo=EL.modelo_de(ctx, "juez")))
             pred = await _actividad_registrada(pista, "revision_inicial", f"Revisión inicial de «{h['titulo']}»", ctx.llamar("juez", ctx.programas.revisar_inicial, objetivo=inv["objetivo"], hipotesis=T.hipotesis_texto(h), criterios_revision="\n".join(ctx.e["criteriosRevision"])))
             rev = pred.revision
         except PresupuestoAgotado:
@@ -3754,6 +3799,8 @@ async def _revisar_hipotesis(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: st
                 evaluados[i] = {**s, "estado": VIGENCIA.ESTADO_NO_EVALUADO, "evidencia": f"{VIGENCIA.NO_SE_PUDO}: el modelo no respondió ({type(ex).__name__})", "niegaAfirmaciones": [], "alcance": "no_evaluado", "tocaAfirmaciones": [], "dondeSeResponde": None, "cota": ""}
 
     if supuestos:
+        EL.registrar(pista, "accion", f"Evaluando los {len(supuestos)} supuestos de «{h['titulo'][:80]}» (v{version})",
+                     EL.decision_hipotesis(h, "supuestos", "en_curso", origen="sin_verificar", modelo=EL.modelo_de(ctx, "volumen")))
         await _actividad_registrada(pista, "supuestos", f"Evaluando {len(supuestos)} supuestos de «{h['titulo']}»", _en_paralelo(*(evaluar(i, s) for i, s in enumerate(supuestos))))
     finales = [s for s in evaluados if s is not None]
     contradichos = [s for s in finales if s["estado"] == "contradicho"]
@@ -3794,7 +3841,17 @@ async def _revisar_hipotesis(ctx: Ctx, h: dict[str, Any], texto_afirmaciones: st
                 z["respuestaDeRosa"] = "El supuesto ya no aparece contradicho al reevaluarlo con la evidencia acumulada."
         return True
 
-    ctx.mutar(aplicar, "revision_hipotesis")
+    guardada = ctx.mutar(aplicar, "revision_hipotesis")
+    if guardada and pista:
+        if rev is not None:
+            EL.registrar(pista, "resultado", f"Revisión inicial registrada de «{h['titulo'][:80]}» (v{version}): {'pasa' if rev.pasa else 'no pasa'}",
+                         EL.decision_hipotesis({**h, "version": version}, "revision_inicial", "terminado", "pasa" if rev.pasa else "no_pasa", origen="juez", modelo=EL.modelo_de(ctx, "juez"), comprobaciones=[rev.resumen]))
+        elif inicial_fallo:
+            EL.registrar(pista, "error", f"Revisión inicial no comprobada de «{h['titulo'][:80]}» (v{version})",
+                         EL.decision_hipotesis({**h, "version": version}, "revision_inicial", "no_comprobado", origen="sin_verificar"))
+        if finales:
+            EL.registrar(pista, "resultado", f"Supuestos registrados de «{h['titulo'][:80]}» (v{version}): {len(finales)}",
+                         EL.decision_hipotesis({**h, "version": version}, "supuestos", "terminado", origen="mixta", modelo=EL.modelo_de(ctx, "volumen"), comprobaciones=[f"{s['texto']}: {s['estado']}" for s in finales]))
     actual = next((y for y in ctx.e["hipotesis"] if y["id"] == h["id"]), None)
     if actual and actual["estado"] not in ("descartada", "aceptada"):
         await _killer(ctx, actual, texto_afirmaciones, pista)
@@ -4185,7 +4242,7 @@ async def paso_hipotesis(ctx: Ctx, paso: dict[str, Any]) -> str:
             if not respaldo:
                 pista.nota(f"Descartada antes de entrar: '{hp.titulo[:60]}' no cita ninguna afirmación sostenida")
                 continue
-            afirmaciones = [{"afirmacionId": a.get("id"), "texto": a["texto"], "cita": a["cita"], "veredicto": a["veredicto"], "motivo": a["motivo"], "entidadDistinta": a.get("entidadDistinta", False), "tipo": a["tipo"], "clase": a.get("clase", "literatura"), "sintetico": False, "cohorte": a.get("cohorte", ""), "sospechosoInyeccion": bool(a.get("sospechosoInyeccion")), "nivelMedicion": a.get("nivelMedicion", "resultado_analisis"), "n": a.get("n", ""), "comparador": a.get("comparador", ""), "efecto": a.get("efecto", ""), "incertidumbre": a.get("incertidumbre", ""), "sinResolver": list(a.get("sinResolver", [])), "trayectoria": None, "fragmento": (a.get("fragmento") or "")[:600]} for a in respaldo]
+            afirmaciones = [{"afirmacionId": a.get("id"), "texto": a["texto"], "cita": a["cita"], "veredicto": a["veredicto"], "motivo": a["motivo"], "entidadDistinta": a.get("entidadDistinta", False), "tipo": a["tipo"], "clase": a.get("clase", "literatura"), "sintetico": False, "cohorte": a.get("cohorte", ""), "sospechosoInyeccion": bool(a.get("sospechosoInyeccion")), "nivelMedicion": a.get("nivelMedicion", "resultado_analisis"), "n": a.get("n", ""), "comparador": a.get("comparador", ""), "efecto": a.get("efecto", ""), "incertidumbre": a.get("incertidumbre", ""), "sinResolver": list(a.get("sinResolver", [])), "trayectoria": None, "fragmento": (a.get("fragmento") or "")[:600], **EL.metadatos_veredicto(a)} for a in respaldo]
             vistas: set[str] = set()
             fuentes_h = []
             for a in respaldo:

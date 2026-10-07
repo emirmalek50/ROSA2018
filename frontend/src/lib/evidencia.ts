@@ -3,7 +3,7 @@
 // arbol que pinta la pantalla: consulta -> fuentes -> afirmaciones con su
 // veredicto. Sin React, para poder probarla sola.
 
-import type { TipoAfirmacion, TipoFuente, Veredicto } from '../datos/tipos';
+import type { ProcedenciaVeredictoLab, TipoAfirmacion, TipoFuente, Veredicto } from '../datos/tipos';
 import { VEREDICTO } from './etiquetas';
 
 export interface ConsultaEvidencia {
@@ -49,6 +49,8 @@ export interface AfirmacionEvidencia {
   cita: string;
   veredicto: Veredicto;
   motivo: string;
+  /** Procedencia declarada al verificar. Ausente significa desconocida. */
+  procedenciaVeredicto?: ProcedenciaVeredictoLab;
   entidadDistinta: boolean;
   tipo: TipoAfirmacion;
   tema: string;

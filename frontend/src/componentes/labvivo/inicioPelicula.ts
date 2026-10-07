@@ -20,7 +20,10 @@ function entidad(e: EventoVisualLab): string {
   const d = e.dato;
   if (d?.tipo === 'idea') return `idea:${d.hipotesisId}`;
   if (d?.tipo === 'articulo') return `articulo:${d.id}:${d.modo}`;
-  if (d?.tipo === 'analisis') return `analisis:${d.ejecucionId}`;
+  if (d?.tipo === 'analisis') return `analisis:${d.ejecucionId}:${d.estado}`;
+  if (d?.tipo === 'decision_hipotesis') return `decision:${d.hipotesisId}:${d.version}:${d.etapa}:${d.estado}`;
+  if (d?.tipo === 'revision_registro') return `registro:${d.iteracionId}:${d.etapa}:${d.vuelta}:${d.estado}`;
+  if (d?.tipo === 'asignacion_hecho') return `hecho:${d.hechoId}:${d.estado}`;
   if (d?.tipo === 'torneo') return `entrada:${e.id}`;
   if (/^(?:plan|fuente|fuente-documento|lectura|afirmacion|verificacion):/.test(e.id)) return `entidad:${e.id}`;
   return JSON.stringify(['contexto', e.sala, e.tipo, [...e.agentes].sort()]);

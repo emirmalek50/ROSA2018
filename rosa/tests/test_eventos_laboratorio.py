@@ -316,6 +316,7 @@ def test_sandbox_escenifica_estado_registrado_sin_publicar_codigo(ctx, tmp_path,
     pista.cerrar("Análisis terminado")
     eventos = _eventos(ctx, "analisis")
     assert len(ctx.e["ejecuciones"]) == 1
+    assert (run["corridaId"], run["iteracionId"], run["sintetico"]) == (ctx.corrida_id, ctx.iteracion_id, True)
     assert all(x["ejecucionId"] == run["id"] and x["sintetico"] is True for x in eventos)
     assert all(set(x) == {"tipo", "ejecucionId", "estado", "sintetico"} for x in eventos)
     assert run["fin"] is not None

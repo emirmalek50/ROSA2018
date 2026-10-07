@@ -1,0 +1,16 @@
+/* El mismo expediente se reconoce en cada entrega, sin tapar las etiquetas. */
+.labvivo .lv-expediente-viajero{position:absolute;left:0;top:0;width:14px;height:18px;background:#F4F1EA;border:2px solid #17131F;box-shadow:2px 2px 0 #17131F66;pointer-events:auto}
+.labvivo .lv-expediente-viajero::before{content:'';position:absolute;inset:3px 2px;background:repeating-linear-gradient(#9C97B3 0 2px,transparent 2px 5px)}
+.labvivo .lv-expediente-viajero[data-objeto="card"]{background:#E1D6FA;border-top-color:#B79CF2}
+.labvivo .lv-expediente-viajero[data-objeto="book"]{background:#9ECFDA;border-left:4px solid #527C91}
+.labvivo .lv-expediente-viajero[data-etapa="modelo"]{border-top-color:#3ECF8E}
+.labvivo .lv-documento .lv-doc-titular{font-size:13px;line-height:16px;font-weight:700;white-space:normal}
+.labvivo .lv-documento .lv-doc-detalle{display:block;margin-top:4px;color:#5A5670;font-size:10px;line-height:13px}
+.labvivo .lv-documento .lv-metricas{display:grid;gap:5px;margin-top:6px;font-size:10px;line-height:13px}
+.labvivo .lv-documento .lv-metrica{display:grid;grid-template-columns:1fr auto;gap:8px;border-top:1px solid #26233222;padding-top:4px}
+.labvivo .lv-documento .lv-serie{margin:6px 0 0}
+.labvivo .lv-documento .lv-serie figcaption{font-size:10px;overflow-wrap:anywhere}
+.labvivo .lv-documento .lv-serie svg{display:block;width:100%;height:auto;color:#6C538F}
+.labvivo .lv-archivo-hechos{position:absolute;left:514px;top:562px;width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;line-height:12px;color:#7FD1A5;pointer-events:auto}
+.labvivo .lv-bandeja-recibida{position:absolute;left:140px;top:1238px;width:20px;height:16px;border:2px solid #17131F;background:#F4F1EA;box-shadow:2px 2px 0 #17131F66;pointer-events:auto}
+.labvivo .lv-bandeja-recibida::before{content:'';position:absolute;inset:3px;background:repeating-linear-gradient(#9C97B3 0 2px,transparent 2px 5px)}

@@ -17,7 +17,7 @@ function fotografia(): DatosLab {
     plan: [{ ...anterior.plan[0]!, id: 'verificar', tipo: 'verificacion', titulo: 'Verificar MAPT', detalle: '', estado: 'en_curso' }], pistas: [] };
   return { ...datosDelLaboratorio({ ...e, conexion: 'en_linea', solicitudes: [], incidencias: [] }, inv, c, i), foco: 'r2', activos: ['Juez'], actividad: [],
     pelicula: { eventos: [], ideas: [] }, afirmaciones: [{ id: 'afirmacion-real', texto: 'MAPT se midió en la cohorte indicada', articulo: 'Artículo original',
-      cita: 'PMID 123, página 4', veredicto: 'parcial', caja: 'parcial', motivo: 'El resultado depende del subgrupo', biblioteca: 'PubMed' }] };
+      cita: 'PMID 123, página 4', veredicto: 'parcial', caja: 'parcial', motivo: 'El resultado depende del subgrupo', biblioteca: 'PubMed', procedenciaVeredicto: { origen: 'juez', modelo: 'modelo de prueba', comprobaciones: [] } }] };
 }
 function montar(d: DatosLab) {
   lab = montarLaboratorio(raiz, d, { conceder: vi.fn(async () => true), denegar: vi.fn(async () => true), aprobarPlan: vi.fn(async () => true),

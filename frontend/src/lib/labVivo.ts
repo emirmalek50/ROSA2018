@@ -1,13 +1,13 @@
 // Proyección del estado canónico al laboratorio. Los diálogos conservan el
 // texto y la procedencia del registro; el reloj visual no avanza la corrida.
 import { nombreDeModelo } from '../componentes/VigilanteModelos';
-import type { AlcancePermiso, ArgumentoSolicitud, Corrida, EntradaTranscripcion, EstadoRosa, EventoLab, Incidencia, Investigacion, Iteracion, PasoPlan, Pista, TipoPermiso, Veredicto } from '../datos/tipos';
+import type { AlcancePermiso, ArgumentoSolicitud, Corrida, EntradaTranscripcion, EstadoRosa, EventoLab, Incidencia, Investigacion, Iteracion, PasoPlan, Pista, ProcedenciaVeredictoLab, TipoPermiso, Veredicto } from '../datos/tipos';
 import { baseDe, busquedasDe } from './escenario';
 import type { Evidencia } from './evidencia';
 import { etiquetaCorrida, proponiendoPlan } from './etiquetas';
 import { tr, trp } from './idioma';
 import { peticionPorPresupuesto } from './peticionPresupuestoLab';
-import { peliculaDelLaboratorio, type PeliculaLab } from './peliculaLab';
+import { eventoLabValido, peliculaDelLaboratorio, procedenciaVeredictoValida, type PeliculaLab } from './peliculaLab';
 export type { EventoVisualLab, IdeaVisualLab, PeliculaLab } from './peliculaLab';
 
 export type SalaLab = 'plan' | 'r1' | 'r2' | 'r3' | 'r4' | 'r5' | 'r6' | 'r7';
@@ -22,6 +22,7 @@ export interface FuenteLab {
 export interface AfirmacionLab {
   id: string; texto: string; veredicto: Veredicto; caja: 'sostenida' | 'parcial' | 'no_sostenida' | 'otras';
   motivo: string; cita: string; articulo: string; biblioteca: string | null;
+  procedenciaVeredicto?: ProcedenciaVeredictoLab;
 }
 export interface ActividadLab {
   id: string;
@@ -72,6 +73,8 @@ export interface DatosLab {
   estadoTexto: string;
   motivo: string | null;
   trabajando: boolean;
+  planificando?: boolean;
+  planificandoIteracion?: number;
   salas: Record<SalaLab, EstadoSala>;
   foco: SalaLab;
   activos: string[];
@@ -96,7 +99,7 @@ const TERMINADO = new Set<PasoPlan['estado']>(['hecho', 'fallido', 'omitido', 's
 const SALAS: Record<string, SalaLab[]> = { literatura: ['r1'], ensayos: ['r1'], extraccion: ['r1'], verificacion: ['r2'], modelo: ['r2'], hipotesis: ['r3', 'r4'], novedad: ['r4', 'r7'], analisis: ['r5'], replicacion: ['r5'], meta: ['r6'], grafo: ['r2'] };
 const AGENTE: Record<string, string> = { literatura: 'Generador de consultas', ensayos: 'Explorador', extraccion: 'Extractor de afirmaciones', verificacion: 'Juez', modelo: 'Actualizador del modelo de mundo', grafo: 'Actualizador del modelo de mundo', hipotesis: 'Contradicción', novedad: 'Juez de viabilidad', analisis: 'Programador y Reparador', replicacion: 'Programador y Reparador', meta: 'Meta-revisor' };
 const ATRIBUCION: Record<string, string> = { analogia: 'Analogía', contradiccion: 'Contradicción', mecanismo_opuesto: 'Mecanismo opuesto', otra_escala: 'Otra escala', killer: 'Killer', revision_inicial: 'Revisor inicial', supuestos: 'Evaluador de supuestos', torneo_a: 'Juez del torneo', torneo_b: 'Juez del torneo B', patentes: 'Especialista en patentes', companias: 'Especialista en compañías' };
-const SALA_AGENTE: Record<string, SalaLab> = { 'Puntuador preguntas': 'r1', 'Puntuador amplitud': 'r1', 'Explorador': 'r1', 'Killer': 'r4', 'Juez del torneo': 'r4', 'Juez del torneo B': 'r4', 'Revisor inicial': 'r4', 'Evaluador de supuestos': 'r4', 'Concluidor': 'r4', 'Especialista en patentes': 'r7', 'Especialista en compañías': 'r7', 'Analogía': 'r3', 'Contradicción': 'r3', 'Mecanismo opuesto': 'r3', 'Otra escala': 'r3', 'Planificador de análisis': 'r5', 'Auditor del análisis': 'r5', 'Intérprete': 'r5', 'Revisor del registro': 'r6', 'Resumidor': 'r6' };
+const SALA_AGENTE: Record<string, SalaLab> = { 'Puntuador preguntas': 'r1', 'Puntuador amplitud': 'r1', 'Explorador': 'r1', 'Killer': 'r4', 'Juez del torneo': 'r4', 'Juez del torneo B': 'r4', 'Revisor inicial': 'r4', 'Evaluador de supuestos': 'r4', 'Juez de viabilidad': 'r4', 'Concluidor': 'r4', 'Especialista en patentes': 'r7', 'Especialista en compañías': 'r7', 'Analogía': 'r3', 'Contradicción': 'r3', 'Mecanismo opuesto': 'r3', 'Otra escala': 'r3', 'Planificador de análisis': 'r5', 'Auditor del análisis': 'r5', 'Intérprete': 'r5', 'Asignador de evidencia': 'r2', 'Actualizador del modelo de mundo': 'r2', 'Revisor del registro': 'r6', 'Rehacedor': 'r6', 'Revisor de la reparación': 'r6', 'Resumidor': 'r6' };
 const numero = (s: string) => Number(s.replace(/\./g, ''));
 function tipoDePaso(it: Iteracion, p: PasoPlan): string {
   return p.tipo ?? it.pistas.find((x) => x.pasoId === p.id)?.tipo ?? '';
@@ -113,8 +116,12 @@ function tipoDePista(it: Iteracion, p: Pista): string {
 }
 /** Solo prefijos emitidos por el backend. Mencionar un método dentro de una
  * afirmación no significa que ese método esté ejecutándose. */
-function autorDe(tipo: string, e: EntradaTranscripcion, entran: [string, string][] = []): string {
+function autorDe(tipo: string, e: EntradaTranscripcion, entran: [string, string][] = [], dato?: EventoLab): string {
   const t = e.texto;
+  if (dato?.tipo === 'decision_hipotesis') return dato.origen === 'regla' ? 'ROSA2018' : { revision_inicial: 'Revisor inicial', supuestos: 'Evaluador de supuestos', killer: 'Killer', viabilidad: 'Juez de viabilidad', conclusion: 'Concluidor', asignacion: 'Asignador de evidencia' }[dato.etapa];
+  if (dato?.tipo === 'revision_registro') return dato.origen === 'regla' ? 'ROSA2018' : { revision: 'Revisor del registro', reparacion: 'Rehacedor', comprobacion_reparacion: 'Revisor de la reparación', resumen: 'Resumidor' }[dato.etapa];
+  if (dato?.tipo === 'asignacion_hecho') return 'Actualizador del modelo de mundo';
+  if (dato?.tipo === 'analisis') return dato.estado === 'auditando' ? 'Auditor del análisis' : dato.estado === 'interpretando' ? 'Intérprete' : 'Programador y Reparador';
   if (e.agente && ATRIBUCION[e.agente]) return ATRIBUCION[e.agente]!;
   if (tipo === 'hipotesis') {
     // Lo que rosa/bucle/pasos.py emite sin agente dentro de la revisión del
@@ -142,6 +149,18 @@ function autorDe(tipo: string, e: EntradaTranscripcion, entran: [string, string]
   }
   return AGENTE[tipo] ?? 'Planificador';
 }
+function estadoDeEntrada(e: EntradaTranscripcion, dato?: EventoLab): EntradaTranscripcion['estadoAgente'] {
+  // La etapa estructurada es más precisa que el estado de una pista compartida.
+  if (dato?.tipo === 'decision_hipotesis' || dato?.tipo === 'revision_registro') return dato.estado === 'en_curso' ? 'en_curso' : dato.estado === 'no_comprobado' ? 'fallido' : 'terminado';
+  if (dato?.tipo === 'analisis') return dato.estado === 'terminado' ? 'terminado' : dato.estado === 'fallido' ? 'fallido' : 'en_curso';
+  return e.estadoAgente;
+}
+function claveTrabajo(e: EntradaTranscripcion, dato?: EventoLab): string | null {
+  if (dato?.tipo === 'decision_hipotesis') return `decision:${JSON.stringify([dato.hipotesisId, dato.version, dato.etapa])}`;
+  if (dato?.tipo === 'revision_registro') return `revision:${dato.iteracionId}`;
+  if (dato?.tipo === 'analisis') return `analisis:${dato.ejecucionId}`;
+  return e.agente ? `agente:${e.agente}` : null;
+}
 /** Los ids del backend llevan la hora de creación en base 36 (rosa/estado/plantilla.py
  * `nuevo_id`); la pista crea el suyo al empezar, que es el cero de sus `t`. */
 function inicioDeId(id: string): number | null {
@@ -160,8 +179,15 @@ function actividadesDe(it: Iteracion | null): ActividadLab[] {
     const entradas = p.transcripcion;
     // Al conservar el histórico entero, recorrer el resto por cada entrada
     // sería cuadrático. El último cierre basta para detectar cierres posteriores.
-    const ultimoCierre = new Map<string, number>();
-    entradas.forEach((e, n) => { if (e.agente && e.estadoAgente !== 'en_curso') ultimoCierre.set(e.agente, n); });
+    const datosEntrada = entradas.map(e => p.iteracionId === it.id && eventoLabValido(e.eventoLab)
+      && (e.eventoLab.tipo !== 'revision_registro' || e.eventoLab.iteracionId === it.id)
+      && (e.eventoLab.tipo !== 'decision_hipotesis' || !p.hipotesisId || e.eventoLab.hipotesisId === p.hipotesisId) ? e.eventoLab : undefined);
+    const ultimoCierre = new Map<string, number>(), ultimoEstructurado = new Map<string, number>();
+    entradas.forEach((e, n) => {
+      const d = datosEntrada[n], clave = claveTrabajo(e, d);
+      if (clave && estadoDeEntrada(e, d) !== 'en_curso') ultimoCierre.set(clave, n);
+      if (clave && (d?.tipo === 'analisis' || d?.tipo === 'revision_registro')) ultimoEstructurado.set(clave, n);
+    });
     // «Nueva: título» no dice el enfoque; la nota «Entra por el enfoque» del mismo título sí.
     const entran: [string, string][] = [];
     for (const e of p.transcripcion) {
@@ -170,13 +196,16 @@ function actividadesDe(it: Iteracion | null): ActividadLab[] {
     }
     const inicio = inicioDeId(p.id);
     entradas.forEach((e, i) => {
-      const agente = autorDe(tipo, e, entran);
+      const dato = datosEntrada[i], agente = autorDe(tipo, e, entran, dato);
       const n = p.transcripcion.length - entradas.length + i;
-      const abierta = p.estado === 'en_curso' && !!e.agente && e.estadoAgente === 'en_curso' && (ultimoCierre.get(e.agente) ?? -1) < n;
-      filas.push({ ...base, id: `${p.id}:${n}:${e.t}`, agente, sala: SALA_AGENTE[agente] ?? SALAS[tipo]?.[0] ?? 'plan', texto: e.texto, tipo: e.tipo, t: e.t, abierta, estadoAgente: e.estadoAgente,
+      const clave = claveTrabajo(e, dato), estadoAgente = estadoDeEntrada(e, dato);
+      const abierta = p.estado === 'en_curso' && clave !== null && estadoAgente === 'en_curso'
+        && (ultimoCierre.get(clave) ?? -1) < n && (ultimoEstructurado.get(clave) ?? n) === n;
+      const salaEvento = dato?.tipo === 'decision_hipotesis' ? dato.etapa === 'asignacion' ? 'r2' : 'r4' : dato?.tipo === 'revision_registro' ? 'r6' : undefined;
+      filas.push({ ...base, id: `${p.id}:${n}:${e.t}`, agente, sala: salaEvento ?? SALA_AGENTE[agente] ?? SALAS[tipo]?.[0] ?? 'plan', texto: e.texto, tipo: e.tipo, t: e.t, abierta, estadoAgente,
         // El histórico textual sigue visible; solo una pista atribuida a esta
         // iteración puede crear sus tarjetas estructuradas en la película.
-        eventoLab: p.iteracionId === it.id ? e.eventoLab : undefined, desde: inicio === null ? null : inicio + e.t });
+        eventoLab: dato, desde: inicio === null ? null : inicio + e.t });
     });
     // La apertura y el cierre son estados guardados, no parlamentos inventados.
     if (!entradas.length || (p.estado !== 'en_curso' && p.resumen && p.resumen !== entradas.at(-1)?.texto)) {
@@ -261,21 +290,26 @@ function peticionDe(estado: EstadoRosa, corrida: Corrida, it: Iteracion | null, 
 /** Las afirmaciones de una iteración en la cadena de evidencia, con su artículo
  *  y la biblioteca de la primera consulta que lo trajo. */
 export function afirmacionesDeEvidencia(ev: Evidencia, numero: number): AfirmacionLab[] {
-  const fuentes = new Map(ev.fuentes.map((f) => [f.id, f]));
-  const bases = new Map(ev.consultas.map((c) => [c.consulta, c.base]));
+  const fuentes = new Map(ev.fuentes.filter(f => f.iteracion === numero).map((f) => [f.id, f]));
+  const bases = new Map(ev.consultas.filter(c => c.iteracion === undefined || c.iteracion === numero).map((c) => [c.consulta, c.base]));
   return ev.afirmaciones.filter((a) => a.iteracion === numero).map((a) => {
     const f = fuentes.get(a.fuenteId), base = f?.consultas.map((q) => bases.get(q)).find((b) => b !== undefined);
     const caja = a.veredicto === 'sostenida' || a.veredicto === 'parcial' || a.veredicto === 'no_sostenida' ? a.veredicto : 'otras';
-    return { id: a.id, texto: a.texto, veredicto: a.veredicto, caja, motivo: a.motivo, cita: a.cita, articulo: f?.titulo || f?.referencia || a.cita, biblioteca: base ? baseDe(base).nombre : null };
+    const p = procedenciaVeredictoValida(a.procedenciaVeredicto) ? a.procedenciaVeredicto : undefined;
+    return { id: a.id, texto: a.texto, veredicto: a.veredicto, caja, motivo: a.motivo, cita: a.cita, articulo: f?.titulo || f?.referencia || a.cita, biblioteca: base ? baseDe(base).nombre : null,
+      ...(p ? { procedenciaVeredicto: { origen: p.origen, modelo: p.modelo, comprobaciones: [...p.comprobaciones] } } : {}) };
   });
 }
 export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corrida: Corrida, recibida: Iteracion | null, opciones: { pasada?: boolean; evidencia?: Evidencia | null } = {}): DatosLab {
   // Un cambio de corrida puede llegar antes que sus iteraciones. Nunca mezclar.
-  const pasada = !!opciones.pasada && recibida?.corridaId === corrida.id && recibida.numero !== corrida.iteracionActual;
-  const it = recibida?.corridaId === corrida.id && (pasada || recibida.numero === corrida.iteracionActual) ? recibida : null;
+  const compatible = corrida.investigacionId === inv.id;
+  const pasada = compatible && !!opciones.pasada && recibida?.corridaId === corrida.id && recibida.numero !== corrida.iteracionActual;
+  const it = compatible && recibida?.corridaId === corrida.id && (pasada || recibida.numero === corrida.iteracionActual) ? recibida : null;
   const plan = it?.plan ?? [];
   const actividad = actividadesDe(it);
-  const proponiendo = proponiendoPlan(corrida, it);
+  const identidadActual = compatible && !pasada && (!recibida || it !== null);
+  const planificando = identidadActual && estado.conexion === 'en_linea' && (corrida.estado === 'en_marcha' || corrida.estado === 'esperando_plan') && corrida.planificando === true;
+  const proponiendo = identidadActual && (corrida.planificando === undefined ? proponiendoPlan(corrida, it) : planificando);
   const trabajando = !pasada && estado.conexion === 'en_linea' && (proponiendo || (corrida.estado === 'en_marcha' && it?.terminadaEn === null && it.planAprobado));
   const pide = pasada ? null : peticionDe(estado, corrida, it, actividad.at(-1)?.agente);
   // Una incidencia no para la corrida: el resto del trabajo sigue a la vista detrás del letrero.
@@ -302,18 +336,15 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
       const ultima = [...actividad].reverse().find((e) => e.pistaId === p.id);
       if (!ultima) continue;
       foco = ultima.sala;
-      const atribuidas = new Map<string, EntradaTranscripcion>();
-      p.transcripcion.forEach((e) => { if (e.agente && ATRIBUCION[e.agente]) atribuidas.set(e.agente, e); });
-      const miembros = [...atribuidas.values()].filter((e) => e.estadoAgente === 'en_curso');
+      const miembros = actividad.filter(a => a.pistaId === p.id && a.abierta && a.agente !== 'ROSA2018');
       if (miembros.length) {
-        miembros.forEach((e) => { const a = autorDe('hipotesis', e); salas[SALA_AGENTE[a]!] = trabajando ? 'ahora' : 'espera'; if (trabajando) activos.push(a); });
+        miembros.forEach(a => { salas[a.sala] = trabajando ? 'ahora' : 'espera'; if (trabajando) activos.push(a.agente); });
       } else {
         salas[foco] = trabajando ? 'ahora' : 'espera';
         // Una tarea atribuida que acaba de terminar no deja a nadie trabajando;
         // lo que su autor escribe después (Revisada, Reformulada) sí es trabajo.
-        const cruda = p.transcripcion.at(-1);
-        const recienTerminada = !!cruda?.agente && !!ATRIBUCION[cruda.agente] && cruda.estadoAgente !== 'en_curso';
-        if (trabajando && !recienTerminada && !ultima.texto.startsWith('El miembro «')) activos.push(ultima.agente);
+        const recienTerminada = ultima.estadoAgente !== undefined && ultima.estadoAgente !== 'en_curso';
+        if (trabajando && !recienTerminada && ultima.agente !== 'ROSA2018' && !ultima.texto.startsWith('El miembro «')) activos.push(ultima.agente);
       }
     }
     if (!pistasVivas.length && siguiente && it.planAprobado) {
@@ -325,7 +356,7 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
     foco = 'plan'; salas.plan = trabajando ? 'ahora' : 'espera';
     if (trabajando) activos.push('Planificador');
   }
-  if (it?.resumen || it?.revisionRegistro) salas.r6 = 'listo';
+  if ((it?.resumen || it?.revisionRegistro) && !actividad.some(a => a.sala === 'r6' && a.abierta)) salas.r6 = 'listo';
   if (bloquea) { activos.length = 0; salas[foco] = 'espera'; }
   const cerrada = pasada || corrida.estado === 'terminada' || corrida.estado === 'detenida';
   if (cerrada) {
@@ -337,12 +368,12 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
   const datos: DatosLab = {
     identidad: `${corrida.id}/${it?.id ?? 'sin-iteracion'}`, corrida: corrida.numero, iteracion: it?.numero ?? null, titulo: inv.titulo,
     conexion: estado.conexion, estado: corrida.estado, estadoTexto: pasada && it ? trp('Iteración {n} ya cerrada', { n: it.numero }) : etiquetaCorrida(corrida, it), motivo: pasada ? null : cerrada ? corrida.motivoCierre : corrida.estado === 'pausada_por_presupuesto' ? corrida.presupuesto.motivoPausa ?? null : corrida.estado === 'pausada' ? corrida.motivoPausaPropia ?? null : null,
-    trabajando: trabajando && !bloquea, salas, foco, activos: [...new Set(activos)], actividad,
+    trabajando: trabajando && !bloquea, planificando, ...(planificando && Number.isInteger(corrida.planificandoIteracion) && (corrida.planificandoIteracion ?? 0) > 0 ? { planificandoIteracion: corrida.planificandoIteracion } : {}), salas, foco, activos: [...new Set(activos)], actividad,
     pasos: { total: plan.length, primero: plan[0]?.titulo ?? null, aprobado: !!it?.planAprobado, estados: plan.map((p) => p.estado === 'fallido' ? 'fallo' : p.estado === 'omitido' || p.estado === 'sin_trabajo' ? 'omitido' : p.estado === 'hecho' ? 'hecho' : trabajando && p.estado === 'en_curso' ? 'ahora' : 'pendiente'), enCurso: trabajando && enCurso ? { n: plan.indexOf(enCurso) + 1, titulo: enCurso.titulo } : null, lista: plan.map((p) => ({ id: p.id, titulo: p.titulo, detalle: p.detalle, estado: p.estado, tipo: p.tipo, presupuesto: p.presupuesto })) },
     ...lecturaDe(it, corrida), juez: juezDe(it), pide, modelos: { cerebro: modelo('cerebro'), volumen: modelo('volumen'), juez: modelo('juez') },
     presupuesto: it && it.presupuesto.limite > 0 ? { usado: it.presupuesto.usado, limite: it.presupuesto.limite, reserva: it.presupuesto.reservaCierre ?? null } : null,
     afirmaciones: evidencia && it ? afirmacionesDeEvidencia(evidencia, it.numero) : null, pasada,
   };
-  datos.pelicula = peliculaDelLaboratorio(datos, it, evidencia);
+  datos.pelicula = peliculaDelLaboratorio(datos, it, evidencia, estado);
   return datos;
 }

@@ -226,7 +226,7 @@ describe('el motor representa la película del registro, sin inventar el trabajo
 
   it('la decisión registrada se representa una sola vez aunque el juez siga activo', async () => {
     const d = datos(); d.activos = ['Juez']; d.foco = 'r2';
-    d.afirmaciones = [{ id: 'af-decidida', texto: 'Dato comprobado', veredicto: 'sostenida', caja: 'sostenida', motivo: 'Respaldo registrado', cita: 'PMID 1', articulo: 'Artículo', biblioteca: null }];
+    d.afirmaciones = [{ id: 'af-decidida', texto: 'Dato comprobado', veredicto: 'sostenida', caja: 'sostenida', motivo: 'Respaldo registrado', cita: 'PMID 1', articulo: 'Artículo', biblioteca: null, procedenciaVeredicto: { origen: 'juez', modelo: 'modelo de prueba', comprobaciones: [] } }];
     montar(d); const sellos = new Set<HTMLElement>();
     await avanzar(1100, () => {
       nodo.querySelectorAll<HTMLElement>('.lv-sello').forEach(s => sellos.add(s));

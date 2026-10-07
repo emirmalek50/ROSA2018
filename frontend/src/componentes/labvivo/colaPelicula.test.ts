@@ -155,13 +155,13 @@ describe('cola de escenas del registro real', () => {
     expect(Object.keys(a).sort()).toEqual(['agentes', 'dato', 'id', 'sala', 'texto', 'tipo']);
   });
 
-  it('representa el último estado pendiente de un análisis y conserva otras ejecuciones', () => {
+  it('conserva las fases distintas de un análisis y las de otras ejecuciones', () => {
     const cola = new ColaPelicula();
     const a = evento('programando', { sala: 'r5', tipo: 'analisis', dato: { tipo: 'analisis', ejecucionId: 'ej-real', estado: 'programando', sintetico: false } });
     const b = evento('terminado', { ...a, id: 'terminado', dato: { tipo: 'analisis', ejecucionId: 'ej-real', estado: 'terminado', sintetico: false } });
     const otra = evento('otra', { ...a, id: 'otra', dato: { tipo: 'analisis', ejecucionId: 'ej-otra', estado: 'ejecutando', sintetico: false } });
     cola.recibir([a, otra, b], IDENTIDAD);
-    expect(vaciar(cola)).toEqual([otra, b]);
+    expect(vaciar(cola)).toEqual([a, otra, b]);
     cola.recibir([a, otra, b], IDENTIDAD);
     expect(vaciar(cola)).toEqual([]);
   });

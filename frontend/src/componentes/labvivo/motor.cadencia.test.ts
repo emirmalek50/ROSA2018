@@ -160,7 +160,7 @@ describe('cada entrada se escucha a su ritmo, aunque los turnos lleguen juntos',
 
   it('el juez comenta la afirmación mientras el mismo papel sigue hasta su sello y su caja', async () => {
     const d = datos(), af = { id: 'af-cadencia', texto: 'MAPT aparece en las neuronas del modelo', veredicto: 'parcial' as const, caja: 'parcial' as const,
-      motivo: 'El experimento aún no separa causa y consecuencia', cita: 'PMID de la prueba', articulo: 'Artículo de la prueba', biblioteca: null };
+      motivo: 'El experimento aún no separa causa y consecuencia', cita: 'PMID de la prueba', articulo: 'Artículo de la prueba', biblioteca: null, procedenciaVeredicto: { origen: 'juez' as const, modelo: 'modelo de prueba', comprobaciones: [] } };
     montar({ ...d, foco: 'r2', activos: ['Juez'], afirmaciones: [af] }); await avanzar(1);
     const papel = nodo.querySelector<HTMLElement>('.lv-hoja-trazada')!, personaje = nodo.querySelector('[data-agente="Juez"]');
     expect(papel?.dataset.afirmacion).toBe(af.id);

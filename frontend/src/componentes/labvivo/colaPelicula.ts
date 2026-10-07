@@ -3,6 +3,13 @@ import type { EventoVisualLab } from '../../lib/peliculaLab';
 const LIMITE_PENDIENTES = 100;
 type Pendiente = { evento: EventoVisualLab; firma: string; entidad: string | null };
 type Version = { id: string; firma: string };
+function casoDe(evento: EventoVisualLab): string | null {
+  const d = evento.dato;
+  if (d?.tipo === 'analisis') return `analisis:${d.ejecucionId}`;
+  if (d?.tipo === 'decision_hipotesis') return `decision:${d.hipotesisId}:${d.version}`;
+  if (d?.tipo === 'revision_registro') return `registro:${d.iteracionId}`;
+  return null;
+}
 
 /** La misma respuesta JSON puede ordenar sus claves de otra forma. Eso no
  * cambia la escena; el orden de los elementos de una lista sí la cambia. */
@@ -21,7 +28,10 @@ function entidadDe(evento: EventoVisualLab): string | null {
   const dato = evento.dato;
   if (dato?.tipo === 'idea') return `idea:${dato.hipotesisId}`;
   if (dato?.tipo === 'articulo') return `articulo:${dato.id}:${dato.modo}`;
-  if (dato?.tipo === 'analisis') return `analisis:${dato.ejecucionId}`;
+  if (dato?.tipo === 'analisis') return `analisis:${dato.ejecucionId}:${dato.estado}`;
+  if (dato?.tipo === 'decision_hipotesis') return `decision:${dato.hipotesisId}:${dato.version}:${dato.etapa}:${dato.estado}`;
+  if (dato?.tipo === 'revision_registro') return `registro:${dato.iteracionId}:${dato.etapa}:${dato.vuelta}:${dato.estado}`;
+  if (dato?.tipo === 'asignacion_hecho') return `hecho:${dato.hechoId}:${dato.estado}`;
   if (dato?.tipo === 'torneo') return null;
   // Los resúmenes de estas entidades ya reciben un ID estable en la proyección.
   if (/^(?:plan|fuente|fuente-documento|lectura|afirmacion|verificacion):/.test(evento.id)) return `entidad:${evento.id}`;
@@ -34,6 +44,7 @@ export class ColaPelicula {
   private identidad: string | null = null;
   private readonly vistas = new Map<string, string>();
   private readonly ultimas = new Map<string, Version>();
+  private readonly ultimoCaso = new Map<string, Version>();
   private readonly pendientes: Pendiente[] = [];
 
   recibir(eventos: readonly EventoVisualLab[], identidad: string, inicial = false): void {
@@ -44,6 +55,8 @@ export class ColaPelicula {
     const lote = new Map<string, Version>();
     for (const evento of eventos) {
       const firma = firmaDe(evento);
+      const caso = casoDe(evento);
+      if (caso) this.ultimoCaso.set(caso, { id: evento.id, firma });
       const entidad = entidadDe(evento);
       if (entidad !== null) lote.set(entidad, { id: evento.id, firma });
       if (this.vistas.get(evento.id) === firma) continue;
@@ -76,6 +89,10 @@ export class ColaPelicula {
   devolver(evento: EventoVisualLab): void {
     const firma = firmaDe(evento);
     const entidad = entidadDe(evento);
+    const caso = casoDe(evento), ultima = caso ? this.ultimoCaso.get(caso) : null;
+    // Las fases pendientes se conservan, pero una interrupción no resucita
+    // una fase ya sustituida por el siguiente resultado del mismo expediente.
+    if (ultima && (ultima.id !== evento.id || ultima.firma !== firma)) return;
     // Una cancelación tardía no revive la versión anterior, ni una escena de
     // otra identidad cuya cola ya se limpió. Tampoco duplica una pendiente.
     if (evento.agentes.length === 0 || !this.actual(evento, firma, entidad) || this.pendientes.some((p) => p.evento.id === evento.id)) return;
@@ -87,6 +104,7 @@ export class ColaPelicula {
     this.identidad = null;
     this.vistas.clear();
     this.ultimas.clear();
+    this.ultimoCaso.clear();
     this.pendientes.length = 0;
   }
 

@@ -148,6 +148,41 @@ describe('los documentos conservan líneas completas dentro de la cámara', () =
     expect(registrar).toHaveBeenCalledTimes(1);
   });
 
+  it('en móvil inglés usa el corredor de 61 px antes de tapar la ficha o la cabecera del registro', () => {
+    // Geometría del navegador a 390 px y zoom 2. No basta con que el cuarto
+    // tenga espacio: hay nombres, cabeceras y una ficha por encima del lienzo.
+    const texto = 'The original record does not show that the comparison was run. PMID 123, Table 2. Rewriting the summary cannot replace the missing calculation.';
+    const el = documento('r6', texto, w => w <= 180 ? 136 : 97);
+    Object.assign(el.style, { left: '760px', top: '934px', width: '280px' });
+    configurarDocumento(el, 'r6', [0, 928, 1064, 200]);
+    limites = { izq: 0, arr: 687.497, der: 499.502, aba: 1312 };
+    obstaculos = [
+      { x: 448, y: 768, w: 239.766, h: 27.5 }, { x: 8, y: 936, w: 217.453, h: 27.5 }, { x: 8, y: 1144, w: 176.797, h: 27.5 },
+      { x: 10, y: 672, w: 48, h: 64 }, { x: 18.187, y: 738, w: 31.625, h: 13 },
+      { x: 80, y: 672, w: 48, h: 64 }, { x: 72, y: 738, w: 64, h: 24 },
+      { x: 150, y: 672, w: 48, h: 64 }, { x: 136, y: 738, w: 64, h: 24 },
+      { x: 210, y: 672, w: 48, h: 64 }, { x: 202, y: 738, w: 64, h: 24 }, { x: 238, y: 666, w: 48, h: 64 },
+      { x: 298, y: 672, w: 48, h: 64 }, { x: 281, y: 738, w: 82, h: 24 },
+      { x: 10, y: 792, w: 48, h: 64 }, { x: 2, y: 858, w: 64, h: 24 },
+      { x: 80, y: 792, w: 48, h: 64 }, { x: 76.117, y: 858, w: 55.766, h: 13 },
+      { x: 150, y: 792, w: 48, h: 64 }, { x: 142, y: 858, w: 64, h: 24 },
+      { x: 220, y: 792, w: 48, h: 64 }, { x: 212, y: 858, w: 64, h: 24 },
+      { x: 290, y: 792, w: 48, h: 64 }, { x: 282, y: 858, w: 64, h: 24 },
+      { x: 64, y: 1032, w: 48, h: 64 }, { x: 54.367, y: 1098, w: 67.266, h: 13 },
+      { x: 204, y: 998, w: 48, h: 64 }, { x: 207.594, y: 1066, w: 40.813, h: 13 },
+      { x: 356, y: 998, w: 48, h: 64 }, { x: 340.203, y: 1066, w: 79.594, h: 13 }, { x: 494.281, y: 1066, w: 75.438, h: 13 },
+      { x: 60, y: 1188, w: 48, h: 64 }, { x: 32, y: 1288, w: 104, h: 24 },
+      { x: 330, y: 1200, w: 48, h: 64 }, { x: 317.18, y: 1286, w: 73.641, h: 13 },
+      { x: 118.993, y: 955.748, w: 266.401, h: 220.697 },
+    ];
+    ajustar();
+    expect(el.dataset.desplazable).toBe('true'); expect(el.tabIndex).toBe(0);
+    const x = num(el, 'left'), y = num(el, 'top'), w = num(el, 'width'), h = num(el, 'max-height');
+    expect(h).toBeGreaterThanOrEqual(48); expect(h).toBeLessThan(64); dentro(el, h);
+    expect(el.textContent).toBe(texto); expect(el.title).toBe(texto);
+    for (const r of obstaculos) expect(x + w <= r.x || x >= r.x + r.w || y + h <= r.y || y >= r.y + r.h).toBe(true);
+  });
+
   it('el tribunal puede estrechar el informe con la ficha abierta y conservar todo el texto sin tapar la escena', () => {
     const texto = 'Las fuentes y las limitaciones quedan adjuntas al informe. La comparación conserva las diferencias y el resultado registrado.';
     const el = documento('r4', texto, w => w <= 180 ? 240 : w <= 240 ? 180 : 103);

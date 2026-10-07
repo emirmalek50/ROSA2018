@@ -405,7 +405,7 @@ describe('el motor del laboratorio sigue al servidor', () => {
   });
   it('el juez lee en su mesa una afirmación real de la iteración y sella su veredicto', async () => {
     const d = datos(), e = { ...d.actividad[0]!, agente: 'Juez', sala: 'r2' as const, texto: 'El juez compara las afirmaciones con sus artículos' };
-    const af = { id: 'af-real', texto: 'MAPT se expresa en neuronas corticales', veredicto: 'no_sostenida' as const, caja: 'no_sostenida' as const, motivo: 'El artículo habla de glía, no de neuronas', cita: 'PMID 1', articulo: 'Un artículo real', biblioteca: null };
+    const af = { id: 'af-real', texto: 'MAPT se expresa en neuronas corticales', veredicto: 'no_sostenida' as const, caja: 'no_sostenida' as const, motivo: 'El artículo habla de glía, no de neuronas', cita: 'PMID 1', articulo: 'Un artículo real', biblioteca: null, procedenciaVeredicto: { origen: 'juez' as const, modelo: 'modelo de prueba', comprobaciones: [] } };
     montar({ ...d, foco: 'r2', activos: ['Juez'], actividad: [e], afirmaciones: [af] });
     const sellos = new Set<string>(), dichos = new Set<string>();
     await avanzar(200, () => {

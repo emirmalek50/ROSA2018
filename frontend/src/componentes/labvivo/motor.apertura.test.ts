@@ -54,16 +54,24 @@ afterEach(() => { lab?.desmontar(); raiz.remove(); vi.restoreAllMocks(); vi.unst
 it('al entrar a mitad de corrida muestra resultados guardados y el progreso actual, sin nuevas tareas', async () => {
   const d = fotografia(); montar(d);
   const vistas = new Map<string, Set<Element>>();
+  const expedientes = new Map<string, Set<Element>>();
   await avanzar(85, () => {
     raiz.querySelectorAll<HTMLElement>('.lv-documento[data-evento]').forEach(el => {
       const id = el.dataset.evento!;
       if (!vistas.has(id)) vistas.set(id, new Set());
       vistas.get(id)!.add(el);
     });
+    raiz.querySelectorAll<HTMLElement>('.lv-expediente-viajero').forEach(el => {
+      const id = el.dataset.evento!;
+      if (!expedientes.has(id)) expedientes.set(id, new Set());
+      expedientes.get(id)!.add(el);
+    });
     if (tiempo % 500 === 0) lab!.actualizar(d);
   });
   expect([...vistas.keys()]).toEqual(expect.arrayContaining(d.pelicula!.eventos.map(e => e.id)));
-  expect([...vistas.values()].every(elementos => elementos.size === 1)).toBe(true);
+  // La pizarra tiene varias hojas, una por paso. El mismo episodio conserva
+  // un único expediente, también al recibir la misma foto por SSE.
+  expect([...expedientes.values()].every(elementos => elementos.size === 1)).toBe(true);
   expect(raiz.querySelector('[data-agente="Puntuador preguntas"]')!.classList.contains('activo')).toBe(false);
   expect(raiz.querySelectorAll('.lv-bub')).toHaveLength(0);
 });

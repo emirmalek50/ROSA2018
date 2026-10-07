@@ -47,7 +47,7 @@ export function crearAjustadorTextos(utileria: HTMLElement, limites: () => Limit
       const l = limites();
       if (![l.izq, l.arr, l.der, l.aba].every(Number.isFinite) || l.der <= l.izq || l.aba <= l.arr) return;
       const visibles: RectanguloTexto = { x: l.izq, y: l.arr, w: l.der - l.izq, h: l.aba - l.arr };
-      const documentos = [...utileria.querySelectorAll<HTMLElement>('.lv-documento')].filter(el => bases.has(el));
+      const documentos = [...utileria.querySelectorAll<HTMLElement>('.lv-documento')].filter(el => !el.hidden && bases.has(el));
       const presentes = new Set(documentos);
       for (const el of medidas.keys()) if (!presentes.has(el)) { observadorTamanos?.unobserve(el); medidas.delete(el); sucios.delete(el); }
       if (!documentos.length) { ultimaFirma = ''; sucios.clear(); return; }
@@ -102,8 +102,8 @@ export function crearAjustadorTextos(utileria: HTMLElement, limites: () => Limit
           }
           if (mejor) { const w = Math.max(1, Math.floor(Math.min(ancho, mejor.w))); candidatos.push({ x: mejor.x, y: base.cuarto.y + 46, w, alto: medir(w) }); }
         }
-        if (base.sala === 'r4' && ancho > 240) {
-          // Con la ficha abierta una hoja de 390 px puede ocupar todas las
+        if (ancho > 240) {
+          // Con la ficha abierta una hoja ancha puede ocupar todas las
           // columnas. Estas dos anchuras conservan el texto mediante reflow.
           const cercanos = ocupados.filter(r => interseccion(r, entorno));
           for (const w of [240, 180]) {
@@ -148,7 +148,7 @@ export function crearAjustadorTextos(utileria: HTMLElement, limites: () => Limit
             let desde = l.arr + margen;
             for (const [arr, aba] of [...bloqueos, [l.aba - margen, l.aba - margen] as const]) {
               const espacio = arr - desde;
-              if (espacio >= Math.min(64, altoDisponible)) {
+              if (espacio >= Math.min(48, altoDisponible)) {
                 const h = Math.min(c.alto, espacio);
                 huecos.push({ ...c, y: Math.max(desde, Math.min(arr - h, base.y)), limite: h });
               }
@@ -156,7 +156,11 @@ export function crearAjustadorTextos(utileria: HTMLElement, limites: () => Limit
             }
           }
           const enteros = huecos.filter(c => c.alto <= c.limite!);
-          const disponibles = enteros.length ? enteros : huecos;
+          // Una ficha grande puede dejar un corredor de 48 a 63 px. Conserva
+          // las líneas mediante scroll antes de tapar un nombre o la ficha;
+          // prefiere huecos mayores cuando los hay para que leer sea cómodo.
+          const amplios = huecos.filter(c => c.limite! >= Math.min(64, altoDisponible));
+          const disponibles = enteros.length ? enteros : amplios.length ? amplios : huecos;
           if (disponibles.length) elegido = escoger(disponibles);
         }
         const mejor = elegido.mejor;

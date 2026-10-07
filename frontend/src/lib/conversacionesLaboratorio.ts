@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { cabeceras } from '../datos/almacen';
 import type { Idioma } from './idioma';
+import type { EventoLab } from '../datos/tipos';
 
 export const ESTILO_LABORATORIO = 'conversacion-natural-v3';
 const ESTILOS_COMPATIBLES = ['conversacion-natural-v2', ESTILO_LABORATORIO] as const;
@@ -8,13 +9,18 @@ type EstiloCompatible = typeof ESTILOS_COMPATIBLES[number];
 export type EmocionLaboratorio = 'neutral' | 'curioso' | 'alegre' | 'frustrado' | 'preocupado' | 'sorprendido';
 export type GestoLaboratorio = 'ninguno' | 'asentir' | 'negar';
 export interface MaterialCharla {
-  id: string; clase: 'registro' | 'afirmacion'; texto: string;
+  id: string; clase: 'registro' | 'afirmacion' | 'plan' | 'tarea' | 'objetivo'; texto: string;
   titulo?: string; cita?: string | null; fragmento?: string | null;
   veredicto?: string | null; pistaId?: string;
+  pregunta?: string; detalle?: string; tipo?: string; estado?: string;
+  pasoId?: string | null; agente?: string; hipotesisId?: string; entradaId?: string;
+  aprobado?: boolean; pasos?: { id: string; tipo?: string; titulo?: string; detalle?: string; valorDecision?: string; espera?: string; siNoAparece?: string }[];
+  evento?: EventoLab; hipotesis?: { id: string; titulo?: string; enunciado?: string; mecanismo?: string; estado?: string; version?: number };
 }
 export interface TurnoLaboratorio {
   estilo?: string;
   tipoConversacion?: 'actividad' | 'companeros';
+  momento?: 'plan_propuesto' | 'inicio_tarea' | 'hallazgo';
   id: string; temaId: string; iteracionId: string; idioma: Idioma;
   agente: string; destinatario: string; texto: string; fecha: number;
   modelo: string; materiales: MaterialCharla[];

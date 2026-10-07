@@ -673,6 +673,10 @@ export interface Direccion {
 }
 
 export interface Corrida {
+  /** Hay una llamada real de planificación en curso, antes de guardar el plan. */
+  planificando?: boolean;
+  /** Iteración que está proponiendo esa llamada; puede ser la siguiente. */
+  planificandoIteracion?: number;
   id: Id;
   investigacionId: Id;
   numero: number;
@@ -843,11 +847,55 @@ export interface EntradaTranscripcion {
 }
 
 /** Acontecimientos de la corrida emitidos al realizar el trabajo, no por el reloj visual. */
+export type OrigenVeredictoLab = 'juez' | 'regla' | 'mixta' | 'sin_verificar';
+export interface ProcedenciaVeredictoLab {
+  origen: OrigenVeredictoLab;
+  modelo: string | null;
+  comprobaciones: string[];
+}
+export type EstadoRevisionLab = 'en_curso' | 'terminado' | 'no_comprobado';
+export interface EventoDecisionHipotesisLab extends ProcedenciaVeredictoLab {
+  tipo: 'decision_hipotesis';
+  hipotesisId: Id;
+  version: number;
+  etapa: 'revision_inicial' | 'supuestos' | 'killer' | 'viabilidad' | 'conclusion' | 'asignacion';
+  estado: EstadoRevisionLab;
+  decision: string;
+  hechoIds: Id[];
+}
+export interface HallazgoEventoRegistroLab {
+  id: Id;
+  clase: string;
+  gravedad: string;
+  estado: string;
+  origen: string;
+  detalle: string;
+}
+export interface EventoRevisionRegistroLab extends ProcedenciaVeredictoLab {
+  tipo: 'revision_registro';
+  iteracionId: Id;
+  etapa: 'revision' | 'reparacion' | 'comprobacion_reparacion' | 'resumen';
+  estado: EstadoRevisionLab;
+  vuelta: number;
+  /** Recuento exacto; la lista de detalles está acotada para el evento. */
+  totalHallazgos: number;
+  hallazgos: HallazgoEventoRegistroLab[];
+}
+export interface EventoAsignacionHechoLab {
+  tipo: 'asignacion_hecho';
+  hechoId: Id;
+  afirmacionIds: Id[];
+  estado: 'nuevo' | 'fundido';
+  enunciado: string;
+}
 export type EventoLab =
   | { tipo: 'articulo'; id: Id; titulo: string; estado: 'incluido' | 'excluido' | 'no_comprobado'; motivo: string; modo: 'foco' | 'amplitud' }
   | { tipo: 'idea'; hipotesisId: Id; titulo: string; enfoque: string }
   | { tipo: 'torneo'; hipotesisAId: Id; hipotesisBId: Id; tituloA: string; tituloB: string; estado: 'comparando' | 'a' | 'b' | 'tablas' | 'no_comprobado'; porRegla: boolean }
-  | { tipo: 'analisis'; ejecucionId: Id; estado: 'programando' | 'ejecutando' | 'terminado' | 'fallido' | 'interpretando' | 'auditando'; sintetico: boolean };
+  | { tipo: 'analisis'; ejecucionId: Id; estado: 'programando' | 'ejecutando' | 'terminado' | 'fallido' | 'interpretando' | 'auditando'; sintetico: boolean }
+  | EventoDecisionHipotesisLab
+  | EventoRevisionRegistroLab
+  | EventoAsignacionHechoLab;
 
 export interface Pista {
   id: Id;
@@ -1016,6 +1064,8 @@ export interface Afirmacion {
   cita: string;
   veredicto: Veredicto;
   motivo: string;
+  /** Origen declarado al verificar, ausente en registros antiguos. */
+  procedenciaVeredicto?: ProcedenciaVeredictoLab;
   /** Dato real pero de otra entidad (otro farmaco, cohorte, estudio). */
   entidadDistinta: boolean;
   tipo: TipoAfirmacion;
@@ -1692,6 +1742,9 @@ export type TipoDecision = DecisionKiller | 'valido' | 'no_valido' | 'no_evaluab
 export interface Decision {
   id: Id;
   investigacionId: Id;
+  /** Atribución pública del registro; los históricos no se reconstruyen por fecha. */
+  corridaId?: Id;
+  iteracionId?: Id;
   hipotesisId: Id;
   version: number;
   etapa: EtapaDecision;
@@ -1947,6 +2000,11 @@ export type InterpretacionEjecucion = 'efecto_detectado' | 'sin_efecto_detectabl
 export interface Ejecucion {
   id: Id;
   investigacionId: Id;
+  /** La corrida y la iteración que crearon esta ejecución, si se registraron. */
+  corridaId?: Id;
+  iteracionId?: Id;
+  /** Procedencia de los datos; Docker por sí solo no indica si son sintéticos. */
+  sintetico?: boolean;
   hipotesisId: Id | null;
   planId: Id;
   tipo: 'hipotesis' | 'reproduccion';
@@ -2040,6 +2098,10 @@ export type DireccionEvidencia = 'apoya' | 'mixta' | 'en_contra' | 'sin_evidenci
 export type FactorCerteza = 'riesgo_de_sesgo' | 'inconsistencia' | 'evidencia_indirecta' | 'imprecision' | 'sesgo_de_publicacion' | 'efecto_grande' | 'gradiente' | 'replicacion_independiente';
 
 export interface ConclusionHipotesis {
+  /** Versión y origen exactos, ausentes en conclusiones históricas. */
+  corridaId?: Id;
+  iteracionId?: Id;
+  version?: number;
   certeza: CertezaEvidencia;
   /** Techo por regla (rosa/certeza.py): el nivel máximo con lo que hay contado
    * (cohortes distintas, evidencia directa no sintética). Si `acotada`, el juez

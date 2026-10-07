@@ -18,6 +18,7 @@ import { formatearEntero } from '../lib/formato';
 import { rutaNovedad } from '../lib/ruta';
 import { IconoEsc } from './IconosEscenario';
 import { ConversacionesLaboratorio } from './ConversacionesLaboratorio';
+import { claveVozPlan, vozDisponible } from './labvivo/vozDisponible';
 import { useConversacionesLaboratorio } from '../lib/conversacionesLaboratorio';
 import { ALTO, ANCHO, montarLaboratorio, type Laboratorio } from './labvivo/motor';
 import './labvivo/labvivo.css';
@@ -49,6 +50,7 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
   const [escala, setEscala] = useState(1);
   const idioma = useIdioma();
   const [charlasActivas, setCharlasActivas] = useState(true);
+  const [peticionVisible, setPeticionVisible] = useState(false);
   // Las iteraciones de esta corrida, en orden; null en «verNumero» es la que está en curso.
   const iteraciones = useMemo(() => estado.iteraciones.filter((it) => it.corridaId === corrida.id).sort((a, b) => a.numero - b.numero), [estado.iteraciones, corrida.id]);
   const [verNumero, setVerNumero] = useState<{ corridaId: string; numero: number } | null>(null);
@@ -82,8 +84,8 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
   }, [estado, inv, corrida, iteracion, vista, pasada, ev, idioma]);
   const numeros = iteraciones.map((it) => it.numero);
   const iteracionCharla = estado.iteraciones.find((it) => it.corridaId === corrida.id && it.numero === datos.iteracion);
-  const conversar = charlasActivas && datos.trabajando && datos.iteracion === corrida.iteracionActual;
-  const charlas = useConversacionesLaboratorio(corrida.id, iteracionCharla?.id ?? null, idioma, estado.conexion === 'en_linea', conversar);
+  const conversar = charlasActivas && !peticionVisible && vozDisponible(datos) && !pasada && (datos.iteracion === corrida.iteracionActual || claveVozPlan(datos) !== null);
+  const charlas = useConversacionesLaboratorio(corrida.id, claveVozPlan(datos) ?? iteracionCharla?.id ?? null, idioma, estado.conexion === 'en_linea', conversar);
   const posicion = datos.iteracion !== null ? numeros.indexOf(datos.iteracion) : -1;
   const ir = (numero: number | undefined) => { if (numero !== undefined) setVerNumero(numero === corrida.iteracionActual ? null : { corridaId: corrida.id, numero }); };
   const actuales = useRef(datos);
@@ -112,6 +114,7 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
       conceder: (id: string, alcance: string | null, argumentos?: Record<string, string>) => acciones.resolverSolicitudVerificada(id, 'conceder', alcance as AlcancePermiso | null, argumentos),
       denegar: (id: string) => acciones.resolverSolicitudVerificada(id, 'denegar', null),
       aprobarPlan: (iteracionId: string) => acciones.aprobarPlanVerificado(iteracionId),
+      estadoPeticion: setPeticionVisible,
       ampliarPresupuesto: (id: string, limite: number) => acciones.ampliarPresupuestoVerificado(id, limite),
       resolverIncidencia: (id: string, resolucion: string) => acciones.resolverIncidenciaVerificada(id, resolucion),
       verEnLaCorrida: () => volver.current(),

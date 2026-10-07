@@ -39,6 +39,7 @@ from rosa import killer as K
 from rosa import vigilancia
 from rosa.vigilante_modelos import ModeloSinRespuesta
 from rosa.bucle import contexto as T
+from rosa.bucle import eventos_laboratorio as EL
 from rosa.estado import acciones as A
 from rosa.estado import plantilla as P
 
@@ -284,7 +285,7 @@ def _entrada(a: dict[str, Any], relacion: str, motivo: str, iteracion: int, soca
         "entidadDistinta": False, "tipo": a.get("tipo", "dato"), "clase": a.get("clase", "literatura"), "sintetico": False, "cohorte": a.get("cohorte", ""),
         "sospechosoInyeccion": bool(a.get("sospechosoInyeccion")), "nivelMedicion": a.get("nivelMedicion", "resultado_analisis"), "n": a.get("n", ""),
         "comparador": a.get("comparador", ""), "efecto": a.get("efecto", ""), "incertidumbre": a.get("incertidumbre", ""), "sinResolver": list(a.get("sinResolver", [])),
-        "trayectoria": None, "fragmento": (a.get("fragmento") or "")[:600], "relacion": relacion, "motivoRelacion": motivo[:300], "iteracion": iteracion,
+        "trayectoria": None, "fragmento": (a.get("fragmento") or "")[:600], "relacion": relacion, "motivoRelacion": motivo[:300], "iteracion": iteracion, **EL.metadatos_veredicto(a),
     }
 
 

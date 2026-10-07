@@ -219,7 +219,8 @@ def test_todos_los_companeros_existen_en_el_laboratorio_y_comparten_sala():
     motor = (Path(__file__).resolve().parents[2] / "frontend/src/componentes/labvivo/motor.ts").read_text()
     elenco = re.search(r"const ELENCO = `(.*?)`;", motor, re.S).group(1)
     filas = {f[0]: f for f in (linea.split("|") for linea in elenco.splitlines())}
-    geometria = {s: tuple(map(int, (x, y, w, h))) for s, x, y, w, h in re.findall(r"(\w+): \[(\d+), (\d+), (\d+), (\d+)\]", motor)}
+    bloque_geom = re.search(r"const GEOM[^=]*= \{(.*?)\n\};", motor, re.S).group(1)
+    geometria = {s: tuple(map(int, (x, y, w, h))) for s, x, y, w, h in re.findall(r"(\w+): \[(\d+), (\d+), (\d+), (\d+)\]", bloque_geom)}
     def sala(nombre):
         f = filas[nombre]
         x, y = int(f[2]) + 24, int(f[3]) + 40

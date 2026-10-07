@@ -195,6 +195,7 @@ async def _correr_plan(ctx, plan: dict[str, Any], ds: dict[str, Any], ruta: Path
         codigo = _limpiar_codigo(pred.codigo)
         run = P.nueva_ejecucion(ctx.investigacion_id, hipotesis_id, plan["id"], tipo, codigo, plan["semilla"], plan["hashDatos"], P.ahora_ms())
         run.update(hashPlan=plan["hashPlan"], estado="en_curso", skills=[x["nombre"] for x in skills])
+        run.update(corridaId=ctx.corrida_id, iteracionId=ctx.iteracion_id, sintetico=sintetico)
         run["entorno"] = {"python": "", "paquetes": [], "imagen": entorno}
         ctx.mutar(lambda e: e.setdefault("ejecuciones", []).append(copy.deepcopy(run)) or True, "ejecucion")
     codigo = run["codigo"]

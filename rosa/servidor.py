@@ -604,7 +604,9 @@ def crear_app(almacen: Almacen) -> FastAPI:
         iid, idioma, cliente, activo = (obj.get(k) for k in ("iteracionId", "idioma", "cliente", "activo"))
         if not isinstance(iid, str) or idioma not in ("es", "en") or not isinstance(cliente, str) or not re.fullmatch(r"[A-Za-z0-9_-]{8,80}", cliente) or not isinstance(activo, bool):
             raise HTTPException(400, "Visita de laboratorio inválida")
-        if not any(it["id"] == iid and it["corridaId"] == corrida_id for it in almacen.estado["iteraciones"]):
+        from rosa.laboratorio_conversaciones import clave_planificando
+
+        if not any(it["id"] == iid and it["corridaId"] == corrida_id for it in almacen.estado["iteraciones"]) and iid != clave_planificando(almacen.estado, corrida_id):
             raise HTTPException(404, "No se encontró esa iteración en la corrida")
         return conversaciones_lab.tocar((corrida_id, iid, idioma), str(request.state.usuario or "interno") + ":" + cliente, activo)
 

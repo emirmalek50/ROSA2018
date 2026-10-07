@@ -57,6 +57,7 @@ from rosa import killer as KILLER
 from rosa import cifras_aprendizaje as CIFRAS, dianas as DI, experimento as XP, mapa_enfermedad as MAPA, ruta as RUTA
 from rosa.bucle import contexto as T
 from rosa.bucle import evidencia as EV
+from rosa.bucle import eventos_laboratorio as EL
 from rosa.bucle import pasos as PASOS
 from rosa import agentes_tratamiento as TRAT
 from rosa import killer as K
@@ -203,6 +204,10 @@ class Supervisor:
             # sido el arreglo. Sin registro de qué esperaba, no hay nada que sondear:
             # vuelve a en marcha y el paso pendiente se reintenta.
             for c in e["corridas"]:
+                if c.get("planificando") or "planificandoIteracion" in c:
+                    c["planificando"] = False
+                    c.pop("planificandoIteracion", None)
+                    cambiado = True
                 if c.get("estado") != "esperando_modelo":
                     continue
                 if isinstance(c.get("esperandoModelo"), dict):
@@ -1642,6 +1647,10 @@ class Supervisor:
         `conclusion.huella`; la dirección la fija la regla (`direccion_por_regla`)
         y la del juez queda aparte en `direccionDelJuez`."""
         huella = huella_de_conclusion(h)
+        version = h.get("version", 1)
+        pista = EL.abrir_pista(ctx, "hipotesis", f"Conclusión de «{h['titulo'][:80]}»", EL.modelo_de(ctx, "juez"), h["id"])
+        EL.registrar(pista, "accion", f"Redactando la conclusión de «{h['titulo'][:80]}» (v{version})",
+                     EL.decision_hipotesis(h, "conclusion", "en_curso", origen="sin_verificar", modelo=EL.modelo_de(ctx, "juez")))
         try:
             pred = await ctx.llamar(
                 "juez",
@@ -1698,8 +1707,15 @@ class Supervisor:
                 "fecha": P.ahora_ms(),
                 "iteracion": ctx.numero,
                 "huella": huella,
+                "corridaId": ctx.corrida_id,
+                "iteracionId": ctx.iteracion_id,
+                "version": version,
             }
         except (PresupuestoAgotado, ModeloSinRespuesta):
+            EL.registrar(pista, "error", "La conclusión sigue pendiente: no se pudo terminar el dictamen",
+                         EL.decision_hipotesis({**h, "version": version}, "conclusion", "no_comprobado", origen="sin_verificar"))
+            if pista:
+                pista.cerrar("Conclusión pendiente de dictamen", "detenida")
             raise  # sin marcar la bandera: se reintenta cuando haya presupuesto o el modelo vuelva
         except Exception:  # noqa: BLE001
             traceback.print_exc()
@@ -1707,7 +1723,7 @@ class Supervisor:
 
         def fn(e: dict[str, Any]) -> bool:
             y = next((z for z in e["hipotesis"] if z["id"] == h["id"]), None)
-            if not y:
+            if not y or y.get("version", 1) != version:
                 return False
             y["_conclusionIntentada"] = ctx.numero
             y.pop("_reconcluirPorRevisiones", None)
@@ -1736,7 +1752,14 @@ class Supervisor:
                     e.setdefault("aprendizaje", []).append(P.nuevo_cambio_aprendizaje(y["investigacionId"], 1, "creencia", f"{y['titulo'][:80]}: de {de.get('certeza')}/{de.get('direccion')} a {conclusion['certeza']}/{conclusion['direccion']}. {conclusion['cambio']['motivo'][:160]}", f"hipotesis:{y['id']}", "aplicado", config.QUIEN_ROSA, conclusion["fecha"]))
             return True
 
-        self.almacen.mutar(fn, "conclusion")
+        guardada = self.almacen.mutar(fn, "conclusion")
+        EL.registrar(pista, "resultado" if guardada and conclusion else "error",
+                     f"Conclusión {'registrada' if guardada and conclusion else 'no comprobada'} de «{h['titulo'][:80]}» (v{version})",
+                     EL.decision_hipotesis({**h, "version": version}, "conclusion", "terminado" if guardada and conclusion else "no_comprobado",
+                                          f"{conclusion['certeza']}; {conclusion['direccion']}" if guardada and conclusion else "", origen="mixta" if guardada and conclusion else "sin_verificar", modelo=EL.modelo_de(ctx, "juez") if conclusion else None,
+                                          comprobaciones=["techo_de_certeza", "direccion_por_regla"] if guardada and conclusion else []))
+        if pista:
+            pista.cerrar("Conclusión registrada" if guardada and conclusion else "Conclusión no comprobada", "hecha" if guardada and conclusion else "fallida")
 
     async def _evaluar_resultado(self, ctx: Ctx, h: dict[str, Any]) -> None:
         """Cierra el loop: los datos del laboratorio se comparan con los
@@ -2092,6 +2115,8 @@ class Supervisor:
                 if a["veredicto"] == "sostenida":
                     a["veredicto"] = "parcial"
                     a["motivo"] = "Sostenida sobre el pasaje guardado al extraer, sin releer la fuente (veredicto máximo parcial). " + str(a.get("motivo") or "")
+                    origen = a.get("procedenciaVeredicto") or {}
+                    a["procedenciaVeredicto"] = EL.procedencia_veredicto("mixta" if origen.get("origen") in {"juez", "mixta"} else "regla", origen.get("modelo"), [*(origen.get("comprobaciones") or []), "fuente_no_releida"])
                 elif a["veredicto"] == "no_sostenida" or V.bloquea(a["veredicto"]):
                     # Un veredicto negativo sobre 600 caracteres tampoco vale sin releer:
                     # el NCT o la cifra que el determinista no encuentra estaban en otra
@@ -2099,6 +2124,7 @@ class Supervisor:
                     # al extraer. Una fuente que no se pudo releer es "no pude
                     # comprobar", nunca una contradicción: solo lo releído contradice.
                     a["veredicto"] = "sin_verificar"
+                    a["procedenciaVeredicto"] = EL.procedencia_veredicto("sin_verificar", comprobaciones=["fuente_no_releida"])
                     a["noComprobable"] = True
                     a["motivo"] = "La fuente no se pudo releer y el pasaje guardado al extraer no basta para contradecir la afirmación: no comprobable, no cuenta como contradicción. " + str(a.get("motivo") or "")
                     negativas_sin_releer += 1
@@ -2432,6 +2458,20 @@ class Supervisor:
         # lo que el planificador explicó de las que deja fuera.
         programadas: list[tuple[str, str]] = []
         no_programadas: list[tuple[str, str]] = []
+
+        def marcar_planificando(activo: bool) -> None:
+            def fijar(e2: dict[str, Any]) -> bool:
+                actual = next((x for x in e2["corridas"] if x["id"] == c["id"]), None)
+                if actual is None:
+                    return False
+                actual["planificando"] = activo
+                if activo:
+                    actual["planificandoIteracion"] = numero
+                else:
+                    actual.pop("planificandoIteracion", None)
+                return True
+
+            self.almacen.mutar(fijar, "planificando")
         try:
             pregunta = (c.get("pregunta") or {}).get("enunciado") or (next((x for x in self.almacen.estado["corridas"] if x["id"] == c["id"]), {}).get("pregunta") or {}).get("enunciado")
             mundo = await T.modelo_de_mundo_para(self.almacen, inv["id"], inv["objetivo"] + (f" {pregunta}" if pregunta else ""))
@@ -2440,29 +2480,33 @@ class Supervisor:
             if not anterior:
                 self.almacen.mutar(lambda e2, t=traspaso: _fijar_traspaso(e2, c["id"], t), "traspaso")
             lecciones = await LEC.para(self.almacen, inv["id"], ("plan", "fuentes", "consultas", "hipotesis", "analisis"), inv["objetivo"] + (f" {pregunta}" if pregunta else ""))
-            pred = await ctx.llamar(
-                "cerebro",
-                self.programas.plan,
-                objetivo=inv["objetivo"] + (f"\nPregunta de esta campaña: {pregunta}" if pregunta else ""),
-                relevancia=inv["relevancia"],
-                limites="; ".join(inv["limites"]) or "Ninguno declarado",
-                condicion_parada=PARADA.texto_condicion(inv, c),
-                modelo_de_mundo=mundo,
-                resumen_iteracion_anterior=anterior["resumen"] if anterior else "",
-                traspaso=traspaso,
-                lecciones=lecciones,
-                indicaciones_humanas=T.indicaciones_humanas(anterior, pendientes_solo=True) if anterior else "Ninguna.",
-                hipotesis_vivas=T.hipotesis_vivas(e["hipotesis"], inv["id"]) + "\n" + T.vivero_texto(inv),
-                # Registro de datasets del programa que coinciden con la pregunta (los de
-                # acceso controlado con su aviso): sin este campo DSPy avisaba "Missing:
-                # datasets_disponibles" y el planificador no veía los datos disponibles.
-                datasets_disponibles=PASOS.datasets_para_plan(e, inv["id"], pregunta),
-                numero_iteracion=numero,
-                # La cola de triaje (rosa/tareas.py): trabajo que ROSA2018 misma pidió
-                # abrir al ver algo que el plan anterior no cubría. El planificador
-                # tiene que decidir sobre todas, programándolas o explicando por qué no.
-                tareas_aceptadas=TA.texto_para_plan(e, inv["id"]),
-            )
+            marcar_planificando(True)
+            try:
+                pred = await ctx.llamar(
+                    "cerebro",
+                    self.programas.plan,
+                    objetivo=inv["objetivo"] + (f"\nPregunta de esta campaña: {pregunta}" if pregunta else ""),
+                    relevancia=inv["relevancia"],
+                    limites="; ".join(inv["limites"]) or "Ninguno declarado",
+                    condicion_parada=PARADA.texto_condicion(inv, c),
+                    modelo_de_mundo=mundo,
+                    resumen_iteracion_anterior=anterior["resumen"] if anterior else "",
+                    traspaso=traspaso,
+                    lecciones=lecciones,
+                    indicaciones_humanas=T.indicaciones_humanas(anterior, pendientes_solo=True) if anterior else "Ninguna.",
+                    hipotesis_vivas=T.hipotesis_vivas(e["hipotesis"], inv["id"]) + "\n" + T.vivero_texto(inv),
+                    # Registro de datasets del programa que coinciden con la pregunta (los de
+                    # acceso controlado con su aviso): sin este campo DSPy avisaba "Missing:
+                    # datasets_disponibles" y el planificador no veía los datos disponibles.
+                    datasets_disponibles=PASOS.datasets_para_plan(e, inv["id"], pregunta),
+                    numero_iteracion=numero,
+                    # La cola de triaje (rosa/tareas.py): trabajo que ROSA2018 misma pidió
+                    # abrir al ver algo que el plan anterior no cubría. El planificador
+                    # tiene que decidir sobre todas, programándolas o explicando por qué no.
+                    tareas_aceptadas=TA.texto_para_plan(e, inv["id"]),
+                )
+            finally:
+                marcar_planificando(False)
             hay_datos = any(d["estado"] == "aprobado" and (d.get("procedencia") or {}).get("hash") for d in inv.get("datasets", []))
             for p in list(pred.plan)[:7]:
                 if p.tipo == "analisis" and not hay_datos:
@@ -2770,6 +2814,9 @@ class Supervisor:
         return False
 
     async def _revisar_registro(self, ctx: Ctx, inv: dict[str, Any], it: dict[str, Any], c: dict[str, Any], resumen: str, llano: dict[str, Any] | None) -> dict[str, Any]:
+        pista = EL.abrir_pista(ctx, "meta", "Revisión del registro", EL.modelo_de(ctx, "juez"))
+        EL.registrar(pista, "accion", "Revisando el resumen contra el registro de la iteración",
+                     EL.revision_registro(it["id"], "revision", "en_curso", origen="sin_verificar", modelo=EL.modelo_de(ctx, "juez")))
         e = self.almacen.estado
         # El texto revisable entero, con las listas del llano incluidas: antes se unían
         # solo los campos de texto y quedaban fuera `mensajesClave`, `queEncontro`,
@@ -2803,12 +2850,20 @@ class Supervisor:
             # El cierre pausa la corrida (o espera al juez): una iteración no se cierra
             # sin revisor por falta de presupuesto ni porque Opus no responda (se
             # espera el tiempo que haga falta, TRASPASO.md 7.4).
+            EL.registrar(pista, "error", "No se pudo terminar la revisión del registro",
+                         EL.revision_registro(it["id"], "revision", "no_comprobado", origen="regla", hallazgos=[{**h, "id": f"rr-{it['id']}-{n}", "estado": "abierto"} for n, h in enumerate(regla)]))
+            if pista:
+                pista.cerrar("Revisión pendiente de dictamen", "detenida")
             raise
         except Exception as ex:  # noqa: BLE001
             resumen_j = f"El juez no respondió: {str(ex)[:120]}; solo comprobaciones por regla"
         for i, hz in enumerate(hallazgos):
             hz["id"] = f"rr-{it['id']}-{i}"
             hz["estado"] = "abierto"
+        EL.registrar(pista, "resultado", resumen_j,
+                     EL.revision_registro(it["id"], "revision", "terminado" if juez else "no_comprobado", origen="mixta" if juez else "regla", modelo=juez, hallazgos=hallazgos, comprobaciones=[str(h["clase"]) for h in regla]))
+        if pista:
+            pista.cerrar(f"{len(hallazgos)} hallazgos registrados" if juez else "Revisión del modelo no comprobada; se conservan las reglas", "hecha" if juez else "fallida")
         return {"hallazgos": hallazgos, "porRegla": len(regla), "juez": juez, "resumen": resumen_j, "fecha": P.ahora_ms(), "estado": "con_hallazgos" if hallazgos else "limpia", "_tareas": propuestas}
 
     async def _reparar_resumen(self, ctx: Ctx, inv: dict[str, Any], it: dict[str, Any], c: dict[str, Any], resumen: str, llano: dict[str, Any] | None, revision: dict[str, Any]) -> dict[str, Any] | None:
@@ -2835,6 +2890,7 @@ class Supervisor:
         graves = [h for h in revision["hallazgos"] if h.get("gravedad") == "alta" and h.get("estado") == "abierto" and h.get("reparablePorTexto") is not False]
         if not graves:
             return None
+        pista = EL.abrir_pista(ctx, "meta", "Reparación del resumen revisado", EL.modelo_de(ctx, "cerebro"))
         registro = RR.texto_registro(self.almacen.estado, inv["id"], it, c)
         corpus = RR.corpus_del_registro(self.almacen.estado, inv["id"], it, c)
         runs_ok = sum(1 for r in self.almacen.estado.get("ejecuciones", []) if r.get("estado") == "completado" and r.get("investigacionId") == inv["id"])
@@ -2854,6 +2910,8 @@ class Supervisor:
             if not any(h.get("gravedad") == "alta" for h in abiertos):
                 break
             try:
+                EL.registrar(pista, "accion", f"Rehaciendo el resumen, vuelta {vuelta}, con {len(abiertos)} hallazgos abiertos",
+                             EL.revision_registro(it["id"], "reparacion", "en_curso", origen="sin_verificar", modelo=EL.modelo_de(ctx, "cerebro"), vuelta=vuelta, hallazgos=abiertos))
                 rehecho = await ctx.llamar(
                     "cerebro", self.programas.rehacer_resumen,
                     hallazgos="\n".join(f"- [{h['id']}] {h['clase']} ({h['gravedad']}, {h.get('origen')}): {h['detalle']}" for h in abiertos),
@@ -2861,14 +2919,18 @@ class Supervisor:
                 )
             except (PresupuestoAgotado, ModeloSinRespuesta) as ex:
                 vueltas.append({"vuelta": vuelta, "estado": "no_hecha", "motivo": f"No se pudo rehacer el resumen: {type(ex).__name__}. Los hallazgos siguen abiertos y retienen la publicación"})
+                EL.registrar(pista, "error", vueltas[-1]["motivo"], EL.revision_registro(it["id"], "reparacion", "no_comprobado", origen="sin_verificar", vuelta=vuelta, hallazgos=abiertos))
                 break
             except Exception as ex:  # noqa: BLE001
                 traceback.print_exc()
                 vueltas.append({"vuelta": vuelta, "estado": "no_hecha", "motivo": f"El cerebro no rehizo el resumen: {str(ex)[:140]}"})
+                EL.registrar(pista, "error", vueltas[-1]["motivo"], EL.revision_registro(it["id"], "reparacion", "no_comprobado", origen="sin_verificar", vuelta=vuelta, hallazgos=abiertos))
                 break
             nuevo_resumen = str(getattr(rehecho.rehecho, "resumen", "") or "").strip() or resumen_actual
             nuevo_llano = _llano_rehecho(getattr(rehecho.rehecho, "llano", None), llano_actual)
             nuevo_texto = RR.texto_revisable(nuevo_resumen, nuevo_llano)
+            EL.registrar(pista, "resultado", f"Texto reescrito en la vuelta {vuelta}; falta comprobar el arreglo",
+                         EL.revision_registro(it["id"], "reparacion", "terminado", origen="sin_verificar", modelo=EL.modelo_de(ctx, "cerebro"), vuelta=vuelta, hallazgos=abiertos))
             # CANDADO 3, y es gratis: el arreglo no puede empeorar. Las reglas se
             # vuelven a correr enteras sobre el texto nuevo; si pesan más que sobre el
             # viejo, la vuelta se rechaza y se vuelve al texto anterior.
@@ -2878,6 +2940,7 @@ class Supervisor:
             # que la comparación es de peras con peras.
             if peso_nuevo > peso_reglas:
                 vueltas.append({"vuelta": vuelta, "estado": "rechazada", "motivo": f"La vuelta empeoró el texto: las comprobaciones por regla pesaban {peso_reglas} y pasaron a {peso_nuevo}. Se vuelve al resumen anterior"})
+                EL.registrar(pista, "resultado", vueltas[-1]["motivo"], EL.revision_registro(it["id"], "comprobacion_reparacion", "terminado", origen="regla", vuelta=vuelta, hallazgos=abiertos, comprobaciones=["el_arreglo_no_puede_empeorar: falla"]))
                 break
             decisiones = {str(getattr(d, "id", "")): d for d in (getattr(rehecho.rehecho, "decisiones", None) or [])}
             # CANDADO 1: un hallazgo de regla que ya no salta está arreglado, y punto.
@@ -2888,6 +2951,8 @@ class Supervisor:
             del_juez = [h for h in abiertos if h.get("origen") == "juez"]
             if del_juez:
                 try:
+                    EL.registrar(pista, "accion", f"Comprobando la reparación de la vuelta {vuelta} contra los hallazgos del juez",
+                                 EL.revision_registro(it["id"], "comprobacion_reparacion", "en_curso", origen="sin_verificar", modelo=EL.modelo_de(ctx, "juez"), vuelta=vuelta, hallazgos=del_juez))
                     with RR.en_revision(self.almacen.estado, inv["id"], it, c):
                         comprobado = await ctx.llamar(
                             "juez", self.programas.revisar_reparacion,
@@ -2904,6 +2969,7 @@ class Supervisor:
                     for h in del_juez:
                         h["comprobacion"] = "no_comprobada"
                     vueltas.append({"vuelta": vuelta, "estado": "sin_comprobar", "motivo": f"El texto se rehizo pero el juez no pudo comprobarlo ({type(ex).__name__}): los hallazgos del juez siguen abiertos"})
+                    EL.registrar(pista, "error", vueltas[-1]["motivo"], EL.revision_registro(it["id"], "comprobacion_reparacion", "no_comprobado", origen="sin_verificar", vuelta=vuelta, hallazgos=pendientes))
                     resumen_actual, llano_actual, texto_actual = nuevo_resumen, nuevo_llano, nuevo_texto
                     break
                 except Exception as ex:  # noqa: BLE001
@@ -2912,6 +2978,8 @@ class Supervisor:
                         h["comprobacion"] = "no_comprobada"
                     resumen_juez = f"El juez no comprobó el arreglo: {str(ex)[:120]}"
             for h in abiertos:
+                if h.get("comprobacion") == "no_comprobada" and h.get("origen") == "juez" and not juez_vio:
+                    continue
                 d = decisiones.get(str(h.get("id")))
                 dicho = str(getattr(d, "decision", "") or "")
                 linea = str(getattr(d, "explicacion", "") or "").strip()[:300]
@@ -2945,7 +3013,10 @@ class Supervisor:
             if falsos:
                 partes.append(f"{falsos} se dieron por arreglados sin que el texto cambiara donde el hallazgo señalaba, así que siguen abiertos")
             vueltas.append({"vuelta": vuelta, "estado": "hecha", "motivo": "; ".join(partes) + (f". {resumen_juez}" if resumen_juez else "")})
+            EL.registrar(pista, "resultado", vueltas[-1]["motivo"], EL.revision_registro(it["id"], "comprobacion_reparacion", "terminado" if not any(h.get("comprobacion") == "no_comprobada" for h in pendientes) else "no_comprobado", origen="mixta" if del_juez else "regla", modelo=EL.modelo_de(ctx, "juez") if del_juez else None, vuelta=vuelta, hallazgos=pendientes, comprobaciones=["el_arreglo_no_puede_empeorar", "el_texto_debe_cambiar_donde_senala_el_hallazgo"]))
         if not vueltas:
+            if pista:
+                pista.cerrar("No hubo una vuelta de reparación", "detenida")
             return None
         graves_abiertos = [h for h in pendientes if h.get("gravedad") == "alta" and h.get("estado") in ("abierto", "rebatido")]
         sin_comprobar = any(h.get("comprobacion") == "no_comprobada" for h in pendientes)
@@ -2955,6 +3026,8 @@ class Supervisor:
         revision_final["estado"] = "con_hallazgos" if any(h.get("estado") in ("abierto", "rebatido") for h in pendientes) else "limpia"
         cola = " No pude comprobar todos los arreglos: el juez no respondió." if sin_comprobar else ""
         revision_final["resumen"] = f"{revision['resumen']} Después de {len(vueltas)} {'vuelta' if len(vueltas) == 1 else 'vueltas'} de reparación quedan {len(graves_abiertos)} hallazgos graves sin cerrar.{cola}".strip()
+        if pista:
+            pista.cerrar(revision_final["resumen"], "hecha" if not sin_comprobar else "fallida")
         return {"resumen": resumen_actual, "llano": llano_actual, "revision": revision_final, "vueltas": len(vueltas)}
 
     async def _cerrar_iteracion(self, c: dict[str, Any], it: dict[str, Any]) -> None:
@@ -3014,15 +3087,26 @@ class Supervisor:
                 # Cierre retomado de un intento que no guardó la instantánea: queda ahora.
                 self.almacen.mutar(lambda e2: _guardar_cierre_parcial(e2, it["id"], certezasAntes=certezas_antes), "cierre_parcial")
         else:
+            pista_resumen = EL.abrir_pista(ctx, "meta", "Resumen de la iteración", EL.modelo_de(ctx, "cerebro"))
             try:
+                EL.registrar(pista_resumen, "accion", "Redactando el resumen de los pasos y cambios reales de la iteración",
+                             EL.revision_registro(it["id"], "resumen", "en_curso", origen="sin_verificar", modelo=EL.modelo_de(ctx, "cerebro")))
                 pred = await ctx.llamar("cerebro", self.programas.resumir, plan_ejecutado=T.plan_ejecutado(it), cambios_modelo_de_mundo="\n".join(f"- {h['enunciado']}" for h in hechos_nuevos) or "Ninguno", hipotesis_nuevas="\n".join(f"- {h['titulo']}" for h in hip_nuevas) or "Ninguna", cola=cola, sin_comprobar="\n".join(f"- {x.get('texto') or x.get('titulo')}" for x in sin_comprobar) or "Nada")
                 resumen = pred.resumen.strip()
             except (PresupuestoAgotado, ModeloSinRespuesta):
+                EL.registrar(pista_resumen, "error", "No se pudo terminar el resumen de la iteración",
+                             EL.revision_registro(it["id"], "resumen", "no_comprobado", origen="sin_verificar"))
+                if pista_resumen:
+                    pista_resumen.cerrar("Resumen pendiente de respuesta", "detenida")
                 raise  # sin resumen por regla: el cierre se retoma cuando haya presupuesto o Astra vuelva
             except Exception:  # noqa: BLE001
                 hechas = sum(1 for p in it["pistas"] if p["estado"] == "hecha")
                 resumen = f"{len(it['plan'])} pasos, {hechas} pistas completadas, {len(hechos_nuevos)} hechos y {len(hip_nuevas)} hipótesis nuevas"
             self.almacen.mutar(lambda e2: _guardar_cierre_parcial(e2, it["id"], resumen=resumen, certezasAntes=certezas_antes), "cierre_parcial")
+            EL.registrar(pista_resumen, "resultado", resumen,
+                         EL.revision_registro(it["id"], "resumen", "terminado", origen="sin_verificar", modelo=EL.modelo_de(ctx, "cerebro")))
+            if pista_resumen:
+                pista_resumen.cerrar("Resumen guardado, pendiente de revisión")
         # El panorama y las debilidades se sintetizan al cerrar cada iteración
         # con dos o más hipótesis, aunque el plan no trajera un paso de meta.
         propias = [h for h in e["hipotesis"] if h["investigacionId"] == inv["id"]]
@@ -3654,6 +3738,7 @@ def _preparar_copias_replica(h: dict[str, Any], frags: list[Any], equivalentes: 
             if guardado is None:
                 motivo = V.motivo_cita_no_resuelta(a.get("cita") or "", frags, fid) if (a.get("cita") or "").strip() else "La afirmación no lleva cita."
                 a["veredicto"], a["motivo"], a["noComprobable"] = "cita_no_resuelve", f"{motivo} La afirmación no conserva el pasaje guardado al extraer: no se puede comprobar en la réplica.", True
+                a["procedenciaVeredicto"] = EL.procedencia_veredicto("regla", comprobaciones=["cita_y_pasaje_guardado"])
                 citas["sinComprobar"] += 1
                 continue
             a["noReleida"], a["localizador"], a["fuenteId"], a["encabezado"] = True, guardado.localizador, guardado.fuente_id, guardado.encabezado
