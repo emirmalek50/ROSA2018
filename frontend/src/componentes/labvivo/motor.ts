@@ -12,6 +12,7 @@ import type { EmocionLaboratorio, GestoLaboratorio, TurnoLaboratorio } from '../
 import { desplazamientoGesto, pintarExpresion } from './expresiones';
 import './escenas.css';
 import './pelicula.css';
+import { escenasDeApertura } from './inicioPelicula';
 import { ColaPelicula } from './colaPelicula';
 import type { EventoVisualLab } from '../../lib/peliculaLab';
 import { esPeticionDePresupuesto, pintarFoco, pintarPeticionIncidencia, pintarPeticionPresupuesto, topeConLlamadasMas, vozDePresupuesto } from './peticionPresupuesto';
@@ -630,11 +631,14 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   let identidad = D.identidad;
   // La coreografía continúa entre mensajes del servidor. Estas escenas no
   // añaden actividad al registro ni convierten a un compañero en trabajador.
-  interface Escena { ctx: Ctx; agentes: Agente[]; trabajo: boolean; evento?: EventoVisualLab; objetos?: HTMLElement[]; temaId?: string; listos?: boolean; hasta?: number; esperarHasta?: number; saliendo?: boolean }
+  interface Escena { ctx: Ctx; agentes: Agente[]; trabajo: boolean; evento?: EventoVisualLab; objetos?: HTMLElement[]; temaId?: string; listos?: boolean; hasta?: number; esperarHasta?: number; saliendo?: boolean; presentada?: boolean; protegidaHasta?: number }
   const escenas = new Map<Agente, Escena>();
   const pelicula = new ColaPelicula();
   const dialogos: TurnoLaboratorio[] = [], dialogosVistos = new Set<string>();
   const ultimaCharla = new Map<string, TurnoLaboratorio>();
+  // Después de hablar, los mismos actores dejan pasar un acontecimiento real.
+  // La siguiente intervención vuelve a tener prioridad tras mostrarlo brevemente.
+  const prioridadPelicula = new Set<Agente>();
   const proximaEscena = new Map<Agente, number>();
   let rondaEscena = 0, proximoPaseo = 1.5;
   function cancelarEscena(a: Agente, devolver = true) {
@@ -725,11 +729,13 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       maquina.textContent = `${analisis.sintetico ? tr('Ensayo sintético') + ' · ' : ''}${estados[analisis.estado]}`;
     } else { maquina.textContent = ''; delete maquina.dataset.estado; delete maquina.dataset.ejecucion; delete maquina.dataset.activa; }
   }
-  function sincronizarPelicula(inicial = false) {
+  function sincronizarPelicula(inicial = false, apertura = false) {
     const eventos = D.pelicula?.eventos ?? [];
     pelicula.recibir(eventos, D.identidad, inicial);
-    // Al abrir no se reproduce toda la historia. Solo una escena del trabajo actual por sala.
-    if (inicial && D.trabajando && D.conexion === 'en_linea' && !D.pasada) {
+    // Al entrar se resume una selección acotada de resultados registrados.
+    // Una reconexión o reanudación conserva solo la tarea actual.
+    if (inicial && apertura) escenasDeApertura(D).forEach(e => pelicula.devolver(e));
+    else if (inicial && D.trabajando && D.conexion === 'en_linea' && !D.pasada) {
       const actuales = new Map<SalaLab, EventoVisualLab>();
       eventos.forEach(e => { if (e.agentes.some(a => D.activos.includes(a))) actuales.set(e.sala, e); });
       actuales.forEach(e => pelicula.devolver(e));
@@ -750,7 +756,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   function mantenerPelicula() {
     const permitido = vivo && !REDUCIR && !asking && !D.pasada && D.conexion === 'en_linea' && !siguiendo;
     if (!permitido) return;
-    const ocupadas = new Set([...escenas.values()].filter(e => e.evento || e.temaId).map(e => e.agentes[0]?.room));
+    const ocupadas = new Set([...escenas.values()].filter(e => e.evento).map(e => e.agentes[0]?.room));
     if (ocupadas.size >= 3) return;
     const e = pelicula.siguiente(e => {
       if (!D.trabajando && !(D.estado === 'terminada' && e.tipo === 'cierre')) return false;
@@ -764,13 +770,14 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (!e) return;
     const actores = actoresDe(e), ctx = nuevoCtx();
     actores.forEach(a => cancelarEscena(a));
-    const escena: Escena = { ctx, agentes: actores, trabajo: true, evento: e, objetos: [] };
-    actores.forEach(a => { escenas.set(a, escena); a.ictx = ctx; a.busy = true; a.el.dataset.escena = 'pelicula'; a.el.dataset.evento = e.id; });
+    const escena: Escena = { ctx, agentes: actores, trabajo: true, evento: e, objetos: [], presentada: false, protegidaHasta: simT + 12 };
+    actores.forEach(a => { prioridadPelicula.delete(a); escenas.set(a, escena); a.ictx = ctx; a.busy = true; a.el.dataset.escena = 'pelicula'; a.el.dataset.evento = e.id; });
     const a = actores[0]!, b = actores[1];
     const esperar = async (s: number) => { await ctx.wait(s); if (ctx.dead) throw PARAR; };
-    const mostrar = (texto = e.texto, sala = e.sala) => { const el = documento(texto, sala); el.dataset.evento = e.id; escena.objetos!.push(el); return el; };
+    const presentada = () => { escena.presentada = true; escena.protegidaHasta = Math.min(escena.protegidaHasta ?? simT + 2, simT + 2); };
+    const mostrar = (texto = e.texto, sala = e.sala) => { const el = documento(texto, sala); el.dataset.evento = e.id; escena.objetos!.push(el); presentada(); return el; };
     const vuelo = async (kind: Obj, desde: number[], hasta: number[]) => {
-      FLY.push({ kind, from: desde, to: hasta, t0: simT, dur: 0.7, arc: 28, ctx }); await esperar(0.7);
+      FLY.push({ kind, from: desde, to: hasta, t0: simT, dur: 0.7, arc: 28, ctx }); await esperar(0.7); presentada();
     };
     const entregar = async () => {
       if (!b) { a.carry = 'paper'; type(a, 2); await esperar(2); return; }
@@ -909,7 +916,9 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (!a || !b) return;
     const dur = t.texto.length < 60 ? Math.max(3.5, 2 + t.texto.length / 20) : Math.max(7, Math.min(14, t.texto.length / 26));
     mostrarDialogo(t, a, b, dur);
-    charla.hasta = simT + dur + 0.2; charla.esperarHasta = charla.hasta + 30;
+    charla.hasta = simT + dur + 0.2;
+    const pendiente = pelicula.hayPendiente(e => actoresDe(e).some(a => charla.agentes.includes(a)));
+    charla.esperarHasta = charla.hasta + (pendiente ? 0 : 30);
     a.carry = charla.trabajo && charla.listos ? 'card' : null; b.carry = null;
     if (charla.trabajo && charla.listos) FLY.push({ kind: 'card', from: [a.x + 42, a.y + 44], to: [b.x + 6, b.y + 44], t0: simT, dur: 0.7, arc: 18 });
   }
@@ -918,6 +927,14 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     // Cada pareja tiene su propio reloj y su propia cola de respuestas.
     for (const charla of charlas) {
       if (charla.saliendo || !charla.listos || simT < (charla.hasta ?? 0)) continue;
+      if (pelicula.hayPendiente(e => actoresDe(e).some(a => charla.agentes.includes(a)))) {
+        // No se borra la respuesta pendiente: el mismo tema continúa al acabar
+        // la presentación. Cancelar conserva la posición actual de la pareja.
+        charla.agentes.forEach(a => { if (pelicula.hayPendiente(e => actoresDe(e).includes(a))) prioridadPelicula.add(a); });
+        cancelarEscena(charla.agentes[0]!);
+        charlas.delete(charla);
+        continue;
+      }
       const indice = dialogos.findIndex((t) => t.temaId === charla.temaId);
       if (indice < 0) {
         if (simT < (charla.esperarHasta ?? 0)) continue;
@@ -939,7 +956,18 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       const a = AG.find((p) => p.name === t.agente), b = AG.find((p) => p.name === t.destinatario);
       if (!a || !b || a === b || a.name === 'Tú' || b.name === 'Tú' || a.room !== b.room) { dialogos.splice(i--, 1); continue; }
       if ([...charlas].some((e) => e.agentes.some((p) => p.room === a.room))) continue;
-      [a, b].forEach((p) => { cancelarEscena(p); p.ictx?.kill(); p.path = []; p.bub?.el.remove(); p.bub = null; });
+      const participantes = [a, b];
+      if (participantes.some(p => {
+        const escena = escenas.get(p);
+        return !!escena?.evento && simT < (escena.protegidaHasta ?? 0);
+      })) continue;
+      if (participantes.some(p => prioridadPelicula.has(p)) && pelicula.hayPendiente(e => actoresDe(e).some(p => participantes.includes(p)))) continue;
+      participantes.forEach((p) => {
+        // Si ya se vio el documento o la entrega, no vuelve a representarse
+        // por cada respuesta. Una interrupción anterior conserva la pendiente.
+        cancelarEscena(p, !escenas.get(p)?.presentada);
+        p.ictx?.kill(); p.path = []; p.bub?.el.remove(); p.bub = null;
+      });
       const ctx = nuevoCtx();
       const nueva: Escena = { ctx, agentes: [a, b], trabajo: t.tipoConversacion !== 'companeros', temaId: t.temaId, listos: false };
       charlas.add(nueva);
@@ -978,6 +1006,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
   function pararActividad() {
     [...escenas.keys()].forEach(a => cancelarEscena(a, false));
+    prioridadPelicula.clear();
     proximaEscena.clear(); proximoPaseo = simT + 1.5;
     AG.forEach((a) => {
       a.ictx?.kill(); a.ictx = null; a.busy = false; a.path = [];
@@ -1834,7 +1863,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
 
   pintarSalas(); pintarMarcas();
   sincronizarActividad(true);
-  sincronizarPelicula(true);
+  sincronizarPelicula(true, true);
   pintarSigue();
   mostrarPeticion();
   raf = requestAnimationFrame(frame);
@@ -1879,7 +1908,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       sincronizarActividad(cambio);
       const fotoNueva = cambio || antes.conexion !== d.conexion || (!antes.trabajando && d.trabajando) || (antes.trabajando && !d.trabajando && d.estado !== 'terminada');
       if (fotoNueva) pelicula.limpiar();
-      sincronizarPelicula(fotoNueva);
+      sincronizarPelicula(fotoNueva, cambio);
       if (!D.pelicula && !cambio && antes.foco !== d.foco) mensajero(antes.foco, d.foco);
       const u0 = antes.presupuesto?.usado ?? null, u1 = d.presupuesto?.usado ?? null;
       if (!cambio && u0 !== null && u1 !== null && u1 > u0) monedas(u1 - u0);

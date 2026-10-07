@@ -15,6 +15,22 @@ function vaciar(cola: ColaPelicula): EventoVisualLab[] {
 }
 
 describe('cola de escenas del registro real', () => {
+  it('consultar una pendiente no la consume ni altera el orden y solo encuentra versiones actuales', () => {
+    const cola = new ColaPelicula(), a = evento('a'), b = evento('b');
+    cola.recibir([a, b], IDENTIDAD);
+    expect(cola.hayPendiente(e => e.id === 'b')).toBe(true);
+    expect(cola.hayPendiente(e => e.sala === 'r1')).toBe(false);
+    expect(cola.siguiente(() => true)).toBe(a);
+    expect(cola.hayPendiente(e => e.id === 'a')).toBe(false);
+    const revisado = evento('b', { texto: 'Versión actual' });
+    cola.recibir([a, revisado], IDENTIDAD);
+    expect(cola.hayPendiente(e => e.texto === b.texto)).toBe(false);
+    expect(cola.hayPendiente(e => e.texto === revisado.texto)).toBe(true);
+    expect(vaciar(cola)).toEqual([revisado]);
+    cola.recibir([a, revisado], IDENTIDAD);
+    expect(cola.hayPendiente(() => true)).toBe(false);
+  });
+
   it('conserva todas las acciones que llegan juntas y su orden', () => {
     const cola = new ColaPelicula(), eventos = [evento('a'), evento('b'), evento('c')];
     cola.recibir(eventos, IDENTIDAD);

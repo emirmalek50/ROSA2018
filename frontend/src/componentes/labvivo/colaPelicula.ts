@@ -69,6 +69,10 @@ export class ColaPelicula {
     return indice < 0 ? null : this.pendientes.splice(indice, 1)[0]!.evento;
   }
 
+  hayPendiente(coincide: (evento: EventoVisualLab) => boolean): boolean {
+    return this.pendientes.some((p) => this.actual(p.evento, p.firma, p.entidad) && coincide(p.evento));
+  }
+
   devolver(evento: EventoVisualLab): void {
     const firma = firmaDe(evento);
     const entidad = entidadDe(evento);
