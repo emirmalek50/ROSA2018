@@ -1,7 +1,7 @@
 // Proyección del estado canónico al laboratorio. Los diálogos conservan el
 // texto y la procedencia del registro; el reloj visual no avanza la corrida.
 import { nombreDeModelo } from '../componentes/VigilanteModelos';
-import type { AlcancePermiso, Corrida, EntradaTranscripcion, EstadoRosa, Investigacion, Iteracion, PasoPlan, Pista, TipoPermiso } from '../datos/tipos';
+import type { AlcancePermiso, ArgumentoSolicitud, Corrida, EntradaTranscripcion, EstadoRosa, Investigacion, Iteracion, PasoPlan, Pista, TipoPermiso } from '../datos/tipos';
 import { busquedasDe } from './escenario';
 import { etiquetaCorrida, proponiendoPlan } from './etiquetas';
 import { tr } from './idioma';
@@ -33,6 +33,9 @@ export interface PeticionLab {
   detalle: string;
   alcances: AlcancePermiso[];
   requiereArgumentos: boolean;
+  tipo?: TipoPermiso;
+  argumentos?: ArgumentoSolicitud[];
+  presupuesto?: { corridaId: string; limite: number; usado: number };
 }
 export interface DatosLab {
   identidad: string;
@@ -172,7 +175,7 @@ const QUIEN_PIDE: Record<TipoPermiso, string> = { presupuesto_grande: 'Planifica
 function peticionDe(estado: EstadoRosa, corrida: Corrida, it: Iteracion | null): PeticionLab | null {
   if (estado.conexion !== 'en_linea' || corrida.estado === 'detenida' || corrida.estado === 'terminada') return null;
   const s = estado.solicitudes.filter((x) => x.corridaId === corrida.id && x.estado === 'pendiente').sort((a, b) => a.creadaEn - b.creadaEn)[0];
-  if (s) return { id: s.id, clase: 'permiso', quien: QUIEN_PIDE[s.tipo], titulo: s.titulo, detalle: s.detalle, alcances: s.alcances, requiereArgumentos: s.argumentos.length > 0 };
+  if (s) return { id: s.id, clase: 'permiso', quien: QUIEN_PIDE[s.tipo], titulo: s.titulo, detalle: s.detalle, alcances: s.alcances, requiereArgumentos: s.argumentos.length > 0, tipo: s.tipo, argumentos: s.argumentos, presupuesto: { corridaId: corrida.id, limite: corrida.presupuesto.limiteLlamadas, usado: corrida.gasto.llamadas } };
   if (corrida.estado === 'pausada_por_presupuesto') return peticionPorPresupuesto(corrida, it);
   if (it && corrida.estado === 'esperando_plan' && !it.planAprobado && it.terminadaEn === null && it.plan.length > 0) return { id: it.id, clase: 'plan', quien: 'Planificador', titulo: '', detalle: '', alcances: [], requiereArgumentos: false };
   return null;

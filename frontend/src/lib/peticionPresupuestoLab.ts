@@ -8,9 +8,10 @@ export function peticionPorPresupuesto(corrida: Corrida, it: Iteracion | null): 
     id: `presupuesto:${corrida.id}:${it?.id ?? 'sin-iteracion'}:${corrida.presupuesto.limiteLlamadas}:${it?.presupuesto.limite ?? ''}`,
     clase: 'presupuesto',
     quien: 'Preguntador',
-    titulo: tr('Necesito más presupuesto para seguir. ¿Lo revisamos?'),
+    titulo: tr('¿Revisamos el presupuesto para seguir?'),
     detalle: corrida.presupuesto.motivoPausa || tr('La corrida se pausó por presupuesto. Revisa el tope para continuar.'),
     alcances: [],
     requiereArgumentos: false,
+    presupuesto: { corridaId: corrida.id, limite: corrida.presupuesto.limiteLlamadas, usado: corrida.gasto.llamadas },
   };
 }

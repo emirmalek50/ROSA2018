@@ -699,6 +699,12 @@ export const acciones = {
     aplicar((e) => A.ampliarPresupuesto(e, id, limite, Date.now()));
     enviar('ampliarPresupuesto', { corrida_id: id, nuevo_limite: limite });
   },
+  /** El laboratorio conserva la pausa hasta que el servidor confirme el tope. */
+  ampliarPresupuestoVerificado: async (id: string, limite: number): Promise<boolean | null> => {
+    const ok = await enviarYComprobar('ampliarPresupuesto', { corrida_id: id, nuevo_limite: limite });
+    void resincronizar();
+    return ok;
+  },
   dirigirCorrida: (id: string, texto: string) => {
     aplicar((e) => A.dirigirCorrida(e, id, texto));
     enviar('dirigirCorrida', { corrida_id: id, texto });
@@ -741,8 +747,8 @@ export const acciones = {
     aplicar((e) => A.resolverSolicitud(e, id, decision, alcance, Date.now(), argumentos));
     return enviar('resolverSolicitud', { solicitud_id: id, decision, alcance, argumentos: argumentos ?? null });
   },
-  resolverSolicitudVerificada: async (id: string, decision: 'conceder' | 'denegar', alcance: AlcancePermiso | null): Promise<boolean | null> => {
-    const ok = await enviarYComprobar('resolverSolicitud', { solicitud_id: id, decision, alcance, argumentos: null });
+  resolverSolicitudVerificada: async (id: string, decision: 'conceder' | 'denegar', alcance: AlcancePermiso | null, argumentos?: Record<string, string>): Promise<boolean | null> => {
+    const ok = await enviarYComprobar('resolverSolicitud', { solicitud_id: id, decision, alcance, argumentos: argumentos ?? null });
     void resincronizar();
     return ok;
   },

@@ -87,6 +87,7 @@ describe('el laboratorio recibe la corrida canónica', () => {
     f.c.presupuesto.motivoPausa = 'Faltan 5 llamadas para cerrar';
     const d = f.datos();
     expect(d.pide).toMatchObject({ clase: 'presupuesto', quien: 'Preguntador', detalle: f.c.presupuesto.motivoPausa, alcances: [] });
+    expect(d.pide?.presupuesto).toEqual({ corridaId: f.c.id, limite: f.c.presupuesto.limiteLlamadas, usado: f.c.gasto.llamadas });
     expect(d.trabajando).toBe(false);
     f.c.estado = 'en_marcha'; expect(f.datos().pide).toBeNull();
     f.c.estado = 'pausada'; expect(f.datos().pide).toBeNull();

@@ -11,6 +11,8 @@ import { tr, trp } from '../../lib/idioma';
 import type { EmocionLaboratorio, GestoLaboratorio, TurnoLaboratorio } from '../../lib/conversacionesLaboratorio';
 import { desplazamientoGesto, pintarExpresion } from './expresiones';
 import './escenas.css';
+import { esPeticionDePresupuesto, pintarPeticionPresupuesto, vozDePresupuesto } from './peticionPresupuesto';
+import './peticionPresupuesto.css';
 import { formatearEntero } from '../../lib/formato';
 import { ALCANCE } from '../../lib/etiquetas';
 import type { ActividadLab, DatosLab, EstadoPasoLab, EstadoSala, FuenteLab, SalaLab } from '../../lib/labVivo';
@@ -31,9 +33,10 @@ export const ALTO_VISTA = 1312;
 export const ALTO = 1416;
 
 export interface Respuestas {
-  conceder: (id: string, alcance: string | null) => Promise<boolean | null>;
+  conceder: (id: string, alcance: string | null, argumentos?: Record<string, string>) => Promise<boolean | null>;
   denegar: (id: string) => Promise<boolean | null>;
   aprobarPlan: (iteracionId: string) => Promise<boolean | null>;
+  ampliarPresupuesto: (corridaId: string, limite: number) => Promise<boolean | null>;
   verEnLaCorrida: () => void;
 }
 
@@ -426,6 +429,16 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const kf = Math.min(1.8, Math.max(1, 1 / vis.k));
     pideEl.style.scale = String(kf);
     pideEl.style.bottom = ALTO_VISTA - vis.aba + 24 + 'px';
+    if (pideEl.classList.contains('lv-pide-presupuesto')) {
+      // Este diálogo conserva texto y controles legibles incluso en el móvil.
+      const escala = 1 / vis.k, ancho = Math.min(460, (vis.der - vis.izq) * vis.k - 32);
+      pideEl.style.scale = String(escala);
+      pideEl.style.width = Math.max(220, ancho) + 'px';
+      pideEl.style.left = vis.x - Math.max(220, ancho) * escala / 2 + 'px';
+      pideEl.style.right = 'auto'; pideEl.style.bottom = 'auto';
+      pideEl.style.top = vis.arr + 16 * escala + 'px';
+      pideEl.style.maxHeight = Math.max(180, (vis.aba - vis.arr) * vis.k - 32) + 'px';
+    }
     colocarFicha(kf);
   }
   /** La ficha muestra la voz generada; el registro técnico se consulta en el historial. */
@@ -714,29 +727,46 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   /* ---------- quien pide permiso: la cámara va a por él ---------- */
   let pidiendo: string | null = null;
   const descartadas = new Set<string>();
+  let focoAntes: HTMLElement | null = null;
   function mostrarPeticion() {
     const p = D.pide;
     if (!p || descartadas.has(p.id) || pidiendo === p.id) return;
     pararActividad();
     pidiendo = p.id; asking = true; sel = null; ficha.hidden = true;
     const quien = P(p.quien);
+    const presupuesto = esPeticionDePresupuesto(p);
     quien.face = -1;
-    say(quien, esc(p.clase === 'plan' ? tr('¿Me apruebas el plan?') : p.clase === 'presupuesto' ? p.titulo : tr('¿Me das permiso?')), 3600, 'ask');
+    say(quien, esc(presupuesto ? vozDePresupuesto(p) : p.clase === 'plan' ? tr('¿Me apruebas el plan?') : p.clase === 'presupuesto' ? p.titulo : tr('¿Me das permiso?')), 3600, 'ask');
     zoomTo(quien, 2.3);
     setEv(esc(trp('{q} necesita tu respuesta', { q: quien.label })));
-    if (p.clase === 'plan') {
+    pideEl.classList.toggle('lv-pide-presupuesto', presupuesto);
+    vista.classList.toggle('lv-espera', presupuesto);
+    pideEl.setAttribute('aria-label', p.titulo || tr('El planificador te enseña el plan'));
+    if (presupuesto) {
+      pideEl.setAttribute('aria-modal', 'true');
+      pintarPeticionPresupuesto(pideEl, D, quien.label, D.modelos.cerebro, sprite(quien, 0));
+    } else if (p.clase === 'plan') {
       pideEl.innerHTML = `<div class="k">${esc(tr('El planificador te enseña el plan'))}</div><h3>${esc(trp('El plan tiene {m} pasos', { m: D.pasos.total }))}</h3><ol class="plan">${D.pasos.lista.map((paso) => `<li><b>${esc(paso.titulo)}</b>${paso.detalle ? `<small>${esc(paso.detalle)}</small>` : ''}</li>`).join('')}</ol><div class="row"><button type="button" class="no" data-a="ver">${esc(tr('Revisarlo en la corrida'))}</button><button type="button" class="yes" data-a="plan">${esc(tr('Aprobar el plan'))}</button></div><button type="button" class="luego" data-a="luego">${esc(tr('Ahora no'))}</button>`;
     } else if (p.clase === 'presupuesto') {
       pideEl.innerHTML = `<div class="k">${esc(tr('El preguntador necesita tu respuesta'))}</div><h3>${esc(p.titulo)}</h3><p>${esc(p.detalle)}</p><div class="row"><button type="button" class="yes" data-a="ver">${esc(tr('Revisar el presupuesto'))}</button></div><button type="button" class="luego" data-a="luego">${esc(tr('Ahora no'))}</button>`;
     } else {
       pideEl.innerHTML = `<div class="k">${esc(trp('{q} pide permiso', { q: quien.label }))}</div><h3>${esc(p.titulo)}</h3><p>${esc(p.detalle)}</p>${p.alcances.length ? `<label>${esc(tr('Alcance del permiso'))}<select class="lv-alcance">${p.alcances.map((a) => `<option value="${esc(a)}">${esc(ALCANCE[a])}</option>`).join('')}</select></label>` : ''}<div class="row"><button type="button" class="no" data-a="no">${esc(tr('Denegar'))}</button>${p.requiereArgumentos ? `<button type="button" class="yes" data-a="ver">${esc(tr('Completar en la corrida'))}</button>` : `<button type="button" class="yes" data-a="si">${esc(tr('Permitir'))}</button>`}</div><div class="row2"><button type="button" class="luego" data-a="ver">${esc(tr('Verlo en la corrida'))}</button><button type="button" class="luego" data-a="luego">${esc(tr('Ahora no'))}</button></div>`;
     }
-    pideEl.insertAdjacentHTML('beforeend', '<p class="lv-respuesta" role="status"></p>');
+    if (!presupuesto) pideEl.insertAdjacentHTML('beforeend', '<p class="lv-respuesta" role="status"></p>');
     pideEl.hidden = false;
+    if (presupuesto) {
+      focoAntes = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      pideEl.querySelector<HTMLInputElement>('.lv-llamadas')?.focus({ preventScroll: true });
+    }
   }
   function cerrarPeticion() {
     if (!pidiendo) return;
     pidiendo = null; asking = false; pideEl.hidden = true; zoomOut();
+    vista.classList.remove('lv-espera'); pideEl.classList.remove('lv-pide-presupuesto');
+    pideEl.removeAttribute('aria-modal');
+    for (const propiedad of ['scale', 'width', 'left', 'right', 'bottom', 'top', 'max-height']) pideEl.style.removeProperty(propiedad);
+    if (focoAntes?.isConnected) focoAntes.focus({ preventScroll: true });
+    focoAntes = null;
     const quien = AG.find((a) => a.bub?.el.classList.contains('ask'));
     if (quien) { quien.bub?.el.remove(); quien.bub = null; }
     paintChapter();
@@ -749,14 +779,20 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (accion === 'luego') { descartadas.add(p.id); cerrarPeticion(); return; }
     if (accion === 'ver') { resp.verEnLaCorrida(); return; }
     if (enviando || D.conexion !== 'en_linea') return;
-    const alcance = pideEl.querySelector<HTMLSelectElement>('.lv-alcance')?.value ?? null;
-    if (accion === 'si' && (p.requiereArgumentos || (alcance !== null && !p.alcances.includes(alcance as typeof p.alcances[number])))) return;
+    const presupuesto = esPeticionDePresupuesto(p);
+    const alcance = pideEl.querySelector<HTMLInputElement>('.lv-alcance:checked')?.value ?? pideEl.querySelector<HTMLSelectElement>('select.lv-alcance')?.value ?? null;
+    const input = pideEl.querySelector<HTMLInputElement>('.lv-llamadas');
+    if ((accion === 'si' && presupuesto) || accion === 'presupuesto') {
+      if (!input?.reportValidity() || !Number.isSafeInteger(input.valueAsNumber)) return;
+    }
+    if (accion === 'si' && ((p.requiereArgumentos && !presupuesto) || (p.alcances.length > 0 && (alcance === null || !p.alcances.includes(alcance as typeof p.alcances[number]))))) return;
     const enviar = accion === 'plan' && p.clase === 'plan' ? () => resp.aprobarPlan(p.id)
-      : accion === 'si' && p.clase === 'permiso' ? () => resp.conceder(p.id, alcance)
+      : accion === 'presupuesto' && p.clase === 'presupuesto' && p.presupuesto && input ? () => resp.ampliarPresupuesto(p.presupuesto!.corridaId, input.valueAsNumber)
+      : accion === 'si' && p.clase === 'permiso' ? () => presupuesto ? resp.conceder(p.id, alcance, { llamadas: input!.value }) : resp.conceder(p.id, alcance)
         : accion === 'no' && p.clase === 'permiso' ? () => resp.denegar(p.id) : null;
     if (!enviar) return;
     enviando = p.id;
-    pideEl.querySelectorAll<HTMLButtonElement | HTMLSelectElement>('button,select').forEach((x) => { x.disabled = true; });
+    pideEl.querySelectorAll<HTMLButtonElement | HTMLSelectElement | HTMLInputElement>('button,select,input').forEach((x) => { x.disabled = true; });
     const mensaje = pideEl.querySelector<HTMLElement>('.lv-respuesta');
     if (mensaje) mensaje.textContent = tr('Guardando tu respuesta…');
     let ok: boolean | null = null;
@@ -764,7 +800,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (!vivo) return;
     enviando = null;
     if (pidiendo !== p.id || D.pide?.id !== p.id) return;
-    pideEl.querySelectorAll<HTMLButtonElement | HTMLSelectElement>('button,select').forEach((x) => { x.disabled = ok === true; });
+    pideEl.querySelectorAll<HTMLButtonElement | HTMLSelectElement | HTMLInputElement>('button,select,input').forEach((x) => { x.disabled = ok === true; });
     if (mensaje) mensaje.textContent = ok === true ? tr('Respuesta guardada. Esperando el estado actualizado…') : ok === false ? tr('El servidor rechazó la respuesta. Revisa el estado de la corrida.') : tr('No pude comprobar si se guardó. Revisa la corrida antes de repetir.');
   });
 
@@ -816,6 +852,19 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   });
   const teclas = (e: KeyboardEvent) => {
     const t = e.target as HTMLElement | null;
+    if (asking && pideEl.classList.contains('lv-pide-presupuesto')) {
+      if (e.key === 'Tab') {
+        const elementos = [...pideEl.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),summary')];
+        const primero = elementos[0], ultimo = elementos.at(-1);
+        if (e.shiftKey && (t === primero || !pideEl.contains(t as Node))) { e.preventDefault(); ultimo?.focus(); }
+        else if (!e.shiftKey && (t === ultimo || !pideEl.contains(t as Node))) { e.preventDefault(); primero?.focus(); }
+        return;
+      }
+      if (e.key === 'Escape') { e.preventDefault(); if (!enviando && D.pide) { descartadas.add(D.pide.id); cerrarPeticion(); } return; }
+      if (e.key === 'Enter' && t instanceof Element && pideEl.contains(t) && !t.closest('button,summary')) {
+        e.preventDefault(); pideEl.querySelector<HTMLButtonElement>('.yes')?.click(); return;
+      }
+    }
     if (t && (t.closest('input,textarea,select,[contenteditable="true"]'))) return;
     if (e.key === 'Escape' && pidiendo && D.pide) { descartadas.add(D.pide.id); cerrarPeticion(); }
     else if (e.key === 'Escape' && sel) vista.click();

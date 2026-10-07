@@ -1,0 +1,54 @@
+/* La pantalla de gasto del laboratorio: personaje, pizarra y respuesta. */
+.labvivo .lv-vista.lv-espera .lv-mundo{filter:blur(3px);opacity:.55;transition:filter .2s,opacity .2s}
+.labvivo .lv-pide.lv-pide-presupuesto{display:flex;flex-direction:column;width:460px;padding:0;border-color:#F5A400;border-radius:16px;overflow:hidden;box-shadow:0 24px 80px #0008;transform-origin:0 0;animation:none}
+.labvivo .lv-pide.lv-pide-presupuesto[hidden]{display:none}
+.labvivo .lv-pide-presupuesto .lv-permiso-escena{position:relative;height:210px;flex:none;background:#2A2738;border-bottom:1px solid #F5A40044;overflow:hidden}
+.labvivo .lv-pide-presupuesto .lv-permiso-escena:after{content:"";position:absolute;left:0;right:0;bottom:43px;height:5px;background:#57516B}
+.labvivo .lv-permiso-lugar{position:absolute;left:12px;top:12px;padding:4px 8px;border-radius:4px;background:#17151F;color:#D5C4A0;font-size:11px}
+.labvivo .lv-permiso-personaje{position:absolute;left:54px;bottom:8px;z-index:1}
+.labvivo .lv-permiso-personaje canvas{display:block;width:120px;height:160px;image-rendering:pixelated}
+.labvivo .lv-permiso-pizarra{position:absolute;left:43%;right:18px;top:22px;bottom:50px;background:#E9E6F2;border:6px solid #9C97B3;padding:14px 12px;display:flex;flex-direction:column;gap:14px}
+.labvivo .lv-permiso-pizarra i{display:flex;gap:10px;height:10px;align-items:center}
+.labvivo .lv-permiso-pizarra b{width:10px;height:10px;flex:none;background:#9C97B3}
+.labvivo .lv-permiso-pizarra span{height:6px;flex:1;background:#5A5670}
+.labvivo .lv-permiso-pizarra i:nth-child(2) span{margin-right:20px}
+.labvivo .lv-permiso-pizarra i:nth-child(4) span{margin-right:45px}
+.labvivo .lv-permiso-pizarra i[data-estado=hecho] b{background:#3ECF8E}
+.labvivo .lv-permiso-pizarra i[data-estado=ahora] b{background:#F5A400}
+.labvivo .lv-permiso-pizarra i[data-estado=fallo] b{background:#E2706A}
+.labvivo .lv-permiso-voz{position:absolute;right:16px;bottom:12px;max-width:65%;padding:5px 9px;background:#F4F1EA;color:#17131F;border-radius:4px;font-size:13px;font-weight:700;z-index:2}
+.labvivo .lv-permiso-cuerpo{padding:16px 18px 12px;overflow:auto;min-height:0;overscroll-behavior:contain}
+.labvivo .lv-permiso-autor{display:flex;flex-wrap:wrap;gap:4px 7px;align-items:baseline;font-size:12px;margin-bottom:12px}
+.labvivo .lv-permiso-autor strong{color:#F5A400;font-weight:600}
+.labvivo .lv-permiso-autor span{color:#9C97B3}
+.labvivo .lv-pide.lv-pide-presupuesto h3{font-size:18px;line-height:1.4;margin:0 0 12px}
+.labvivo .lv-pide.lv-pide-presupuesto p{font-size:13px;line-height:1.5;margin:0 0 12px}
+.labvivo .lv-permiso-cuerpo details{padding:10px 12px;border-radius:8px;background:#FFFFFF04;margin-bottom:12px;font-size:13px;line-height:1.5}
+.labvivo .lv-permiso-cuerpo summary{cursor:pointer;color:#CFC9DD}
+.labvivo .lv-pide.lv-pide-presupuesto details p{margin:8px 0 0}
+.labvivo .lv-permiso-plan ol{margin:8px 0 0;padding-left:18px}
+.labvivo .lv-permiso-plan li{padding-bottom:8px}
+.labvivo .lv-permiso-plan small{display:block;color:#9C97B3}
+.labvivo .lv-permiso-ajustes{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin-top:14px}
+.labvivo .lv-pide.lv-pide-presupuesto .lv-permiso-ajustes label{margin:0;font-size:12px;color:#CFC9DD}
+.labvivo .lv-permiso-ajustes .lv-llamadas{display:block;width:120px;margin-top:6px;padding:8px 10px;font-family:inherit;font-size:15px;font-weight:600;color:#F4F1EA;background:#100F17;border:1px solid #FFFFFF30;border-radius:8px;font-variant-numeric:tabular-nums}
+.labvivo .lv-permiso-ajustes fieldset{display:flex;gap:0;flex-wrap:wrap;border:0;margin:0;padding:0}
+.labvivo .lv-permiso-ajustes legend{font-size:12px;color:#CFC9DD;margin-bottom:6px}
+.labvivo .lv-permiso-ajustes fieldset label{position:relative;cursor:pointer}
+.labvivo .lv-permiso-ajustes input[type=radio]{position:absolute;opacity:0;width:1px;height:1px}
+.labvivo .lv-permiso-ajustes fieldset span{display:block;padding:9px 10px;background:#FFFFFF04;border:1px solid #FFFFFF10}
+.labvivo .lv-permiso-ajustes fieldset label:first-of-type span{border-radius:8px 0 0 8px}
+.labvivo .lv-permiso-ajustes fieldset label:last-of-type span{border-radius:0 8px 8px 0}
+.labvivo .lv-permiso-ajustes input:checked+span{background:#FFFFFF12;color:#F4F1EA}
+.labvivo .lv-permiso-ajustes input:focus-visible+span,.labvivo .lv-permiso-ajustes .lv-llamadas:focus-visible{outline:2px solid #F5A400;outline-offset:2px}
+.labvivo .lv-pide.lv-pide-presupuesto .lv-permiso-margen{margin-top:12px;color:#9C97B3;font-size:12px}
+.labvivo .lv-permiso-acciones{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:16px}
+.labvivo .lv-permiso-acciones>span{font-size:11px;color:#9C97B3;margin-right:auto}
+.labvivo .lv-pide.lv-pide-presupuesto .lv-permiso-acciones button{flex:none;padding:9px 12px;font-size:13px}
+.labvivo .lv-pide.lv-pide-presupuesto button.yes{background:#F5A400;border-color:#F5A400}
+.labvivo .lv-pide.lv-pide-presupuesto button:focus-visible{outline:2px solid #F4F1EA;outline-offset:3px}
+.labvivo .lv-pide.lv-pide-presupuesto .lv-respuesta:empty{display:none}
+.labvivo .lv-pide.lv-pide-presupuesto .lv-respuesta{margin:12px 0 0;color:#F2C14E}
+.labvivo .lv-permiso-espera{padding:12px 18px;flex:none;border-top:1px solid #F5A40033;background:#F5A4000C;color:#D5BC89;font-size:12px;line-height:1.5}
+@media (max-width:600px){.labvivo .lv-pide-presupuesto .lv-permiso-escena{height:160px}.labvivo .lv-permiso-personaje canvas{width:84px;height:112px}.labvivo .lv-permiso-personaje{left:18px}.labvivo .lv-permiso-pizarra{top:18px;bottom:42px;padding:8px;gap:9px}.labvivo .lv-permiso-pizarra i{height:8px}.labvivo .lv-permiso-voz{font-size:12px;right:10px;bottom:8px}.labvivo .lv-permiso-acciones>span{flex-basis:100%}}
+@media (prefers-reduced-motion:reduce){.labvivo .lv-vista.lv-espera .lv-mundo{transition:none}}

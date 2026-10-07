@@ -2,6 +2,22 @@
 // componentes/labvivo/motor.ts, 6 de octubre de 2026): salas, diálogos de los
 // agentes, la petición de permiso y el elenco. Escritas y revisadas a mano.
 export const LABORATORIO_VIVO: Record<string, string> = {
+  '¿Revisamos el presupuesto para seguir?': 'Shall we review the budget so I can continue?',
+  '¿Puedo gastar {n} llamadas?': 'May I use {n} model calls?',
+  'Toda esta corrida': 'This entire run',
+  'espera tu respuesta': 'is waiting for your answer',
+  'pide permiso de gasto': 'is requesting spending approval',
+  'Revisemos el presupuesto de la corrida': 'Let’s review the run budget',
+  '{n} llamadas utilizadas de {m} autorizadas en la corrida.': '{n} model calls used out of {m} authorized for this run.',
+  'Por qué me detuve': 'Why I stopped',
+  'Para qué, según el plan': 'What the plan needs them for',
+  'Tope total de la corrida': 'Total call limit for this run',
+  'Llamadas que permites': 'Calls you authorize',
+  'Quedan {n} llamadas autorizadas. Puedes conservar el tope o ampliarlo.': '{n} authorized calls remain. You can keep the limit or increase it.',
+  'Enter aprueba · Esc cierra': 'Enter approves · Esc closes',
+  'Aplicar tope y continuar': 'Apply limit and continue',
+  'Aprobar {n}': 'Approve {n}',
+  'Mientras no respondas, el laboratorio espera.': 'The lab waits until you answer.',
   'Necesito más presupuesto para seguir. ¿Lo revisamos?': 'I need more budget to continue. Shall we review it?',
   'La corrida se pausó por presupuesto. Revisa el tope para continuar.': 'The run paused because of its budget. Review the limit to continue.',
   'El preguntador necesita tu respuesta': 'The asker needs your response',

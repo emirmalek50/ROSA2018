@@ -376,6 +376,39 @@ describe('la nueva investigación se crea en el servidor', () => {
 });
 
 describe('decisiones verificadas del laboratorio', () => {
+  it.each([false, true, null])('aplicar el tope conserva la pausa hasta confirmarlo (ok=%s)', async (ok) => {
+    const corrida = servidor.estado.corridas[0]!;
+    corrida.estado = 'pausada_por_presupuesto';
+    const antes = corrida.presupuesto.limiteLlamadas, nuevo = antes + 100;
+    const { A, actual } = await montar();
+    let contestar: (r: Response) => void = () => undefined;
+    vi.stubGlobal('fetch', vi.fn((url: string, opciones?: RequestInit) => {
+      if (String(url).startsWith('/api/estado')) return Promise.resolve(responder(String(url)));
+      expect(JSON.parse(String(opciones?.body))).toEqual({ corrida_id: corrida.id, nuevo_limite: nuevo });
+      return new Promise<Response>((r) => { contestar = r; });
+    }));
+    const enVuelo = A.acciones.ampliarPresupuestoVerificado(corrida.id, nuevo);
+    expect(actual().corridas.find((c) => c.id === corrida.id)!.estado).toBe('pausada_por_presupuesto');
+    expect(actual().corridas.find((c) => c.id === corrida.id)!.presupuesto.limiteLlamadas).toBe(antes);
+    if (ok === true) { corrida.estado = 'en_marcha'; corrida.presupuesto.limiteLlamadas = nuevo; }
+    await act(async () => {
+      contestar(ok === null ? new Response('', { status: 503 }) : new Response(JSON.stringify({ ok }), { headers: { 'Content-Type': 'application/json' } }));
+      expect(await enVuelo).toBe(ok); await esperar();
+    });
+    expect(actual().corridas.find((c) => c.id === corrida.id)!.estado).toBe(ok === true ? 'en_marcha' : 'pausada_por_presupuesto');
+  });
+
+  it('envía el número de llamadas editado con el permiso verificado', async () => {
+    const s = servidor.estado.solicitudes[0]!; s.estado = 'pendiente';
+    const { A } = await montar();
+    vi.stubGlobal('fetch', vi.fn((url: string, opciones?: RequestInit) => {
+      if (String(url).startsWith('/api/estado')) return Promise.resolve(responder(String(url)));
+      expect(JSON.parse(String(opciones?.body))).toEqual({ solicitud_id: s.id, decision: 'conceder', alcance: 'esta_corrida', argumentos: { llamadas: '300' } });
+      return Promise.resolve(new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } }));
+    }));
+    await act(async () => { expect(await A.acciones.resolverSolicitudVerificada(s.id, 'conceder', 'esta_corrida', { llamadas: '300' })).toBe(true); await esperar(); });
+  });
+
   it.each([false, true])('aprobar el plan espera al servidor (ok=%s)', async (ok) => {
     const iteracion = servidor.estado.iteraciones[0]!;
     iteracion.planAprobado = false;

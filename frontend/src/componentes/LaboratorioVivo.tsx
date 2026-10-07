@@ -52,9 +52,10 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
     const el = lienzo.current;
     if (!el) return;
     const lab = montarLaboratorio(el, actuales.current, {
-      conceder: (id: string, alcance: string | null) => acciones.resolverSolicitudVerificada(id, 'conceder', alcance as AlcancePermiso | null),
+      conceder: (id: string, alcance: string | null, argumentos?: Record<string, string>) => acciones.resolverSolicitudVerificada(id, 'conceder', alcance as AlcancePermiso | null, argumentos),
       denegar: (id: string) => acciones.resolverSolicitudVerificada(id, 'denegar', null),
       aprobarPlan: (iteracionId: string) => acciones.aprobarPlanVerificado(iteracionId),
+      ampliarPresupuesto: (id: string, limite: number) => acciones.ampliarPresupuestoVerificado(id, limite),
       verEnLaCorrida: () => volver.current(),
     });
     motor.current = lab;
