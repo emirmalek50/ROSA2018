@@ -8,7 +8,8 @@
 // mensajes y los contadores se actualizan desde DatosLab al recibir SSE.
 
 import { tr, trp } from '../../lib/idioma';
-import type { TurnoLaboratorio } from '../../lib/conversacionesLaboratorio';
+import type { EmocionLaboratorio, GestoLaboratorio, TurnoLaboratorio } from '../../lib/conversacionesLaboratorio';
+import { desplazamientoGesto, pintarExpresion } from './expresiones';
 import './escenas.css';
 import { formatearEntero } from '../../lib/formato';
 import { ALCANCE } from '../../lib/etiquetas';
@@ -181,6 +182,7 @@ interface Agente {
   i: number; name: string; quien: string; label: string; hx: number; hy: number; x: number; y: number; coat: string; look: Aspecto; ldy: number; desk: boolean; what: string;
   path: { x: number; y: number }[]; face: number; carry: Obj | null; bub: Bocadillo | null; busy: boolean; typing: number; cool: number;
   room: Sala; ictx: Ctx | null; away: boolean; bob: number; el: HTMLDivElement; lb: HTMLDivElement;
+  reaccion?: { emocion: EmocionLaboratorio; gesto: GestoLaboratorio; desde: number; hasta: number };
 }
 
 const PARAR = { parar: true };
@@ -269,7 +271,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   /* ---------- sprites ---------- */
   const SPR = new Map<string, HTMLCanvasElement>();
   function sprite(a: Agente, frame: number): HTMLCanvasElement {
-    const key = a.i + '-' + frame;
+    const emocion = a.reaccion && simT < a.reaccion.hasta ? a.reaccion.emocion : 'neutral';
+    const key = a.i + '-' + frame + '-' + emocion;
     const hecho = SPR.get(key);
     if (hecho) return hecho;
     const L = a.look, head = CABEZAS[L.s] ?? CABEZAS.corto!;
@@ -288,6 +291,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       else { px(5, 5, '#B5654A'); px(6, 5, '#B5654A'); }
       if (L.g) { [[3, 4], [5, 4], [6, 4], [8, 4]].forEach(([i, j]) => px(i!, j!, '#17131F')); [[4, 4], [7, 4]].forEach(([i, j]) => px(i!, j!, '#CFE6FF')); }
       if (L.a) [[4, 0], [5, 0], [6, 0], [7, 0], [2, 3], [2, 4], [9, 3], [9, 4], [3, 6]].forEach(([i, j]) => px(i!, j!, '#F2C14E'));
+      pintarExpresion(x, emocion, PIEL[L.k]!);
     }
     SPR.set(key, c);
     return c;
@@ -505,7 +509,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       escenas.delete(b);
       if (b.ictx !== escena.ctx) continue;
       b.ictx = null; b.busy = false; b.path = []; b.carry = null;
-      b.typing = 0;
+      b.typing = 0; b.reaccion = undefined;
+      delete b.el.dataset.emocion; delete b.el.dataset.gesto;
       if (b.bub?.el.dataset.escena) { b.bub.el.remove(); b.bub = null; }
       delete b.el.dataset.escena;
     }
@@ -572,8 +577,11 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     })());
   }
   function mostrarDialogo(t: TurnoLaboratorio, a: Agente, b: Agente, dur: number) {
+    a.reaccion = { emocion: t.emocion ?? 'neutral', gesto: t.gesto ?? 'ninguno', desde: simT, hasta: simT + dur };
+    a.el.dataset.emocion = a.reaccion.emocion; a.el.dataset.gesto = a.reaccion.gesto;
     hablarEnEscena(a, b, t.texto, dur);
     a.bub?.el.setAttribute('data-turno', t.id);
+    a.bub?.el.setAttribute('data-emocion', a.reaccion.emocion);
     ultimaCharla.set(a.name, t);
     setEv(esc(t.texto));
     if (fichaDe === a && !ficha.hidden) showCard(a);
@@ -581,7 +589,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   function intervenir(charla: Escena, t: TurnoLaboratorio) {
     const a = charla.agentes.find((p) => p.name === t.agente), b = charla.agentes.find((p) => p.name === t.destinatario);
     if (!a || !b) return;
-    const dur = Math.max(7, Math.min(14, t.texto.length / 26));
+    const dur = t.texto.length < 60 ? Math.max(3.5, 2 + t.texto.length / 20) : Math.max(7, Math.min(14, t.texto.length / 26));
     mostrarDialogo(t, a, b, dur);
     charla.hasta = simT + dur + 0.2; charla.esperarHasta = charla.hasta + 30;
     a.carry = charla.trabajo && charla.listos ? 'card' : null; b.carry = null;
@@ -651,7 +659,8 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     AG.forEach((a) => {
       a.ictx?.kill(); a.ictx = null; a.busy = false; a.path = [];
       a.carry = null; a.away = false; a.typing = 0;
-      a.bub?.el.remove(); a.bub = null;
+      a.bub?.el.remove(); a.bub = null; a.reaccion = undefined;
+      delete a.el.dataset.emocion; delete a.el.dataset.gesto;
     });
     FLY.length = 0; STAMPS.forEach((s) => s.el.remove()); STAMPS.length = 0;
     hoja = false;
@@ -858,9 +867,10 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     else if (a.typing > simT) bob = Math.floor(simT * 5) % 2 ? -1 : 0;
     a.bob = bob;
     const s = sprite(a, frame);
+    const [gx, gy] = a.reaccion ? desplazamientoGesto(a.reaccion.gesto, simT - a.reaccion.desde, REDUCIR || moving) : [0, 0];
     g.save();
-    if (a.face < 0) { g.translate(a.x + 48, a.y + bob * 2); g.scale(-1, 1); g.drawImage(s, 0, 0, 48, 64); }
-    else g.drawImage(s, a.x, a.y + bob * 2, 48, 64);
+    if (a.face < 0) { g.translate(a.x + 48 + gx!, a.y + bob * 2 + gy!); g.scale(-1, 1); g.drawImage(s, 0, 0, 48, 64); }
+    else g.drawImage(s, a.x + gx!, a.y + bob * 2 + gy!, 48, 64);
     g.restore();
     if (a.carry) drawObj(a.carry, a.x + (a.face < 0 ? 6 : 42), a.y + 44 + bob * 2, 0);
   }
@@ -897,6 +907,9 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
   function syncDom() {
     AG.forEach((a) => {
+      if (a.reaccion && simT >= a.reaccion.hasta) {
+        a.reaccion = undefined; delete a.el.dataset.emocion; delete a.el.dataset.gesto;
+      }
       const b = a.bob * 2;
       a.el.style.transform = `translate(${a.x}px,${a.y + b}px)`;
       a.lb.style.top = (atHome(a) ? a.ldy : 66) + 'px';
@@ -952,7 +965,10 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (!habilitada) {
         dialogos.length = 0;
         [...escenas.entries()].filter(([, e]) => e.temaId).forEach(([a]) => cancelarEscena(a));
-        AG.forEach((a) => { if (a.bub?.el.dataset.turno) { a.bub.el.remove(); a.bub = null; } });
+        AG.forEach((a) => {
+          if (a.bub?.el.dataset.turno) { a.bub.el.remove(); a.bub = null; }
+          a.reaccion = undefined; delete a.el.dataset.emocion; delete a.el.dataset.gesto;
+        });
       }
       for (const t of turnos) {
         if (!D.identidad.endsWith('/' + t.iteracionId) || dialogosVistos.has(t.id)) continue;

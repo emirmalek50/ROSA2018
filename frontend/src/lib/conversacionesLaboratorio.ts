@@ -3,6 +3,8 @@ import { cabeceras } from '../datos/almacen';
 import type { Idioma } from './idioma';
 
 export const ESTILO_LABORATORIO = 'conversacion-natural-v2';
+export type EmocionLaboratorio = 'neutral' | 'curioso' | 'alegre' | 'frustrado' | 'preocupado' | 'sorprendido';
+export type GestoLaboratorio = 'ninguno' | 'asentir' | 'negar';
 export interface MaterialCharla {
   id: string; clase: 'registro' | 'afirmacion'; texto: string;
   titulo?: string; cita?: string | null; fragmento?: string | null;
@@ -14,6 +16,7 @@ export interface TurnoLaboratorio {
   id: string; temaId: string; iteracionId: string; idioma: Idioma;
   agente: string; destinatario: string; texto: string; fecha: number;
   modelo: string; materiales: MaterialCharla[];
+  emocion?: EmocionLaboratorio; gesto?: GestoLaboratorio;
 }
 export type EstadoCharla = 'cargando' | 'conversando' | 'esperando_hallazgos' | 'pausada' | 'sin_presupuesto' | 'no_disponible' | 'actualizando';
 interface Respuesta { estado: EstadoCharla; turnos: TurnoLaboratorio[]; estilo?: string }

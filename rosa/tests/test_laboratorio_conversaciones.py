@@ -12,6 +12,7 @@ from rosa import config, gateway
 from rosa.estado.almacen import Almacen
 from rosa.laboratorio_conversaciones import COMPANEROS, ESTILO, Conversaciones, REGLAS_JUEZ, modelo_de, tema_de, validar_turno
 from rosa.servidor import crear_app
+from rosa.laboratorio_personalidades import PERSONALIDADES, personalidad_de
 
 
 @pytest.fixture
@@ -69,6 +70,70 @@ def test_rechaza_procedencia_inventada_y_certeza_exagerada(almacen, obj):
 def test_voz_cotidiana_conserva_la_procedencia_fuera_de_lo_que_dicen(almacen, texto):
     turno = validar_turno({"texto": texto, "referencias": ["af:a"]}, tema_de(almacen.estado, "c", "it"))
     assert turno == {"texto": texto, "referencias": ["af:a"]}
+
+
+@pytest.mark.parametrize("texto", ["Vale.", "Sí.", "No.", "¡Buen punto!", "Uff...", "Nice!", "Fair enough."])
+def test_reaccion_corta_conserva_el_contexto_y_su_expresion(almacen, texto):
+    obj = {"texto": texto, "referencias": ["af:a"], "emocion": "alegre", "gesto": "asentir"}
+    assert validar_turno(obj, tema_de(almacen.estado, "c", "it")) == obj
+
+
+@pytest.mark.parametrize("cambio", [
+    {"texto": "..."}, {"texto": "123"}, {"texto": "👀"}, {"referencias": []},
+    {"emocion": "ganador"}, {"emocion": None}, {"gesto": "teletransportar"},
+])
+def test_reacciones_no_evitan_la_procedencia_ni_aceptan_gestos_arbitrarios(almacen, cambio):
+    obj = {"texto": "Vale.", "referencias": ["af:a"], "emocion": "neutral", "gesto": "asentir", **cambio}
+    with pytest.raises(ValueError):
+        validar_turno(obj, tema_de(almacen.estado, "c", "it"))
+
+
+def test_cada_companero_tiene_una_voz_estable_y_distinta():
+    personas = {p for grupo in COMPANEROS.values() for p in grupo}
+    assert personas == set(PERSONALIDADES)
+    assert len({personalidad_de(p) for p in personas}) == len(personas)
+
+
+@pytest.mark.asyncio
+async def test_asentimiento_breve_pasa_por_el_juez_y_escucha_al_companero(almacen):
+    llamadas = []
+    async def llamar(modelo, reglas, contenido, tema):
+        llamadas.append(copy.deepcopy(contenido))
+        if reglas == REGLAS_JUEZ:
+            return {"admisible": True}
+        assert contenido["personalidad"] == personalidad_de(contenido["agente"])
+        assert contenido["personalidadCompanero"] == personalidad_de(contenido["destinatario"])
+        if contenido["turno"] > 1:
+            assert contenido["historial"][-1]["agente"] == contenido["destinatario"]
+        return {"texto": "Me intriga esa asociación con tau." if contenido["turno"] == 1 else "Vale.",
+                "referencias": ["af:a"], "emocion": "curioso" if contenido["turno"] == 1 else "neutral", "gesto": "ninguno" if contenido["turno"] == 1 else "asentir"}
+    anterior = copy.deepcopy(almacen.estado)
+    s = Conversaciones(almacen, llamar)
+    clave = ("c", "it", "es")
+    s.tocar(clave, "persona", True)
+    await s.tareas[clave]
+    turnos = s.leer(clave)
+    assert len(turnos) == 9
+    breves = [t for t in turnos if t["texto"] == "Vale."]
+    assert len(breves) == 6 and all(t["gesto"] == "asentir" and t["materiales"][0]["id"] == "af:a" for t in breves)
+    assert len([c for c in llamadas if c.get("intervencion", {}).get("texto") == "Vale."]) == 6
+    despues = copy.deepcopy(almacen.estado)
+    despues["corridas"][0].pop("_conversacionesLaboratorio")
+    assert despues == anterior
+    await s.cerrar()
+
+
+@pytest.mark.asyncio
+async def test_alegria_y_asentimiento_no_saltan_un_rechazo_del_juez(almacen):
+    async def llamar(modelo, reglas, contenido, tema):
+        return {"admisible": False, "motivo": "El asentimiento avala una causalidad que el material no sostiene."} if reglas == REGLAS_JUEZ else {
+            "texto": "¡Sí, entonces causa tau!", "referencias": ["af:a"], "emocion": "alegre", "gesto": "asentir"}
+    s = Conversaciones(almacen, llamar)
+    clave = ("c", "it", "es")
+    s.tocar(clave, "persona", True)
+    await s.tareas[clave]
+    assert not s.leer(clave)
+    await s.cerrar()
 
 
 @pytest.mark.asyncio

@@ -44,6 +44,17 @@ it('explica que el servidor está pendiente de actualizar en vez de fingir falta
   expect(nodo.textContent).not.toContain('comprobaciones deterministas');
 });
 
+it('conserva las charlas actuales y añade las reacciones nuevas con sus referencias', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ estilo: ESTILO_LABORATORIO, estado: 'conversando', turnos: [
+    { id: 'actual', estilo: ESTILO_LABORATORIO, texto: 'Me intriga lo de tau.' },
+    { id: 'reaccion', estilo: ESTILO_LABORATORIO, texto: 'Vale.', emocion: 'alegre', gesto: 'asentir', materiales: [{ id: 'af:a' }] },
+  ] }) }));
+  await act(async () => root.render(<Vista />));
+  const datos = JSON.parse(nodo.textContent!);
+  expect(datos.turnos).toHaveLength(2);
+  expect(datos.turnos[1]).toMatchObject({ texto: 'Vale.', emocion: 'alegre', gesto: 'asentir', materiales: [{ id: 'af:a' }] });
+});
+
 it('recibe el primer comentario al segundo y conserva una sola petición en vuelo', async () => {
   let resolver: (v: unknown) => void = () => undefined;
   const fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ estilo: ESTILO_LABORATORIO, estado: 'conversando', turnos: [] }) })
