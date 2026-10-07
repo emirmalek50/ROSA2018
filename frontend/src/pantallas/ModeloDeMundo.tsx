@@ -20,6 +20,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { acciones, avisar } from "../datos/almacen";
 import { HistorialAsistente } from "../componentes/HistorialAsistente";
+import { IdentidadChat } from "../componentes/IdentidadChat";
 import { AdjuntosAsistente } from "../componentes/AdjuntosAsistente";
 import { AccionesAsistente } from "../componentes/AccionesAsistente";
 import {
@@ -895,6 +896,7 @@ function Conversar(p: PropsConversar) {
   if (turnos.length === 0 && !pendiente) {
     return (
       <div className="mundo-vacio">
+        <IdentidadChat />
         <div className="mundo-vacio-cabeza">
           <Persona estado="quieta" tamano={44} marca className="mundo-vacio-cara" />
           <h3 className="mundo-vacio-titulo">
@@ -924,6 +926,7 @@ function Conversar(p: PropsConversar) {
 
   return (
     <div className="mundo-chat">
+      <IdentidadChat compacta />
       <ol className="mundo-turnos">
         {turnos.map((t) => (
           <motion.li

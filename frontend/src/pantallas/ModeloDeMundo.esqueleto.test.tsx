@@ -94,10 +94,9 @@ describe('el esqueleto del modelo de mundo', () => {
     expect(nodo.querySelectorAll('.esqueleto').length).toBe(0);
     expect(nodo.querySelector('textarea')).not.toBeNull();
     expect(nodo.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toContain('Conversar');
-    // Sin logotipo encima del chat: la cabecera es el título, nada más. La
-    // cara pequeña de ROSA2018 junto a la caja de escribir (.persona) no es
-    // un logotipo de cabecera, es el interlocutor; por eso queda fuera.
-    expect(nodo.querySelector('.mundo-vacio img:not(.persona-marca), .mundo-vacio svg.mundo-emblema')).toBeNull();
+    // La bienvenida incluye las dos marcas, separadas del avatar de ROSA.
+    expect([...nodo.querySelectorAll('.mundo-vacio .identidad-chat img')]
+      .map((img) => img.getAttribute('alt'))).toEqual(['Alzheimer Project', 'AI Robotix']);
     expect(nodo.textContent).toContain('Qué cambió');
     expect(nodo.textContent).not.toContain('\u2014');
   });

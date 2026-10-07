@@ -1,0 +1,76 @@
+.identidad-chat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(32px, 5vw, 72px);
+  width: 100%;
+  margin: 0 auto 28px;
+}
+
+.identidad-chat img {
+  display: block;
+  height: auto;
+  min-width: 0;
+  object-fit: contain;
+  user-select: none;
+}
+
+.identidad-chat-alzheimer {
+  width: 220px;
+}
+
+.identidad-chat-robotix {
+  width: 300px;
+}
+
+/* Blanco sobre negro, conservando el archivo original para el tema claro. */
+:root[data-theme='dark'] .identidad-chat img {
+  filter: brightness(0) invert(1);
+}
+
+.mundo-vacio:has(.identidad-chat) {
+  padding-top: clamp(24px, 7vh, 72px);
+}
+
+.identidad-chat-compacta {
+  gap: 36px;
+  margin-bottom: 40px;
+}
+
+.identidad-chat-compacta .identidad-chat-alzheimer {
+  width: 110px;
+}
+
+.identidad-chat-compacta .identidad-chat-robotix {
+  width: 150px;
+}
+
+@media (max-width: 640px) {
+  .identidad-chat {
+    gap: 24px;
+    margin-bottom: 20px;
+  }
+
+  .identidad-chat-alzheimer {
+    width: 38%;
+    max-width: 180px;
+  }
+
+  .identidad-chat-robotix {
+    width: 48%;
+    max-width: 245px;
+  }
+
+  .identidad-chat-compacta {
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+
+  .identidad-chat-compacta .identidad-chat-alzheimer {
+    width: 82px;
+  }
+
+  .identidad-chat-compacta .identidad-chat-robotix {
+    width: 112px;
+  }
+}
