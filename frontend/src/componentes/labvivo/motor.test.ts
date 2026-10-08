@@ -151,66 +151,100 @@ describe('el motor del laboratorio sigue al servidor', () => {
     expect({ quien: soltado.dataset.agente, fuera: fuera(soltado) }).toEqual({ quien: soltado.dataset.agente, fuera: false });
   });
 
-  it('al terminar la corrida el laboratorio se vacía poco a poco, pero recepción y dos de arriba se quedan', async () => {
-    // Antes del 8 de octubre de 2026, una corrida terminada dejaba el
-    // laboratorio congelado: sin conversación, sin escenas y con un tercio de
-    // la gente dormida bajo un cartel que decía «Paró». Ahora se vacía.
+  it('al terminar la corrida nadie se va: salen de dos en dos a charlar y la sala nunca se queda vacía', async () => {
+    // El 8 de octubre de 2026 esto vaciaba las salas y quedaba peor que
+    // congelado. Ahora no se va nadie: salen parejas a charlar en su propia
+    // sala y vuelven. Lo que distingue un corrillo de una ida al café (que
+    // pasa igual sin esto) es que son DOS de la misma sala, a la vez y a la
+    // distancia de sus rótulos; eso es lo que se comprueba.
     const d = datos();
     montar({ ...d, trabajando: false, estado: 'terminada', activos: [], estadoTexto: 'Terminada' });
     await avanzar(1);
     const todos = [...nodo.querySelectorAll<HTMLElement>('[data-agente]')];
-    const fuera = () => todos.filter((el) => el.classList.contains('fuera')).map((el) => el.dataset.agente!);
-    expect(fuera()).toEqual([]);
-    // Pasan unos minutos de reloj del laboratorio.
-    await avanzar(3000);
-    const idos = new Set(fuera());
-    expect(idos.size).toBeGreaterThan(20);
-    // Recepción entera sigue ahí: son los que hablan contigo.
-    const recepcion = ['Tú', 'Asistente del chat', 'Preguntador', 'Traductor'];
-    expect(recepcion.filter((n) => idos.has(n))).toEqual([]);
-    // Y arriba quedan los dos que se quedan hasta tarde, nadie más.
-    expect(todos.map((el) => el.dataset.agente!).filter((n) => !idos.has(n) && !recepcion.includes(n))).toEqual(['Juez', 'Killer']);
+    const pos = (el: HTMLElement) => (/translate\(([\d.-]+)px,\s*([\d.-]+)px\)/.exec(el.style.transform) ?? []).slice(1, 3).map(Number) as [number, number];
+    const casa = new Map(todos.map((el) => [el, el.style.transform]));
+    const salieron = new Set<string>();
+    let parejas = 0, maximoALaVez = 0;
+    await avanzar(2500, () => {
+      const fuera = todos.filter((el) => el.style.transform !== casa.get(el));
+      fuera.forEach((el) => salieron.add(el.dataset.agente!));
+      maximoALaVez = Math.max(maximoALaVez, fuera.length);
+      for (const x of fuera) for (const y of fuera) {
+        if (x === y || x.dataset.sala !== y.dataset.sala) continue;
+        const a = pos(x), b = pos(y);
+        if (Math.abs(a[1] - b[1]) < 2 && Math.abs(Math.abs(a[0] - b[0]) - 100) < 2) parejas++;
+      }
+    });
+    expect(parejas).toBeGreaterThan(0);
+    expect(salieron.size).toBeGreaterThan(5);
+    // Pero nunca medio laboratorio a la vez: es un corrillo, no una mudanza.
+    expect(maximoALaVez).toBeLessThan(todos.length / 3);
+    // Nadie desaparece: aquí no se va nadie a su casa.
+    expect(todos.filter((el) => el.hidden)).toEqual([]);
+    // Y los dos que siguen acabando, y tú, no os habéis levantado ni a por café.
+    expect(['Juez', 'Killer', 'Tú'].filter((n) => salieron.has(n))).toEqual([]);
   });
 
-  it('nadie se va mientras la corrida sigue viva, y si vuelve a arrancar vuelven todos a su mesa', async () => {
+  it('el corrillo se renueva: al rato no son los mismos, y el laboratorio no se queda en un cuadro fijo', async () => {
     const d = datos();
-    montar(d);
+    montar({ ...d, trabajando: false, estado: 'terminada', activos: [], estadoTexto: 'Terminada' });
     await avanzar(1);
     const todos = [...nodo.querySelectorAll<HTMLElement>('[data-agente]')];
     const casa = new Map(todos.map((el) => [el, el.style.transform]));
-    await avanzar(1200);
-    expect(todos.filter((el) => el.classList.contains('fuera'))).toEqual([]);
-    // Termina: se vacía. Vuelve a arrancar: vuelven, y a su sitio de siempre.
-    motor!.actualizar({ ...d, trabajando: false, estado: 'terminada', activos: [], estadoTexto: 'Terminada' });
-    await avanzar(2400);
-    expect(todos.filter((el) => el.classList.contains('fuera')).length).toBeGreaterThan(10);
-    motor!.actualizar({ ...d, estadoTexto: 'En marcha' });
-    await avanzar(600);
-    expect(todos.filter((el) => el.classList.contains('fuera'))).toEqual([]);
-    const perdidos = todos.filter((el) => el.style.transform !== casa.get(el)).map((el) => el.dataset.agente);
-    expect(perdidos.length).toBeLessThan(todos.length / 2);
+    const pos = (el: HTMLElement) => (/translate\(([\d.-]+)px,\s*([\d.-]+)px\)/.exec(el.style.transform) ?? []).slice(1, 3).map(Number) as [number, number];
+    // Solo cuenta quien está de charla en pareja: una ida al café también
+    // mueve gente y pasaría sin que el relevo funcionara.
+    const recoger = async (n: number) => {
+      const vistos = new Set<string>();
+      await avanzar(n, () => {
+        const fuera = todos.filter((el) => el.style.transform !== casa.get(el));
+        for (const x of fuera) for (const y of fuera) {
+          if (x === y || x.dataset.sala !== y.dataset.sala) continue;
+          const p = pos(x), q = pos(y);
+          if (Math.abs(p[1] - q[1]) < 2 && Math.abs(Math.abs(p[0] - q[0]) - 100) < 2) { vistos.add(x.dataset.agente!); vistos.add(y.dataset.agente!); }
+        }
+      });
+      return vistos;
+    };
+    const primeros = await recoger(600);
+    expect(primeros.size).toBeGreaterThan(0);
+    const luego = await recoger(4000);
+    expect([...luego].some((n) => !primeros.has(n))).toBe(true);
   });
 
-  it('el botón «Que vuelvan» aparece solo cuando alguien se fue y los trae de vuelta', async () => {
+  it('al volver a arrancar la corrida nadie se queda plantado donde estaba de charla', async () => {
     const d = datos();
     montar({ ...d, trabajando: false, estado: 'terminada', activos: [], estadoTexto: 'Terminada' });
-    const boton = nodo.querySelector<HTMLButtonElement>('.lv-vuelven')!;
     await avanzar(1);
-    expect(boton.hidden).toBe(true);
-    await avanzar(2400);
-    expect(boton.hidden).toBe(false);
-    expect(boton.textContent).toBeTruthy();
-    boton.click();
-    await avanzar(2);
-    expect([...nodo.querySelectorAll('.lv-ag.fuera')]).toEqual([]);
+    const todos = [...nodo.querySelectorAll<HTMLElement>('[data-agente]')];
+    const casa = new Map(todos.map((el) => [el, el.style.transform]));
+    await avanzar(900);
+    expect(todos.filter((el) => el.style.transform !== casa.get(el)).length).toBeGreaterThan(0);
+    motor!.actualizar({ ...d, estadoTexto: 'En marcha' });
+    const antes = new Map(todos.map((el) => [el, el.style.transform]));
+    const quieto = new Map(todos.map((el) => [el, 0]));
+    let peor = 0;
+    await avanzar(900, () => {
+      for (const el of todos) {
+        const ahora = el.style.transform;
+        const fuera = ahora !== casa.get(el);
+        const n = fuera && ahora === antes.get(el) && !el.dataset.escena ? quieto.get(el)! + 1 : 0;
+        quieto.set(el, n); antes.set(el, ahora); peor = Math.max(peor, n);
+      }
+    });
+    // Nadie lleva quince segundos parado fuera de su sitio y sin escena.
+    expect(peor).toBeLessThan(150);
   });
 
-  it('con movimiento reducido no se va nadie: el laboratorio se queda como está', async () => {
+  it('con movimiento reducido no se levanta nadie', async () => {
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('reduce') }));
     const d = datos();
     montar({ ...d, trabajando: false, estado: 'terminada', activos: [], estadoTexto: 'Terminada' });
-    await avanzar(3000);
-    expect([...nodo.querySelectorAll('.lv-ag.fuera')]).toEqual([]);
+    await avanzar(1);
+    const todos = [...nodo.querySelectorAll<HTMLElement>('[data-agente]')];
+    const casa = new Map(todos.map((el) => [el, el.style.transform]));
+    await avanzar(2500);
+    expect(todos.filter((el) => el.style.transform !== casa.get(el))).toEqual([]);
   });
 
   it('el ocio es honesto: quien no trabaja va a por café andando; si alguien de la sala trabaja, nadie va', async () => {
@@ -613,6 +647,10 @@ describe('el motor del laboratorio sigue al servidor', () => {
     expect(nodo.querySelectorAll('.lv-ag.activo')).toHaveLength(4);
   });
   it('detiene encuentros, conversaciones y paseos al pausar o perder la conexión', async () => {
+    // Azar fijo por encima de 0,2: descarta la ida al café (vida.ts). Sin esto,
+    // una ida al café durante la pausa mueve a alguien y el test falla una vez
+    // de cada tantas sin que nada esté roto.
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
     const d = datos(); montar(d); await avanzar(180);
     expect(nodo.querySelectorAll('.lv-ag[data-escena]').length).toBeGreaterThan(0);
     motor!.actualizar({ ...d, trabajando: false, activos: [], estado: 'pausada', estadoTexto: 'Pausada' });

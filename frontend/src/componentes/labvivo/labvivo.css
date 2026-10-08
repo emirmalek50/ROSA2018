@@ -35,10 +35,6 @@
 .labvivo .lv-lbl{position:absolute;left:24px;transform:translateX(-50%);max-width:100px;width:max-content;text-align:center;font-size:9.5px;font-weight:600;line-height:11px;color:#E6E1F2;background:#0E0D14B3;padding:1px 4px;border-radius:2px;pointer-events:none}
 .labvivo .lv-ag:hover .lv-lbl,.labvivo .lv-ag.sel .lv-lbl{background:#F4F1EA;color:#0E0D14}
 .labvivo .lv-ag.twin .lv-lbl{display:none}
-/* El atributo hidden no basta: la regla de .lv-sigue trae su propio display. */
-.labvivo .lv-vuelven[hidden]{display:none}
-/* Quien se fue a su casa: ni figura ni rotulo hasta que vuelva. */
-.labvivo .lv-ag.fuera{display:none}
 .labvivo .lv-ag.away .lv-lbl{opacity:0}
 .labvivo .lv-ag.away:hover .lv-lbl{opacity:1}
 
