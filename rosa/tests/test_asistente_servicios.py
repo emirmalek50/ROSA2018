@@ -221,6 +221,7 @@ def test_toda_ruta_api_tiene_clasificacion_explicita(entorno):
         '/api/hipotesis/{hipotesis_id}/datos': 'adjunto de resultados',
         '/api/investigaciones/{investigacion_id}/datasets': 'adjunto de dataset',
         '/api/acceso/configuracion': 'formulario de instalación y credenciales',
+        '/api/patentes/prueba': 'prueba de credenciales de SerpApi solo desde Ajustes, sin exponer claves al modelo',
         '/api/acceso/entrar': 'formulario de contraseña',
         '/api/acceso/registrar': 'formulario de registro y contraseña',
         '/api/acceso/entrar_sin_verificar': 'ruta retirada, responde 410',

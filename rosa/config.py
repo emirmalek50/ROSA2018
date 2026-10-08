@@ -43,6 +43,10 @@ CLAVE_S2 = os.environ.get("ROSA_S2_KEY", "")
 # Exa (exa.ai): búsqueda semántica de publicaciones. Sin clave, ROSA2018 no la usa
 # y los conectores de Exa quedan en el catálogo como "requiere cuenta".
 CLAVE_EXA = os.environ.get("ROSA_EXA_KEY", "")
+# Google Patents mediante SerpApi, proveedor externo de búsqueda. La clave
+# también se puede configurar desde Ajustes, sin reiniciar el servidor.
+CLAVE_SERPAPI = (os.environ.get("ROSA_SERPAPI_KEY", "") or os.environ.get("SERPAPI_API_KEY", "")
+                 or os.environ.get("SERPAPI_KEY", "") or os.environ.get("serp_api", ""))
 # Token de acceso a la API. Obligatorio si el servidor escucha fuera de 127.0.0.1:
 # sin él, cualquier equipo de la red podría arrancar corridas y gastar en el gateway.
 ROSA_TOKEN = os.environ.get("ROSA_TOKEN", "")

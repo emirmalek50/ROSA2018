@@ -16,6 +16,7 @@ import { digest, digestComoTexto } from '../lib/digest';
 import { ACCION_ESPERA, ALCANCE, CLASE_ACCION, NIVEL_AUTONOMIA, TIPO_PERMISO } from '../lib/etiquetas';
 import { useTema, type Tema } from '../lib/theme';
 import { Correo } from '../componentes/Correo';
+import { ConfiguracionPatentes } from '../componentes/ConfiguracionPatentes';
 import { CuentaActual, CuentasDelEquipo, useSesion } from '../componentes/Acceso';
 import '../ajustes.css';
 import { traducido, tr, trp } from '../lib/idioma';
@@ -375,6 +376,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
 
           </div>
           <div className="ajustes-panel" role="tabpanel" id="ajuste-panel-herramientas" aria-labelledby="ajuste-tab-herramientas" hidden={categoria !== 'herramientas'} tabIndex={0}>
+            {categoria === 'herramientas' && <ConfiguracionPatentes servidor={estado.conexion === 'en_linea'} />}
             <Conectores conectores={estado.conectores} />
             <Skills skills={estado.skills} />
             <RegistroMetodos metodos={estado.metodos} ahora={ahora} />

@@ -41,6 +41,7 @@ from typing import Any
 
 import dspy
 import dspy.clients.base_lm
+import httpx
 import pytest
 
 from rosa import conectores as CON
@@ -165,6 +166,7 @@ ENSAYO_TRATAMIENTO = {
 }
 
 IDS_GFAP = {"simbolo": "GFAP", "nombre": "glial fibrillary acidic protein", "ensembl": "ENSG00000131095", "uniprot": "P14136", "entrez": "2670"}
+IDS_AGORA = {"GFAP": IDS_GFAP["ensembl"], "APOE": "ENSG00000130203", "NEFL": "ENSG00000104760"}
 RESPUESTAS_CONECTORES: dict[str, Any] = {
     "mygene_gen": IDS_GFAP,
     # GEO responde con una serie; CELLxGENE y el resto no responden: "no pude comprobar", nunca "no hay".
@@ -176,9 +178,16 @@ def _fuentes_falsas(mp: pytest.MonkeyPatch, registro: dict[str, list[Any]]) -> N
     """Sustituye cada fuente externa por una respuesta fija y anota las consultas."""
 
     async def sin_red(*a: Any, **k: Any) -> Any:
+        registro["red"].append((a, k))
         raise FuenteNoDisponible("sin red en el test: una fuente sin simular llegó al helper HTTP")
 
+    def sin_http(*a: Any, **k: Any) -> Any:
+        registro["red"].append((a, k))
+        raise AssertionError("Una fuente sin simular intentó acceder a HTTP en este arnés")
+
     mp.setattr(FB, "pedir", sin_red)
+    mp.setattr(httpx.AsyncClient, "send", sin_http)
+    mp.setattr(httpx.Client, "send", sin_http)
 
     async def ep_buscar(consulta: str, maximo: int = 10, solo_preprints: bool = False, desde_anio: int | None = None):
         registro["europepmc"].append(consulta)
@@ -227,7 +236,8 @@ def _fuentes_falsas(mp: pytest.MonkeyPatch, registro: dict[str, list[Any]]) -> N
 
     async def patentes_buscar(consultas: list[str], ingredientes: list[str]):
         registro["patentes_tratamiento"].append((consultas, ingredientes))
-        return {"documentos": [copy.deepcopy(PATENTE_TRATAMIENTO)], "consultas": [{"fuente": "Registro simulado", "consulta": consultas[0], "url": "https://example.org/patentes", "total": 1, "recuperados": 1, "paginas": 1, "completa": True, "error": None}], "limitaciones": ["Fuente simulada; no es una revisión jurídica."], "costeUsd": 0.0}
+        return {"documentos": [copy.deepcopy(PATENTE_TRATAMIENTO)], "consultas": [{"fuente": "Registro simulado", "consulta": consultas[0], "url": "https://example.org/patentes", "total": 1, "recuperados": 1, "paginas": 1, "completa": True, "error": None}], "limitaciones": ["Fuente simulada; no es una revisión jurídica."], "costeUsd": 0.0,
+                "googlePatents": {"proveedor": "serpapi", "protocolo": AT.PROTOCOLO_PATENTES, "estado": "completa", "consultadoEn": "2026-10-08T00:00:00Z"}, "consumo": {"serpapiConsultas": 0}}
 
     async def programas_buscar(terminos: list[str]):
         registro["programas_clinicos"].append(terminos)
@@ -256,9 +266,26 @@ def _fuentes_falsas(mp: pytest.MonkeyPatch, registro: dict[str, list[Any]]) -> N
     mp.setattr(programas_clinicos, "buscar", programas_buscar)
     mp.setattr(LEC, "para", lecciones)
     mp.setattr(ONTO, "normalizar", sin_ontologias)
-    consultar = consultar_falso(RESPUESTAS_CONECTORES)
+    consultar_base = consultar_falso(RESPUESTAS_CONECTORES)
+
+    async def consultar(nombre: str, /, **kwargs: Any):
+        reg, dato = await consultar_base(nombre, **kwargs)
+        if nombre == "agora":
+            gen = kwargs["gen"]
+            assert gen in IDS_AGORA, f"El arnés necesita una respuesta explícita de Agora para {gen}"
+            identificador = IDS_AGORA[gen]
+            url = "https://agora.adknowledgeportal.org/genes/" + identificador
+            reg.update(n=1, ids=[identificador], error=None, version="simulada", invariante={"ok": True, "detalle": "Identidad de prueba"})
+            dato = {"estado": "completa", "gen": {"hgnc_symbol": gen, "ensembl_gene_id": identificador, "url": url},
+                    "version": {"data_version": "simulada"}, "fecha": 1000, "advertencias": [], "consultas": [],
+                    "secciones": [{"id": "identidad", "nombre": "Gene Search", "estado": "comprobado", "resumen": "Identidad suministrada por el arnés; no es una consulta real.",
+                        "datos": {"hgnc_symbol": gen, "ensembl_gene_id": identificador}, "fuentes": [{"nombre": "Agora simulada", "url": url}], "consultas": [], "limitaciones": []},
+                        {"id": "dianas_nominadas", "nombre": "Nominated Targets", "estado": "sin_datos", "resumen": "El conjunto simulado no contiene nominaciones.",
+                         "datos": {"dianas": [], "nominaciones": []}, "fuentes": [], "consultas": [], "limitaciones": ["Respuesta sintética para probar el cierre; no describe la cobertura real de Agora."]}]}
+        return reg, dato
+
     mp.setattr(CON, "consultar", consultar)
-    registro["conectores"] = consultar.llamadas  # type: ignore[attr-defined]
+    registro["conectores"] = consultar_base.llamadas  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------
@@ -512,7 +539,6 @@ def _preparar_plan(al: Almacen, ids: dict[str, str], limite_corrida: int | None 
         informes = {tipo: AT._informe(ctx, tipo, {}, None, no_aplica=True) for tipo in AT.NOMBRES}
         h["revisionTratamiento"] = {"version": AT.VERSION, "huella": AT.huella(h), "fecha": ahora, "perfil": perfil, **informes}
         h["novedad"]["companias"] = {"estado": informes["companias"]["estado"], "detalle": informes["companias"]["resumen"], "url": None}
-        _conclusion_previa(h)
         return True
 
     al.mutar(fn, "plan_siete")
@@ -522,7 +548,7 @@ def _preparar_plan(al: Almacen, ids: dict[str, str], limite_corrida: int | None 
 def _arnes(mp: pytest.MonkeyPatch, limite_corrida: int | None = None, *, tratamiento: bool = False) -> dict[str, Any]:
     al, ids = _preparar()
     ahora = _preparar_plan(al, ids, limite_corrida)
-    registro: dict[str, list[Any]] = {k: [] for k in ("europepmc", "europepmc_texto", "crossref", "pdf", "exa", "exa_contenidos", "openalex", "clinicaltrials", "opentargets", "patentes_tratamiento", "programas_clinicos")}
+    registro: dict[str, list[Any]] = {k: [] for k in ("europepmc", "europepmc_texto", "crossref", "pdf", "exa", "exa_contenidos", "openalex", "clinicaltrials", "opentargets", "patentes_tratamiento", "programas_clinicos", "red")}
     _fuentes_falsas(mp, registro)
     modelos = _modelos()
     sim = Simulador(al, _respuestas(tratamiento), modelos)
@@ -533,6 +559,12 @@ def _arnes(mp: pytest.MonkeyPatch, limite_corrida: int | None = None, *, tratami
     mp.setattr(Ctx, "llamar", llamar)
     mp.setattr(dspy.clients.base_lm, "GLOBAL_HISTORY", sim.historia)
     sup = CO.Supervisor(al, _programas_reales(), modelos)
+    # La conclusión previa ya conocía el mismo informe de Agora. Ejecutar la
+    # revisión real con el conector simulado antes de congelar su huella evita
+    # convertir este caso de evidencia idéntica en una primera revisión nueva.
+    ctx = Ctx(al, sup.programas, modelos, ids["cor"], ids["inv"], ids["it"], 1, de_paso=True)
+    asyncio.run(CO.AGORA.revisar_cierre(ctx))
+    al.mutar(lambda e: _conclusion_previa(next(h for h in e["hipotesis"] if h["id"] == ids["hip"])) and True, "conclusion_previa")
     return {"al": al, "ids": ids, "sup": sup, "sim": sim, "registro": registro, "ahora": ahora}
 
 
@@ -600,10 +632,13 @@ def test_ningun_programa_real_se_llamo_sin_respuesta_simulada(corrida):
 
 def test_nada_salio_a_la_red_y_las_fuentes_falsas_se_consultaron(corrida):
     reg = corrida["registro"]
+    assert reg["red"] == []
     assert reg["europepmc"] and reg["europepmc_texto"] and set(reg["europepmc_texto"]) == {ART_A["pmcid"]}, reg
     assert ART_A["doi"] in reg["crossref"] and ART_B["doi"] in reg["crossref"]
     assert reg["pdf"] and set(reg["pdf"]) == {ART_B["pdf"]}
     assert reg["exa_contenidos"] and set(reg["exa_contenidos"]) == {ART_D["url"]}
+    assert {args["gen"] for nombre, args in reg["conectores"] if nombre == "agora"} == set(IDS_AGORA)
+    assert CO.AGORA.revision_vigente(corrida["al"].estado, _corrida(corrida))
     assert not any(i["tipo"] == "fuente_sin_respuesta" for i in corrida["al"].estado["incidencias"])
 
 
@@ -821,7 +856,7 @@ def test_hipotesis_nuevas_cuenta_solo_la_nacida_en_la_ventana_de_la_iteracion(co
     assert c["progreso"][-1]["hipotesisNuevas"] == 1
     # "Hechos nuevos" del cierre cuenta también la pregunta que entró al modelo de mundo (1 hecho + 1 pregunta).
     assert c["progreso"][-1]["hechosNuevos"] == 2
-    informe = next(a for a in corrida["al"].estado["artefactos"] if a.get("tipo") == "informe")
+    informe = next(a for a in corrida["al"].estado["artefactos"] if a.get("tipo") == "informe" and a.get("nombre") == f"Informe de la iteración {_it(corrida)['numero']}")
     contenido = informe["versiones"][-1]["contenido"] if informe.get("versiones") else informe.get("contenido", "")
     assert "## Hipótesis nuevas en la cola (1)" in contenido and f"- {TITULO_NUEVA}" in contenido
     # El resumen técnico y el llano solo recibieron la nueva como nueva.

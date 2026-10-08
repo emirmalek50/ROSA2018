@@ -1229,6 +1229,43 @@ acepta la voz natural v2 durante una corrida que aún usa el servidor anterior;
 al recibir v3, esa sesión conserva v3. Las versiones sin identificar y los informes
 antiguos no se reproducen. Los diálogos guardados conservan sus fechas y procedencia.
 
+### Google Patents obligatorio en la revisión de tratamientos
+
+El especialista en patentes consulta **Google Patents mediante SerpApi** antes
+de las fuentes complementarias Exa y Orange Book. SerpApi es un proveedor
+independiente, no una API oficial de Google. La conexión se puede configurar
+y probar en **Ajustes → Herramientas → Google Patents mediante SerpApi**;
+solo administración puede guardar, probar o desconectar la clave. La clave
+guardada se mantiene en un archivo privado del servidor, fuera del estado,
+las exportaciones y Git. También se admite la configuración del entorno.
+
+Cada recuperación admite cuatro consultas, dos páginas de diez publicaciones
+por consulta y detalles de las primeras ocho publicaciones únicas. Los detalles
+incluyen las reivindicaciones, titulares, fechas y demás metadatos disponibles.
+Los límites, errores, fecha, parámetros sin credenciales y huellas de respuesta
+quedan registrados. La lectura experta está acotada; los documentos truncados
+se identifican expresamente. No se descargan los PDF ni páginas adicionales
+de descripción de las patentes.
+
+Si falta acceso, falla una petición o la cobertura queda parcial, el informe
+lo muestra como **No comprobado**, conservando los hallazgos recuperados.
+Ninguna fuente complementaria permite ocultar el fallo de Google Patents.
+Las propuestas observacionales sin tratamiento permanecen como **No aplica**.
+No se certifican ausencia mundial de patentes, vigencia jurídica ni libertad
+de operación.
+
+Los informes antiguos sin este protocolo no cuentan como revisión vigente
+de patentes. Se vuelven a consultar en la siguiente revisión del tratamiento,
+conservando el perfil y el trabajo del especialista en compañías. Los
+checkpoints de una misma corrida evitan repetir peticiones al reanudar;
+una nueva corrida vuelve a consultar. El consumo de SerpApi se registra como
+número de peticiones, separado del coste conocido de Exa, sin inventar un
+precio ni asumir que cada petición consume un crédito facturable.
+
+Contrato del proveedor: [búsqueda](https://serpapi.com/google-patents-api),
+[resultados](https://serpapi.com/google-patents-organic-results) y
+[detalle de patente](https://serpapi.com/google-patents-details-api).
+
 ### Revisión de Agora antes del cierre
 
 Antes de cerrar una iteración, ROSA revisa en Agora los genes y proteínas

@@ -1392,6 +1392,42 @@ def crear_app(almacen: Almacen) -> FastAPI:
 
         return catalogo()
 
+    @app.get("/api/patentes/configuracion")
+    async def patentes_configuracion(request: Request):
+        from rosa import credenciales_patentes as credenciales
+
+        return JSONResponse({**credenciales.estado(almacen.ruta), "administrador": es_admin(request.state.usuario)}, headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/patentes/configuracion")
+    async def patentes_guardar_configuracion(request: Request):
+        from rosa import credenciales_patentes as credenciales
+
+        if not es_admin(request.state.usuario):
+            raise HTTPException(403, "Solo el administrador puede configurar Google Patents.")
+        cambios = await leer_json_acotado(request, MAX_CUERPO_PEQUENO)
+        try:
+            resultado = credenciales.guardar(cambios, almacen.ruta)
+        except ValueError as ex:
+            raise HTTPException(400, str(ex)) from None
+        except OSError:
+            raise HTTPException(503, "No pude guardar la conexión de Google Patents.") from None
+        return JSONResponse({**resultado, "administrador": True}, headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/patentes/prueba")
+    async def patentes_prueba(request: Request):
+        from rosa import credenciales_patentes as credenciales
+        from rosa.fuentes import google_patents
+
+        if not es_admin(request.state.usuario):
+            raise HTTPException(403, "Solo el administrador puede probar Google Patents.")
+        if not credenciales.clave(almacen.ruta):
+            return JSONResponse({"ok": False, "detalle": "Falta conectar la clave de SerpApi en Ajustes > Herramientas."}, headers={"Cache-Control": "no-store"})
+        try:
+            resultado = await asyncio.wait_for(google_patents.probar_conexion(credencial=credenciales.clave(almacen.ruta)), timeout=32)
+        except TimeoutError:
+            resultado = {"ok": False, "detalle": "Google Patents no respondió a tiempo; no pude comprobar la conexión."}
+        return JSONResponse(resultado, headers={"Cache-Control": "no-store"})
+
     @app.get("/api/salud")
     async def salud() -> dict[str, Any]:
         # `obsoleto`: otro proceso escribió sobre la base y este ya no guarda (S-01).

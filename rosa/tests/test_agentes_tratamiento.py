@@ -43,7 +43,9 @@ def recuperacion(docs=None, error=None):
     return {"documentos": list(docs or []), "consultas": [{"fuente": "Registro", "consulta": "lecanemab",
             "paginas": 0 if error else 1, "total": None if error else len(docs or []),
             "recuperados": len(docs or []), "completa": not error, "error": error}],
-            "limitaciones": ["La búsqueda no es mundial."], "costeUsd": 0.0}
+            "limitaciones": ["La búsqueda no es mundial."], "costeUsd": 0.0,
+            "googlePatents": {"proveedor": "serpapi", "protocolo": AT.PROTOCOLO_PATENTES, "estado": "no_comprobado" if error else "completa", "consultadoEn": "2026-10-08T00:00:00Z"},
+            "consumo": {"serpapiConsultas": 0}}
 
 
 def dictamen(doc=None, relacion="mismo_tratamiento", cita=None):
@@ -616,3 +618,205 @@ async def test_pagina_web_con_texto_vacio_no_se_presenta_como_lectura_completa(m
     assert r["documentos"][0]["datos"]["tipoContenido"] == "resumen"
     assert any("texto completo" in s or "resumen" in s for s in r["limitaciones"])
     assert r["costeUsd"] == pytest.approx(0.03)
+
+
+@pytest.mark.parametrize("estado_google", ["parcial", "no_comprobado"])
+def test_hallazgo_exa_no_oculta_google_incompleto(estado_google):
+    d = documento("patentes", ident="pat-exa")
+    d["fuente"] = "Exa patentes"
+    rec = recuperacion([d])
+    rec["googlePatents"]["estado"] = estado_google
+    informe = AT._informe(ContextoFalso(), "patentes", rec, AT.DictamenTratamiento.model_validate(dictamen(d)))
+    assert informe["estado"] == "no_comprobado"
+    assert len(informe["hallazgos"]) == 1
+    assert "1 hallazgos documentados" in informe["resumen"]
+    assert "Google Patents" in informe["resumen"]
+    assert informe["googlePatents"]["estado"] == estado_google
+    assert any("no sustituyen" in x for x in informe["limitaciones"])
+
+
+@pytest.mark.asyncio
+async def test_protocolo_antiguo_revisa_solo_patentes_y_conserva_companias_perfil(monkeypatch):
+    from rosa.estado.almacen import _limpiar_para_cliente
+
+    consultas = instalar_recuperacion(monkeypatch)
+    ctx = ContextoFalso()
+    await AT.revisar(ctx, "h-1")
+    h = ctx.e["hipotesis"][0]
+    revision = h["revisionTratamiento"]
+    companias, perfil_previo = deepcopy(revision["companias"]), deepcopy(revision["perfil"])
+    revision["patentes"].pop("protocoloPatentes")
+    revision["patentes"].pop("googlePatents")
+    revision["patentes"]["resumen"] = "Informe antiguo sin Google"
+    assert AT.pendiente(h, ctx.corrida_id, ctx.iteracion_id)
+    assert not AT.revision_vigente(h)
+    assert not _limpiar_para_cliente(h)["revisionTratamiento"]["vigente"]
+    assert "Informe antiguo sin Google" not in AT.texto_informe(h)
+    assert "revisión pendiente" in AT.texto_informe(h)
+    ctx.llamadas.clear()
+    consultas.clear()
+    await AT.revisar(ctx, "h-1")
+    assert [tipo for tipo, _ in consultas] == ["patentes"]
+    assert ctx.llamadas == []
+    assert revision["companias"] == companias and revision["perfil"] == perfil_previo
+    assert AT.revision_vigente(h)
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_antiguo_no_evade_google_ni_reutiliza_borrador(monkeypatch):
+    nuevo = documento("patentes", ident="pat-nueva")
+    consultas = instalar_recuperacion(monkeypatch, patentes=recuperacion([nuevo]))
+    ctx = ContextoFalso()
+    h = ctx.e["hipotesis"][0]
+    h["revisionTratamiento"] = {"version": AT.VERSION, "huella": AT.huella(h), "perfil": perfil(),
+                               "companias": AT._informe(ctx, "companias", recuperacion(), None)}
+    viejo = documento("patentes", ident="pat-vieja")
+    ctx.corrida()["_revisionTratamientoFuentes"] = {"h-1": {"huella": AT.huella(h),
+        "patentes": recuperacion([viejo]), "borrador_patentes": dictamen(viejo)}}
+    ctx.respuestas.update(patentes=dictamen(nuevo), auditar=dictamen(nuevo))
+    await AT.revisar(ctx, "h-1")
+    assert [tipo for tipo, _ in consultas] == ["patentes"]
+    assert [p for _, p, _ in ctx.llamadas] == ["patentes", "auditar"]
+    assert h["revisionTratamiento"]["patentes"]["hallazgos"][0]["id"] == "pat-nueva"
+
+
+@pytest.mark.asyncio
+async def test_consumo_serpapi_separa_exa_y_no_se_duplica_al_reanudar(monkeypatch):
+    d = documento("patentes")
+    rec = recuperacion([d])
+    rec.update(costeUsd=0.5, consumo={"serpapiConsultas": 3})
+    consultas = instalar_recuperacion(monkeypatch, patentes=rec)
+    ctx = ContextoFalso()
+    ctx.respuestas.update(patentes=dictamen(d), auditar=[PresupuestoAgotado("pausa"), dictamen(d)])
+    with pytest.raises(PresupuestoAgotado):
+        await AT.revisar(ctx, "h-1")
+    assert ctx.corrida()["gasto"] == {"exaUsd": 0.5, "serpapiConsultas": 3}
+    await AT.revisar(ctx, "h-1")
+    assert [tipo for tipo, _ in consultas] == ["patentes", "companias"]
+    assert ctx.corrida()["gasto"] == {"exaUsd": 0.5, "serpapiConsultas": 3}
+    assert ctx.e["hipotesis"][0]["revisionTratamiento"]["patentes"]["consumo"]["serpapiConsultas"] == 3
+
+
+@pytest.mark.asyncio
+async def test_google_fallido_se_reintenta_solo_en_siguiente_iteracion(monkeypatch):
+    d = documento("patentes")
+    rec = recuperacion([d])
+    rec["googlePatents"]["estado"] = "no_comprobado"
+    consultas = instalar_recuperacion(monkeypatch, patentes=rec)
+    ctx = ContextoFalso()
+    ctx.respuestas.update(patentes=dictamen(d), auditar=dictamen(d))
+    await AT.revisar(ctx, "h-1")
+    assert not await AT.revisar(ctx, "h-1")
+    assert [tipo for tipo, _ in consultas] == ["patentes", "companias"]
+    ctx.iteracion_id = "iteracion-2"
+    assert AT.pendiente(ctx.e["hipotesis"][0], ctx.corrida_id, ctx.iteracion_id)
+    await AT.revisar(ctx, "h-1")
+    assert [tipo for tipo, _ in consultas] == ["patentes", "companias", "patentes"]
+
+
+@pytest.mark.asyncio
+async def test_consulta_vacia_usa_solo_identidad_explicita_sin_otro_modelo(monkeypatch):
+    consultas = instalar_recuperacion(monkeypatch)
+    ctx = ContextoFalso()
+    p = perfil()
+    p["consultasPatentes"] = []
+    ctx.respuestas["perfil"] = p
+    await AT.revisar(ctx, "h-1")
+    terminos = consultas[0][1][0]
+    assert terminos and all(x.casefold() == "lecanemab" for x in terminos)
+    assert [x[1] for x in ctx.llamadas] == ["perfil"]
+
+
+@pytest.mark.asyncio
+async def test_nombre_inventado_no_se_utiliza_como_consulta_alternativa(monkeypatch):
+    consultas = instalar_recuperacion(monkeypatch)
+    ctx = ContextoFalso()
+    ctx.e["hipotesis"][0].update(titulo="Propuesta sin identidad", enunciado="Intervención por concretar", tarjeta={})
+    ctx.respuestas["perfil"] = {"tipo": "indefinido", "nombre": "Compuesto inventado", "ingredientes": ["Molécula inventada"]}
+    await AT.revisar(ctx, "h-1")
+    assert consultas[0][1] == ([], [])
+
+
+@pytest.mark.asyncio
+async def test_claims_en_metadatos_no_saltan_tope_de_lectura_del_juez(monkeypatch):
+    d = documento("patentes")
+    cita_oculta = "Reivindicación que no aparece en el texto leído."
+    d["datos"] = {"claims": ["x" * 100000, cita_oculta]}
+    instalar_recuperacion(monkeypatch, patentes=recuperacion([d]))
+    ctx = ContextoFalso()
+    oculto = dictamen(d, cita=cita_oculta)
+    ctx.respuestas.update(patentes=oculto, auditar=oculto)
+    await AT.revisar(ctx, "h-1")
+    for _, programa, args in ctx.llamadas:
+        if programa in {"patentes", "auditar"}:
+            assert cita_oculta not in args["documentos"]
+            assert '"claims"' not in args["documentos"]
+            assert d["texto"] in args["documentos"]
+    assert ctx.e["hipotesis"][0]["revisionTratamiento"]["patentes"]["hallazgos"] == []
+
+
+@pytest.mark.parametrize("estado_google", ["no_comprobado", "parcial"])
+@pytest.mark.asyncio
+async def test_checkpoint_incompleto_se_refresca_en_otra_iteracion_y_descarta_borrador(monkeypatch, estado_google):
+    viejo = documento("patentes", ident="pat-exa-anterior")
+    nuevo = documento("patentes", ident="pat-google-nueva")
+    rec = recuperacion([viejo])
+    rec["googlePatents"]["estado"] = estado_google
+    rec.update(costeUsd=0.01, consumo={"serpapiConsultas": 1})
+    consultas = instalar_recuperacion(monkeypatch, patentes=rec)
+    ctx = ContextoFalso()
+    ctx.respuestas.update(patentes=[dictamen(viejo), dictamen(nuevo)], auditar=[PresupuestoAgotado("pausa"), dictamen(nuevo)])
+    with pytest.raises(PresupuestoAgotado):
+        await AT.revisar(ctx, "h-1")
+    cache = ctx.corrida()["_revisionTratamientoFuentes"]["h-1"]
+    assert cache["intentoFuentesPatentes"] == "corrida-1:iteracion-1"
+    assert cache["borrador_patentes"]["hallazgos"][0]["id"] == "pat-exa-anterior"
+
+    # Se corrigió la conexión antes de una nueva iteración. El checkpoint
+    # incompleto debe consultar de nuevo y el juez recibir el corpus renovado.
+    ctx.iteracion_id = "iteracion-2"
+    rec.update(recuperacion([nuevo]), costeUsd=0.02, consumo={"serpapiConsultas": 2})
+    await AT.revisar(ctx, "h-1")
+    assert [tipo for tipo, _ in consultas] == ["patentes", "patentes", "companias"]
+    assert [p for _, p, _ in ctx.llamadas].count("patentes") == 2
+    informe = ctx.e["hipotesis"][0]["revisionTratamiento"]["patentes"]
+    assert informe["estado"] == "coincidencias" and informe["googlePatents"]["estado"] == "completa"
+    assert informe["hallazgos"][0]["id"] == "pat-google-nueva"
+    assert ctx.corrida()["gasto"]["serpapiConsultas"] == 3
+    assert ctx.corrida()["gasto"]["exaUsd"] == pytest.approx(0.03)
+    argumentos = [args for _, programa, args in ctx.llamadas if programa == "auditar"][-1]
+    assert "pat-google-nueva" in argumentos["documentos"]
+    assert "pat-exa-anterior" not in argumentos["borrador"]
+
+
+@pytest.mark.parametrize("estado_google", ["no_comprobado", "parcial"])
+@pytest.mark.asyncio
+async def test_pausa_en_misma_iteracion_reutiliza_checkpoint_incompleto_sin_doble_gasto(monkeypatch, estado_google):
+    d = documento("patentes")
+    rec = recuperacion([d])
+    rec["googlePatents"]["estado"] = estado_google
+    rec.update(costeUsd=0.03, consumo={"serpapiConsultas": 2})
+    consultas = instalar_recuperacion(monkeypatch, patentes=rec)
+    ctx = ContextoFalso()
+    ctx.respuestas.update(patentes=dictamen(d), auditar=[PresupuestoAgotado("pausa"), dictamen(d)])
+    with pytest.raises(PresupuestoAgotado):
+        await AT.revisar(ctx, "h-1")
+    await AT.revisar(ctx, "h-1")
+    assert [tipo for tipo, _ in consultas] == ["patentes", "companias"]
+    assert [p for _, p, _ in ctx.llamadas].count("patentes") == 1
+    assert ctx.corrida()["gasto"] == {"exaUsd": 0.03, "serpapiConsultas": 2}
+    assert ctx.e["hipotesis"][0]["revisionTratamiento"]["patentes"]["estado"] == "no_comprobado"
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_google_completo_se_conserva_al_cambiar_iteracion(monkeypatch):
+    d = documento("patentes")
+    consultas = instalar_recuperacion(monkeypatch, patentes=recuperacion([d]))
+    ctx = ContextoFalso()
+    ctx.respuestas.update(patentes=dictamen(d), auditar=[PresupuestoAgotado("pausa"), dictamen(d)])
+    with pytest.raises(PresupuestoAgotado):
+        await AT.revisar(ctx, "h-1")
+    ctx.iteracion_id = "iteracion-2"
+    await AT.revisar(ctx, "h-1")
+    assert [tipo for tipo, _ in consultas] == ["patentes", "companias"]
+    assert [p for _, p, _ in ctx.llamadas].count("patentes") == 1

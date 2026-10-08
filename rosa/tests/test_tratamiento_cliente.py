@@ -2,7 +2,7 @@
 
 from copy import deepcopy
 
-from rosa.agentes_tratamiento import VERSION, huella
+from rosa.agentes_tratamiento import PROTOCOLO_PATENTES, VERSION, huella
 from rosa.agentes_tratamiento import _acotar_recuperacion
 from rosa.estado.almacen import _limpiar_para_cliente
 
@@ -11,7 +11,7 @@ def test_la_vigencia_se_calcula_sin_exponer_fuentes_borradores_o_intentos_privad
     h = {"id": "h", "investigacionId": "inv", "titulo": "Intervención A",
          "tarjeta": {"intervencion": "A"}, "experimento": {"via": "oral"}}
     h["revisionTratamiento"] = {"version": VERSION, "huella": huella(h),
-                               "patentes": {"estado": "coincidencias", "_intento": "cor:it"}}
+                               "patentes": {"estado": "coincidencias", "protocoloPatentes": PROTOCOLO_PATENTES, "_intento": "cor:it"}}
     estado = {"hipotesis": [h], "corridas": [{"_revisionTratamientoFuentes": {"h": "fuentes y borradores privados"}}]}
     original = deepcopy(estado)
     limpio = _limpiar_para_cliente(estado)
@@ -25,7 +25,7 @@ def test_la_vigencia_se_calcula_sin_exponer_fuentes_borradores_o_intentos_privad
 
 def test_cambiar_estado_del_laboratorio_no_invalida_la_identidad():
     h = {"id": "h", "investigacionId": "inv", "titulo": "Intervención A", "experimento": {"via": "oral"}}
-    h["revisionTratamiento"] = {"version": VERSION, "huella": huella(h)}
+    h["revisionTratamiento"] = {"version": VERSION, "huella": huella(h), "patentes": {"protocoloPatentes": PROTOCOLO_PATENTES}}
     h["experimento"].update(estado="asignado", laboratorio="Lab")
     assert _limpiar_para_cliente(h)["revisionTratamiento"]["vigente"] is True
 

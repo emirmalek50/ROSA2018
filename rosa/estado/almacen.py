@@ -249,10 +249,10 @@ def _limpiar_para_cliente(valor: Any) -> Any:
     if isinstance(valor, dict):
         salida = {k: _limpiar_para_cliente(v) for k, v in valor.items() if not (isinstance(k, str) and k.startswith("_"))}
         if isinstance(valor.get("revisionTratamiento"), dict) and "investigacionId" in valor:
-            from rosa.agentes_tratamiento import VERSION, huella
+            from rosa.agentes_tratamiento import revision_vigente
 
             revision = salida["revisionTratamiento"]
-            revision["vigente"] = revision.get("version") == VERSION and revision.get("huella") == huella(valor)
+            revision["vigente"] = revision_vigente(valor)
         if isinstance(valor.get("revisionAgora"), dict) and "versionHipotesis" in valor["revisionAgora"]:
             from rosa.revision_agora import vigente_para_hipotesis
 

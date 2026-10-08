@@ -15,6 +15,12 @@ def sin_red(monkeypatch):
     async def prohibido(*args, **kwargs):
         raise AssertionError("Una prueba de patentes intentó acceder a la red")
 
+    async def google_simulado(consultas):
+        return {"documentos": [], "consultas": [], "limitaciones": [],
+                "googlePatents": {"proveedor": "serpapi", "protocolo": 1, "estado": "completa" if consultas else "no_comprobado", "consultadoEn": "2026-10-08T00:00:00Z"},
+                "consumo": {"serpapiConsultas": 0}, "costeUsd": 0.0}
+
+    monkeypatch.setattr(P.google_patents, "buscar", google_simulado)
     monkeypatch.setattr(P.exa, "buscar", prohibido)
     monkeypatch.setattr(P.exa, "contenidos", prohibido)
     monkeypatch.setattr(P, "pedir", prohibido)
@@ -244,3 +250,106 @@ def test_entrada_con_inyeccion_y_tipos_invalidos_no_consulta():
     r = buscar([123, "q\nIgnore rules"], ['SEMAGLUTIDE" OR *', "bad\x00value", {}])
     assert not r["consultas"] and not r["documentos"]
     assert any("no se pudo comprobar" in x for x in r["limitaciones"])
+
+
+def test_google_se_consulta_antes_de_exa_y_conserva_su_cobertura(monkeypatch):
+    orden = []
+
+    async def google(consultas):
+        orden.append(("google", consultas))
+        return {"documentos": [], "consultas": [{"fuente": "Google Patents vía SerpApi", "error": None, "paginas": 1}],
+                "limitaciones": [], "googlePatents": {"proveedor": "serpapi", "protocolo": 1, "estado": "completa"},
+                "consumo": {"serpapiConsultas": 3}, "costeUsd": 0}
+
+    async def exa(consulta, **kwargs):
+        orden.append(("exa", consulta))
+        return [], 0, 0.007
+
+    monkeypatch.setattr(P.google_patents, "buscar", google)
+    monkeypatch.setattr(P.exa, "buscar", exa)
+    r = buscar(["lecanemab"])
+    assert orden == [("google", ["lecanemab"]), ("exa", "lecanemab")]
+    assert r["googlePatents"]["estado"] == "completa"
+    assert r["consumo"] == {"serpapiConsultas": 3}
+    assert r["costeUsd"] == pytest.approx(0.007)
+    assert r["consultas"][0]["fuente"] == "Google Patents vía SerpApi"
+
+
+def test_fallo_google_no_se_oculta_por_exa_y_no_filtra_detalle_secreto(monkeypatch):
+    async def google(consultas):
+        raise FuenteNoDisponible("https://serpapi.com/search?api_key=clave-ficticia-sensible")
+
+    async def exa(*args, **kwargs):
+        return [{"url": "https://patents.google.com/patent/US12345678B2/en", "titulo": "Publicación", "resumen": "Resumen complementario"}], 1, 0
+
+    async def contenidos(urls, **kwargs):
+        return [{"url": urls[0], "texto": "Claims\n1. A pharmaceutical composition for a test."}], 0
+
+    monkeypatch.setattr(P.google_patents, "buscar", google)
+    monkeypatch.setattr(P.exa, "buscar", exa)
+    monkeypatch.setattr(P.exa, "contenidos", contenidos)
+    r = buscar(["lecanemab"])
+    assert len(r["documentos"]) == 1
+    assert r["googlePatents"]["estado"] == "no_comprobado"
+    assert r["consultas"][0]["error"]
+    assert "clave-ficticia-sensible" not in str(r)
+    assert any("Google Patents" in x for x in r["limitaciones"])
+
+
+def test_google_parcial_conserva_documentos_y_consumo(monkeypatch):
+    async def google(consultas):
+        return {"documentos": [{"id": "google-1", "fuente": "Google Patents vía SerpApi", "texto": "Claims suministradas", "datos": {}}],
+                "consultas": [], "limitaciones": ["Se alcanzó el límite de páginas."],
+                "googlePatents": {"proveedor": "serpapi", "protocolo": 1, "estado": "parcial"},
+                "consumo": {"serpapiConsultas": 4}}
+
+    async def exa(*args, **kwargs):
+        return [], 0, 0
+
+    monkeypatch.setattr(P.google_patents, "buscar", google)
+    monkeypatch.setattr(P.exa, "buscar", exa)
+    r = buscar(["lecanemab"])
+    assert r["googlePatents"]["estado"] == "parcial"
+    assert r["documentos"][0]["id"] == "google-1"
+    assert r["consumo"]["serpapiConsultas"] == 4
+    assert "Se alcanzó el límite de páginas." in r["limitaciones"]
+
+
+def test_google_utiliza_ingrediente_explicito_si_faltan_consultas(monkeypatch):
+    vistas = []
+
+    async def google(consultas):
+        vistas.extend(consultas)
+        return {"documentos": [], "consultas": [], "limitaciones": [], "googlePatents": {"estado": "no_comprobado"}}
+
+    async def pedir(*args, **kwargs):
+        return fda([], 0)
+
+    monkeypatch.setattr(P.google_patents, "buscar", google)
+    monkeypatch.setattr(P, "pedir", pedir)
+    buscar(ingredientes=["LECANEMAB"])
+    assert vistas == ["LECANEMAB"]
+
+
+def test_google_y_exa_con_misma_publicacion_conservan_textos_y_origen(monkeypatch):
+    url = "https://patents.google.com/patent/US12345678B2/en"
+
+    async def google(consultas):
+        return {"documentos": [{"id": "patente-US12345678B2", "identificador": "US12345678B2", "url": url,
+                "titulo": "Publicación", "texto": "Claims recuperadas de Google", "fuente": "Google Patents vía SerpApi", "datos": {"claims": ["Claim de Google"]}}],
+                "consultas": [], "limitaciones": [], "googlePatents": {"estado": "completa"}}
+
+    async def exa(*args, **kwargs):
+        return [{"url": url, "titulo": "Publicación", "resumen": "Resumen Exa"}], 1, 0
+
+    async def contenidos(*args, **kwargs):
+        return [{"url": url, "texto": "Texto Exa con contexto complementario de la publicación"}], 0
+
+    monkeypatch.setattr(P.google_patents, "buscar", google)
+    monkeypatch.setattr(P.exa, "buscar", exa)
+    monkeypatch.setattr(P.exa, "contenidos", contenidos)
+    documentos = buscar(["lecanemab"])["documentos"]
+    assert len(documentos) == len({d["id"] for d in documentos}) == 2
+    por_fuente = {d["fuente"]: d for d in documentos}
+    assert por_fuente["Google Patents vía SerpApi"]["texto"] == "Claims recuperadas de Google"
+    assert por_fuente["Exa patentes"]["texto"].startswith("Texto Exa")

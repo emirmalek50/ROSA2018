@@ -1,6 +1,7 @@
 """Recuperación de patentes relacionadas con un tratamiento, sin juicio jurídico.
 
-Exa descubre publicaciones y recupera texto como datos externos inertes.
+Google Patents vía SerpApi se consulta obligatoriamente. Exa descubre
+publicaciones complementarias y recupera texto como datos externos inertes.
 Orange Book aporta patentes estadounidenses declaradas por el titular de una
 solicitud de fármaco aprobado. Ninguna consulta acredita libertad de operación,
 ausencia mundial de patentes ni vigencia de derechos. Las reivindicaciones de
@@ -21,7 +22,7 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import unquote, urlencode, urlsplit, urlunsplit
 
-from rosa.fuentes import exa
+from rosa.fuentes import exa, google_patents
 from rosa.fuentes.base import FuenteNoDisponible, NoEncontrado, compartido, json_de, pedir
 
 DOMINIOS = ["patents.google.com", "patentscope.wipo.int", "worldwide.espacenet.com", "register.epo.org", "data.epo.org", "uspto.gov"]
@@ -265,7 +266,9 @@ async def _orangebook(ingrediente: str, resultado: dict[str, Any]) -> None:
 async def buscar(consultas: list[str], ingredientes: list[str] | None = None) -> dict[str, Any]:
     """Búsqueda acotada actual, nunca un certificado de ausencia de patentes.
 
-Hasta cuatro consultas web, ocho resultados por consulta y texto de ocho
+Google Patents se consulta siempre con hasta cuatro términos; el cliente limita
+la paginación y los detalles y conserva sus límites en el resultado. Exa añade
+hasta cuatro consultas, ocho resultados por consulta y texto de ocho
 publicaciones únicas. Hasta cuatro ingredientes exactos en Orange Book,
 tres páginas de cien productos y ocho patentes únicas por ingrediente.
 `completa` se refiere a recuperación, no a cobertura mundial ni juicio legal.
@@ -273,6 +276,25 @@ tres páginas de cien productos y ocho patentes únicas por ingrediente.
     resultado: dict[str, Any] = {"documentos": [], "consultas": [], "limitaciones": ["Las búsquedas públicas no incluyen solicitudes aún sin publicar y no permiten certificar ausencia mundial de patentes.", "Google Patents no verifica jurídicamente el estado, la titularidad o la fecha de expiración; las reivindicaciones y el registro territorial requieren comprobación.", "OPS de EPO, ODP de USPTO y los servicios SOAP de WIPO requieren acceso propio; no se simula una consulta oficial si no se realizó."], "consultadoEn": datetime.now(timezone.utc).isoformat(), "costeUsd": 0.0}
     terminos = _textos_validos(consultas, 1000, "Búsqueda de patentes", resultado["limitaciones"])
     sustancias = _textos_validos(ingredientes, 180, "Orange Book", resultado["limitaciones"], ingrediente=True)
+    # La búsqueda obligatoria nunca depende de Exa ni de que Orange Book tenga
+    # ingredientes. Los nombres exactos son una alternativa si faltan consultas.
+    try:
+        google = await google_patents.buscar(terminos or sustancias)
+        resultado["documentos"].extend(google.get("documentos", []))
+        resultado["consultas"].extend(google.get("consultas", []))
+        resultado["limitaciones"].extend(google.get("limitaciones", []))
+        resultado["googlePatents"] = google.get("googlePatents", {})
+        resultado["consumo"] = google.get("consumo", {})
+        # SerpApi informa consumo de consultas; no inventar un coste por unidad
+        # ni sumarlo al importe real que devuelve Exa.
+    except _ERRORES_DATOS as error:
+        detalle = f"No pude comprobar Google Patents vía SerpApi ({type(error).__name__})."
+        resultado["googlePatents"] = {"proveedor": "serpapi", "protocolo": 1, "estado": "no_comprobado", "consultadoEn": resultado["consultadoEn"]}
+        resultado["consumo"] = {"serpapiConsultas": 0}
+        resultado["limitaciones"].append(detalle)
+        registro = _registro("Google Patents vía SerpApi", "; ".join(terminos or sustancias), "https://serpapi.com/search.json", {})
+        registro["error"] = detalle
+        resultado["consultas"].append(registro)
     if terminos:
         await _web(terminos, resultado)
     if sustancias:
@@ -285,6 +307,12 @@ tres páginas de cien productos y ocho patentes únicas por ingrediente.
     for documento in resultado["documentos"]:
         anterior = documentos.setdefault(documento["id"], documento)
         if anterior is documento:
+            continue
+        # La misma publicación puede llegar por Google y Exa. Separar sus IDs de
+        # lectura conserva ambos textos y evita atribuir el texto de Exa a Google.
+        if documento["fuente"] != anterior["fuente"]:
+            ident = documento["id"] + "-" + hashlib.sha256(documento["fuente"].encode()).hexdigest()[:8]
+            documentos.setdefault(ident, {**documento, "id": ident})
             continue
         # Una patente de combinación puede reaparecer al consultar otro
         # ingrediente. La deduplicación conserva ambas identidades y registros.

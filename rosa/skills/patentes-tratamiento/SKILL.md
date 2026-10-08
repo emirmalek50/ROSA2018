@@ -18,6 +18,13 @@ Separar solicitud publicada, concesión, familia y miembro territorial. Identifi
 titular/solicitante y fechas únicamente cuando estén documentados. Un título,
 resumen o la misma diana no demuestran equivalencia ni derechos vigentes.
 
+La recuperación consulta obligatoriamente Google Patents mediante SerpApi antes
+de las fuentes complementarias. SerpApi es un proveedor independiente, no una
+API oficial de Google. Exa y Orange Book no sustituyen esa consulta. Si falta
+acceso, falla una petición o se limita la cobertura, dejarlo explícito aunque
+haya hallazgos. Las reivindicaciones fuera del texto acotado no se consideran
+leídas ni sirven como citas del dictamen.
+
 Clasificar cada coincidencia: mismo tratamiento, componente de combinación,
 misma diana, mismo mecanismo, relacionado o incierto. Copiar un pasaje literal
 continuo y su documento exacto, con las diferencias frente a ROSA. No sumar
@@ -38,3 +45,5 @@ Fuentes de método: https://www.epo.org/en/searching-for-patents/data/web-servic
 https://www.wipo.int/en/web/patents/protection
 https://open.fda.gov/apis/drug/orangebook/example-api-queries/
 https://support.google.com/faqs/answer/7049585?hl=en
+https://serpapi.com/google-patents-api
+https://serpapi.com/google-patents-details-api

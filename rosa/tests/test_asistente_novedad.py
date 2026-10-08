@@ -3,7 +3,7 @@
 import json
 
 from rosa import asistente as AS
-from rosa.agentes_tratamiento import VERSION, huella
+from rosa.agentes_tratamiento import PROTOCOLO_PATENTES, VERSION, huella
 from rosa.estado.almacen import Almacen
 
 
@@ -11,7 +11,7 @@ def test_catalogo_anuncia_informes_y_lectura_completa_sin_inventar_origen(tmp_pa
     al = Almacen(tmp_path / "asistente.db")
     h = {"id": "h/1", "investigacionId": "inv espacio", "titulo": "Intervención A", "tarjeta": {"intervencion": "A"}}
     h["revisionTratamiento"] = {"version": VERSION, "huella": huella(h), "perfil": {"nombre": "A"},
-        "patentes": {"estado": "no_comprobado", "resumen": "No pude comprobar", "limitaciones": ["La fuente no respondió"], "_intento": "cor:it"}}
+        "patentes": {"protocoloPatentes": PROTOCOLO_PATENTES, "estado": "no_comprobado", "resumen": "No pude comprobar", "limitaciones": ["La fuente no respondió"], "_intento": "cor:it"}}
     obsoleta = {"id": "h-2", "investigacionId": "otra", "titulo": "B",
                 "revisionTratamiento": {"version": 0, "huella": "vieja", "companias": {"estado": "coincidencias"}}}
     al.mutar(lambda e: e.update(hipotesis=[h, obsoleta]) or True, "prueba")

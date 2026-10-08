@@ -110,7 +110,8 @@ def _simular(monkeypatch, ids, pausar_juez=True):
 
     async def buscar_patentes(*args):
         fuentes["patentes"] += 1
-        return _recuperacion([])
+        return {**_recuperacion([]), "googlePatents": {"proveedor": "serpapi", "protocolo": AT.PROTOCOLO_PATENTES,
+                "estado": "completa", "consultadoEn": "2026-10-08T00:00:00Z"}, "consumo": {"serpapiConsultas": 0}}
 
     async def buscar_companias(*args):
         fuentes["companias"] += 1
