@@ -247,3 +247,15 @@ describe('el laboratorio recibe la corrida canónica', () => {
   });
 
 });
+
+it('una fuente con consultas de total conocido y desconocido conserva la incertidumbre', () => {
+  const f = caso();
+  f.c.busqueda.consultas = [
+    { base: 'Embase', consulta: 'APOE', fecha: f.i.empezadaEn, iteracion: f.i.numero, resultados: null, recuperados: 3, estado: 'parcial' },
+    { base: 'Embase', consulta: 'MAPT', fecha: f.i.empezadaEn, iteracion: f.i.numero, resultados: 8, estado: 'completa' },
+  ];
+  expect(f.datos().lectura.resultados).toBeNull();
+  expect(f.datos().fuentes.find(x => x.nombre === 'Embase')).toMatchObject({ salen: null, fallo: false, consultas: 2 });
+  f.c.busqueda.consultas.reverse();
+  expect(f.datos().fuentes.find(x => x.nombre === 'Embase')?.salen).toBeNull();
+});

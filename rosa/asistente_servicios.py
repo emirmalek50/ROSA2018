@@ -41,6 +41,7 @@ LECTURAS = {
     "skills": ("/api/skills", "Catálogo de métodos científicos; leer_skill abre su contenido."),
     "conectores": ("/api/conectores", "Todos los conectores, disponibilidad y motivos de bloqueo."),
     "estado_google_patents": ("/api/patentes/configuracion", "Estado de la conexión de Google Patents mediante SerpApi, sin credenciales. Configurada no significa conexión verificada; la prueba está en Ajustes > Herramientas."),
+    "estado_fuentes_academicas": ("/api/academicas/configuracion", "Estado de los accesos institucionales de Embase, Scopus, Web of Science, CINAHL y PsycINFO, sin credenciales. Configuración no equivale a licencia ni acceso comprobado."),
     "politicas": ("/api/politicas", "Políticas vigentes de ROSA."),
     "salud": ("/api/salud", "Estado del servidor y capacidad de guardar."),
     "espejo": ("/api/espejo", "Sincronización del espejo y errores."),

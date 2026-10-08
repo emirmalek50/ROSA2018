@@ -20,7 +20,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Corrida, TipoAfirmacion } from '../datos/tipos';
 import { esTiempoAgotado, senalDeTope } from '../lib/diferido';
 import { RIESGO_SESGO, detalleRiesgoSesgo, TIPO_AFIRMACION, tipoAfirmacion, TIPO_ESTUDIO, TIPO_FUENTE, VEREDICTO } from '../lib/etiquetas';
-import { construirArbol, enlaceDe, iteracionesDe, type Evidencia, type FiltroVeredicto, type NodoFuente } from '../lib/evidencia';
+import { construirArbol, consultaSinFuentes, enlaceDe, estadoConsulta, iteracionesDe, limitacionesConsulta, resumenResultadosConsulta, type Evidencia, type FiltroVeredicto, type NodoFuente } from '../lib/evidencia';
 import { formatearEntero } from '../lib/formato';
 import { Cargando, Esqueleto } from './Esqueleto';
 import { Chip, Seccion } from './piezas';
@@ -226,7 +226,7 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
           <span>{tr("consultas")}</span>
         </div>
         <div className="embudo-paso">
-          <strong>{formatearEntero(e.identificados)}</strong>
+          <strong>{e.identificados === null ? estadoConsulta({ estado: 'no_comprobado' }) : formatearEntero(e.identificados)}</strong>
           <span>{tr("identificados")}</span>
         </div>
         <div className="embudo-paso">
@@ -296,15 +296,17 @@ export function Trazabilidad({ corrida, activa }: { corrida: Corrida; activa: bo
                   )}
                 </span>
                 <span className="arbol-cuentas">
-                  {n.consulta && <span className="meta">{trp("{resultados} resultados", { resultados: formatearEntero(n.consulta.resultados) })}</span>}
+                  {n.consulta && <span className="meta">{resumenResultadosConsulta(n.consulta)}</span>}
+                  {n.consulta?.estado && <Chip tono="borde">{estadoConsulta(n.consulta)}</Chip>}
                   <Chip tono="borde">{trp("{fuentes} fuentes", { fuentes: n.fuentes.length })}</Chip>
                   <Chip tono="borde">{trp("{nAf} afirmaciones", { nAf })}</Chip>
                 </span>
               </button>
               {abierta && n.consulta && <code className="arbol-consulta">{n.consulta.consulta}</code>}
+              {abierta && n.consulta && limitacionesConsulta(n.consulta) && <p className="meta">{limitacionesConsulta(n.consulta)}</p>}
               {abierta && (
                 <ul className="arbol-hijos" role="group">
-                  {n.fuentes.length === 0 && <li className="meta arbol-vacio">{tr("Ninguna fuente pasó el cribado de relevancia.")}</li>}
+                  {n.fuentes.length === 0 && <li className="meta arbol-vacio">{consultaSinFuentes(n.consulta)}</li>}
                   {n.fuentes.map((f) => (
                     <Fuente key={f.fuente.id} nodo={f} abierta={abiertas.has(`f-${f.fuente.id}`)} onAlternar={() => alternar(`f-${f.fuente.id}`)} />
                   ))}

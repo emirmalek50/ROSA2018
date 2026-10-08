@@ -549,7 +549,21 @@ export interface ConsultaBusqueda {
   base: string;
   consulta: string;
   fecha: number;
-  resultados: number;
+  /** Total comunicado por la base; null significa que no pudo comprobarse. */
+  resultados: number | null;
+  /** Candidatos recibidos, distintos del total del índice y del texto completo. */
+  recuperados?: number;
+  fuenteId?: string;
+  modoAcceso?: 'api_directa' | 'api_institucional' | 'descubrimiento_web' | 'indice_scholar';
+  estado?: 'completa' | 'parcial' | 'no_comprobado';
+  limitaciones?: string[];
+  error?: string | null;
+  alcance?: string;
+  consultasFuente?: Record<string, unknown>[];
+  consumo?: Record<string, number | null>;
+  costeUsd?: number | null;
+  lecturaEstado?: 'pendiente' | 'en_curso' | 'terminada' | 'no_comprobado';
+  pendientesLectura?: number;
   /** Iteración y pista que ejecutaron la consulta. Ausentes en registros antiguos. */
   iteracion?: number;
   pistaId?: Id;

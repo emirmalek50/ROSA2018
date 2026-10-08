@@ -58,3 +58,9 @@ describe('construirArbol', () => {
     expect(enlaceDe({ ...ev.fuentes[2]!, nct: null })).toBeNull();
   });
 });
+
+it('un total desconocido no se convierte en cero ni en la suma de otras consultas', () => {
+  const parcial: Evidencia = { ...ev, consultas: [...ev.consultas, { base: 'Embase', consulta: 'APOE', resultados: null, recuperados: 3, estado: 'parcial', fecha: 1, iteracion: 1 }] };
+  expect(construirArbol(parcial, 1).embudo.identificados).toBeNull();
+  expect(construirArbol(parcial, 2).embudo.identificados).toBe(5);
+});

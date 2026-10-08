@@ -42,6 +42,7 @@ import { busquedasDe, limitesDe, pasoFoco, topesDe, tramosDe, temaParaProfundiza
 import '../escenario.css';
 import { resumenMetrica } from '../lib/progreso';
 import { tr, trp } from '../lib/idioma';
+import { estadoConsulta, limitacionesConsulta, resumenResultadosConsulta } from '../lib/evidencia';
 
 type PropsCorrida = { inv: Investigacion; estado: EstadoRosa; ahora: number; irA: (hash: string) => void; detalleId?: string | null };
 
@@ -602,14 +603,15 @@ function CorridaViva({ inv, estado, ahora, irA, detalleId, corrida }: PropsCorri
                           {MODO_BUSQUEDA[c.modo ?? 'foco'].etiqueta}
                         </Chip>
                       </td>
-                      <td>{c.base}</td>
+                      <td>{c.base}{c.estado && <div className="meta">{estadoConsulta(c)}</div>}</td>
                       <td className="mono" style={{ overflowWrap: 'anywhere' }}>
                         {c.consulta}
+                        {limitacionesConsulta(c) && <div className="meta">{limitacionesConsulta(c)}</div>}
                       </td>
                       <td>
                         <Momento t={c.fecha} ahora={ahora} />
                       </td>
-                      <td className="num">{c.resultados}</td>
+                      <td className="num">{resumenResultadosConsulta(c)}</td>
                       <td className="num">{c.relevantes ?? ''}</td>
                     </tr>
                   ))}

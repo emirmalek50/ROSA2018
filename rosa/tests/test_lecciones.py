@@ -212,3 +212,24 @@ def test_los_excluidos_de_la_investigacion_no_se_vuelven_a_cribar(monkeypatch):
         assert reg["relevantes"] == 1
     finally:
         al.cerrar()
+
+
+def test_consultas_incompletas_no_ensenan_ausencia_ni_prohiben_reintento():
+    e, c, it = _estado_cierre()
+    c["busqueda"]["consultas"] = [
+        {"base": "Scopus", "consulta": "desconocida", "iteracion": 2, "resultados": None, "recuperados": 0, "estado": "no_comprobado", "error": "HTTP 403"},
+        {"base": "Embase", "consulta": "parcial", "iteracion": 2, "resultados": None, "recuperados": 3, "relevantes": 0, "estado": "parcial", "limitaciones": ["Descubrimiento web acotado"]},
+        {"base": "WoS", "consulta": "parcial con cifra", "iteracion": 2, "resultados": 0, "relevantes": 0, "estado": "parcial"},
+    ]
+    lecs = LEC.generar_al_cerrar(e, c, it, {}, 2000)
+    assert not [l for l in lecs if l["ambito"] == "consultas"]
+    texto = T.traspaso_iteracion(e, it, c)
+    assert "Consultas que no rindieron" not in texto and "None resultados" not in texto
+    assert "total no comprobado" in texto and "3 candidatos recuperados" in texto
+    assert "HTTP 403" in texto and "estado parcial" in texto and "no permiten concluir ausencia" in texto
+
+
+def test_resumen_para_modelos_separa_total_y_candidatos():
+    texto = T.resumen_consulta({"resultados": None, "recuperados": 4, "estado": "parcial", "limitaciones": ["Índice privado no consultado"]})
+    assert texto == "total no comprobado; 4 candidatos recuperados; estado parcial; limitaciones: Índice privado no consultado"
+    assert T.resumen_consulta({"resultados": 0}) == "0 resultados"

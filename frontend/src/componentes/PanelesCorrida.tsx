@@ -14,6 +14,7 @@ import { coma, formatearCompacto, formatearDuracion, formatearEntero } from '../
 import { tr, trp } from '../lib/idioma';
 import { useMovimientoReducido } from '../lib/movimiento';
 import { ESTADO_CORRIDA } from '../lib/etiquetas';
+import { candidatosRecuperados, estadoConsulta, limitacionesConsulta, totalNoComprobado } from '../lib/evidencia';
 
 // ---------------------------------------------------------------- búsquedas
 
@@ -64,13 +65,15 @@ export function BusquedasDeLaIteracion({ busquedas, consultas, onVerTodas }: { b
               <span className="esc-fila-fuente">
                 <i aria-hidden="true" />
                 {b.fuente}
-                {b.estado !== 'hecha' && <small>{tr(({ en_curso: 'en curso', fallida: 'no pude comprobar', detenida: 'detenida', registrada: 'registrada' } as const)[b.estado])}</small>}
+                {b.consulta?.estado ? <small>{estadoConsulta(b.consulta)}</small> : b.estado !== 'hecha' && <small>{tr(({ en_curso: 'en curso', fallida: 'no pude comprobar', detenida: 'detenida', registrada: 'registrada' } as const)[b.estado])}</small>}
               </span>
               <span className="esc-fila-medio">
                 <span className="esc-fila-titulo" title={b.titulo}>
                   {b.titulo}
                 </span>
                 {b.compartida && <small>{tr('Cribado compartido con la consulta relajada')}</small>}
+                {b.consulta?.recuperados !== undefined && <small>{candidatosRecuperados(b.consulta.recuperados)}</small>}
+                {b.consulta && limitacionesConsulta(b.consulta) && <small>{limitacionesConsulta(b.consulta)}</small>}
                 <span className="esc-rendimiento" aria-hidden="true">
                   <i className="esc-rend-texto" style={{ width: `${texto * 100}%` }} />
                   <i className="esc-rend-rel" style={{ width: `${rel * 100}%` }} />
@@ -78,7 +81,7 @@ export function BusquedasDeLaIteracion({ busquedas, consultas, onVerTodas }: { b
               </span>
               <span className="esc-fila-cifras">
                 <span>
-                  <b>{valor(b.salen)}</b>
+                  <b title={b.salen === null ? totalNoComprobado() : undefined}>{valor(b.salen)}</b>
                   <small>{tr('salen')}</small>
                 </span>
                 <span className={(b.sirven ?? 0) > 0 ? 'esc-cifra-viva' : ''}>

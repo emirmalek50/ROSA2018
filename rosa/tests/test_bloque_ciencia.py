@@ -112,3 +112,35 @@ def test_conocimiento_operativo_entra_con_su_clase():
 
     assert "Conocimiento operativo del laboratorio" in _texto_mision(inv) and "anti-GFAP" in _texto_mision(inv)
     assert A.quitar_conocimiento_operativo(e, inv["id"], x["id"]) and inv["conocimientoOperativo"] == []
+
+
+def test_prisma_preserva_totales_desconocidos_y_cobertura_parcial():
+    e = P.estado_inicial()
+    A.crear_investigacion(e, {"titulo": "T", "objetivo": "O", "condicionParada": "1 iteraciones"}, 1)
+    inv = e["investigaciones"][0]
+    c = P.nueva_corrida(inv["id"], 1, 1)
+    c["busqueda"]["consultas"] = [
+        {"base": "Scopus", "consulta": "q1", "fecha": 1, "resultados": 12, "estado": "completa"},
+        {"base": "Scopus", "consulta": "q2", "fecha": 2, "resultados": None, "recuperados": 3, "estado": "parcial", "limitaciones": ["Descubrimiento web"]},
+        {"base": "Embase", "consulta": "q3", "fecha": 3, "resultados": None, "recuperados": 0, "estado": "no_comprobado", "error": "HTTP 403"},
+        {"base": "ClinicalTrials.gov", "consulta": "q4", "fecha": 4, "resultados": 4},
+    ]
+    r = PRISMA.informe(e, c, [], 2000)
+    assert r["flujo"]["database_results"] is None and r["flujo"]["register_results"] == 4
+    assert r["flujo"]["_notas"]["resultadosConocidosEnBases"] == 12
+    bases = {x["base"]: x for x in r["items"]["6_fuentes_de_informacion"]}
+    assert bases["Scopus"]["resultados"] is None and bases["Scopus"]["resultadosConocidos"] == 12
+    assert bases["Scopus"]["consultasParciales"] == 1 and bases["Embase"]["consultasNoComprobadas"] == 1
+    assert "None resultados" not in r["markdown"] and "None registros" not in r["markdown"]
+    assert "database_results | total no comprobado" in r["markdown"]
+    assert "3 candidatos recuperados" in r["markdown"] and "HTTP 403" in r["markdown"]
+
+
+def test_prisma_descubrimiento_web_no_se_atribuye_al_indice_privado():
+    c = {"busqueda": {"consultas": [
+        {"base": "Scopus", "resultados": 12, "modoAcceso": "api_directa"},
+        {"base": "Embase", "resultados": None, "recuperados": 3, "estado": "parcial", "modoAcceso": "descubrimiento_web"},
+        {"base": "Google Scholar", "resultados": 4, "modoAcceso": "indice_scholar"},
+    ]}}
+    r = PRISMA.flujo_prisma2020(c, {}, [])
+    assert r["database_results"] == 16 and r["website_results"] is None and r["register_results"] == 0

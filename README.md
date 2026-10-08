@@ -1229,6 +1229,56 @@ acepta la voz natural v2 durante una corrida que aún usa el servidor anterior;
 al recibir v3, esa sesión conserva v3. Las versiones sin identificar y los informes
 antiguos no se reproducen. Los diálogos guardados conservan sus fechas y procedencia.
 
+### Nueve fuentes académicas adicionales
+
+Las corridas y el asistente pueden consultar **Embase, Cochrane Library,
+Scopus, Web of Science, LILACS, SciELO, CINAHL, APA PsycInfo y Google Scholar**.
+Hay dos vías de acceso que ROSA registra por separado:
+
+- **API institucional:** Elsevier para Embase y Scopus, Web of Science Starter
+  y EBSCO EDS para CINAHL y PsycInfo. Requieren permisos del proveedor; una
+  cuenta web o una clave guardada no acreditan acceso al índice. EDS verifica
+  la correspondencia entre el identificador configurado, el proveedor de
+  contenido y cada registro antes de incorporar artículos.
+- **Descubrimiento público con SerpApi:** Google Scholar y búsquedas web
+  restringidas a páginas documentales de las otras ocho fuentes. El acceso
+  web se identifica como **cobertura parcial**, nunca como consulta del índice
+  privado. No encontrar páginas públicas no demuestra ausencia de estudios.
+  No se presenta OAI-PMH de SciELO ni la administración de LILACS como una API
+  pública de búsqueda temática.
+
+Al iniciar el primer paso de literatura de cada iteración se prepara una tanda
+para las nueve fuentes. Cada recuperación tiene como máximo dos páginas y
+conserva hasta diez candidatos por fuente; se ejecutan hasta tres en paralelo.
+El checkpoint de la iteración evita repetir las peticiones al reanudar un paso.
+Se respetan los permisos de cada conector, las pausas y la cancelación.
+
+Los resultados se deduplican y conservan sus vías de descubrimiento. Un snippet
+es una pista para localizar el documento, no un resumen científico. El cribado
+y la extracción requieren un resumen real o texto original; cuando no se puede
+leer, el documento queda pendiente. Las consultas, fechas, límites, errores y
+huellas de respuesta quedan registrados. El total desconocido permanece nulo;
+la estimación del buscador no se trata como un recuento exhaustivo. El consumo
+de SerpApi se cuenta en peticiones, sin inventar un coste en dólares.
+
+La conexión de SerpApi ya utilizada para Google Patents se comparte con este
+descubrimiento. Los accesos institucionales se configuran en **Ajustes →
+Herramientas → Fuentes académicas**, solo por administración, y se guardan en
+un archivo privado fuera del estado, los mensajes del asistente y Git. El
+permiso real se comprueba al consultar. Si una API falla se conserva su fallo
+y se intenta descubrimiento público, sin ocultar la limitación.
+
+Contratos: [SerpApi Scholar](https://serpapi.com/google-scholar-api),
+[búsqueda web](https://serpapi.com/search-api),
+[Embase](https://dev.elsevier.com/documentation/EmbaseAPI.wadl),
+[autenticación Elsevier](https://dev.elsevier.com/tecdoc_api_authentication.html),
+[Web of Science Starter](https://github.com/clarivate/wosstarter_python_client),
+[EBSCO EDS](https://developer.ebsco.com/eds-api/reference/edsapi-search-get),
+[LILACS](https://lilacs.bvsalud.org/es/faq-es/) y
+[SciELO OAI-PMH](https://github.com/scieloorg/kernel-oaipmh).
+Metodología de consulta y procedencia: skill `database-lookup`,
+[Kassis et al., Scientific Agent Skills (2026)](https://arxiv.org/abs/2609.00065).
+
 ### Google Patents obligatorio en la revisión de tratamientos
 
 El especialista en patentes consulta **Google Patents mediante SerpApi** antes

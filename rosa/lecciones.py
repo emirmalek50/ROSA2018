@@ -27,6 +27,13 @@ MAX_POR_INVESTIGACION = 200
 CIERRES_KILLER = ("descartar_en_contexto", "suspender")
 
 
+def consulta_comprobada(q: dict[str, Any]) -> bool:
+    """Un total desconocido o una cobertura parcial no enseñan ausencia."""
+    total = q.get("resultados")
+    return (isinstance(total, int) and not isinstance(total, bool) and total >= 0
+            and q.get("estado") in (None, "completa") and not q.get("error"))
+
+
 def _norm(t: str) -> str:
     return re.sub(r"\s+", " ", (t or "").lower()).strip()
 
@@ -93,9 +100,9 @@ def generar_al_cerrar(e: dict[str, Any], c: dict[str, Any], it: dict[str, Any], 
             add("plan", f"La pista «{pi['titulo'][:80]}» ({pi.get('tipo')}, {pi.get('fuente')}) falló: {(pi.get('resumen') or '')[:200]}", f"pista:{pi.get('id')}")
     # Consultas vacías o sin nada relevante.
     for q in (c.get("busqueda") or {}).get("consultas", []):
-        if q.get("iteracion") != it.get("numero"):
+        if q.get("iteracion") != it.get("numero") or not consulta_comprobada(q):
             continue
-        if int(q.get("resultados") or 0) == 0:
+        if q["resultados"] == 0:
             add("consultas", f"La consulta «{q['consulta'][:140]}» en {q['base']} devolvió 0 resultados: no repetirla igual; cambiar términos o base", "consulta")
         elif q.get("relevantes") == 0:
             add("consultas", f"La consulta «{q['consulta'][:140]}» en {q['base']} trajo {q['resultados']} resultados y ninguno relevante: afinar términos o cambiar de base", "consulta")

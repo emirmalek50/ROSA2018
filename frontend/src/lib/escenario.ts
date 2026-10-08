@@ -208,6 +208,7 @@ export interface Busqueda {
   enteros: number | null;
   estado: Pista['estado'] | 'registrada';
   compartida: boolean;
+  consulta?: ConsultaBusqueda;
 }
 
 /** De qué base viene una búsqueda, por su fuente. */
@@ -247,7 +248,7 @@ export function busquedasDe(it: Iteracion | null, consultas: ConsultaBusqueda[] 
     filas.push({ id: `${it.id}-consulta-${i}`, titulo: q.tema || q.consulta, base, fuente: nombre,
       salen: q.resultados, sirven: q.relevantes ?? (m ? numero(m[2]!) : sinTraidos ? 0 : null),
       enteros: q.textoCompleto ?? (m ? numero(m[3]!) : sinTraidos ? 0 : null),
-      estado: p?.estado ?? 'registrada', compartida: !!q.relajadaDe || deLaIteracion.some((otra) => otra.relajadaDe === q.consulta) });
+      estado: p?.estado ?? 'registrada', consulta: q, compartida: !!q.relajadaDe || deLaIteracion.some((otra) => otra.relajadaDe === q.consulta) });
   }
   for (const p of it.pistas) {
     if (vinculadas.has(p.id)) continue;

@@ -426,6 +426,9 @@ def test_consulta_literatura_relajada_que_no_responde_no_tumba_la_original(monke
 
 def test_paso_literatura_acota_las_clausulas_y_anade_el_nombre_que_iba_dentro_de_una_estrecha(monkeypatch):
     from rosa import lecciones as LEC
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(PASOS, "_preparar_tanda_academica", AsyncMock(return_value=[]))
 
     al = _almacen(con_previa=False, objetivo="Qué predice el beneficio clínico de lecanemab en Alzheimer")
     try:

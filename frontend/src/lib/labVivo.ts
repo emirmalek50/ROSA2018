@@ -260,11 +260,11 @@ function lecturaDe(it: Iteracion | null, corrida: Corrida): { fuentes: FuenteLab
   const porFuente = new Map<string, FuenteLab>();
   for (const f of filas) {
     const a = porFuente.get(f.fuente) ?? { nombre: f.fuente, salen: null, fallo: false, sirven: 0, consultas: 0 };
+    a.salen = a.consultas === 0 ? f.salen : a.salen === null || f.salen === null ? null : a.salen + f.salen;
     a.consultas += 1;
-    if (f.salen !== null) a.salen = (a.salen ?? 0) + f.salen;
     // Como en el total: el cribado compartido no se reparte entre bibliotecas.
     a.sirven = a.sirven === null || f.compartida || f.sirven === null ? null : a.sirven + f.sirven;
-    if (f.estado === 'fallida' && f.salen === null) a.fallo = true;
+    if (f.consulta?.estado === 'no_comprobado' || !f.consulta?.estado && f.estado === 'fallida' && f.salen === null) a.fallo = true;
     porFuente.set(f.fuente, a);
   }
   const conocidas = (clave: 'salen' | 'sirven' | 'enteros') => {

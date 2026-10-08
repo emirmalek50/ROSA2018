@@ -31,7 +31,7 @@ class Resultado:
     """Lo que devuelve la función de un conector."""
 
     datos: Any
-    n: int
+    n: int | None
     ids: list[str] = field(default_factory=list)
     version: str | None = None
     invariante: tuple[bool, str] | None = None

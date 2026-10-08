@@ -1398,6 +1398,27 @@ def crear_app(almacen: Almacen) -> FastAPI:
 
         return JSONResponse({**credenciales.estado(almacen.ruta), "administrador": es_admin(request.state.usuario)}, headers={"Cache-Control": "no-store"})
 
+    @app.get("/api/academicas/configuracion")
+    async def academicas_configuracion(request: Request):
+        from rosa import credenciales_academicas as credenciales
+
+        return JSONResponse({**credenciales.estado(almacen.ruta), "administrador": es_admin(request.state.usuario)}, headers={"Cache-Control": "no-store"})
+
+    @app.post("/api/academicas/configuracion")
+    async def academicas_guardar_configuracion(request: Request):
+        from rosa import credenciales_academicas as credenciales
+
+        if not es_admin(request.state.usuario):
+            raise HTTPException(403, "Solo el administrador puede configurar las fuentes académicas.")
+        cambios = await leer_json_acotado(request, 20_000)
+        try:
+            resultado = credenciales.guardar(cambios, almacen.ruta)
+        except ValueError as ex:
+            raise HTTPException(400, str(ex)) from None
+        except OSError:
+            raise HTTPException(503, "No pude guardar los accesos a las fuentes académicas.") from None
+        return JSONResponse({**resultado, "administrador": True}, headers={"Cache-Control": "no-store"})
+
     @app.post("/api/patentes/configuracion")
     async def patentes_guardar_configuracion(request: Request):
         from rosa import credenciales_patentes as credenciales

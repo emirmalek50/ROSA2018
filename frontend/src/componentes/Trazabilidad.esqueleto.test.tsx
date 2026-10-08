@@ -211,3 +211,18 @@ it('con una corrida en su primera iteración la silueta no lleva pestañas de it
   expect(espera()).not.toBeNull();
   expect(nodo.querySelector('.pestanas')).toBeNull();
 });
+
+it('separa un total desconocido, candidatos recuperados y cobertura parcial sin inventar cribado', async () => {
+  const evidencia = evidenciaDe(corrida.id);
+  evidencia.consultas = [{ base: 'Embase', consulta: 'APOE', fecha: 1, iteracion: 1, resultados: null, recuperados: 3, estado: 'parcial', lecturaEstado: 'pendiente', limitaciones: ['Índice privado no consultado.'] }];
+  evidencia.fuentes = []; evidencia.afirmaciones = [];
+  await render(<Trazabilidad corrida={corrida} activa />);
+  await responder(peticiones[0]!, evidencia);
+  expect(nodo.querySelector('.arbol-cuentas')?.textContent).toContain('Total no comprobado');
+  expect(nodo.querySelector('.arbol-cuentas')?.textContent).toContain('3 candidatos recuperados');
+  expect(nodo.querySelector('.arbol-cuentas')?.textContent).toContain('Parcial');
+  expect(nodo.textContent).toContain('Índice privado no consultado.');
+  expect(nodo.textContent).not.toContain('0 resultados');
+  expect(nodo.textContent).not.toContain('Ninguna fuente pasó el cribado');
+  expect(nodo.querySelectorAll('.embudo-paso strong')[1]?.textContent).toBe('No comprobado');
+});

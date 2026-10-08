@@ -112,7 +112,7 @@ def test_el_plan_puede_elegir_exa_solo_con_clave_y_si_no_se_desvia(monkeypatch):
     from rosa.bucle import pasos
 
     monkeypatch.setattr(config, "CLAVE_EXA", "")
-    assert pasos.bases_disponibles() == ["pubmed", "europepmc", "preprints"]
+    assert pasos.bases_disponibles() == ["pubmed", "europepmc", "preprints", *pasos.FUENTES_ACADEMICAS]
     desviada = pasos.base_efectiva({"base": "exa", "consulta": "¿GFAP precede a NfL?", "tema": "orden"})
     assert desviada["base"] == "europepmc" and desviada["_desviada_de"] == "exa"
     assert pasos.base_efectiva({"base": "pubmed", "consulta": "gfap[tiab]", "tema": "x"})["base"] == "pubmed"

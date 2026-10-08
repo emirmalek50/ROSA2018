@@ -26,6 +26,7 @@ import re
 import traceback
 from dataclasses import dataclass
 from typing import Any, Awaitable, NamedTuple
+from urllib.parse import unquote, urlsplit
 
 import dspy
 
@@ -37,6 +38,7 @@ from rosa import cuestiones as CU
 from rosa import dependencias as DEP
 from rosa import causal as CAUSAL
 from rosa import conectores as CON
+from rosa.conectores.academicas import FUENTES_ACADEMICAS
 from rosa import datasets_programa as DP
 from rosa import dianas as DI
 from rosa import nichos as NI
@@ -87,7 +89,7 @@ async def cortar_con_reranker(pregunta: str, articulos: list[dict[str, Any]], pi
     if len(articulos) <= maximo or not reranker.disponible():
         return articulos, []
     try:
-        orden = await reranker.reordenar(pregunta, [reranker.texto_de_articulo(a) for a in articulos])
+        orden = await reranker.reordenar(pregunta, [reranker.texto_de_articulo({**a, "resumen": a.get("_textoCribado") or a.get("resumen") or ""}) for a in articulos])
     except FuenteNoDisponible as ex:
         if pista:
             pista.nota(f"Reranker no disponible ({str(ex)[:80]}); el modelo criba todos los candidatos")
@@ -553,6 +555,72 @@ def claves_de_fuente(datos: dict[str, Any]) -> set[str]:
     return claves
 
 
+def _fundir_procedencia_academica(destino: dict[str, Any], datos: dict[str, Any]) -> None:
+    """Un mismo DOI conserva todos sus caminos de descubrimiento, sin duplicarlo."""
+    nueva = datos.get("_academica")
+    if not isinstance(nueva, dict):
+        return
+    anterior = destino.get("_academica")
+    registros: list[dict[str, Any]] = []
+    for procedencia in (anterior, nueva):
+        if not isinstance(procedencia, dict):
+            continue
+        for registro in [*(procedencia.get("descubrimientos") or []), {k: v for k, v in procedencia.items() if k != "descubrimientos"}]:
+            if isinstance(registro, dict) and registro and registro not in registros:
+                registros.append(copy.deepcopy(registro))
+    principal = copy.deepcopy(anterior if isinstance(anterior, dict) else nueva)
+    for campo in ("resolucionTexto", "lecturaOriginal", "coberturaLectura"):
+        if campo in nueva and campo not in principal:
+            principal[campo] = copy.deepcopy(nueva[campo])
+    destino["_academica"] = {**principal, "descubrimientos": registros}
+
+
+def _identidad_bibliografica_compatible(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """El título o un PMID coincidente nunca compensan un DOI contradictorio."""
+    ka = claves_de_fuente(a) | set(a.get("_claves") or [])
+    kb = claves_de_fuente(b) | set(b.get("_claves") or [])
+    for prefijo in ("doi:", "pmid:", "nct:"):
+        ia, ib = {k for k in ka if k.startswith(prefijo)}, {k for k in kb if k.startswith(prefijo)}
+        if ia and ib and not ia.intersection(ib):
+            return False
+    return bool(ka.intersection(kb))
+
+
+def _fundir_articulo_academico(destino: dict[str, Any], datos: dict[str, Any]) -> None:
+    _fundir_procedencia_academica(destino, datos)
+    for campo in ("doi", "pmid", "pmcid", "pdf", "url", "autores", "anio", "revista", "tipos"):
+        if not destino.get(campo) and datos.get(campo):
+            destino[campo] = copy.deepcopy(datos[campo])
+    if not destino.get("resumen") and datos.get("resumen") and datos.get("_academica", {}).get("resumenCientificoLeido") is not False:
+        destino["resumen"] = datos["resumen"]
+        destino.setdefault("_academica", {})["resumenCientificoLeido"] = True
+
+
+def _lectura_web_academica_valida(articulo: dict[str, Any], solicitada: str, pagina: dict[str, Any]) -> bool:
+    """No confunde redirecciones, catálogos o muros de acceso con un documento."""
+    from rosa.conectores.web import _url_publica
+
+    try:
+        origen = urlsplit(_url_publica(solicitada))
+        final = urlsplit(_url_publica(str(pagina.get("url") or "")))
+    except ValueError:
+        return False
+    # Una redirección DOI -> editorial no identificada queda pendiente; no se
+    # atribuye el texto de cualquier destino al DOI que se pidió.
+    if (origen.hostname, unquote(origen.path).rstrip("/"), origen.query) != (final.hostname, unquote(final.path).rstrip("/"), final.query):
+        return False
+    texto = str(pagina.get("texto") or "").strip()
+    if re.search(r"no abstract (available|provided)|abstract (not available|unavailable)|resumen no disponible|no (hay|se dispone de) resumen", texto, re.IGNORECASE):
+        return False
+    if len(texto) < 240 or re.search(r"sign[ -]?in|log[ -]?in|institutional.{0,50}(subscription|access)|access (denied|restricted)|subscribe to (read|access)|purchase access|iniciar sesi[oó]n|suscripci[oó]n institucional|acceso restringido|captcha|verify.{0,20}human", texto, re.IGNORECASE):
+        return False
+    if not re.search(r"\b(abstract|resumen|results|resultados|methods|m[eé]todos|conclusions|conclusiones)\b", texto, re.IGNORECASE):
+        return False
+    palabras = {p.lower() for p in re.findall(r"[A-Za-zÀ-ÿ0-9]{4,}", str(articulo.get("titulo") or ""))} - {"with", "from", "this", "that", "study", "sobre", "para", "como"}
+    cabecera = str(pagina.get("titulo") or texto[:1000]).lower()
+    return bool(palabras) and sum(p in cabecera for p in palabras) >= min(3, len(palabras))
+
+
 def _desambiguar_referencia_local(referencia: str, existentes: list[str]) -> str:
     """Respaldo mientras rosa/fuentes/base.py no traiga `desambiguar_referencia`
     (grupo A, mismo contrato): si ya hay otra fuente con la misma referencia
@@ -605,8 +673,9 @@ def _registrar_fuente(ctx: Ctx, datos: dict[str, Any], tipo: str, fragmentos: li
         # La misma fuente puede llegar de PubMed sin DOI y de Europe PMC con DOI:
         # coincide si comparte cualquier identificador normalizado (o el título
         # normalizado). Sin identificadores ni título, nunca se fusiona.
-        existente = next((f for f in fuentes.values() if claves and (set(f.get("_claves") or ([f["_clave"]] if f.get("_clave") else [])) & claves)), None)
+        existente = next((f for f in fuentes.values() if claves and _identidad_bibliografica_compatible(datos, f)), None)
         if existente:
+            _fundir_procedencia_academica(existente, datos)
             existente["_claves"] = sorted(set(existente.get("_claves") or []) | claves)
             for campo in ("doi", "pmid", "nct"):
                 if not existente.get(campo) and datos.get(campo):
@@ -625,7 +694,7 @@ def _registrar_fuente(ctx: Ctx, datos: dict[str, Any], tipo: str, fragmentos: li
                 if any(not fr.get("extraido") for fr in nuevos):
                     existente["extraida"] = False
             existente["relevancia"] = max(existente.get("relevancia", 0), relevancia)
-            existente["textoCompleto"] = existente["textoCompleto"] or any(fr["localizador"] != "resumen" for fr in fragmentos)
+            existente["textoCompleto"] = existente["textoCompleto"] or any(_es_fragmento_completo(fr) for fr in fragmentos)
             if consulta and consulta not in existente.setdefault("consultas", []):
                 existente["consultas"].append(consulta)
             # Si una consulta de foco también la trajo, deja de contar como hallazgo de amplitud.
@@ -653,10 +722,11 @@ def _registrar_fuente(ctx: Ctx, datos: dict[str, Any], tipo: str, fragmentos: li
             centro=(datos.get("centro") or None),
             tipoEstudio=tipo_estudio if tipo != "ensayo" else "registro",
             nivelEvidencia=nivel,
-            textoCompleto=any(fr["localizador"] != "resumen" for fr in fragmentos),
+            textoCompleto=any(_es_fragmento_completo(fr) for fr in fragmentos),
             citas=datos.get("citas"),
         )
         f["_claves"] = sorted(claves)
+        _fundir_procedencia_academica(f, datos)
         f["_clave"] = next(iter(sorted(claves)), "")
         f["_marcaDetalle"] = marca_detalle
         for fr in fragmentos:
@@ -729,10 +799,14 @@ async def _fragmentos_de(ctx: Ctx, datos: dict[str, Any], pista: Pista, con_text
             try:
                 paginas, coste = await exa.contenidos([url], maximo_caracteres=40000)
                 _anotar_coste_exa(ctx, coste)
-                texto = (paginas[0].get("texto") if paginas else "") or ""
+                pagina = paginas[0] if paginas else {}
+                if datos.get("_academica") and not _lectura_web_academica_valida(datos, url, pagina):
+                    pista.nota(f"{datos['referencia']}: el texto web no acredita la identidad y el contenido del documento solicitado; queda pendiente, sin usarlo como evidencia.")
+                    return fragmentos
+                texto = pagina.get("texto") or ""
                 trozos = trocear_texto(texto)
                 for i, t in enumerate(trozos[: MAX_FRAGMENTOS_POR_FUENTE * 2], start=1):
-                    fragmentos.append({"localizador": f"texto web, parte {i}", "texto": t, "encabezado": datos.get("titulo", ""), "_url": url})
+                    fragmentos.append({"localizador": f"texto web, parte {i}", "texto": t, "encabezado": datos.get("titulo", ""), "_url": pagina.get("url") or url})
                 if trozos:
                     pista.resultado(f"{datos['referencia']}: texto de la página en {min(len(trozos), MAX_FRAGMENTOS_POR_FUENTE * 2)} partes (Exa, sin paginación)")
                 else:
@@ -774,7 +848,7 @@ def trocear_texto(texto: str, tamano: int = 2500, minimo: int = 200) -> list[str
     return trozos
 
 
-NOMBRES_BASE = {"pubmed": "PubMed", "europepmc": "Europe PMC", "preprints": "bioRxiv y medRxiv (vía Europe PMC)", "exa": "Exa (búsqueda semántica de publicaciones)", "gris": "Exa (literatura gris: reguladores, registros, portales del campo)"}
+NOMBRES_BASE = {"pubmed": "PubMed", "europepmc": "Europe PMC", "preprints": "bioRxiv y medRxiv (vía Europe PMC)", "exa": "Exa (búsqueda semántica de publicaciones)", "gris": "Exa (literatura gris: reguladores, registros, portales del campo)", **{k: f"{v} (descubrimiento académico)" for k, v in FUENTES_ACADEMICAS.items()}}
 
 
 _CAMPO_CONSULTA = r"(?:title_abs|title|abstract|tiab|ti|tw)"
@@ -1008,7 +1082,7 @@ async def _consultas_amplitud(ctx: "Ctx", inv: dict[str, Any], cuantas: int, pre
 def bases_disponibles() -> list[str]:
     """Las bases que el planificador puede elegir ahora. Exa y la literatura
     gris (que va por Exa) solo con clave."""
-    bases = ["pubmed", "europepmc", "preprints"]
+    bases = ["pubmed", "europepmc", "preprints", *FUENTES_ACADEMICAS]
     if exa.disponible():
         bases.extend(["exa", "gris"])
     return bases
@@ -1051,7 +1125,11 @@ _CAMPOS_REUTILIZABLES = ("cohorte", "metodo", "riesgoSesgo", "centro", "porque")
 def _tiene_texto_completo(f: dict[str, Any]) -> bool:
     """True si la fuente guarda algún fragmento que no sea el resumen (páginas
     de un PDF, secciones de Europe PMC o texto web)."""
-    return any(isinstance(fr, dict) and fr.get("localizador") and fr.get("localizador") != "resumen" for fr in f.get("fragmentos") or [])
+    return any(_es_fragmento_completo(fr) for fr in f.get("fragmentos") or [])
+
+
+def _es_fragmento_completo(fragmento: dict[str, Any]) -> bool:
+    return bool(isinstance(fragmento, dict) and fragmento.get("localizador") and fragmento["localizador"] != "resumen" and not fragmento.get("_lecturaParcial"))
 
 
 def comprobacion_retraccion_caducada(f: dict[str, Any], ahora_ms: int, dias: int = politicas.DIAS_VIGENCIA_COMPROBACION_RETRACCION) -> bool:
@@ -1131,6 +1209,7 @@ def _reutilizar_fuente(ctx: Ctx, a: dict[str, Any], fuente_prev: dict[str, Any],
     una fuente de foco reutilizada por una consulta de amplitud sigue siendo
     de foco. Devuelve (id de la fuente, si tiene texto completo, afirmaciones
     copiadas)."""
+    _fundir_procedencia_academica(a, fuente_prev)
     modo_prev = fuente_prev.get("modo") or "foco"
     a["_modo"] = "foco" if "foco" in (modo, modo_prev) else "amplitud"
     if fuente_prev.get("porque") and not a.get("_porque"):
@@ -1147,7 +1226,7 @@ def _reutilizar_fuente(ctx: Ctx, a: dict[str, Any], fuente_prev: dict[str, Any],
         fid = _registrar_fuente(ctx, a, tipo, nuevos, relevancia, marca, detalle, comprobada, consulta)
         if comprobacion is not None:
             _actualizar_fuente(ctx, fid, {"retraccion": marca, "_marcaDetalle": detalle, "retraccionComprobadaEn": comprobada})
-        return fid, bool(nuevos) or _tiene_texto_completo(fuente_prev), 0
+        return fid, any(_es_fragmento_completo(fr) for fr in nuevos) or _tiene_texto_completo(fuente_prev), 0
     ya = bool(fuente_prev.get("extraida"))
     copia: list[dict[str, Any]] = []
     for fr in fuente_prev.get("fragmentos", []) or []:
@@ -1206,10 +1285,222 @@ def _reutilizar_fuente(ctx: Ctx, a: dict[str, Any], fuente_prev: dict[str, Any],
     return fid, _tiene_texto_completo({"fragmentos": todos}), copiadas[0]
 
 
-async def _buscar_en_base(ctx: Ctx, base: str, consulta_texto: str, pista: Pista, guia_pasajes: str, desde_fecha: str | None) -> tuple[list[dict[str, Any]], int]:
+def _comprobar_busqueda_activa(ctx: Ctx) -> None:
+    if ctx.de_paso and ctx.corrida().get("estado") in ESTADOS_QUE_PARAN_EL_PASO:
+        raise CorridaParada(str(ctx.corrida().get("estado")))
+
+
+def _checkpoint_academico(ctx: Ctx, base: str) -> dict[str, Any]:
+    return ctx.corrida().get("_literaturaAcademica", {}).get(str(ctx.numero), {}).get(base, {})
+
+
+async def _recuperar_academica(ctx: Ctx, base: str, consulta: str, tema: str, pista: Pista) -> dict[str, Any]:
+    """Un intento por fuente e iteración, persistido antes de consumir modelos."""
+    _comprobar_busqueda_activa(ctx)
+    previa = _checkpoint_academico(ctx, base)
+    if previa.get("resultado") is not None:
+        return copy.deepcopy(previa["resultado"])
+    registro, datos = await CON.consultar(f"academica_{base}", consulta=consulta, maximo=10)
+    if not isinstance(datos, dict):
+        datos = {"articulos": [], "total": None, "consultas": [registro], "estado": "no_comprobado",
+                 "limitaciones": [registro.get("error") or "No pude comprobar la respuesta de la fuente."],
+                 "consumo": {"serpapiConsultas": 0 if "sin permiso" in (registro.get("error") or "") else None}}
+    datos = copy.deepcopy(datos)
+    total = datos.get("total")
+    if not isinstance(total, int) or isinstance(total, bool) or total < 0:
+        datos["total"] = None
+    datos["articulos"] = [a for a in (datos.get("articulos") or []) if isinstance(a, dict)][:10]
+    # La API separa los snippets del resumen. Se conserva esa frontera aquí.
+    for a in datos["articulos"]:
+        a.setdefault("resumen", "")
+        if isinstance(a.get("_academica"), dict) and a["_academica"].get("resumenCientificoLeido") is False:
+            a["resumen"] = ""
+        a.setdefault("referencia", a.get("titulo") or "Referencia sin identificar")
+        _fundir_procedencia_academica(a, {"_academica": {"fuente": base, "consulta": consulta,
+            "consultas": datos.get("consultas", []), "estado": datos.get("estado"), "url": a.get("url")}})
+    estado = datos.get("estado", "no_comprobado")
+    limites = [str(x) for x in datos.get("limitaciones", [])]
+    peticiones = datos.get("consumo", {}).get("serpapiConsultas")
+    ahora = P.ahora_ms()
+
+    def guardar(e: dict[str, Any]) -> bool:
+        c = next(x for x in e["corridas"] if x["id"] == ctx.corrida_id)
+        tanda = c.setdefault("_literaturaAcademica", {}).setdefault(str(ctx.numero), {})
+        tanda[base] = {"consulta": consulta, "tema": tema, "resultado": datos, "procesada": False}
+        c["busqueda"]["consultas"].append({"base": NOMBRES_BASE[base], "fuenteId": base,
+            "consulta": consulta, "fecha": ahora, "resultados": datos["total"], "recuperados": len(datos["articulos"]),
+            "iteracion": ctx.numero, "pistaId": pista.id, "tema": tema, "modo": "foco", "porque": "",
+            "estado": estado, "modoAcceso": datos.get("modo"), "limitaciones": limites, "consultasFuente": datos.get("consultas", []),
+            "consumo": datos.get("consumo", {}), "costeUsd": None,
+            "alcance": "Descubrimiento académico; el acceso web de respaldo no equivale al índice privado ni a una búsqueda exhaustiva.",
+            "error": "; ".join(limites) if estado == "no_comprobado" else None, "lecturaEstado": "pendiente"})
+        if isinstance(peticiones, int) and not isinstance(peticiones, bool) and peticiones >= 0:
+            c["gasto"]["serpapiConsultas"] = int(c["gasto"].get("serpapiConsultas") or 0) + peticiones
+        c["gasto"]["serpapiUsd"] = None
+        return True
+
+    ctx.mutar(guardar, "busqueda_academica")
+    pista.accion("Descubrimiento académico", {"base": NOMBRES_BASE[base], "parametros": consulta,
+        "resultados": f"{len(datos['articulos'])} candidatos recuperados; estado {estado}; total " + (str(datos["total"]) if datos["total"] is not None else "no comprobado")})
+    if estado != "completa":
+        detalle = "; ".join(limites) or "Cobertura parcial de la consulta; no permite afirmar ausencia."
+        pista.nota(detalle)
+        if estado == "no_comprobado":
+            ctx.incidencia("fuente_sin_respuesta", f"No pude comprobar {FUENTES_ACADEMICAS[base]}", detalle[:400],
+                           f"academica_{base}", "Se continúa con las otras fuentes y se conservan los documentos recuperados.")
+    return copy.deepcopy(datos)
+
+
+async def _preparar_tanda_academica(ctx: Ctx, paso: dict[str, Any]) -> list[dict[str, Any]]:
+    """Nueve fuentes una vez por iteración; hasta tres recuperaciones simultáneas.
+
+    El checkpoint privado permite retomar el cribado sin repetir peticiones de pago.
+    El candado por almacén evita tandas duplicadas si dos pasos coinciden.
+    """
+    _comprobar_busqueda_activa(ctx)
+    candado = ctx.almacen.__dict__.setdefault("_candado_literatura_academica", asyncio.Lock())
+    async with candado:
+        consulta = _consulta_academica_del_paso(ctx, paso)
+        sem = asyncio.Semaphore(3)
+
+        async def recuperar(base: str) -> None:
+            async with sem:
+                _comprobar_busqueda_activa(ctx)
+                if _checkpoint_academico(ctx, base).get("resultado") is not None:
+                    return
+                pista = ctx.pista(paso["id"], "literatura", f"Descubrimiento: {FUENTES_ACADEMICAS[base]}", NOMBRES_BASE[base])
+                try:
+                    datos = await _recuperar_academica(ctx, base, consulta, f"{FUENTES_ACADEMICAS[base]}: {paso.get('titulo', 'Literatura')}"[:60], pista)
+                    pista.cerrar(f"{len(datos['articulos'])} candidatos; {datos.get('estado')}. El cribado y la lectura siguen después.", "fallida" if datos.get("estado") == "no_comprobado" else "hecha")
+                except BaseException:
+                    pista.cerrar("Recuperación interrumpida; no se afirma ausencia y podrá retomarse.", "detenida")
+                    raise
+
+        await _en_paralelo(*(recuperar(base) for base in FUENTES_ACADEMICAS))
+        consultas: list[dict[str, Any]] = []
+        unicos: list[dict[str, Any]] = []
+        for base in FUENTES_ACADEMICAS:
+            checkpoint = _checkpoint_academico(ctx, base)
+            if checkpoint.get("procesada"):
+                continue
+            candidatos: list[dict[str, Any]] = []
+            for articulo in copy.deepcopy(checkpoint.get("resultado", {}).get("articulos", [])):
+                claves = claves_de_fuente(articulo)
+                previo = next((a for a in unicos if claves and _identidad_bibliografica_compatible(a, articulo)), None)
+                if previo is not None:
+                    _fundir_articulo_academico(previo, articulo)
+                else:
+                    unicos.append(articulo)
+                    candidatos.append(articulo)
+            consultas.append({"base": base, "consulta": checkpoint["consulta"], "tema": checkpoint["tema"],
+                              "modo": "foco", "_articulosAcademicos": candidatos})
+        return consultas
+
+
+def _consulta_academica_del_paso(ctx: Ctx, paso: dict[str, Any]) -> str:
+    """Seis términos científicos como máximo, sin enviar instrucciones completas."""
+    especifico = " ".join(str(paso.get(k) or "") for k in ("consulta", "detalle", "titulo"))
+    objetivo = str(_pregunta_de(ctx) or ctx.inv()["objetivo"])
+    texto = f"{especifico} {objetivo}"
+    vacias = set("a al algo algun alguna algunos ante antes bajo buscar busqueda busca buscarán comparar compara comprender conocer cómo con contra cual cuál cuáles cuando de del desde después donde el ella ellos en entre es esa ese esta estas este esto estos estudiar evaluar evidencia explorar fuentes generar hasta hay identificar investigar investigación la las le literatura lo los más mediante mejorar menos mi muy necesito no nos nueva nuevo o obtener para pero por porque proponer puede pueden qué que quiero realizar recuperar relación resultados revisar rosa saber se según ser si sin sobre son su sus también tiene tienen todas todo todos tras tu un una unas uno unos usar utiliza utilizar ver versus vez y ya the and or not of to in on for from with by as at an is are be this that study studies search find identify evaluate retrieve please need should must would could".split())
+    genes = [g for g in re.findall(r"\b[A-Z][A-Z0-9-]{2,14}\b", texto) if g.lower() not in vacias and g not in {"ROSA", "PDF", "PMC", "PMID", "DOI"}]
+    entidades = T.nombres_propios(texto)
+    tokens = re.findall(r"[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9-]{2,}", especifico + " " + objetivo)
+    elegidos: list[str] = ["Alzheimer"] if re.search(r"alzheimer", texto, re.IGNORECASE) else []
+    vistos = {t.lower() for t in elegidos}
+    for termino in [*genes, *entidades, *tokens]:
+        normal = termino.lower()
+        if normal in vacias or normal in vistos:
+            continue
+        elegidos.append(termino)
+        vistos.add(normal)
+        if len(elegidos) >= 6:
+            break
+    return " ".join(elegidos)[:180] or "Alzheimer"
+
+
+async def _leer_url_academica(ctx: Ctx, articulo: dict[str, Any], pista: Pista) -> list[dict[str, Any]]:
+    """El lector existente valida URL pública y permisos; nunca lee el snippet."""
+    from rosa.conectores.web import _url_publica
+
+    try:
+        url = _url_publica(str(articulo.get("url") or ""))
+    except ValueError:
+        return []
+    _comprobar_busqueda_activa(ctx)
+    registro, datos = await CON.consultar("leer_pagina_web", url=url, desde="0")
+    articulo.setdefault("_academica", {})["lecturaOriginal"] = registro
+    if isinstance(datos, dict):
+        _anotar_coste_exa(ctx, float(datos.get("costeUsd") or 0))
+    if not isinstance(datos, dict) or not _lectura_web_academica_valida(articulo, url, datos):
+        pista.nota("No pude leer el documento original por URL; la pista del buscador queda pendiente, sin evidencia.")
+        return []
+    desde = datos.get("desde", 0)
+    texto = datos["texto"]
+    parcial = datos.get("siguienteDesde") is not None or bool(datos.get("puedeEstarRecortado"))
+    articulo["_academica"]["coberturaLectura"] = {"desde": desde, "caracteresLeidos": len(texto),
+        "siguienteDesde": datos.get("siguienteDesde"), "puedeEstarRecortado": bool(datos.get("puedeEstarRecortado")),
+        "parcial": parcial,
+        "alcance": "Fragmento recuperado por URL; no acredita lectura íntegra del artículo."}
+    if parcial:
+        pista.nota(f"Lectura parcial por URL: {len(texto)} caracteres; quedan partes sin recuperar. Sus pasajes son utilizables, pero no cuenta como texto completo.")
+    return [{"localizador": f"texto web, caracteres {desde}-{desde + len(texto)}", "texto": texto,
+             "encabezado": datos.get("titulo") or articulo.get("titulo", ""), "_url": datos.get("url") or url, "_lecturaParcial": parcial}]
+
+
+async def _resolver_descubrimientos_academicos(ctx: Ctx, articulos: list[dict[str, Any]], pista: Pista) -> tuple[list[dict[str, Any]], int]:
+    """Antes de puntuar se recupera un resumen real o texto del documento original."""
+    salida: list[dict[str, Any]] = []
+    pendientes = 0
+    conocidas = _indice_fuentes_investigacion(ctx)
+    for a in articulos:
+        _comprobar_busqueda_activa(ctx)
+        if pista.detenida():
+            raise CorridaParada("detenida")
+        if a.get("resumen") or any(k in conocidas and conocidas[k][0].get("fragmentos") and _identidad_bibliografica_compatible(a, conocidas[k][0]) for k in claves_de_fuente(a)):
+            salida.append(a)
+            continue
+        resueltos: list[dict[str, Any]] = []
+        fuente_resuelta = "PubMed" if a.get("pmid") else "Europe PMC"
+        try:
+            if a.get("pmid"):
+                resueltos = await pubmed.detalles([str(a["pmid"])])
+            elif a.get("doi"):
+                resueltos, _ = await europepmc.buscar(f'DOI:"{a["doi"]}"', maximo=1)
+        except FuenteNoDisponible:
+            pista.nota(f"No pude recuperar el resumen original de {a['referencia']}; el snippet no se utiliza como evidencia.")
+        claves = {k for k in claves_de_fuente(a) if k.startswith(("doi:", "pmid:"))}
+        real = next((r for r in resueltos if claves & claves_de_fuente(r) and _identidad_bibliografica_compatible(a, r) and r.get("resumen")), None)
+        if real is not None:
+            procedencia = a.get("_academica")
+            a.update(real)
+            a["_academica"] = procedencia
+            if isinstance(procedencia, dict):
+                a["_academica"]["resumenCientificoLeido"] = True
+                a["_academica"]["resolucionTexto"] = {"fuente": fuente_resuelta, "doi": a.get("doi"), "pmid": a.get("pmid"), "fecha": P.ahora_ms()}
+        else:
+            fragmentos = await _fragmentos_de(ctx, a, pista, True) if a.get("doi") or a.get("pmid") or a.get("pmcid") else []
+            if not fragmentos and a.get("url"):
+                fragmentos = await _leer_url_academica(ctx, a, pista)
+            if fragmentos:
+                a["_fragmentosAcademicos"] = fragmentos
+                a["_textoCribado"] = "Texto recuperado del documento original, no snippet ni resumen bibliográfico:\n" + "\n".join(fr["texto"] for fr in fragmentos)
+        if a.get("resumen") or a.get("_textoCribado"):
+            salida.append(a)
+        else:
+            pendientes += 1
+    if pendientes:
+        pista.nota(f"{pendientes} descubrimientos quedan pendientes de texto original: no se puntúan, no se consideran irrelevantes y sus snippets no pasan a evidencia.")
+    return salida, pendientes
+
+
+async def _buscar_en_base(ctx: Ctx, base: str, consulta_texto: str, pista: Pista, guia_pasajes: str, desde_fecha: str | None) -> tuple[list[dict[str, Any]], int | None]:
     """Una búsqueda en la base elegida, con su acción en la pista. Devuelve
     (artículos traídos, total identificado). Lanza FuenteNoDisponible si la base
     no responde: quien llama lo convierte en "no pude comprobar"."""
+    if base in FUENTES_ACADEMICAS:
+        datos = await _recuperar_academica(ctx, base, consulta_texto, FUENTES_ACADEMICAS[base], pista)
+        return datos["articulos"], datos["total"]
     if base == "pubmed":
         ids, total = await pubmed.buscar(consulta_texto, maximo=maximo_por_consulta())
         pista.accion("esearch + efetch", {"base": "PubMed E-utilities", "parametros": f"db=pubmed&term={consulta_texto}&retmax={maximo_por_consulta()}", "resultados": f"{total} PMID, se traen {len(ids)}"})
@@ -1245,7 +1536,10 @@ def _fundir_articulos(base_lista: list[dict[str, Any]], mas: list[dict[str, Any]
     nuevos = 0
     for a in mas:
         cl = claves_de_fuente(a)
-        if cl and cl & vistos:
+        existente = next((previo for previo in base_lista if cl and _identidad_bibliografica_compatible(a, previo)), None)
+        if existente is not None:
+            if a.get("_academica"):
+                _fundir_articulo_academico(existente, a)
             continue
         vistos |= cl
         base_lista.append(a)
@@ -1303,12 +1597,16 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             pista.nota(f"El plan traía {len(clausulas_and(consulta['_acotadaDe']))} cláusulas AND; se acota a {politicas.MAX_CLAUSULAS_AND} (política de consultas): la original era «{consulta['_acotadaDe'][:200]}»")
         ahora = P.ahora_ms()
         articulos, total = await _buscar_en_base(ctx, base, consulta["consulta"], pista, guia_pasajes, consulta.get("desde_fecha"))
+        recuperados = len(articulos)
+        if base in FUENTES_ACADEMICAS and "_articulosAcademicos" in consulta:
+            articulos = consulta["_articulosAcademicos"]
+        texto_total = str(total) if total is not None else "total no comprobado"
         # Relajación acotada (S-07): una consulta de foco con pocos resultados y tres o más
         # cláusulas AND se relanza una sola vez sin la última cláusula, y queda anotado.
         relajada: str | None = None
         total_relajada: int | None = None
         n_clausulas = len(clausulas_and(consulta["consulta"])) if booleana else 0
-        if modo == "foco" and booleana and not consulta.get("_por_nombre") and total < politicas.RESULTADOS_MINIMOS_ANTES_DE_RELAJAR and n_clausulas >= politicas.CLAUSULAS_MINIMAS_PARA_RELAJAR:
+        if modo == "foco" and booleana and not consulta.get("_por_nombre") and total is not None and total < politicas.RESULTADOS_MINIMOS_ANTES_DE_RELAJAR and n_clausulas >= politicas.CLAUSULAS_MINIMAS_PARA_RELAJAR:
             relajada = quitar_ultima_clausula(consulta["consulta"])
         if relajada:
             pista.nota(f"Solo {total} resultados con {n_clausulas} cláusulas AND: se relanza una vez sin la última cláusula: {relajada}")
@@ -1319,7 +1617,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             except FuenteNoDisponible as ex:
                 pista.nota(f"La consulta relajada no llegó a {nombre_base} ({str(ex)[:100]}); se sigue con lo que trajo la original. No es 'sin resultados'.")
                 total_relajada = None
-        resultado["identificados"] = max(total, total_relajada or 0)
+        resultado["identificados"] = max(total if total is not None else recuperados, total_relajada or 0)
         # Cuánto tardó en traer esto. ROSA2018 cronometra cada llamada al modelo al
         # milisegundo y no cronometraba NADA de la literatura, que es la otra mitad
         # de una corrida: de las 4,22 h de la corrida 42, 47 min no tenían ninguna
@@ -1335,23 +1633,51 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             if relajada:
                 registro["relajadaA"] = relajada
                 registro["resultadosRelajada"] = total_relajada  # None si la relajada no llegó a la base
-            c["busqueda"]["consultas"].append(registro)
+            anterior = next((q for q in c["busqueda"]["consultas"] if q.get("fuenteId") == base and q.get("iteracion") == ctx.numero), None) if base in FUENTES_ACADEMICAS else None
+            ya_contada = bool(anterior and anterior.get("identificadosContados"))
+            if anterior is not None:
+                registro["fecha"] = anterior["fecha"]
+                anterior.update(registro, identificadosContados=True)
+            else:
+                c["busqueda"]["consultas"].append(registro)
             # La relajada solo cuenta como hecha si la base respondió: si no, se podrá repetir.
             if relajada and total_relajada is not None:
                 c["busqueda"]["consultas"].append({"base": nombre_base, "consulta": relajada, "fecha": ahora, "resultados": total_relajada, "iteracion": ctx.numero, "pistaId": pista.id, "tema": consulta["tema"], "modo": modo, "porque": "", "desdeFecha": consulta.get("desde_fecha"), "relajadaDe": consulta["consulta"]})
-            c["busqueda"]["identificados"] += resultado["identificados"]
+            if not ya_contada:
+                c["busqueda"]["identificados"] += resultado["identificados"]
             hechas = c.setdefault("_consultasHechas", [])
-            hechas.append(consulta["consulta"])
+            if base not in FUENTES_ACADEMICAS:
+                hechas.append(consulta["consulta"])
             if relajada and total_relajada is not None:
                 hechas.append(relajada)
             return True
 
         ctx.mutar(anotar, "consulta")
-        pista.resultado(f"{total} resultados en {nombre_base}; {len(articulos)} para cribar")
+        pista.resultado(f"{texto_total} resultados en {nombre_base}; {len(articulos)} candidatos sin duplicados")
         if not articulos:
-            _anotar_textos_completos(ctx, pista.id, 0)
-            pista.cerrar(f"{total} resultados, ninguno traído", "hecha")
+            estado_academico = _checkpoint_academico(ctx, base).get("resultado", {}).get("estado") if base in FUENTES_ACADEMICAS else None
+            if estado_academico != "no_comprobado":
+                _anotar_textos_completos(ctx, pista.id, 0)
+            pista.cerrar(f"{texto_total}; ningún candidato nuevo para leer" + (". No pude comprobar la fuente." if estado_academico == "no_comprobado" else ""), "fallida" if estado_academico == "no_comprobado" else "hecha")
             return resultado
+
+        if base in FUENTES_ACADEMICAS:
+            articulos, pendientes = await _resolver_descubrimientos_academicos(ctx, articulos, pista)
+
+            def anotar_pendientes(e: dict[str, Any]) -> bool:
+                c = next(x for x in e["corridas"] if x["id"] == ctx.corrida_id)
+                for q in c["busqueda"]["consultas"]:
+                    if q.get("fuenteId") == base and q.get("iteracion") == ctx.numero:
+                        q.update(pendientesLectura=pendientes, lecturaEstado="pendiente_texto" if pendientes else "en_cribado")
+                        parciales = sum(bool(a.get("_academica", {}).get("coberturaLectura", {}).get("parcial")) for a in articulos)
+                        if parciales:
+                            q["limitacionesLectura"] = [f"{parciales} documentos solo leídos en parte por URL; los pasajes recuperados no acreditan lectura íntegra."]
+                return True
+
+            ctx.mutar(anotar_pendientes, "lectura_academica")
+            if not articulos:
+                pista.cerrar(f"{pendientes} descubrimientos pendientes de documento original; no se extrae evidencia de snippets.")
+                return resultado
 
         # Corte previo por pertinencia con el reranker del gateway: el modelo
         # solo puntúa a los mejores; los demás quedan excluidos con su cifra.
@@ -1380,7 +1706,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             if not a.get("titulo"):
                 continue
             claves = sorted(_claves_articulo(a))
-            conocida = next((conocidas[k] for k in claves if k in conocidas), None)
+            conocida = next((conocidas[k] for k in claves if k in conocidas and _identidad_bibliografica_compatible(a, conocidas[k][0])), None)
             # Se reutiliza solo si ya pasó el listón de este modo: una fuente de amplitud
             # con 4 que trae una consulta de foco (listón 5) se vuelve a puntuar contra la
             # pregunta, y si llega a 5 deja de contar como hallazgo de amplitud.
@@ -1388,7 +1714,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
                 reutilizadas[id(a)] = conocida
                 continue
             nombre = titulo_nombra(a.get("titulo", ""), nombres_objetivo)
-            ex_prev = next((ya_excluidos[k] for k in claves if k in ya_excluidos), None)
+            ex_prev = next((ya_excluidos[k] for k in claves if k in ya_excluidos and _identidad_bibliografica_compatible(a, ya_excluidos[k])), None)
             if ex_prev is not None and nombre and ex_prev.get("criterio") == criterio:
                 # Un modelo ya lo juzgó con este mismo criterio estable (objetivo y pregunta
                 # de la corrida): el rescate por nombre vale una vez por criterio; repetirlo
@@ -1443,11 +1769,11 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             async with sem:
                 try:
                     if modo == "amplitud":
-                        pred = await ctx.llamar("volumen", ctx.programas.relevancia_amplitud, objetivo=inv["objetivo"], hipotesis_y_vivero=contexto_amplitud, titulo=a.get("titulo", ""), resumen=K.como_dato((a.get("resumen") or "")[:3000]))
+                        pred = await ctx.llamar("volumen", ctx.programas.relevancia_amplitud, objetivo=inv["objetivo"], hipotesis_y_vivero=contexto_amplitud, titulo=a.get("titulo", ""), resumen=K.como_dato((a.get("_textoCribado") or a.get("resumen") or "")[:3000]))
                         a["_porque"] = str(pred.podria_cambiar or "")[:200]
                         puntuados.append((int(pred.puntuacion), a, f"{pred.motivo} Podría cambiar: {pred.podria_cambiar}"))
                     else:
-                        pred = await ctx.llamar("volumen", ctx.programas.relevancia, preguntas_abiertas=preguntas, titulo=a.get("titulo", ""), resumen=K.como_dato((a.get("resumen") or "")[:3000]))
+                        pred = await ctx.llamar("volumen", ctx.programas.relevancia, preguntas_abiertas=preguntas, titulo=a.get("titulo", ""), resumen=K.como_dato((a.get("_textoCribado") or a.get("resumen") or "")[:3000]))
                         puntuados.append((int(pred.puntuacion), a, pred.motivo))
                 except PresupuestoAgotado:
                     raise
@@ -1464,7 +1790,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
         descartados = [x for x in puntuados if x[0] < minimo]
         resultado["cribados"] = len(relevantes)
         pista.resultado(f"Cribado{' en amplitud' if modo == 'amplitud' else ''}: {len(relevantes)} de {len(puntuados)} relevantes (puntuación >= {minimo}); descartados: " + ", ".join(f"{a['referencia']} ({p})" for p, a, _ in descartados)[:300])
-        demasiado_amplia = total > politicas.RESULTADOS_DEMASIADO_AMPLIA and not relevantes
+        demasiado_amplia = total is not None and total > politicas.RESULTADOS_DEMASIADO_AMPLIA and not relevantes
 
         def anotar_cribado(e: dict[str, Any]) -> bool:
             # Cada excluido con su motivo: es el item 16b de PRISMA 2020 y la caja de
@@ -1476,7 +1802,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             # La consulta relajada comparte el cribado con la original y lleva la misma cifra.
             pendientes_registro = {consulta["consulta"]} | ({relajada} if relajada else set())
             for q_ in reversed(b["consultas"]):
-                if q_.get("consulta") in pendientes_registro and q_.get("iteracion") == ctx.numero:
+                if q_.get("consulta") in pendientes_registro and q_.get("iteracion") == ctx.numero and q_.get("base") == nombre_base:
                     q_["relevantes"] = len(relevantes)
                     if demasiado_amplia:
                         q_["demasiadoAmplia"] = True
@@ -1551,8 +1877,8 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
                              EL.articulo(fid, a, "incluido", motivo, modo))
                 continue
             marca, detalle, comprobada = await _comprobar_retraccion(a, pista)
-            fragmentos = await _fragmentos_de(ctx, a, pista, con_texto)
-            if any(fr["localizador"] != "resumen" for fr in fragmentos):
+            fragmentos = a.get("_fragmentosAcademicos") or await _fragmentos_de(ctx, a, pista, con_texto)
+            if any(_es_fragmento_completo(fr) for fr in fragmentos):
                 resultado["textoCompleto"] += 1
             tipo = "preprint" if a.get("preprint") or base == "preprints" else "articulo"
             a["_modo"] = modo
@@ -1564,7 +1890,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
 
         resultado["msFuentes"] += max(0, P.ahora_ms() - t_fuentes)
         _anotar_textos_completos(ctx, pista.id, resultado["textoCompleto"])
-        pista.cerrar(f"{total} resultados, {len(relevantes)} relevantes, {resultado['textoCompleto']} con texto completo, {(P.ahora_ms() - ahora) / 1000:.0f} s en total")
+        pista.cerrar(f"{texto_total} resultados, {len(relevantes)} relevantes, {resultado['textoCompleto']} con texto completo, {(P.ahora_ms() - ahora) / 1000:.0f} s en total")
     except PresupuestoAgotado:
         pista.cerrar("Presupuesto agotado: la pista se retoma al ampliarlo", "detenida")
         raise
@@ -1677,12 +2003,15 @@ async def paso_literatura(ctx: Ctx, paso: dict[str, Any]) -> str:
     inv = ctx.inv()
     e = ctx.e
     preguntas = _criterio(ctx, inv)
+    # Recuperación sin modelos, antes de que la planificación o el primer cribado
+    # agoten presupuesto. El checkpoint se retoma sin repetir nueve peticiones.
+    academicas = await _preparar_tanda_academica(ctx, paso)
     # Consultas ya hechas en TODAS las corridas de la investigación, con su rendimiento.
     previas = T.consultas_hechas(e, ctx.investigacion_id)
     lecciones = await LEC.para(ctx.almacen, ctx.investigacion_id, ("consultas", "fuentes"), preguntas[:1500])
     nombres = T.nombres_propios(f"{inv['objetivo']} {preguntas}")
     pred = await ctx.llamar("cerebro", ctx.programas.consultas, objetivo=inv["objetivo"], preguntas_abiertas=preguntas, hipotesis_vivas=T.hipotesis_vivas(e["hipotesis"], ctx.investigacion_id) + "\n" + T.vivero_texto(inv), consultas_previas=T.consultas_previas_texto(e, ctx.investigacion_id), lecciones=lecciones, indicaciones_humanas=T.indicaciones_humanas(ctx.iteracion()) + ("\n" + paso["detalle"] if paso.get("detalle") else ""), bases_disponibles=", ".join(bases_disponibles()), nombres_propios=", ".join(nombres) or "Ninguno")
-    consultas = [base_efectiva(c.model_dump()) for c in pred.consultas][: politicas.MAX_CONSULTAS_FOCO]
+    consultas = [q for c in pred.consultas if (q := base_efectiva(c.model_dump())).get("base") not in FUENTES_ACADEMICAS][: politicas.MAX_CONSULTAS_FOCO]
     # Tope de tres cláusulas AND (política): la consulta se acota por regla aunque el
     # modelo escriba cinco, y la pista lo dice (S-07).
     for q in consultas:
@@ -1711,17 +2040,34 @@ async def paso_literatura(ctx: Ctx, paso: dict[str, Any]) -> str:
             pista_amp.cerrar("Presupuesto agotado antes de escribir las consultas de amplitud; el paso se retoma al ampliarlo", "detenida")
             raise
         pista_amp.cerrar(f"{len(de_amplitud)} consultas de amplitud: " + "; ".join(q["tema"][:40] for q in de_amplitud) if de_amplitud else "Sin consultas de amplitud en este paso")
-        consultas += de_amplitud
-    if not consultas:
+        consultas += [q for q in de_amplitud if q.get("base") not in FUENTES_ACADEMICAS]
+    if not consultas and not academicas:
         return "El modelo no propuso consultas"
     crudos = await _en_paralelo(*(_consulta_literatura(ctx, paso, c, preguntas) for c in consultas), return_exceptions=True)
     for c, r in zip(consultas, crudos):
-        if isinstance(r, (PresupuestoAgotado, VIG.ModeloSinRespuesta)):
-            raise r
         if isinstance(r, BaseException):
+            if isinstance(r, (*EXCEPCIONES_QUE_CORTAN_EL_PASO, asyncio.CancelledError)):
+                raise r
             # Una consulta que reventó no tumba las otras cuatro.
             traceback.print_exc()
             ctx.pista(paso["id"], "literatura", f"Consulta fallida: {c.get('consulta', '')[:50]}", "").fallar(f"{type(r).__name__}: {str(r)[:160]}")
+    # La literatura existente conserva prioridad en el presupuesto de modelos.
+    # Las nueve respuestas ya están recuperadas aunque aquí se interrumpa el paso.
+    for consulta_academica in academicas:
+        _comprobar_busqueda_activa(ctx)
+        resultado_academico = await _consulta_literatura(ctx, paso, consulta_academica, preguntas)
+        consultas.append(consulta_academica)
+        crudos.append(resultado_academico)
+
+        def terminar(e: dict[str, Any], base: str = consulta_academica["base"]) -> bool:
+            c = next(x for x in e["corridas"] if x["id"] == ctx.corrida_id)
+            c["_literaturaAcademica"][str(ctx.numero)][base]["procesada"] = True
+            for q in c["busqueda"]["consultas"]:
+                if q.get("fuenteId") == base and q.get("iteracion") == ctx.numero and q.get("lecturaEstado") != "pendiente_texto":
+                    q["lecturaEstado"] = "no_comprobado" if q.get("estado") == "no_comprobado" else "terminada"
+            return True
+
+        ctx.mutar(terminar, "cribado_academico")
     pares = [(q, r) for q, r in zip(consultas, crudos) if isinstance(r, dict)]
     resultados = [r for _, r in pares]
     total = {k: sum(r[k] for r in resultados) for k in resultados[0]} if resultados else {}

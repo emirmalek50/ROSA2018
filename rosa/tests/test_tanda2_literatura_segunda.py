@@ -221,6 +221,9 @@ def test_consultas_por_nombre_deja_de_insistir_tras_dos_simples_sin_relevantes_o
 
 
 def test_paso_literatura_escribe_en_una_pista_lo_que_la_red_por_nombre_deja_de_repetir(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(PASOS, "_preparar_tanda_academica", AsyncMock(return_value=[]))
     al = _almacen(con_previa=False)
     try:
         def registro(e):

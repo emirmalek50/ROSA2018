@@ -270,7 +270,14 @@ def _fuentes_falsas(mp: pytest.MonkeyPatch, registro: dict[str, list[Any]]) -> N
 
     async def consultar(nombre: str, /, **kwargs: Any):
         reg, dato = await consultar_base(nombre, **kwargs)
-        if nombre == "agora":
+        if nombre.startswith("academica_"):
+            # Esta corrida prueba el flujo completo con una colección sintética
+            # vacía y comprobada, no con proveedores nuevos sin simular.
+            reg.update(n=0, ids=[], error=None, version="simulada", invariante={"ok": True, "detalle": "Colección sintética vacía"})
+            dato = {"articulos": [], "total": 0, "estado": "completa", "limitaciones": [],
+                    "consultas": [{"fuente": nombre, "consulta": kwargs["consulta"], "fecha": "2026-10-08T00:00:00Z", "total": 0, "modo": "simulado"}],
+                    "consumo": {"serpapiConsultas": 0}}
+        elif nombre == "agora":
             gen = kwargs["gen"]
             assert gen in IDS_AGORA, f"El arnés necesita una respuesta explícita de Agora para {gen}"
             identificador = IDS_AGORA[gen]
@@ -922,13 +929,23 @@ def test_el_coste_real_facturado_por_el_gateway_se_acumula_en_la_corrida(corrida
     assert c["gasto"]["usdReal"] == pytest.approx(COSTE_GATEWAY * n, rel=1e-3)
 
 
-def test_el_presupuesto_agotado_pausa_la_corrida_sin_bucle_ni_llamadas(monkeypatch):
+@pytest.mark.parametrize("estado_academico", ["completa", "parcial"])
+def test_el_presupuesto_agotado_pausa_la_corrida_sin_bucle_ni_llamadas(monkeypatch, estado_academico):
     """Con un tope de cuatro llamadas la quinta corta dentro del primer paso (el
     cribado de relevancia): el paso vuelve a pendiente, ningún paso queda
     fallido, la corrida queda pausada con el motivo real y el bucle espera sin
     gastar ni mutar el estado hasta que alguien amplíe."""
     r = _arnes(monkeypatch, limite_corrida=4)
     al, sup, sim = r["al"], r["sup"], r["sim"]
+    consultar_simulada = CON.consultar
+
+    async def consultar(nombre, /, **kwargs):
+        registro, dato = await consultar_simulada(nombre, **kwargs)
+        if nombre.startswith("academica_") and estado_academico == "parcial":
+            dato.update(estado="parcial", total=None, modo="descubrimiento_web", limitaciones=["Descubrimiento público parcial; no se consultó el índice privado."])
+        return registro, dato
+
+    monkeypatch.setattr(CON, "consultar", consultar)
 
     async def cuerpo() -> None:
         tarea = asyncio.create_task(sup.correr_corrida(r["ids"]["cor"]))
@@ -946,6 +963,9 @@ def test_el_presupuesto_agotado_pausa_la_corrida_sin_bucle_ni_llamadas(monkeypat
     try:
         asyncio.run(cuerpo())
         c, it = _corrida(r), _it(r)
+        academicas = [q for q in c["busqueda"]["consultas"] if q.get("fuenteId")]
+        assert len(academicas) == 9 and all(q["estado"] == estado_academico for q in academicas)
+        assert not any(inc.get("recurso", "").startswith("academica_") for inc in al.estado["incidencias"])
         assert c["gasto"]["llamadas"] == 4 and len(sim.vistas) == 4 and sim.cortes >= 1  # la quinta la paró el corte antes de salir
         assert c["presupuesto"]["motivoPausa"] == "La corrida agotó su tope de 4 llamadas (4 gastadas): se pausó. Amplía el tope para seguir."
         # El aviso de gasto grande (autonomía en «actuar», regla del 18 de septiembre) es otro

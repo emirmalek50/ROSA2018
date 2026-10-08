@@ -3,19 +3,35 @@
 // arbol que pinta la pantalla: consulta -> fuentes -> afirmaciones con su
 // veredicto. Sin React, para poder probarla sola.
 
-import type { ProcedenciaVeredictoLab, TipoAfirmacion, TipoFuente, Veredicto } from '../datos/tipos';
+import type { ConsultaBusqueda, ProcedenciaVeredictoLab, TipoAfirmacion, TipoFuente, Veredicto } from '../datos/tipos';
 import { VEREDICTO } from './etiquetas';
+import { formatearEntero } from './formato';
+import { idiomaActual, tr, trp } from './idioma';
 
-export interface ConsultaEvidencia {
-  base: string;
-  consulta: string;
-  fecha: number;
-  resultados: number;
-  iteracion?: number;
-  tema?: string;
-  /** foco o amplitud; ausente en consultas anteriores al 16 de septiembre de 2026. */
-  modo?: 'foco' | 'amplitud';
-  porque?: string;
+export type ConsultaEvidencia = ConsultaBusqueda;
+
+export const totalNoComprobado = () => idiomaActual() === 'en' ? 'Total not verified' : 'Total no comprobado';
+export const candidatosRecuperados = (n: number) => idiomaActual() === 'en' ? `${formatearEntero(n)} candidates retrieved` : `${formatearEntero(n)} candidatos recuperados`;
+
+export function resumenResultadosConsulta(q: Pick<ConsultaBusqueda, 'resultados' | 'recuperados'>): string {
+  const total = q.resultados == null ? totalNoComprobado() : trp('{resultados} resultados', { resultados: formatearEntero(q.resultados) });
+  return q.recuperados === undefined ? total : `${total} · ${candidatosRecuperados(q.recuperados)}`;
+}
+
+export function estadoConsulta(q: Pick<ConsultaBusqueda, 'estado'>): string | null {
+  const etiquetas = idiomaActual() === 'en' ? { completa: 'Complete', parcial: 'Partial', no_comprobado: 'Not verified' } : { completa: 'Completa', parcial: 'Parcial', no_comprobado: 'No comprobado' };
+  return q.estado ? etiquetas[q.estado] : null;
+}
+
+export function limitacionesConsulta(q: Pick<ConsultaBusqueda, 'limitaciones' | 'error'>): string {
+  return [...new Set([...(q.limitaciones ?? []), ...(q.error ? [q.error] : [])])].join(' ');
+}
+
+export function consultaSinFuentes(q: ConsultaBusqueda | null): string {
+  if (q?.estado === 'no_comprobado' || q?.estado === 'parcial' || q?.lecturaEstado && q.lecturaEstado !== 'terminada') {
+    return idiomaActual() === 'en' ? 'No read sources are linked to this query yet.' : 'Todavía no hay fuentes leídas vinculadas a esta consulta.';
+  }
+  return tr('Ninguna fuente pasó el cribado de relevancia.');
 }
 
 export interface FuenteEvidencia {
@@ -83,7 +99,7 @@ export interface NodoConsulta {
 
 export interface Embudo {
   consultas: number;
-  identificados: number;
+  identificados: number | null;
   fuentes: number;
   textoCompleto: number;
   afirmaciones: number;
@@ -146,7 +162,7 @@ export function construirArbol(ev: Evidencia, iteracion: number, filtro: FiltroV
 
   const embudo: Embudo = {
     consultas: consultas.length,
-    identificados: consultas.reduce((s, c) => s + c.resultados, 0),
+    identificados: consultas.every(c => c.resultados != null) ? consultas.reduce((s, c) => s + c.resultados!, 0) : null,
     fuentes: fuentes.length,
     textoCompleto: fuentes.filter((f) => f.textoCompleto).length,
     afirmaciones: afirmaciones.length,

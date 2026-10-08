@@ -1453,7 +1453,7 @@ class Supervisor:
         consultas = [q for q in c["busqueda"]["consultas"] if q.get("iteracion") == ctx.numero]
         it = ctx.iteracion() if ctx.iteracion_id else None
         fallidas = [p["titulo"] + ": " + p["resumen"] for p in (it["pistas"] if it else []) if p["estado"] == "fallida"]
-        busqueda = "\n".join(f"- {q['base']}: {q['resultados']} resultados" for q in consultas) or "- Sin consultas nuevas"
+        busqueda = "\n".join(f"- {q['base']}: {T.resumen_consulta(q)}" for q in consultas) or "- Sin consultas nuevas"
         busqueda += "\nAfirmaciones verificadas en esta iteración: " + (", ".join(f"{v} {k}" for k, v in por_veredicto.items()) or "ninguna")
         busqueda += "\nFuentes que no respondieron: " + ("; ".join(fallidas) if fallidas else "ninguna")
         try:

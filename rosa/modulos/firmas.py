@@ -46,8 +46,8 @@ class TareaNoProgramada(BaseModel):
 
 
 class Consulta(BaseModel):
-    base: Literal["pubmed", "europepmc", "preprints", "exa", "gris"] = Field(description="pubmed, europepmc y preprints reciben una consulta booleana; exa es búsqueda semántica de publicaciones y recibe una pregunta o hipótesis en lenguaje natural, sin operadores; gris es la misma búsqueda semántica acotada a reguladores (FDA, EMA), registros de ensayos, la OMS, el NIA y los portales del campo (Alzforum), para lo que PubMed no indexa")
-    consulta: str = Field(description="La cadena exacta que se envia a la base: con operadores booleanos para pubmed, europepmc y preprints; una frase en lenguaje natural para exa y gris")
+    base: Literal["pubmed", "europepmc", "preprints", "exa", "gris", "embase", "cochrane", "scopus", "web_of_science", "lilacs", "scielo", "cinahl", "psycinfo", "google_scholar"] = Field(description="pubmed, europepmc y preprints reciben consultas booleanas; exa y gris reciben lenguaje natural. embase, cochrane, scopus, web_of_science, lilacs, scielo, cinahl, psycinfo y google_scholar forman una tanda automática acotada por iteración: pueden usar descubrimiento web mediante SerpApi, que no acredita acceso al índice privado ni cobertura completa")
+    consulta: str = Field(description="Cadena exacta de búsqueda: booleanos para pubmed, europepmc y preprints; pregunta científica o términos para exa, gris y descubrimiento académico. Un snippet recuperado no es un resumen ni evidencia")
     tema: str = Field(description="Tema corto al que sirve la consulta")
     modo: Literal["foco", "amplitud"] = Field(default="foco", description="foco: sirve a la pregunta de la corrida o al peldaño de una hipótesis; amplitud: explora alrededor (tema adyacente, novedad del campo, sorpresa)")
     porque: str = Field(default="", description="Solo en amplitud: qué podría cambiar si aparece algo (una hipótesis, una idea del vivero, una línea nueva sobre el objetivo), en una frase")
@@ -256,7 +256,11 @@ class GenerarConsultas(dspy.Signature):
     Alzforum); si no las incluye, no se usan exa ni gris. Los nombres propios (fármacos,
     ensayos, cohortes: lecanemab, INVOKE-2, evoke) se buscan por nombre exacto, entre
     comillas, en PubMed o Europe PMC, una consulta por nombre, además de las conceptuales:
-    la búsqueda por significado los pierde."""
+    la búsqueda por significado los pierde. ROSA ejecuta por regla una sola tanda de
+    Embase, Cochrane, Scopus, Web of Science, LILACS, SciELO, CINAHL, PsycInfo y Google
+    Scholar por iteración, con la pregunta y el detalle del paso. No multipliques esa
+    tanda por cada consulta: dedica estas propuestas a las bases anteriores. El acceso
+    web de respaldo no representa una búsqueda exhaustiva del índice privado."""
 
     objetivo: str = dspy.InputField()
     preguntas_abiertas: str = dspy.InputField()

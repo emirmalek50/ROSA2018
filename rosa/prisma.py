@@ -39,6 +39,19 @@ from rosa import version as VERSION
 BASES_REGISTRO = ("ClinicalTrials.gov", "clinicaltrials", "ensayos")
 
 
+def _recuento(v: Any) -> int | None:
+    return v if isinstance(v, int) and not isinstance(v, bool) and v >= 0 else None
+
+
+def _total_consultas(consultas: list[dict[str, Any]]) -> int | None:
+    numeros = [_recuento(q.get("resultados")) for q in consultas]
+    return sum(n for n in numeros if n is not None) if all(n is not None for n in numeros) else None
+
+
+def _cifra(v: int | None) -> str:
+    return str(v) if v is not None else "total no comprobado"
+
+
 def _fecha(ms: int | None) -> str:
     if not ms:
         return "sin fecha"
@@ -47,13 +60,15 @@ def _fecha(ms: int | None) -> str:
 
 def flujo_prisma2020(corrida: dict[str, Any], fuentes: dict[str, dict[str, Any]], hipotesis: list[dict[str, Any]]) -> dict[str, Any]:
     """Las cajas del diagrama de flujo PRISMA 2020 con los nombres del paquete
-    oficial. ROSA2018 no hace busqueda manual ni "otros metodos": esas cajas van a
-    cero. El cribado lo hace un modelo, asi que `records_excluded` es tambien
+    oficial. El descubrimiento web se separa de los índices; un total
+    desconocido conserva null. El cribado lo hace un modelo, así que `records_excluded` es también
     lo que excluyo una herramienta automatica (lo declara trAIce R1)."""
     b = corrida.get("busqueda", {})
     consultas = b.get("consultas", [])
-    en_registros = sum(int(q.get("resultados") or 0) for q in consultas if any(r.lower() in str(q.get("base", "")).lower() for r in BASES_REGISTRO))
-    en_bases = sum(int(q.get("resultados") or 0) for q in consultas) - en_registros
+    web = [q for q in consultas if q.get("modoAcceso") == "descubrimiento_web"]
+    registros = [q for q in consultas if q not in web and any(r.lower() in str(q.get("base", "")).lower() for r in BASES_REGISTRO)]
+    bases = [q for q in consultas if q not in registros and q not in web]
+    en_registros, en_bases = _total_consultas(registros), _total_consultas(bases)
     traidos = int(b.get("traidos") or 0) or len(fuentes)
     excluidos = list(b.get("excluidos") or [])
     cribadas_ok = int(b.get("cribados") or 0)
@@ -69,7 +84,7 @@ def flujo_prisma2020(corrida: dict[str, Any], fuentes: dict[str, dict[str, Any]]
         "previous_reports": 0,
         "database_results": en_bases,
         "register_results": en_registros,
-        "website_results": 0,
+        "website_results": _total_consultas(web),
         "organisation_results": 0,
         "citations_results": 0,
         "duplicates": duplicados,
@@ -90,6 +105,12 @@ def flujo_prisma2020(corrida: dict[str, Any], fuentes: dict[str, dict[str, Any]]
         "total_studies": len(usadas),
         "total_reports": len(usadas),
         "_notas": {
+            "cobertura": "Los totales desconocidos se conservan como null; las consultas parciales y el descubrimiento web no acreditan cobertura exhaustiva del índice.",
+            "consultasConTotalDesconocido": sum(_recuento(q.get("resultados")) is None for q in consultas),
+            "consultasParciales": sum(q.get("estado") == "parcial" for q in consultas),
+            "resultadosConocidosEnBases": sum(_recuento(q.get("resultados")) or 0 for q in bases),
+            "resultadosConocidosEnRegistros": sum(_recuento(q.get("resultados")) or 0 for q in registros),
+            "resultadosConocidosEnWeb": sum(_recuento(q.get("resultados")) or 0 for q in web),
             "records_excluded_por_automatizacion": "El cribado por relevancia lo hace un modelo de lenguaje (ver traIce); todos los excluidos en esa caja los excluyo la herramienta automática.",
             "excluded_other": "Fuentes retractadas según Crossref, apartadas antes de leerlas.",
             "textoCompleto": len(con_texto),
@@ -120,9 +141,14 @@ def informe(e: dict[str, Any], corrida: dict[str, Any], llamadas: list[dict[str,
     flujo = flujo_prisma2020(corrida, fuentes, e.get("hipotesis", []))
     por_base: dict[str, dict[str, Any]] = {}
     for q in consultas:
-        x = por_base.setdefault(q.get("base", "?"), {"consultas": 0, "resultados": 0, "ultima": None})
+        x = por_base.setdefault(q.get("base", "?"), {"consultas": 0, "resultados": 0, "resultadosConocidos": 0,
+                                                    "consultasParciales": 0, "consultasNoComprobadas": 0, "ultima": None})
         x["consultas"] += 1
-        x["resultados"] += int(q.get("resultados") or 0)
+        total = _recuento(q.get("resultados"))
+        x["resultados"] = x["resultados"] + total if x["resultados"] is not None and total is not None else None
+        x["resultadosConocidos"] += total or 0
+        x["consultasParciales"] += q.get("estado") == "parcial"
+        x["consultasNoComprobadas"] += q.get("estado") == "no_comprobado"
         x["ultima"] = max(x["ultima"] or 0, int(q.get("fecha") or 0)) or None
     excluidos = list(b.get("excluidos") or [])
     modelos_cribado = sorted({str(l.get("modelo")) for l in llamadas if l.get("rol") == "volumen" and l.get("modelo")})
@@ -134,8 +160,9 @@ def informe(e: dict[str, Any], corrida: dict[str, Any], llamadas: list[dict[str,
     arnes = corrida.get("arnes") or VERSION.arnes()
     hubo_amplitud = any(q.get("modo") == "amplitud" for q in consultas)
     items = {
-        "6_fuentes_de_informacion": [{"base": base, "consultas": x["consultas"], "resultados": x["resultados"], "ultimaBusqueda": _fecha(x["ultima"])} for base, x in sorted(por_base.items())],
-        "7_estrategias_de_busqueda": [{"base": q.get("base"), "consulta": q.get("consulta"), "fecha": _fecha(q.get("fecha")), "resultados": q.get("resultados"), "iteracion": q.get("iteracion"), "tema": q.get("tema"), "modo": q.get("modo") or "foco"} for q in consultas],
+        "6_fuentes_de_informacion": [{"base": base, **{k: v for k, v in x.items() if k != "ultima"}, "ultimaBusqueda": _fecha(x["ultima"])} for base, x in sorted(por_base.items())],
+        "7_estrategias_de_busqueda": [{"base": q.get("base"), "consulta": q.get("consulta"), "fecha": _fecha(q.get("fecha")), "resultados": q.get("resultados"), "iteracion": q.get("iteracion"), "tema": q.get("tema"), "modo": q.get("modo") or "foco",
+                                      "recuperados": q.get("recuperados"), "estado": q.get("estado"), "modoAcceso": q.get("modoAcceso"), "limitaciones": q.get("limitaciones", []), "error": q.get("error")} for q in consultas],
         "8_proceso_de_seleccion": {
             "quienCriba": "Un modelo de lenguaje (rol volumen) puntua de 0 a 10 cada título y resumen frente a las preguntas abiertas; se conserva lo que llega al umbral. Ninguna persona criba registro a registro; las personas revisan las hipótesis y sus afirmaciones después.",
             "revisoresIndependientes": 0,
@@ -174,16 +201,17 @@ def informe(e: dict[str, Any], corrida: dict[str, Any], llamadas: list[dict[str,
 def _markdown(inv: dict[str, Any], corrida: dict[str, Any], flujo: dict[str, Any], items: dict[str, Any], lsr: dict[str, Any], traice: dict[str, Any], ahora: int) -> str:
     L = [f"# Flujo de búsqueda PRISMA 2020: {inv.get('titulo', '')}", "", f"Corrida {corrida['id']}, generado el {_fecha(ahora)} por ROSA2018 desde su registro (sin ningún modelo). PRISMA 2020 (Page y otros, BMJ 2021); revisiones vivas según PRISMA-LSR (BMJ 2024); declaración de IA según la propuesta PRISMA-trAIce (JMIR AI 2025).", ""]
     L += ["## Ítem 6. Fuentes de información y fecha de la última búsqueda", ""]
-    L += [f"- {x['base']}: {x['consultas']} consultas, {x['resultados']} registros, última búsqueda {x['ultimaBusqueda']}" for x in items["6_fuentes_de_informacion"]] or ["- Sin consultas registradas"]
+    L += [f"- {x['base']}: {x['consultas']} consultas, " + (f"{x['resultados']} registros" if x["resultados"] is not None else "total de registros no comprobado") + f", {x['consultasParciales']} consultas parciales y {x['consultasNoComprobadas']} no comprobadas, última búsqueda {x['ultimaBusqueda']}" for x in items["6_fuentes_de_informacion"]] or ["- Sin consultas registradas"]
     L += ["", "## Ítem 7. Estrategias de búsqueda completas", ""]
-    L += [f"- [{q['fecha']}] {q['base']}: `{q['consulta']}` ({q['resultados']} resultados; iteración {q['iteracion']}, tema: {q['tema']})" for q in items["7_estrategias_de_busqueda"]] or ["- Ninguna"]
+    from rosa.bucle.contexto import resumen_consulta
+    L += [f"- [{q['fecha']}] {q['base']}: `{q['consulta']}` ({resumen_consulta(q)}; iteración {q['iteracion']}, tema: {q['tema']})" for q in items["7_estrategias_de_busqueda"]] or ["- Ninguna"]
     L += ["", "## Ítem 8. Proceso de selección", "", items["8_proceso_de_seleccion"]["quienCriba"], "", "Herramientas de automatización: " + "; ".join(items["8_proceso_de_seleccion"]["herramientasAutomatizacion"])]
     L += ["", "## Ítem 16a. Flujo (variables del diagrama PRISMA 2020)", "", "| Caja | n |", "|---|---|"]
-    for k in ("database_results", "register_results", "duplicates", "excluded_other", "records_screened", "records_excluded", "dbr_sought_reports", "dbr_notretrieved_reports", "dbr_assessed", "new_studies"):
-        L.append(f"| {k} | {flujo[k]} |")
+    for k in ("database_results", "register_results", "website_results", "duplicates", "excluded_other", "records_screened", "records_excluded", "dbr_sought_reports", "dbr_notretrieved_reports", "dbr_assessed", "new_studies"):
+        L.append(f"| {k} | {_cifra(flujo[k])} |")
     if flujo["dbr_excluded"]:
         L += [f"| dbr_excluded: {k} | {v} |" for k, v in flujo["dbr_excluded"].items()]
-    L += ["", flujo["_notas"]["records_excluded_por_automatizacion"]]
+    L += ["", flujo["_notas"]["records_excluded_por_automatizacion"], "", flujo["_notas"]["cobertura"]]
     L += ["", f"## Ítem 16b. Excluidos en el cribado con motivo ({len(items['16b_excluidos_con_motivo'])})", ""]
     L += [f"- {x.get('referencia', '?')} (relevancia {x.get('relevancia', '?')}/10): {x.get('motivo', '')}" for x in items["16b_excluidos_con_motivo"][:120]] or ["- Ninguno registrado"]
     L += ["", "## Revisión viva (PRISMA-LSR)", "", f"- L1: {lsr['L1_calendario']}", f"- L3: {lsr['L3_cambios_de_resultados']['iteraciones']} iteraciones en esta corrida", f"- L4: personas {', '.join(lsr['L4_autores_por_version']['personas']) or 'sin declarar'}; sistema {json.dumps(lsr['L4_autores_por_version']['sistema'], ensure_ascii=False)}"]

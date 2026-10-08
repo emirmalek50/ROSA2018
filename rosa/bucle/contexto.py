@@ -29,7 +29,7 @@ from typing import Any
 
 from rosa import config
 from rosa import certeza as CERTEZA
-from rosa import indice_semantico, politicas
+from rosa import indice_semantico, lecciones, politicas
 
 
 def es_heredado(h: dict[str, Any]) -> bool:
@@ -791,6 +791,20 @@ def consultas_previas_texto(e: dict[str, Any], investigacion_id: str, maximo: in
     return "\n".join(lineas)
 
 
+def resumen_consulta(q: dict[str, Any]) -> str:
+    """Total y candidatos son cifras distintas; una limitación no es ausencia."""
+    total = q.get("resultados")
+    texto = f"{total} resultados" if isinstance(total, int) and not isinstance(total, bool) else "total no comprobado"
+    if isinstance(q.get("recuperados"), int):
+        texto += f"; {q['recuperados']} candidatos recuperados"
+    if q.get("estado"):
+        texto += "; estado " + str(q["estado"]).replace("_", " ")
+    limites = list(q.get("limitaciones") or [])
+    if q.get("error") and q["error"] not in limites:
+        limites.append(q["error"])
+    return texto + ("; limitaciones: " + "; ".join(str(x) for x in limites) if limites else "")
+
+
 def traspaso_iteracion(e: dict[str, Any], it: dict[str, Any], c: dict[str, Any]) -> str:
     """Lo que la iteración anterior deja, del registro y no del modelo: pasos y
     pistas fallidos con su motivo, consultas vacías, bases caídas, afirmaciones
@@ -803,9 +817,13 @@ def traspaso_iteracion(e: dict[str, Any], it: dict[str, Any], c: dict[str, Any])
     pistas = [p for p in it.get("pistas", []) if p.get("estado") == "fallida"]
     if pistas:
         lineas.append("Pistas fallidas: " + "; ".join(f"«{p['titulo'][:60]}»: {(p.get('resumen') or '')[:100]}" for p in pistas[:6]))
-    vacias = [q for q in (c.get("busqueda") or {}).get("consultas", []) if q.get("iteracion") == it.get("numero") and (int(q.get("resultados") or 0) == 0 or q.get("relevantes") == 0)]
+    consultas = [q for q in (c.get("busqueda") or {}).get("consultas", []) if q.get("iteracion") == it.get("numero")]
+    vacias = [q for q in consultas if lecciones.consulta_comprobada(q) and (q["resultados"] == 0 or q.get("relevantes") == 0)]
     if vacias:
         lineas.append("Consultas que no rindieron (no repetir igual): " + "; ".join(f"«{q['consulta'][:80]}» en {q['base']} ({q.get('resultados')} resultados, {q.get('relevantes', '?')} relevantes)" for q in vacias[:8]))
+    incompletas = [q for q in consultas if not lecciones.consulta_comprobada(q)]
+    if incompletas:
+        lineas.append("Consultas con cobertura incompleta (no permiten concluir ausencia): " + "; ".join(f"«{q['consulta'][:80]}» en {q['base']}: {resumen_consulta(q)}" for q in incompletas[:8]))
     caidas = {b: n for b, n in (c.get("_fallosFuente") or {}).items() if int(n or 0) >= 3}
     if caidas:
         lineas.append("Bases que no respondieron (es «no pude comprobar», no «no hay»): " + ", ".join(f"{b} ({n} fallos)" for b, n in caidas.items()))
