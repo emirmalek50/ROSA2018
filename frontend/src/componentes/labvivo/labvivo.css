@@ -2,7 +2,7 @@
    .labvivo para no tocar el resto de la app; el lienzo mide 1064 × 1416 y el
    envoltorio lo escala al ancho disponible. */
 .labvivo-marco{position:relative;width:100%;overflow:hidden}
-.labvivo{position:absolute;left:0;top:0;width:1064px;height:1416px;transform-origin:0 0;color:#F4F1EA;font-family:"Inter Variable",Inter,system-ui,sans-serif}
+.labvivo{position:absolute;left:var(--lv-dx,0px);top:0;width:1064px;height:1416px;transform-origin:0 0;color:#F4F1EA;font-family:"Inter Variable",Inter,system-ui,sans-serif}
 .labvivo *{box-sizing:border-box;margin:0;padding:0}
 .labvivo .lv-vista{width:1064px;height:1312px;position:relative;overflow:hidden;border-radius:14px;border:1px solid #FFFFFF14;background:#0E0D14}
 .labvivo .lv-mundo{position:absolute;left:0;top:0;width:1064px;height:1312px;transform-origin:0 0}
@@ -21,8 +21,8 @@
 
 .labvivo .lv-tag{position:absolute;font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;background:#0E0D14CC;white-space:nowrap;line-height:12px}
 .labvivo .lv-tag b{font-weight:700}
-.labvivo .lv-tag.cartel{display:flex;gap:4px;max-width:88px}
-.labvivo .lv-tag.cartel>span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.labvivo .lv-tag.cartel{display:block;max-width:88px;white-space:normal;font-size:9.5px;line-height:11px;padding:1px 5px}
+.labvivo .lv-tag.cartel>span:first-child{overflow:visible;min-width:0;margin-right:3px}
 .labvivo .lv-tag.pop{animation:lv-pop .5s}
 @keyframes lv-pop{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
 
@@ -95,7 +95,8 @@
 
 .labvivo .lv-barra{position:absolute;left:0;top:1320px;width:1064px;height:96px;background:#15131C;border:1px solid #FFFFFF14;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .labvivo .lv-capitulos{display:flex;gap:6px}
-.labvivo .lv-chip{flex:1;display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;background:#FFFFFF08;border:1px solid transparent;cursor:pointer;font:600 11px "Inter Variable",Inter,sans-serif;color:#C9C4DA;position:relative;overflow:hidden;text-align:left;white-space:nowrap}
+.labvivo .lv-chip .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.labvivo .lv-chip{flex:1;min-width:0;display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;background:#FFFFFF08;border:1px solid transparent;cursor:pointer;font:600 11px "Inter Variable",Inter,sans-serif;color:#C9C4DA;position:relative;overflow:hidden;text-align:left;white-space:nowrap}
 .labvivo .lv-chip .n{width:16px;height:16px;border-radius:3px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;color:#0E0D14;flex:none}
 .labvivo .lv-chip .s{margin-left:auto;font-size:9.5px;font-weight:600;opacity:.85}
 .labvivo .lv-chip.on{background:#FFFFFF14;border-color:#FFFFFF40;color:#F4F1EA}

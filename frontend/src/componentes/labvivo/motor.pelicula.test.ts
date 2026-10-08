@@ -127,6 +127,19 @@ describe('el motor representa la película del registro, sin inventar el trabajo
     expect(nodo.querySelector<HTMLElement>('.lv-expediente-torneo')!.dataset).toMatchObject({ hipotesisA: 'hip-a', hipotesisB: 'hip-b' });
   });
 
+  it('cada escena encabeza su hoja y la barra con la novedad en una línea', async () => {
+    const d = datos(); montar(d);
+    const actualizado = conEvento({ ...d, fuentes: [{ nombre: 'PubMed', salen: 120, sirven: 30, fallo: false, consultas: 2 }] },
+      { id: 'fuente:iteracion-real:PubMed', sala: 'r1', agentes: ['Generador de consultas'], tipo: 'fuente', texto: 'PubMed\nResultados: 120\nRelevantes: 30' });
+    motor!.actualizar(actualizado); const titulares = new Set<string>(); let barra = '';
+    await avanzar(500, () => {
+      documentos().forEach(el => titulares.add(el.querySelector('.lv-doc-titular')?.textContent ?? ''));
+      barra ||= nodo.querySelector('.lv-suceso')?.textContent?.includes('30 de 120') ? 'ok' : '';
+    });
+    expect(titulares.has('PubMed: 30 de 120 resultados sirven')).toBe(true);
+    expect(barra).toBe('ok'); expect(nodo.querySelectorAll('.lv-bub')).toHaveLength(0);
+  });
+
   it('una frase que menciona rivales no crea por sí sola un partido ni un resultado', async () => {
     const d = datos(); montar(d);
     motor!.actualizar(conEvento(d, { id: 'revision-real', sala: 'r4', agentes: ['Killer'], tipo: 'revision', texto: 'Revisé MAPT vs TREM2: el artículo es ambiguo' }));

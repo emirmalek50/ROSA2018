@@ -1,7 +1,50 @@
 # Pendiente para la siguiente sesion
 
-Actualizado el 5 de octubre de 2026. El plan completo por etapas esta en
+Actualizado el 8 de octubre de 2026. El plan completo por etapas esta en
 `PLAN-ROSA2018.md`; esto es la lista corta de lo inmediato.
+
+## El laboratorio en vivo (pixel art): auditoría del 8 de octubre de 2026
+
+Emir pidió que sea la mejor sección de todas. Se auditó en el navegador contra
+la corrida real (1440 y 1280 px, español e inglés, movimiento reducido) y en
+el código. Lo que se arregló en el momento: las figuras y rótulos unos encima
+de otros en cuatro salas (distancia de charla de 60 a 100 px, pasillo de la
+sala 4 fuera de la primera fila, y quien llega a un sitio ocupado da un paso
+al lado andando), la franja negra de 56 px a la derecha a 1440 px (ahora el
+laboratorio va centrado), el rótulo «Tú · apruebas y respondes» cortado por
+abajo, los carteles de las estanterías recortados («Europ…»), el capítulo
+«Comprueban dato» cortado a cuchillo, y ocho cadenas sin inglés. Lo que queda,
+con fichero y línea:
+
+- **Bocadillos que tapan cabezas.** Un documento de la sala 4 («12 hallazgos
+  documentados…») se dibuja sobre las figuras de la primera fila
+  (`labvivo/motor.ts`, `documento()` ~línea 745; el ajustador de textos de
+  `puestaEnEscena.ts` esquiva rótulos pero no cuerpos de 48x64).
+- **Dos tarjetas abiertas a la vez.** Al hacer clic en la pizarra del plan con
+  el ratón sobre el tubo del juez quedan dos documentos superpuestos (el de
+  la pizarra y el del tubo). Debería cerrarse uno al abrir el otro
+  (`motor.ts`, `abrirObjeto` ~1623 y los documentos de película).
+- **Orden de dibujo de las figuras.** Las figuras van en orden de DOM, no de
+  `y`: una que pasa por delante puede quedar detrás. Ordenar `lv-agentes`
+  por `y` en `syncDom()` (~2114) o usar `z-index` por fila.
+- **Se pinta todo en cada cuadro.** `frame()` (~2162) llama a `draw()` y
+  `syncDom()` 60 veces por segundo aunque nadie se mueva; con 45 figuras va
+  bien (59 fps, 31 % de un núcleo medido con SwiftShader) pero en un portátil
+  a batería conviene una bandera de «hay cambios». El lienzo va fijo a 2x
+  (2128x2624) sin mirar `devicePixelRatio`: en pantallas 1x son cuatro veces
+  los píxeles necesarios.
+- **Rótulos de 100 px a 9,5 px de letra.** En las salas con muchos agentes
+  (la 4 tiene diez, la 6 siete) los nombres largos van a dos y tres líneas
+  («Proponente de experimento», «Resumidor y Explicador en llano») y se leen
+  mal a 1280 px. Nombres cortos para el rótulo y el largo en la ficha.
+- **El rótulo del paso en curso de la pizarra** («Paso 5 de 7: Evaluar
+  novedad y posibilidad rea») se vio recortado contra el borde de la sala 1
+  en una captura; no se reprodujo después. Viene del servidor (texto de la
+  pista); buscar quién lo pinta cuando vuelva a verse.
+- **Boceto duplicado.** `frontend/scripts/bocetos/laboratorio-agentes.html`
+  (5 de octubre) se hizo sin saber que este laboratorio existía. Lo que tiene
+  y aquí no hay: la letra de píxeles propia de 5x7 con tildes. Borrarlo o
+  reutilizar la letra.
 
 ## Una sola ROSA2018 para todo el equipo: lo que falta para el Mac siempre encendido (5 de octubre de 2026)
 

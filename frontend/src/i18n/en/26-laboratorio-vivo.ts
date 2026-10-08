@@ -143,6 +143,7 @@ export const LABORATORIO_VIVO: Record<string, string> = {
   'Un ejemplo real: una afirmación que el juez ya decidió en esta investigación': 'A real example: a statement the judge already decided in this research',
   'Ejemplo real': 'Real example',
   '¿El artículo lo dice?': 'Does the paper say it?',
+  'Veredicto: {v}': 'Verdict: {v}',
   '¿Esta fuente tiene sesgo?': 'Is this source biased?',
   'Esta prueba va a su idea': 'This evidence goes to its idea',
   'Actualizo el modelo de mundo': "I'm updating the world model",

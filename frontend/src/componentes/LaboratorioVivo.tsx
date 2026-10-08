@@ -47,7 +47,11 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
   const marco = useRef<HTMLDivElement>(null);
   const lienzo = useRef<HTMLDivElement>(null);
   const motor = useRef<Laboratorio | null>(null);
+  // La escala para que quepa a lo ancho y, si el marco es más ancho que el
+  // laboratorio, el margen que lo deja centrado: a 1440 px quedaban 56 px de
+  // negro a la derecha (revisión del 8 de octubre de 2026).
   const [escala, setEscala] = useState(1);
+  const [margen, setMargen] = useState(0);
   const idioma = useIdioma();
   const [charlasActivas, setCharlasActivas] = useState(true);
   const [peticionVisible, setPeticionVisible] = useState(false);
@@ -146,7 +150,11 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
   useLayoutEffect(() => {
     const el = marco.current;
     if (!el) return;
-    const medir = () => setEscala(Math.min(1, el.clientWidth / ANCHO) || 1);
+    const medir = () => {
+      const k = Math.min(1, el.clientWidth / ANCHO) || 1;
+      setEscala(k);
+      setMargen(Math.max(0, Math.floor((el.clientWidth - ANCHO * k) / 2)));
+    };
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
@@ -221,7 +229,7 @@ export function LaboratorioVivo({ estado, inv, corrida, iteracion, onVolver }: P
         <span>{tr('Los personajes comentan los hallazgos de esta corrida con IA, con referencias al registro y la evidencia.')}</span>
       </div>
       <div ref={marco} className="labvivo-marco" style={{ height: ALTO * escala }}>
-        <div ref={lienzo} className="labvivo" style={{ transform: `scale(${escala})` }} />
+        <div ref={lienzo} className="labvivo" style={{ transform: `scale(${escala})`, '--lv-dx': `${margen}px` } as React.CSSProperties} />
       </div>
       <ConversacionesLaboratorio estado={charlas.estado} turnos={charlas.turnos} activo={charlasActivas} onCambiar={setCharlasActivas} />
       <dl className="labvivo-cifras">

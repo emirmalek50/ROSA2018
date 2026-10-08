@@ -84,6 +84,40 @@ describe('el motor del laboratorio sigue al servidor', () => {
     damian.click(); expect(resp.verNovedad).toHaveBeenLastCalledWith('companias', undefined);
     expect(nodo.querySelector('[data-agente="Especialista en compañías"]')).toBe(damian);
   });
+  it('dos que hablan quedan a la distancia de sus rótulos, y nadie salta ni se queda encima de otro', async () => {
+    // Revisión del 8 de octubre de 2026: los dos especialistas acababan uno
+    // encima del otro en la misma mesa, y en la sala 4 el Concluidor sobre el
+    // Revisor inicial. Se fuerza el caso: una charla manda a Damián a hablar
+    // con Sofía, que está quieta en su mesa, y se mira que en ningún frame
+    // acaben solapados cuando ambos están parados, y que nadie salte.
+    const d = datos(), actividad = { ...d.actividad[0]!, sala: 'r7' as const, agente: 'Especialista en patentes', hipotesisId: 'hip-real' };
+    const estado = { ...d, foco: 'r7' as const, activos: ['Especialista en patentes'], actividad: [actividad] };
+    montar(estado);
+    const sofia = nodo.querySelector<HTMLElement>('[data-agente="Especialista en patentes"]')!;
+    const damian = nodo.querySelector<HTMLElement>('[data-agente="Especialista en compañías"]')!;
+    const pos = (el: HTMLElement) => (/translate\(([\d.-]+)px,([\d.-]+)px\)/.exec(el.style.transform) ?? []).slice(1, 3).map(Number) as [number, number];
+    const turno: TurnoLaboratorio = { id: 'damian-habla', temaId: 'novedad-real', iteracionId: d.identidad.split('/')[1]!, idioma: 'es', agente: 'Especialista en compañías', destinatario: 'Especialista en patentes', texto: 'Sofía, ¿qué dicen las patentes de esto?', fecha: Date.now(), modelo: 'prueba', materiales: [] };
+    motor!.conversar([turno]);
+    let antes = [pos(sofia), pos(damian)];
+    let quietosYSolapados = 0, saltos = 0, quietos = 0;
+    await avanzar(300, () => {
+      const ahora = [pos(sofia), pos(damian)];
+      for (let i = 0; i < 2; i++) if (Math.hypot(ahora[i]![0] - antes[i]![0], ahora[i]![1] - antes[i]![1]) > 10) saltos++;
+      const paradoS = ahora[0]![0] === antes[0]![0] && ahora[0]![1] === antes[0]![1];
+      const paradoD = ahora[1]![0] === antes[1]![0] && ahora[1]![1] === antes[1]![1];
+      if (paradoS && paradoD) {
+        quietos++;
+        // Parados en la misma fila, sus rótulos (hasta 100 px, centrados en
+        // cada uno) no deben pisarse: a menos de 100 px se pisan.
+        if (Math.abs(ahora[0]![1] - ahora[1]![1]) < 22 && Math.abs(ahora[0]![0] - ahora[1]![0]) < 100) quietosYSolapados++;
+      }
+      antes = ahora;
+    });
+    expect(quietos).toBeGreaterThan(20);
+    expect(quietosYSolapados).toBe(0);
+    expect(saltos).toBe(0);
+  });
+
   it('Sofía y Damián siguen conversando y caminando dentro de su cuarto, sin reiniciar los personajes', async () => {
     const d = datos(), actividad = { ...d.actividad[0]!, sala: 'r7' as const, agente: 'Especialista en patentes', hipotesisId: 'hip-real' };
     const estado = { ...d, foco: 'r7' as const, activos: ['Especialista en patentes'], actividad: [actividad] };

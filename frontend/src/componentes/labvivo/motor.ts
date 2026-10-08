@@ -22,6 +22,7 @@ import { configurarDocumento, crearAjustadorTextos } from './textos';
 import { escenasDeApertura } from './inicioPelicula';
 import { ColaPelicula } from './colaPelicula';
 import { CadenciaDialogos, pausaDeRespuesta } from './cadenciaDialogos';
+import { comparan, titularDe } from './titulares';
 import type { EventoVisualLab } from '../../lib/peliculaLab';
 import { esPeticionDePresupuesto, pintarFoco, pintarPeticionIncidencia, pintarPeticionPresupuesto, topeConLlamadasMas, vozDePresupuesto } from './peticionPresupuesto';
 import './peticionPresupuesto.css';
@@ -64,6 +65,10 @@ export interface Laboratorio {
 }
 
 type Sala = 'bib' | 'rec' | SalaLab;
+/** Distancia entre dos personajes que hablan, de pie uno frente a otro. Los
+ *  rótulos miden hasta 100 px y van centrados en cada figura: a 60 px se
+ *  pisaban en cada charla (revisión del 8 de octubre de 2026). */
+const CHARLA = 100;
 type Obj = 'paper' | 'book' | 'card' | 'coin';
 
 /** Geometría de las salas sobre el fondo (coordenadas del dibujo de 1064 × 1312). */
@@ -169,7 +174,7 @@ Meta-revisor|Meta-revisor|508|998|#B79CF2|rizos|0|6|3||68|0|Revisa a los revisor
 Revisor del arnés|Revisor del arnés|660|998|#B79CF2|largo|2|2|2|g|68|0|Vigila que el sistema que mueve a los agentes funcione.
 Resumidor|Resumidor y Explicador en llano|812|998|#B79CF2|melena|4|5|1||68|0|Resume la iteración para ti, sin jerga.
 Auditor de GEPA|Auditor de GEPA|964|998|#E3A57C|afro|1|1|0||68|0|Revisa si los cambios automáticos a las instrucciones mejoran.
-Tú|Tú · apruebas y respondes|60|1188|#F4F1EA|mono|1|2|3||100|1|Tú. Apruebas los gastos y respondes cuando te preguntan.
+Tú|Tú · apruebas y respondes|60|1188|#F4F1EA|mono|1|2|3||88|1|Tú. Apruebas los gastos y respondes cuando te preguntan.
 Asistente del chat|Asistente del chat|330|1200|#B79CF2|rapado|0|0|3|ba|86|1|Te responde en el chat sobre la investigación.
 Preguntador|Preguntador|568|1220|#B79CF2|mono|2|3|2|a|66|0|Te pregunta cuando necesita tu criterio.
 Traductor|Traductor|850|1200|#E3A57C|coleta|4|6|1|a|86|1|Traduce entre español e inglés.`;
@@ -721,7 +726,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
   // Pasillos bajo las mesas, sin cruzar las paredes ni las cajas de evidencia.
   function pasillo(a: Agente): number {
-    const suelo: Partial<Record<Sala, number>> = { r1: 192, r2: a.hy < 400 ? 412 : 516, r3: 472, r4: a.hy < 750 ? 708 : 820, r5: 806, r6: 1034, r7: 664 };
+    const suelo: Partial<Record<Sala, number>> = { r1: 192, r2: a.hy < 400 ? 412 : 516, r3: 472, r4: a.hy < 750 ? 738 : 820, r5: 806, r6: 1034, r7: 664 };
     return suelo[a.room] ?? Math.min(GEOM[a.room][1] + GEOM[a.room][3] - 76, a.hy + 28);
   }
   function desplazarse(ctx: Ctx, a: Agente, x: number, y: number) {
@@ -745,19 +750,13 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       r5: [450, 810, 126, 64], r6: [760, 934, 280, 42], r7: [770, 618, 270, 34],
     };
     const hueco = huecos[sala];
-    if (hueco) Object.assign(el.style, { left: hueco[0] + 'px', top: hueco[1] + 'px', width: hueco[2] + 'px', maxHeight: hueco[3] + 'px' });
+    // Con titular, al menos una línea entera aunque el hueco sea estrecho.
+    if (hueco) Object.assign(el.style, { left: hueco[0] + 'px', top: hueco[1] + 'px', width: hueco[2] + 'px', maxHeight: (titular === undefined ? hueco[3] : Math.max(hueco[3], 38)) + 'px' });
     configurarDocumento(el, sala, GEOM[sala]);
     el.title = texto;
-    if (titular === undefined) el.textContent = corta(texto, 240);
-    else {
-      const cabecera = document.createElement('b'); cabecera.className = 'lv-doc-titular';
-      cabecera.textContent = corta(titular, 140); el.append(cabecera);
-      const textoDetalle = detalle ?? texto.split('\n').filter(l => l.trim() && !titular.includes(l.trim())).join('\n');
-      if (textoDetalle) {
-        const cuerpo = document.createElement('span'); cuerpo.className = 'lv-doc-detalle';
-        cuerpo.textContent = corta(textoDetalle, 200); el.append(cuerpo);
-      }
-    }
+    if (titular === undefined) { el.textContent = corta(texto, 240); return el; }
+    const resto = detalle ?? texto.split('\n').filter(l => l.trim() && !titular.includes(l.trim())).join('\n');
+    el.innerHTML = `<b class="lv-doc-titular">${esc(corta(titular, 140))}</b>${resto ? `<span class="lv-doc-detalle">${esc(corta(resto, 200))}</span>` : ''}`;
     return el;
   }
   function pintarUtileria() {
@@ -841,7 +840,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const a = actores[0]!, b = actores[1];
     const material = materialDelEvento(e, D);
     const esperar = async (s: number) => { await ctx.wait(s); if (ctx.dead) throw PARAR; };
-    const titular = (e.id.startsWith('verificacion:') ? resumenCajasJuez(D.juez.veredictos) : null) ?? (e.texto.split('\n')[0] || e.texto);
+    const titular = (e.id.startsWith('verificacion:') ? resumenCajasJuez(D.juez.veredictos) : null) ?? (titularDe(e, D));
     const presentada = () => { escena.presentada = true; escena.protegidaHasta = Math.min(escena.protegidaHasta ?? simT + 2, simT + 2); };
     // La barra cambia cuando la novedad aparece en la sala, no al empezar a caminar.
     let hojaEscena: HTMLElement | null = null;
@@ -880,9 +879,9 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     };
     const entregar = async () => {
       if (!b) { a.carry = 'paper'; type(a, 2); await esperar(2); return; }
-      const [rx, , rw] = GEOM[e.sala], x = Math.max(rx + 12, Math.min(rx + rw - 122, (a.hx + b.hx) / 2 - 30)), y = pasillo(a);
+      const [rx, , rw] = GEOM[e.sala], x = Math.max(rx + 12, Math.min(rx + rw - 62 - CHARLA, (a.hx + b.hx) / 2 - CHARLA / 2)), y = pasillo(a);
       expediente.dataset.objeto = 'card'; portar(a, 'entrega');
-      await Promise.all([desplazarse(ctx, a, x, y), desplazarse(ctx, b, x + 60, y)]);
+      await Promise.all([desplazarse(ctx, a, x, y), desplazarse(ctx, b, x + CHARLA, y)]);
       if (ctx.dead) throw PARAR;
       a.face = 1; b.face = -1; a.carry = null;
       await vuelo('card', [a.x + 42, a.y + 44], [b.x + 6, b.y + 44]); portar(b, 'recibido'); await esperar(1.2);
@@ -944,7 +943,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
           expediente.dataset.etapa = 'tablon';
           tablon.classList.remove('lv-clavar'); void tablon.offsetWidth; tablon.classList.add('lv-clavar'); setEv(esc(titular)); await esperar(1.8);
         } else if (e.dato?.tipo === 'torneo') {
-          mostrar(`${e.dato.tituloA}\n${tr('Frente a')}\n${e.dato.tituloB}`, '', `${e.dato.tituloA} · ${tr('Frente a')} ${e.dato.tituloB}`);
+          mostrar(`${e.dato.tituloA}\n${tr('Frente a')}\n${e.dato.tituloB}`, '', comparan(e.dato.tituloA, e.dato.tituloB));
           await entregar(); type(a, 2); if (b) type(b, 2); await esperar(2);
           if (e.dato.estado !== 'comparando') {
             const decision = e.dato.estado === 'a' ? e.dato.tituloA : e.dato.estado === 'b' ? e.dato.tituloB : e.dato.estado === 'tablas' ? tr('Empate') : tr('No pude comprobar');
@@ -1081,13 +1080,13 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     participantes.forEach((p) => { escenas.set(p, escena); p.ictx = ctx; p.busy = true; p.el.dataset.escena = D.activos.includes(p.name) ? 'trabajo' : 'espera'; });
     const [rx, , rw] = GEOM[a.room], izquierda = rx + 12, derecha = rx + rw - 62;
     const centro = b ? (a.hx + b.hx) / 2 : a.hx + (turno % 2 ? -40 : 40);
-    const x = Math.max(izquierda, Math.min(derecha - (b ? 60 : 0), centro - (b ? 30 : 0)));
+    const x = Math.max(izquierda, Math.min(derecha - (b ? CHARLA : 0), centro - (b ? CHARLA / 2 : 0)));
     const y = pasillo(a);
     const esperar = async (s: number) => { await ctx.wait(s); if (ctx.dead) throw PARAR; };
     spawn((async () => {
       try {
         if (trabajo) a.carry = actividadDe(a)?.tipo === 'resultado' ? 'paper' : 'card';
-        await Promise.all([desplazarse(ctx, a, x, y), ...(b ? [desplazarse(ctx, b, x + 60, y)] : [])]);
+        await Promise.all([desplazarse(ctx, a, x, y), ...(b ? [desplazarse(ctx, b, x + CHARLA, y)] : [])]);
         if (ctx.dead) throw PARAR;
         a.face = 1; if (b) b.face = -1;
         // El reloj solo anima. Lo que se dicen viene del servicio de conversación.
@@ -1235,9 +1234,9 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       dialogos.splice(i--, 1);
       intervenir(nueva, t);
       if (REDUCIR || !D.trabajando) { nueva.listos = true; continue; }
-      const [rx, , rw] = GEOM[a.room], x = Math.max(rx + 12, Math.min(rx + rw - 122, (a.hx + b.hx) / 2 - 30)), y = pasillo(a);
+      const [rx, , rw] = GEOM[a.room], x = Math.max(rx + 12, Math.min(rx + rw - 62 - CHARLA, (a.hx + b.hx) / 2 - CHARLA / 2)), y = pasillo(a);
       spawn((async () => {
-        await Promise.all([desplazarse(ctx, a, x, y), desplazarse(ctx, b, x + 60, y)]);
+        await Promise.all([desplazarse(ctx, a, x, y), desplazarse(ctx, b, x + CHARLA, y)]);
         if (ctx.dead) throw PARAR;
         a.face = 1; b.face = -1; nueva.listos = true;
       })());
@@ -1490,7 +1489,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   function pintarChips() {
     CH.forEach((c, i) => {
       const est = D.salas[c.room], st = COLOR_ESTADO[est];
-      c.chip!.innerHTML = `<span class="n" style="background:${st.c}">${NUMERO[c.room] ?? '·'}</span>${esc(c.title)}<span class="s" style="color:${st.c}">${esc(est === 'ahora' && !D.trabajando ? tr('Paró') : NOMBRE_ESTADO[est])}</span><span class="pg"></span>`;
+      c.chip!.innerHTML = `<span class="n" style="background:${st.c}">${NUMERO[c.room] ?? '·'}</span><span class="t">${esc(c.title)}</span><span class="s" style="color:${st.c}">${esc(est === 'ahora' && !D.trabajando ? tr('Paró') : NOMBRE_ESTADO[est])}</span><span class="pg"></span>`;
       c.chip!.classList.toggle('on', i === chIdx);
       c.chip!.title = `${c.title} · ${nombreEstado(est)}`;
       c.chip!.setAttribute('aria-label', c.chip!.title);
@@ -2148,6 +2147,24 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const pg = c.chip?.querySelector<HTMLElement>('.pg');
     if (pg) pg.style.width = D.salas[c.room] === 'listo' ? '100%' : '0%';
   }
+  /** Si otro personaje ya está donde `a` acaba de llegar (dos especialistas
+   *  en la misma mesa, el Concluidor encima del Revisor inicial), `a` da un
+   *  paso más hasta un hueco libre de su sala: andando, no de un salto, para
+   *  que nadie se teletransporte. Solo al terminar el camino: por el pasillo
+   *  se pueden cruzar, y en su sitio de siempre nadie estorba porque los
+   *  sitios están repartidos. Revisión del 8 de octubre de 2026: en cuatro
+   *  salas había figuras y rótulos unos encima de otros. */
+  function apartar(a: Agente) {
+    const pisa = (x: number, y: number) => AG.some((b) => b !== a && !b.away && Math.abs(b.x - x) < 34 && Math.abs(b.y - y) < 22);
+    if (!pisa(a.x, a.y)) return;
+    const r = GEOM[a.room];
+    for (const dx of [36, -36, 72, -72, 108, -108]) {
+      const x = a.x + dx;
+      if (x < r[0] + 4 || x + 48 > r[0] + r[2] - 4 || pisa(x, a.y)) continue;
+      a.path.push({ x, y: a.y });
+      return;
+    }
+  }
   function step(dt: number) {
     simT += dt;
     AG.forEach((a) => {
@@ -2155,7 +2172,11 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (!p) return;
       const dx = p.x - a.x, dy = p.y - a.y, d = Math.hypot(dx, dy), m = 70 * dt;
       if (Math.abs(dx) > 0.5) a.face = dx > 0 ? 1 : -1;
-      if (d <= m) { a.x = p.x; a.y = p.y; a.path.shift(); } else { a.x += (dx / d) * m; a.y += (dy / d) * m; }
+      if (d <= m) {
+        a.x = p.x; a.y = p.y; a.path.shift();
+        // Al final del camino, y no en su sitio de siempre.
+        if (a.path.length === 0 && !atHome(a)) apartar(a);
+      } else { a.x += (dx / d) * m; a.y += (dy / d) * m; }
     });
     if (D.trabajando && D.activos.includes('Juez')) conv += 12 * dt;
     AG.forEach((a) => { if (D.activos.includes(a.name) && !REDUCIR) a.typing = simT + 1; });

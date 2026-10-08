@@ -20,3 +20,6 @@
 @keyframes lv-clavar{50%{transform:translateY(2px)}}
 @keyframes lv-proceso{50%{opacity:.35}}
 @media(prefers-reduced-motion:reduce){.labvivo .lv-clavar,.labvivo .lv-maquina::before{animation:none!important}}
+/* Titular: la novedad en una línea, legible sin acercarse; el detalle queda debajo. */
+.labvivo .lv-documento .lv-doc-titular{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:13px;line-height:16px;font-weight:700;white-space:normal}
+.labvivo .lv-documento .lv-doc-detalle{display:block;margin-top:4px;color:#5A5670;font-size:10px;line-height:13px}
