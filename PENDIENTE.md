@@ -3,6 +3,31 @@
 Actualizado el 8 de octubre de 2026. El plan completo por etapas esta en
 `PLAN-ROSA2018.md`; esto es la lista corta de lo inmediato.
 
+## Las conversaciones del laboratorio, rehechas (8 de octubre de 2026)
+
+Emir: «¿por qué los personajes se saludan tanto? Necesito conversaciones con
+sentido humano». Medido en las 1.042 intervenciones guardadas: ninguna llamaba
+a nadie por su nombre, el 28 % de las respuestas empezaba por «Hola», hasta
+ocho salas comentaban a la vez la misma frase y solo 12 sonaban a oficina. Lo
+hecho: fichas con nombre, puesto, voz, manías y relaciones
+(`rosa/laboratorio_personalidades.py`), escenas con intención por sala
+(trabajo, atasco, pique, cotilleo con tope de dos, pausa con pretexto),
+instrucciones escritas como guion de videojuego, saludo solo para quien no ha
+hablado hoy, y la memoria que ve el modelo sin los «Hola». `scripts/ensayar_charlas.py`
+lo prueba con los modelos reales sobre el estado de una corrida sin escribir
+nada (`--atasco` simula una base caída). Lo que queda:
+
+- **El trinquete de mypy ya fallaba antes de este cambio**: en el commit
+  `6297653` da 267 errores con el límite en 262. Los 5 de más vienen de un
+  commit anterior en otros ficheros; este cambio deja `laboratorio_conversaciones`
+  con los mismos 6 que tenía. Hay que encontrarlos y arreglarlos, no subir el
+  límite.
+- La escena «relevo» entre salas (Ingrid le pasa la cola a Elena) no existe:
+  el dibujo solo junta a dos que están en la misma sala (`motor.ts`,
+  `a.room !== b.room`). Haría falta que uno camine a la otra sala.
+- Los materiales de la oficina y las decisiones van en castellano aunque la
+  conversación sea en inglés (igual que el registro).
+
 ## El laboratorio en vivo: lo que se le puso para que se sienta un lugar (8 de octubre de 2026)
 
 Emir: «¿cómo se podría sentir más vivo, como una oficina/laboratorio real?

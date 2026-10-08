@@ -102,6 +102,16 @@ def guardar_encuentro(al, *, corrida="cor", iteracion="it-1", idioma="es", estil
     al.mutar(guardar, "encuentro_de_prueba")
 
 
+def sin_evidencia_nueva(t, tema):
+    """La charla de una sala lleva el momento del laboratorio y, delante, lo
+    suyo (su registro, sus decisiones, la oficina) desde el 8 de octubre de
+    2026: cada sala habla de lo suyo. Lo que no puede traer es evidencia nueva:
+    ninguna afirmación que no estuviera ya en el momento."""
+    ids = {m["id"] for m in t["materiales"]}
+    extras = [m for m in t["materiales"] if m["id"] not in {x["id"] for x in tema["materiales"]}]
+    return {m["id"] for m in tema["materiales"]} <= ids and all(m["clase"] in ("oficina", "registro", "decision") for m in extras)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("antecedente,espera_saludo", [
     (None, True), ("misma-pareja", False), ("otra-iteracion", False),
@@ -226,7 +236,7 @@ async def test_continuaciones_esperan_cooldown_y_conservan_el_hallazgo_sin_nueva
         assert continuaciones
         assert all(t.get("continuacion") is True and t["tipoConversacion"] == "companeros" for t in continuaciones)
         assert len({t["salaConversacion"] for t in continuaciones}) == len(continuaciones)
-        assert all(t["hallazgoId"] == tema["huella"] and t["materiales"] == tema["materiales"] for t in continuaciones)
+        assert all(t["hallazgoId"] == tema["huella"] and sin_evidencia_nueva(t, tema) for t in continuaciones)
         antes = list(s.leer(CLAVE))
         await s._ronda(CLAVE, continuaciones)
         nuevas = s.leer(CLAVE)[len(antes):]
@@ -655,7 +665,7 @@ async def test_historial_recortado_y_reinicio_no_reusan_rondas_ni_saludan_otra_v
         assert len(nuevos) == len(vistos) == 2 * len(candidatas)
         assert anteriores.isdisjoint(t["id"] for t in nuevos)
         assert all(not c["encuentroInicial"] for c in vistos)
-        assert all(c["materiales"] == tema["materiales"] for c in vistos)
+        assert all(sin_evidencia_nueva(c, tema) for c in vistos)
         assert len(al.estado["corridas"][0]["_conversacionesLaboratorio"]) == 300
         assert nuevo._temas(CLAVE, tema_actual(al)) != candidatas
     finally:

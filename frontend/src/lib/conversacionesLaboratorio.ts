@@ -3,13 +3,15 @@ import { cabeceras } from '../datos/almacen';
 import type { Idioma } from './idioma';
 import type { EventoLab } from '../datos/tipos';
 
-export const ESTILO_LABORATORIO = 'conversacion-natural-v3';
-const ESTILOS_COMPATIBLES = ['conversacion-natural-v2', ESTILO_LABORATORIO] as const;
+// v4 (8 de octubre de 2026): personajes con nombre y escenas con intención.
+// Un servidor anterior sigue hablando v2 o v3 y se le entiende igual.
+export const ESTILO_LABORATORIO = 'conversacion-natural-v4';
+const ESTILOS_COMPATIBLES = ['conversacion-natural-v2', 'conversacion-natural-v3', ESTILO_LABORATORIO] as const;
 type EstiloCompatible = typeof ESTILOS_COMPATIBLES[number];
 export type EmocionLaboratorio = 'neutral' | 'curioso' | 'alegre' | 'frustrado' | 'preocupado' | 'sorprendido';
 export type GestoLaboratorio = 'ninguno' | 'asentir' | 'negar';
 export interface MaterialCharla {
-  id: string; clase: 'registro' | 'afirmacion' | 'plan' | 'tarea' | 'objetivo'; texto: string;
+  id: string; clase: 'registro' | 'afirmacion' | 'plan' | 'tarea' | 'objetivo' | 'oficina' | 'decision'; texto: string;
   titulo?: string; cita?: string | null; fragmento?: string | null;
   veredicto?: string | null; pistaId?: string;
   pregunta?: string; detalle?: string; tipo?: string; estado?: string;

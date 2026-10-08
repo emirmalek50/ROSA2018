@@ -15,3 +15,6 @@
 .lab-charlas-fuente{font-size:12px;line-height:1.6;margin:10px 0;padding-left:12px;border-left:2px solid var(--border);overflow-wrap:anywhere}
 .lab-charlas-fuente p,.lab-charlas-fuente blockquote{margin:6px 0}
 @media(max-width:600px){.lab-charlas-cab{align-items:flex-start;flex-direction:column}}
+
+/* El puesto, junto al nombre y más apagado. */
+.lab-charlas-quien small{color:var(--text-2);font-size:11px;margin-left:-4px}

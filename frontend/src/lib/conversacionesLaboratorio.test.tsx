@@ -141,7 +141,7 @@ it.each(['conversacion-natural-v2', ESTILO_LABORATORIO])('negocia %s sin activar
   expect(JSON.parse(nodo.textContent!).estilo).toBe(estilo);
 });
 
-it.each([undefined, 'conversacion-natural-v1', 'conversacion-natural-v4', 'desconocido'])('no negocia una versión ausente o desconocida: %s', async (estilo) => {
+it.each([undefined, 'conversacion-natural-v1', 'conversacion-natural-v5', 'desconocido'])('no negocia una versión ausente o desconocida: %s', async (estilo) => {
   const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ estilo, estado: 'conversando', turnos: [
     { id: 'suelta', estilo: ESTILO_LABORATORIO, texto: 'Esta voz no basta para negociar la respuesta.' },
     { id: 'antigua', estilo, texto: 'Fuente 12:14' },

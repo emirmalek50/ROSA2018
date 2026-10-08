@@ -181,7 +181,8 @@ Preguntador|Preguntador|568|1220|#B79CF2|mono|2|3|2|a|66|0|Te pregunta cuando ne
 Traductor|Traductor|850|1200|#E3A57C|coleta|4|6|1|a|86|1|Traduce entre español e inglés.`;
 
 /** El nombre propio de cada agente; sale en su ficha al hacer clic. */
-const NOMBRE_PROPIO: Record<string, string> = {
+/** El nombre de cada personaje; el servidor usa los mismos (rosa/laboratorio_personalidades.py, con test). */
+export const NOMBRE_PROPIO: Record<string, string> = {
   'Puntuador preguntas': 'Tomás', 'Puntuador amplitud': 'Amara', 'Extractor de afirmaciones': 'Ingrid', 'Generador de consultas': 'Lucía',
   Explorador: 'Kofi', Planificador: 'Mateo', 'Misión, Áreas y Pregunta': 'Rashid', 'Proponente de experimento': 'Clara',
   'Aclarador y Respondedor': 'Valentina', Reformulador: 'Jabari', 'Derivador por contexto': 'Noa', Juez: 'Elena',

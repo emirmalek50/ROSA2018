@@ -241,8 +241,12 @@ async def test_reparacion_que_sigue_copiando_no_reintenta_sin_limite(almacen):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("antecedentes,limite_fuente,reparar", [(1, False, False), (2, False, True), (1, True, False)])
-async def test_apertura_compartida_aislada_y_cautela_no_se_convierten_en_palabras_prohibidas(almacen, antecedentes, limite_fuente, reparar):
+@pytest.mark.parametrize("antecedentes,limite_fuente,reparar", [(1, False, True), (2, False, True), (1, True, False)])
+async def test_abrir_declarando_interes_se_rehace_y_la_cautela_honesta_no(almacen, antecedentes, limite_fuente, reparar):
+    # Desde el 8 de octubre de 2026 (Emir: «no simplemente que digan "me
+    # interesa saber tal y tal cosa"») abrir con una declaración de interés se
+    # rehace una vez, aunque sea la primera, y la versión nueva vuelve al juez.
+    # Decir con honestidad que algo no se pudo comprobar sigue siendo válido.
     anteriores = ["Me interesa saber si esa asociación cambia entre distintos ratones.",
                   "Me interesa saber si esa relación se observó en otra cohorte."]
     candidato = "Me interesa saber si esa señal cambia con la población estudiada."
@@ -273,6 +277,8 @@ async def test_apertura_compartida_aislada_y_cautela_no_se_convierten_en_palabra
         await s._conversar(clave, tema)
         filas = publicados(s, clave, tema)
         assert len(aperturas) == (2 if reparar else 1)
+        if reparar:
+            assert "declaración de interés" in aperturas[1]["revisionEstilo"] or "misma apertura" in aperturas[1]["revisionEstilo"]
         assert [t["texto"] for t in filas] == [NUEVO if reparar else candidato, "Vale.", "Vale."]
         assert revisiones == [t["texto"] for t in filas]
         if limite_fuente:
@@ -354,8 +360,8 @@ async def test_gateway_separa_cache_de_voz_y_juez_sin_tocar_otros_roles(almacen,
         await s.cerrar()
 
 
-def test_protocolo_v3_es_el_que_acepta_la_interfaz():
+def test_protocolo_v4_es_el_que_acepta_la_interfaz():
     frontend = Path(__file__).resolve().parents[2] / "frontend/src/lib/conversacionesLaboratorio.ts"
     version = re.search(r"export const ESTILO_LABORATORIO\s*=\s*['\"]([^'\"]+)['\"]", frontend.read_text())
     assert version is not None
-    assert version[1] == ESTILO == "conversacion-natural-v3"
+    assert version[1] == ESTILO == "conversacion-natural-v4"
