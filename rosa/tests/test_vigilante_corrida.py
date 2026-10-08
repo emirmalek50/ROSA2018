@@ -732,6 +732,8 @@ def test_nombres_y_textos_por_regla():
     assert CO.nombre_del_modelo("openai/openai/gpt-6-astra") == "GPT-6 Astra"
     assert CO.nombre_del_modelo("anthropic/claude-opus-5", "juez") == "Claude Opus 5"
     assert CO.nombre_del_modelo("anthropic/claude-sonnet-5") == "Claude Sonnet 5"
+    assert CO.nombre_del_modelo("openai/anthropic/claude-sonnet-5.5", "volumen") == "Claude Sonnet 5.5"
+    assert CO.nombre_del_modelo(None, "volumen") == "Claude Sonnet 5.5"
     assert CO.nombre_del_modelo("", "juez") == "Claude Opus 5" and CO.nombre_del_modelo(None, "cerebro") == "GPT-6 Astra"
     assert CO.nombre_del_modelo("otro/modelo-x", "sin_rol") == ("Modelo X" if con_vigilante else "otro/modelo-x") and CO.nombre_del_modelo(None, None) == "el modelo"
     assert CO._texto_duracion(0) == "menos de un minuto" and CO._texto_duracion(59_999) == "menos de un minuto"
@@ -745,6 +747,8 @@ def test_nombres_y_textos_por_regla():
     try:
         monkey.setattr(CO, "VIG", None)
         assert CO.nombre_del_modelo("otro/modelo-x", "sin_rol") == "otro/modelo-x" and CO.nombre_del_modelo("openai/gpt-6-astra") == "GPT-6 Astra"
+        assert CO.nombre_del_modelo("openai/anthropic/claude-sonnet-5.5") == "Claude Sonnet 5.5"
+        assert CO.nombre_del_modelo("openai/anthropic/claude-sonnet-5") == "Claude Sonnet 5"
         assert CO._texto_duracion(185 * MIN) == "3 h 5 min" and CO._texto_intentos(1) == "1 intento"
     finally:
         monkey.undo()

@@ -112,8 +112,8 @@ TOPE_RECUPERACION_S = 3 * 3600
 # es "no pude comprobar" y el siguiente sondeo queda a INTERVALO_SONDEO_S.
 TOPE_SONDEO_S = 2 * float(getattr(GW, "SEGUNDOS_SONDEO", 20.0))
 # Nombre con el que la persona conoce a cada modelo, por id del gateway y por rol.
-NOMBRES_MODELO = (("gpt-6-astra", "GPT-6 Astra"), ("claude-opus-5", "Claude Opus 5"), ("claude-sonnet-5", "Claude Sonnet 5"))
-NOMBRE_POR_ROL = {"cerebro": "GPT-6 Astra", "juez": "Claude Opus 5", "volumen": "Claude Sonnet 5", "replica": "Claude Opus 5"}
+NOMBRES_MODELO = (("gpt-6-astra", "GPT-6 Astra"), ("claude-opus-5", "Claude Opus 5"), ("claude-sonnet-5.5", "Claude Sonnet 5.5"), ("claude-sonnet-5", "Claude Sonnet 5"))
+NOMBRE_POR_ROL = {"cerebro": "GPT-6 Astra", "juez": "Claude Opus 5", "volumen": "Claude Sonnet 5.5", "replica": "Claude Opus 5"}
 
 # Lo que cuesta de verdad cada tipo de paso, en llamadas al modelo, medido en
 # la primera corrida real (10 de septiembre de 2026): el cribado de relevancia
@@ -3127,7 +3127,7 @@ class Supervisor:
         # Acumulación de evidencia: lo leído en esta iteración vuelve a las hipótesis
         # vivas (a favor, indirecto o en contra) antes de rehacer sus conclusiones.
         con_evidencia: set[str] = set()
-        pista_ev = ctx.pista(None, "modelo", "Evidencia nueva para las hipótesis vivas", "Sonnet 5")
+        pista_ev = ctx.pista(None, "modelo", "Evidencia nueva para las hipótesis vivas", nombre_del_modelo(EL.modelo_de(ctx, "volumen"), "volumen"))
         try:
             acumulado = await EV.acumular(ctx, it["numero"], pista_ev)
             con_evidencia = set(acumulado.get("ids", []))
@@ -3136,7 +3136,7 @@ class Supervisor:
             # 2026 la línea del vivero ("N ideas, M nacen, K se retiran") caía
             # dentro de un paso que la pantalla ya daba por hecho y no contaba en
             # su resumen. El trabajo se hacía y no se veía.
-            pista_viv = ctx.pista(None, "modelo", "Evidencia nueva para las ideas del vivero", "Sonnet 5")
+            pista_viv = ctx.pista(None, "modelo", "Evidencia nueva para las ideas del vivero", nombre_del_modelo(EL.modelo_de(ctx, "volumen"), "volumen"))
             try:
                 vivero_res = await EV.acumular_vivero(ctx, it["numero"], pista_viv)
             finally:

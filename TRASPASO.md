@@ -115,7 +115,12 @@ modelo por calidad y latencia para cada componente, y se cambia con el nombre.
 ### 2.2 Modelos elegidos para el agente nuevo (decisión de la persona responsable, 9 sep 2026)
 
 **Por ahora: `openai/gpt-6-astra`, `anthropic/claude-opus-5` y
-`anthropic/claude-sonnet-5`. Claude Fable 5.1 queda fuera de ROSA2018 (ver 2.3).**
+`anthropic/claude-sonnet-5.5`. Claude Fable 5.1 queda fuera de ROSA2018 (ver 2.3).**
+Actualización del 8 de octubre de 2026: Emir sustituye Sonnet 5 por Sonnet 5.5
+en el rol de volumen. Identificador verificado en el [AI Gateway de Vercel](https://vercel.com/ai-gateway/models/claude-sonnet-5.5):
+`anthropic/claude-sonnet-5.5`. Se conserva el muestreo nativo (sin fijar
+`temperature`), el acceso por Gateway y la procedencia de las corridas anteriores.
+
 El RAG anterior sigue con sus modelos
 (`openai/gpt-5.4`, `openai/gpt-5.4-mini`, `openai/text-embedding-3-large`);
 la decisión es para el proyecto nuevo.
@@ -126,7 +131,7 @@ Reparto decidido por la persona responsable el 9 sep 2026, a confirmar midiendo:
 |---|---|---|
 | Cerebro del bucle: planificar, generar hipótesis, meta-revisión, coherencia en contexto largo | **GPT-6 Astra** | Primero en los rankings agregados de razonamiento; GPQA Diamond 96,0; Frontier Math nivel 4 97,6; ARC-AGI-2 95; y en contexto largo MRCR v2 con ocho agujas acierta el 100 % entre 256K y 512K y el 96,3 % entre 512K y 1M (Fable no publica esa cifra). Robustez documentada a inyección de instrucciones del 99,79 % y a la jerarquía de instrucciones del 99,99 %. Retención de datos "parcial" según el gateway: revisar la política antes de material sensible |
 | Juez del verificador: la métrica de GEPA y el veto final, de otra familia que el cerebro | **Claude Opus 5** | Primera fila (HLE con herramientas 63,6), retención cero de datos y sin entrenamiento, y respondió las tres preguntas de biología molecular que a Fable le bloqueó el filtro de doble uso. la persona responsable había elegido a Fable 5.1 por intuición de que "acierta más que GPT", y los datos lo sostenían en conocimiento (AA-Omniscience 85 % de precisión frente a 81 % de Astra, HLE 65,0 frente a 57,2), pero Fable no puede ser juez de ROSA2018: ver 2.3. Sigue vigente la prueba comparada como jueces (Opus 5 frente a Astra) sobre casos aprobados por humanos |
-| Alto volumen sin poder de veto: extractor de afirmaciones, calificador, triaje previo del juez | Claude Sonnet 5 | Nivel alto a velocidad de Sonnet, retención cero. El triaje deja pasar solo lo claramente sostenido y manda al juez lo dudoso más una muestra aleatoria de lo aprobado |
+| Alto volumen sin poder de veto: extractor de afirmaciones, calificador, triaje previo del juez | Claude Sonnet 5.5 | Nivel alto a velocidad de Sonnet, retención cero. El triaje deja pasar solo lo claramente sostenido y manda al juez lo dudoso más una muestra aleatoria de lo aprobado |
 | Reserva | Claude Fable 5.1, solo si la empresa obtiene acceso verificado para ciencias de la vida | Ver 2.3 |
 
 **Condición sobre el juez, antes de fijarlo**: prueba comparada de Opus 5 y

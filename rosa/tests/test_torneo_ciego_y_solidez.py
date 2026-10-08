@@ -91,12 +91,14 @@ def test_una_revision_de_modelo_no_llega_al_juez_como_lo_que_dijo_una_persona():
     h = _h(1, revisiones=[
         {"quien": "openai/anthropic/claude-opus-5", "nota": "El Killer sugiere descartarla", "accion": "killer"},
         {"quien": "openai/openai/gpt-6-astra", "nota": "Reformulada por falsabilidad", "accion": "reformulada"},
+        {"quien": "claude-sonnet-5.5", "nota": "Interpretación automática nueva", "accion": "x"},
+        {"quien": "claude-sonnet-5", "nota": "Interpretación automática anterior", "accion": "x"},
         {"quien": "Rosa", "nota": "nota propia", "accion": "x"},
         {"quien": "Dra. Pérez", "nota": "La cohorte no vale: son todos hombres", "accion": "suspendida"},
     ])
     texto = T.revisiones_humanas(h)
     assert "Dra. Pérez" in texto and "son todos hombres" in texto
-    for fantasma in ("claude-opus-5", "gpt-6-astra", "Killer", "Rosa"):
+    for fantasma in ("claude-opus-5", "gpt-6-astra", "claude-sonnet-5.5", "claude-sonnet-5", "Killer", "Rosa", "Interpretación automática"):
         assert fantasma not in texto, f"«{fantasma}» no es una persona"
     assert T.revisiones_humanas(_h(2)) == "Ninguna."
 

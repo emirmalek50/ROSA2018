@@ -397,7 +397,7 @@ export function Ajustes({ estado, ahora }: { estado: EstadoRosa; ahora: number }
                   </tr>
                   <tr>
                     <td>{tr("Alto volumen sin veto")}</td>
-                    <td className="mono">{"anthropic/claude-sonnet-5"}</td>
+                    <td className="mono">{"anthropic/claude-sonnet-5.5"}</td>
                     <td>
                       <Chip tono="ok">{tr("Elegido")}</Chip>
                     </td>

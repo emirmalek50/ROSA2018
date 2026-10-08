@@ -3,7 +3,7 @@
 Regla de Emir (TRASPASO.md 7.4, 18 de septiembre de 2026): el cerebro es GPT-6
 Astra y solo Astra; el juez es Claude Opus 5 y solo Opus. Cuando no responden,
 ROSA2018 espera y reintenta con el mismo modelo; nunca degrada el rol a Claude
-Sonnet 5 ni a otro. Sonnet queda para el rol de volumen.
+Sonnet ni a otro. Sonnet queda para el rol de volumen.
 
 Qué hace `llamar_vigilado`:
 
@@ -111,6 +111,7 @@ PALABRAS_TRANSITORIAS: tuple[str, ...] = (
 NOMBRES_MODELOS: dict[str, str] = {
     "openai/gpt-6-astra": "GPT-6 Astra",
     "anthropic/claude-opus-5": "Claude Opus 5",
+    "anthropic/claude-sonnet-5.5": "Claude Sonnet 5.5",
     "anthropic/claude-sonnet-5": "Claude Sonnet 5",
     "anthropic/claude-fable-5.1": "Claude Fable 5.1",
 }

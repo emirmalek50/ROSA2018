@@ -415,7 +415,7 @@ def hipotesis_con_revisiones(h: dict[str, Any]) -> str:
     return f"{hipotesis_texto(h)}\nAfirmaciones:\n{afs or '  (ninguna)'}\nSupuestos:\n{sup or '  (ninguno)'}\nRevisiones automáticas: " + "; ".join(f"{r['tipo']}: {r['resumen']}" for r in h["revisionesAutomaticas"] if r["estado"] != "pendiente")
 
 
-_NOMBRES_DE_MODELO = {n.split("/")[-1].lower() for n in ("openai/gpt-6-astra", "anthropic/claude-opus-5", "anthropic/claude-sonnet-5")} | {"rosa2018"}
+_NOMBRES_DE_MODELO = {n.split("/")[-1].lower() for n in ("openai/gpt-6-astra", "anthropic/claude-opus-5", "anthropic/claude-sonnet-5.5", "anthropic/claude-sonnet-5")} | {"rosa2018"}
 
 
 def es_persona(quien: Any) -> bool:
@@ -442,7 +442,7 @@ def es_persona(quien: Any) -> bool:
         return False
     if "/" in q:
         return False
-    # Los tres modelos de ROSA2018 por su nombre pelado, por si alguna firma llegó
+    # Los modelos de ROSA2018 por su nombre pelado, por si alguna firma llegó
     # sin el prefijo del gateway: son los de `rosa/gateway.py` y ninguno es persona.
     return q.lower() not in _NOMBRES_DE_MODELO
 

@@ -25,6 +25,7 @@ import { traducido, tr, trp } from '../lib/idioma';
 export const NOMBRES_MODELOS: Readonly<Record<string, string>> = traducido({
   'openai/gpt-6-astra': 'GPT-6 Astra',
   'anthropic/claude-opus-5': 'Claude Opus 5',
+  'anthropic/claude-sonnet-5.5': 'Claude Sonnet 5.5',
   'anthropic/claude-sonnet-5': 'Claude Sonnet 5',
 });
 
@@ -174,7 +175,7 @@ export function VigilanteModelos({ salud, incidencias = [], estadoCorrida, esper
     <section className={`vigilante${esperando ? ' vigilante-esperando' : ''}`} aria-label={tr("Modelos")}>
       <div className="vigilante-cabecera">
         <h3>{tr("Modelos")}</h3>
-        <span className="meta" title={tr("Los modelos de lenguaje del AI Gateway que ROSA2018 usa, por rol: el cerebro planifica y razona (GPT-6 Astra), el juez verifica (Claude Opus 5), el volumen lee y extrae en masa (Claude Sonnet 5). Cuando uno no responde, ROSA2018 reintenta con el mismo; no lo cambia por otro.")}>
+        <span className="meta" title={tr("Los modelos de lenguaje del AI Gateway que ROSA2018 usa, por rol: el cerebro planifica y razona (GPT-6 Astra), el juez verifica (Claude Opus 5), el volumen lee y extrae en masa (Claude Sonnet 5.5). Cuando uno no responde, ROSA2018 reintenta con el mismo; no lo cambia por otro.")}>
           {viva ? resumenDeSalud(filas) : tr('la corrida está cerrada; la salud de los modelos se enseña en la corrida viva')}
         </span>
       </div>

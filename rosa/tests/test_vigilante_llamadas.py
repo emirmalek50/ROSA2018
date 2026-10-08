@@ -342,6 +342,8 @@ def test_nombres_y_textos_en_llano():
     assert VIG.id_modelo(LMFalso(ASTRA)) == "openai/gpt-6-astra" and VIG.id_modelo(LMFalso(OPUS)) == "anthropic/claude-opus-5"
     assert VIG.id_modelo(LMFalso("juez")) == "juez", "un id sin el doble prefijo se deja tal cual"
     assert VIG.nombre_de_modelo(ASTRA) == "GPT-6 Astra" and VIG.nombre_de_modelo("anthropic/claude-sonnet-5") == "Claude Sonnet 5"
+    assert VIG.nombre_de_modelo("anthropic/claude-sonnet-5.5") == "Claude Sonnet 5.5"
+    assert VIG.nombre_de_modelo("openai/anthropic/claude-sonnet-5.5") == "Claude Sonnet 5.5"
     assert VIG.nombre_de_modelo("openai/proveedor/modelo-raro-9") == "Modelo Raro 9"
     assert VIG.duracion_texto(30_000) == "menos de un minuto" and VIG.duracion_texto(60_000) == "1 minuto"
     assert VIG.duracion_texto(59 * 60_000) == "59 minutos" and VIG.duracion_texto(65 * 60_000) == "1 hora y 5 minutos"

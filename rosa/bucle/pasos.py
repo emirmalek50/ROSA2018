@@ -1421,7 +1421,7 @@ async def _consulta_literatura(ctx: Ctx, paso: dict[str, Any], consulta: dict[st
             pista.nota(f"{len(forzados)} artículos cuyo título nombra un fármaco, ensayo o cohorte del objetivo pasan al modelo sin corte del reranker" + (f" (tope {politicas.MAX_FORZADOS_POR_NOMBRE} por consulta: otros {forzados_fuera_de_tope} van por el reranker como los demás)" if forzados_fuera_de_tope else "") + ": " + "; ".join(str(a.get("referencia", ""))[:40] for a in forzados[:6]))
             al_modelo = forzados + al_modelo
         ids_modelo = {id(a) for a in al_modelo}
-        # Cribado por relevancia (Sonnet 5), como el RCS de PaperQA. En amplitud, con
+        # Cribado por relevancia (Sonnet 5.5), como el RCS de PaperQA. En amplitud, con
         # otra pregunta (qué podría cambiar) y el listón un punto más bajo.
         puntuados: list[tuple[int, dict[str, Any], str]] = []
         for a, ex_prev in repetidos:
@@ -1977,7 +1977,7 @@ async def paso_extraccion(ctx: Ctx, paso: dict[str, Any]) -> str:
     pendientes = sorted([f for f in ctx.fuentes().values() if not f.get("extraida") and f.get("retraccion") != "retractado"], key=lambda f: -(f.get("relevancia", 0) - _liston_de(f)))[:MAX_FUENTES_EXTRAER]
     if not pendientes:
         return "No hay fuentes nuevas de las que extraer"
-    pista = ctx.pista(paso["id"], "extraccion", f"Extraer afirmaciones de {len(pendientes)} fuentes", "Sonnet 5")
+    pista = ctx.pista(paso["id"], "extraccion", f"Extraer afirmaciones de {len(pendientes)} fuentes", VIG.nombre_de_modelo(ctx.modelos.volumen.model))
     pista.accion(f"Un fragmento a la vez (resumen, página o sección), sin cruzar de fragmento; cada afirmación con su cita literal. De cada fuente se leen hasta {MAX_FRAGMENTOS_POR_FUENTE} fragmentos, los que más prometen (resultados y cifras primero), y solo los que no se habían leído")
     sem = asyncio.Semaphore(4)
     total = 0

@@ -88,6 +88,7 @@ def test_la_cohorte_completa_de_raket_conserva_los_dos_nct_de_punta_a_punta(monk
     al = _almacen()
     try:
         ctx = _ctx(al)
+        ctx.modelos.volumen.model = "openai/anthropic/claude-sonnet-5.5"
         frs = [{"localizador": "pág. 9", "texto": PAGINA, "encabezado": "Results"}, {"localizador": "pág. 10", "texto": PAGINA.replace("Table 2", "Table 4"), "encabezado": "Results"}]
         fid = PASOS._registrar_fuente(ctx, {"referencia": "Raket et al., 2026", "titulo": "Donanemab in early symptomatic Alzheimer disease", "doi": "10.1/raket", "tipos": [], "resumen": ""}, "articulo", frs, 9, None, "limpio", 1, "q")
 
@@ -99,6 +100,7 @@ def test_la_cohorte_completa_de_raket_conserva_los_dos_nct_de_punta_a_punta(monk
 
         monkeypatch.setattr(Ctx, "llamar", llamar)  # doble local; el módulo real llama por el gateway
         assert asyncio.run(PASOS.paso_extraccion(ctx, _paso(al))) == "2 afirmaciones extraídas de 1 fuentes"
+        assert al.estado["iteraciones"][0]["pistas"][-1]["fuente"] == "Claude Sonnet 5.5"
         afs = {a["localizador"]: a for a in ctx.afirmaciones()}
         assert afs["pág. 9"]["cohorte"] == COHORTE_RAKET, afs["pág. 9"]["cohorte"]
         larga = afs["pág. 10"]["cohorte"]

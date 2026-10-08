@@ -88,6 +88,8 @@ _PRECIOS_POR_DEFECTO = {
     "openai/gpt-6-astra": (12.08, 50.99),
     "anthropic/claude-opus-5": (5.0, 25.0),
     "anthropic/claude-sonnet-5": (2.0, 10.0),
+    # Sonnet 5.5: catálogo del AI Gateway comprobado el 8 de octubre de 2026.
+    "anthropic/claude-sonnet-5.5": (2.0, 10.0),
 }
 try:
     import json as _json

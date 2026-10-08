@@ -295,6 +295,7 @@ def test_coste_desde_uso_prefiere_el_coste_del_gateway():
     # Sin `cost` (o cero, o texto raro) cae a la tabla, y lo dice.
     estimado, real = CFG.coste_desde_uso({"prompt_tokens": 1_000_000, "completion_tokens": 0}, "openai/anthropic/claude-sonnet-5")
     assert (estimado, real) == (2.0, False)
+    assert CFG.coste_usd("openai/anthropic/claude-sonnet-5.5", 1_000_000, 1_000_000) == 12.0
     assert CFG.coste_desde_uso({"cost": 0, "prompt_tokens": 1_000_000}, "anthropic/claude-opus-5") == (5.0, False)
     assert CFG.coste_desde_uso({"cost": "no sé", "prompt_tokens": 1_000_000}, "anthropic/claude-opus-5") == (5.0, False)
     assert CFG.coste_desde_uso({"cost": True, "prompt_tokens": "x"}, "anthropic/claude-opus-5") == (0.0, False)
@@ -342,6 +343,8 @@ def test_replica_sin_cache_y_el_resto_con_ella(monkeypatch):
 
     monkeypatch.setenv("ROSA_GATEWAY_KEY", "clave-de-prueba")
     m = GW.modelos()
+    assert m.volumen.model == "openai/anthropic/claude-sonnet-5.5"
+    assert m.volumen.kwargs.get("temperature") is None
     assert m.replica.cache is False and m.replica.kwargs["temperature"] == 1.0
     assert m.juez.cache is True and m.cerebro.cache is True and m.volumen.cache is True
     copia = m.juez.copy(rollout_id=1)

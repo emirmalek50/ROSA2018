@@ -1,9 +1,9 @@
 """Los modelos de ROSA2018, todos por el AI Gateway de Vercel.
 
 Decidido por la persona responsable el 9 y 10 de septiembre de 2026 (TRASPASO.md 2.2 y 2.3):
-GPT-6 Astra de cerebro, Claude Opus 5 de juez, Claude Sonnet 5 en alto
-volumen. Claude Fable 5.1 queda fuera: sus filtros de doble uso en biología
-devuelven vacío por la API en hipótesis mecanísticas y dianas terapéuticas.
+GPT-6 Astra de cerebro, Claude Opus 5 de juez, Claude Sonnet 5.5 en alto
+volumen (actualizado por Emir el 8 de octubre de 2026). Claude Fable 5.1
+queda fuera: sus filtros de doble uso en biología devuelven vacío por la API en hipótesis mecanísticas y dianas terapéuticas.
 
 La clave sale del entorno (ROSA_GATEWAY_KEY en .env, ignorado por git) y
 nunca del código. El prefijo ``openai/`` es el de LiteLLM para "endpoint
@@ -26,7 +26,7 @@ URL_GATEWAY = os.environ.get("ROSA_GATEWAY_URL", "https://ai-gateway.vercel.sh/v
 
 CEREBRO = "openai/gpt-6-astra"
 JUEZ = "anthropic/claude-opus-5"
-VOLUMEN = "anthropic/claude-sonnet-5"
+VOLUMEN = "anthropic/claude-sonnet-5.5"
 
 
 class ClaveAusente(RuntimeError):
