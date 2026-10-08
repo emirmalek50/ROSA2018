@@ -118,6 +118,39 @@ describe('el motor del laboratorio sigue al servidor', () => {
     expect(saltos).toBe(0);
   });
 
+  it('nadie se queda plantado en el pasillo cuando le quitan la escena a medio camino', async () => {
+    // Revisión del 8 de octubre de 2026: Ingrid y Tomás iban a charlar por el
+    // pasillo de la sala 1; una presentación se llevó a Tomás y a Ingrid la
+    // soltó a mitad de camino, sin ruta: se quedó plantada pegada a él, con
+    // los rótulos pisados, hasta el final. Aquí la escena se corta igual: dos
+    // van de camino a charlar y una conversación real se lleva a uno de ellos
+    // con un tercero de la sala; el otro queda libre a medio pasillo.
+    vi.spyOn(Math, 'random').mockReturnValue(0.3);
+    const d = datos();
+    montar(d);
+    await avanzar(1);
+    const pos = (el: HTMLElement) => (/translate\(([\d.-]+)px,([\d.-]+)px\)/.exec(el.style.transform) ?? []).slice(1, 3).map(Number) as [number, number];
+    const todos = [...nodo.querySelectorAll<HTMLElement>('[data-agente]')];
+    const casa = new Map(todos.map((el) => [el, pos(el)]));
+    const fuera = (el: HTMLElement) => { const p = pos(el), h = casa.get(el)!; return Math.hypot(p[0] - h[0], p[1] - h[1]) > 8; };
+    let pareja: HTMLElement[] = [];
+    for (let k = 0; k < 600 && pareja.length !== 2; k++) {
+      await avanzar(1);
+      const andando = todos.filter((el) => el.dataset.escena === 'espera' && fuera(el));
+      pareja = andando.filter((el) => andando.filter((o) => o.dataset.sala === el.dataset.sala).length === 2).slice(0, 2);
+    }
+    expect(pareja).toHaveLength(2);
+    const [llamado, soltado] = pareja as [HTMLElement, HTMLElement];
+    const tercero = todos.find((el) => el.dataset.sala === llamado.dataset.sala && !pareja.includes(el) && el.dataset.agente !== 'Tú')!;
+    const turno: TurnoLaboratorio = { id: 'se-lo-llevan', temaId: 'tema-real', iteracionId: d.identidad.split('/')[1]!, idioma: 'es', agente: llamado.dataset.agente!, destinatario: tercero.dataset.agente!, texto: 'Mira esto antes de que se me olvide.', fecha: Date.now(), modelo: 'prueba', materiales: [] };
+    motor!.conversar([turno]);
+    await avanzar(3);
+    expect(soltado.dataset.escena).toBeUndefined();
+    await avanzar(150);
+    // Quince segundos después está de vuelta en su sitio, no donde lo soltaron.
+    expect({ quien: soltado.dataset.agente, fuera: fuera(soltado) }).toEqual({ quien: soltado.dataset.agente, fuera: false });
+  });
+
   it('el ocio es honesto: quien no trabaja va a por café andando; si alguien de la sala trabaja, nadie va', async () => {
     // Azar fijo que elige siempre «cafetera» cuando hay máquina y toca moverse.
     vi.spyOn(Math, 'random').mockReturnValue(0.05);

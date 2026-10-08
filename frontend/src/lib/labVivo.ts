@@ -90,6 +90,9 @@ export interface DatosLab {
   /** Cómo responde cada modelo según el vigilante (rosa/vigilante_modelos.py):
    *  con uno sin respuesta suena el teléfono rojo de su sala. Null si nunca se midió. */
   salud: { cerebro: SaludDeModelo; volumen: SaludDeModelo; juez: SaludDeModelo };
+  /** Las hipótesis de la investigación, contadas: los palitos de la pared del
+   *  Killer son las descartadas, el mapa de la revisión final las vivas. */
+  ideas: { vivas: number; descartadas: number; partidos: number };
   /** Llamadas al modelo de la iteración frente a su tope. */
   presupuesto: { usado: number; limite: number; reserva: number | null } | null;
   /** Null mientras la cadena de evidencia no ha llegado (o en modo muestra). */
@@ -304,6 +307,20 @@ export function afirmacionesDeEvidencia(ev: Evidencia, numero: number): Afirmaci
       ...(p ? { procedenciaVeredicto: { origen: p.origen, modelo: p.modelo, comprobaciones: [...p.comprobaciones] } } : {}) };
   });
 }
+/** Cuántas hipótesis hay vivas y descartadas, y cuántos partidos de torneo
+ *  se han jugado entre ellas, en la investigación que se mira. */
+function contarIdeas(estado: EstadoRosa, inv: Investigacion): DatosLab['ideas'] {
+  let vivas = 0, descartadas = 0, partidos = 0;
+  for (const h of estado.hipotesis) {
+    if (h.investigacionId !== inv.id) continue;
+    if (h.estado === 'descartada') descartadas++;
+    else vivas++;
+    partidos += Array.isArray(h.partidos) ? h.partidos.length : typeof h.partidos === 'number' ? h.partidos : 0;
+  }
+  // Cada partido lo cuentan las dos hipótesis que lo juegan.
+  return { vivas, descartadas, partidos: Math.round(partidos / 2) };
+}
+
 export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corrida: Corrida, recibida: Iteracion | null, opciones: { pasada?: boolean; evidencia?: Evidencia | null } = {}): DatosLab {
   // Un cambio de corrida puede llegar antes que sus iteraciones. Nunca mezclar.
   const compatible = corrida.investigacionId === inv.id;
@@ -387,6 +404,7 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
     pasos: { total: plan.length, primero: plan[0]?.titulo ?? null, aprobado: !!it?.planAprobado, estados: plan.map((p) => p.estado === 'fallido' ? 'fallo' : p.estado === 'omitido' || p.estado === 'sin_trabajo' ? 'omitido' : p.estado === 'hecho' ? 'hecho' : trabajando && p.estado === 'en_curso' ? 'ahora' : 'pendiente'), enCurso: trabajando && enCurso ? { n: plan.indexOf(enCurso) + 1, titulo: enCurso.titulo } : null, lista: plan.map((p) => ({ id: p.id, titulo: p.titulo, detalle: p.detalle, estado: p.estado, tipo: p.tipo, presupuesto: p.presupuesto })) },
     ...lecturaDe(it, corrida), juez, pide, modelos: { cerebro: modelo('cerebro'), volumen: modelo('volumen'), juez: modelo('juez') },
     salud: { cerebro: saludDe('cerebro'), volumen: saludDe('volumen'), juez: saludDe('juez') },
+    ideas: contarIdeas(estado, inv),
     presupuesto: it && it.presupuesto.limite > 0 ? { usado: it.presupuesto.usado, limite: it.presupuesto.limite, reserva: it.presupuesto.reservaCierre ?? null } : null,
     afirmaciones, pasada,
   };

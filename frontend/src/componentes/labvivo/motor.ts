@@ -23,7 +23,8 @@ import { escenasDeApertura } from './inicioPelicula';
 import { ColaPelicula } from './colaPelicula';
 import { CadenciaDialogos, pausaDeRespuesta } from './cadenciaDialogos';
 import { comparan, titularDe } from './titulares';
-import { elegirOcio, levantaLaVista, luzPorHora, miradaAlCruzarse, nivelDePila, parpadeo, siguienteOcio, type Ocio } from './vida';
+import { elegirOcio, levantaLaVista, luzPorHora, miradaAlCruzarse, parpadeo, siguienteOcio, type Ocio } from './vida';
+import { decorarMesas, decorarSalas } from './decoracion';
 import type { EventoVisualLab } from '../../lib/peliculaLab';
 import { esPeticionDePresupuesto, pintarFoco, pintarPeticionIncidencia, pintarPeticionPresupuesto, topeConLlamadasMas, vozDePresupuesto } from './peticionPresupuesto';
 import './peticionPresupuesto.css';
@@ -453,6 +454,12 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (ctx.dead) return Promise.reject(PARAR);
     a.path = pts.map(([x, y]) => ({ x, y })); return ctx.until(() => a.path.length === 0);
   }
+  /** Del sitio donde esté a su mesa, por el pasillo de su sala (o, desde la
+   *  biblioteca, por el paso inferior, sin atravesar la pared). */
+  function rutaACasa(a: Agente): { x: number; y: number }[] {
+    const y = a.room === 'r1' && a.x >= 760 ? 268 : pasillo(a);
+    return [{ x: a.x, y }, { x: a.hx, y }, { x: a.hx, y: a.hy }];
+  }
   function home(ctx: Ctx, a: Agente) {
     const pts: [number, number][] = [];
     if (Math.abs(a.y - a.hy) > 1 && Math.abs(a.x - a.hx) > 1) pts.push([a.x, a.hy]);
@@ -742,7 +749,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   const prioridadPelicula = new Set<Agente>();
   const proximaEscena = new Map<Agente, number>();
   let rondaEscena = 0, proximoPaseo = 1.5;
-  function cancelarEscena(a: Agente, devolver = true) {
+  function cancelarEscena(a: Agente, devolver = true, enSuSitio = false) {
     const escena = escenas.get(a);
     if (!escena) return;
     escena.ctx.kill();
@@ -753,7 +760,9 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (escenas.get(b) !== escena) continue;
       escenas.delete(b);
       if (b.ictx !== escena.ctx) continue;
-      b.ictx = null; b.busy = false; b.path = []; b.carry = null;
+      // Quien se queda sin escena a medio camino vuelve a su sitio andando; si
+      // no, se queda plantado en el pasillo, pegado al compañero con el que iba.
+      b.ictx = null; b.busy = false; b.path = atHome(b) || enSuSitio ? [] : rutaACasa(b); b.carry = null;
       b.typing = 0; b.reaccion = undefined;
       delete b.el.dataset.evento;
       delete b.el.dataset.emocion; delete b.el.dataset.gesto;
@@ -1231,7 +1240,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         // No se borra la respuesta pendiente: el mismo tema continúa al acabar
         // la presentación. Cancelar conserva la posición actual de la pareja.
         charla.agentes.forEach(a => { if (pelicula.hayPendiente(e => actoresDe(e).includes(a))) prioridadPelicula.add(a); });
-        cancelarEscena(charla.agentes[0]!);
+        cancelarEscena(charla.agentes[0]!, true, true);
         charlas.delete(charla);
         continue;
       }
@@ -2234,21 +2243,16 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (!g) return;
     for (const [x, y] of Object.values(CAFETERA)) dibujarCafetera(x, y);
     dibujarPlanta(720, 1196);
-    dibujarImpresora(540, 240);
+    // Junto a la boca del tubo que lleva las afirmaciones al juez.
+    dibujarImpresora(452, 150);
     dibujarVentilador(300, 958);
-    // El montón de artículos sobre la mesa del extractor: su altura es la cifra
-    // de resultados, logarítmica. Sin cifra, mesa vacía.
-    const nivel = nivelDePila(D.lectura.resultados);
-    if (nivel > 0) {
-      const alto = Math.max(2, Math.round(nivel * 22)), x = 506, y = 88 - alto;
-      g.fillStyle = '#17131F'; g.fillRect(x - 1, y - 1, 18, alto + 2);
-      for (let j = 0; j < alto; j++) { g.fillStyle = j % 2 ? '#E4E0D6' : '#F4F1EA'; g.fillRect(x, y + j, 16, 1); }
-    }
+    // El montón de artículos va ahora en decoracion.ts, encima de la mesa.
   }
   /** Lo que va ENCIMA de las mesas se pinta después de los muebles de primer
    *  plano (FG), que si no los tapan: la taza del juez y los teléfonos. */
   function dibujarSobreMesas() {
     if (!g) return;
+    decorarMesas({ g, D, rt, quieto: REDUCIR, ahora: new Date() });
     // La taza del juez humea mientras él trabaja.
     dibujarTaza(352, 404, D.trabajando && D.activos.includes('Juez'));
     for (const rol of ['cerebro', 'volumen', 'juez'] as const) {
@@ -2336,6 +2340,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       g.fillStyle = r.linea; g.fillRect(183, y + 3, 70 + ((i * 37) % 60), 3);
     });
     dibujarHucha();
+    decorarSalas({ g, D, rt, quieto: REDUCIR, ahora: new Date() });
     dibujarAmbiente();
     // La cinta lleva papeles mientras quedan afirmaciones por juzgar.
     const quedan = D.juez.total !== null && D.juez.hechas !== null ? D.juez.total - D.juez.hechas : 0;
@@ -2508,7 +2513,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         if (!D.activos.includes(a.name) && !AG.some((b) => b.room === a.room && D.activos.includes(b.name))) continue;
         cancelarEscena(a, false);
         a.recado = false; a.gesto = null;
-        a.path = [{ x: a.x, y: pasillo(a) }, { x: a.hx, y: pasillo(a) }, { x: a.hx, y: a.hy }];
+        a.path = rutaACasa(a);
       }
       const cambio = identidad !== d.identidad;
       if (cambio) { identidad = d.identidad; vistas.clear(); descartadas.clear(); cerrarPeticion(); dejarDeSeguir(); cerrarObjeto(false); sigIdx = -1; juzgadas.clear(); ultimoVeredicto = null; pelicula.limpiar(); }
