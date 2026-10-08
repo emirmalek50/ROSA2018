@@ -100,6 +100,11 @@ def armar(e: dict[str, Any], h: dict[str, Any], ahora: int) -> dict[str, Any]:
 
     # La hipotesis y su expediente.
     fichero("hipotesis.json", json.dumps(_limpio(h), ensure_ascii=False, indent=1).encode("utf-8"), "application/json", {"description": f"Hipótesis {h['id']} versión {h.get('version', 1)} tal como está en el estado de ROSA2018"})
+    from rosa.revision_agora import datos_exportacion
+
+    agora = datos_exportacion(e, h)
+    if agora is not None:
+        fichero("agora.json", json.dumps(agora, ensure_ascii=False, indent=1).encode("utf-8"), "application/json", {"description": "Revisión de Agora con respuestas completas, consultas, cobertura y vigencia. Contexto de investigación, no evidencia verificada automáticamente."})
     fichero("dossier.md", texto_dossier(e, h, inv, corrida, ahora).encode("utf-8"), "text/markdown", {"description": "Dossier para el laboratorio, generado sin ningún modelo desde el estado"})
     fichero("decisiones.json", json.dumps(_limpio(decisiones), ensure_ascii=False, indent=1).encode("utf-8"), "application/json")
     buf = io.StringIO()

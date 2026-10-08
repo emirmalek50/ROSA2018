@@ -25,6 +25,7 @@ import { CadenciaDialogos, pausaDeRespuesta } from './cadenciaDialogos';
 import { comparan, titularDe } from './titulares';
 import { elegirOcio, levantaLaVista, luzPorHora, miradaAlCruzarse, parpadeo, siguienteOcio, type Ocio } from './vida';
 import { decorarMesas, decorarSalas } from './decoracion';
+import { elQueSeQuedo, planDeSalida, salaAOscuras, type Salida } from './salida';
 import type { EventoVisualLab } from '../../lib/peliculaLab';
 import { esPeticionDePresupuesto, pintarFoco, pintarPeticionIncidencia, pintarPeticionPresupuesto, topeConLlamadasMas, vozDePresupuesto } from './peticionPresupuesto';
 import './peticionPresupuesto.css';
@@ -228,7 +229,7 @@ interface Bocadillo { el: HTMLDivElement; until: number; w?: number }
 interface Agente {
   i: number; name: string; quien: string; label: string; hx: number; hy: number; x: number; y: number; coat: string; look: Aspecto; ldy: number; desk: boolean; what: string;
   path: { x: number; y: number }[]; face: number; carry: Obj | null; bub: Bocadillo | null; busy: boolean; typing: number; cool: number;
-  room: Sala; ictx: Ctx | null; away: boolean; bob: number; el: HTMLDivElement; lb: HTMLDivElement;
+  room: Sala; ictx: Ctx | null; away: boolean; fuera: boolean; bob: number; el: HTMLDivElement; lb: HTMLDivElement;
   /** Cronómetro de la tarea abierta: desde cuándo espera la respuesta (hora real). */
   rj: HTMLDivElement; desde: number | null; rjTxt: string;
   /** Gesto encima de la cabeza (nuevo registro, nota, error) y gesto de espera. */
@@ -281,11 +282,15 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     return d;
   };
 
-  raiz.innerHTML = `<div class="lv-vista"><div class="lv-mundo"><canvas class="lv-lienzo" width="${ANCHO * 2}" height="${ALTO_VISTA * 2}"></canvas><div class="lv-salas"></div><div class="lv-marcas"></div><div class="lv-hots"></div><div class="lv-agentes"></div><div class="lv-bocadillos"></div></div><div class="lv-ficha" hidden></div><div class="lv-pide" hidden role="dialog" aria-live="assertive"></div><div class="lv-objeto" hidden role="dialog"></div><div class="lv-narra" hidden role="status" aria-live="polite"></div></div><div class="lv-barra"><div class="lv-capitulos"></div><div class="lv-pie"><button type="button" class="lv-play"></button><div class="lv-texto"><div class="lv-capk"></div><div class="lv-capt"></div></div><div class="lv-suceso"></div><button type="button" class="lv-sigue"></button><div class="lv-velocidad"><button type="button" data-s="1" class="on">1×</button><button type="button" data-s="2">2×</button></div><button type="button" class="lv-sonido"></button></div></div>`;
+  raiz.innerHTML = `<div class="lv-vista"><div class="lv-mundo"><canvas class="lv-lienzo" width="${ANCHO * 2}" height="${ALTO_VISTA * 2}"></canvas><div class="lv-salas"></div><div class="lv-marcas"></div><div class="lv-hots"></div><div class="lv-agentes"></div><div class="lv-bocadillos"></div></div><div class="lv-ficha" hidden></div><div class="lv-pide" hidden role="dialog" aria-live="assertive"></div><div class="lv-objeto" hidden role="dialog"></div><div class="lv-narra" hidden role="status" aria-live="polite"></div></div><div class="lv-barra"><div class="lv-capitulos"></div><div class="lv-pie"><button type="button" class="lv-play"></button><div class="lv-texto"><div class="lv-capk"></div><div class="lv-capt"></div></div><div class="lv-suceso"></div><button type="button" class="lv-sigue"></button><button type="button" class="lv-sigue lv-vuelven" hidden></button><div class="lv-velocidad"><button type="button" data-s="1" class="on">1×</button><button type="button" data-s="2">2×</button></div><button type="button" class="lv-sonido"></button></div></div>`;
   const q = <T extends HTMLElement = HTMLDivElement>(s: string) => raiz.querySelector(s) as T;
   const vista = q('.lv-vista'), mundo = q('.lv-mundo'), capaSalas = q('.lv-salas'), capaMarcas = q('.lv-marcas'), capaAgentes = q('.lv-agentes'), capaBocadillos = q('.lv-bocadillos');
   const ficha = q('.lv-ficha'), pideEl = q('.lv-pide'), capitulos = q('.lv-capitulos'), botonPlay = q<HTMLButtonElement>('.lv-play'), capk = q('.lv-capk'), capt = q('.lv-capt'), suceso = q('.lv-suceso');
   const capaHots = q('.lv-hots'), objetoEl = q('.lv-objeto'), narraEl = q('.lv-narra'), botonSigue = q<HTMLButtonElement>('.lv-sigue'), botonSonido = q<HTMLButtonElement>('.lv-sonido');
+  const botonVuelven = q<HTMLButtonElement>('.lv-vuelven');
+  botonVuelven.textContent = tr('Que vuelvan');
+  botonVuelven.title = tr('La corrida terminó y el laboratorio se fue vaciando. Esto hace volver a todos a sus mesas.');
+  botonVuelven.addEventListener('click', () => volverTodos());
   const cv = q<HTMLCanvasElement>('.lv-lienzo');
   const utileria = div('lv-utileria', mundo);
   mundo.insertBefore(utileria, capaAgentes);
@@ -441,7 +446,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     return {
       i, name: nombre, quien: NOMBRE_PROPIO[nombre] ?? '', label: tr(f[1]!), hx, hy, x: hx, y: hy, coat: f[4]!, look: { s: f[5]!, k: Number(f[6]), h: Number(f[7]), c: Number(f[8]), g: acc.includes('g'), b: acc.includes('b'), a: acc.includes('a') },
       ldy: Number(f[10]), desk: f[11] === '1', what: tr(f[12]!), path: [], face: 1, carry: null, bub: null, busy: false, typing: 0, cool: 0,
-      room: salaDe(hx, hy), ictx: null, away: false, bob: 0, el, lb, rj, desde: null, rjTxt: '',
+      room: salaDe(hx, hy), ictx: null, away: false, fuera: false, bob: 0, el, lb, rj, desde: null, rjTxt: '',
       emo: null, gesto: null, prox: 4 + Math.random() * 20, recado: false, turno: 0, mirada: null,
     };
   });
@@ -772,7 +777,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
   const escenaDisponible = () => vivo && !REDUCIR && !asking && !siguiendo && D.trabajando && D.conexion === 'en_linea'
     && !raiz.querySelector('.lv-narra:not([hidden])');
-  const libreParaEscena = (a: Agente) => !a.ictx && !a.busy && !a.bub && !escenas.has(a);
+  const libreParaEscena = (a: Agente) => !a.ictx && !a.busy && !a.bub && !a.fuera && !escenas.has(a);
   const actividadDe = (a: Agente) => [...D.actividad].reverse().find((e) => e.agente === a.name && e.enCurso);
   function hablarEnEscena(a: Agente, b: Agente | null, texto: string, dur: number) {
     const destinatario = b ? trp('Para {nombre}', { nombre: b.quien || b.label }) : tr('En la escena');
@@ -1302,7 +1307,76 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       })());
     }
   }
+  /* ---------- la hora de salir ---------- */
+  //  Con la corrida terminada el laboratorio no se congela: se vacía. Quién se
+  //  queda y en qué orden sale cada cual está en salida.ts; aquí va el camino
+  //  hasta la puerta de cada sala, la luz que se apaga detrás y el botón para
+  //  que vuelvan. Es ambiente: no afirma nada sobre lo que pasó.
+  let salida: { plan: Salida[]; reloj: number; visto: number } | null = null;
+  /** Quien va camino de la puerta. No se aparta de nadie: si se apartara, los
+   *  tres que salen a la vez de una sala se empujarían delante de la puerta y
+   *  acabarían unos encima de otros, que es justo lo que se arregló en las
+   *  salas. Da igual que se solapen un instante: desaparecen al llegar. */
+  const saliendo = new Set<Agente>();
+  /** La puerta de una sala, bajo su letrero verde de salida. */
+  const puertaDe = (s: Sala): [number, number] => { const [x, y, w] = GEOM[s]; return [x + w - 58, y + 6]; };
+  function irsePorLaPuerta(a: Agente) {
+    const ctx = nuevoCtx(); a.ictx = ctx; a.busy = true; a.gesto = null;
+    saliendo.add(a);
+    const [dx, dy] = puertaDe(a.room);
+    spawn((async () => {
+      try {
+        // Por el pasillo de su sala hasta debajo de la puerta, y de ahí arriba.
+        await desplazarse(ctx, a, dx, pasillo(a));
+        await walk(ctx, a, [[dx, dy]]);
+        await ctx.wait(0.35);
+        a.fuera = true;
+      } finally {
+        saliendo.delete(a);
+        if (a.ictx === ctx) { a.ictx = null; a.busy = false; a.path = []; }
+      }
+    })());
+  }
+  /** Que vuelvan: entran por donde salieron y van andando a su mesa. */
+  function volverTodos() {
+    salida = null; saliendo.clear();
+    for (const a of AG) {
+      if (!a.fuera) continue;
+      a.fuera = false;
+      const [dx, dy] = puertaDe(a.room);
+      a.x = dx; a.y = dy; a.path = rutaACasa(a);
+    }
+    pintarVuelven();
+  }
+  function pintarVuelven() {
+    const hay = AG.some((a) => a.fuera);
+    if (botonVuelven.hidden !== !hay) botonVuelven.hidden = !hay;
+  }
+  function mantenerSalida() {
+    const toca = vivo && !REDUCIR && !asking && !siguiendo && !D.pasada && !D.trabajando
+      && D.estado === 'terminada' && D.conexion === 'en_linea';
+    if (!toca) { if (salida || AG.some((a) => a.fuera)) volverTodos(); return; }
+    if (!salida) salida = { plan: planDeSalida(AG.map((a) => ({ nombre: a.name, sala: a.room }))), reloj: 0, visto: simT };
+    const paso = Math.max(0, Math.min(0.5, simT - salida.visto));
+    salida.visto = simT;
+    // Mientras quede algo que contar, no se va nadie. El reloj de la salida se
+    // PARA, no se reinicia: con una escena de cierre de vez en cuando, volver a
+    // cero cada vez dejaba salir siempre a los mismos cuatro primeros y el
+    // laboratorio no se vaciaba nunca. Solo cuenta lo que de verdad se va a
+    // ver; una ida al café no, porque entonces casi nunca habría silencio.
+    const contando = [...escenas.values()].some((e) => e.evento || e.temaId || e.afirmacionId);
+    if (contando || pelicula.hayPendiente((e) => e.tipo === 'cierre')) return;
+    salida.reloj += paso;
+    for (const s of salida.plan) {
+      if (salida.reloj < s.t) continue;
+      const a = P(s.nombre);
+      if (a.fuera || a.ictx || a.busy || escenas.has(a)) continue;
+      irsePorLaPuerta(a);
+    }
+    pintarVuelven();
+  }
   function mantenerEscenas() {
+    mantenerSalida();
     if (!escenaDisponible()) {
       [...escenas.entries()].forEach(([a, e]) => { if (!(e.temaId && vozDisponible(D) && !asking) && !(e.evento?.tipo === 'cierre' && D.estado === 'terminada' && D.conexion === 'en_linea' && !D.pasada && !asking)) cancelarEscena(a, false); });
       if (vivo && !asking && vozDisponible(D) && !siguiendo) mantenerDialogos();
@@ -1327,6 +1401,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (a) empezarEscena(a, false);
   }
   function pararActividad() {
+    salida = null; saliendo.clear();
     [...escenas.keys()].forEach(a => cancelarEscena(a, false));
     cadencia.limpiar();
     dialogosEnPelicula.clear();
@@ -1335,6 +1410,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     AG.forEach((a) => {
       a.ictx?.kill(); a.ictx = null; a.busy = false; a.path = [];
       a.carry = null; a.away = false; a.typing = 0;
+      if (a.fuera) { a.fuera = false; a.x = a.hx; a.y = a.hy; }
       if (!a.bub?.el.classList.contains('ask')) { a.bub?.el.remove(); a.bub = null; }
       a.recado = false; a.gesto = null; a.reaccion = undefined;
       delete a.el.dataset.emocion; delete a.el.dataset.gesto;
@@ -1792,7 +1868,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       }
       if (simT < a.prox) continue;
       a.prox = siguienteOcio(Math.random, simT);
-      if (asking || !atHome(a) || a.busy || a.ictx || a.bub || a.recado || a.name === 'Tú' || D.activos.includes(a.name) || dormido(a)) continue;
+      if (asking || a.fuera || !atHome(a) || a.busy || a.ictx || a.bub || a.recado || a.name === 'Tú' || D.activos.includes(a.name) || dormido(a)) continue;
       // Solo quien no trabaja; y a por café solo si la sala tiene máquina y nadie de la sala está trabajando.
       const cafetera = !REDUCIR && !!CAFETERA[a.room] && !AG.some((b) => b.room === a.room && D.activos.includes(b.name)) && ![...escenas.keys()].some((b) => b.room === a.room);
       const { k, dur } = elegirOcio(Math.random, { sentado: a.desk, cafetera });
@@ -2281,19 +2357,35 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       g.fillStyle = p < 1 ? '#D9CFA0' : '#FFE9B8'; g.fillRect(cx - 16, y + 4, 32, 3);
     }
   }
+  /** El letrero verde de la salida, en lo alto de la sala a la derecha. */
+  function letreroSalida(xd: number, y: number) {
+    if (!g) return;
+    g.fillStyle = '#17131F'; g.fillRect(xd - 44, y + 5, 26, 10);
+    g.fillStyle = '#2F6E4A'; g.fillRect(xd - 43, y + 6, 24, 8);
+    g.fillStyle = '#7FD1A5'; g.fillRect(xd - 40, y + 8, 3, 4); g.fillRect(xd - 35, y + 8, 2, 4); g.fillRect(xd - 31, y + 8, 3, 4); g.fillRect(xd - 26, y + 8, 3, 4);
+  }
+  /** La lámpara de quien se queda acabando cuando su sala ya se vació. */
+  function lamparaDeMesa(cx: number, cy: number) {
+    if (!g) return;
+    const gr = g.createRadialGradient(cx, cy, 6, cx, cy, 130);
+    gr.addColorStop(0, 'rgba(255,206,150,0.30)'); gr.addColorStop(1, 'rgba(255,206,150,0)');
+    g.fillStyle = gr; g.fillRect(cx - 130, cy - 130, 260, 260);
+  }
   /** La luz de cada sala según su estado real, y la alarma donde la corrida paró o falló. */
   function dibujarLuces() {
     if (!g) return;
+    const gente = AG.map((a) => ({ nombre: a.name, sala: a.room as string, fuera: a.fuera }));
+    const vaciandose = gente.some((p) => p.fuera);
     for (const k of Object.keys(GEOM) as Sala[]) {
       if (k === 'rec') continue;
       const [x, y, w, h] = GEOM[k], e = estadoDe(k === 'bib' ? 'r1' : k);
+      // Una sala que se quedó sin nadie apaga la luz, igual que una que no toca.
+      const aOscuras = salaAOscuras(k, gente);
       // Solo se atenúan, y poco, las salas que no forman parte de esta corrida; las que vienen después siguen encendidas.
-      if (e === 'no_toca') {
+      if (e === 'no_toca' || aOscuras) {
         g.fillStyle = '#07060C2E'; g.fillRect(x, y, w, h);
         // Con la luz apagada solo queda el letrero verde de la salida.
-        g.fillStyle = '#17131F'; g.fillRect(x + w - 44, y + 5, 26, 10);
-        g.fillStyle = '#2F6E4A'; g.fillRect(x + w - 43, y + 6, 24, 8);
-        g.fillStyle = '#7FD1A5'; g.fillRect(x + w - 40, y + 8, 3, 4); g.fillRect(x + w - 35, y + 8, 2, 4); g.fillRect(x + w - 31, y + 8, 3, 4); g.fillRect(x + w - 26, y + 8, 3, 4);
+        letreroSalida(x + w, y);
       } else if (e === 'ahora' && D.trabajando && k !== 'bib') {
         // El fluorescente de la sala en marcha, con algún bajón de vez en cuando.
         const p = REDUCIR ? 1 : parpadeo(rt, x * 0.02);
@@ -2301,6 +2393,11 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         gr.addColorStop(0, `rgba(255,196,138,${0.25 * p})`); gr.addColorStop(1, 'rgba(255,196,138,0)');
         g.fillStyle = gr; g.fillRect(x, y, w, h);
       }
+      // El que se quedó acabando, con su lámpara; y mientras el laboratorio se
+      // vacía, el letrero enseña por dónde se sale.
+      const tarde = elQueSeQuedo(k, gente);
+      if (tarde) { const q = P(tarde); lamparaDeMesa(q.x + 24, q.y + 34); }
+      if (vaciandose && !aOscuras && e !== 'no_toca') letreroSalida(x + w, y);
       if (k === 'bib') continue;
       const roja = e === 'fallo' || (e === 'ahora' && !D.trabajando && !D.pasada && PARADA_ROJA.has(D.estado));
       const ambar = !roja && e === 'ahora' && !D.trabajando && !D.pasada && PARADA_AMBAR.has(D.estado);
@@ -2378,6 +2475,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       a.el.style.transform = `translate(${a.x}px,${a.y + b}px)`;
       a.lb.style.top = (atHome(a) ? a.ldy : 66) + 'px';
       a.el.classList.toggle('away', a.away);
+      a.el.classList.toggle('fuera', a.fuera);
       const rjTxt = a.desde === null ? '' : trp('En curso · {t}', { t: transcurrido(a.desde) });
       if (rjTxt !== a.rjTxt) { a.rjTxt = rjTxt; a.rj.textContent = rjTxt; a.rj.hidden = !rjTxt; }
       if (a.bub) {
@@ -2409,7 +2507,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
    *  sitios están repartidos. Revisión del 8 de octubre de 2026: en cuatro
    *  salas había figuras y rótulos unos encima de otros. */
   function apartar(a: Agente) {
-    const pisa = (x: number, y: number) => AG.some((b) => b !== a && !b.away && Math.abs(b.x - x) < 34 && Math.abs(b.y - y) < 22);
+    const pisa = (x: number, y: number) => AG.some((b) => b !== a && !b.away && !b.fuera && Math.abs(b.x - x) < 34 && Math.abs(b.y - y) < 22);
     if (!pisa(a.x, a.y)) return;
     const r = GEOM[a.room];
     for (const dx of [36, -36, 72, -72, 108, -108]) {
@@ -2429,12 +2527,12 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (d <= m) {
         a.x = p.x; a.y = p.y; a.path.shift();
         // Al final del camino, y no en su sitio de siempre.
-        if (a.path.length === 0 && !atHome(a)) apartar(a);
+        if (a.path.length === 0 && !atHome(a) && !saliendo.has(a)) apartar(a);
       } else { a.x += (dx / d) * m; a.y += (dy / d) * m; }
       // Quien está quieto mira un instante a quien pasa a su lado; quien está
       // sentado levanta la vista si pasan por delante de su mesa.
       if (!REDUCIR) for (const b of AG) {
-        if (b === a || b.path.length || b.room !== a.room || b.mirada || (b.gesto && b.gesto.k !== 'estira')) continue;
+        if (b === a || b.fuera || a.fuera || b.path.length || b.room !== a.room || b.mirada || (b.gesto && b.gesto.k !== 'estira')) continue;
         const cara = b.desk && atHome(b) ? levantaLaVista(b, a) : miradaAlCruzarse(a, b);
         if (cara) b.mirada = { cara, hasta: simT + 0.7 };
       }

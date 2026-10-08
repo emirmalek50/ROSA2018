@@ -27,6 +27,7 @@ import { EsqueletoPantalla } from '../componentes/Esqueleto';
 import { Bloqueos, ConsultasABases, ContextoDeBases, ContratoDelExperimento, DecisionesKiller, Dimensiones, EjecucionesInSilico, FusionYConflictos, GrafoCausalDeHipotesis, PerfilDeLaDiana, ProtocoloYEnmiendas, TarjetaDeHipotesis } from '../componentes/Rosa2018';
 import { FranjaRanking } from '../componentes/FranjaRanking';
 import { Alternativas } from '../componentes/Alternativas';
+import { EstadoAgora, ResumenAgora, RevisionAgora } from '../componentes/RevisionAgora';
 import { dependeDeRetractada, resumenEvidencia, tramosFuertes } from '../lib/calidad';
 import { ACCION_REVISION_HIPOTESIS, ALCANCE_SUPUESTO, DONDE_SE_RESPONDE, ESTADO_HIPOTESIS, ESTADO_SUPUESTO, EVIDENCIA_ESTADISTICA, RELEVANCIA, TIPO_REVISION, RESULTADO_LABORATORIO, killerPendienteDe } from '../lib/etiquetas';
 import { expediente } from '../lib/exportar';
@@ -279,6 +280,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
           <EnPocasPalabras texto={h.enLlano} />
           <ViabilidadDeLaPrueba v={h.viabilidad} />
           <ConclusionLegible h={h} ahora={ahora} nAfirmaciones={nAfirmaciones} onIr={ir} />
+          <ResumenAgora h={h} onAbrir={() => ir('evidencia')} />
           <section className="ficha-bloque">
             <h3 className="ficha-h">{tr("Cómo se ordena en el ranking")}</h3>
             <p className="ficha-sub">{tr("Cada componente por separado, sin sumarlos en una nota: el orden lo decide la regla, no una media.")}</p>
@@ -323,6 +325,7 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               <a className="btn btn-s" href={rutaNovedad(h.investigacionId, h.id, 'companias')}>{tr('Ver el informe de Damián')}</a>
             </div>
           </Seccion>
+          <RevisionAgora h={h} />
           <Seccion detalle titulo={tr("Novedad")} nota={tr("Consultas baratas antes de gastar una corrida: Open Targets, ClinicalTrials.gov, Agora, la genética humana (GWAS Catalog, ClinVar), los fármacos contra la diana (ChEMBL, DGIdb), los datos públicos para comprobarla (GEO, CELLxGENE) y si alguien ya lo propuso en la literatura. Con Exa, además, patentes y proyectos financiados anteriores a la hipótesis: una idea ya protegida o ya financiada no es nueva aunque no esté publicada.")}>
             <div className="novedad novedad-4">
               <div className="novedad-item">
@@ -347,8 +350,8 @@ function Detalle({ h, estado, ahora, onAbrirProcedencia }: { h: Hip; estado: Est
               </div>
               <div className="novedad-item">
                 <strong>Agora</strong>
-                <Chip tono={h.novedad.agora.estado === 'no_nominada' ? 'ok' : 'aviso'}>{(h.novedad.agora.estado === 'no_nominada' ? tr("No nominada") : tr("Diana nominada"))}</Chip>
-                <p>{h.novedad.agora.detalle}</p>
+                <EstadoAgora valor={h.novedad.agora} />
+                <p>{h.novedad.agora?.detalle}</p>
               </div>
               {h.novedad.genetica && (
                 <div className="novedad-item">

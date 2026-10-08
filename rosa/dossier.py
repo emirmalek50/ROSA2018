@@ -71,7 +71,7 @@ def _lineas_contrato(x: dict[str, Any]) -> list[str]:
     """El contrato del experimento (rosa/experimento.py) y, si hay resultado,
     el veredicto por lectura y la lectura del negativo."""
     L = _lineas_seguras(lambda: XP.texto_contrato(x), "Contrato del experimento")
-    r = x.get("resultado") if isinstance(x.get("resultado"), dict) else {}
+    r = _dict(x.get("resultado"))
     vs = [v for v in (r.get("veredictosPorLectura") or []) if isinstance(v, dict)]
     if vs:
         L.append("Veredicto por lectura (por regla, con la cifra que nombra cada lectura; sin cifra es no pude comprobar, no ausencia de efecto):")
@@ -179,6 +179,10 @@ def texto_dossier(e: dict[str, Any], h: dict[str, Any], inv: dict[str, Any] | No
     # declarado va por delante de un paso vacío.
     L += _lineas_ruta(e, h)
     L += _lineas_perfil_diana(h)
+    if h.get("revisionAgora"):
+        from rosa.revision_agora import texto_revision
+
+        L += ["", "### Revisión de Agora", texto_revision(h), "Datos completos y trazas de recuperación: agora.json en la exportación RO-Crate."]
     c = _dict(h.get("comprobacion"))
     L.append(f"Comprobación propuesta: biomarcador {c.get('biomarcador') or 'sin declarar'}; cohorte {c.get('cohorte') or 'sin declarar'}; diseño {c.get('diseno') or 'sin declarar'}.")
     if mision:

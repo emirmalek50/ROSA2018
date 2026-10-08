@@ -81,6 +81,21 @@ class Llamadas:
 
 def _supervisor(al, ids, respuestas, monkeypatch):
     llamadas = Llamadas(respuestas)
+    consultar_real = CO.AGORA.CON.consultar
+
+    async def consultar(herramienta, /, **kw):
+        if herramienta != "agora":
+            return await consultar_real(herramienta, **kw)
+        gen = kw["gen"]
+        registro = {"id": P.nuevo_id("con"), "fuente": "agora", "herramienta": "agora", "fecha": 1000,
+                    "argumentos": {"gen": gen}, "resumen": "Agora simulada para la prueba", "n": 1, "ids": [gen], "error": None}
+        dato = {"estado": "completa", "gen": {"hgnc_symbol": gen, "ensembl_gene_id": "ENSG00000000001"},
+                "secciones": [], "advertencias": [], "consultas": [], "fecha": 1000, "version": {"data_version": "simulada"}}
+        return registro, dato
+
+    # Solo Agora: los tests que ejercitan otro conector conservan su simulación
+    # específica y la lógica de revisión se ejecuta sin una consulta externa.
+    monkeypatch.setattr(CO.AGORA.CON, "consultar", consultar)
 
     async def llamar(self, rol, programa, **kw):
         return await llamadas(self, rol, programa, **kw)

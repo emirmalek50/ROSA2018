@@ -253,6 +253,18 @@ def _limpiar_para_cliente(valor: Any) -> Any:
 
             revision = salida["revisionTratamiento"]
             revision["vigente"] = revision.get("version") == VERSION and revision.get("huella") == huella(valor)
+        if isinstance(valor.get("revisionAgora"), dict) and "versionHipotesis" in valor["revisionAgora"]:
+            from rosa.revision_agora import vigente_para_hipotesis
+
+            salida["revisionAgora"]["vigente"] = vigente_para_hipotesis(valor)
+        # Las versiones antiguas usaban no_nominada sin consultar la fuente.
+        novedad = salida.get("novedad")
+        if isinstance(novedad, dict) and isinstance(novedad.get("agora"), dict):
+            agora = novedad["agora"]
+            if str(agora.get("detalle") or "").startswith(("No comprobado", "Pendiente", "Revisión de Agora pendiente")):
+                agora["estado"] = "no_comprobado"
+                if "Agora no tiene API" in str(agora.get("detalle")):
+                    agora["detalle"] = "Revisión de Agora pendiente: este registro histórico todavía no ha consultado la API."
         return salida
     if isinstance(valor, list):
         return [_limpiar_para_cliente(v) for v in valor]
@@ -1117,7 +1129,7 @@ def _migrar_contexto_xy(estado: dict[str, Any]) -> None:
                     rebajadas.add(h["id"])
             a["contexto"] = CAUSAL.CONTEXTO_XY
         resumen = grafo.get("resumen") if isinstance(grafo, dict) else None
-        if isinstance(resumen, str) and resumen.startswith("El efecto esta acotado"):
+        if isinstance(grafo, dict) and isinstance(resumen, str) and resumen.startswith("El efecto esta acotado"):
             resumen = "El efecto está acotado" + resumen[len("El efecto esta acotado"):]
             grafo["resumen"] = resumen.replace("; faltan 1.", "; falta 1.")
     relaciones = estado.get("relaciones")

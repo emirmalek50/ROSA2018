@@ -151,6 +151,68 @@ describe('el motor del laboratorio sigue al servidor', () => {
     expect({ quien: soltado.dataset.agente, fuera: fuera(soltado) }).toEqual({ quien: soltado.dataset.agente, fuera: false });
   });
 
+  it('al terminar la corrida el laboratorio se vacía poco a poco, pero recepción y dos de arriba se quedan', async () => {
+    // Antes del 8 de octubre de 2026, una corrida terminada dejaba el
+    // laboratorio congelado: sin conversación, sin escenas y con un tercio de
+    // la gente dormida bajo un cartel que decía «Paró». Ahora se vacía.
+    const d = datos();
+    montar({ ...d, trabajando: false, estado: 'terminada', activos: [], estadoTexto: 'Terminada' });
+    await avanzar(1);
+    const todos = [...nodo.querySelectorAll<HTMLElement>('[data-agente]')];
+    const fuera = () => todos.filter((el) => el.classList.contains('fuera')).map((el) => el.dataset.agente!);
+    expect(fuera()).toEqual([]);
+    // Pasan unos minutos de reloj del laboratorio.
+    await avanzar(3000);
+    const idos = new Set(fuera());
+    expect(idos.size).toBeGreaterThan(20);
+    // Recepción entera sigue ahí: son los que hablan contigo.
+    const recepcion = ['Tú', 'Asistente del chat', 'Preguntador', 'Traductor'];
+    expect(recepcion.filter((n) => idos.has(n))).toEqual([]);
+    // Y arriba quedan los dos que se quedan hasta tarde, nadie más.
+    expect(todos.map((el) => el.dataset.agente!).filter((n) => !idos.has(n) && !recepcion.includes(n))).toEqual(['Juez', 'Killer']);
+  });
+
+  it('nadie se va mientras la corrida sigue viva, y si vuelve a arrancar vuelven todos a su mesa', async () => {
+    const d = datos();
+    montar(d);
+    await avanzar(1);
+    const todos = [...nodo.querySelectorAll<HTMLElement>('[data-agente]')];
+    const casa = new Map(todos.map((el) => [el, el.style.transform]));
+    await avanzar(1200);
+    expect(todos.filter((el) => el.classList.contains('fuera'))).toEqual([]);
+    // Termina: se vacía. Vuelve a arrancar: vuelven, y a su sitio de siempre.
+    motor!.actualizar({ ...d, trabajando: false, estado: 'terminada', activos: [], estadoTexto: 'Terminada' });
+    await avanzar(2400);
+    expect(todos.filter((el) => el.classList.contains('fuera')).length).toBeGreaterThan(10);
+    motor!.actualizar({ ...d, estadoTexto: 'En marcha' });
+    await avanzar(600);
+    expect(todos.filter((el) => el.classList.contains('fuera'))).toEqual([]);
+    const perdidos = todos.filter((el) => el.style.transform !== casa.get(el)).map((el) => el.dataset.agente);
+    expect(perdidos.length).toBeLessThan(todos.length / 2);
+  });
+
+  it('el botón «Que vuelvan» aparece solo cuando alguien se fue y los trae de vuelta', async () => {
+    const d = datos();
+    montar({ ...d, trabajando: false, estado: 'terminada', activos: [], estadoTexto: 'Terminada' });
+    const boton = nodo.querySelector<HTMLButtonElement>('.lv-vuelven')!;
+    await avanzar(1);
+    expect(boton.hidden).toBe(true);
+    await avanzar(2400);
+    expect(boton.hidden).toBe(false);
+    expect(boton.textContent).toBeTruthy();
+    boton.click();
+    await avanzar(2);
+    expect([...nodo.querySelectorAll('.lv-ag.fuera')]).toEqual([]);
+  });
+
+  it('con movimiento reducido no se va nadie: el laboratorio se queda como está', async () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('reduce') }));
+    const d = datos();
+    montar({ ...d, trabajando: false, estado: 'terminada', activos: [], estadoTexto: 'Terminada' });
+    await avanzar(3000);
+    expect([...nodo.querySelectorAll('.lv-ag.fuera')]).toEqual([]);
+  });
+
   it('el ocio es honesto: quien no trabaja va a por café andando; si alguien de la sala trabaja, nadie va', async () => {
     // Azar fijo que elige siempre «cafetera» cuando hay máquina y toca moverse.
     vi.spyOn(Math, 'random').mockReturnValue(0.05);
@@ -252,6 +314,10 @@ describe('el motor del laboratorio sigue al servidor', () => {
     motor!.actualizar(siguiente); expect(nodo.querySelectorAll('.lv-bub')).toHaveLength(0);
   });
   it('la pausa cancela movimientos y la desconexión no deja personajes trabajando', () => {
+    // El azar fijo por encima de 0,2 descarta la ida al café (vida.ts): sin
+    // esto, una ida al café durante los ticks mueve a alguien y el test falla
+    // una vez de cada tantas sin que nada esté roto.
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
     const d = datos(); montar(d); ticks(15);
     motor!.actualizar({ ...d, trabajando: false, activos: [], estadoTexto: 'Pausada', salas: { ...d.salas, r1: 'espera' } });
     const antes = [...nodo.querySelectorAll<HTMLElement>('.lv-ag')].map((a) => a.style.transform);

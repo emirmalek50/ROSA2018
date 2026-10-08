@@ -1,0 +1,47 @@
+.revision-agora, .agora-resumen {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 16px 0;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.agora-cabecera, .agora-seccion > header, .agora-gen > header, .agora-resumen > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.agora-cabecera h2, .agora-gen h3, .agora-seccion h4 { margin: 0; }
+.agora-cabecera h2 { font-size: 20px; }
+.agora-ceja { margin: 0 0 4px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .65; }
+.agora-nota, .agora-fecha, .agora-procedencia, .agora-datos > p { font-size: 12px; line-height: 1.6; opacity: .8; }
+.agora-procedencia { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 14px 0; }
+.agora-gen { margin-top: 22px; }
+.agora-gen > header { justify-content: flex-start; }
+.agora-gen h3 { font-size: 16px; }
+.agora-secciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.agora-seccion { border: 1px solid var(--border); border-radius: 9px; padding: 14px; min-width: 0; }
+.agora-seccion h4 { font-size: 13px; }
+.agora-seccion p, .agora-resumen p { font-size: 13px; line-height: 1.6; }
+.agora-seccion[data-estado="no_comprobado"], .agora-seccion[data-estado="parcial"] { border-style: dashed; }
+.agora-cobertura { display: block; font-size: 12px; font-weight: 600; margin: 12px 0; }
+.agora-aviso { border-left: 3px solid var(--accent); padding: 4px 0 4px 10px; }
+.agora-limitaciones, .agora-fuentes, .agora-consultas ul { padding-left: 18px; font-size: 12px; line-height: 1.6; }
+.agora-fuentes a, .agora-gen a, .agora-consultas a { color: var(--accent); }
+.agora-consultas li { margin-bottom: 10px; }
+.agora-consultas li > div { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.agora-consultas p { margin: 4px 0; }
+.revision-agora details { margin-top: 10px; font-size: 12px; }
+.revision-agora summary { cursor: pointer; font-weight: 600; }
+.agora-analisis-texto { white-space: pre-wrap; }
+.revision-agora pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; line-height: 1.5; max-height: 340px; overflow: auto; padding: 10px; border: 1px solid var(--border); border-radius: 6px; }
+.agora-artefacto { margin-top: 16px; }
+.agora-resumen { padding: 14px 16px; }
+.agora-resumen .enlace { margin-top: 6px; }
+@media (max-width: 700px) {
+  .revision-agora { padding: 14px; }
+  .agora-secciones { grid-template-columns: minmax(0, 1fr); }
+}

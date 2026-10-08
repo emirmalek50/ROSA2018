@@ -297,7 +297,7 @@ def novedad_pendiente() -> dict[str, Any]:
         # Exa (15 de septiembre de 2026): patentes y proyectos financiados anteriores a la hipótesis.
         "patentes": {"estado": "no_comprobado", "detalle": "No comprobado todavía", "url": None},
         "financiacion": {"estado": "no_comprobado", "detalle": "No comprobado todavía", "url": None},
-        "agora": {"estado": "no_nominada", "detalle": "No comprobado: Agora no tiene API pública estable. No se afirma ausencia."},
+        "agora": {"estado": "no_comprobado", "detalle": "Revisión de Agora pendiente: se consultará antes del cierre de la corrida."},
         "precedente": {"estado": "sin_precedente", "detalle": "No comprobado todavía"},
     }
 

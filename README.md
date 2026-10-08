@@ -1228,3 +1228,53 @@ el presupuesto y la reserva del cierre siguen siendo obligatorios. La interfaz
 acepta la voz natural v2 durante una corrida que aún usa el servidor anterior;
 al recibir v3, esa sesión conserva v3. Las versiones sin identificar y los informes
 antiguos no se reproducen. Los diálogos guardados conservan sus fechas y procedencia.
+
+### Revisión de Agora antes del cierre
+
+Antes de cerrar una iteración, ROSA revisa en Agora los genes y proteínas
+mencionados en las hipótesis activas de la investigación. Repite la comprobación
+si el vivero incorpora hipótesis nuevas. Ningún cierre natural de la corrida
+omite el intento para el inventario actual. Detener o pausar sigue teniendo
+prioridad; una fuente caída queda como cobertura parcial o no comprobada.
+No se modifica retroactivamente una corrida terminada.
+
+La identidad se resuelve por coincidencia exacta y única de símbolo humano,
+alias o Ensembl. Las identidades ambiguas permanecen pendientes. La revisión
+incluye Gene Search, expresión diferencial de ARN y proteína (LFQ, SRM y TMT),
+correlaciones neuropatológicas, metabolómica, dominios, redes, puntuaciones,
+validación experimental, viabilidad farmacológica, recursos, Nominated Targets
+y Nominated Drugs. Gene Comparison usa las mediciones por estudio, región y
+modalidad de la ficha que alimenta esa misma sección del portal; no calcula un
+ranking global frente a los demás genes.
+
+Las dianas se consultan con paginación y filtro por símbolo, verificando Ensembl.
+Se revisan todas las fichas del catálogo paginado de fármacos para buscar vínculos
+exactos con el gen; un fármaco del catálogo general no se atribuye a todas las
+dianas. El catálogo se comparte entre genes durante el cierre, con tres
+peticiones por segundo, hasta tres simultáneas y un límite de peticiones que
+crece con el inventario (máximo 2.000); cualquier corte se registra explícitamente.
+La instantánea por gen se conserva durante la corrida y una nueva corrida vuelve
+a consultar. Una respuesta incompleta permite cerrar con la limitación visible,
+sin afirmar ausencia ni dejar la corrida esperando indefinidamente.
+
+El informe se ve en **Hipótesis → Evidencia → Agora**, también junto a la
+conclusión, en el dossier y mediante el asistente. Conserva identidad, fecha,
+versión, URL, parámetros, conteos, errores y huellas de las respuestas. La vista
+pública muestra hasta 12 filas por lista; **agora.json** en el RO-Crate conserva
+los datos completos y la trazabilidad. El análisis descriptivo recorre todas las
+mediciones, correlaciones, validaciones y menciones farmacológicas recuperadas;
+se muestra aparte y llega íntegro al contexto del juez, sin el límite de la vista
+previa. Las redes grandes se resumen recorriendo todas sus aristas. La política
+general de contexto del juez sigue aplicándose y registra cualquier compactación.
+Un cambio en la hipótesis invalida la
+vigencia del informe anterior. Esta revisión no crea afirmaciones sostenidas
+ni eleva GRADE por regla: el juez existente recibe su contexto y limitaciones
+al redactar la conclusión. Las consultas a Agora no consumen llamadas a modelos;
+una revisión nueva puede actualizar el contexto de la conclusión existente.
+
+Fuentes de la integración:
+
+- [Agora, portal oficial](https://agora.adknowledgeportal.org/).
+- [Contrato OpenAPI oficial de Sage Bionetworks](https://github.com/Sage-Bionetworks/sage-monorepo/blob/main/libs/agora/api-description/openapi/openapi.yaml).
+- [Proxy oficial de la API de producción](https://github.com/Sage-Bionetworks/sage-monorepo/blob/main/apps/agora/apex/Caddyfile).
+- Metodología de consulta y procedencia: skill `database-lookup`, [Kassis et al., Scientific Agent Skills (2026)](https://arxiv.org/abs/2609.00065).

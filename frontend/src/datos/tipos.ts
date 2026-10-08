@@ -1374,9 +1374,69 @@ export interface Novedad {
   financiacion?: { estado: 'no_comprobado' | 'proyecto_financiado' | 'parcial' | 'sin_proyecto'; detalle: string; url: string | null };
   /** Resumen de la auditoría industrial; el informe con fuentes y cobertura vive separado. */
   companias?: { estado: 'coincidencias' | 'sin_coincidencias_en_fuentes_consultadas' | 'no_comprobado' | 'no_aplica'; detalle: string; url?: string | null };
-  agora: { estado: 'no_nominada' | 'nominada'; detalle: string };
+  agora: { estado: 'no_nominada' | 'nominada' | 'no_comprobado' | 'no_aplica' | 'parcial'; detalle: string };
   /** Si alguien ya lo propuso en la literatura (comprobacion tipo Owl). */
   precedente: { estado: 'sin_precedente' | 'parcial' | 'ya_publicado' | 'no_comprobado'; detalle: string };
+}
+
+/** Estado de cada consulta científica: un fallo nunca equivale a ausencia. */
+export type EstadoSeccionAgora = 'comprobado' | 'sin_datos' | 'parcial' | 'no_comprobado' | 'no_aplica';
+export type FechaAgora = number | string;
+export type VersionFuenteAgora = string | Record<string, unknown>;
+
+export interface ConsultaAgora {
+  url: string;
+  fecha: FechaAgora;
+  n: number | null;
+  parametros?: Record<string, unknown>;
+  error?: string | null;
+  fuente?: string;
+  herramienta?: string;
+  resumen?: string;
+  version?: VersionFuenteAgora | null;
+  completa?: boolean;
+  total?: number | null;
+  recuperados?: number;
+  [clave: string]: unknown;
+}
+
+export interface SeccionAgora {
+  id: string;
+  nombre: string;
+  estado: EstadoSeccionAgora;
+  resumen: string;
+  fecha: FechaAgora;
+  fuentes: { nombre: string; url: string; version?: VersionFuenteAgora | null }[];
+  consultas: ConsultaAgora[];
+  /** Vista previa acotada; el JSON completo se conserva en el expediente exportable. */
+  datos: Record<string, unknown>;
+  limitaciones: string[];
+}
+
+export interface GenAgora {
+  consultado: string;
+  simbolo: string | null;
+  ensembl: string | null;
+  url: string | null;
+  estadoResolucion: 'resuelto' | 'ambiguo' | 'no_encontrado' | 'no_comprobado';
+  secciones: SeccionAgora[];
+  datos?: Record<string, unknown>;
+}
+
+export interface RevisionAgora {
+  version: number;
+  versionHipotesis: number;
+  huella: string;
+  vigente?: boolean;
+  hipotesisId: Id;
+  corridaId?: Id;
+  iteracionId?: Id;
+  fecha: FechaAgora;
+  estado: 'completa' | 'parcial' | 'no_comprobado' | 'no_aplica' | 'en_curso';
+  resumen: string;
+  genes: GenAgora[];
+  limitaciones: string[];
+  artefactoId?: Id;
 }
 
 export interface PerfilTratamiento {
@@ -1841,6 +1901,8 @@ export interface Hipotesis {
   novedad: Novedad;
   /** Patentes y programas empresariales del tratamiento concreto, con límites de búsqueda. */
   revisionTratamiento?: RevisionTratamiento | null;
+  /** Revisión de Agora por gen, con cobertura y fallos de cada sección. */
+  revisionAgora?: RevisionAgora | null;
   afirmaciones: Afirmacion[];
   procedencia: Procedencia;
   hallazgos: HallazgoRevisor[];

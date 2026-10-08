@@ -81,10 +81,11 @@ function salaPlan({ g }: Ambiente) {
 
 /* ------------------------------------------------ buscan y leen artículos */
 function salaLectura({ g }: Ambiente) {
-  // El corcho de los artículos pendientes, a la derecha de la placa.
-  marco(g, 670, 8, 86, 40, C.corcho);
+  // El corcho de los artículos pendientes, a la derecha de la placa. La
+  // esquina de arriba a la derecha de cada sala es la puerta: no se ocupa.
+  marco(g, 596, 8, 86, 40, C.corcho);
   for (let i = 0; i < 6; i++) {
-    const x = 675 + i * 13, y = 13 + (i % 2) * 5;
+    const x = 601 + i * 13, y = 13 + (i % 2) * 5;
     caja(g, x, y, 10, 13, C.papel);
     px(g, x + 2, y + 3, 6, 1, C.linea); px(g, x + 2, y + 6, 5, 1, C.linea); px(g, x + 2, y + 9, 6, 1, C.linea);
     px(g, x + 4, y - 1, 2, 2, i % 3 === 0 ? C.rojo : i % 3 === 1 ? C.azul : C.verde);
@@ -118,10 +119,10 @@ function salaVerificacion({ g, D }: Ambiente) {
   marco(g, 334, 298, 78, 38, C.papel);
   [[C.verde, 64], [C.azul, 48], [C.ambar, 32], [C.rojo, 18]].forEach(([c, w], i) => px(g, 340, 304 + i * 7, w as number, 4, c as string));
   // El corcho de Ayo: una ficha por cada tanto de afirmaciones sostenidas.
-  marco(g, 510, 296, 104, 40, C.corcho);
+  marco(g, 436, 296, 104, 40, C.corcho);
   const n = Math.round(nivelDePila(D.juez.veredictos?.sostenida ?? 0, 800) * 24);
   for (let i = 0; i < n; i++) {
-    const col = i % 9, fila = Math.floor(i / 9), x = 515 + col * 11, y = 301 + fila * 11;
+    const col = i % 9, fila = Math.floor(i / 9), x = 441 + col * 11, y = 301 + fila * 11;
     caja(g, x, y, 8, 7, C.papel); px(g, x + 3, y - 1, 2, 2, [C.rojo, C.azul, C.verde][i % 3]!);
   }
 }
@@ -213,17 +214,17 @@ function salaJuicio({ g, D, rt, quieto }: Ambiente) {
 /* -------------------------------------------------- patentes y compañías */
 function salaNovedad({ g, rt, quieto, D }: Ambiente) {
   // Dos patentes enmarcadas, con su sello.
-  for (const x of [820, 856]) {
+  for (const x of [744, 780]) {
     marco(g, x, 616, 30, 36, C.papel, C.oro);
     for (let j = 0; j < 4; j++) px(g, x + 5, 623 + j * 5, 18 - (j % 2) * 5, 1, C.linea);
     caja(g, x + 20, 642, 5, 5, C.rojo);
   }
   // El mapa de Damián, con chinchetas donde hay compañías ensayando.
-  marco(g, 902, 614, 152, 42, '#2B5566');
+  marco(g, 826, 614, 152, 42, '#2B5566');
   const tierra = '#4F8A6B';
-  px(g, 912, 622, 24, 10, tierra); px(g, 918, 632, 14, 12, tierra); px(g, 950, 620, 22, 12, tierra); px(g, 958, 632, 10, 14, tierra);
-  px(g, 980, 620, 44, 14, tierra); px(g, 1006, 634, 12, 8, tierra); px(g, 1028, 640, 16, 8, tierra);
-  [[922, 626], [962, 624], [994, 626], [1012, 636], [1036, 643]].forEach(([x, y], i) => caja(g, x!, y!, 2, 2, i % 2 ? C.ambar : C.rojo));
+  px(g, 836, 622, 24, 10, tierra); px(g, 842, 632, 14, 12, tierra); px(g, 874, 620, 22, 12, tierra); px(g, 882, 632, 10, 14, tierra);
+  px(g, 904, 620, 44, 14, tierra); px(g, 930, 634, 12, 8, tierra); px(g, 952, 640, 16, 8, tierra);
+  [[846, 626], [886, 624], [918, 626], [936, 636], [960, 643]].forEach(([x, y], i) => caja(g, x!, y!, 2, 2, i % 2 ? C.ambar : C.rojo));
   // El archivador de Sofía, con su candado: nadie más lo toca.
   caja(g, 640, 670, 46, 64, C.metalClaro);
   for (let j = 0; j < 3; j++) { px(g, 643, 674 + j * 20, 40, 16, C.metal); caja(g, 657, 680 + j * 20, 12, 3, C.metalOsc); }
@@ -289,9 +290,9 @@ function salaCierre({ g, D, ahora }: Ambiente) {
   px(g, cx - 1, cy - 1, 2, 2, T);
   // El mapa de hipótesis de Emma: un nodo por hipótesis viva, unidos; las
   // descartadas en gris y tachadas.
-  marco(g, 730, 934, 320, 44, C.papel, C.madera);
+  marco(g, 706, 934, 294, 44, C.papel, C.madera);
   const vivas = Math.min(14, D.ideas.vivas), muertas = Math.min(6, D.ideas.descartadas);
-  const puntos = Array.from({ length: vivas + muertas }, (_, i) => [738 + Math.round(semilla(i + 11) * 300), 942 + Math.round(semilla(i + 47) * 28)] as const);
+  const puntos = Array.from({ length: vivas + muertas }, (_, i) => [714 + Math.round(semilla(i + 11) * 274), 942 + Math.round(semilla(i + 47) * 28)] as const);
   g.fillStyle = C.linea;
   for (let i = 1; i < vivas; i++) {
     const [x0, y0] = puntos[i - 1]!, [x1, y1] = puntos[i]!, n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));

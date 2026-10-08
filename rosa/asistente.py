@@ -76,6 +76,12 @@ class ConversarConRosa(H.PreguntarConHerramientas):
     significa que lo produjo la corrida que está abierta. Un origen histórico
     ausente es desconocido; no lo infieras por título o fecha. La búsqueda pública
     sin coincidencias no acredita ausencia mundial de patentes ni de compañías.
+    Cada hipótesis puede incluir revisionAgora: revisión de identidad humana,
+    expresión de ARN y proteína, evidencia en Alzheimer, dianas y fármacos
+    nominados. Léela con leer_registro, comprueba vigente, corridaId y cobertura
+    por apartado. Los datos completos están en agora.json del RO-Crate; la vista
+    previa es limitada. Una nominación no prueba eficacia ni causalidad. Para
+    consultar un gen nuevo usa el conector agora del catálogo de conectores.
     El botón Adjuntar datos permite cargar datasets y resultados experimentales;
     sus filas no se envían al modelo sin la autorización de procedencia de ROSA.
     Para eliminar un dataset, identifica su dataset_id e investigacion_id con
@@ -372,6 +378,15 @@ def herramientas(almacen: Any, investigacion_id: str, acciones: list[dict]) -> l
                           "vigente": h["revisionTratamiento"].get("vigente"),
                           "ruta": f"#/investigaciones/{quote(str(h['investigacionId']), safe='')}/novedad/{quote(str(h['id']), safe='')}"}
                          for h in revisadas[:5]],
+        }
+        agora = [h for h in e.get("hipotesis", []) if isinstance(h.get("revisionAgora"), dict)]
+        salida["informesAgora"] = {
+            "ubicacion": "revisionAgora dentro de cada registro de hipotesis",
+            "lectura": "leer_registro('hipotesis', id); paginar hasta completar el informe",
+            "pantalla": "Hipótesis, pestaña Evidencia", "hipotesisConRevision": len(agora),
+            "vigentes": sum(h["revisionAgora"].get("vigente") is True for h in agora),
+            "datosCompletos": "agora.json en la exportación RO-Crate de la hipótesis",
+            "nota": "La vista previa tiene límites. Consultas fallidas o identidades ambiguas no son ausencia de evidencia.",
         }
         return json.dumps(salida, ensure_ascii=False)
 

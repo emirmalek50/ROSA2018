@@ -480,6 +480,9 @@ def test_al_arrancar_se_recalculan_las_conclusiones_de_todas_las_investigaciones
 def test_el_cierre_recalcula_las_conclusiones_que_conserva_sin_pagar_al_juez(monkeypatch):
     al, ids = _preparar()
     sup, ctx, llamadas = _supervisor(al, ids, _respuestas_cierre(), monkeypatch)
+    # La conclusión ya incorporaba esta revisión: cerrar con el mismo informe
+    # no debe llamar otra vez al juez. Una revisión nueva sí cambia su huella.
+    asyncio.run(CO.AGORA.revisar_cierre(ctx))
 
     def fn(e):
         h = next(x for x in e["hipotesis"] if x["id"] == ids["hip"])

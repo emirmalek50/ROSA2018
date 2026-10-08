@@ -698,7 +698,7 @@ export function proponerHipotesis(estado: EstadoRosa, investigacionId: string, d
     novedad: {
       openTargets: { estado: 'sin_evidencia', detalle: 'Pendiente de comprobar en la siguiente iteración' },
       ensayos: { estado: 'sin_ensayo', detalle: 'Pendiente de comprobar', nct: null },
-      agora: { estado: 'no_nominada', detalle: 'Pendiente de comprobar' },
+      agora: { estado: 'no_comprobado', detalle: 'Pendiente de comprobar' },
       precedente: { estado: 'sin_precedente', detalle: 'Pendiente de comprobar' },
     },
     afirmaciones: [],
