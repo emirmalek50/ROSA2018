@@ -118,6 +118,55 @@ describe('el motor del laboratorio sigue al servidor', () => {
     expect(saltos).toBe(0);
   });
 
+  it('el ocio es honesto: quien no trabaja va a por café andando; si alguien de la sala trabaja, nadie va', async () => {
+    // Azar fijo que elige siempre «cafetera» cuando hay máquina y toca moverse.
+    vi.spyOn(Math, 'random').mockReturnValue(0.05);
+    const d = datos();
+    // Nadie trabaja salvo el Killer (sala 4): el equipo de la sala 3, con máquina en (650, 500), está libre.
+    montar({ ...d, activos: ['Killer'], salas: { ...d.salas, r3: 'despues', r4: 'ahora' } });
+    await avanzar(1);
+    const pos = (n: string) => { const el = nodo.querySelector<HTMLElement>(`[data-agente="${n}"]`)!; return (/translate\(([\d.-]+)px,([\d.-]+)px\)/.exec(el.style.transform) ?? []).slice(1, 3).map(Number) as [number, number]; };
+    const equipo = ['Analogía', 'Contradicción', 'Mecanismo opuesto', 'Otra escala'];
+    // Quien va se pone a la derecha de la máquina (pegada a la pared izquierda): en (678, 526).
+    const enLaMaquina = (p: [number, number]) => Math.hypot(p[0] - 678, p[1] - 526) < 12;
+    let alguienFue = false, maxSalto = 0;
+    const antes = new Map(equipo.map((n) => [n, pos(n)]));
+    await avanzar(600, () => {
+      for (const n of equipo) {
+        const p = pos(n), q = antes.get(n)!;
+        maxSalto = Math.max(maxSalto, Math.hypot(p[0] - q[0], p[1] - q[1]));
+        if (enLaMaquina(p)) alguienFue = true;
+        // Nunca se sale de su sala.
+        expect(p[0]).toBeGreaterThanOrEqual(632); expect(p[1]).toBeGreaterThanOrEqual(288); expect(p[1] + 64).toBeLessThanOrEqual(600);
+        antes.set(n, p);
+      }
+    });
+    expect(alguienFue).toBe(true);
+    expect(maxSalto).toBeLessThanOrEqual(10);
+    // Ahora uno del equipo trabaja: el descanso se acaba y nadie de la sala está en la máquina.
+    motor!.actualizar({ ...d, activos: ['Contradicción'], salas: { ...d.salas, r3: 'ahora' } });
+    await avanzar(120);
+    let alguienSigue = false;
+    await avanzar(600, () => { for (const n of equipo) if (enLaMaquina(pos(n))) alguienSigue = true; });
+    expect(alguienSigue).toBe(false);
+  });
+
+  it('cuando cambia la sala en foco la cámara panea hasta ella y vuelve sola; el reloj marca la hora real', async () => {
+    const d = datos(); montar({ ...d, foco: 'r1' });
+    const mundo = nodo.querySelector<HTMLElement>('.lv-mundo')!;
+    await avanzar(5);
+    expect(mundo.style.transform).toBe('');
+    motor!.actualizar({ ...d, foco: 'r4', salas: { ...d.salas, r4: 'ahora' } });
+    await avanzar(10);
+    expect(mundo.style.transform).toMatch(/scale\(1\.0[0-9]+\)/);
+    // A los pocos segundos vuelve al plano general.
+    await avanzar(60);
+    expect(mundo.style.transform).toBe('');
+    const reloj = nodo.querySelector<HTMLElement>('.lv-tag.reloj')!;
+    const ahora = new Date();
+    expect(reloj.textContent).toBe(`${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`);
+  });
+
   it('Sofía y Damián siguen conversando y caminando dentro de su cuarto, sin reiniciar los personajes', async () => {
     const d = datos(), actividad = { ...d.actividad[0]!, sala: 'r7' as const, agente: 'Especialista en patentes', hipotesisId: 'hip-real' };
     const estado = { ...d, foco: 'r7' as const, activos: ['Especialista en patentes'], actividad: [actividad] };
@@ -397,6 +446,9 @@ describe('el motor del laboratorio sigue al servidor', () => {
     expect(nodo.querySelectorAll('.lv-ag.activo')).toHaveLength(1);
   });
   it('conserva posiciones entre registros, cambios de tarea, conversaciones y permisos', async () => {
+    // El ocio de los personajes tira de Math.random: con semilla, el test dice
+    // siempre lo mismo (sin ella fallaba una de cada seis veces).
+    let semilla = 7; vi.spyOn(Math, 'random').mockImplementation(() => { semilla = (semilla * 48271) % 2147483647; return semilla / 2147483647; });
     const d = datos(); montar(d);
     const posiciones = () => new Map([...nodo.querySelectorAll<HTMLElement>('.lv-ag')].map((a) => {
       const [x = 0, y = 0] = a.style.transform.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];

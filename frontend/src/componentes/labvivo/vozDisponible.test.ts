@@ -19,7 +19,7 @@ const datos = (cambios: Partial<DatosLab> = {}): DatosLab => ({
     lista: [{ id: 'paso-real', tipo: 'literatura', titulo: 'Buscar literatura', detalle: 'Comparar MAPT y tau', estado: 'en_curso' }] },
   fuentes: [], lectura: { resultados: null, sirven: null, recuperados: null, leidos: null, afirmaciones: null },
   juez: { hechas: null, total: null, sinJuez: null, veredictos: null }, pide: null,
-  modelos: { cerebro: null, volumen: null, juez: null }, presupuesto: null, afirmaciones: null, ...cambios,
+  modelos: { cerebro: null, volumen: null, juez: null }, salud: { cerebro: 'ok', volumen: 'ok', juez: 'ok' }, presupuesto: null, afirmaciones: null, ...cambios,
 });
 const turno = (cambios: Partial<TurnoLaboratorio> = {}): TurnoLaboratorio => ({
   id: 'voz-real', temaId: 'tema-real', iteracionId: 'it-real', idioma: 'es', momento: 'inicio_tarea', tipoConversacion: 'actividad',

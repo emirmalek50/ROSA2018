@@ -24,6 +24,11 @@
 .labvivo .lv-tag.cartel{display:block;max-width:88px;white-space:normal;font-size:9.5px;line-height:11px;padding:1px 5px}
 .labvivo .lv-tag.cartel>span:first-child{overflow:visible;min-width:0;margin-right:3px}
 .labvivo .lv-tag.pop{animation:lv-pop .5s}
+/* El reloj de pared: un marco oscuro con la hora real y el segundero como punto que late. */
+.labvivo .lv-tag.reloj{display:flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums;background:#17131F;border:1px solid #3A3550;border-radius:3px;padding:2px 7px;letter-spacing:.3px}
+.labvivo .lv-tag.reloj i{width:4px;height:4px;border-radius:50%;background:#7FD1A5;animation:lv-late 1s steps(1) infinite}
+@keyframes lv-late{50%{opacity:.25}}
+@media (prefers-reduced-motion: reduce){.labvivo .lv-tag.reloj i{animation:none}}
 @keyframes lv-pop{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
 
 .labvivo .lv-ag{position:absolute;left:0;top:0;width:48px;height:64px;pointer-events:auto;cursor:pointer}

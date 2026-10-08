@@ -63,6 +63,7 @@ export interface PeticionLab {
   /** Algo impide seguir: lo que ROSA2018 propone y si la corrida sigue con lo demás. */
   incidencia?: { tipo: Incidencia['tipo']; recurso: string; alternativa: string | null; corridaEnMarcha: boolean };
 }
+export type SaludDeModelo = 'ok' | 'lento' | 'sin_respuesta' | null;
 export interface DatosLab {
   identidad: string;
   corrida: number;
@@ -86,6 +87,9 @@ export interface DatosLab {
   juez: { hechas: number | null; total: number | null; sinJuez: number | null; veredictos: { sostenida: number; parcial: number; no_sostenida: number; otras: number } | null };
   pide: PeticionLab | null;
   modelos: { cerebro: string | null; volumen: string | null; juez: string | null };
+  /** Cómo responde cada modelo según el vigilante (rosa/vigilante_modelos.py):
+   *  con uno sin respuesta suena el teléfono rojo de su sala. Null si nunca se midió. */
+  salud: { cerebro: SaludDeModelo; volumen: SaludDeModelo; juez: SaludDeModelo };
   /** Llamadas al modelo de la iteración frente a su tope. */
   presupuesto: { usado: number; limite: number; reserva: number | null } | null;
   /** Null mientras la cadena de evidencia no ha llegado (o en modo muestra). */
@@ -364,6 +368,7 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
   }
   const salud = estado.saludModelos ?? {};
   const modelo = (rol: 'cerebro' | 'volumen' | 'juez') => salud[rol]?.modelo ? nombreDeModelo(salud[rol]!.modelo) : null;
+  const saludDe = (rol: 'cerebro' | 'volumen' | 'juez'): SaludDeModelo => salud[rol]?.estado ?? null;
   const evidencia = estado.conexion !== 'muestra' && opciones.evidencia?.corridaId === corrida.id ? opciones.evidencia : null;
   const afirmaciones = evidencia && it ? afirmacionesDeEvidencia(evidencia, it.numero) : null;
   const juez = juezDe(it);
@@ -381,6 +386,7 @@ export function datosDelLaboratorio(estado: EstadoRosa, inv: Investigacion, corr
     trabajando: trabajando && !bloquea, planificando, ...(planificando && Number.isInteger(corrida.planificandoIteracion) && (corrida.planificandoIteracion ?? 0) > 0 ? { planificandoIteracion: corrida.planificandoIteracion } : {}), salas, foco, activos: [...new Set(activos)], actividad,
     pasos: { total: plan.length, primero: plan[0]?.titulo ?? null, aprobado: !!it?.planAprobado, estados: plan.map((p) => p.estado === 'fallido' ? 'fallo' : p.estado === 'omitido' || p.estado === 'sin_trabajo' ? 'omitido' : p.estado === 'hecho' ? 'hecho' : trabajando && p.estado === 'en_curso' ? 'ahora' : 'pendiente'), enCurso: trabajando && enCurso ? { n: plan.indexOf(enCurso) + 1, titulo: enCurso.titulo } : null, lista: plan.map((p) => ({ id: p.id, titulo: p.titulo, detalle: p.detalle, estado: p.estado, tipo: p.tipo, presupuesto: p.presupuesto })) },
     ...lecturaDe(it, corrida), juez, pide, modelos: { cerebro: modelo('cerebro'), volumen: modelo('volumen'), juez: modelo('juez') },
+    salud: { cerebro: saludDe('cerebro'), volumen: saludDe('volumen'), juez: saludDe('juez') },
     presupuesto: it && it.presupuesto.limite > 0 ? { usado: it.presupuesto.usado, limite: it.presupuesto.limite, reserva: it.presupuesto.reservaCierre ?? null } : null,
     afirmaciones, pasada,
   };

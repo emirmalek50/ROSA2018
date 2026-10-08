@@ -23,6 +23,7 @@ import { escenasDeApertura } from './inicioPelicula';
 import { ColaPelicula } from './colaPelicula';
 import { CadenciaDialogos, pausaDeRespuesta } from './cadenciaDialogos';
 import { comparan, titularDe } from './titulares';
+import { elegirOcio, levantaLaVista, luzPorHora, miradaAlCruzarse, nivelDePila, parpadeo, siguienteOcio, type Ocio } from './vida';
 import type { EventoVisualLab } from '../../lib/peliculaLab';
 import { esPeticionDePresupuesto, pintarFoco, pintarPeticionIncidencia, pintarPeticionPresupuesto, topeConLlamadasMas, vozDePresupuesto } from './peticionPresupuesto';
 import './peticionPresupuesto.css';
@@ -229,7 +230,9 @@ interface Agente {
   /** Cronómetro de la tarea abierta: desde cuándo espera la respuesta (hora real). */
   rj: HTMLDivElement; desde: number | null; rjTxt: string;
   /** Gesto encima de la cabeza (nuevo registro, nota, error) y gesto de espera. */
-  emo: { k: '!' | '?' | 'gota'; t0: number } | null; gesto: { k: 'estira' | 'cafe' | 'mira'; hasta: number; cara: number } | null; prox: number; recado: boolean; turno: number;
+  emo: { k: '!' | '?' | 'gota'; t0: number } | null; gesto: { k: Ocio; hasta: number; cara: number } | null; prox: number; recado: boolean; turno: number;
+  /** Hacia dónde mira un instante (alguien pasa, un compañero habla), sin tocar `face`. */
+  mirada: { cara: number; hasta: number } | null;
   reaccion?: { emocion: EmocionLaboratorio; gesto: GestoLaboratorio; desde: number; hasta: number };
 }
 
@@ -334,7 +337,31 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     sello: () => { tono(140, 0.12, 'square', 0.06); tono(90, 0.16, 'triangle', 0.06, 0.04); },
     campana: () => { tono(988, 0.18, 'square', 0.035); tono(1319, 0.3, 'square', 0.035, 0.12); },
     moneda: () => { tono(1319, 0.06, 'square', 0.03); tono(1760, 0.16, 'square', 0.03, 0.06); },
+    impresora: () => { for (let i = 0; i < 6; i++) tono(220 + (i % 2) * 40, 0.05, 'square', 0.012, i * 0.07); },
+    tomo: () => { tono(70, 0.14, 'triangle', 0.07); tono(55, 0.2, 'triangle', 0.05, 0.05); },
+    telefono: () => { for (let i = 0; i < 2; i++) { tono(1046, 0.09, 'square', 0.025, i * 0.22); tono(880, 0.09, 'square', 0.025, i * 0.22 + 0.1); } },
   };
+  /** El fondo de la oficina cuando el sonido está activo: el zumbido muy
+   *  bajo de un fluorescente, y de vez en cuando teclas lejanas si alguien
+   *  está escribiendo. Se enciende y apaga con el botón y con la pestaña. */
+  let zumbido: { o: OscillatorNode; v: GainNode } | null = null, teclasLejanas = 0;
+  function ambienteSonoro(rtAhora: number) {
+    const quiere = sonido && !document.hidden && typeof AudioContext !== 'undefined';
+    if (!quiere && zumbido) { try { zumbido.o.stop(); } catch { /* ya parado */ } zumbido = null; }
+    if (quiere && !zumbido) {
+      try {
+        audio ??= new AudioContext();
+        const o = audio.createOscillator(), v = audio.createGain();
+        o.type = 'triangle'; o.frequency.value = 100; v.gain.value = 0.006;
+        o.connect(v).connect(audio.destination); o.start();
+        zumbido = { o, v };
+      } catch { /* El navegador no deja sonar. */ }
+    }
+    if (quiere && rtAhora - teclasLejanas > 6 && AG.some((a) => a.typing > simT) && Math.random() < 0.02) {
+      teclasLejanas = rtAhora;
+      for (let i = 0; i < 5; i++) tono(700 + Math.random() * 300, 0.025, 'square', 0.008, i * 0.11);
+    }
+  }
 
   /* ---------- textos ---------- */
   const TITULO_SALA: Partial<Record<Sala, string>> = { plan: tr('El plan'), r1: tr('Buscan y leen artículos'), r2: tr('Comprueban cada dato'), r3: tr('Proponen ideas nuevas'), r4: tr('Juzgan las ideas'), r5: tr('Las prueban con datos'), r6: tr('Revisan el trabajo'), r7: tr('Patentes y compañías'), rec: tr('Hablan contigo') };
@@ -413,7 +440,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       i, name: nombre, quien: NOMBRE_PROPIO[nombre] ?? '', label: tr(f[1]!), hx, hy, x: hx, y: hy, coat: f[4]!, look: { s: f[5]!, k: Number(f[6]), h: Number(f[7]), c: Number(f[8]), g: acc.includes('g'), b: acc.includes('b'), a: acc.includes('a') },
       ldy: Number(f[10]), desk: f[11] === '1', what: tr(f[12]!), path: [], face: 1, carry: null, bub: null, busy: false, typing: 0, cool: 0,
       room: salaDe(hx, hy), ictx: null, away: false, bob: 0, el, lb, rj, desde: null, rjTxt: '',
-      emo: null, gesto: null, prox: 4 + Math.random() * 20, recado: false, turno: 0,
+      emo: null, gesto: null, prox: 4 + Math.random() * 20, recado: false, turno: 0, mirada: null,
     };
   });
   AG.forEach((a) => { a.turno = AG.filter((b) => b.room === a.room && b.i < a.i).length; });
@@ -463,6 +490,16 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   marca('sirven', 514, 184, '#7FD1A5'); marca('van', 514, 214, '#F4F1EA'); marca('cola', 380, 372, '#C9C4DA');
   marca('S', 96, 580, '#7FD1A5'); marca('P', 208, 580, '#F2C14E'); marca('N', 322, 580, '#E2706A'); marca('X', 436, 580, '#9C97B3'); marca('lleva', 380, 444, '#FFB27A');
   CARTEL.forEach(([x, y], i) => { marca('f' + i, x, y, '#F4F1EA'); TAG['f' + i]!.classList.add('cartel'); });
+  // El reloj de pared de la recepción, con la hora real del Mac.
+  marca('reloj', 724, 1141, '#F4F1EA'); TAG['reloj']!.classList.add('reloj');
+  let relojTxt = '';
+  function pintarReloj() {
+    const d = new Date(), t = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    if (t === relojTxt) return;
+    relojTxt = t;
+    poner('reloj', `<i aria-hidden="true"></i>${t}`);
+    TAG['reloj']!.title = tr('La hora de este ordenador');
+  }
   marca('hucha', 82, 152, '#F2C14E');
   const poner = (id: string, html: string | null) => { const t = TAG[id]!; t.innerHTML = html ?? ''; t.style.visibility = html ? 'visible' : 'hidden'; };
   function pintarMarcas() {
@@ -542,6 +579,19 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   function zoomTo(a: Agente, s: number) { mira = () => [a.x + 24, a.y + 32]; miraS = s; }
   function zoomPunto(f: () => [number, number], s: number) { mira = f; miraS = s; }
   function zoomOut() { mira = null; miraS = 1; }
+  /** Cuando el servidor cambia la sala en foco, la cámara va hasta ella
+   *  despacio (un paneo, no un corte) y a los pocos segundos vuelve al plano
+   *  general, salvo que mientras tanto la persona haya mirado algo. */
+  function panearA(sala: SalaLab) {
+    if (REDUCIR || sel || asking || siguiendo || D.pasada || objetoId) return;
+    const [x, y, w, h] = GEOM[sala], f = (): [number, number] => [x + w / 2, y + h / 2];
+    zoomPunto(f, 1.08);
+    const ctx = nuevoCtx();
+    spawn((async () => {
+      await ctx.wait(3.5);
+      if (mira === f) zoomOut();
+    })());
+  }
   function camara(dt: number) {
     medirVisible();
     const s = mira ? miraS : 1;
@@ -1683,16 +1733,61 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
   }
 
   /* ---------- gestos de espera ---------- */
+  /** La máquina de café de cada sala donde hay sitio para ella y para quien
+   *  va a buscarlo sin pisar a nadie: la de verificación, la del equipo y la
+   *  de recepción. Las demás salas no mandan a nadie a por café. */
+  const CAFETERA: Partial<Record<Sala, [number, number]>> = { r2: [420, 300], r3: [650, 500], rec: [448, 1190] };
+  /** Dónde se pone quien va a la máquina: a su izquierda, o a su derecha si
+   *  la máquina está pegada a la pared izquierda de la sala. */
+  const sitioDelCafe = (sala: Sala, m: [number, number]): [number, number] => [m[0] < GEOM[sala][0] + 60 ? m[0] + 28 : m[0] - 44, m[1] + 26];
+  /** Ir a la máquina de café de la sala y volver, andando, con la taza en la
+   *  mano a la vuelta. Es una escena de espera más (se cancela igual que las
+   *  demás si al personaje le llega trabajo). */
+  function irAlCafe(a: Agente) {
+    const m = CAFETERA[a.room];
+    if (!m) return;
+    const ctx = nuevoCtx(), escena: Escena = { ctx, agentes: [a], trabajo: false };
+    escenas.set(a, escena); a.ictx = ctx; a.busy = true; a.recado = true; a.el.dataset.escena = 'espera';
+    spawn((async () => {
+      try {
+        const [sx, sy] = sitioDelCafe(a.room, m);
+        await desplazarse(ctx, a, sx, sy);
+        a.face = sx < m[0] ? 1 : -1;
+        await ctx.wait(1.6);
+        a.gesto = { k: 'cafe', hasta: simT + 6, cara: a.face };
+        await desplazarse(ctx, a, a.hx, pasillo(a));
+        await home(ctx, a);
+      } finally {
+        if (escenas.get(a) === escena) { escenas.delete(a); if (a.ictx === ctx) { a.ictx = null; a.busy = false; a.path = []; } delete a.el.dataset.escena; }
+        a.recado = false;
+        proximaEscena.set(a, simT + 6);
+      }
+    })());
+  }
   function gestos() {
     for (const a of AG) {
-      if (a.gesto && simT >= a.gesto.hasta) { if (a.gesto.k === 'mira') a.face = a.gesto.cara; a.gesto = null; }
-      if (a.gesto) { if (a.gesto.k === 'mira') a.face = Math.floor((a.gesto.hasta - simT) / 0.8) % 2 ? -a.gesto.cara : a.gesto.cara; continue; }
+      if (a.mirada && simT >= a.mirada.hasta) a.mirada = null;
+      if (a.gesto && simT >= a.gesto.hasta) { if (a.gesto.k === 'mira' || a.gesto.k === 'gira') a.face = a.gesto.cara; a.gesto = null; }
+      if (a.gesto) {
+        if (a.gesto.k === 'mira') a.face = Math.floor((a.gesto.hasta - simT) / 0.8) % 2 ? -a.gesto.cara : a.gesto.cara;
+        // Girar la silla: se da la vuelta y vuelve al final.
+        if (a.gesto.k === 'gira') a.face = -a.gesto.cara;
+        continue;
+      }
+      // Los cuatro del equipo miran a quien de ellos está hablando (lo dice el
+      // servidor: es el activo), aunque ellos no tengan nada que hacer.
+      if (a.room === 'r3' && atHome(a) && !a.busy && !D.activos.includes(a.name)) {
+        const habla = AG.find((b) => b.room === 'r3' && b !== a && D.activos.includes(b.name));
+        if (habla && !a.mirada) a.mirada = { cara: habla.x > a.x ? 1 : -1, hasta: simT + 1.5 };
+      }
       if (simT < a.prox) continue;
-      a.prox = simT + 10 + Math.random() * 22;
+      a.prox = siguienteOcio(Math.random, simT);
       if (asking || !atHome(a) || a.busy || a.ictx || a.bub || a.recado || a.name === 'Tú' || D.activos.includes(a.name) || dormido(a)) continue;
-      const op = a.desk ? (['estira', 'mira'] as const) : (['estira', 'cafe', 'mira'] as const);
-      const k = op[Math.floor(Math.random() * op.length)]!;
-      a.gesto = { k, hasta: simT + (k === 'estira' ? 1.6 : k === 'cafe' ? 4 : 2.4), cara: a.face };
+      // Solo quien no trabaja; y a por café solo si la sala tiene máquina y nadie de la sala está trabajando.
+      const cafetera = !REDUCIR && !!CAFETERA[a.room] && !AG.some((b) => b.room === a.room && D.activos.includes(b.name)) && ![...escenas.keys()].some((b) => b.room === a.room);
+      const { k, dur } = elegirOcio(Math.random, { sentado: a.desk, cafetera });
+      if (k === 'cafetera') { irAlCafe(a); continue; }
+      a.gesto = { k, hasta: simT + dur, cara: a.face };
     }
   }
 
@@ -1859,6 +1954,11 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         recorrido.dataset.etapa = 'caja'; recorrido.dataset.veredicto = af.veredicto;
         recorrido.style.setProperty('--sello', color);
         await vuela(BOCA[af.caja], 0.7, 60);
+        if (af.caja === 'no_sostenida') {
+          // La afirmación la trajo el extractor: gesto de fastidio al verla caer, y el golpe en la caja.
+          const ex = P('Extractor de afirmaciones'); if (!ex.emo) ex.emo = { k: 'gota', t0: rt };
+          SON.tomo();
+        }
         const t = TAG[MARCA_CAJA[af.caja]];
         if (t) { t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop'); }
         setEv(`<span style="color:${color}">${esc(trp('Veredicto: {v}', { v: veredictoDe(af.veredicto).etiqueta }))}</span>`);
@@ -1959,11 +2059,27 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     a.bob = bob;
     const s = sprite(a, frame);
     const [gx, gy] = a.reaccion ? desplazamientoGesto(a.reaccion.gesto, simT - a.reaccion.desde, REDUCIR || moving) : [0, 0];
+    // La mirada de un instante (alguien pasa, un compañero habla) no cambia
+    // hacia dónde está puesto el personaje: solo cómo se dibuja ahora.
+    const cara = !moving && a.mirada && simT < a.mirada.hasta ? a.mirada.cara : a.face;
     g.save();
-    if (a.face < 0) { g.translate(a.x + 48 + gx!, a.y + bob * 2 + gy!); g.scale(-1, 1); g.drawImage(s, 0, 0, 48, 64); }
+    if (cara < 0) { g.translate(a.x + 48 + gx!, a.y + bob * 2 + gy!); g.scale(-1, 1); g.drawImage(s, 0, 0, 48, 64); }
     else g.drawImage(s, a.x + gx!, a.y + bob * 2 + gy!, 48, 64);
     g.restore();
-    if (a.carry) drawObj(a.carry, a.x + (a.face < 0 ? 6 : 42), a.y + 44 + bob * 2, 0);
+    if (a.carry) drawObj(a.carry, a.x + (cara < 0 ? 6 : 42), a.y + 44 + bob * 2, 0);
+    if (ge?.k === 'rasca') {
+      // La mano sube a la cabeza y se mueve un píxel arriba y abajo.
+      const o = REDUCIR ? 0 : Math.floor(rt * 6) % 2, x = a.x + (cara < 0 ? 8 : 32), y = a.y + 6 + o;
+      g.fillStyle = PIEL[a.look.k] ?? '#F6D5B5'; g.fillRect(x, y, 6, 5);
+      g.fillStyle = '#17131F'; g.fillRect(x - 1, y - 1, 8, 1); g.fillRect(x - 1, y + 5, 8, 1);
+    }
+    if (ge?.k === 'hojea') {
+      // Un papel delante, que pasa de página cada medio segundo.
+      const x = a.x + (cara < 0 ? 2 : 34), y = a.y + 30, pag = REDUCIR ? 0 : Math.floor(rt * 2) % 2;
+      g.fillStyle = '#17131F'; g.fillRect(x - 1, y - 1, 14, 16);
+      g.fillStyle = '#F4F1EA'; g.fillRect(x, y, 12, 14);
+      g.fillStyle = '#9C97B3'; for (let j = 0; j < 4; j++) g.fillRect(x + 2, y + 3 + j * 3, 6 + ((j + pag) % 2) * 2, 1);
+    }
     if (ge?.k === 'cafe') {
       // Una taza en la mano y un hilo de vapor.
       const x = a.x + (a.face < 0 ? 2 : 38), y = a.y + 34;
@@ -2011,7 +2127,12 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     if (!g) return;
     for (const a of AG) {
       const p = PANTALLA[a.name];
-      if (!p || a.typing <= simT || !atHome(a)) continue;
+      if (!p) continue;
+      if (a.typing <= simT || !atHome(a)) {
+        // Pantalla en reposo: el cursor parpadea.
+        if (REDUCIR || Math.floor(rt * 1.6) % 2 === 0) { g.fillStyle = '#7FD1A5'; g.fillRect(p[0] + 2, p[1] + 11, 4, 2); }
+        continue;
+      }
       const [x, y] = p, k0 = Math.floor(simT * 5);
       g.fillStyle = '#2B5566'; g.fillRect(x, y, 20, 16);
       for (let i = 0; i < 4; i++) {
@@ -2039,6 +2160,122 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     g.fillStyle = '#F4F1EA88'; g.fillRect(x + 3, y + 7, 2, h - 14);
     g.fillStyle = '#8A3B2E'; g.fillRect(x + 4, y, w - 8, 4); g.fillStyle = '#17131F'; g.fillRect(x + 11, y + 1, 10, 2);
   }
+  /* ---------- lo que se mueve solo: el ambiente ---------- */
+  /** Lo que hay que mandar imprimir: cada afirmación extraída nueva saca una
+   *  hoja por la impresora de la sala 1 (dato real, D.lectura.afirmaciones). */
+  const impresora = { hasta: 0, cola: 0 };
+  const telefonoSono = { cerebro: 0, volumen: 0, juez: 0 };
+  /** Dónde está el teléfono rojo de cada modelo: el del cerebro en el plan, el
+   *  del juez en su mesa, el de volumen en la sala de lectura. */
+  const TELEFONO: Record<'cerebro' | 'volumen' | 'juez', [number, number]> = { cerebro: [386, 230], volumen: [580, 244], juez: [152, 404] };
+  function dibujarCafetera(x: number, y: number) {
+    if (!g) return;
+    g.fillStyle = '#17131F'; g.fillRect(x - 1, y - 1, 22, 32);
+    g.fillStyle = '#4A4458'; g.fillRect(x, y, 20, 30);
+    g.fillStyle = '#2E2A3A'; g.fillRect(x + 3, y + 12, 14, 12);
+    g.fillStyle = '#F4F1EA'; g.fillRect(x + 7, y + 18, 6, 5);
+    // La luz de «lista» respira despacio.
+    const viva = REDUCIR || Math.floor(rt) % 2 === 0;
+    g.fillStyle = viva ? '#7FD1A5' : '#2F5E45'; g.fillRect(x + 4, y + 4, 3, 3);
+    g.fillStyle = '#C6524A'; g.fillRect(x + 13, y + 4, 3, 3);
+  }
+  function dibujarPlanta(x: number, y: number) {
+    if (!g) return;
+    const v = REDUCIR ? 0 : Math.floor(rt / 0.7) % 2;
+    g.fillStyle = '#17131F'; g.fillRect(x + 3, y + 22, 12, 12);
+    g.fillStyle = '#8A5A3A'; g.fillRect(x + 4, y + 23, 10, 10);
+    g.fillStyle = '#2E7D4F'; g.fillRect(x + 6, y + 10, 6, 14); g.fillRect(x + 1 + v, y + 6, 7, 7); g.fillRect(x + 10 - v, y + 2, 7, 8); g.fillRect(x + 4, y, 6, 6);
+    g.fillStyle = '#3FA86A'; g.fillRect(x + 3 + v, y + 8, 3, 3); g.fillRect(x + 12 - v, y + 4, 3, 3);
+  }
+  function dibujarImpresora(x: number, y: number) {
+    if (!g) return;
+    g.fillStyle = '#17131F'; g.fillRect(x - 1, y - 1, 30, 20);
+    g.fillStyle = '#9C97B3'; g.fillRect(x, y, 28, 18);
+    g.fillStyle = '#5A5670'; g.fillRect(x + 2, y + 2, 24, 4);
+    const activa = simT < impresora.hasta;
+    g.fillStyle = activa ? '#7FD1A5' : '#3A3550'; g.fillRect(x + 22, y + 9, 3, 3);
+    if (activa) {
+      // La hoja sale por delante, de arriba abajo, en un segundo.
+      const t = 1 - (impresora.hasta - simT) / 1.2, alto = Math.round(Math.min(1, t * 1.6) * 14);
+      g.fillStyle = '#F4F1EA'; g.fillRect(x + 6, y + 17, 16, alto);
+      g.fillStyle = '#9C97B3'; for (let j = 0; j < alto - 3; j += 3) g.fillRect(x + 8, y + 19 + j, 10, 1);
+    }
+  }
+  function dibujarVentilador(x: number, y: number) {
+    if (!g) return;
+    g.fillStyle = '#17131F'; g.fillRect(x - 2, y - 14, 4, 12); g.fillRect(x - 5, y - 5, 10, 10);
+    const f = REDUCIR ? 0 : Math.floor(rt * 9) % 2;
+    g.fillStyle = '#5A5670';
+    if (f === 0) { g.fillRect(x - 18, y - 2, 36, 4); g.fillRect(x - 2, y - 18, 4, 36); }
+    else { for (let i = -12; i <= 12; i += 3) { g.fillRect(x + i, y + i, 3, 3); g.fillRect(x + i, y - i, 3, 3); } }
+    g.fillStyle = '#9C97B3'; g.fillRect(x - 3, y - 3, 6, 6);
+  }
+  function dibujarTaza(x: number, y: number, vapor: boolean) {
+    if (!g) return;
+    g.fillStyle = '#17131F'; g.fillRect(x - 1, y - 1, 10, 10); g.fillRect(x + 9, y + 2, 3, 4);
+    g.fillStyle = '#F4F1EA'; g.fillRect(x, y, 8, 8); g.fillStyle = '#7A4B2A'; g.fillRect(x + 1, y + 1, 6, 2);
+    if (vapor && !REDUCIR) { g.fillStyle = '#C9C4DA88'; const o = Math.floor(rt * 3) % 2; g.fillRect(x + 2 + o, y - 5, 1, 3); g.fillRect(x + 5 - o, y - 8, 1, 3); }
+  }
+  function dibujarTelefono(x: number, y: number, suena: boolean) {
+    if (!g) return;
+    const s = suena && !REDUCIR ? (Math.floor(rt * 12) % 2 ? 1 : -1) : 0;
+    g.fillStyle = '#17131F'; g.fillRect(x - 1 + s, y - 1, 18, 12);
+    g.fillStyle = '#C6524A'; g.fillRect(x + s, y, 16, 10);
+    g.fillStyle = '#8A2E2A'; g.fillRect(x + 2 + s, y - 3, 12, 4);
+    g.fillStyle = '#17131F'; g.fillRect(x + 1 + s, y - 4, 14, 1); g.fillRect(x + 1 + s, y - 4, 2, 4); g.fillRect(x + 13 + s, y - 4, 2, 4);
+    if (suena) {
+      // Las ondas del timbre, y el sonido cada dos segundos y medio.
+      g.fillStyle = '#FFB27A'; const k = REDUCIR ? 1 : Math.floor(rt * 4) % 3;
+      for (let i = 0; i <= k; i++) { g.fillRect(x + 18 + i * 3, y - 2 - i * 2, 1, 3 + i * 2); g.fillRect(x - 4 - i * 3, y - 2 - i * 2, 1, 3 + i * 2); }
+    }
+  }
+  function dibujarAmbiente() {
+    if (!g) return;
+    for (const [x, y] of Object.values(CAFETERA)) dibujarCafetera(x, y);
+    dibujarPlanta(720, 1196);
+    dibujarImpresora(540, 240);
+    dibujarVentilador(300, 958);
+    // El montón de artículos sobre la mesa del extractor: su altura es la cifra
+    // de resultados, logarítmica. Sin cifra, mesa vacía.
+    const nivel = nivelDePila(D.lectura.resultados);
+    if (nivel > 0) {
+      const alto = Math.max(2, Math.round(nivel * 22)), x = 506, y = 88 - alto;
+      g.fillStyle = '#17131F'; g.fillRect(x - 1, y - 1, 18, alto + 2);
+      for (let j = 0; j < alto; j++) { g.fillStyle = j % 2 ? '#E4E0D6' : '#F4F1EA'; g.fillRect(x, y + j, 16, 1); }
+    }
+  }
+  /** Lo que va ENCIMA de las mesas se pinta después de los muebles de primer
+   *  plano (FG), que si no los tapan: la taza del juez y los teléfonos. */
+  function dibujarSobreMesas() {
+    if (!g) return;
+    // La taza del juez humea mientras él trabaja.
+    dibujarTaza(352, 404, D.trabajando && D.activos.includes('Juez'));
+    for (const rol of ['cerebro', 'volumen', 'juez'] as const) {
+      const [x, y] = TELEFONO[rol], suena = D.salud[rol] === 'sin_respuesta' && D.trabajando;
+      dibujarTelefono(x, y, suena);
+      if (suena && rt - telefonoSono[rol] > 2.5) { telefonoSono[rol] = rt; SON.telefono(); }
+    }
+  }
+  /** La luz del laboratorio según la hora real del Mac: de noche, azul y
+   *  lámparas encendidas; al atardecer, ámbar. Encima van las luces de las
+   *  salas (dibujarLuces), que son el estado de la corrida y mandan. */
+  let luz = luzPorHora(new Date().getHours(), new Date().getMinutes()), luzMedida = 0;
+  function dibujarLuzDelDia() {
+    if (!g) return;
+    if (rt - luzMedida > 20) { const d = new Date(); luz = luzPorHora(d.getHours(), d.getMinutes()); luzMedida = rt; }
+    if (luz.alfa > 0) { g.globalAlpha = luz.alfa; g.fillStyle = luz.tinte; g.fillRect(0, 0, ANCHO, ALTO_VISTA); g.globalAlpha = 1; }
+    if (!luz.lamparas) return;
+    for (const k of Object.keys(GEOM) as Sala[]) {
+      const [x, y, w] = GEOM[k], cx = x + w / 2;
+      // Un fluorescente en lo alto de cada sala con su parpadeo propio.
+      const p = REDUCIR ? 1 : parpadeo(rt, x * 0.01 + y * 0.003);
+      const gr = g.createRadialGradient(cx, y + 8, 4, cx, y + 8, Math.min(w, 220));
+      gr.addColorStop(0, `rgba(255,214,150,${0.34 * p})`); gr.addColorStop(1, 'rgba(255,214,150,0)');
+      g.fillStyle = gr; g.fillRect(x, y, w, 160);
+      g.fillStyle = '#17131F'; g.fillRect(cx - 17, y + 3, 34, 5);
+      g.fillStyle = p < 1 ? '#D9CFA0' : '#FFE9B8'; g.fillRect(cx - 16, y + 4, 32, 3);
+    }
+  }
   /** La luz de cada sala según su estado real, y la alarma donde la corrida paró o falló. */
   function dibujarLuces() {
     if (!g) return;
@@ -2046,10 +2283,17 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (k === 'rec') continue;
       const [x, y, w, h] = GEOM[k], e = estadoDe(k === 'bib' ? 'r1' : k);
       // Solo se atenúan, y poco, las salas que no forman parte de esta corrida; las que vienen después siguen encendidas.
-      if (e === 'no_toca') { g.fillStyle = '#07060C2E'; g.fillRect(x, y, w, h); }
-      else if (e === 'ahora' && D.trabajando && k !== 'bib') {
+      if (e === 'no_toca') {
+        g.fillStyle = '#07060C2E'; g.fillRect(x, y, w, h);
+        // Con la luz apagada solo queda el letrero verde de la salida.
+        g.fillStyle = '#17131F'; g.fillRect(x + w - 44, y + 5, 26, 10);
+        g.fillStyle = '#2F6E4A'; g.fillRect(x + w - 43, y + 6, 24, 8);
+        g.fillStyle = '#7FD1A5'; g.fillRect(x + w - 40, y + 8, 3, 4); g.fillRect(x + w - 35, y + 8, 2, 4); g.fillRect(x + w - 31, y + 8, 3, 4); g.fillRect(x + w - 26, y + 8, 3, 4);
+      } else if (e === 'ahora' && D.trabajando && k !== 'bib') {
+        // El fluorescente de la sala en marcha, con algún bajón de vez en cuando.
+        const p = REDUCIR ? 1 : parpadeo(rt, x * 0.02);
         const gr = g.createRadialGradient(x + w / 2, y + h / 2, 10, x + w / 2, y + h / 2, Math.max(w, h) * 0.7);
-        gr.addColorStop(0, '#FFC48A40'); gr.addColorStop(1, '#FFC48A00');
+        gr.addColorStop(0, `rgba(255,196,138,${0.25 * p})`); gr.addColorStop(1, 'rgba(255,196,138,0)');
         g.fillStyle = gr; g.fillRect(x, y, w, h);
       }
       if (k === 'bib') continue;
@@ -2091,6 +2335,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       g.fillStyle = r.linea; g.fillRect(183, y + 3, 70 + ((i * 37) % 60), 3);
     });
     dibujarHucha();
+    dibujarAmbiente();
     // La cinta lleva papeles mientras quedan afirmaciones por juzgar.
     const quedan = D.juez.total !== null && D.juez.hechas !== null ? D.juez.total - D.juez.hechas : 0;
     const n = D.trabajando && D.activos.includes('Juez') ? Math.min(11, Math.max(0, quedan)) : 0;
@@ -2098,6 +2343,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     const seated = AG.filter((a) => a.desk && atHome(a)), rest = AG.filter((a) => !(a.desk && atHome(a))).sort((p, q) => p.y - q.y);
     seated.forEach(drawAgent);
     FG.forEach((f) => { if (f.im.complete) g.drawImage(f.im, f.x, f.y, f.w, f.h); });
+    dibujarSobreMesas();
     dibujarPantallas();
     if (hoja) drawObj('paper', 312, 378, 0);
     rest.forEach(drawAgent);
@@ -2108,6 +2354,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       drawObj(f.kind, f.from[0]! + (f.to[0]! - f.from[0]!) * e, f.from[1]! + (f.to[1]! - f.from[1]!) * e - Math.sin(Math.PI * t) * f.arc, 0);
       if (t >= 1) { FLY.splice(i, 1); f.fin?.(); }
     }
+    dibujarLuzDelDia();
     dibujarLuces();
     AG.forEach((a) => { if (dormido(a)) dibujarZetas(a); dibujarEmote(a); });
     if (papel.on) {
@@ -2116,6 +2363,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     }
   }
   function syncDom() {
+    pintarReloj();
     AG.forEach((a) => {
       if (a.reaccion && simT >= a.reaccion.hasta) {
         a.reaccion = undefined; delete a.el.dataset.emocion; delete a.el.dataset.gesto;
@@ -2177,6 +2425,13 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         // Al final del camino, y no en su sitio de siempre.
         if (a.path.length === 0 && !atHome(a)) apartar(a);
       } else { a.x += (dx / d) * m; a.y += (dy / d) * m; }
+      // Quien está quieto mira un instante a quien pasa a su lado; quien está
+      // sentado levanta la vista si pasan por delante de su mesa.
+      if (!REDUCIR) for (const b of AG) {
+        if (b === a || b.path.length || b.room !== a.room || b.mirada || (b.gesto && b.gesto.k !== 'estira')) continue;
+        const cara = b.desk && atHome(b) ? levantaLaVista(b, a) : miradaAlCruzarse(a, b);
+        if (cara) b.mirada = { cara, hasta: simT + 0.7 };
+      }
     });
     if (D.trabajando && D.activos.includes('Juez')) conv += 12 * dt;
     AG.forEach((a) => { if (D.activos.includes(a.name) && !REDUCIR) a.typing = simT + 1; });
@@ -2192,6 +2447,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
     rt += dt;
     if (document.hidden) { raf = requestAnimationFrame(frame); return; }
     camara(dt);
+    ambienteSonoro(rt);
     if (playing && !document.hidden) {
       dt *= speed;
       if (REDUCIR) {
@@ -2243,6 +2499,16 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
         const t = ultimaCharla.get(a.name);
         if (a.bub?.el.dataset.turno && t?.id === a.bub.el.dataset.turno && !turnoVigente(t, D)) { a.bub.el.remove(); a.bub = null; }
       }
+      // Llega trabajo a una sala: el descanso del café se acaba y cada uno
+      // vuelve a su sitio andando, con la taza fuera. Lo que se ve trabajando
+      // tiene que ser lo que trabaja, sin un compañero paseando al lado.
+      for (const a of AG) {
+        if (!a.recado) continue;
+        if (!D.activos.includes(a.name) && !AG.some((b) => b.room === a.room && D.activos.includes(b.name))) continue;
+        cancelarEscena(a, false);
+        a.recado = false; a.gesto = null;
+        a.path = [{ x: a.x, y: pasillo(a) }, { x: a.hx, y: pasillo(a) }, { x: a.hx, y: a.hy }];
+      }
       const cambio = identidad !== d.identidad;
       if (cambio) { identidad = d.identidad; vistas.clear(); descartadas.clear(); cerrarPeticion(); dejarDeSeguir(); cerrarObjeto(false); sigIdx = -1; juzgadas.clear(); ultimoVeredicto = null; pelicula.limpiar(); }
       // La corrida puede cambiar de tarea mientras termina el intercambio visual.
@@ -2256,6 +2522,10 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       if (pidiendo && !enviando && (JSON.stringify(antes.pide) !== JSON.stringify(d.pide) || JSON.stringify(antes.pasos.lista) !== JSON.stringify(d.pasos.lista))) cerrarPeticion();
       if (d.pide && !pidiendo) mostrarPeticion();
       if (!asking && (cambio || antes.foco !== d.foco)) chIdx = capituloDe(d.foco);
+      if (!cambio && antes.foco !== d.foco && d.trabajando) panearA(d.foco);
+      // Cada afirmación extraída nueva sale por la impresora.
+      const af0 = antes.lectura.afirmaciones ?? 0, af1 = d.lectura.afirmaciones ?? 0;
+      if (!cambio && af1 > af0 && d.trabajando) { impresora.hasta = simT + 1.2; SON.impresora(); }
       sincronizarActividad(cambio);
       const fotoNueva = cambio || antes.conexion !== d.conexion || (!antes.trabajando && d.trabajando) || (antes.trabajando && !d.trabajando && d.estado !== 'terminada');
       if (fotoNueva) pelicula.limpiar();
@@ -2278,6 +2548,7 @@ export function montarLaboratorio(raiz: HTMLElement, inicial: DatosLab, resp: Re
       window.removeEventListener('keydown', teclas);
       fijarPagina(false);
       sigCtx?.kill();
+      if (zumbido) { try { zumbido.o.stop(); } catch { /* ya parado */ } zumbido = null; }
       void audio?.close().catch(() => undefined);
       raiz.innerHTML = '';
     },

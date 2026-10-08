@@ -3,6 +3,34 @@
 Actualizado el 8 de octubre de 2026. El plan completo por etapas esta en
 `PLAN-ROSA2018.md`; esto es la lista corta de lo inmediato.
 
+## El laboratorio en vivo: lo que se le puso para que se sienta un lugar (8 de octubre de 2026)
+
+Emir: «¿cómo se podría sentir más vivo, como una oficina/laboratorio real?
+Aplica todo». Está en `labvivo/vida.ts` (reglas puras, con tests) y en el
+motor: la luz cambia con la hora real del Mac (ámbar al atardecer, azul y
+lámparas de noche, con reloj de pared), los que no trabajan hacen cosas
+(estirarse, rascarse, girar la silla, hojear, ir a la máquina de café de su
+sala y volver; nunca si el servidor los tiene como activos, y el descanso se
+corta cuando llega trabajo a la sala), el entorno se mueve solo (cursores,
+impresora que saca una hoja por cada afirmación extraída, ventilador, planta,
+taza del juez humeando, letrero de salida en las salas apagadas, fluorescente
+que parpadea, teléfono rojo que suena cuando el vigilante dice que un modelo
+no responde), los montones son las cifras (pila de artículos en la mesa del
+extractor, cajas del juez a proporción y rebosando), se miran al cruzarse y
+el equipo mira a quien habla, el extractor se disgusta cuando una suya cae en
+«no sostenida», la cámara panea a la sala que entra en foco, y con el sonido
+activo hay zumbido de oficina y teclas lejanas. Lo que queda:
+
+- Solo tres salas tienen cafetera (verificación, equipo, recepción): en las
+  demás no cabe sin pisar a nadie. Si se rehace el fondo con más sitio,
+  añadirlas (`CAFETERA` en `motor.ts`).
+- El reloj y la luz usan la hora del ordenador de quien mira, no la del
+  servidor: si la médica mira desde otro huso, la noche es la suya.
+- El sonido ambiente es un oscilador: un fondo grabado de oficina (bucle de
+  pocos segundos, licencia libre) sonaría mejor.
+- Sin probar con un modelo caído de verdad: el teléfono sale de
+  `saludModelos` y se vio con el estado forzado, no en una caída real.
+
 ## El laboratorio en vivo (pixel art): auditoría del 8 de octubre de 2026
 
 Emir pidió que sea la mejor sección de todas. Se auditó en el navegador contra
@@ -24,9 +52,6 @@ con fichero y línea:
   el ratón sobre el tubo del juez quedan dos documentos superpuestos (el de
   la pizarra y el del tubo). Debería cerrarse uno al abrir el otro
   (`motor.ts`, `abrirObjeto` ~1623 y los documentos de película).
-- **Orden de dibujo de las figuras.** Las figuras van en orden de DOM, no de
-  `y`: una que pasa por delante puede quedar detrás. Ordenar `lv-agentes`
-  por `y` en `syncDom()` (~2114) o usar `z-index` por fila.
 - **Se pinta todo en cada cuadro.** `frame()` (~2162) llama a `draw()` y
   `syncDom()` 60 veces por segundo aunque nadie se mueva; con 45 figuras va
   bien (59 fps, 31 % de un núcleo medido con SwiftShader) pero en un portátil

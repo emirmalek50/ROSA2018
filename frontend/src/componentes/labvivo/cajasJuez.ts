@@ -2,6 +2,7 @@
 import type { DatosLab } from '../../lib/labVivo';
 import { tr } from '../../lib/idioma';
 import { formatearEntero } from '../../lib/formato';
+import { llenadoDeCaja } from './vida';
 
 type Recuentos = DatosLab['juez']['veredictos'];
 const CAJAS = [
@@ -11,19 +12,28 @@ const CAJAS = [
 ] as const;
 
 /** El dibujo tiene sitio para nueve hojas; la cifra exacta está en su cartel.
- *  Sin recuento no hay hojas de muestra ni una pila verde por defecto. */
+ *  Las cajas se comparan entre sí (vida.ts, llenadoDeCaja): la más llena
+ *  llega arriba y rebosa si pasa de cien, las demás a proporción, para que
+ *  734 frente a 22 se vea como lo que es y no como dos pilas iguales. Sin
+ *  recuento no hay hojas de muestra ni una pila verde por defecto. */
 export function dibujarCajasJuez(g: CanvasRenderingContext2D, fondo: HTMLImageElement, recuentos: Recuentos) {
   if (!fondo.complete || !fondo.naturalWidth || !fondo.naturalHeight) return;
   const sx = fondo.naturalWidth / 1064, sy = fondo.naturalHeight / 1312;
+  const mayor = recuentos ? Math.max(0, ...CAJAS.map((c) => recuentos[c.clave] || 0)) : 0;
   for (const c of CAJAS) {
     // El suelo vacío de la misma sala tapa las pilas pintadas en la demo.
     g.drawImage(fondo, 512 * sx, 488 * sy, 88 * sx, 88 * sy, c.x, 488, 88, 88);
     const n = recuentos?.[c.clave];
-    const hojas = n !== undefined && Number.isFinite(n) && n > 0 ? Math.min(9, Math.floor(n)) : 0;
+    const { hojas, rebosa } = n !== undefined && Number.isFinite(n) ? llenadoDeCaja(Math.floor(n), mayor) : { hojas: 0, rebosa: false };
     for (let i = 0; i < hojas; i++) {
       const y = 549 - i * 6;
       g.fillStyle = '#E4E0D6'; g.fillRect(c.x + 8, y, 64, 5);
       g.fillStyle = '#F4F1EA'; g.fillRect(c.x + 8, y, 64, 2);
+    }
+    if (rebosa) {
+      // Hojas que asoman torcidas por encima del borde.
+      g.fillStyle = '#F4F1EA'; g.fillRect(c.x + 4, 490, 30, 4); g.fillRect(c.x + 40, 486, 34, 4); g.fillRect(c.x + 18, 482, 26, 4);
+      g.fillStyle = '#E4E0D6'; g.fillRect(c.x + 4, 494, 30, 1); g.fillRect(c.x + 40, 490, 34, 1); g.fillRect(c.x + 18, 486, 26, 1);
     }
     g.fillStyle = c.fondo; g.fillRect(c.x + 4, 556, 72, 16);
     g.fillStyle = c.borde;
