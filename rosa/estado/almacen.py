@@ -351,6 +351,46 @@ class Almacen:
         self._cache_json: dict[str, Any] = {"version": -1}
         self._lock_cache = threading.Lock()
         self._al_quedar_obsoleto: list[Callable[[], Any]] = []
+        try:
+            self.migrar_avisos_academicos()
+        except Exception:
+            self.cerrar()
+            raise
+
+    def migrar_avisos_academicos(self) -> int:
+        """Archiva bloqueos antiguos de fuentes suplementarias, con auditoría.
+
+        La consulta fallida y su pista se conservan. Solo se corrige haber pedido
+        intervención para continuar con otras fuentes, nunca se acredita acceso
+        ni éxito. No escribe en almacenes abiertos solo para leer.
+        """
+        if self.solo_lectura:
+            return 0
+        recursos = {f"academica_{base}" for base in (
+            "embase", "cochrane", "scopus", "web_of_science", "lilacs", "scielo", "cinahl", "psycinfo", "google_scholar",
+        )}
+        resolucion = (
+            "Corregido el tratamiento de este aviso: el fallo de una fuente académica suplementaria "
+            "no requiere intervención para continuar con las demás fuentes. El fallo original persiste "
+            "en el registro; esta corrección no acredita una consulta exitosa ni ausencia de publicaciones."
+        )
+        corregidas = 0
+        with self._lock:
+            corridas = {c.get("id") for c in self.estado.get("corridas", []) if isinstance(c, dict) and isinstance(c.get("id"), str)}
+            for inc in self.estado.get("incidencias", []):
+                if (not isinstance(inc, dict) or inc.get("tipo") != "fuente_sin_respuesta" or inc.get("estado") != "pendiente"
+                        or not isinstance(inc.get("recurso"), str) or inc["recurso"] not in recursos
+                        or not isinstance(inc.get("id"), str) or not inc["id"]
+                        or not isinstance(inc.get("corridaId"), str) or inc["corridaId"] not in corridas):
+                    continue
+                incidencia_id, recurso = inc["id"], inc["recurso"]
+                if sum(isinstance(i, dict) and i.get("id") == incidencia_id for i in self.estado["incidencias"]) != 1:
+                    continue
+                corregidas += bool(self.mutar(
+                    lambda e: A.resolver_incidencia(e, incidencia_id, resolucion, P.ahora_ms()),
+                    "migrar_aviso_academico", {"incidencia_id": incidencia_id, "recurso": recurso, "resolucion": resolucion},
+                ))
+        return corregidas
 
     # -- persistencia ------------------------------------------------------
 

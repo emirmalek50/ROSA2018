@@ -1294,6 +1294,13 @@ def _checkpoint_academico(ctx: Ctx, base: str) -> dict[str, Any]:
     return ctx.corrida().get("_literaturaAcademica", {}).get(str(ctx.numero), {}).get(base, {})
 
 
+def _nombre_acceso_academico(base: str, modo: Any) -> str:
+    nombre = FUENTES_ACADEMICAS[base]
+    acceso = {"descubrimiento_web": "descubrimiento público", "api_directa": "API directa",
+              "indice_scholar": "consulta al índice"}.get(modo, "acceso no comprobado") if isinstance(modo, str) else "acceso no comprobado"
+    return f"{nombre} ({acceso})"
+
+
 async def _recuperar_academica(ctx: Ctx, base: str, consulta: str, tema: str, pista: Pista) -> dict[str, Any]:
     """Un intento por fuente e iteración, persistido antes de consumir modelos."""
     _comprobar_busqueda_activa(ctx)
@@ -1319,6 +1326,7 @@ async def _recuperar_academica(ctx: Ctx, base: str, consulta: str, tema: str, pi
         _fundir_procedencia_academica(a, {"_academica": {"fuente": base, "consulta": consulta,
             "consultas": datos.get("consultas", []), "estado": datos.get("estado"), "url": a.get("url")}})
     estado = datos.get("estado", "no_comprobado")
+    nombre_acceso = _nombre_acceso_academico(base, datos.get("modo"))
     limites = [str(x) for x in datos.get("limitaciones", [])]
     peticiones = datos.get("consumo", {}).get("serpapiConsultas")
     ahora = P.ahora_ms()
@@ -1327,27 +1335,34 @@ async def _recuperar_academica(ctx: Ctx, base: str, consulta: str, tema: str, pi
         c = next(x for x in e["corridas"] if x["id"] == ctx.corrida_id)
         tanda = c.setdefault("_literaturaAcademica", {}).setdefault(str(ctx.numero), {})
         tanda[base] = {"consulta": consulta, "tema": tema, "resultado": datos, "procesada": False}
-        c["busqueda"]["consultas"].append({"base": NOMBRES_BASE[base], "fuenteId": base,
+        c["busqueda"]["consultas"].append({"base": nombre_acceso, "fuenteId": base,
             "consulta": consulta, "fecha": ahora, "resultados": datos["total"], "recuperados": len(datos["articulos"]),
             "iteracion": ctx.numero, "pistaId": pista.id, "tema": tema, "modo": "foco", "porque": "",
             "estado": estado, "modoAcceso": datos.get("modo"), "limitaciones": limites, "consultasFuente": datos.get("consultas", []),
             "consumo": datos.get("consumo", {}), "costeUsd": None,
             "alcance": "Descubrimiento académico; el acceso web de respaldo no equivale al índice privado ni a una búsqueda exhaustiva.",
             "error": "; ".join(limites) if estado == "no_comprobado" else None, "lecturaEstado": "pendiente"})
+        for it in e["iteraciones"]:
+            if it["id"] == ctx.iteracion_id:
+                for p in it["pistas"]:
+                    if p["id"] == pista.id:
+                        p["fuente"] = nombre_acceso
+                        p["titulo"] = nombre_acceso
         if isinstance(peticiones, int) and not isinstance(peticiones, bool) and peticiones >= 0:
             c["gasto"]["serpapiConsultas"] = int(c["gasto"].get("serpapiConsultas") or 0) + peticiones
         c["gasto"]["serpapiUsd"] = None
         return True
 
     ctx.mutar(guardar, "busqueda_academica")
-    pista.accion("Descubrimiento académico", {"base": NOMBRES_BASE[base], "parametros": consulta,
+    pista.accion("Búsqueda académica", {"base": nombre_acceso, "parametros": consulta,
         "resultados": f"{len(datos['articulos'])} candidatos recuperados; estado {estado}; total " + (str(datos["total"]) if datos["total"] is not None else "no comprobado")})
     if estado != "completa":
         detalle = "; ".join(limites) or "Cobertura parcial de la consulta; no permite afirmar ausencia."
         pista.nota(detalle)
         if estado == "no_comprobado":
-            ctx.incidencia("fuente_sin_respuesta", f"No pude comprobar {FUENTES_ACADEMICAS[base]}", detalle[:400],
-                           f"academica_{base}", "Se continúa con las otras fuentes y se conservan los documentos recuperados.")
+            # Esta fuente suplementaria no requiere una decisión para continuar.
+            # El fallo sigue en la consulta y la pista, sin bloquear por presupuesto.
+            pista.nota(f"No pude comprobar {nombre_acceso}. Se continúa con las otras fuentes y se conservan los documentos recuperados; no se afirma ausencia de publicaciones.")
     return copy.deepcopy(datos)
 
 

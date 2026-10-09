@@ -21,7 +21,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable, Literal
 
 import httpx
 
@@ -30,6 +30,13 @@ from rosa import config
 
 class FuenteNoDisponible(RuntimeError):
     """La fuente no respondió o respondió con error. No significa "no hay"."""
+
+    def __init__(self, *args: object,
+                 causa: Literal["timeout", "red", "http", "formato", "desconocida"] = "desconocida",
+                 status_http: int | None = None):
+        super().__init__(*args)
+        self.causa = causa
+        self.status_http = status_http
 
 
 class NoEncontrado(FuenteNoDisponible):
@@ -54,7 +61,7 @@ def json_de(r: httpx.Response) -> Any:
     try:
         return r.json()
     except ValueError as ex:
-        raise FuenteNoDisponible(f"{r.url}: respuesta no parseable ({str(ex)[:60]})")
+        raise FuenteNoDisponible(f"{r.url}: respuesta no parseable ({str(ex)[:60]})", causa="formato", status_http=r.status_code) from ex
 
 
 class Limitador:
@@ -89,19 +96,26 @@ async def cerrar() -> None:
     _cliente = None
 
 
-async def pedir(metodo: str, url: str, limitador: Limitador, *, intentos: int = 3, **kwargs: Any) -> httpx.Response:
-    """GET o POST con límite de tasa y reintentos. Lanza FuenteNoDisponible."""
-    ultimo: Exception | None = None
+async def pedir(metodo: str, url: str, limitador: Limitador, *, intentos: int = 3,
+                al_enviar: Callable[[], None] | None = None, **kwargs: Any) -> httpx.Response:
+    """HTTP con límite de tasa. `al_enviar` cuenta solicitudes tras la espera."""
+    ultimo: FuenteNoDisponible | None = None
     for intento in range(intentos):
         await limitador.esperar()
         try:
+            if al_enviar is not None:
+                al_enviar()
             r = await cliente().request(metodo, url, **kwargs)
         except httpx.HTTPError as ex:
-            ultimo = ex
-            await asyncio.sleep(0.5 * 2**intento)
+            causa: Literal["timeout", "red", "desconocida"] = "timeout" if isinstance(ex, httpx.TimeoutException) else "red" if isinstance(ex, httpx.TransportError) else "desconocida"
+            ultimo = FuenteNoDisponible(str(ex), causa=causa)
+            if intento + 1 < intentos:
+                await asyncio.sleep(0.5 * 2**intento)
             continue
         if r.status_code == 429 or r.status_code >= 500:
-            ultimo = FuenteNoDisponible(f"{url}: HTTP {r.status_code}")
+            ultimo = FuenteNoDisponible(f"{url}: HTTP {r.status_code}", causa="http", status_http=r.status_code)
+            if intento + 1 >= intentos:
+                continue
             espera = r.headers.get("retry-after")
             try:
                 segundos = min(float(espera), 60.0) if espera else 0.5 * 2**intento
@@ -110,11 +124,13 @@ async def pedir(metodo: str, url: str, limitador: Limitador, *, intentos: int = 
             await asyncio.sleep(segundos)
             continue
         if r.status_code == 404:
-            raise NoEncontrado(f"{url}: HTTP 404")
+            raise NoEncontrado(f"{url}: HTTP 404", causa="http", status_http=404)
         if r.status_code >= 400:
-            raise FuenteNoDisponible(f"{url}: HTTP {r.status_code} {r.text[:200]}")
+            raise FuenteNoDisponible(f"{url}: HTTP {r.status_code} {r.text[:200]}", causa="http", status_http=r.status_code)
         return r
-    raise FuenteNoDisponible(f"{url}: sin respuesta tras {intentos} intentos ({ultimo})")
+    raise FuenteNoDisponible(f"{url}: sin respuesta tras {intentos} intentos ({ultimo})",
+                             causa=ultimo.causa if ultimo else "desconocida",
+                             status_http=ultimo.status_http if ultimo else None) from ultimo
 
 
 def _apellido(nombre: str) -> str:

@@ -22,7 +22,7 @@ from rosa.modulos.firmas import Consulta
 def respuesta(articulos=None, *, estado="parcial", total=None, consumo=1):
     return {"articulos": articulos or [], "total": total,
             "consultas": [{"fuente": "Fuente simulada", "consulta": "Alzheimer TREM2", "fecha": "2026-10-08T12:00:00Z", "modo": "descubrimiento_web", "total": total}],
-            "estado": estado, "limitaciones": ["Acceso web de respaldo, no índice privado."], "consumo": {"serpapiConsultas": consumo}}
+            "estado": estado, "modo": "descubrimiento_web", "limitaciones": ["Acceso web de respaldo, no índice privado."], "consumo": {"serpapiConsultas": consumo}}
 
 
 def articulo(doi="10.1234/trem2", *, resumen="", fuente="embase", pmid=None):
@@ -140,6 +140,110 @@ def test_dos_pasos_concurrentes_no_duplican_la_tanda(ctx):
 
     asyncio.run(ejecutar())
     assert academicas.buscar.await_count == 9
+
+
+def test_fuente_suplementaria_fallida_conserva_error_y_pista_sin_bloquear(ctx, monkeypatch):
+    dato = respuesta(estado="no_comprobado")
+    dato["limitaciones"] = ["Limitación de cobertura. " * 30, "El proveedor agotó el tiempo de espera."]
+    monkeypatch.setattr(academicas, "buscar", AsyncMock(return_value=dato))
+    asyncio.run(B._preparar_tanda_academica(ctx, paso(ctx)))
+    q = next(q for q in ctx.corrida()["busqueda"]["consultas"] if q["fuenteId"] == "scopus")
+    assert q["estado"] == "no_comprobado" and q["resultados"] is None and q["recuperados"] == 0
+    assert q["base"] == "Scopus (descubrimiento público)" and q["modoAcceso"] == "descubrimiento_web"
+    assert q["error"].endswith("El proveedor agotó el tiempo de espera.")
+    pista = next(p for p in ctx.iteracion()["pistas"] if p["id"] == q["pistaId"])
+    assert pista["estado"] == "fallida" and pista["fuente"] == q["base"] and pista["titulo"] == q["base"]
+    texto = "\n".join(t["texto"] for t in pista["transcripcion"])
+    assert "El proveedor agotó el tiempo de espera." in texto
+    assert "Se continúa con las otras fuentes" in texto and "no se afirma ausencia" in texto
+    assert ctx.e["incidencias"] == [] and ctx.e["solicitudes"] == []
+
+
+@pytest.mark.parametrize("modo,etiqueta", [
+    ("api_directa", "Scopus (API directa)"),
+    ("descubrimiento_web", "Scopus (descubrimiento público)"),
+    (None, "Scopus (acceso no comprobado)"),
+])
+def test_etiqueta_de_la_consulta_academica_corresponde_al_acceso_real(ctx, monkeypatch, modo, etiqueta):
+    dato = respuesta(estado="no_comprobado")
+    dato["modo"] = modo
+    monkeypatch.setattr(academicas, "buscar", AsyncMock(return_value=dato))
+    pista = ctx.pista(paso(ctx)["id"], "literatura", "Scopus", "Scopus")
+    asyncio.run(B._recuperar_academica(ctx, "scopus", "TREM2 Alzheimer", "Microglía", pista))
+    pista.cerrar("No comprobado", "fallida")
+    assert ctx.corrida()["busqueda"]["consultas"][0]["base"] == etiqueta
+
+
+def _incidencia_academica(id_, recurso="academica_scopus", **extra):
+    return {"id": id_, "corridaId": "cor", "tipo": "fuente_sin_respuesta", "estado": "pendiente",
+            "titulo": "No pude comprobar Scopus", "detalle": "El proveedor no respondió.", "recurso": recurso,
+            "alternativa": "Se continúa con otras fuentes.", "creadaEn": 1, "resueltaEn": None, "resolucion": None, **extra}
+
+
+def test_migracion_al_cargar_archiva_solo_avisos_academicos_con_auditoria(ctx):
+    originales = [_incidencia_academica(base, f"academica_{base}") for base in B.FUENTES_ACADEMICAS]
+    ajenas = [
+        _incidencia_academica("desconocida", "academica_desconocida"),
+        _incidencia_academica("prefijo", "academica_scopus_extra"),
+        _incidencia_academica("tipo", tipo="conector_caducado"),
+        _incidencia_academica("resuelta", estado="resuelta", resueltaEn=2, resolucion="Decisión humana."),
+        _incidencia_academica("pubmed", "PubMed"),
+        _incidencia_academica("huérfana", corridaId="no-existe"),
+        _incidencia_academica("sin-recurso", recurso=None),
+        _incidencia_academica("duplicada"), _incidencia_academica("duplicada", "PubMed"),
+    ]
+    solicitud = {"id": "permiso", "corridaId": "cor", "tipo": "conectar", "estado": "pendiente"}
+
+    def historico(e):
+        e["incidencias"] = copy.deepcopy(originales + ajenas)
+        e["solicitudes"] = [copy.deepcopy(solicitud)]
+        e["corridas"][0]["busqueda"]["consultas"] = [{"base": "Scopus", "estado": "no_comprobado", "error": "Tiempo agotado", "resultados": None, "fecha": 1, "iteracion": 1}]
+        return True
+
+    ctx.almacen.mutar(historico, "historico_simulado")
+    consulta_antes = copy.deepcopy(ctx.corrida()["busqueda"]["consultas"])
+    version_antes = ctx.almacen.version
+    ruta = ctx.almacen.ruta
+    ctx.almacen.cerrar()
+    al = Almacen(ruta)
+    try:
+        assert al.version == version_antes + 9
+        assert al.estado["incidencias"][9:] == ajenas
+        assert al.estado["solicitudes"] == [solicitud]
+        assert al.estado["corridas"][0]["busqueda"]["consultas"] == consulta_antes
+        for inc, antes in zip(al.estado["incidencias"][:9], originales):
+            assert inc["estado"] == "resuelta" and inc["resueltaEn"] > 1
+            assert "El fallo original persiste" in inc["resolucion"]
+            assert "no acredita una consulta exitosa" in inc["resolucion"]
+            for campo in ("titulo", "detalle", "recurso", "alternativa", "creadaEn"):
+                assert inc[campo] == antes[campo]
+        filas = al._con.execute("SELECT args, actor FROM acciones WHERE nombre='migrar_aviso_academico'").fetchall()
+        assert len(filas) == 9 and all(actor is None for _, actor in filas)
+        assert {json.loads(args)["incidencia_id"] for args, _ in filas} == set(B.FUENTES_ACADEMICAS)
+        assert al.verificar_cadena()["ok"]
+        assert sum(ev["tipo"] == "incidencia" and "El fallo original persiste" in ev["texto"] for ev in al.estado["eventos"]) == 9
+        assert al.migrar_avisos_academicos() == 0 and al.version == version_antes + 9
+    finally:
+        al.cerrar()
+    al = Almacen(ruta)
+    try:
+        assert al.version == version_antes + 9
+        assert al._con.execute("SELECT COUNT(*) FROM acciones WHERE nombre='migrar_aviso_academico'").fetchone()[0] == 9
+    finally:
+        al.cerrar()
+
+
+def test_migracion_no_escribe_ni_cambia_incidencias_en_solo_lectura(ctx):
+    inc = _incidencia_academica("historica")
+    ctx.almacen.mutar(lambda e: e["incidencias"].append(copy.deepcopy(inc)) or True, "historico_simulado")
+    version = ctx.almacen.version
+    al = Almacen(ctx.almacen.ruta, solo_lectura=True)
+    try:
+        assert al.estado["incidencias"] == [inc]
+        assert al.migrar_avisos_academicos() == 0 and al.version == version
+        assert al._con.execute("SELECT COUNT(*) FROM acciones WHERE nombre='migrar_aviso_academico'").fetchone()[0] == 0
+    finally:
+        al.cerrar()
 
 
 def test_consulta_automatica_es_breve_cientifica_y_no_un_parrafo_de_instrucciones(ctx):

@@ -929,7 +929,7 @@ def test_el_coste_real_facturado_por_el_gateway_se_acumula_en_la_corrida(corrida
     assert c["gasto"]["usdReal"] == pytest.approx(COSTE_GATEWAY * n, rel=1e-3)
 
 
-@pytest.mark.parametrize("estado_academico", ["completa", "parcial"])
+@pytest.mark.parametrize("estado_academico", ["completa", "parcial", "no_comprobado"])
 def test_el_presupuesto_agotado_pausa_la_corrida_sin_bucle_ni_llamadas(monkeypatch, estado_academico):
     """Con un tope de cuatro llamadas la quinta corta dentro del primer paso (el
     cribado de relevancia): el paso vuelve a pendiente, ningún paso queda
@@ -941,8 +941,9 @@ def test_el_presupuesto_agotado_pausa_la_corrida_sin_bucle_ni_llamadas(monkeypat
 
     async def consultar(nombre, /, **kwargs):
         registro, dato = await consultar_simulada(nombre, **kwargs)
-        if nombre.startswith("academica_") and estado_academico == "parcial":
-            dato.update(estado="parcial", total=None, modo="descubrimiento_web", limitaciones=["Descubrimiento público parcial; no se consultó el índice privado."])
+        if nombre.startswith("academica_") and estado_academico != "completa":
+            limite = "No pude comprobar la fuente suplementaria: tiempo agotado." if estado_academico == "no_comprobado" else "Descubrimiento público parcial; no se consultó el índice privado."
+            dato.update(estado=estado_academico, total=None, modo="descubrimiento_web", limitaciones=[limite])
         return registro, dato
 
     monkeypatch.setattr(CON, "consultar", consultar)

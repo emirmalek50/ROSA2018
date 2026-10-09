@@ -15,6 +15,7 @@ import asyncio
 import hashlib
 import ipaddress
 import re
+import time
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlencode, urlsplit, urlunsplit
 
@@ -25,6 +26,7 @@ BASE = "https://serpapi.com/search.json"
 MAX_PAGINAS = 2
 TAMANO_PAGINA = 10
 MAX_RESULTADOS = 20
+TIEMPO_INTENTO = 45.0
 BASES: dict[str, dict[str, Any]] = {
     "embase": {"nombre": "Embase", "dominios": ("embase.com",)},
     "cochrane": {"nombre": "Cochrane Library", "dominios": ("cochranelibrary.com",)},
@@ -208,41 +210,68 @@ def _articulo(fuente: str, fila: Any) -> dict[str, Any] | None:
 def _registro(fuente: str, consulta: str, parametros: dict[str, Any], modo: str) -> dict[str, Any]:
     return {"fuente": fuente, "nombre": BASES.get(fuente, {}).get("nombre", fuente), "consulta": consulta,
             "url": BASE, "parametros": parametros, "modo": modo, "fecha": GP._fecha(), "total": None,
-            "recuperados": 0, "paginas": 0, "completa": False, "error": None, "sha256": None}
+            "recuperados": 0, "paginas": 0, "completa": False, "error": None, "sha256": None,
+            "intento": None, "codigoError": None, "httpStatus": None, "duracionMs": 0,
+            "peticionEnviada": False}
 
 
 async def _pedir(parametros: dict[str, Any], clave: str, registro: dict[str, Any], resultado: dict[str, Any]) -> dict[str, Any] | None:
     bucle = asyncio.get_running_loop()
     semaforo = GP._SEMAFOROS.setdefault(bucle, asyncio.Semaphore(3))
-    async with semaforo:
-        token = GP._CLAVE_LOG.set(clave)
-        try:
-            resultado["consumo"]["serpapiConsultas"] += 1
+    token = GP._CLAVE_LOG.set(clave)
+    inicio = time.monotonic()
+
+    def al_enviar() -> None:
+        registro["peticionEnviada"] = True
+        resultado["consumo"]["serpapiConsultas"] += 1
+
+    try:
+        # El tope incluye la cola, el límite de tasa y la lectura de la respuesta.
+        async with asyncio.timeout(TIEMPO_INTENTO), semaforo:
             respuesta = await pedir("GET", BASE, GP._LIMITADOR, params={**parametros, "api_key": clave},
-                                    intentos=1, timeout=45.0, follow_redirects=False)
-            if respuesta.status_code != 200:
-                registro["error"] = f"No comprobado: HTTP {respuesta.status_code}."
-                return None
-            registro["sha256"] = hashlib.sha256(respuesta.content).hexdigest()
-            datos = respuesta.json()
-            metadata = datos.get("search_metadata") if isinstance(datos, dict) else None
-            if (not isinstance(metadata, dict) or metadata.get("status") != "Success"
-                    or (datos.get("error") and not _vacio_web_confirmado(datos, parametros))):
-                registro["error"] = "No comprobado: el proveedor no confirmó una respuesta final satisfactoria."
-                return None
-            parametros_recibidos = datos.get("search_parameters")
-            if isinstance(parametros_recibidos, dict) and any(
-                k in parametros_recibidos and parametros_recibidos[k] != parametros[k] for k in ("q", "engine", "start")
-            ):
-                registro["error"] = "No comprobado: la respuesta corresponde a otra consulta, motor o página."
-                return None
-            registro["metadatos"] = {k: metadata[k] for k in ("id", "status", "created_at", "processed_at") if k in metadata}
-            return datos
-        except (FuenteNoDisponible, ValueError, TypeError):
-            registro["error"] = "No comprobado: no pude obtener una respuesta válida del proveedor."
+                                    intentos=1, timeout=TIEMPO_INTENTO, follow_redirects=False, al_enviar=al_enviar)
+        registro["httpStatus"] = respuesta.status_code
+        if respuesta.status_code != 200:
+            _error_http(registro, respuesta.status_code)
             return None
-        finally:
-            GP._CLAVE_LOG.reset(token)
+        registro["sha256"] = hashlib.sha256(respuesta.content).hexdigest()
+        datos = respuesta.json()
+        metadata = datos.get("search_metadata") if isinstance(datos, dict) else None
+        if (not isinstance(metadata, dict) or metadata.get("status") != "Success"
+                or (datos.get("error") and not _vacio_web_confirmado(datos, parametros))):
+            registro.update(codigoError="respuesta_invalida", error="No comprobado: el proveedor no confirmó una respuesta final satisfactoria.")
+            return None
+        parametros_recibidos = datos.get("search_parameters")
+        if isinstance(parametros_recibidos, dict) and any(
+            k in parametros_recibidos and parametros_recibidos[k] != parametros[k] for k in ("q", "engine", "start")
+        ):
+            registro.update(codigoError="respuesta_ajena", error="No comprobado: la respuesta corresponde a otra consulta, motor o página.")
+            return None
+        registro["metadatos"] = {k: metadata[k] for k in ("id", "status", "created_at", "processed_at") if k in metadata}
+        return datos
+    except TimeoutError:
+        registro.update(codigoError="timeout", error="No comprobado: SerpApi agotó el límite de 45 segundos de este intento.")
+    except FuenteNoDisponible as ex:
+        if ex.status_http is not None:
+            _error_http(registro, ex.status_http)
+        elif ex.causa == "timeout":
+            registro.update(codigoError="timeout", error="No comprobado: se agotó el tiempo de espera de SerpApi, con un máximo de 45 segundos por intento.")
+        elif ex.causa == "red":
+            registro.update(codigoError="red", error="No comprobado: falló la conexión de red con SerpApi.")
+        else:
+            registro.update(codigoError=ex.causa, error="No comprobado: no pude obtener una respuesta válida del proveedor.")
+    except (ValueError, TypeError):
+        registro.update(codigoError="formato", error="No comprobado: SerpApi devolvió una respuesta con formato no válido.")
+    finally:
+        registro["duracionMs"] = round((time.monotonic() - inicio) * 1000)
+        GP._CLAVE_LOG.reset(token)
+    return None
+
+
+def _error_http(registro: dict[str, Any], estado: int) -> None:
+    detalle = {401: "el proveedor rechazó la credencial", 403: "el proveedor denegó el acceso",
+               429: "el proveedor indicó un límite de solicitudes o de cuota"}.get(estado, "el proveedor no completó la solicitud")
+    registro.update(codigoError="http", httpStatus=estado, error=f"No comprobado: HTTP {estado}; {detalle}.")
 
 
 def _vacio_web_confirmado(datos: dict[str, Any], parametros: dict[str, Any]) -> bool:
@@ -254,8 +283,9 @@ def _vacio_web_confirmado(datos: dict[str, Any], parametros: dict[str, Any]) -> 
     info = datos.get("search_information")
     return (parametros.get("engine") == "google"
             and datos.get("error") == "Google hasn't returned any results for this query."
-            and isinstance(info, dict) and type(info.get("total_results")) is int
-            and info["total_results"] == 0 and info.get("organic_results_state") == "Fully empty"
+            and isinstance(info, dict)
+            and ("total_results" not in info or (type(info["total_results"]) is int and info["total_results"] == 0))
+            and info.get("organic_results_state") == "Fully empty"
             and datos.get("organic_results", []) == [])
 
 
@@ -328,6 +358,7 @@ async def _web(fuente: str, consulta: str, maximo: int) -> dict[str, Any]:
     clave = _clave()
     if not clave:
         registro = _registro(fuente, consulta, parametros, modo)
+        registro["codigoError"] = "sin_clave"
         registro["error"] = "No comprobado: falta configurar la clave de SerpApi."
         resultado["consultas"].append(registro)
         resultado["limitaciones"].append(registro["error"])
@@ -335,11 +366,19 @@ async def _web(fuente: str, consulta: str, maximo: int) -> dict[str, Any]:
     identidades: set[str] = set()
     parcial = not scholar
     for pagina in range(MAX_PAGINAS):
-        registro = _registro(fuente, consulta, dict(parametros), modo)
-        resultado["consultas"].append(registro)
-        datos = await _pedir(parametros, clave, registro, resultado)
+        for intento in (1, 2):
+            registro = _registro(fuente, consulta, dict(parametros), modo)
+            registro["intento"] = intento
+            resultado["consultas"].append(registro)
+            datos = await _pedir(parametros, clave, registro, resultado)
+            reintentable = registro["codigoError"] in {"timeout", "red"} or registro["httpStatus"] in {502, 503, 504}
+            if datos is not None or not reintentable or intento == 2:
+                break
+            resultado["limitaciones"].append("Se repitió una vez la misma petición tras un fallo transitorio; ambos intentos quedan registrados y el consumo de SerpApi se cuenta por petición enviada.")
         if datos is None:
             parcial = True
+            if registro.get("error"):
+                resultado["limitaciones"].insert(0, registro["error"])
             resultado["limitaciones"].append("No pude comprobar una página de resultados; el fallo no demuestra ausencia de publicaciones.")
             break
         info = datos.get("search_information")
@@ -347,8 +386,9 @@ async def _web(fuente: str, consulta: str, maximo: int) -> dict[str, Any]:
         estimado = GP._numero(info.get("total_results"))
         registro["totalEstimadoBuscador"] = estimado
         resultado["totalEstimadoBuscador"] = estimado
-        filas = datos.get("organic_results", [] if estimado == 0 else None)
+        filas = datos.get("organic_results", [] if estimado == 0 or _vacio_web_confirmado(datos, parametros) else None)
         if not isinstance(filas, list):
+            registro["codigoError"] = "formato"
             registro["error"] = "No comprobado: falta una lista válida de resultados orgánicos."
             parcial = True
             break
@@ -377,11 +417,12 @@ async def _web(fuente: str, consulta: str, maximo: int) -> dict[str, Any]:
         siguiente, invalido = _siguiente(datos, parametros)
         if invalido:
             parcial = True
+            registro["codigoError"] = "paginacion_invalida"
             registro["error"] = "No comprobado: paginación inválida o que no avanza a la siguiente página esperada."
             resultado["limitaciones"].append("No se siguió la referencia de paginación no válida.")
             break
         if siguiente is None:
-            agotado = estimado is not None and len(identidades) == estimado and len(filas) <= TAMANO_PAGINA
+            agotado = _vacio_web_confirmado(datos, parametros) or (estimado is not None and len(identidades) == estimado and len(filas) <= TAMANO_PAGINA)
             registro["completa"] = scholar and agotado and not parcial
             if not agotado:
                 parcial = True
@@ -407,6 +448,7 @@ async def buscar(fuente: str, consulta: str, maximo: int = 10) -> dict[str, Any]
             or not isinstance(maximo, int) or isinstance(maximo, bool) or maximo < 1):
         resultado = _vacio()
         registro = _registro(fuente if isinstance(fuente, str) else "", consulta if isinstance(consulta, str) else "", {}, "no_comprobado")
+        registro["codigoError"] = "parametros_invalidos"
         registro["error"] = "No comprobado: fuente, consulta o límite no válidos."
         resultado["consultas"].append(registro)
         resultado["limitaciones"].append(registro["error"])

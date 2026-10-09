@@ -1253,6 +1253,16 @@ conserva hasta diez candidatos por fuente; se ejecutan hasta tres en paralelo.
 El checkpoint de la iteración evita repetir las peticiones al reanudar un paso.
 Se respetan los permisos de cada conector, las pausas y la cancelación.
 
+En el descubrimiento con SerpApi, cada página admite un segundo intento solo
+ante un fallo de red, tiempo agotado o HTTP 502, 503 o 504. Cada intento tiene
+un límite de 45 segundos y conserva su causa, estado HTTP y duración. No se
+reintentan credenciales rechazadas ni límites de cuota. El consumo se cuenta
+por petición enviada; esperar turno sin llegar a enviarla no suma consumo.
+Un fallo de estas fuentes complementarias queda visible en su consulta y registro, sin pedir
+una decisión que bloquee el trabajo con las demás fuentes. Los avisos antiguos
+de este tipo se archivan con auditoría al iniciar el servidor; la consulta
+original sigue figurando como no comprobada.
+
 Los resultados se deduplican y conservan sus vías de descubrimiento. Un snippet
 es una pista para localizar el documento, no un resumen científico. El cribado
 y la extracción requieren un resumen real o texto original; cuando no se puede

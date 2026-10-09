@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 from urllib.parse import urlencode, unquote
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -66,6 +67,7 @@ def configurar(monkeypatch, fuente="google_scholar", obtener=None):
         assert kwargs["timeout"] == 45
         p = kwargs["params"]
         assert p["api_key"] == CLAVE
+        kwargs["al_enviar"]()
         llamadas.append(p)
         return respuesta(obtener(p) if obtener else cuerpo([fila(fuente)]))
 
@@ -248,11 +250,15 @@ def vacio_documentado():
             "error": "Google hasn't returned any results for this query."}
 
 
-def test_vacio_documentado_serpapi_no_es_fallo_de_transporte_ni_ausencia_del_indice(monkeypatch):
-    configurar(monkeypatch, "embase", lambda p: vacio_documentado())
+@pytest.mark.parametrize("con_total", [True, False])
+def test_vacio_documentado_serpapi_no_es_fallo_de_transporte_ni_ausencia_del_indice(monkeypatch, con_total):
+    datos = vacio_documentado()
+    if not con_total:
+        datos["search_information"].pop("total_results")
+    configurar(monkeypatch, "embase", lambda p: datos)
     r = buscar("embase")
     assert r["estado"] == "parcial" and r["articulos"] == [] and r["total"] is None
-    assert r["totalEstimadoBuscador"] == 0 and r["consumo"]["serpapiConsultas"] == 1
+    assert r["totalEstimadoBuscador"] == (0 if con_total else None) and r["consumo"]["serpapiConsultas"] == 1
     assert r["consultas"][0]["paginas"] == 1 and r["consultas"][0]["error"] is None
     assert any("no acredita ausencia" in x for x in r["limitaciones"])
 
@@ -263,7 +269,7 @@ def test_vacio_documentado_serpapi_no_es_fallo_de_transporte_ni_ausencia_del_ind
     {"search_information": {"total_results": 1, "organic_results_state": "Fully empty"}},
     {"search_information": {"total_results": False, "organic_results_state": "Fully empty"}},
     {"search_information": {"total_results": 0, "organic_results_state": "Unknown"}},
-    {"search_information": {"organic_results_state": "Fully empty"}},
+    {"search_information": {"total_results": None, "organic_results_state": "Fully empty"}},
     {"organic_results": [fila("embase")]},
     {"organic_results": None},
 ])
@@ -374,3 +380,136 @@ def test_cancelacion_no_se_convierte_en_resultado_vacio(monkeypatch):
     monkeypatch.setattr(A, "pedir", pedir)
     with pytest.raises(asyncio.CancelledError):
         buscar()
+
+
+def buscar_con_transporte(monkeypatch, respuestas):
+    solicitudes = []
+    espera = AsyncMock()
+    monkeypatch.setattr(A.GP._LIMITADOR, "esperar", espera)
+
+    def transporte(request):
+        solicitudes.append(request)
+        valor = respuestas[len(solicitudes) - 1]
+        if isinstance(valor, Exception):
+            raise valor
+        if isinstance(valor, int):
+            return httpx.Response(valor, text="CUERPO_PRIVADO " + CLAVE, headers={"retry-after": "60"})
+        return httpx.Response(200, json=valor)
+
+    async def ejecutar():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(transporte)) as cliente:
+            monkeypatch.setattr(base, "cliente", lambda: cliente)
+            monkeypatch.setattr(A, "pedir", base.pedir)
+            return await A.buscar("scopus", "Alzheimer")
+
+    return asyncio.run(ejecutar()), solicitudes, espera
+
+
+@pytest.mark.parametrize("fallo,codigo,http_status", [
+    (httpx.ReadTimeout(CLAVE), "timeout", None),
+    (httpx.ConnectError(CLAVE), "red", None),
+    (502, "http", 502), (503, "http", 503), (504, "http", 504),
+])
+def test_un_reintento_trazable_mismos_parametros_sin_filtrar_secretos(monkeypatch, caplog, fallo, codigo, http_status):
+    with caplog.at_level(logging.INFO, logger="httpx"):
+        r, solicitudes, espera = buscar_con_transporte(monkeypatch, [fallo, cuerpo([fila("scopus")])])
+    assert len(solicitudes) == espera.await_count == 2
+    assert solicitudes[0].url == solicitudes[1].url
+    assert r["estado"] == "parcial" and len(r["articulos"]) == 1
+    assert r["consumo"]["serpapiConsultas"] == 2
+    a, b = r["consultas"]
+    assert (a["intento"], b["intento"]) == (1, 2)
+    assert a["codigoError"] == codigo and a["httpStatus"] == http_status and a["error"]
+    assert b["codigoError"] is None and b["httpStatus"] == 200 and b["error"] is None
+    assert a["parametros"] == b["parametros"] and a["fecha"] and b["fecha"]
+    assert all(isinstance(q["duracionMs"], int) and q["duracionMs"] >= 0 for q in (a, b))
+    assert a["paginas"] == 0 and b["paginas"] == 1 and b["sha256"]
+    assert CLAVE not in unquote(json.dumps(r) + caplog.text)
+    assert "CUERPO_PRIVADO" not in json.dumps(r)
+
+
+@pytest.mark.parametrize("estado", [401, 403, 404, 429, 500, 501])
+def test_errores_no_transitorios_no_reintentan_ni_esperan_retry_after(monkeypatch, estado):
+    r, solicitudes, espera = buscar_con_transporte(monkeypatch, [estado])
+    assert len(solicitudes) == espera.await_count == r["consumo"]["serpapiConsultas"] == 1
+    assert r["estado"] == "no_comprobado" and r["total"] is None
+    q = r["consultas"][0]
+    assert q["codigoError"] == "http" and q["httpStatus"] == estado and f"HTTP {estado}" in q["error"]
+    assert CLAVE not in json.dumps(r) and "CUERPO_PRIVADO" not in json.dumps(r)
+
+
+@pytest.mark.parametrize("fallo", [httpx.ReadTimeout(CLAVE), httpx.ConnectError(CLAVE), 503])
+def test_dos_fallos_no_disparan_tercer_intento(monkeypatch, fallo):
+    r, solicitudes, _ = buscar_con_transporte(monkeypatch, [fallo, fallo])
+    assert len(solicitudes) == len(r["consultas"]) == r["consumo"]["serpapiConsultas"] == 2
+    assert r["estado"] == "no_comprobado" and all(q["error"] for q in r["consultas"])
+    assert r["total"] is None and not r["articulos"]
+    assert r["limitaciones"][0] == r["consultas"][-1]["error"]
+
+
+def test_formato_invalido_no_reintenta_y_guarda_status_y_duracion(monkeypatch):
+    r, solicitudes, _ = buscar_con_transporte(monkeypatch, [{"error": CLAVE}])
+    assert len(solicitudes) == 1 and r["estado"] == "no_comprobado"
+    assert r["consultas"][0]["codigoError"] == "respuesta_invalida"
+    assert r["consultas"][0]["httpStatus"] == 200
+
+
+def test_tope_por_intento_y_cancelacion_limpian_tareas(monkeypatch):
+    monkeypatch.setattr(A, "TIEMPO_INTENTO", 0.01)
+    iniciadas = canceladas = 0
+
+    async def sin_respuesta(*args, **kwargs):
+        nonlocal iniciadas, canceladas
+        kwargs["al_enviar"]()
+        iniciadas += 1
+        try:
+            await asyncio.Event().wait()
+        finally:
+            canceladas += 1
+
+    monkeypatch.setattr(A, "pedir", sin_respuesta)
+    r = buscar("scopus")
+    assert iniciadas == canceladas == r["consumo"]["serpapiConsultas"] == 2
+    assert r["estado"] == "no_comprobado"
+    assert [q["codigoError"] for q in r["consultas"]] == ["timeout", "timeout"]
+
+
+def test_cancelacion_en_segundo_intento_se_propaga_sin_tercero(monkeypatch):
+    llamadas = 0
+
+    async def pedir(*args, **kwargs):
+        nonlocal llamadas
+        llamadas += 1
+        if llamadas == 1:
+            raise base.FuenteNoDisponible("Texto no público " + CLAVE, causa="timeout")
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(A, "pedir", pedir)
+    with pytest.raises(asyncio.CancelledError):
+        buscar("scopus")
+    assert llamadas == 2
+
+
+@pytest.mark.parametrize("bloqueo", ["tasa", "semaforo"])
+def test_timeout_antes_del_envio_no_cuenta_consumo(monkeypatch, bloqueo):
+    monkeypatch.setattr(A, "TIEMPO_INTENTO", 0.01)
+    nunca = AsyncMock(side_effect=AssertionError("No debe iniciarse HTTP mientras espera"))
+    cliente = type("ClienteSimulado", (), {"request": nunca})()
+    monkeypatch.setattr(base, "cliente", lambda: cliente)
+    monkeypatch.setattr(A, "pedir", base.pedir)
+
+    async def esperar():
+        await asyncio.Event().wait()
+
+    async def ejecutar():
+        if bloqueo == "tasa":
+            monkeypatch.setattr(A.GP._LIMITADOR, "esperar", esperar)
+        else:
+            monkeypatch.setitem(A.GP._SEMAFOROS, asyncio.get_running_loop(), asyncio.Semaphore(0))
+        return await A.buscar("scopus", "Alzheimer")
+
+    r = asyncio.run(ejecutar())
+    assert r["consumo"]["serpapiConsultas"] == 0 and len(r["consultas"]) == 2
+    assert all(q["codigoError"] == "timeout" and q["peticionEnviada"] is False for q in r["consultas"])
+    assert r["consultas"][-1]["error"] == r["limitaciones"][0]
+    nunca.assert_not_called()
