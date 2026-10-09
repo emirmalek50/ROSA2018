@@ -762,3 +762,38 @@ async def test_error_o_cancelacion_libera_la_reserva_de_llamada(almacen, monkeyp
         liberar.set()
         await asyncio.gather(tarea, return_exceptions=True)
         await s.cerrar()
+
+
+@pytest.mark.asyncio
+async def test_nadie_habla_en_dos_conversaciones_de_la_misma_ronda(almacen, reloj, monkeypatch):
+    """Dos intenciones con la misma pareja no salen las dos a la vez.
+
+    El 9 de octubre de 2026, en la corrida 26, el Generador de consultas dijo
+    «voy a buscar las tablas que faltan... para comparar tau-PET y CDR-SB» y,
+    216 ms después, «voy a buscar los suplementos que faltan... para comparar
+    tau-PET y CDR-SB». Eran dos temas distintos de la MISMA ronda, que
+    `_ronda` lanza con gather: cada uno se redacta sin ver al otro, así que
+    los dos abren igual. Lo mismo pasó con los dos especialistas de novedad.
+    """
+    pareja = ["Generador de consultas", "Explorador"]
+    intenciones = [
+        {"huella": f"int-{n}", "participantes": list(pareja), "salaConversacion": "lectura",
+         "materiales": [], "tipoConversacion": "actividad"} for n in range(3)
+    ]
+    intenciones.append({"huella": "int-otros", "participantes": ["Juez", "Señalizador de sesgo"],
+                        "salaConversacion": "evidencia", "materiales": [], "tipoConversacion": "actividad"})
+    monkeypatch.setattr("rosa.laboratorio_conversaciones.intenciones_de", lambda *_a, **_k: intenciones)
+    s = Conversaciones(almacen, hablar)
+    habilitar(s)
+    tema = tema_actual(almacen)
+    try:
+        temas = s._temas(CLAVE, tema)
+        assert temas, "la ronda se quedó sin ningún tema"
+        # De las tres intenciones de la misma pareja sale una sola.
+        veces = Counter(p for t in temas for p in t["participantes"])
+        repetidos = {p: n for p, n in veces.items() if n > 1}
+        assert repetidos == {}, f"estos hablan en dos conversaciones a la vez: {repetidos}"
+        # Y la pareja libre sí entra: la regla no se come la ronda entera.
+        assert "Juez" in veces
+    finally:
+        await s.cerrar()
